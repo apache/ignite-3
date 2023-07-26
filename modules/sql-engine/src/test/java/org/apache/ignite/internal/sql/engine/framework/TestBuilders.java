@@ -37,6 +37,7 @@ import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
@@ -132,6 +133,8 @@ public class TestBuilders {
 
         /** Returns a builder of the test hash-index object. */
         public HashIndexBuilder hashIndex();
+
+        TableBuilder colocationGroup(ColocationGroup colocationGroup);
 
         /**
          * Builds a table.
@@ -397,6 +400,8 @@ public class TestBuilders {
     }
 
     private static class TableBuilderImpl extends AbstractTableBuilderImpl<TableBuilder> implements TableBuilder {
+        private ColocationGroup colocationGroup = ColocationGroup.forNodes(List.of());
+
         /** {@inheritDoc} */
         @Override
         public SortedIndexBuilder sortedIndex() {
@@ -407,6 +412,14 @@ public class TestBuilders {
         @Override
         public HashIndexBuilder hashIndex() {
             return new HashIndexBuilderImpl(this);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public TableBuilder colocationGroup(ColocationGroup colocationGroup) {
+            this.colocationGroup = colocationGroup;
+
+            return self();
         }
 
         /** {@inheritDoc} */
@@ -427,7 +440,7 @@ public class TestBuilders {
             TestTable testTable = new TestTable(
                     new TableDescriptorImpl(columns, distribution),
                     Objects.requireNonNull(name),
-                    Map.of(),
+                    colocationGroup,
                     size
             );
 
@@ -518,7 +531,7 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Index must contain at least one column");
             }
 
-            if (collations.size() == columns.size()) {
+            if (collations.size() != columns.size()) {
                 throw new IllegalArgumentException("Collation must be specified for each of columns.");
             }
 
@@ -667,8 +680,14 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         public ChildT addColumn(String name, NativeType type) {
+            return addColumn(name, type, true);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ChildT addColumn(String name, NativeType type, boolean nullable) {
             columns.add(new ColumnDescriptorImpl(
-                    name, false, true, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, false, nullable, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return self();
@@ -771,6 +790,9 @@ public class TestBuilders {
 
         /** Adds a column to the table. */
         ChildT addColumn(String name, NativeType type);
+
+        /** Adds a column with given nullability to the table. */
+        ChildT addColumn(String name, NativeType type, boolean nullable);
 
         /** Adds a column with the given default value to the table. */
         ChildT addColumn(String name, NativeType type, @Nullable Object defaultValue);

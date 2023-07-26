@@ -164,7 +164,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(not(hasAggregate()))
                         .and(hasGroups())
-                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                 ),
                 disableRules
         );
@@ -174,7 +174,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(not(hasAggregate()))
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                         ))
                 ),
                 disableRules
@@ -209,7 +209,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_16,
                 not(nodeOrAnyChild(isInstanceOf(IgniteSort.class)))
                         .and(nodeOrAnyChild(input(1, isInstanceOf(IgniteColocatedSortAggregate.class))
-                                .and(input(isIndexScan("TEST", "val0")))
+                                .and(input(isIndexScan("TEST", "idx_val0")))
                         )),
                 ArrayUtils.concat(disableRules, additionalRulesToDisable)
         );
@@ -218,7 +218,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 not(nodeOrAnyChild(isInstanceOf(IgniteSort.class)))
                         .and(nodeOrAnyChild(input(1, isInstanceOf(IgniteColocatedSortAggregate.class)
                                         .and(input(isInstanceOf(IgniteExchange.class)
-                                                .and(input(isIndexScan("TEST", "val0")))
+                                                .and(input(isIndexScan("TEST", "idx_val0")))
                                         ))
                                 ))
                         ),
@@ -443,7 +443,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(hasAggregate())
-                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                 ),
                 disableRules
         );
@@ -454,7 +454,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(hasAggregate())
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                         ))
                 ),
                 disableRules

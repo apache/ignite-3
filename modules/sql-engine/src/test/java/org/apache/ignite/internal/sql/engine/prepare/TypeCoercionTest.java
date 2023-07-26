@@ -381,7 +381,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     private void runTest(String query, BiConsumer<IgnitePlanner, SqlNode> testCase, @Nullable RelDataType tableType) {
         IgniteSchema igniteSchema;
         if (tableType != null) {
-            TestTable testTable = createTable("A", tableType, DEFAULT_TBL_SIZE, IgniteDistributions.single());
+            TestTable0 testTable = createTable("A", tableType, DEFAULT_TBL_SIZE, IgniteDistributions.single());
             igniteSchema = createSchema(testTable);
         } else {
             igniteSchema = createSchema();

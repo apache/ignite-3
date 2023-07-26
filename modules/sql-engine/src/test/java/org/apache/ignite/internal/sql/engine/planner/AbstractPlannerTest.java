@@ -46,8 +46,10 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
@@ -97,6 +99,10 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.HashIndexBuilder;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.SortedIndexBuilder;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
@@ -114,6 +120,7 @@ import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -441,8 +448,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         };
     }
 
-    protected static TestTable createTable(IgniteSchema schema, String name, RelDataType type, IgniteDistribution distr) {
-        TestTable table = createTable(name, type, DEFAULT_TBL_SIZE, distr);
+    protected static TestTable0 createTable(IgniteSchema schema, String name, RelDataType type, IgniteDistribution distr) {
+        TestTable0 table = createTable(name, type, DEFAULT_TBL_SIZE, distr);
 
         schema.addTable(table);
 
@@ -458,10 +465,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * @param fields List of the required fields. Every odd item should be a string representing a column name, every
      *               even item should be a class representing column's type.
      *               E.g. {@code createTable("MY_TABLE", distribution, "ID", Integer.class, "VAL", String.class)}.
-     * @return Instance of the {@link TestTable}.
+     * @return Instance of the {@link TestTable0}.
      */
-    protected static TestTable createTable(IgniteSchema schema, String name, IgniteDistribution distr, Object... fields) {
-        TestTable tbl = createTable(name, DEFAULT_TBL_SIZE, distr, fields);
+    protected static TestTable0 createTable(IgniteSchema schema, String name, IgniteDistribution distr, Object... fields) {
+        TestTable0 tbl = createTable(name, DEFAULT_TBL_SIZE, distr, fields);
 
         schema.addTable(tbl);
 
@@ -476,9 +483,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * @param fields List of the required fields. Every odd item should be a string representing a column name, every
      *               even item should be a class representing column's type.
      *               E.g. {@code createTable("MY_TABLE", distribution, "ID", Integer.class, "VAL", String.class)}.
-     * @return Instance of the {@link TestTable}.
+     * @return Instance of the {@link TestTable0}.
      */
-    protected static TestTable createTable(String name, IgniteDistribution distr, Object... fields) {
+    protected static TestTable0 createTable(String name, IgniteDistribution distr, Object... fields) {
         return createTable(name, DEFAULT_TBL_SIZE, distr, fields);
     }
 
@@ -491,9 +498,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * @param fields List of the required fields. Every odd item should be a string representing a column name, every
      *               even item should be a class representing column's type.
      *               E.g. {@code createTable("MY_TABLE", 500, distribution, "ID", Integer.class, "VAL", String.class)}.
-     * @return Instance of the {@link TestTable}.
+     * @return Instance of the {@link TestTable0}.
      */
-    protected static TestTable createTable(String name, int size, IgniteDistribution distr, Object... fields) {
+    protected static TestTable0 createTable(String name, int size, IgniteDistribution distr, Object... fields) {
         if (ArrayUtils.nullOrEmpty(fields) || fields.length % 2 != 0) {
             throw new IllegalArgumentException("'fields' should be non-null array with even number of elements");
         }
@@ -507,8 +514,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return createTable(name, b.build(), size, distr);
     }
 
-    protected static TestTable createTable(String name, RelDataType type, int size, IgniteDistribution distr) {
-        return new TestTable(name, type, size) {
+    protected static TestTable0 createTable(String name, RelDataType type, int size, IgniteDistribution distr) {
+
+        return new TestTable0(name, type, size) {
             @Override
             public IgniteDistribution distribution() {
                 return distr;
@@ -811,7 +819,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     /** Test table. */
-    public abstract static class TestTable implements IgniteTable {
+    @Deprecated
+    public abstract static class TestTable0 implements IgniteTable {
         private final String name;
 
         private final RelProtoDataType protoType;
@@ -825,22 +834,22 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         private final int id = nextTableId();
 
         /** Constructor. */
-        public TestTable(RelDataType type) {
+        public TestTable0(RelDataType type) {
             this(type, 100.0);
         }
 
         /** Constructor. */
-        public TestTable(RelDataType type, String name) {
+        public TestTable0(RelDataType type, String name) {
             this(name, type, 100.0);
         }
 
         /** Constructor. */
-        public TestTable(RelDataType type, double rowCnt) {
+        public TestTable0(RelDataType type, double rowCnt) {
             this(UUID.randomUUID().toString(), type, rowCnt);
         }
 
         /** Constructor. */
-        public TestTable(String name, RelDataType type, double rowCnt) {
+        public TestTable0(String name, RelDataType type, double rowCnt) {
             protoType = RelDataTypeImpl.proto(type);
             this.rowCnt = rowCnt;
             this.name = name;
@@ -1001,7 +1010,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
          * AddIndex.
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          */
-        public TestTable addIndex(RelCollation collation, String name) {
+        public TestTable0 addIndex(RelCollation collation, String name) {
             indexes.put(name, new IgniteIndex(TestSortedIndex.create(collation, name, this)));
 
             return this;
@@ -1011,7 +1020,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
          * AddIndex.
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          */
-        public TestTable addIndex(String name, int... keys) {
+        public TestTable0 addIndex(String name, int... keys) {
             addIndex(TraitUtils.createCollation(Arrays.stream(keys).boxed().collect(Collectors.toList())), name);
 
             return this;
@@ -1432,5 +1441,45 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         protected void checkRel(IgniteRel igniteRel, IgniteSchema schema) {
             checkSplitAndSerialization(igniteRel, schema);
         }
+    }
+
+    /** Creates schema using given table builders. */
+    protected static IgniteSchema createSchemaFrom(Function<TableBuilder, TableBuilder>... tables) {
+        return createSchema(Arrays.stream(tables).map(op -> op.apply(TestBuilders.table()).build()).toArray(IgniteTable[]::new));
+    }
+
+    /** Creates a function, which builds sorted index with given column names and with default collation. */
+    protected static UnaryOperator<TableBuilder> addSortIndex(String... columns) {
+        return tableBuilder -> {
+            SortedIndexBuilder indexBuilder = tableBuilder.sortedIndex();
+            StringBuilder nameBuilder = new StringBuilder("idx");
+
+            for (String colName : columns) {
+                indexBuilder.addColumn(colName.toUpperCase(), Collation.ASC_NULLS_LAST);
+                nameBuilder.append('_').append(colName);
+            }
+
+            return indexBuilder.name(nameBuilder.toString()).end();
+        };
+    }
+
+    /** Creates a function, which builds hash index with given column names. */
+    protected static UnaryOperator<TableBuilder> addHashIndex(String... columns) {
+        return tableBuilder -> {
+            HashIndexBuilder indexBuilder = tableBuilder.hashIndex();
+            StringBuilder nameBuilder = new StringBuilder("idx");
+
+            for (String colName : columns) {
+                indexBuilder.addColumn(colName.toUpperCase());
+                nameBuilder.append('_').append(colName);
+            }
+
+            return indexBuilder.name(nameBuilder.toString()).end();
+        };
+    }
+
+    /** Sets table size. */
+    static Function<TableBuilder, TableBuilder> setSize(int size) {
+        return t -> t.size(size);
     }
 }

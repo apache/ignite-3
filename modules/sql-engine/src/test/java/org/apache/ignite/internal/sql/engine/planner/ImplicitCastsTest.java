@@ -28,17 +28,19 @@ import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
+import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteNestedLoopJoin;
@@ -47,6 +49,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeValues;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.jetbrains.annotations.Nullable;
@@ -61,13 +64,13 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class ImplicitCastsTest extends AbstractPlannerTest {
 
-    private static TestTable addTable(IgniteSchema igniteSchema, String tableName, String columnName, RelDataType columnType) {
-        RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                .add("ID", SqlTypeName.INTEGER)
-                .add(columnName, columnType)
+    private static TestTable tableWithColumn(String tableName, String columnName, RelDataType columnType) {
+        return TestBuilders.table()
+                .name(tableName)
+                .addColumn("ID", NativeTypes.INT32, false)
+                .addColumn(columnName, IgniteTypeFactory.relDataTypeToNative(columnType), false)
+                .distribution(IgniteDistributions.single())
                 .build();
-
-        return createTable(igniteSchema, tableName, tableType, IgniteDistributions.single());
     }
 
     private static String castedExpr(String idx, @Nullable RelDataType type) {
@@ -149,10 +152,10 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("joinColumnTypes")
     public void testMergeSort(RelDataType lhs, RelDataType rhs, ExpectedTypes expected) throws Exception {
-        IgniteSchema igniteSchema = new IgniteSchema("PUBLIC");
-
-        addTable(igniteSchema, "A1", "COL1", lhs);
-        addTable(igniteSchema, "B1", "COL1", rhs);
+        IgniteSchema igniteSchema = createSchema(
+                tableWithColumn("A1", "COL1", lhs),
+                tableWithColumn("B1", "COL1", rhs)
+        );
 
         String query = "select A1.*, B1.* from A1 join B1 on A1.col1 = B1.col1";
         assertPlan(query, igniteSchema, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
@@ -165,10 +168,11 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("joinColumnTypes")
     public void testNestedLoop(RelDataType lhs, RelDataType rhs, ExpectedTypes expected) throws Exception {
-        IgniteSchema igniteSchema = new IgniteSchema("PUBLIC");
+        IgniteSchema igniteSchema = createSchema(
+                tableWithColumn("A1", "COL1", lhs),
+                tableWithColumn("B1", "COL1", rhs)
+        );
 
-        addTable(igniteSchema, "A1", "COL1", lhs);
-        addTable(igniteSchema, "B1", "COL1", rhs);
 
         String query = "select A1.*, B1.* from A1 join B1 on A1.col1 != B1.col1";
         assertPlan(query, igniteSchema, isInstanceOf(IgniteNestedLoopJoin.class).and(new NestedLoopWithFilter(expected)));
@@ -178,9 +182,9 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("filterTypes")
     public void testFilter(RelDataType lhs, RelDataType rhs, ExpectedTypes expected) throws Exception {
-        IgniteSchema igniteSchema = new IgniteSchema("PUBLIC");
-
-        addTable(igniteSchema, "A1", "COL1", lhs);
+        IgniteSchema igniteSchema = createSchema(
+                tableWithColumn("A1", "COL1", lhs)
+        );
 
         List<Object> params = NativeTypeValues.values(rhs, 1);
 
@@ -202,19 +206,25 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("filterTypesForIndex")
     public void testIndex(RelDataType lhs, RelDataType rhs, ExpectedTypes expected, Type indexType) throws Exception {
-        IgniteSchema igniteSchema = new IgniteSchema("PUBLIC");
+        UnaryOperator<TableBuilder> tableOp = tableBuilder -> tableBuilder
+                .name("A1")
+                .addColumn("ID", NativeTypes.INT32, false)
+                .addColumn("COL1", IgniteTypeFactory.relDataTypeToNative(lhs), false)
+                .distribution(IgniteDistributions.single());
 
-        TestTable table = addTable(igniteSchema, "A1", "COL1", lhs);
+        UnaryOperator<TableBuilder> indexOp;
         switch (indexType) {
             case SORTED:
-                table.addIndex(RelCollations.of(1), "COL1_IDX");
+                indexOp = addSortIndex("COL1");
                 break;
             case HASH:
-                table.addIndex("COL1_IDX", 1);
+                indexOp = addHashIndex("COL1");
                 break;
             default:
                 throw new IllegalArgumentException("Unexpected index type " + indexType);
         }
+
+        IgniteSchema igniteSchema = createSchemaFrom(tableOp.andThen(indexOp));
 
         List<Object> params = NativeTypeValues.values(rhs, 1);
 
