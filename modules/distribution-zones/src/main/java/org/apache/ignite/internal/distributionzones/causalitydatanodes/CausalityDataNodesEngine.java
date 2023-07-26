@@ -84,6 +84,7 @@ public class CausalityDataNodesEngine {
     /**
      * The map which contains configuration changes which trigger zone's data nodes recalculation.
      * zoneId -> (revision -> zoneConfiguration).
+     * TODO IGNITE-20050 Clean up this map.
      */
     private final ConcurrentHashMap<Integer, ConcurrentSkipListMap<Long, ZoneConfiguration>> zonesVersionedCfg;
 
