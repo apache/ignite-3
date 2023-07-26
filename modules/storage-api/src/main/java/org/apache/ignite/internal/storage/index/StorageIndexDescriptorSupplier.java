@@ -17,18 +17,45 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Index descriptor supplier.
+ * Index descriptor supplier from catalog.
  */
 // TODO: IGNITE-19717 Get rid of it
-@FunctionalInterface
-public interface StorageIndexDescriptorSupplier {
+public class StorageIndexDescriptorSupplier {
+    private final CatalogService catalogService;
+
+    /**
+     * Constructor.
+     *
+     * @param catalogService Catalog service.
+     */
+    public StorageIndexDescriptorSupplier(CatalogService catalogService) {
+        this.catalogService = catalogService;
+    }
+
     /**
      * Returns an index descriptor by its ID, {@code null} if absent.
      *
      * @param id Index ID.
      */
-    @Nullable StorageIndexDescriptor get(int id);
+    public @Nullable StorageIndexDescriptor get(int id) {
+        int catalogVersion = catalogService.latestCatalogVersion();
+
+        CatalogIndexDescriptor index = catalogService.index(id, catalogVersion);
+
+        if (index == null) {
+            return null;
+        }
+
+        CatalogTableDescriptor table = catalogService.table(index.tableId(), catalogVersion);
+
+        assert table != null : "tableId=" + index.tableId() + ", indexId=" + index.id();
+
+        return StorageIndexDescriptor.create(table, index);
+    }
 }
