@@ -317,7 +317,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testThreeQueuedRebalances() {
+    void testThreeQueuedRebalances() throws InterruptedException {
         await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -330,7 +330,7 @@ public class ItRebalanceDistributedTest {
                 ZONE_1_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
 
-        assertEquals(1, getPartitionClusterNodes(0, 0).size());
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(0, 0).size() == 1, 10_000));
 
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 3));
@@ -797,7 +797,7 @@ public class ItRebalanceDistributedTest {
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
             distributionZoneManager = new DistributionZoneManager(
-                    null,
+                    registry,
                     zonesCfg,
                     tablesCfg,
                     metaStorageManager,
