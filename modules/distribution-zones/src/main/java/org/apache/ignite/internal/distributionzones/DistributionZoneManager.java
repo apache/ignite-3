@@ -258,9 +258,6 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Causality data nodes engine. */
     private final CausalityDataNodesEngine causalityDataNodesEngine;
 
-    /** Used to guarantee that the zone will be created before other components use the zone. */
-    private final VersionedValue<Void> zonesVv;
-
     /**
      * Creates a new distribution zone manager.
      *
@@ -301,8 +298,6 @@ public class DistributionZoneManager implements IgniteComponent {
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG)
         );
 
-        zonesVv = new IncrementalVersionedValue<>(registry);
-
         // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
         // meta storage notification thread that won't start before all components start.
         //noinspection ThisEscapedInObjectConstruction
@@ -318,6 +313,7 @@ public class DistributionZoneManager implements IgniteComponent {
         //noinspection ThisEscapedInObjectConstruction
         causalityDataNodesEngine = new CausalityDataNodesEngine(
                 busyLock,
+                registry,
                 metaStorageManager,
                 vaultMgr,
                 zonesState,
@@ -661,7 +657,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param zoneId Zone id.
      * @return The data nodes.
      */
-    public Set<String> dataNodes(long causalityToken, int zoneId) {
+    public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
         return causalityDataNodesEngine.dataNodes(causalityToken, zoneId);
     }
 
@@ -1778,16 +1774,6 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     private <T extends ConfigurationProperty<?>> T directProxy(T property) {
         return getMetadataLocallyOnly ? property : (T) property.directProxy();
-    }
-
-    /**
-     * Returns a future which will be completed when the zone manager processed events with this token.
-     *
-     * @param token Causality token.
-     * @return Future.
-     */
-    public CompletableFuture<Void> waitZoneProcessing(long token) {
-        return zonesVv.get(token);
     }
 
     /**

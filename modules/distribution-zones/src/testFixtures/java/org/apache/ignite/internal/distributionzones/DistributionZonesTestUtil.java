@@ -48,6 +48,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -473,14 +475,30 @@ public class DistributionZonesTestUtil {
                 expectedValue == null ? null : expectedValue.stream().map(ClusterNode::name).collect(Collectors.toSet());
 
         boolean success = waitForCondition(() -> {
-            Set<String> dataNodes = distributionZoneManager.dataNodes(Long.MAX_VALUE, zoneId);
+            Set<String> dataNodes = null;
+            try {
+                dataNodes = distributionZoneManager.dataNodes(Long.MAX_VALUE, zoneId).get(3, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            } catch (TimeoutException e) {
+                throw new RuntimeException(e);
+            }
 
             return Objects.equals(dataNodes, expectedValueNames);
         }, timeoutMillis);
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
-            Set<String> dataNodes = distributionZoneManager.dataNodes(Long.MAX_VALUE, zoneId);
+            Set<String> dataNodes = null;
+            try {
+                dataNodes = distributionZoneManager.dataNodes(Long.MAX_VALUE, zoneId).get(3, TimeUnit.SECONDS);
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            } catch (TimeoutException e) {
+                throw new RuntimeException(e);
+            }
 
             assertThat(dataNodes, is(expectedValueNames));
         }

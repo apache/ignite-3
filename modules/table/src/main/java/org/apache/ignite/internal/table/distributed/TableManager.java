@@ -609,15 +609,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (partitionAssignments(vaultManager, tableId, 0) != null) {
                 assignments = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
             } else {
-                assignments = distributionZoneManager.waitZoneProcessing(ctx.storageRevision()).thenApply(ignored -> {
-                    Set<String> dataNodes = distributionZoneManager.dataNodes(ctx.storageRevision(), tableDescriptor.zoneId());
-
-                    return AffinityUtils.calculateAssignments(
-                            dataNodes,
-                            zoneDescriptor.partitions(),
-                            zoneDescriptor.replicas()
-                    );
-                });
+                assignments = distributionZoneManager.dataNodes(ctx.storageRevision(), tableDescriptor.zoneId())
+                        .thenApply(dataNodes -> {
+                            return AffinityUtils.calculateAssignments(
+                                    dataNodes,
+                                    zoneDescriptor.partitions(),
+                                    zoneDescriptor.replicas()
+                            );
+                        });
             }
 
             CompletableFuture<?> createTableFut = createTableLocally(
@@ -2442,13 +2441,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                     assert tableDescriptor != null : replicaGrpId;
 
-                                    return RebalanceUtil.handleReduceChanged(
-                                            metaStorageMgr,
-                                            distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId()),
-                                            getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
-                                            replicaGrpId,
-                                            evt
-                                    );
+                                    return distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId())
+                                            .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
+                                                    metaStorageMgr,
+                                                    dataNodes,
+                                                    getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
+                                                    replicaGrpId,
+                                                    evt
+                                            ));
                                 } finally {
                                     busyLock.leaveBusy();
                                 }
