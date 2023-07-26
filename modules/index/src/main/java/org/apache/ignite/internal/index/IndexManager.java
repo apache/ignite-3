@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -64,7 +63,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
@@ -291,38 +289,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                         return true;
                     });
         });
-    }
-
-    /**
-     * Gets a list of index configuration views for the specified table.
-     *
-     * @param tableName Table name.
-     * @return List of index configuration views.
-     */
-    // TODO: IGNITE-19500 указать мол удалить когда откажемся от конфигурации таблицы
-    public List<TableIndexView> indexConfigurations(String tableName) {
-        List<TableIndexView> res = new ArrayList<>();
-        Integer targetTableId = null;
-
-        NamedListView<TableView> tablesView = tablesCfg.tables().value();
-
-        for (TableIndexView cfg : tablesCfg.indexes().value()) {
-            if (targetTableId == null) {
-                TableView tbl = findTableView(tablesView, cfg.tableId());
-
-                if (tbl == null || !tableName.equals(tbl.name())) {
-                    continue;
-                }
-
-                targetTableId = cfg.tableId();
-            } else if (!targetTableId.equals(cfg.tableId())) {
-                continue;
-            }
-
-            res.add(cfg);
-        }
-
-        return res;
     }
 
     private static void validateName(String indexName) {

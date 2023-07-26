@@ -24,12 +24,8 @@ import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SC
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -59,10 +55,6 @@ import org.apache.ignite.internal.schema.configuration.ValueSerializationHelper;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultChange;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
-import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
@@ -89,7 +81,6 @@ import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Table;
-import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -455,8 +446,6 @@ public class DdlCommandHandler {
 
                         Set<String> primaryCols = Set.of(priKey.columns());
 
-                        reportIndexedColumns(tableName, colNames, primaryCols);
-
                         for (String colName : colNames) {
                             if (!colNamesToOrders.contains(colName)) {
                                 ret.set(false);
@@ -477,38 +466,6 @@ public class DdlCommandHandler {
 
                     return ret.get();
                 }).thenApply(v -> ret.get());
-    }
-
-    private void reportIndexedColumns(String tableName, Set<String> colNames, Set<String> pkColNames) throws SqlException {
-        Map<String, List<String>> indexedColumns = new HashMap<>();
-
-        for (TableIndexView idxCfg : indexManager.indexConfigurations(tableName)) {
-            if (idxCfg instanceof SortedIndexView) {
-                for (IndexColumnView colView : ((SortedIndexView) idxCfg).columns()) {
-                    if (colNames.contains(colView.name()) && !pkColNames.contains(colView.name())) {
-                        indexedColumns.computeIfAbsent(colView.name(), v -> new ArrayList<>()).add(idxCfg.name());
-                    }
-                }
-            } else if (idxCfg instanceof HashIndexView) {
-                for (String colName : ((HashIndexView) idxCfg).columnNames()) {
-                    if (colNames.contains(colName) && !pkColNames.contains(colName)) {
-                        indexedColumns.computeIfAbsent(colName, v -> new ArrayList<>()).add(idxCfg.name());
-                    }
-                }
-            }
-        }
-
-        if (indexedColumns.isEmpty()) {
-            return;
-        }
-
-        IgniteStringBuilder sb = new IgniteStringBuilder("Can`t delete column(s). ");
-
-        for (Entry<String, List<String>> e : indexedColumns.entrySet()) {
-            sb.app("Column ").app(e.getKey()).app(" is used by indexes ").app(e.getValue()).app(". ");
-        }
-
-        throw new SqlException(STMT_VALIDATION_ERR, sb.toString());
     }
 
     private static void convert(NativeType colType, ColumnTypeChange colTypeChg) {
