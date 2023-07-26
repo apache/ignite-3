@@ -25,6 +25,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
@@ -210,8 +211,6 @@ import org.jetbrains.annotations.TestOnly;
  * Table manager.
  */
 public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTablesInternal, IgniteComponent {
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
     private static final long QUERY_DATA_NODES_COUNT_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
 
     /** The logger. */
@@ -380,6 +379,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final CatalogManager catalogManager;
 
+    /** Versioned value used only at manager startup to correctly fire table creation events. */
+    private final IncrementalVersionedValue<Void> startVv;
+
     /**
      * Creates a new table manager.
      *
@@ -506,6 +508,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         indexBuilder = new IndexBuilder(nodeName, cpus);
 
         configuredTablesCache = new ConfiguredTablesCache(tablesCfg, getMetadataLocallyOnly);
+
+        startVv = new IncrementalVersionedValue<>(registry);
     }
 
     @Override
@@ -547,6 +551,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         addMessageHandler(clusterService.messagingService());
+
+        fireCreateTablesOnStartManager();
     }
 
     /**
@@ -2679,6 +2685,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
+    // TODO: IGNITE-19500 переделать на каталог
     private int[] collectTableIndexIds(int tableId) {
         return tablesCfg.value().indexes().stream()
                 .filter(tableIndexView -> tableIndexView.tableId() == tableId)
@@ -2796,5 +2803,36 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     // TODO: IGNITE-19500 добавить описание удаления костыля
     private static @Nullable TableImpl findTableImplByName(Collection<TableImpl> tables, String name) {
         return tables.stream().filter(table -> table.name().equals(name)).findAny().orElse(null);
+    }
+
+    /**
+     * Fires table creation events so that indexes can be correctly created at IndexManager startup.
+     *
+     * <p>NOTE: This is a temporary solution that must be get rid/remake/change.
+     */
+    // TODO: IGNITE-19499 Need to get rid/remake/change
+    private void fireCreateTablesOnStartManager() {
+        CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
+
+        assert recoveryFinishFuture.isDone();
+
+        long causalityToken = recoveryFinishFuture.join();
+
+        List<CompletableFuture<?>> fireEventFutures = new ArrayList<>();
+
+        for (TableView tableView : tablesCfg.tables().value()) {
+            fireEventFutures.add(fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableView.id())));
+        }
+
+        startVv.update(causalityToken, (unused, throwable) -> allOf(fireEventFutures.toArray(CompletableFuture[]::new)))
+                .whenComplete((unused, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Error when firing table creation events at manager start", throwable);
+                    } else {
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Manager successfully fired table creation events at manager start");
+                        }
+                    }
+                });
     }
 }

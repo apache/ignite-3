@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
-import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -73,8 +72,6 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.event.TableEvent;
-import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.StringUtils;
@@ -93,7 +90,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
     /** Common tables and indexes configuration. */
-    // TODO: IGNITE-19500 избавиться, наверное
+    // TODO: IGNITE-19499 Only catalog should be used
     private final TablesConfiguration tablesCfg;
 
     /** Schema manager. */
@@ -114,6 +111,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Versioned value used only at the start of the manager. */
     private final IncrementalVersionedValue<Void> startVv;
 
     /**
@@ -203,6 +201,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             String indexName = createIndexCommandParams.indexName();
             String tableName = createIndexCommandParams.tableName();
 
+            // TODO: IGNITE-19500 валидацию надо перенести, создание должно быть только в каталоге или нет?
             validateName(indexName);
 
             CompletableFuture<Void> createIndexFuture;
@@ -266,6 +265,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             String schemaName = dropIndexCommandParams.schemaName();
             String indexName = dropIndexCommandParams.indexName();
 
+            // TODO: IGNITE-19500 валидацию надо перенести, удаление должно быть только в каталоге или нет?
             validateName(indexName);
 
             return catalogManager.dropIndex(dropIndexCommandParams)
@@ -350,14 +350,17 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
+            // TODO: IGNITE-19499 Table ID from the catalog should be used
             return tableManager.tableAsync(causalityToken, parameters.tableName())
                     .thenCompose(table -> {
-                        if (table != null) { // in case of DROP TABLE the table will be removed first
+                        if (table != null) {
+                            // In case of DROP TABLE the table will be removed first.
                             table.unregisterIndex(indexId);
                         }
 
                         return fireEvent(
                                 IndexEvent.DROP,
+                                // TODO: IGNITE-19499 Shouldn't be -1 as table ID
                                 new IndexEventParameters(causalityToken, table == null ? -1 : table.tableId(), indexId)
                         );
                     })
@@ -370,13 +373,13 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     }
 
     private CompletableFuture<Boolean> onIndexCreate(CreateIndexEventParameters parameters) {
-        CatalogIndexDescriptor indexDescriptor = parameters.indexDescriptor();
+        CatalogIndexDescriptor index = parameters.indexDescriptor();
 
         long causalityToken = parameters.causalityToken();
 
         if (!busyLock.enterBusy()) {
             fireEvent(IndexEvent.CREATE,
-                    new IndexEventParameters(causalityToken, indexDescriptor.tableId(), indexDescriptor.id()),
+                    new IndexEventParameters(causalityToken, index.tableId(), index.id()),
                     new NodeStoppingException()
             );
 
@@ -384,10 +387,11 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            CatalogTableDescriptor tableDescriptor = catalogManager.table(indexDescriptor.tableId(), parameters.catalogVersion());
+            CatalogTableDescriptor table = catalogManager.table(index.tableId(), parameters.catalogVersion());
 
-            return createIndexLocally(causalityToken, tableDescriptor, indexDescriptor)
-                    .thenApply(unused -> false);
+            assert table != null : "tableId=" + index.tableId() + ", indexId=" + index.id();
+
+            return createIndexLocally(causalityToken, table, index).thenApply(unused -> false);
         } catch (Throwable t) {
             return failedFuture(t);
         } finally {
@@ -397,67 +401,27 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     private CompletableFuture<Void> createIndexLocally(
             long causalityToken,
-            CatalogTableDescriptor tableDescriptor,
-            CatalogIndexDescriptor indexDescriptor
+            CatalogTableDescriptor table,
+            CatalogIndexDescriptor index
     ) {
-        int tableId = tableDescriptor.id();
-        int indexId = indexDescriptor.id();
+        int tableId = table.id();
+        int indexId = index.id();
 
         if (LOG.isInfoEnabled()) {
             LOG.info(
                     "Creating local index: name={}, id={}, tableId={}, token={}",
-                    indexDescriptor.name(), indexId, tableId, causalityToken
+                    index.name(), indexId, tableId, causalityToken
             );
         }
 
-        IndexDescriptor eventIndexDescriptor = toEventIndexDescriptor(indexDescriptor);
+        // TODO: IGNITE-19499 Only catalog should be used
+        int configTableId = getConfigTableId(table.name(), tablesCfg.tables().value());
 
-        var storageIndexDescriptor = StorageIndexDescriptor.create(tableDescriptor, indexDescriptor);
+        CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, configTableId);
 
-        TableImpl table = tableManager.getTable(tableDescriptor.name());
+        CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken, configTableId);
 
-        assert table != null : tableDescriptor.name();
-
-        // TODO: IGNITE-19500 костыль, наверное где-то описать надо будет
-        int configTableId = table.internalTable().tableId();
-
-        CompletableFuture<?> fireEventFuture =
-                fireEvent(IndexEvent.CREATE, new IndexEventParameters(causalityToken, configTableId, indexId, eventIndexDescriptor));
-
-        CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, configTableId);
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19712 Listen to assignment changes and start new index storages.
-        CompletableFuture<PartitionSet> tablePartitionFuture = tableManager.localPartitionSetAsync(causalityToken, configTableId);
-
-        CompletableFuture<?> createIndexFuture = tablePartitionFuture.thenAcceptBoth(schemaRegistryFuture, (partitions, schemaRegistry) -> {
-            TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
-                    schemaRegistry,
-                    eventIndexDescriptor.columns().toArray(STRING_EMPTY_ARRAY)
-            );
-
-            if (eventIndexDescriptor instanceof SortedIndexDescriptor) {
-                table.registerSortedIndex(
-                        (StorageSortedIndexDescriptor) storageIndexDescriptor,
-                        tableRowConverter::convert,
-                        partitions
-                );
-            } else {
-                boolean unique = indexDescriptor.unique();
-
-                table.registerHashIndex(
-                        (StorageHashIndexDescriptor) storageIndexDescriptor,
-                        unique,
-                        tableRowConverter::convert,
-                        partitions
-                );
-
-                if (unique) {
-                    table.pkId(indexId);
-                }
-            }
-        });
-
-        return allOf(createIndexFuture, fireEventFuture);
+        return allOf(fireCreateIndexEventFuture, registerIndexFuture);
     }
 
     /**
@@ -607,8 +571,12 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     }
 
     private void startIndexes() {
+        CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
+
+        assert recoveryFinishedFuture.isDone();
+
         int catalogVersion = catalogManager.latestCatalogVersion();
-        long causalityToken = metaStorageManager.recoveryFinishedFuture().join();
+        long causalityToken = recoveryFinishedFuture.join();
 
         NamedListView<TableView> tableListView = tablesCfg.tables().value();
 
@@ -619,73 +587,90 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
             assert table != null : "tableId=" + index.tableId() + ", indexId=" + index.id();
 
-            TableView configTable = tableListView.get(table.name());
+            // TODO: IGNITE-19499 Only catalog should be used
+            int configTableId = getConfigTableId(table.name(), tableListView);
 
-            assert configTable != null : "tableName=" + table.name() + ", indexId=" + index.id();
+            CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, configTableId);
 
-            int configTableId = configTable.id();
+            CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken, configTableId);
 
-            startIndexFutures.add(startIndex(table, index, causalityToken, configTableId));
+            startIndexFutures.add(allOf(fireCreateIndexEventFuture, registerIndexFuture));
         }
 
-        startVv.update(causalityToken, (unused, throwable) -> allOf(startIndexFutures.toArray(CompletableFuture[]::new)));
+        startVv.update(causalityToken, (unused, throwable) -> allOf(startIndexFutures.toArray(CompletableFuture[]::new)))
+                .whenComplete((unused, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Error starting indexes", throwable);
+                    } else {
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Indexes started successfully");
+                        }
+                    }
+                });
     }
 
-    private CompletableFuture<Void> startIndex(
+    private CompletableFuture<Void> registerIndex(
             CatalogTableDescriptor table,
             CatalogIndexDescriptor index,
             long causalityToken,
             int configTableId
     ) {
-        CompletableFuture<?> fireEventFuture1 = tableManager.fireEvent(
-                TableEvent.CREATE,
-                new TableEventParameters(causalityToken, configTableId)
-        );
-
-        CompletableFuture<?> fireEventFuture = fireEvent(
-                IndexEvent.CREATE,
-                new IndexEventParameters(causalityToken, configTableId, index.id(), toEventIndexDescriptor(index))
-        );
-
+        // TODO: IGNITE-19712 Listen to assignment changes and start new index storages.
         CompletableFuture<PartitionSet> tablePartitionFuture = tableManager.localPartitionSetAsync(causalityToken, configTableId);
 
         CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, configTableId);
 
-        CompletableFuture<Void> startIndexFuture = tablePartitionFuture
-                .thenAcceptBoth(schemaRegistryFuture, (partitionSet, schemaRegistry) -> {
-                    TableImpl tableImpl = tableManager.getTable(configTableId);
+        return tablePartitionFuture.thenAcceptBoth(schemaRegistryFuture, (partitionSet, schemaRegistry) -> {
+            TableImpl tableImpl = tableManager.getTable(configTableId);
 
-                    assert tableImpl != null : "tableId=" + configTableId + ", indexId=" + index.id();
+            assert tableImpl != null : "tableId=" + configTableId + ", indexId=" + index.id();
 
-                    var storageIndexDescriptor = StorageIndexDescriptor.create(table, index);
+            var storageIndexDescriptor = StorageIndexDescriptor.create(table, index);
 
-                    TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
-                            schemaRegistry,
-                            storageIndexDescriptor.columns().stream().map(StorageColumnDescriptor::name).toArray(String[]::new)
-                    );
+            TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
+                    schemaRegistry,
+                    storageIndexDescriptor.columns().stream().map(StorageColumnDescriptor::name).toArray(String[]::new)
+            );
 
-                    if (storageIndexDescriptor instanceof StorageSortedIndexDescriptor) {
-                        tableImpl.registerSortedIndex(
-                                (StorageSortedIndexDescriptor) storageIndexDescriptor,
-                                tableRowConverter::convert,
-                                partitionSet
-                        );
-                    } else {
-                        boolean unique = index.unique();
+            if (storageIndexDescriptor instanceof StorageSortedIndexDescriptor) {
+                tableImpl.registerSortedIndex(
+                        (StorageSortedIndexDescriptor) storageIndexDescriptor,
+                        tableRowConverter::convert,
+                        partitionSet
+                );
+            } else {
+                boolean unique = index.unique();
 
-                        tableImpl.registerHashIndex(
-                                (StorageHashIndexDescriptor) storageIndexDescriptor,
-                                unique,
-                                tableRowConverter::convert,
-                                partitionSet
-                        );
+                tableImpl.registerHashIndex(
+                        (StorageHashIndexDescriptor) storageIndexDescriptor,
+                        unique,
+                        tableRowConverter::convert,
+                        partitionSet
+                );
 
-                        if (unique) {
-                            tableImpl.pkId(index.id());
-                        }
-                    }
-                });
+                if (unique) {
+                    tableImpl.pkId(index.id());
+                }
+            }
+        });
+    }
 
-        return allOf(fireEventFuture, fireEventFuture1, startIndexFuture);
+    private CompletableFuture<?> fireCreateIndexEvent(
+            CatalogIndexDescriptor index,
+            long causalityToken,
+            int configTableId
+    ) {
+        return fireEvent(
+                IndexEvent.CREATE,
+                new IndexEventParameters(causalityToken, configTableId, index.id(), toEventIndexDescriptor(index))
+        );
+    }
+
+    private static int getConfigTableId(String tableName, NamedListView<TableView> tableListView) {
+        TableView tableView = tableListView.get(tableName);
+
+        assert tableView != null : tableName;
+
+        return tableView.id();
     }
 }

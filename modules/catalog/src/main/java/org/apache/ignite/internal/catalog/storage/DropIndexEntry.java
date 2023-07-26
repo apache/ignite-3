@@ -40,7 +40,13 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
 
     private final int tableId;
 
-    // TODO: IGNITE-19500 добавить описание что надо удалить костылище
+    /**
+     * Table name for with the index was removed.
+     *
+     * <p>NOTE: This is a temporary solution to avoid getting the table id from the configuration if the table has been dropped.
+     */
+    @Deprecated(forRemoval = true)
+    // TODO: IGNITE-19499 Should be removed and only the table id from the catalog should be used
     private final String tableName;
 
     /**
