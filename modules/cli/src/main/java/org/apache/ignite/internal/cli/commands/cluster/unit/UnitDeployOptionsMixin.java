@@ -32,10 +32,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallInput;
-import org.apache.ignite.rest.client.model.DeployMode;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParameterException;
@@ -73,18 +71,15 @@ class UnitDeployOptionsMixin {
     )
     private void setNodes(List<String> values) {
         if (values.size() > 1) {
-            Optional<DeployMode> deployMode = values.stream()
-                    .map(value -> {
-                        try {
-                            return DeployMode.fromValue(value);
-                        } catch (IllegalArgumentException ignored) {
-                            return null;
-                        }
-                    })
+            long aliases = values.stream()
+                    .map(String::trim)
+                    .map(NodesAlias::parse)
                     .filter(Objects::nonNull)
-                    .findAny();
-            if (deployMode.isPresent()) {
-                throw new ParameterException(spec.commandLine(), "There could be only one deploy mode option");
+                    .count();
+            if (aliases > 1) {
+                throw new ParameterException(spec.commandLine(), "Only one alias could be used");
+            } else if (aliases == 1) {
+                throw new ParameterException(spec.commandLine(), "Aliases couldn't be used with explicit nodes list");
             }
         }
         nodes = values;
@@ -92,7 +87,7 @@ class UnitDeployOptionsMixin {
 
     static class UnitNodesCompletionCandidates extends ArrayList<String> {
         UnitNodesCompletionCandidates() {
-            super(Arrays.stream(DeployMode.values()).map(DeployMode::getValue).collect(Collectors.toList()));
+            super(Arrays.stream(NodesAlias.values()).map(NodesAlias::name).collect(Collectors.toList()));
         }
     }
 
