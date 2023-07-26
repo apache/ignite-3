@@ -99,6 +99,8 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
     public void start() {
         catalogService.listen(CatalogEvent.TABLE_CREATE, this::onTableCreated);
         catalogService.listen(CatalogEvent.TABLE_ALTER, this::onTableAltered);
+
+        // TODO: IGNITE-20051 - add proper recovery.
     }
 
     private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event, @Nullable Throwable ex) {
