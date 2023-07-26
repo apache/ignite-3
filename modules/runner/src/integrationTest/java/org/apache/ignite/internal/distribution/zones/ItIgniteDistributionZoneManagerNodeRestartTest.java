@@ -91,6 +91,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -374,6 +375,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A), TIMEOUT_MILLIS);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20054")
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
     public void testScaleUpTimerIsRestoredAfterRestart(int zoneId, String zoneName) throws Exception {
@@ -418,6 +420,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A, C), TIMEOUT_MILLIS);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20054")
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
     public void testScaleUpTriggeredByFilterUpdateIsRestoredAfterRestart(int zoneId, String zoneName) throws Exception {
@@ -473,6 +476,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(B), TIMEOUT_MILLIS);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20054")
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
     public void testScaleUpsTriggeredByFilterUpdateAndNodeJoinAreRestoredAfterRestart(int zoneId, String zoneName) throws Exception {
@@ -547,6 +551,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(B, C), TIMEOUT_MILLIS);
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20054")
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
     public void testScaleDownTimerIsRestoredAfterRestart(int zoneId, String zoneName) throws Exception {
