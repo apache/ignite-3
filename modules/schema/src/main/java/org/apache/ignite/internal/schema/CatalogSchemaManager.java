@@ -177,7 +177,8 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
                     );
                 }
 
-                return registerSchema(registries, tableId, newSchema);
+                return saveSchema(tableId, newSchema)
+                        .thenApply(t -> registerSchema(registries, tableId, newSchema));
             })).thenApply(ignored -> false);
         } finally {
             busyLock.leaveBusy();
@@ -203,39 +204,47 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
     }
 
     /**
-     * Registers the new schema in a Schema Registry.
+     * Saves a schema in the MetaStorage.
      *
-     * @param registries Map of schema registries.
      * @param tableId Table id.
      * @param schema Schema descriptor.
-     * @return Future that, when complete, will resolve into an updated map of schema registries
-     *     (to be used in {@link IncrementalVersionedValue#update}).
+     * @return Future that will be completed when the schema gets saved.
      */
-    private CompletableFuture<Map<Integer, SchemaRegistryImpl>> registerSchema(
-            Map<Integer, SchemaRegistryImpl> registries,
-            int tableId,
-            SchemaDescriptor schema
-    ) {
+    private CompletableFuture<Void> saveSchema(int tableId, SchemaDescriptor schema) {
         ByteArray key = schemaWithVerHistKey(tableId, schema.version());
 
         byte[] serializedSchema = SchemaSerializerImpl.INSTANCE.serialize(schema);
 
         return metastorageMgr.invoke(notExists(key), put(key, serializedSchema), noop())
-                .thenApply(t -> {
-                    SchemaRegistryImpl reg = registries.get(tableId);
+                .thenApply(unused -> null);
+    }
 
-                    if (reg == null) {
-                        Map<Integer, SchemaRegistryImpl> copy = new HashMap<>(registries);
+    /**
+     * Registers the new schema in the registries.
+     *
+     * @param registries Registries before registering this schema.
+     * @param tableId ID of the table to which the schema belongs.
+     * @param schema The schema to register.
+     * @return Registries after registering this schema.
+     */
+    private Map<Integer, SchemaRegistryImpl> registerSchema(
+            Map<Integer, SchemaRegistryImpl> registries,
+            int tableId,
+            SchemaDescriptor schema
+    ) {
+        SchemaRegistryImpl reg = registries.get(tableId);
 
-                        copy.put(tableId, createSchemaRegistry(tableId, schema));
+        if (reg == null) {
+            Map<Integer, SchemaRegistryImpl> copy = new HashMap<>(registries);
 
-                        return copy;
-                    } else {
-                        reg.onSchemaRegistered(schema);
+            copy.put(tableId, createSchemaRegistry(tableId, schema));
 
-                        return registries;
-                    }
-                });
+            return copy;
+        } else {
+            reg.onSchemaRegistered(schema);
+
+            return registries;
+        }
     }
 
     /**
