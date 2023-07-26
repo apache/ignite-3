@@ -59,9 +59,11 @@ public abstract class IgniteAbstractTest extends BaseIgniteAbstractTest {
         tearDownBase(testInfo);
     }
 
+    /**
+     * Prevents accidental leaks from Mockito.
+     */
     @AfterAll
-    static void afterAllBase() {
-        // Prevents accidental leaks from Mockito.
+    static void clearInlineMocks() {
         framework().clearInlineMocks();
     }
 }
