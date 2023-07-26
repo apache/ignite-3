@@ -34,6 +34,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog descriptor represents database schema snapshot.
@@ -115,12 +116,20 @@ public class Catalog {
         return schemasByName.values();
     }
 
-    public CatalogTableDescriptor table(int tableId) {
+    public @Nullable CatalogTableDescriptor table(int tableId) {
         return tablesById.get(tableId);
     }
 
-    public CatalogIndexDescriptor index(int indexId) {
+    public Collection<CatalogTableDescriptor> tables() {
+        return tablesById.values();
+    }
+
+    public @Nullable CatalogIndexDescriptor index(int indexId) {
         return indexesById.get(indexId);
+    }
+
+    public Collection<CatalogIndexDescriptor> indexes() {
+        return indexesById.values();
     }
 
     public CatalogZoneDescriptor zone(String name) {
@@ -135,7 +144,6 @@ public class Catalog {
         return zonesByName.values();
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);

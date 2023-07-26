@@ -29,10 +29,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
-import org.apache.ignite.internal.deployunit.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.deployunit.UnitStatuses;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentCodeApi;
 import org.apache.ignite.internal.rest.api.deployment.DeploymentStatus;
 import org.apache.ignite.internal.rest.api.deployment.InitialDeployMode;
@@ -47,6 +48,8 @@ import org.reactivestreams.Publisher;
 @SuppressWarnings("OptionalContainsCollection")
 @Controller("/management/v1/deployment")
 public class DeploymentManagementController implements DeploymentCodeApi {
+    private static final IgniteLogger LOG = Loggers.forClass(DeploymentManagementController.class);
+
     private final IgniteDeployment deployment;
 
     public DeploymentManagementController(IgniteDeployment deployment) {
@@ -61,11 +64,23 @@ public class DeploymentManagementController implements DeploymentCodeApi {
             Optional<InitialDeployMode> deployMode,
             Optional<List<String>> initialNodes
     ) {
-        CompletableFuture<DeploymentUnit> result = new CompletableFuture<>();
-        unitContent.subscribe(new CompletedFileUploadSubscriber(result));
+
+        CompletedFileUploadSubscriber subscriber = new CompletedFileUploadSubscriber();
+        unitContent.subscribe(subscriber);
+
         NodesToDeploy nodesToDeploy = initialNodes.map(NodesToDeploy::new)
                 .orElseGet(() -> new NodesToDeploy(fromInitialDeployMode(deployMode)));
-        return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), result, nodesToDeploy);
+
+        return subscriber.result().thenCompose(content -> {
+            return deployment.deployAsync(unitId, Version.parseVersion(unitVersion), content, nodesToDeploy);
+        }).whenComplete((res, throwable) -> {
+            try {
+                subscriber.close();
+            } catch (Exception e) {
+                LOG.error("Failed to close subscriber", e);
+            }
+        });
+
     }
 
     @Override
