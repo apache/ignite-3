@@ -92,11 +92,9 @@ public abstract class BaseIgniteAbstractTest {
                 testInfo.getDisplayName(), monotonicMs() - testStartMs);
     }
 
-    /**
-     * Prevents accidental leaks from Mockito.
-     */
     @AfterAll
     static void afterAll() {
+        // Prevents accidental leaks from Mockito.
         framework().clearInlineMocks();
     }
 
