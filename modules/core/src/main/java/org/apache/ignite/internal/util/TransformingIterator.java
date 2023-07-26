@@ -63,4 +63,11 @@ public class TransformingIterator<TinT, ToutT> implements Iterator<ToutT>, AutoC
             ((AutoCloseable) delegate).close();
         }
     }
+
+    /**
+     * Creates an iterable that produces a {@link TransformingIterator}.
+     */
+    public static <TinT, ToutT> Iterable<ToutT> newIterable(Iterable<TinT> in, Function <TinT, ToutT> function) {
+        return () -> new TransformingIterator<>(in.iterator(), function);
+    }
 }

@@ -90,6 +90,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -831,18 +832,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private CompletableFuture<MultiStepPlan> mapFragments(MultiStepPlan plan) {
-            List<IgniteRel> fragments = plan.fragments()
-                    .stream()
-                    .map(Fragment::root)
-                    .collect(Collectors.toList());
+            Iterable<IgniteRel> fragments = TransformingIterator.newIterable(plan.fragments(), (f) -> f.root());
 
             CompletableFuture<ResolvedDependencies> fut = dependencyResolver.resolveDependencies(fragments,
                     ctx.schemaVersion());
 
             return fut.thenCompose(deps -> {
-                FetchColocationGroups fetchColocationGroups = new FetchColocationGroups(deps);
-
-                return fetchColocationGroups.execute().thenApply(colocationGroups -> {
+                return fetchColocationGroups(deps).thenApply(colocationGroups -> {
                     MappingQueryContext mappingCtx = new MappingQueryContext(localNode.name(), mappingSrvc);
                     List<Fragment> mappedFragments = FragmentMapping.mapFragments(mappingCtx, plan.fragments(), colocationGroups);
 
@@ -970,29 +966,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             return start;
         }
-    }
 
-    /**
-     * A factory of the relational node implementors.
-     *
-     * @param <RowT> A type of the row the execution tree will be working with.
-     * @see LogicalRelImplementor
-     */
-    @FunctionalInterface
-    public interface ImplementorFactory<RowT> {
-        /** Creates the relational node implementor with the given context. */
-        LogicalRelImplementor<RowT> create(ExecutionContext<RowT> ctx, ResolvedDependencies resolvedDependencies);
-    }
-
-    static final class FetchColocationGroups {
-
-        private final ResolvedDependencies deps;
-
-        FetchColocationGroups(ResolvedDependencies deps) {
-            this.deps = deps;
-        }
-
-        CompletableFuture<Map<Integer, ColocationGroup>> execute() {
+        private CompletableFuture<Map<Integer, ColocationGroup>> fetchColocationGroups(ResolvedDependencies deps) {
             List<CompletableFuture<Pair<Integer, ColocationGroup>>> list = new ArrayList<>();
 
             for (Integer tableId : deps.tableIds()) {
@@ -1006,7 +981,18 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     v -> list.stream()
                             .map(CompletableFuture::join)
                             .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
-
         }
+    }
+
+    /**
+     * A factory of the relational node implementors.
+     *
+     * @param <RowT> A type of the row the execution tree will be working with.
+     * @see LogicalRelImplementor
+     */
+    @FunctionalInterface
+    public interface ImplementorFactory<RowT> {
+        /** Creates the relational node implementor with the given context. */
+        LogicalRelImplementor<RowT> create(ExecutionContext<RowT> ctx, ResolvedDependencies resolvedDependencies);
     }
 }
