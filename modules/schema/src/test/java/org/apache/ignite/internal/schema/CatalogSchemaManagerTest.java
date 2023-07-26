@@ -29,12 +29,14 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -62,8 +64,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -98,10 +98,8 @@ class CatalogSchemaManagerTest {
 
     private CatalogSchemaManager schemaManager;
 
-    @Captor
-    private ArgumentCaptor<EventListener<CatalogEventParameters>> tableCreatedListenerCaptor;
-    @Captor
-    private ArgumentCaptor<EventListener<CatalogEventParameters>> tableAlteredListenerCaptor;
+    private EventListener<CatalogEventParameters> tableCreatedListener;
+    private EventListener<CatalogEventParameters> tableAlteredListener;
 
     private final Exception cause = new Exception("Oops");
 
@@ -113,8 +111,15 @@ class CatalogSchemaManagerTest {
         metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, metaStorageKvStorage);
         metaStorageManager.start();
 
-        doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_CREATE), tableCreatedListenerCaptor.capture());
-        doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), tableAlteredListenerCaptor.capture());
+        doAnswer(invocation -> {
+            tableCreatedListener = invocation.getArgument(1);
+            return null;
+        }).when(catalogService).listen(eq(CatalogEvent.TABLE_CREATE), any());
+
+        doAnswer(invocation -> {
+            tableAlteredListener = invocation.getArgument(1);
+            return null;
+        }).when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), any());
 
         schemaManager = new CatalogSchemaManager(registry, catalogService, metaStorageManager);
         schemaManager.start();
@@ -159,12 +164,20 @@ class CatalogSchemaManagerTest {
         );
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(TABLE_ID, TABLE_NAME, 0, 1, columns, List.of("k1", "k2"), null);
 
-        CompletableFuture<Boolean> future = tableCreatedListenerCaptor.getValue()
+        CompletableFuture<Boolean> future = tableCreatedListener()
                 .notify(new CreateTableEventParameters(CAUSALITY_TOKEN_1, CATALOG_VERSION_1, tableDescriptor), null);
 
         assertThat(future, willBe(false));
 
         completeCausalityToken(CAUSALITY_TOKEN_1);
+    }
+
+    private EventListener<CatalogEventParameters> tableCreatedListener() {
+        return Objects.requireNonNull(tableCreatedListener, "tableCreatedListener is not registered with CatalogService");
+    }
+
+    private EventListener<CatalogEventParameters> tableAlteredListener() {
+        return Objects.requireNonNull(tableAlteredListener, "tableAlteredListener is not registered with CatalogService");
     }
 
     private SchemaDescriptor getSchemaDescriptor(int schemaVersion) {
@@ -194,7 +207,7 @@ class CatalogSchemaManagerTest {
                 List.of(new CatalogTableColumnDescriptor("v2", ColumnType.STRING, false, 0, 0, 0, null))
         );
 
-        CompletableFuture<Boolean> future = tableAlteredListenerCaptor.getValue().notify(event, null);
+        CompletableFuture<Boolean> future = tableAlteredListener().notify(event, null);
 
         assertThat(future, willBe(false));
 
@@ -238,7 +251,7 @@ class CatalogSchemaManagerTest {
                 List.of("v1")
         );
 
-        CompletableFuture<Boolean> future = tableAlteredListenerCaptor.getValue().notify(event, null);
+        CompletableFuture<Boolean> future = tableAlteredListener().notify(event, null);
 
         assertThat(future, willBe(false));
 
@@ -270,7 +283,7 @@ class CatalogSchemaManagerTest {
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT64, false, 0, 0, 0, null)
         );
 
-        CompletableFuture<Boolean> future = tableAlteredListenerCaptor.getValue().notify(event, null);
+        CompletableFuture<Boolean> future = tableAlteredListener().notify(event, null);
 
         assertThat(future, willBe(false));
 
@@ -297,28 +310,28 @@ class CatalogSchemaManagerTest {
 
     @Test
     void propagatesExceptionFromCatalogOnTableCreation() {
-        CompletableFuture<Boolean> future = tableCreatedListenerCaptor.getValue().notify(mock(CreateTableEventParameters.class), cause);
+        CompletableFuture<Boolean> future = tableCreatedListener().notify(mock(CreateTableEventParameters.class), cause);
 
         assertThat(future, willThrow(equalTo(cause)));
     }
 
     @Test
     void propagatesExceptionFromCatalogOnColumnAddition() {
-        CompletableFuture<Boolean> future = tableAlteredListenerCaptor.getValue().notify(mock(AddColumnEventParameters.class), cause);
+        CompletableFuture<Boolean> future = tableAlteredListener().notify(mock(AddColumnEventParameters.class), cause);
 
         assertThat(future, willThrow(equalTo(cause)));
     }
 
     @Test
     void propagatesExceptionFromCatalogOnColumnRemoval() {
-        CompletableFuture<Boolean> future = tableAlteredListenerCaptor.getValue().notify(mock(DropColumnEventParameters.class), cause);
+        CompletableFuture<Boolean> future = tableAlteredListener().notify(mock(DropColumnEventParameters.class), cause);
 
         assertThat(future, willThrow(equalTo(cause)));
     }
 
     @Test
     void propagatesExceptionFromCatalogOnColumnAlteration() {
-        CompletableFuture<Boolean> future = tableAlteredListenerCaptor.getValue().notify(mock(AddColumnEventParameters.class), cause);
+        CompletableFuture<Boolean> future = tableAlteredListener().notify(mock(AddColumnEventParameters.class), cause);
 
         assertThat(future, willThrow(equalTo(cause)));
     }
@@ -388,7 +401,7 @@ class CatalogSchemaManagerTest {
                 List.of(new CatalogTableColumnDescriptor("v2", ColumnType.STRING, false, 0, 0, 0, null))
         );
 
-        CompletableFuture<Boolean> future = tableAlteredListenerCaptor.getValue().notify(event, null);
+        CompletableFuture<Boolean> future = tableAlteredListener().notify(event, null);
 
         assertThat(future, willBe(false));
 
