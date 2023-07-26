@@ -45,13 +45,13 @@ import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.tx.IgniteTransactions;
 
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
@@ -67,7 +67,7 @@ public class ClientHandlerModule implements IgniteComponent {
     private final IgniteTablesInternal igniteTables;
 
     /** Ignite transactions API. */
-    private final IgniteTransactions igniteTransactions;
+    private final IgniteTransactionsImpl igniteTransactions;
 
     /** Ignite SQL API. */
     private final IgniteSql sql;
@@ -125,7 +125,7 @@ public class ClientHandlerModule implements IgniteComponent {
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
             IgniteTablesInternal igniteTables,
-            IgniteTransactions igniteTransactions,
+            IgniteTransactionsImpl igniteTransactions,
             ConfigurationRegistry registry,
             IgniteCompute igniteCompute,
             ClusterService clusterService,
