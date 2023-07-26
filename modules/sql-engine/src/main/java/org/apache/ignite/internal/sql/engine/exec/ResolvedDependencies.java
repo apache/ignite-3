@@ -51,7 +51,7 @@ public class ResolvedDependencies {
     }
 
     /**
-     * Retrieves a colocation group for a table with the given id.
+     * Retrieves colocation group for a table with the given id.
      */
     public CompletableFuture<ColocationGroup> fetchColocationGroup(int tableId) {
         ExecutableTable executableTable = getTable(tableId);
