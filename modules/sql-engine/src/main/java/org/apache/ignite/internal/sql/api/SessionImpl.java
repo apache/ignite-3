@@ -328,7 +328,7 @@ public class SessionImpl implements Session {
     @Override
     public void close() {
         try {
-            closeAsync().toCompletableFuture().get();
+            closeAsync().get();
         } catch (ExecutionException e) {
             sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
         } catch (InterruptedException e) {
@@ -339,9 +339,13 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        closeInternal();
+        try {
+            closeInternal();
 
-        return qryProc.closeSession(sessionId);
+            return qryProc.closeSession(sessionId);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(IgniteExceptionMapperUtil.mapToPublicException(e));
+        }
     }
 
     /** {@inheritDoc} */
