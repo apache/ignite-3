@@ -196,7 +196,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
         if (prevSchema == null) {
             // This is intentionally a blocking call, because this method is used in a synchronous part of the configuration listener.
             // See the call site for more details.
-            prevSchema = schemaByVersion(tableId, prevVersion).get();
+            prevSchema = loadSchema(tableId, prevVersion).get();
         }
 
         schema.columnMapping(SchemaUtils.columnMapper(prevSchema, schema));
@@ -266,7 +266,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
         SchemaRegistry registry = registriesVv.latest().get(tblId);
 
         if (registry.lastSchemaVersion() > schemaVer) {
-            return schemaByVersion(tblId, schemaVer);
+            return loadSchema(tblId, schemaVer);
         }
 
         CompletionListener<Map<Integer, SchemaRegistryImpl>> schemaListener = (token, regs, e) -> {
@@ -445,7 +445,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
      * @param tblId Table id.
      * @return Schema representation if schema found, {@code null} otherwise.
      */
-    private CompletableFuture<SchemaDescriptor> schemaByVersion(int tblId, int ver) {
+    private CompletableFuture<SchemaDescriptor> loadSchema(int tblId, int ver) {
         return metastorageMgr.get(schemaWithVerHistKey(tblId, ver))
                 .thenApply(entry -> {
                     byte[] value = entry.value();
