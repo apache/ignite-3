@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration.generator;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -36,26 +35,22 @@ import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationSt
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A generator of the default local configuration file.
  */
-public class DefaultGenerator {
-
-    private DefaultGenerator() {
-    }
+public class DefaultsGenerator {
 
     /**
      * Entry point to the config file generation.
-     * The looks for all available configuration roots with type {@link ConfigurationType#LOCAL} in its own classpath,
+     *
+     * <p>The generator looks for all available configuration roots with type {@link ConfigurationType#LOCAL} in its own classpath,
      * so please make sure the classpath is properly constructed.
      *
      * @param args The first element represents the path to the config file.
      *     If the file exists and is not empty, the stored configuration will be merged with the defaults.
      *     Please note: the file will be overwritten.
-     *
      */
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -81,26 +76,25 @@ public class DefaultGenerator {
     /**
      * This uses fragments of cluster initialization from {@code IgniteImpl} class to set up local configuration framework.
      */
-    @NotNull
     private static ConfigurationChanger createConfigurationChanger(Path configPath) {
-        ConfigurationModules modules = loadConfigurationModules(DefaultGenerator.class.getClassLoader());
-        Collection<RootKey<?, ?>> rootKeys = modules.local().rootKeys();
+
+        ConfigurationModules modules = loadConfigurationModules(DefaultsGenerator.class.getClassLoader());
+
         ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
-                rootKeys,
+                modules.local().rootKeys(),
                 modules.local().internalSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
-        ConfigurationStorage storage = new LocalFileConfigurationStorage(
-                configPath,
-                localConfigurationGenerator
-        );
+
+        ConfigurationStorage storage = new LocalFileConfigurationStorage(configPath, localConfigurationGenerator);
+
         ConfigurationValidator configurationValidator =
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());
 
         ConfigurationUpdateListener empty = (oldRoot, newRoot, storageRevision, notificationNumber) ->
                 CompletableFuture.completedFuture(null);
 
-        return new ConfigurationChanger(empty, rootKeys, storage, configurationValidator) {
+        return new ConfigurationChanger(empty, modules.local().rootKeys(), storage, configurationValidator) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {
                 return localConfigurationGenerator.instantiateNode(rootKey.schemaClass());

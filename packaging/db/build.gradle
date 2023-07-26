@@ -53,7 +53,7 @@ dependencies {
     dbArtifacts project(':ignite-runner')
 
     defaultsGenerator configurations.dbArtifacts
-    defaultsGenerator project(path: ':ignite-configuration', configuration: 'defaultsGenerator')
+    defaultsGenerator project(path: ':ignite-runner', configuration: 'defaultsGenerator')
 }
 
 def tokens = [
@@ -94,7 +94,7 @@ def copyConfig = tasks.register('copyConfig', Copy) {
 
 def generateConfigDefaults = tasks.register('generateConfigDefaults', JavaExec) {
     classpath = configurations.defaultsGenerator
-    mainClass = "org.apache.ignite.internal.configuration.generator.DefaultGenerator"
+    mainClass = "org.apache.ignite.internal.configuration.generator.DefaultsGenerator"
     dependsOn copyConfig
     args layout.buildDirectory.file("config/ignite-config.conf").get()
     outputs.file layout.buildDirectory.file("config/ignite-config.conf")

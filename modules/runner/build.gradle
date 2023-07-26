@@ -23,6 +23,23 @@ apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 description = 'ignite-runner'
 
+sourceSets {
+    defaultsGenerator {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    defaultsGeneratorImplementation.extendsFrom implementation
+    defaultsGenerator {
+        canBeConsumed = true
+        canBeResolved = false
+        // this configuration will share the same dependencies as the main one
+        extendsFrom implementation, runtimeOnly
+    }
+}
+
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
     annotationProcessor libs.picocli.annotation.processor
@@ -206,4 +223,15 @@ jar {
             'Main-Class': 'org.apache.ignite.app.IgniteRunner'
         )
     }
+}
+
+
+tasks.register('defaultsJar', Jar) {
+    from sourceSets.defaultsGenerator.output
+    archiveAppendix = "generator"
+}
+
+artifacts {
+    // declare both jars to provide enough dependencies to the caller
+    defaultsGenerator defaultsJar, jar
 }

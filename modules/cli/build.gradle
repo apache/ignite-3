@@ -95,7 +95,6 @@ dependencies {
     integrationTestImplementation testFixtures(project)
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-configuration-api')
-    integrationTestImplementation project(':ignite-configuration')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-sql-engine')

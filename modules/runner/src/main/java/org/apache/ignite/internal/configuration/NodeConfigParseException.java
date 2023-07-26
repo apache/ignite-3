@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.configuration;
 
 import org.apache.ignite.lang.ErrorGroups.NodeConfiguration;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * Throws when writing to node bootstrap configuration failed with IO problem.
+ * Exception that gets thrown when a node bootstrap configuration file is malformed.
  */
-public class NodeConfigWriteException extends IgniteInternalException {
+public class NodeConfigParseException extends IgniteException {
 
-    public NodeConfigWriteException(String message, Throwable cause) {
-        super(NodeConfiguration.CONFIG_WRITE_ERR, message, cause);
+    public NodeConfigParseException(String msg, Throwable cause) {
+        super(NodeConfiguration.CONFIG_PARSE_ERR, msg, cause);
     }
 }
