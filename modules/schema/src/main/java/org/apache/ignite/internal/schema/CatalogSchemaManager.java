@@ -17,21 +17,20 @@
 
 package org.apache.ignite.internal.schema;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Flow.Subscriber;
-import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -47,12 +46,12 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
@@ -69,6 +68,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
 
     /** Schema history key predicate part. */
     private static final String SCHEMA_STORE_PREFIX = ".sch-hist.";
+    private static final String LATEST_SCHEMA_VERSION_STORE_SUFFIX = ".sch-hist-latest";
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -211,12 +211,19 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
      * @return Future that will be completed when the schema gets saved.
      */
     private CompletableFuture<Void> saveSchema(int tableId, SchemaDescriptor schema) {
-        ByteArray key = schemaWithVerHistKey(tableId, schema.version());
+        ByteArray schemaKey = schemaWithVerHistKey(tableId, schema.version());
+        ByteArray latestSchemaVersionKey = latestSchemaVersionKey(tableId);
 
         byte[] serializedSchema = SchemaSerializerImpl.INSTANCE.serialize(schema);
 
-        return metastorageMgr.invoke(notExists(key), put(key, serializedSchema), noop())
-                .thenApply(unused -> null);
+        return metastorageMgr.invoke(
+                notExists(schemaKey),
+                List.of(
+                        put(schemaKey, serializedSchema),
+                        put(latestSchemaVersionKey, intToBytes(schema.version()))
+                ),
+                emptyList()
+        ).thenApply(unused -> null);
     }
 
     /**
@@ -413,39 +420,14 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
      * @return The latest schema version.
      */
     private CompletableFuture<Integer> latestSchemaVersion(int tblId) {
-        var latestVersionFuture = new CompletableFuture<Integer>();
-
-        metastorageMgr.prefix(schemaHistPrefix(tblId)).subscribe(new Subscriber<>() {
-            private int lastVer = CatalogTableDescriptor.INITIAL_TABLE_VERSION;
-
-            @Override
-            public void onSubscribe(Subscription subscription) {
-                // Request unlimited demand.
-                subscription.request(Long.MAX_VALUE);
-            }
-
-            @Override
-            public void onNext(Entry item) {
-                String key = new String(item.key(), UTF_8);
-                int descVer = extractVerFromSchemaKey(key);
-
-                if (descVer > lastVer) {
-                    lastVer = descVer;
-                }
-            }
-
-            @Override
-            public void onError(Throwable throwable) {
-                latestVersionFuture.completeExceptionally(throwable);
-            }
-
-            @Override
-            public void onComplete() {
-                latestVersionFuture.complete(lastVer);
-            }
-        });
-
-        return latestVersionFuture;
+        return metastorageMgr.get(latestSchemaVersionKey(tblId))
+                .thenApply(entry -> {
+                    if (entry == null || entry.value() == null) {
+                        return CatalogTableDescriptor.INITIAL_TABLE_VERSION;
+                    } else {
+                        return ByteUtils.bytesToInt(entry.value());
+                    }
+                });
     }
 
     /**
@@ -466,14 +448,6 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
                 });
     }
 
-    private static int extractVerFromSchemaKey(String key) {
-        int pos = key.lastIndexOf('.');
-        assert pos != -1 : "Unexpected key: " + key;
-
-        key = key.substring(pos + 1);
-        return Integer.parseInt(key);
-    }
-
     /**
      * Forms schema history key.
      *
@@ -485,13 +459,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
         return ByteArray.fromString(tblId + SCHEMA_STORE_PREFIX + ver);
     }
 
-    /**
-     * Forms schema history predicate.
-     *
-     * @param tblId Table id.
-     * @return {@link ByteArray} representation.
-     */
-    private static ByteArray schemaHistPrefix(int tblId) {
-        return ByteArray.fromString(tblId + SCHEMA_STORE_PREFIX);
+    private static ByteArray latestSchemaVersionKey(int tableId) {
+        return ByteArray.fromString(tableId + LATEST_SCHEMA_VERSION_STORE_SUFFIX);
     }
 }

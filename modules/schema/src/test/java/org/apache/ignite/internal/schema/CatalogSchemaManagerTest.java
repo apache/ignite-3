@@ -409,6 +409,19 @@ class CatalogSchemaManagerTest {
     }
 
     @Test
+    void waitLatestSchemaReturnsLatestSchema() {
+        createSomeTable();
+
+        addSomeColumn();
+
+        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
+
+        SchemaDescriptor schemaDescriptor = schemaRegistry.waitLatestSchema();
+
+        assertThat(schemaDescriptor.version(), is(2));
+    }
+
+    @Test
     void dropRegistryMakesItUnavailable() {
         createSomeTable();
 
