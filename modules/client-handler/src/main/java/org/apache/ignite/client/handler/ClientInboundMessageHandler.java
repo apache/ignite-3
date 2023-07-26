@@ -92,6 +92,7 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.configuration.AuthenticationView;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -157,6 +158,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
 
+    /** Hybrid clock. */
+    private final HybridClock clock;
+
     /** Context. */
     private ClientContext clientContext;
 
@@ -185,6 +189,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param clusterId Cluster ID.
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
+     * @param clock Hybrid clock.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -196,7 +201,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             IgniteSql sql,
             UUID clusterId,
             ClientHandlerMetricSource metrics,
-            AuthenticationManager authenticationManager
+            AuthenticationManager authenticationManager,
+            HybridClock clock
     ) {
         assert igniteTables != null;
         assert igniteTransactions != null;
@@ -208,6 +214,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert clusterId != null;
         assert metrics != null;
         assert authenticationManager != null;
+        assert clock != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
@@ -218,6 +225,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.clusterId = clusterId;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
+        this.clock = clock;
 
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
         jdbcQueryEventHandler = 
@@ -455,6 +463,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
             writeFlags(out, ctx);
+            out.packLong(clock.now().longValue());
             out.packNil(); // No error.
 
             var fut = processOperation(in, out, opCode);

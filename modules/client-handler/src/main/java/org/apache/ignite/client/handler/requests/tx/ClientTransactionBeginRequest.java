@@ -49,16 +49,14 @@ public class ClientTransactionBeginRequest {
             IgniteTransactions transactions,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics) {
-        TransactionOptions options = null;
+        HybridTimestamp observableTs = HybridTimestamp.hybridTimestamp(in.unpackLong());
 
+        TransactionOptions options = null;
         if (in.unpackBoolean()) {
             options = new TransactionOptions().readOnly(true);
         }
 
-        // TODO: Read observable timestamp.
-        HybridTimestamp observableTs = null;
-
-        return transactions.beginAsync(options, null).thenAccept(tx -> {
+        return transactions.beginAsync(options, observableTs).thenAccept(tx -> {
             try {
                 long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
                 out.packLong(resourceId);

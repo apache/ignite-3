@@ -37,6 +37,7 @@ import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -192,7 +193,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         ignite.sql(),
                                         clusterId,
                                         metrics,
-                                        authenticationManager(authenticationConfiguration)));
+                                        authenticationManager(authenticationConfiguration),
+                                        new TestHybridClock(() -> 1)));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
