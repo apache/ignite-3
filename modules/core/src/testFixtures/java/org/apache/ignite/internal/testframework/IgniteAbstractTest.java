@@ -60,7 +60,7 @@ public abstract class IgniteAbstractTest extends BaseIgniteAbstractTest {
     }
 
     @AfterAll
-    static void afterAll() {
+    static void afterAllBase() {
         // Prevents accidental leaks from Mockito.
         framework().clearInlineMocks();
     }
