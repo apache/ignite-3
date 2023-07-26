@@ -18,30 +18,29 @@
 package org.apache.ignite.internal.cli.core.repl.completer.filter;
 
 import java.util.Arrays;
+import java.util.Set;
+import org.apache.ignite.internal.cli.commands.Options;
 import org.apache.ignite.internal.cli.commands.cluster.unit.NodesAlias;
-import picocli.CommandLine.Model.CommandSpec;
+import org.apache.ignite.internal.cli.util.ArrayUtils;
 
 /**
- * Deployment nodes completer filter.
- * This filter removes activation word from candidates if nodes alias is present.
+ * Deployment nodes completer filter. This filter removes activation word from candidates if nodes alias is present.
  */
-public class DeploymentNodesFilter implements CommandCompleterFilter {
-    private final String activationWord;
-
-    private final CommandSpec commandSpec;
-
-    public DeploymentNodesFilter(CommandSpec commandSpec, String activationWord) {
-        this.commandSpec = commandSpec;
-        this.activationWord = activationWord;
-    }
+public class DeploymentNodesFilter implements CompleterFilter {
+    private final String[] activationWords = {"cluster", "unit", "deploy"};
+    private final Set<String> options = Options.UNIT_NODES.names();
 
     @Override
     public String[] filter(String[] words, String[] candidates) {
+        if (!ArrayUtils.firstStartsWithSecond(words, activationWords)) {
+            return candidates;
+        }
+
         // find activation word.
         int cursor = 0;
         boolean isActivationWordFound = false;
         while (cursor < words.length) {
-            if (words[cursor].equalsIgnoreCase(activationWord)) {
+            if (options.contains(words[cursor])) {
                 isActivationWordFound = true;
                 break;
             }
@@ -63,19 +62,14 @@ public class DeploymentNodesFilter implements CommandCompleterFilter {
                 cursor++;
             }
 
-            // remove activationWord from candidates if nodes alias is present.
+            // remove options from candidates if nodes alias is present.
             if (aliasFound) {
                 return Arrays.stream(candidates)
-                        .filter(it -> !it.equals(activationWord))
+                        .filter(it -> !options.contains(it))
                         .toArray(String[]::new);
             }
         }
 
         return candidates;
-    }
-
-    @Override
-    public CommandSpec commandSpec() {
-        return commandSpec;
     }
 }

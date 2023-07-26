@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.cli.core.repl.completer.filter;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -30,27 +29,8 @@ public class NonRepeatableOptionsFilter implements CompleterFilter {
 
     private final CommandSpec topCommandSpec;
 
-    private final Map<CommandSpec, List<CompleterFilter>> additionalFilters;
-
-    /**
-     * Constructor.
-     *
-     * @param topCommandSpec Top command spec.
-     */
-    public NonRepeatableOptionsFilter(CommandSpec topCommandSpec) {
-        this(topCommandSpec, List.of());
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param spec Top command spec.
-     * @param additionalFilters Additional filters.
-     */
-    public NonRepeatableOptionsFilter(CommandSpec spec, List<CommandCompleterFilter> additionalFilters) {
+    public NonRepeatableOptionsFilter(CommandSpec spec) {
         this.topCommandSpec = spec;
-        this.additionalFilters = additionalFilters.stream()
-                .collect(Collectors.groupingBy(CommandCompleterFilter::commandSpec, Collectors.toList()));
     }
 
     /** Filters candidates. */
@@ -64,20 +44,9 @@ public class NonRepeatableOptionsFilter implements CompleterFilter {
                 .filter(optionTypes::containsKey)
                 .filter(it -> !optionTypes.get(it).isMultiValue())
                 .collect(Collectors.toSet());
-        String[] filteredCandidates = Arrays.stream(candidates)
+        return Arrays.stream(candidates)
                 .filter(it -> !shouldBeExcludedFromCandidates.contains(it))
                 .toArray(String[]::new);
-
-        return applyAdditionalFilters(commandSpec, words, filteredCandidates);
-    }
-
-    private String[] applyAdditionalFilters(CommandSpec commandSpec, String[] words, String[] candidates) {
-        List<CompleterFilter> applicableFilters = additionalFilters.getOrDefault(commandSpec, List.of());
-        String[] tmpCandidates = candidates;
-        for (CompleterFilter filter : applicableFilters) {
-            tmpCandidates = filter.filter(words, tmpCandidates);
-        }
-        return tmpCandidates;
     }
 
     private CommandSpec findCommandSpec(String[] words) {

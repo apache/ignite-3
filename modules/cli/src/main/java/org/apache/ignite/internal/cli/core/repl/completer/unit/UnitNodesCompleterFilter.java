@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.cli.core.repl.completer.unit;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.commands.Options;
 import org.apache.ignite.internal.cli.commands.cluster.unit.NodesAlias;
@@ -31,33 +31,43 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter
  */
 public class UnitNodesCompleterFilter implements CompleterFilter {
 
-    private final Set<String> activationWords;
-
-    /**
-     * Constructor.
-     *
-     * @param options command options.
-     */
-    public UnitNodesCompleterFilter(Options options) {
-        this.activationWords = Stream.of(options.fullName(), options.shortName()).collect(Collectors.toSet());
-    }
+    private final Set<String> options = Options.UNIT_NODES.names();
 
     @Override
     public String[] filter(String[] words, String[] candidates) {
-        long count = Arrays.stream(words)
-                .filter(activationWords::contains)
-                .count();
+        int nodesSpecifiedTimes = 0;
+        boolean prevWordIsNodes = false;
+        Set<String> specifiedNodes = new HashSet<>();
+
+        for (String word : words) {
+            if (prevWordIsNodes) {
+                Arrays.stream(word.split(","))
+                        .map(String::trim)
+                        .filter(it -> !it.isBlank())
+                        .forEach(specifiedNodes::add);
+                prevWordIsNodes = false;
+            } else {
+                if (options.contains(word)) {
+                    nodesSpecifiedTimes++;
+                    prevWordIsNodes = true;
+                }
+            }
+        }
+
+        Stream<String> candidatesWithoutAlreadySpecifiedNodes = Arrays.stream(candidates)
+                .filter(it -> !specifiedNodes.contains(it));
 
         // if it is the first time we see activation word, then we should return all candidates.
         // else we should filter out all nodes aliases.
-        if (count <= 1) {
-            return candidates;
+        if (nodesSpecifiedTimes <= 1) {
+            return candidatesWithoutAlreadySpecifiedNodes.toArray(String[]::new);
         } else {
-            return Arrays.stream(candidates)
+            return candidatesWithoutAlreadySpecifiedNodes
                     .filter(it -> {
                         NodesAlias a = NodesAlias.parse(it);
                         return a == null;
-                    }).toArray(String[]::new);
+                    })
+                    .toArray(String[]::new);
         }
     }
 }

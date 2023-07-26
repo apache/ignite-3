@@ -52,7 +52,8 @@ class DeployCommandTest extends CliCommandTestBase {
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Aliases couldn't be used with explicit nodes list")
+                () -> assertErrOutputContains("Alias ALL couldn't be used with explicit nodes names list [foo]. "
+                        + "Provide either node names list of single alias.")
         );
     }
 
@@ -71,7 +72,8 @@ class DeployCommandTest extends CliCommandTestBase {
         assertAll(
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Only one alias could be used")
+                () -> assertErrOutputContains("Aliases [ALL, MAJORITY] can not be specified together. "
+                        + "Provide single alias, please.")
         );
     }
 }

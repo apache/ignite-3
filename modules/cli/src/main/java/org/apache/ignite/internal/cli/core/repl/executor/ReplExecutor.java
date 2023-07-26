@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.cli.core.repl.executor;
 
-import static org.apache.ignite.internal.cli.util.CommandSpecUtil.findCommand;
-
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -193,10 +191,8 @@ public class ReplExecutor {
         DynamicCompleterFilter dynamicCompleterFilter = factory.create(DynamicCompleterFilter.class);
         List<CompleterFilter> filters = List.of(dynamicCompleterFilter,
                 new ShortOptionsFilter(),
-                new NonRepeatableOptionsFilter(
-                        cmd.getCommandSpec(),
-                        List.of(new DeploymentNodesFilter(findCommand(cmd.getCommandSpec(), "cluster", "unit", "deploy"), "--nodes"))
-                )
+                new NonRepeatableOptionsFilter(cmd.getCommandSpec()),
+                new DeploymentNodesFilter()
         );
 
         return new IgnitePicocliCommands(cmd, completerRegistry, filters);

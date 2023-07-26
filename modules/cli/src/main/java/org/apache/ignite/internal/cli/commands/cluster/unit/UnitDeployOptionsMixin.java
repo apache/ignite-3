@@ -31,7 +31,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallInput;
 import picocli.CommandLine.Model.CommandSpec;
@@ -71,15 +70,29 @@ class UnitDeployOptionsMixin {
     )
     private void setNodes(List<String> values) {
         if (values.size() > 1) {
-            long aliases = values.stream()
-                    .map(String::trim)
-                    .map(NodesAlias::parse)
-                    .filter(Objects::nonNull)
-                    .count();
-            if (aliases > 1) {
-                throw new ParameterException(spec.commandLine(), "Only one alias could be used");
-            } else if (aliases == 1) {
-                throw new ParameterException(spec.commandLine(), "Aliases couldn't be used with explicit nodes list");
+            List<NodesAlias> aliases = new ArrayList<>();
+            List<String> nodeNames = new ArrayList<>();
+            values.forEach(it -> {
+                String trimmed = it.trim();
+                NodesAlias alias = NodesAlias.parse(trimmed);
+                if (alias != null) {
+                    aliases.add(alias);
+                } else {
+                    nodeNames.add(trimmed);
+                }
+            });
+            if (aliases.size() > 1) {
+                throw new ParameterException(
+                        spec.commandLine(),
+                        "Aliases " + aliases + " can not be specified together. Provide single alias, please."
+                );
+            } else if (aliases.size() == 1) {
+                throw new ParameterException(
+                        spec.commandLine(),
+                        "Alias " + aliases.get(0) + " couldn't be used with explicit nodes names list "
+                                + nodeNames
+                                + ". Provide either node names list of single alias."
+                );
             }
         }
         nodes = values;

@@ -162,7 +162,7 @@ public class DynamicCompleterActivationPoint {
                 CompleterConf.builder()
                         .command("cluster", "unit", "deploy")
                         .enableOptions(Options.UNIT_NODES)
-                        .filter(new UnitNodesCompleterFilter(Options.UNIT_NODES))
+                        .filter(new UnitNodesCompleterFilter())
                         .exclusiveEnableOptions().build(),
                 unitNodesDynamicCompleterFactory
         );

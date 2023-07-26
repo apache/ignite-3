@@ -17,38 +17,21 @@
 
 package org.apache.ignite.internal.cli.core.repl.completer.filter;
 
-import static org.apache.ignite.internal.cli.util.CommandSpecUtil.findCommand;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayContaining;
 
-import io.micronaut.configuration.picocli.MicronautFactory;
-import io.micronaut.context.ApplicationContext;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
-import jakarta.inject.Inject;
 import java.util.Arrays;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.commands.cluster.unit.NodesAlias;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import picocli.CommandLine;
 
 
 @MicronautTest
 class DeploymentNodesFilterTest {
-
-    @Inject
-    private ApplicationContext ctx;
-
-    private DeploymentNodesFilter filter;
-
-    @BeforeEach
-    void setUp() {
-        CommandLine cmd = new CommandLine(TopLevelCliReplCommand.class, new MicronautFactory(ctx));
-        filter = new DeploymentNodesFilter(findCommand(cmd.getCommandSpec(), "cluster", "unit", "deploy"), "--nodes");
-    }
+    private final DeploymentNodesFilter filter = new DeploymentNodesFilter();
 
     @Test
     void nodesAreNotExcludedWhenAliasIsNotPresent() {
