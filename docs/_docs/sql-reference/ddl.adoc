@@ -206,13 +206,6 @@ Add a column to the table:
 ALTER TABLE Person ADD COLUMN city varchar;
 ----
 
-Add a new column to the table only if a column with the same name does not exist:
-
-[source,sql]
-----
-ALTER TABLE City ADD COLUMN IF NOT EXISTS population int;
-----
-
 Add a column​ only if the table exists:
 
 [source,sql]
@@ -232,13 +225,6 @@ Drop a column from the table:
 [source,sql]
 ----
 ALTER TABLE Person DROP COLUMN city;
-----
-
-Drop a column from the table only if a column with the same name does exist:
-
-[source,sql]
-----
-ALTER TABLE Person DROP COLUMN IF EXISTS population;
 ----
 
 Drop a column only if the table exists:
