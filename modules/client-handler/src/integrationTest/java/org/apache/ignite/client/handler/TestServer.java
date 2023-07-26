@@ -32,6 +32,7 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
@@ -118,7 +119,7 @@ public class TestServer {
         var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactions.class),
                 registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class),
                 () -> CompletableFuture.completedFuture(UUID.randomUUID()), mock(MetricManager.class), metrics,
-                authenticationManager(), authenticationConfiguration
+                authenticationManager(), authenticationConfiguration, new HybridClockImpl()
         );
 
         module.start();

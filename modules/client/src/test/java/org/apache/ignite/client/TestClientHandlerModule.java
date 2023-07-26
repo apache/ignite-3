@@ -41,6 +41,7 @@ import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
@@ -194,7 +195,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         clusterId,
                                         metrics,
                                         authenticationManager(authenticationConfiguration),
-                                        new TestHybridClock(() -> 1)));
+                                        new HybridClockImpl()));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

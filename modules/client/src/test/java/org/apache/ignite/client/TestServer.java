@@ -40,11 +40,13 @@ import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -181,7 +183,8 @@ public class TestServer implements AutoCloseable {
                         mock(MetricManager.class),
                         metrics,
                         authenticationManager(authenticationConfigToApply),
-                        authenticationConfigToApply
+                        authenticationConfigToApply,
+                        new HybridClockImpl()
                         );
 
         module.start();
