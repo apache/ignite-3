@@ -117,6 +117,7 @@ public class Accumulators {
     private Supplier<Accumulator> sumFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case BIGINT:
+                // Used by REDUCE phase of COUNT aggregate.
                 return () -> new Sum(new LongSumEmptyIsZero());
             case DECIMAL:
                 return () -> new Sum(new DecimalSumEmptyIsZero());
