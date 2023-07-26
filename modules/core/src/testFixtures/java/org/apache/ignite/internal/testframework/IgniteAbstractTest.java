@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.testframework;
 
-import static org.mockito.Mockito.framework;
-
 import java.nio.file.Path;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -57,13 +54,5 @@ public abstract class IgniteAbstractTest extends BaseIgniteAbstractTest {
     @AfterEach
     public void tearDown(TestInfo testInfo) throws Exception {
         tearDownBase(testInfo);
-    }
-
-    /**
-     * Prevents accidental leaks from Mockito.
-     */
-    @AfterAll
-    static void clearInlineMocks() {
-        framework().clearInlineMocks();
     }
 }
