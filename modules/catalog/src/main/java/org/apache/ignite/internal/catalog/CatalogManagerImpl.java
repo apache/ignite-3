@@ -25,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -101,14 +102,14 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Catalog service implementation.
  */
-public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
+public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParameters> implements CatalogManager {
     private static final int MAX_RETRY_COUNT = 10;
 
     /** Safe time to wait before new Catalog version activation. */
     private static final int DEFAULT_DELAY_DURATION = 0;
 
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(CatalogServiceImpl.class);
+    private static final IgniteLogger LOG = Loggers.forClass(CatalogManagerImpl.class);
 
     /** Versioned catalog descriptors. */
     private final NavigableMap<Integer, Catalog> catalogByVer = new ConcurrentSkipListMap<>();
@@ -127,21 +128,21 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter) {
+    public CatalogManagerImpl(UpdateLog updateLog, ClockWaiter clockWaiter) {
         this(updateLog, clockWaiter, DEFAULT_DELAY_DURATION);
     }
 
     /**
      * Constructor.
      */
-    CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter, long delayDurationMs) {
+    CatalogManagerImpl(UpdateLog updateLog, ClockWaiter clockWaiter, long delayDurationMs) {
         this(updateLog, clockWaiter, () -> delayDurationMs);
     }
 
     /**
      * Constructor.
      */
-    public CatalogServiceImpl(UpdateLog updateLog, ClockWaiter clockWaiter, LongSupplier delayDurationMsSupplier) {
+    public CatalogManagerImpl(UpdateLog updateLog, ClockWaiter clockWaiter, LongSupplier delayDurationMsSupplier) {
         this.updateLog = updateLog;
         this.clockWaiter = clockWaiter;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
@@ -183,28 +184,43 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     @Override
-    public CatalogTableDescriptor table(String tableName, long timestamp) {
+    public @Nullable CatalogTableDescriptor table(String tableName, long timestamp) {
         return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).table(tableName);
     }
 
     @Override
-    public CatalogTableDescriptor table(int tableId, long timestamp) {
+    public @Nullable CatalogTableDescriptor table(int tableId, long timestamp) {
         return catalogAt(timestamp).table(tableId);
     }
 
     @Override
-    public CatalogTableDescriptor table(int tableId, int catalogVersion) {
+    public @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion) {
         return catalog(catalogVersion).table(tableId);
     }
 
     @Override
-    public CatalogIndexDescriptor index(String indexName, long timestamp) {
+    public Collection<CatalogTableDescriptor> tables(int catalogVersion) {
+        return catalog(catalogVersion).tables();
+    }
+
+    @Override
+    public @Nullable CatalogIndexDescriptor index(String indexName, long timestamp) {
         return catalogAt(timestamp).schema(DEFAULT_SCHEMA_NAME).index(indexName);
     }
 
     @Override
-    public CatalogIndexDescriptor index(int indexId, long timestamp) {
+    public @Nullable CatalogIndexDescriptor index(int indexId, long timestamp) {
         return catalogAt(timestamp).index(indexId);
+    }
+
+    @Override
+    public @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion) {
+        return catalog(catalogVersion).index(indexId);
+    }
+
+    @Override
+    public Collection<CatalogIndexDescriptor> indexes(int catalogVersion) {
+        return catalog(catalogVersion).indexes();
     }
 
     @Override
@@ -252,6 +268,11 @@ public class CatalogServiceImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public int activeCatalogVersion(long timestamp) {
         return catalogAt(timestamp).version();
+    }
+
+    @Override
+    public int latestCatalogVersion() {
+        return catalogByVer.lastEntry().getKey();
     }
 
     private Catalog catalog(int version) {

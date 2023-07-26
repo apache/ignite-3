@@ -61,7 +61,7 @@ public class ClientComputeExecuteRequest {
 
         Object[] args = unpackArgs(in);
 
-        return compute.execute(Set.of(node), deploymentUnits, jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
+        return compute.executeAsync(Set.of(node), deploymentUnits, jobClassName, args).thenAccept(out::packObjectAsBinaryTuple);
     }
 
     /**

@@ -432,6 +432,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         IgniteException causeWithStackTrace = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
 
+        // TODO IGNITE-19837 Retry outdated schema error
+        unpacker.skipValues(1); // Error extensions.
+
         try {
             // TODO https://issues.apache.org/jira/browse/IGNITE-19539
             Class<? extends Throwable> errCls = (Class<? extends Throwable>) Class.forName(errClassName);
@@ -470,8 +473,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         if (addr == null) {
             error = "At least one Ignite server node must be specified in the Ignite client configuration";
-        } else if (addr.getPort() < 1024 || addr.getPort() > 49151) {
-            error = String.format("Ignite client port %s is out of valid ports range 1024...49151", addr.getPort());
         }
 
         if (error != null) {

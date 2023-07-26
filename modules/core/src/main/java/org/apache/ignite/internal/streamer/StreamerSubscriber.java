@@ -19,15 +19,19 @@ package org.apache.ignite.internal.streamer;
 
 import java.util.Collection;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,7 +65,9 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
 
     private @Nullable Flow.Subscription subscription;
 
-    private @Nullable Timer flushTimer;
+    private @Nullable ScheduledExecutorService flushTimer;
+
+    private @Nullable ScheduledFuture<?> flushTask;
 
     /**
      * Constructor.
@@ -103,9 +109,9 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
                         log.error("Failed to refresh schemas and partition assignment: " + err.getMessage(), err);
                         close(err);
                     } else {
-                        requestMore();
+                        initFlushTimer();
 
-                        flushTimer = initFlushTimer();
+                        requestMore();
                     }
                 });
     }
@@ -196,7 +202,11 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
 
     private void close(@Nullable Throwable throwable) {
         if (flushTimer != null) {
-            flushTimer.cancel();
+            assert flushTask != null;
+
+            flushTask.cancel(false);
+
+            IgniteUtils.shutdownAndAwaitTermination(flushTimer, 10, TimeUnit.SECONDS);
         }
 
         var s = subscription;
@@ -241,18 +251,18 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
         pendingItemCount.addAndGet(count);
     }
 
-    private @Nullable Timer initFlushTimer() {
+    private void initFlushTimer() {
         int interval = options.autoFlushFrequency();
 
         if (interval <= 0) {
-            return null;
+            return;
         }
 
-        Timer timer = new Timer("client-data-streamer-flush-" + hashCode());
+        String threadPrefix = "client-data-streamer-flush-" + hashCode();
 
-        timer.schedule(new PeriodicFlushTask(), interval, interval);
+        flushTimer = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(threadPrefix, log));
 
-        return timer;
+        flushTask = flushTimer.scheduleAtFixedRate(new PeriodicFlushTask(), interval, interval, TimeUnit.MILLISECONDS);
     }
 
     private static StreamerMetricSink getMetrics(@Nullable StreamerMetricSink metrics) {
@@ -284,7 +294,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
     /**
      * Periodically flushes buffers.
      */
-    private class PeriodicFlushTask extends TimerTask {
+    private class PeriodicFlushTask implements Runnable {
         @Override
         public void run() {
             for (StreamerBuffer<T> buf : buffers.values()) {
