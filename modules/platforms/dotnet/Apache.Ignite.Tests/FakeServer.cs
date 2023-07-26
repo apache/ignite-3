@@ -320,6 +320,7 @@ namespace Apache.Ignite.Tests
                 w.Write("org.foo.bar.BazException");
                 w.Write(Err);
                 w.WriteNil(); // Stack trace.
+                w.WriteNil(); // Error extensions.
 
                 Send(handler, requestId, errWriter, isError: true);
             }
