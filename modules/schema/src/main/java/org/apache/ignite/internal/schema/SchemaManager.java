@@ -216,6 +216,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         return ent.thenApply(e -> SchemaSerializerImpl.INSTANCE.deserialize(e.value()));
     }
 
+    /** Saves a schema descriptor to the configuration storage. */
     private CompletableFuture<Boolean> saveSchemaDescriptor(int tableId, SchemaDescriptor schema) {
         ByteArray key = schemaWithVerHistKey(tableId, schema.version());
 
