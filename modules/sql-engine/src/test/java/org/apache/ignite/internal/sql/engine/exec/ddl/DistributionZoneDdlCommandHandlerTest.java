@@ -29,14 +29,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,12 +56,6 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
     private final AtomicReference<Object[]> invocationResultHolder = new AtomicReference<>();
 
     @Mock
-    private TableManager tableManager;
-
-    @Mock
-    private IndexManager indexManager;
-
-    @Mock
     private DataStorageManager dataStorageManager;
 
     @Mock
@@ -83,7 +75,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
                     return CompletableFuture.completedFuture(null);
                 });
 
-        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager, catalogManager);
+        commandHandler = new DdlCommandHandler(distributionZoneManager, dataStorageManager, catalogManager);
     }
 
 

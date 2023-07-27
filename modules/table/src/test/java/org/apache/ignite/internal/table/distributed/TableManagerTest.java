@@ -65,7 +65,7 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
@@ -854,7 +854,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
 
-        CatalogManager catalogManager = new CatalogServiceImpl(
+        CatalogManager catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(StandaloneMetaStorageManager.create(vaultManager)),
                 new ClockWaiter("note", new HybridClockImpl()));
 

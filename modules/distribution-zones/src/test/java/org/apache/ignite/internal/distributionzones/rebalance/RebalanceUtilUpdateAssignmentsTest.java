@@ -97,6 +97,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private final CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
             1,
             "table1",
+            1,
             0,
             List.of(new CatalogTableColumnDescriptor("k1", ColumnType.INT32, false, 0, 0, 0, null)),
             List.of("k1"),

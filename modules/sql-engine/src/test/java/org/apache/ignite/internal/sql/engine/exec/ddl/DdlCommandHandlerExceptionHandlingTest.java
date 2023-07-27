@@ -44,12 +44,10 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
@@ -69,12 +67,6 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
-    @Mock
-    private TableManager tableManager;
-
-    @Mock
-    private IndexManager indexManager;
-
     @Mock
     private DataStorageManager dataStorageManager;
 
@@ -125,7 +117,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
                 "node"
         );
 
-        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager, catalogManager);
+        commandHandler = new DdlCommandHandler(distributionZoneManager, dataStorageManager, catalogManager);
     }
 
     @AfterEach

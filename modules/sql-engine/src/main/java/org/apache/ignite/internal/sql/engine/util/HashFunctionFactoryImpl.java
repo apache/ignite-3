@@ -37,19 +37,20 @@ import org.apache.ignite.internal.util.HashCalculator;
  * Factory for creating a function to calculate the hash of the specified fields of a row.
  */
 public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
-    private final SqlSchemaManager sqlSchemaManager;
     private final IgniteCatalogSchema sqlSchema;
     private final RowHandler<T> rowHandler;
 
+    /** Constructor. */
     @Deprecated(forRemoval = true)
     public HashFunctionFactoryImpl(SqlSchemaManager sqlSchemaManager, RowHandler<T> rowHandler) {
-        this.sqlSchemaManager = sqlSchemaManager;
+        assert false;
+
         this.rowHandler = rowHandler;
         this.sqlSchema = null;
     }
 
+    /** Constructor. */
     public HashFunctionFactoryImpl(IgniteCatalogSchema sqlSchema, RowHandler<T> rowHandler) {
-        this.sqlSchemaManager = null;
         this.rowHandler = rowHandler;
         this.sqlSchema = sqlSchema;
     }

@@ -141,8 +141,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final SchemaManager schemaManager;
 
-    private final Consumer<LongFunction<CompletableFuture<?>>> registry;
-
     private final DataStorageManager dataStorageManager;
 
     private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
@@ -192,7 +190,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             HybridClock clock,
             CatalogManager catalogManager
     ) {
-        this.registry = registry;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
         this.indexManager = indexManager;
@@ -240,8 +237,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var ddlCommandHandler = new DdlCommandHandler(
                 distributionZoneManager,
-                tableManager,
-                indexManager,
                 dataStorageManager,
                 catalogManager
         );

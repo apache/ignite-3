@@ -31,7 +31,6 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
@@ -46,7 +45,6 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
@@ -60,10 +58,6 @@ import org.apache.ignite.sql.SqlException;
 public class DdlCommandHandler {
     private final DistributionZoneManager distributionZoneManager;
 
-    private final TableManager tableManager;
-
-    private final IndexManager indexManager;
-
     private final DataStorageManager dataStorageManager;
 
     private final CatalogManager catalogManager;
@@ -73,14 +67,10 @@ public class DdlCommandHandler {
      */
     public DdlCommandHandler(
             DistributionZoneManager distributionZoneManager,
-            TableManager tableManager,
-            IndexManager indexManager,
             DataStorageManager dataStorageManager,
             CatalogManager catalogManager
     ) {
         this.distributionZoneManager = distributionZoneManager;
-        this.tableManager = tableManager;
-        this.indexManager = indexManager;
         this.dataStorageManager = dataStorageManager;
         this.catalogManager = catalogManager;
     }
@@ -277,8 +267,7 @@ public class DdlCommandHandler {
         if (params instanceof CreateSortedIndexParams) {
             return catalogManager.createIndex((CreateSortedIndexParams) params)
                     .handle(handleModificationResult(cmd.ifNotExists(), IndexAlreadyExistsException.class));
-        }
-        else {
+        } else {
             return catalogManager.createIndex((CreateHashIndexParams) params)
                     .handle(handleModificationResult(cmd.ifNotExists(), IndexAlreadyExistsException.class));
         }
