@@ -45,6 +45,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -96,6 +97,7 @@ public class TestServer implements AutoCloseable {
                 null,
                 UUID.randomUUID(),
                 null,
+                null,
                 null
         );
     }
@@ -114,7 +116,8 @@ public class TestServer implements AutoCloseable {
             @Nullable String nodeName,
             UUID clusterId,
             @Nullable AuthenticationConfiguration authenticationConfiguration,
-            @Nullable Integer port
+            @Nullable Integer port,
+            @Nullable HybridClock clock
     ) {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
@@ -158,6 +161,11 @@ public class TestServer implements AutoCloseable {
         AuthenticationConfiguration authenticationConfigToApply = authenticationConfiguration == null
                 ? mock(AuthenticationConfiguration.class)
                 : authenticationConfiguration;
+
+        if (clock == null) {
+            clock = new HybridClockImpl();
+        }
+
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
                         ignite,
@@ -184,7 +192,7 @@ public class TestServer implements AutoCloseable {
                         metrics,
                         authenticationManager(authenticationConfigToApply),
                         authenticationConfigToApply,
-                        new HybridClockImpl()
+                        clock
                         );
 
         module.start();

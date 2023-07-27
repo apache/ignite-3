@@ -48,8 +48,8 @@ public class MultiClusterTest {
 
     @BeforeEach
     void setUp() {
-        server1 = new TestServer(0, new FakeIgnite(), null, null, "s1", clusterId1, null, null);
-        server2 = new TestServer(0, new FakeIgnite(), null, null, "s2", clusterId2, null, null);
+        server1 = new TestServer(0, new FakeIgnite(), null, null, "s1", clusterId1, null, null, null);
+        server2 = new TestServer(0, new FakeIgnite(), null, null, "s2", clusterId2, null, null, null);
     }
 
     @AfterEach
@@ -89,7 +89,7 @@ public class MultiClusterTest {
             client.tables().tables();
 
             server1.close();
-            server1 = new TestServer(0, new FakeIgnite(), null, null, "s1", clusterId2, null, port);
+            server1 = new TestServer(0, new FakeIgnite(), null, null, "s1", clusterId2, null, port, null);
 
             IgniteClientConnectionException ex = (IgniteClientConnectionException) assertThrowsWithCause(
                     () -> client.tables().tables(), IgniteClientConnectionException.class, "Cluster ID mismatch");

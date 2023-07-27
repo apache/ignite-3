@@ -161,7 +161,7 @@ public class ConfigurationTest extends AbstractClientTest {
     public void testCustomAsyncContinuationExecutor() throws Exception {
         Function<Integer, Integer> responseDelay = x -> 50;
 
-        try (var testServer = new TestServer(0, server, x -> false, responseDelay, "n2", clusterId, null, null)) {
+        try (var testServer = new TestServer(0, server, x -> false, responseDelay, "n2", clusterId, null, null, null)) {
             ExecutorService executor = Executors.newSingleThreadExecutor();
 
             var builderThreadName = new AtomicReference<String>();

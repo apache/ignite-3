@@ -111,6 +111,7 @@ public class ClientAuthenticationTest {
                 null,
                 UUID.randomUUID(),
                 authenticationConfiguration,
+                null,
                 null);
 
         if (basicAuthn) {

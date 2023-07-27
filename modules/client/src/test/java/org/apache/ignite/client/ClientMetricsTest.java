@@ -93,6 +93,7 @@ public class ClientMetricsTest {
                 null,
                 AbstractClientTest.clusterId,
                 null,
+                null,
                 null
         );
         client = clientBuilder()
@@ -118,6 +119,7 @@ public class ClientMetricsTest {
                 null,
                 AbstractClientTest.clusterId,
                 null,
+                null,
                 null
         );
 
@@ -138,6 +140,7 @@ public class ClientMetricsTest {
                 responseDelay,
                 null,
                 AbstractClientTest.clusterId,
+                null,
                 null,
                 null
         );
@@ -161,6 +164,7 @@ public class ClientMetricsTest {
                 responseDelay,
                 null,
                 AbstractClientTest.clusterId,
+                null,
                 null,
                 null
         );

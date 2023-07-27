@@ -104,7 +104,7 @@ public class ClientLoggingTest {
     }
 
     private static TestServer startServer(FakeIgnite ignite, @Nullable Integer port) {
-        return new TestServer(0, ignite, null, null, null, AbstractClientTest.clusterId, null, port);
+        return new TestServer(0, ignite, null, null, null, AbstractClientTest.clusterId, null, port, null);
     }
 
     private static IgniteClient createClient(LoggerFactory loggerFactory, int... ports) {
