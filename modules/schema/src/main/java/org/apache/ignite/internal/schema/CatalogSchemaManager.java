@@ -104,7 +104,21 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
         catalogService.listen(CatalogEvent.TABLE_CREATE, this::onTableCreated);
         catalogService.listen(CatalogEvent.TABLE_ALTER, this::onTableAltered);
 
-        // TODO: IGNITE-20051 - add proper recovery.
+        registerExistingTables();
+    }
+
+    private void registerExistingTables() {
+        // TODO: IGNITE-20051 - add proper recovery (consider tables that are removed now; take token and catalog version
+        // exactly matching the tables).
+
+        long causalityToken = metastorageMgr.appliedRevision();
+        int catalogVersion = catalogService.latestCatalogVersion();
+
+        for (CatalogTableDescriptor tableDescriptor : catalogService.tables(catalogVersion)) {
+            onTableCreated(new CreateTableEventParameters(causalityToken, catalogVersion, tableDescriptor), null);
+        }
+
+        registriesVv.complete(causalityToken);
     }
 
     private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event, @Nullable Throwable ex) {

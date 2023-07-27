@@ -32,9 +32,12 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -113,7 +116,7 @@ class CatalogSchemaManagerTest {
         vaultManager = new VaultManager(new InMemoryVaultService());
         vaultManager.start();
 
-        metaStorageManager = StandaloneMetaStorageManager.create(vaultManager, metaStorageKvStorage);
+        metaStorageManager = spy(StandaloneMetaStorageManager.create(vaultManager, metaStorageKvStorage));
         metaStorageManager.start();
 
         doAnswer(invocation -> {
@@ -380,9 +383,7 @@ class CatalogSchemaManagerTest {
 
     @Test
     void previousSchemaVersionsRemainAvailable() {
-        createSomeTable();
-
-        addSomeColumn();
+        create2TableVersions();
 
         CompletableFuture<SchemaRegistry> future = schemaManager.schemaRegistry(CAUSALITY_TOKEN_2, TABLE_ID);
         assertThat(future, willCompleteSuccessfully());
@@ -394,6 +395,11 @@ class CatalogSchemaManagerTest {
 
         SchemaDescriptor schemaDescriptor2 = schemaRegistry.schema(2);
         assertThat(schemaDescriptor2.version(), is(2));
+    }
+
+    private void create2TableVersions() {
+        createSomeTable();
+        addSomeColumn();
     }
 
     private void addSomeColumn() {
@@ -415,9 +421,7 @@ class CatalogSchemaManagerTest {
 
     @Test
     void waitLatestSchemaReturnsLatestSchema() {
-        createSomeTable();
-
-        addSomeColumn();
+        create2TableVersions();
 
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
 
@@ -480,5 +484,26 @@ class CatalogSchemaManagerTest {
 
     private static ByteArray latestSchemaVersionKey(int tableId) {
         return ByteArray.fromString(tableId + LATEST_SCHEMA_VERSION_STORE_SUFFIX);
+    }
+
+    @Test
+    void loadingPreExistingSchemasWorks() throws Exception {
+        create2TableVersions();
+
+        schemaManager.stop();
+
+        when(catalogService.latestCatalogVersion()).thenReturn(2);
+        when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
+        doReturn(45L).when(metaStorageManager).appliedRevision();
+
+        schemaManager = new CatalogSchemaManager(registry, catalogService, metaStorageManager);
+        schemaManager.start();
+
+        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
+
+        int prevSchemaVersionNotYetTouched = 1;
+
+        SchemaDescriptor schemaDescriptor = schemaRegistry.schema(prevSchemaVersionNotYetTouched);
+        assertThat(schemaDescriptor.version(), is(prevSchemaVersionNotYetTouched));
     }
 }
