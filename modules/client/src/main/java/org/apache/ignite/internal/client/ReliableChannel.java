@@ -106,6 +106,9 @@ public final class ReliableChannel implements AutoCloseable {
      * the table will compare its version with channel version to detect an update. */
     private final AtomicLong assignmentVersion = new AtomicLong();
 
+    /** Observable timestamp, or causality token. Sent by the server with every response, and required by some requests. */
+    private final AtomicLong observableTimestamp = new AtomicLong();
+
     /** Cluster id from the first handshake. */
     private final AtomicReference<UUID> clusterId = new AtomicReference<>();
 
@@ -654,8 +657,19 @@ public final class ReliableChannel implements AutoCloseable {
         }
     }
 
-    private void onObservableTimestampReceived(Long observableTimestamp) {
-        // TODO
+    private void onObservableTimestampReceived(Long newTs) {
+        // Atomically update the observable timestamp to max(newTs, curTs).
+        while (true) {
+            long curTs = observableTimestamp.get();
+
+            if (curTs >= newTs) {
+                break;
+            }
+
+            if (observableTimestamp.compareAndSet(curTs, newTs)) {
+                break;
+            }
+        }
     }
 
     private void onTopologyAssignmentChanged(ClientChannel clientChannel) {
