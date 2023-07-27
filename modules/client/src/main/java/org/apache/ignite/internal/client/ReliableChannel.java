@@ -184,8 +184,7 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     public long observableTimestamp() {
-        // TODO: Store amd update observable timestamp in ReliableChannel.
-        return 0;
+        return observableTimestamp.get();
     }
 
     /**

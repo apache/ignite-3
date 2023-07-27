@@ -54,7 +54,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
             throw new UnsupportedOperationException("Timeouts are not supported yet");
         }
 
-        return txManager.begin(options != null && options.readOnly(), null);
+        return txManager.begin(options != null && options.readOnly(), observableTimestamp);
     }
 
     /** {@inheritDoc} */

@@ -477,7 +477,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     @Override
     public void addObservableTimestampListener(Consumer<Long> listener) {
-
+        observableTimestampListeners.add(listener);
     }
 
     private static void validateConfiguration(ClientChannelConfiguration cfg) {

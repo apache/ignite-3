@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -49,7 +50,7 @@ public class ObservableTimestampPropagationTest {
         TestHybridClock clock = new TestHybridClock(observableTimestamp::get);
 
         ignite = new FakeIgnite("server-2");
-        testServer = new TestServer(0, ignite, unused -> false, null, "server-2", UUID.randomUUID(), null, null, clock);
+        testServer = new TestServer(0, ignite, null, null, "server-2", UUID.randomUUID(), null, null, clock);
 
         client = IgniteClient.builder().addresses("127.0.0.1:" + testServer.port()).build();
     }
@@ -70,11 +71,26 @@ public class ObservableTimestampPropagationTest {
         // RO TX propagates timestamp.
         client.transactions().begin(new TransactionOptions().readOnly(true));
         assertEquals(1, lastObservableTimestamp());
+
+        // Increase timestamp on server - client does not know about it initially.
+        observableTimestamp.set(11);
+        client.transactions().begin(new TransactionOptions().readOnly(true));
+        assertEquals(1, lastObservableTimestamp());
+
+        // Subsequent RO TX propagates latest known timestamp.
+        client.transactions().begin(new TransactionOptions().readOnly(true));
+        assertEquals(11, lastObservableTimestamp());
+
+        // Smaller timestamp from server is ignored by client.
+        observableTimestamp.set(9);
+        client.transactions().begin(new TransactionOptions().readOnly(true));
+        client.transactions().begin(new TransactionOptions().readOnly(true));
+        assertEquals(11, lastObservableTimestamp());
     }
 
     private static @Nullable Long lastObservableTimestamp() {
         HybridTimestamp ts = ignite.txManager().lastObservableTimestamp();
 
-        return ts == null ? null : ts.longValue();
+        return ts == null ? null : ts.longValue() >> LOGICAL_TIME_BITS_SIZE;
     }
 }

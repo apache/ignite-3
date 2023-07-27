@@ -177,7 +177,8 @@ public class TestServer implements AutoCloseable {
                         compute,
                         clusterId,
                         metrics,
-                        authenticationConfigToApply)
+                        authenticationConfigToApply,
+                        clock)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
