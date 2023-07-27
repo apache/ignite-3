@@ -389,6 +389,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         metrics.requestsActiveDecrement();
 
         int flags = unpacker.unpackInt();
+        long observableTimestamp = unpacker.unpackLong();
 
         if (ResponseFlags.getPartitionAssignmentChangedFlag(flags)) {
             if (log.isInfoEnabled()) {
