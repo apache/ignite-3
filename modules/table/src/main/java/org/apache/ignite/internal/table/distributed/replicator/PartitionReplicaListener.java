@@ -110,6 +110,8 @@ import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommandBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyDirectMultiRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyDirectSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
@@ -355,6 +357,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, isPrimary);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
             return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request, isPrimary);
+        } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
+            return processReadOnlyDirectSingleEntryAction((ReadOnlyDirectSingleRowReplicaRequest) request);
+        } else if (request instanceof ReadOnlyDirectMultiRowReplicaRequest) {
+            return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
@@ -528,6 +534,24 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
+     * Processes single entry direct request for read only transaction.
+     *
+     * @param request Read only single entry request.
+     * @return Result future.
+     */
+    private CompletableFuture<BinaryRow> processReadOnlyDirectSingleEntryAction(ReadOnlyDirectSingleRowReplicaRequest request) {
+        BinaryRow searchRow = request.binaryRow();
+        HybridTimestamp readTimestamp = hybridClock.now();
+
+        if (request.requestType() != RequestType.RO_GET) {
+            throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
+                    format("Unknown single request [actionType={}]", request.requestType()));
+        }
+
+        return resolveRowByPkForReadOnly(searchRow, readTimestamp);
+    }
+
+    /**
      * Checks that the node is primary and {@code timestamp} is already passed in the reference system of the current node.
      *
      * @param isPrimary True if the node is primary, false otherwise.
@@ -580,6 +604,44 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 return result;
             });
+        });
+    }
+
+    /**
+     * Processes multiple entries direct request for read only transaction.
+     *
+     * @param request Read only multiple entries request.
+     * @return Result future.
+     */
+    private CompletableFuture<List<BinaryRow>> processReadOnlyDirectMultiEntryAction(
+            ReadOnlyDirectMultiRowReplicaRequest request
+    ) {
+        Collection<BinaryRow> searchRows = request.binaryRows();
+        HybridTimestamp readTimestamp = hybridClock.now();
+
+        if (request.requestType() != RequestType.RO_GET_ALL) {
+            throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
+                    format("Unknown single request [actionType={}]", request.requestType()));
+        }
+
+        var resolutionFuts = new ArrayList<CompletableFuture<BinaryRow>>(searchRows.size());
+
+        for (BinaryRow searchRow : searchRows) {
+            CompletableFuture<BinaryRow> fut = resolveRowByPkForReadOnly(searchRow, readTimestamp);
+
+            resolutionFuts.add(fut);
+        }
+
+        return allOf(resolutionFuts.toArray(new CompletableFuture[0])).thenApply(unused1 -> {
+            var result = new ArrayList<BinaryRow>(resolutionFuts.size());
+
+            for (CompletableFuture<BinaryRow> resolutionFut : resolutionFuts) {
+                BinaryRow resolvedReadResult = resolutionFut.join();
+
+                result.add(resolvedReadResult);
+            }
+
+            return result;
         });
     }
 

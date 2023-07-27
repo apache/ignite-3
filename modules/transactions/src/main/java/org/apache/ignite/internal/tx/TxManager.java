@@ -45,6 +45,15 @@ public interface TxManager extends IgniteComponent {
     /**
      * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
      *
+     * @param readOnly True in order to start a read-only transaction, false for read-write.
+     * @return The started transaction.
+     */
+    InternalTransaction begin(boolean readOnly);
+
+    /**
+     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
+     * A read timestamp is determined by {@code observableTimestamp} for a read-only transaction.
+     *
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
      *      Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
      * @param observableTimestamp Observable timestamp, applicable only for read-only transactions. Read-only transactions

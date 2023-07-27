@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
@@ -113,7 +114,13 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public InternalTransaction begin() {
-        return begin(false, null);
+        return begin(false);
+    }
+
+    @Override
+    public InternalTransaction begin(boolean readOnly) {
+        //TODO: IGNITE-19889 Here we should pass a server observation timestamp instead of clock.now() for RO transactions.
+        return begin(readOnly, readOnly ? clock.now() : null);
     }
 
     @Override
@@ -130,7 +137,7 @@ public class TxManagerImpl implements TxManager {
 
         HybridTimestamp readTimestamp = observableTimestamp != null
                 ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
-                : clock.now();
+                : currentReadTimestamp();
 
         lowWatermarkReadWriteLock.readLock().lock();
 
@@ -167,7 +174,7 @@ public class TxManagerImpl implements TxManager {
 
         return new HybridTimestamp(now.getPhysical()
                 - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
-                - HybridTimestamp.CLOCK_SKEW,
+                - CLOCK_SKEW,
                 0
         );
     }

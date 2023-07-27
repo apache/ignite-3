@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.nullValue;
@@ -110,10 +111,10 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
         kv.put(tx, "k1", 1);
 
         assertThrowsExactly(TransactionException.class, () -> kv.put(null, "k1", 2));
-        assertThrowsExactly(TransactionException.class, () -> kv.get(null, "k1"));
+        assertThat(kv.getAsync(null, "k1"), willCompleteSuccessfully());
         assertThrowsExactly(TransactionException.class, () -> kv.remove(null, "k1"));
         assertThrowsExactly(TransactionException.class, () -> kv.remove(null, "k1", 1));
-        assertThrowsExactly(TransactionException.class, () -> kv.contains(null, "k1"));
+        assertThat(kv.containsAsync(null, "k1"), willCompleteSuccessfully());
         assertThrowsExactly(TransactionException.class, () -> kv.replace(null, "k1", 2));
 
         tx.rollback();
@@ -126,7 +127,7 @@ public class ItTableApiContractTest extends ClusterPerClassIntegrationTest {
 
         assertThrowsExactly(TransactionException.class, () -> recordView.insert(null, Tuple.create().set("name", "k1").set("balance", 2)));
         assertThrowsExactly(TransactionException.class, () -> recordView.upsert(null, Tuple.create().set("name", "k1").set("balance", 2)));
-        assertThrowsExactly(TransactionException.class, () -> recordView.get(null, Tuple.create().set("name", "k1")));
+        assertThat(recordView.getAsync(null, Tuple.create().set("name", "k1")), willCompleteSuccessfully());
         assertThrowsExactly(TransactionException.class, () -> recordView.delete(null, Tuple.create().set("name", "k1")));
         assertThrowsExactly(TransactionException.class,
                 () -> recordView.deleteExact(null, Tuple.create().set("name", "k1").set("balance", 1)));

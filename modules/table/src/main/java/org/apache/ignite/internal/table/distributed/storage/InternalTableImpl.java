@@ -39,6 +39,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -259,7 +260,15 @@ public class InternalTableImpl implements InternalTable {
             } catch (PrimaryReplicaMissException e) {
                 throw new TransactionException(e);
             } catch (Throwable e) {
-                throw new TransactionException("Failed to invoke the replica request.");
+                throw new TransactionException(
+                        INTERNAL_ERR,
+                        IgniteStringFormatter.format(
+                                "Failed to invoke the replica request [tableName={}, partId={}]",
+                                tableName,
+                                partId
+                        ),
+                        e
+                );
             }
         } else {
             fut = enlistWithRetry(
@@ -313,10 +322,10 @@ public class InternalTableImpl implements InternalTable {
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
         for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
-            int partitionId = partitionRowBatch.getIntKey();
+            int partId = partitionRowBatch.getIntKey();
             RowBatch rowBatch = partitionRowBatch.getValue();
 
-            TablePartitionId partGroupId = new TablePartitionId(tableId, partitionId);
+            TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
             IgniteBiTuple<ClusterNode, Long> primaryReplicaAndTerm = tx0.enlistedNodeAndTerm(partGroupId);
 
@@ -332,12 +341,20 @@ public class InternalTableImpl implements InternalTable {
                 } catch (PrimaryReplicaMissException e) {
                     throw new TransactionException(e);
                 } catch (Throwable e) {
-                    throw new TransactionException("Failed to invoke the replica request.");
+                    throw new TransactionException(
+                            INTERNAL_ERR,
+                            IgniteStringFormatter.format(
+                                    "Failed to invoke the replica request [tableName={}, partId={}]",
+                                    tableName,
+                                    partId
+                            ),
+                            e
+                    );
                 }
             } else {
                 fut = enlistWithRetry(
                         tx0,
-                        partitionId,
+                        partId,
                         (commitPart, term) -> op.apply(commitPart, rowBatch.requestedRows, tx0, partGroupId, term),
                         ATTEMPTS_TO_ENLIST_PARTITION
                 );
@@ -523,7 +540,16 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
-        if (tx != null && tx.isReadOnly()) {
+        if (tx == null) {
+            return evaluateReadOnlyPrimaryNode(
+                    keyRow,
+                    groupId -> tableMessagesFactory.readOnlyDirectSingleRowReplicaRequest()
+                            .groupId(groupId)
+                            .binaryRowBytes(keyRow.byteBuffer())
+                            .requestType(RequestType.RO_GET)
+                            .build()
+            );
+        } else if (tx.isReadOnly()) {
             return evaluateReadOnlyRecipientNode(partitionId(keyRow))
                     .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
         } else {
@@ -564,7 +590,16 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
-        if (tx != null && tx.isReadOnly()) {
+        if (tx == null && isOnePartitionBatch(keyRows)) {
+            return evaluateReadOnlyPrimaryNode(
+                    keyRows,
+                    groupId -> tableMessagesFactory.readOnlyDirectMultiRowReplicaRequest()
+                            .groupId(groupId)
+                            .binaryRowsBytes(serializeBinaryRows(keyRows))
+                            .requestType(RequestType.RO_GET_ALL)
+                            .build()
+            );
+        } else if (tx != null && tx.isReadOnly()) {
             BinaryRowEx firstRow = keyRows.iterator().next();
 
             if (firstRow == null) {
@@ -1519,7 +1554,7 @@ public class InternalTableImpl implements InternalTable {
      * Evaluated cluster node for read-only request processing.
      *
      * @param partId Partition id.
-     * @return Cluster node to evalute read-only request.
+     * @return Cluster node to evaluate read-only request.
      */
     protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
         RaftGroupService svc = raftGroupServiceByPartitionId.get(partId);
@@ -1535,6 +1570,144 @@ public class InternalTableImpl implements InternalTable {
                 }
             }
         });
+    }
+
+    /**
+     * Evaluates the single-row request to the cluster for a read-only single-partition transaction.
+     *
+     * @param row Binary row.
+     * @param op Operation.
+     * @param <R> Result type.
+     * @return The future.
+     */
+    private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
+            BinaryRowEx row,
+            Function<ReplicationGroupId, ReplicaRequest> op
+    ) {
+        InternalTransaction tx = txManager.begin(true, null);
+
+        int partId = partitionId(row);
+
+        RaftGroupService svc = raftGroupServiceByPartitionId.get(partId);
+
+        CompletableFuture<R>  fut = svc.refreshAndGetLeaderWithTerm().thenCompose(leaderWithTerm -> {
+            try {
+                ClusterNode node = clusterNodeResolver.apply(leaderWithTerm.leader().consistentId());
+
+                TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+
+                return replicaSvc.invoke(node, op.apply(partGroupId));
+            } catch (PrimaryReplicaMissException e) {
+                throw new TransactionException(e);
+            } catch (Throwable e) {
+                throw new TransactionException(
+                        INTERNAL_ERR,
+                        IgniteStringFormatter.format(
+                                "Failed to invoke the replica request [tableName={}, partId={}]",
+                                tableName,
+                                partId
+                        ),
+                        e
+                );
+            }
+        });
+
+        return postEvaluate(fut, tx);
+    }
+
+    /**
+     * Evaluates the multi-row request to the cluster for a read-only single-partition transaction.
+     *
+     * @param rows Rows.
+     * @param op Replica requests factory.
+     * @param <R> Result type.
+     * @return The future.
+     */
+    private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
+            Collection<BinaryRowEx> rows,
+            Function<ReplicationGroupId, ReplicaRequest> op
+    ) {
+        InternalTransaction tx = txManager.begin(true, null);
+
+        int partId = partitionId(rows.iterator().next());
+
+        RaftGroupService svc = raftGroupServiceByPartitionId.get(partId);
+
+        CompletableFuture<R>  fut = svc.refreshAndGetLeaderWithTerm().thenCompose(leaderWithTerm -> {
+            try {
+                ClusterNode node = clusterNodeResolver.apply(leaderWithTerm.leader().consistentId());
+
+                TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
+
+                return replicaSvc.invoke(node, op.apply(partGroupId));
+            } catch (PrimaryReplicaMissException e) {
+                throw new TransactionException(e);
+            } catch (Throwable e) {
+                throw new TransactionException(
+                        INTERNAL_ERR,
+                        IgniteStringFormatter.format(
+                                "Failed to invoke the replica request [tableName={}, partId={}]",
+                                tableName,
+                                partId
+                        ),
+                        e
+                );
+            }
+        });
+
+        return postEvaluate(fut, tx);
+    }
+
+    /**
+     * Performs post evaluate operation.
+     *
+     * @param fut The future.
+     * @param tx The transaction.
+     * @param <R> Operation return type.
+     * @return The future.
+     */
+    private <R> CompletableFuture<R> postEvaluate(CompletableFuture<R> fut, InternalTransaction tx) {
+        return fut.handle((BiFunction<R, Throwable, CompletableFuture<R>>) (r, e) -> {
+            if (e != null) {
+                RuntimeException e0 = wrapReplicationException(e);
+
+                return tx.rollbackAsync().handle((ignored, err) -> {
+
+                    if (err != null) {
+                        e0.addSuppressed(err);
+                    }
+                    throw e0;
+                }); // Preserve failed state.
+            } else {
+                return tx.commitAsync()
+                        .exceptionally(ex -> {
+                            throw wrapReplicationException(ex);
+                        })
+                        .thenApply(ignored -> r);
+            }
+        }).thenCompose(x -> x);
+    }
+
+    /**
+     * Checks that the batch of rows belongs to one partition.
+     *
+     * @param rows Batch of rows.
+     * @return If all rows belong to one partition, the method returns true; otherwise, it returns false.
+     */
+    private boolean isOnePartitionBatch(Collection<BinaryRowEx> rows) {
+        Iterator<BinaryRowEx> rowIterator = rows.iterator();
+
+        int partId = partitionId(rowIterator.next());
+
+        while (rowIterator.hasNext()) {
+            BinaryRowEx row = rowIterator.next();
+
+            if (partId != partitionId(row)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

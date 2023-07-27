@@ -81,7 +81,9 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyDirectSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.SingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -219,10 +221,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         when(partitionReplicaListener.invoke(any())).thenAnswer(invocationOnMock -> {
             ReplicaRequest req = invocationOnMock.getArgument(0);
 
-            if (req instanceof ReadWriteSingleRowReplicaRequest) {
-                ReadWriteSingleRowReplicaRequest req0 = (ReadWriteSingleRowReplicaRequest) req;
+            if (req instanceof ReadWriteSingleRowReplicaRequest || req instanceof ReadOnlyDirectSingleRowReplicaRequest) {
+                SingleRowReplicaRequest req0 = (SingleRowReplicaRequest) req;
 
-                if (req0.requestType() == RequestType.RW_GET) {
+                if (req0.requestType() == RequestType.RW_GET || req0.requestType() == RequestType.RO_GET) {
                     int storageIndex = stoppedNodeIndex == 0 ? 1 : 0;
                     MvPartitionStorage partitionStorage = mvPartitionStorages.get(storageIndex);
 
@@ -234,11 +236,13 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     return completedFuture(row);
                 }
 
+                ReadWriteSingleRowReplicaRequest rwReq = (ReadWriteSingleRowReplicaRequest) req;
+
                 // Non-null binary row if UPSERT, otherwise it's implied that request type is DELETE.
                 ByteBuffer binaryRow = req0.requestType() == RequestType.RW_UPSERT ? req0.binaryRowBytes() : null;
 
                 UpdateCommand cmd = msgFactory.updateCommand()
-                        .txId(req0.transactionId())
+                        .txId(rwReq.transactionId())
                         .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                         .rowUuid(new RowId(0).uuid())
                         .rowBuffer(binaryRow)
