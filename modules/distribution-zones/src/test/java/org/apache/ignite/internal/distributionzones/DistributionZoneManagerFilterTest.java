@@ -26,11 +26,13 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests distribution zone manager interactions with data nodes filtering.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-12345")
 public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManagerTest {
     private static final String ZONE_NAME = "zone1";
 

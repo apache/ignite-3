@@ -28,9 +28,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.isZoneExist;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
@@ -61,7 +59,6 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.Serializable;
@@ -94,8 +91,6 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.internal.causality.IncrementalVersionedValue;
-import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -249,9 +244,6 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Watch listener for logical topology keys. */
     private final WatchListener topologyWatchListener;
 
-    /** Watch listener for data nodes keys. */
-    private final WatchListener dataNodesWatchListener;
-
     /** Rebalance engine. */
     private final DistributionZoneRebalanceEngine rebalanceEngine;
 
@@ -285,8 +277,6 @@ public class DistributionZoneManager implements IgniteComponent {
         this.vaultMgr = vaultMgr;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
-
-        this.dataNodesWatchListener = createMetastorageDataNodesListener();
 
         zonesState = new ConcurrentHashMap<>();
 
@@ -346,7 +336,6 @@ public class DistributionZoneManager implements IgniteComponent {
             logicalTopologyService.addEventListener(topologyEventListener);
 
             metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), topologyWatchListener);
-            metaStorageManager.registerPrefixWatch(zonesDataNodesPrefix(), dataNodesWatchListener);
 
             restoreGlobalStateFromVault();
 
@@ -373,7 +362,6 @@ public class DistributionZoneManager implements IgniteComponent {
         logicalTopologyService.removeEventListener(topologyEventListener);
 
         metaStorageManager.unregisterWatch(topologyWatchListener);
-        metaStorageManager.unregisterWatch(dataNodesWatchListener);
 
         shutdownAndAwaitTermination(executor, 10, SECONDS);
     }
@@ -849,14 +837,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
             ZoneState zoneState = new ZoneState(executor, topologyAugmentationMap);
 
-            Entry dataNodes = metaStorageManager.getLocally(zoneDataNodesKey(zoneId), revision);
-
-            if (dataNodes != null) {
-                String filter = zone.filter();
-
-                zoneState.nodes(filterDataNodes(DistributionZonesUtil.dataNodes(fromBytes(dataNodes.value())), filter, nodesAttributes()));
-            }
-
             ZoneState prevZoneState = zonesState.putIfAbsent(zoneId, zoneState);
 
             assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + ']';
@@ -1277,66 +1257,6 @@ public class DistributionZoneManager implements IgniteComponent {
         batch.put(zonesGlobalStateRevision(), longToBytes(revision));
 
         vaultMgr.putAll(batch).join();
-    }
-
-    /**
-     * Creates watch listener which listens data nodes, scale up revision and scale down revision.
-     *
-     * @return Watch listener.
-     */
-    private WatchListener createMetastorageDataNodesListener() {
-        return new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    return failedFuture(new NodeStoppingException());
-                }
-
-                try {
-                    int zoneId = 0;
-
-                    Set<Node> newDataNodes = null;
-
-                    for (EntryEvent event : evt.entryEvents()) {
-                        Entry e = event.newEntry();
-
-                        if (startsWith(e.key(), zoneDataNodesKey().bytes())) {
-                            zoneId = extractZoneId(e.key());
-
-                            byte[] dataNodesBytes = e.value();
-
-                            if (dataNodesBytes != null) {
-                                newDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesBytes));
-                            } else {
-                                newDataNodes = emptySet();
-                            }
-                        }
-                    }
-
-                    ZoneState zoneState = zonesState.get(zoneId);
-
-                    if (zoneState == null) {
-                        //The zone has been dropped so no need to update zoneState.
-                        return completedFuture(null);
-                    }
-
-                    assert newDataNodes != null : "Data nodes was not initialized.";
-
-                    String filter = getZoneById(zonesConfiguration, zoneId).filter().value();
-
-                    zoneState.nodes(filterDataNodes(newDataNodes, filter, nodesAttributes()));
-                } finally {
-                    busyLock.leaveBusy();
-                }
-
-                return completedFuture(null);
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process data nodes event", e);
-            }
-        };
     }
 
     /**
@@ -1804,9 +1724,6 @@ public class DistributionZoneManager implements IgniteComponent {
         /** Executor for scheduling tasks for scale up and scale down processes. */
         private final ScheduledExecutorService executor;
 
-        /** Data nodes. */
-        private volatile Set<String> nodes;
-
         /**
          * Constructor.
          *
@@ -1815,7 +1732,6 @@ public class DistributionZoneManager implements IgniteComponent {
         ZoneState(ScheduledExecutorService executor) {
             this.executor = executor;
             topologyAugmentationMap = new ConcurrentSkipListMap<>();
-            nodes = emptySet();
         }
 
         /**
@@ -1830,7 +1746,6 @@ public class DistributionZoneManager implements IgniteComponent {
         ZoneState(ScheduledExecutorService executor, ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap) {
             this.executor = executor;
             this.topologyAugmentationMap = topologyAugmentationMap;
-            nodes = emptySet();
         }
 
         /**
@@ -1993,24 +1908,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     .filter(e -> e.getValue().addition == addition)
                     .max(Map.Entry.comparingByKey())
                     .map(Map.Entry::getKey);
-        }
-
-        /**
-         * Get data nodes.
-         *
-         * @return Data nodes.
-         */
-        private Set<String> nodes() {
-            return nodes;
-        }
-
-        /**
-         * Set data nodes.
-         *
-         * @param nodes Data nodes.
-         */
-        private void nodes(Set<String> nodes) {
-            this.nodes = nodes;
         }
 
         @TestOnly
