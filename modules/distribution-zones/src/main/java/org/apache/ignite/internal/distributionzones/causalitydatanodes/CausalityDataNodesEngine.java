@@ -134,15 +134,15 @@ public class CausalityDataNodesEngine {
      * @return The data nodes for the zoneId.
      */
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
+        if (causalityToken < 1) {
+            throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
+        }
+
+        if (zoneId < DEFAULT_ZONE_ID) {
+            throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
+        }
+
         return zonesVv.get(causalityToken).thenApply(ignored -> {
-            if (causalityToken < 1) {
-                throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
-            }
-
-            if (zoneId < DEFAULT_ZONE_ID) {
-                throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
-            }
-
             if (!busyLock.enterBusy()) {
                 throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
             }

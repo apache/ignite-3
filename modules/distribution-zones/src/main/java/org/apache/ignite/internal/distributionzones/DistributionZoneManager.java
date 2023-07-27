@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.isZoneExist;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
@@ -41,7 +40,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneTopologyAugmentationVault;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesFilterUpdateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;

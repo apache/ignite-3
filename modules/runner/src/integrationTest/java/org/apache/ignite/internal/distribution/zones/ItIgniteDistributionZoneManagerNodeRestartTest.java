@@ -50,7 +50,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.function.LongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
@@ -101,7 +104,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for checking {@link DistributionZoneManager} behavior after node's restart.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-12345")
 @ExtendWith(ConfigurationExtension.class)
 public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRestartTest {
     private static final LogicalNode A = new LogicalNode(
@@ -122,6 +124,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     private static final String ZONE_NAME = "zone1";
 
     private static final int ZONE_ID = 1;
+
+    private MetaStorageManager metaStorageMgr;
 
     /**
      * Start some of Ignite components that are able to serve as Ignite node for test purposes.
@@ -181,10 +185,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         when(cmgManager.logicalTopology()).thenAnswer(invocation -> completedFuture(logicalTopology.getLogicalTopology()));
 
-        var metaStorageMgr = spy(StandaloneMetaStorageManager.create(
+        metaStorageMgr = spy(StandaloneMetaStorageManager.create(
                 vault,
                 new TestRocksDbKeyValueStorage(name, workDir.resolve("metastorage"))
         ));
+
+        Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
+                metaStorageMgr.registerRevisionUpdateListener(function::apply);
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr);
 
@@ -210,7 +217,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
-                null,
+                revisionUpdater,
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageMgr,
@@ -283,7 +290,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                         .build()
         ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-        assertDataNodesFromManager(distributionZoneManager, 1, Set.of(A, B, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), 1,
+                Set.of(A, B, C), TIMEOUT_MILLIS);
 
         Map<String, Map<String, String>> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
 
@@ -337,7 +345,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         partialNode.logicalTopology().putNode(B);
         partialNode.logicalTopology().putNode(C);
 
-        assertDataNodesFromManager(distributionZoneManager, DEFAULT_ZONE_ID, Set.of(A, B, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), DEFAULT_ZONE_ID,
+                Set.of(A, B, C), TIMEOUT_MILLIS);
 
         MetaStorageManager metaStorageManager = findComponent(partialNode.startedComponents(), MetaStorageManager.class);
 
@@ -365,7 +374,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         partialNode.logicalTopology().putNode(B);
         partialNode.logicalTopology().removeNodes(Set.of(B));
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
         partialNode.stop();
 
@@ -373,7 +382,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20054")
@@ -391,6 +400,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertDataNodesFromManager(
                 distributionZoneManager,
+                () -> metaStorageMgr.appliedRevision(),
                 zoneId,
                 Set.of(A, B),
                 TIMEOUT_MILLIS
@@ -404,11 +414,11 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         partialNode.logicalTopology().putNode(C);
         partialNode.logicalTopology().removeNodes(Set.of(B));
 
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(zoneId),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                Set.of(A.name()),
+        assertDataNodesFromManager(
+                distributionZoneManager,
+                () -> metaStorageMgr.appliedRevision(),
+                zoneId,
+                Set.of(A),
                 TIMEOUT_MILLIS
         );
 
@@ -418,7 +428,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A, C), TIMEOUT_MILLIS);
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20054")
@@ -433,7 +443,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         partialNode.logicalTopology().putNode(A);
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
         distributionZoneManager.alterZone(
                 zoneName,
@@ -444,7 +454,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         partialNode.logicalTopology().putNode(B);
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
         MetaStorageManager metaStorageManager = findComponent(partialNode.startedComponents(), MetaStorageManager.class);
 
@@ -460,13 +470,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                         .build()
         ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(zoneId),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                Set.of(A.name()),
-                TIMEOUT_MILLIS
-        );
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
         partialNode.stop();
 
@@ -474,7 +478,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(B), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(B), TIMEOUT_MILLIS);
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20054")
@@ -489,7 +493,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         partialNode.logicalTopology().putNode(A);
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
         MetaStorageManager metaStorageManager = findComponent(partialNode.startedComponents(), MetaStorageManager.class);
 
@@ -504,7 +508,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         partialNode.logicalTopology().putNode(B);
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
         // Only Node B and C passes the filter
         String filter = "$[?(@.dataRegionSize > 10)]";
@@ -520,13 +524,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         partialNode.logicalTopology().removeNodes(Set.of(A));
 
-        assertValueInStorage(
-                metaStorageManager,
-                zoneDataNodesKey(zoneId),
-                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
-                Set.of(),
-                TIMEOUT_MILLIS
-        );
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(), TIMEOUT_MILLIS);
 
         partialNode.stop();
 
@@ -535,7 +533,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
 
         // Immediate timer triggered by filter update
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(B), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(B), TIMEOUT_MILLIS);
 
         ZoneState zoneState = distributionZoneManager.zonesState().get(zoneId);
 
@@ -549,7 +547,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                         .build()
         ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(B, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(B, C), TIMEOUT_MILLIS);
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20054")
@@ -586,7 +584,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A, C), TIMEOUT_MILLIS);
     }
 
     private static Stream<Arguments> provideArgumentsRestartTests() {

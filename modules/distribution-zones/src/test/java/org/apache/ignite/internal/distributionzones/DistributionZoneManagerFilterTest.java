@@ -26,13 +26,11 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests distribution zone manager interactions with data nodes filtering.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-12345")
 public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManagerTest {
     private static final String ZONE_NAME = "zone1";
 
@@ -66,7 +64,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.putNode(D);
 
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID, Set.of(A, C, D), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID, Set.of(A, C, D), TIMEOUT_MILLIS);
     }
 
     @Test
@@ -75,7 +73,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.removeNodes(Set.of(C));
 
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID, Set.of(A), TIMEOUT_MILLIS);
     }
 
     @Test
@@ -91,7 +89,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.putNode(newB);
 
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID, Set.of(A, newB, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID, Set.of(A, newB, C), TIMEOUT_MILLIS);
     }
 
     /**
@@ -117,6 +115,6 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
                         .build()
         ).get(10_000, TimeUnit.MILLISECONDS);
 
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID, Set.of(A, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID, Set.of(A, C), TIMEOUT_MILLIS);
     }
 }

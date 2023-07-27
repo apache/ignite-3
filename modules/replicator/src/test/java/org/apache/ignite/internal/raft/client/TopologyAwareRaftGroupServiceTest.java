@@ -59,7 +59,6 @@ import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.LeaderChangeNotification;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -67,7 +66,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Topology aware client tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-12345")
 @ExtendWith(ConfigurationExtension.class)
 public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
     /** RAFT message factory. */

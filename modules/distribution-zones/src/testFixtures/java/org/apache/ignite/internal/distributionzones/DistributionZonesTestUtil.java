@@ -52,6 +52,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
@@ -467,23 +468,20 @@ public class DistributionZonesTestUtil {
      */
     public static void assertDataNodesFromManager(
             DistributionZoneManager distributionZoneManager,
+            Supplier<Long> causalityToken,
             int zoneId,
             @Nullable Set<LogicalNode> expectedValue,
             long timeoutMillis
-    ) throws InterruptedException {
+    ) throws InterruptedException, ExecutionException, TimeoutException {
         Set<String> expectedValueNames =
                 expectedValue == null ? null : expectedValue.stream().map(ClusterNode::name).collect(Collectors.toSet());
 
         boolean success = waitForCondition(() -> {
             Set<String> dataNodes = null;
             try {
-                dataNodes = distributionZoneManager.dataNodes(Long.MAX_VALUE, zoneId).get(3, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            } catch (ExecutionException e) {
-                throw new RuntimeException(e);
-            } catch (TimeoutException e) {
-                throw new RuntimeException(e);
+                dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), zoneId).get(5, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                // Ignore
             }
 
             return Objects.equals(dataNodes, expectedValueNames);
@@ -492,13 +490,8 @@ public class DistributionZonesTestUtil {
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
             Set<String> dataNodes = null;
-            try {
-                dataNodes = distributionZoneManager.dataNodes(Long.MAX_VALUE, zoneId).get(3, TimeUnit.SECONDS);
-            } catch (ExecutionException e) {
-                throw new RuntimeException(e);
-            } catch (TimeoutException e) {
-                throw new RuntimeException(e);
-            }
+
+            dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), zoneId).get(5, TimeUnit.SECONDS);
 
             assertThat(dataNodes, is(expectedValueNames));
         }
