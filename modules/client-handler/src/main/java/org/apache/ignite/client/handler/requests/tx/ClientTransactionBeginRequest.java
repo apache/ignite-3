@@ -56,6 +56,7 @@ public class ClientTransactionBeginRequest {
             options = new TransactionOptions().readOnly(true);
         }
 
+        // TODO: BeginAsync is actually synchronous inside - use the sync overload instead?
         return transactions.beginAsync(options, observableTs).thenAccept(tx -> {
             try {
                 long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
