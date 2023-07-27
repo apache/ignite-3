@@ -132,7 +132,7 @@ public class SortAggregateConverterRule {
                             convert(input, inTrait.replace(IgniteDistributions.random())),
                             agg.getGroupSet(),
                             agg.getGroupSets(),
-                            agg.getAggCallList(),
+                            aggregateCalls,
                             collation
                     );
                 }
@@ -147,7 +147,7 @@ public class SortAggregateConverterRule {
                             convert(map, inTrait.replace(IgniteDistributions.single())),
                             agg.getGroupSet(),
                             agg.getGroupSets(),
-                            agg.getAggCallList(),
+                            aggregateCalls,
                             agg.getRowType(),
                             collation
                     );

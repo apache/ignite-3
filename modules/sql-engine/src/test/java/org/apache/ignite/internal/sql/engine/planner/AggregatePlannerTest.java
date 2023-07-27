@@ -96,7 +96,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         checkSimpleAggWithGroupBySingle(TestCase.CASE_6);
 
         checkSimpleAggWithGroupByHash(TestCase.CASE_5A);
-        checkSimpleAggWithGroupByHashColocatedFromExchange(TestCase.CASE_6A);
+        checkSimpleAggWithGroupByHash(TestCase.CASE_6A);
     }
 
     /**

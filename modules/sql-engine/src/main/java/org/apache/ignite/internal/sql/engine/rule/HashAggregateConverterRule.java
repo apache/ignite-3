@@ -113,7 +113,7 @@ public class HashAggregateConverterRule {
                             input,
                             agg.getGroupSet(),
                             agg.getGroupSets(),
-                            agg.getAggCallList()
+                            aggregateCalls
                     );
                 }
 
@@ -127,7 +127,7 @@ public class HashAggregateConverterRule {
                             convert(map, inTrait.replace(IgniteDistributions.single())),
                             agg.getGroupSet(),
                             agg.getGroupSets(),
-                            agg.getAggCallList(),
+                            aggregateCalls,
                             agg.getRowType()
                     );
                 }

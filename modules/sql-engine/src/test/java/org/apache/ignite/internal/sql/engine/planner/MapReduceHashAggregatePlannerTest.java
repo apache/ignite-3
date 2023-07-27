@@ -158,7 +158,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void distinctWithoutAggregate() throws Exception {
         checkGroupWithNoAggregateSingle(TestCase.CASE_12);
-        checkGroupWithNoAggregateHashFromExchange(TestCase.CASE_12A);
+        checkGroupWithNoAggregateHash(TestCase.CASE_12A);
     }
 
     /**
@@ -167,7 +167,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void distinctWithoutAggregateUseIndex() throws Exception {
         checkGroupWithNoAggregateSingle(TestCase.CASE_13);
-        checkGroupWithNoAggregateHashFromExchange(TestCase.CASE_13A);
+        checkGroupWithNoAggregateHash(TestCase.CASE_13A);
     }
 
     /**
@@ -324,9 +324,11 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
                                 .and(not(hasAggregate()))
                                 .and(hasGroups())
-                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                        .and(not(hasAggregate()))
-                                        .and(hasGroups())
+                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                                .and(not(hasAggregate()))
+                                                .and(hasGroups())
+                                        ))
                                 ))
                         ))
                 ))
@@ -505,10 +507,10 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
                                         .and(not(hasAggregate()))
                                         .and(hasGroups())
-                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                .and(not(hasAggregate()))
-                                                .and(hasGroups())
-                                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(input(isInstanceOf(IgniteExchange.class)
+                                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                                        .and(not(hasAggregate()))
+                                                        .and(hasGroups())
                                                         .and(input(isTableScan("TEST")))
                                                 ))
                                         ))
