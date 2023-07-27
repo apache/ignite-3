@@ -457,7 +457,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
     private void checkDistinctAggHash(TestCase testCase) throws Exception {
         assertPlan(testCase,
-                isInstanceOf(IgniteReduceHashAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
                         .and(hasAggregate())
                         .and(not(hasDistinctAggregate()))
                         .and(input(isInstanceOf(IgniteMapHashAggregate.class)
@@ -473,7 +473,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                                                 ))
                                         ))
                                 ))
-                        )),
+                        ))),
                 disableRules
         );
     }
@@ -594,34 +594,17 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
-    private void checkGroupWithNoAggregateHashFromExchange(TestCase testCase) throws Exception {
-        assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(not(hasAggregate()))
-                        .and(hasGroups())
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(not(hasAggregate()))
-                                .and(hasGroups())
-                                .and(input(isInstanceOf(IgniteExchange.class)
-                                        .and(input(isTableScan("TEST")))
-                                ))
-                        ))
-                ),
-                disableRules
-        );
-    }
-
-
     private void checkGroupsWithOrderByGroupColumnsSingle(TestCase testCase, RelCollation collation) throws Exception {
         assertPlan(testCase,
                 isInstanceOf(IgniteSort.class)
                         .and(s -> s.collation().equals(collation))
                         .and(input(isInstanceOf(IgniteProject.class)
                                 .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                        .and(input(isTableScan("TEST")))
+                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                                .and(input(isTableScan("TEST")))
+                                        ))
                                 ))
-                        )))),
+                        )),
                 disableRules
         );
     }
@@ -632,13 +615,14 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(s -> s.collation().equals(collation))
                         .and(input(isInstanceOf(IgniteProject.class)
                                 .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                        //TODO: Why can't Map be pushed down to under 'exchange'.
-                                        .and(input(isInstanceOf(IgniteExchange.class)
-                                                .and(input(isTableScan("TEST")))
+                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                                //TODO: Why can't Map be pushed down to under 'exchange'.
+                                                .and(input(isInstanceOf(IgniteExchange.class)
+                                                        .and(input(isTableScan("TEST")))
+                                                ))
                                         ))
                                 ))
-                        )))),
+                        )),
                 disableRules
         );
     }
