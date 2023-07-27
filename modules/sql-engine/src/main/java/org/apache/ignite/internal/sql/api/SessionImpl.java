@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
+import static org.apache.ignite.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.lang.IgniteExceptionUtils.sneakyThrow;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -29,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
@@ -175,7 +177,7 @@ public class SessionImpl implements Session {
             CompletableFuture<AsyncResultSet<SqlRow>> result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
                             .thenApply(
-                                    batchRes -> new AsyncResultSetImpl(
+                                    batchRes -> new AsyncResultSetImpl<>(
                                             cur,
                                             batchRes,
                                             pageSize,
@@ -184,15 +186,21 @@ public class SessionImpl implements Session {
                             )
             );
 
-            result.whenComplete((rs, th) -> {
-                if (th instanceof SessionNotFoundException) {
+            return result.handle((rs, th) -> {
+                if (th == null) {
+                    return rs;
+                }
+
+                Throwable cause = ExceptionUtils.unwrapCause(th);
+
+                if (cause instanceof SessionNotFoundException) {
                     closeInternal();
                 }
-            });
 
-            return result;
+                throw new CompletionException(mapToPublicException(cause));
+            });
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(IgniteExceptionMapperUtil.mapToPublicException(e));
+            return CompletableFuture.failedFuture(mapToPublicException(e));
         } finally {
             busyLock.leaveBusy();
         }
@@ -271,10 +279,18 @@ public class SessionImpl implements Session {
                             throw (CancellationException) cause;
                         }
 
-                        throw new SqlBatchException(
-                                cause instanceof TraceableException ? ((TraceableException) cause).code() : INTERNAL_ERR,
-                                counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY),
-                                ex);
+                        Throwable t = mapToPublicException(cause);
+
+                        if (t instanceof TraceableException) {
+                            throw new SqlBatchException(
+                                    ((TraceableException) t).traceId(),
+                                    ((TraceableException) t).code(),
+                                    counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY),
+                                    t);
+                        }
+
+                        // JVM error.
+                        throw new CompletionException(cause);
                     })
                     .thenApply(v -> counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY));
 
@@ -286,7 +302,7 @@ public class SessionImpl implements Session {
 
             return resFut;
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(IgniteExceptionMapperUtil.mapToPublicException(e));
+            return CompletableFuture.failedFuture(mapToPublicException(e));
         } finally {
             busyLock.leaveBusy();
         }
@@ -348,7 +364,7 @@ public class SessionImpl implements Session {
 
             return qryProc.closeSession(sessionId);
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(IgniteExceptionMapperUtil.mapToPublicException(e));
+            return CompletableFuture.failedFuture(mapToPublicException(e));
         }
     }
 

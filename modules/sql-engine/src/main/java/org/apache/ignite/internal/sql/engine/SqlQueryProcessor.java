@@ -358,7 +358,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return IgniteExceptionMapperUtil.convertToPublicFuture(querySingle0(sessionId, context, qry, params));
+            return querySingle0(sessionId, context, qry, params);
         } finally {
             busyLock.leaveBusy();
         }
