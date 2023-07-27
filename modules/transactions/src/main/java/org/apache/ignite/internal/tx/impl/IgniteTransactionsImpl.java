@@ -43,26 +43,21 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     /** {@inheritDoc} */
     @Override
     public Transaction begin(@Nullable TransactionOptions options) {
+        return begin(options, null);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
+        return CompletableFuture.completedFuture(begin(options, null));
+    }
+
+    public Transaction begin(@Nullable TransactionOptions options, @Nullable HybridTimestamp observableTimestamp) {
         if (options != null && options.timeoutMillis() != 0) {
             // TODO: IGNITE-15936.
             throw new UnsupportedOperationException("Timeouts are not supported yet");
         }
 
         return txManager.begin(options != null && options.readOnly(), null);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
-        return beginAsync(options, null);
-    }
-
-    public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options, @Nullable HybridTimestamp observableTimestamp) {
-        if (options != null && options.timeoutMillis() != 0) {
-            // TODO: IGNITE-15936.
-            throw new UnsupportedOperationException("Timeouts are not supported yet");
-        }
-
-        return CompletableFuture.completedFuture(txManager.begin(options != null && options.readOnly(), null));
     }
 }

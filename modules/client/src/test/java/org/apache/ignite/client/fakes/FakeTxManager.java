@@ -56,7 +56,7 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public InternalTransaction begin() {
-        return null;
+        return begin(false, null);
     }
 
     @Override

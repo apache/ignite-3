@@ -28,6 +28,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client transaction begin request.
@@ -43,30 +44,35 @@ public class ClientTransactionBeginRequest {
      * @param metrics      Metrics.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static @Nullable CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteTransactionsImpl transactions,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics) {
-        HybridTimestamp observableTs = HybridTimestamp.hybridTimestamp(in.unpackLong());
-
         TransactionOptions options = null;
+        HybridTimestamp observableTs = null;
+
         if (in.unpackBoolean()) {
             options = new TransactionOptions().readOnly(true);
+
+            // Timestamp makes sense only for read-only transactions.
+            observableTs = HybridTimestamp.hybridTimestamp(in.unpackLong());
         }
 
-        // TODO: BeginAsync is actually synchronous inside - use the sync overload instead?
-        return transactions.beginAsync(options, observableTs).thenAccept(tx -> {
-            try {
-                long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
-                out.packLong(resourceId);
+        // NOTE: we don't use beginAsync here because it is synchronous anyway.
+        var tx = transactions.begin(options, observableTs);
 
-                metrics.transactionsActiveIncrement();
-            } catch (IgniteInternalCheckedException e) {
-                tx.rollback();
-                throw new IgniteInternalException(e.getMessage(), e);
-            }
-        });
+        try {
+            long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
+            out.packLong(resourceId);
+
+            metrics.transactionsActiveIncrement();
+
+            return null;
+        } catch (IgniteInternalCheckedException e) {
+            tx.rollback();
+            throw new IgniteInternalException(e.getMessage(), e);
+        }
     }
 }
