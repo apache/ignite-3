@@ -33,7 +33,7 @@ public interface ClientChannel extends AutoCloseable {
      * @param <T>           Response type.
      * @return Future for the operation.
      */
-    public <T> CompletableFuture<T> serviceAsync(
+    <T> CompletableFuture<T> serviceAsync(
             int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
@@ -44,19 +44,26 @@ public interface ClientChannel extends AutoCloseable {
      *
      * @return {@code True} channel is closed.
      */
-    public boolean closed();
+    boolean closed();
 
     /**
      * Returns protocol context.
      *
      * @return Protocol context.
      */
-    public ProtocolContext protocolContext();
+    ProtocolContext protocolContext();
 
     /**
      * Add topology change listener.
      *
      * @param listener Listener.
      */
-    public void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener);
+    void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener);
+
+    /**
+     * Add observable timestamp listener.
+     *
+     * @param listener Listener.
+     */
+    void addObservableTimestampListener(Consumer<Long> listener);
 }

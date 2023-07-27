@@ -654,6 +654,10 @@ public final class ReliableChannel implements AutoCloseable {
         }
     }
 
+    private void onObservableTimestampReceived(Long observableTimestamp) {
+        // TODO
+    }
+
     private void onTopologyAssignmentChanged(ClientChannel clientChannel) {
         // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
         // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
@@ -798,6 +802,7 @@ public final class ReliableChannel implements AutoCloseable {
                     }
 
                     ch.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
+                    ch.addObservableTimestampListener(ReliableChannel.this::onObservableTimestampReceived);
 
                     ClusterNode newNode = ch.protocolContext().clusterNode();
 
