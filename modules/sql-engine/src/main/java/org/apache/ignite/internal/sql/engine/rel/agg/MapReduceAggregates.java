@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.calcite.plan.RelOptCluster;
-import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.logical.LogicalAggregate;
@@ -43,7 +42,6 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
@@ -87,8 +85,7 @@ public class MapReduceAggregates {
     /**
      * Creates a physical operator that implements the given logical aggregate as MAP/reduce.
      */
-    public static IgniteRel buildAggregates(LogicalAggregate agg, AggregateRelBuilder builder,
-            RelTraitSet inTrait, RelTraitSet outTrait) {
+    public static IgniteRel buildAggregates(LogicalAggregate agg, AggregateRelBuilder builder) {
 
         //
         // To implement MAP/REDUCE aggregate LogicalAggregate is transformed into
@@ -132,8 +129,7 @@ public class MapReduceAggregates {
 
         RelNode map = builder.makeMapAgg(
                 agg.getCluster(),
-                convert(agg.getInput(), inTrait.replace(IgniteDistributions.random())),
-                outTrait.replace(IgniteDistributions.random()),
+                agg.getInput(),
                 agg.getGroupSet(),
                 agg.getGroupSets(),
                 mapAggCalls
@@ -192,8 +188,7 @@ public class MapReduceAggregates {
 
         IgniteRel reduce = builder.makeReduceAgg(
                 agg.getCluster(),
-                convert(map, inTrait.replace(IgniteDistributions.single())),
-                outTrait.replace(IgniteDistributions.single()),
+                map,
                 agg.getGroupSet(),
                 agg.getGroupSets(),
                 reduceAggCalls,
@@ -254,17 +249,17 @@ public class MapReduceAggregates {
     }
 
     /**
-     * Used by {@link #buildAggregates(LogicalAggregate, AggregateRelBuilder, RelTraitSet, RelTraitSet)}
+     * Used by {@link #buildAggregates(LogicalAggregate, AggregateRelBuilder)}
      * to create MAP/REDUCE aggregate nodes.
      */
     public interface AggregateRelBuilder {
 
         /** Creates a rel node that represents a MAP phase.*/
-        IgniteRel makeMapAgg(RelOptCluster cluster, RelNode input, RelTraitSet traits,
+        IgniteRel makeMapAgg(RelOptCluster cluster, RelNode input,
                 ImmutableBitSet groupSet, List<ImmutableBitSet> groupSets, List<AggregateCall> aggregateCalls);
 
         /** Creates a rel node that represents a REDUCE phase.*/
-        IgniteRel makeReduceAgg(RelOptCluster cluster, RelNode input, RelTraitSet traits,
+        IgniteRel makeReduceAgg(RelOptCluster cluster, RelNode map,
                 ImmutableBitSet groupSet, List<ImmutableBitSet> groupSets,
                 List<AggregateCall> aggregateCalls, RelDataType outputType);
     }

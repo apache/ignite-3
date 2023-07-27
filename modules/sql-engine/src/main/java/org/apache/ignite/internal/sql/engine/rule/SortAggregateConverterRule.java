@@ -123,38 +123,38 @@ public class SortAggregateConverterRule {
 
             AggregateRelBuilder relBuilder = new AggregateRelBuilder() {
                 @Override
-                public IgniteRel makeMapAgg(RelOptCluster cluster, RelNode input, RelTraitSet traits, ImmutableBitSet groupSet,
+                public IgniteRel makeMapAgg(RelOptCluster cluster, RelNode input, ImmutableBitSet groupSet,
                         List<ImmutableBitSet> groupSets, List<AggregateCall> aggregateCalls) {
 
                     return new IgniteMapSortAggregate(
                             cluster,
-                            traits,
-                            input,
-                            groupSet,
-                            groupSets,
-                            aggregateCalls,
+                            outTrait.replace(IgniteDistributions.random()),
+                            convert(input, inTrait.replace(IgniteDistributions.random())),
+                            agg.getGroupSet(),
+                            agg.getGroupSets(),
+                            agg.getAggCallList(),
                             collation
                     );
                 }
 
                 @Override
-                public IgniteRel makeReduceAgg(RelOptCluster cluster, RelNode input, RelTraitSet traits, ImmutableBitSet groupSet,
+                public IgniteRel makeReduceAgg(RelOptCluster cluster, RelNode map, ImmutableBitSet groupSet,
                         List<ImmutableBitSet> groupSets, List<AggregateCall> aggregateCalls, RelDataType outputType) {
 
                     return new IgniteReduceSortAggregate(
                             cluster,
-                            traits,
-                            input,
-                            groupSet,
-                            groupSets,
-                            aggregateCalls,
-                            outputType,
+                            outTrait.replace(IgniteDistributions.single()),
+                            convert(map, inTrait.replace(IgniteDistributions.single())),
+                            agg.getGroupSet(),
+                            agg.getGroupSets(),
+                            agg.getAggCallList(),
+                            agg.getRowType(),
                             collation
                     );
                 }
             };
 
-            return MapReduceAggregates.buildAggregates(agg, relBuilder, inTrait, outTrait);
+            return MapReduceAggregates.buildAggregates(agg, relBuilder);
         }
     }
 }

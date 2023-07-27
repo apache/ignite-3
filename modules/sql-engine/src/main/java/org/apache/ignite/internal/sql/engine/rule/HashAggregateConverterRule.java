@@ -105,35 +105,35 @@ public class HashAggregateConverterRule {
 
             AggregateRelBuilder relBuilder = new AggregateRelBuilder() {
                 @Override
-                public IgniteRel makeMapAgg(RelOptCluster cluster, RelNode input, RelTraitSet traits, ImmutableBitSet groupSet,
+                public IgniteRel makeMapAgg(RelOptCluster cluster, RelNode input, ImmutableBitSet groupSet,
                         List<ImmutableBitSet> groupSets, List<AggregateCall> aggregateCalls) {
                     return new IgniteMapHashAggregate(
                             cluster,
-                            traits,
+                            outTrait.replace(IgniteDistributions.random()),
                             input,
-                            groupSet,
-                            groupSets,
-                            aggregateCalls
+                            agg.getGroupSet(),
+                            agg.getGroupSets(),
+                            agg.getAggCallList()
                     );
                 }
 
                 @Override
-                public IgniteRel makeReduceAgg(RelOptCluster cluster, RelNode input, RelTraitSet traits, ImmutableBitSet groupSet,
+                public IgniteRel makeReduceAgg(RelOptCluster cluster, RelNode map, ImmutableBitSet groupSet,
                         List<ImmutableBitSet> groupSets, List<AggregateCall> aggregateCalls, RelDataType outputType) {
 
                     return new IgniteReduceHashAggregate(
                             cluster,
-                            traits,
-                            input,
-                            groupSet,
-                            groupSets,
-                            aggregateCalls,
-                            outputType
+                            outTrait.replace(IgniteDistributions.single()),
+                            convert(map, inTrait.replace(IgniteDistributions.single())),
+                            agg.getGroupSet(),
+                            agg.getGroupSets(),
+                            agg.getAggCallList(),
+                            agg.getRowType()
                     );
                 }
             };
 
-            return MapReduceAggregates.buildAggregates(agg, relBuilder, inTrait, outTrait);
+            return MapReduceAggregates.buildAggregates(agg, relBuilder);
         }
     }
 }
