@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.schema;
 
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
@@ -29,11 +31,13 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -264,7 +268,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
     private SchemaRegistryImpl createSchemaRegistry(int tableId, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(
                 ver -> inBusyLock(busyLock, () -> tableSchema(tableId, ver)),
-                () -> inBusyLock(busyLock, () -> latestSchemaVersion(tableId)),
+                () -> inBusyLock(busyLock, () -> latestSchemaVersionOrDefault(tableId)),
                 initialSchema
         );
     }
@@ -384,12 +388,18 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
     }
 
     /**
-     * Drop schema registry for the given table id.
+     * Drops schema registry for the given table id (along with the corresponding schemas).
      *
      * @param causalityToken Causality token.
      * @param tableId Table id.
      */
     public CompletableFuture<?> dropRegistry(long causalityToken, int tableId) {
+        return removeRegistry(causalityToken, tableId).thenCompose(unused -> {
+            return destroySchemas(tableId);
+        });
+    }
+
+    private CompletableFuture<?> removeRegistry(long causalityToken, int tableId) {
         return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
                 return failedFuture(new IgniteInternalException(
@@ -404,6 +414,23 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
         }));
     }
 
+    private CompletableFuture<?> destroySchemas(int tableId) {
+        return latestSchemaVersion(tableId)
+                .thenCompose(latestVersion -> {
+                    if (latestVersion == null) {
+                        // Nothing to remove.
+                        return completedFuture(null);
+                    }
+
+                    Set<ByteArray> keysToRemove = IntStream.rangeClosed(CatalogTableDescriptor.INITIAL_TABLE_VERSION, latestVersion)
+                            .mapToObj(version -> schemaWithVerHistKey(tableId, version))
+                            .collect(toSet());
+                    keysToRemove.add(latestSchemaVersionKey(tableId));
+
+                    return metastorageMgr.removeAll(keysToRemove);
+                });
+    }
+
     @Override
     public void stop() throws Exception {
         if (!stopGuard.compareAndSet(false, true)) {
@@ -414,16 +441,27 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
     }
 
     /**
-     * Gets the latest version of the table schema which is available in Metastore.
+     * Gets the latest version of the table schema which is available in Metastore or the default (1) if nothing is available.
      *
-     * @param tblId Table id.
+     * @param tableId Table id.
      * @return The latest schema version.
      */
-    private CompletableFuture<Integer> latestSchemaVersion(int tblId) {
-        return metastorageMgr.get(latestSchemaVersionKey(tblId))
+    private CompletableFuture<Integer> latestSchemaVersionOrDefault(int tableId) {
+        return latestSchemaVersion(tableId)
+                .thenApply(versionOrNull -> requireNonNullElse(versionOrNull, CatalogTableDescriptor.INITIAL_TABLE_VERSION));
+    }
+
+    /**
+     * Gets the latest version of the table schema which is available in Metastore or {@code null} if nothing is available.
+     *
+     * @param tableId Table id.
+     * @return The latest schema version or {@code null} if nothing is available.
+     */
+    private CompletableFuture<Integer> latestSchemaVersion(int tableId) {
+        return metastorageMgr.get(latestSchemaVersionKey(tableId))
                 .thenApply(entry -> {
                     if (entry == null || entry.value() == null) {
-                        return CatalogTableDescriptor.INITIAL_TABLE_VERSION;
+                        return null;
                     } else {
                         return ByteUtils.bytesToInt(entry.value());
                     }

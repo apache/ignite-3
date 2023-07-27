@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
@@ -25,6 +26,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -38,6 +40,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -56,6 +59,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
+import org.apache.ignite.internal.util.subscription.ListAccumulator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
@@ -73,6 +77,7 @@ import org.mockito.quality.Strictness;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class CatalogSchemaManagerTest {
     private static final String SCHEMA_STORE_PREFIX = ".sch-hist.";
+    private static final String LATEST_SCHEMA_VERSION_STORE_SUFFIX = ".sch-hist-latest";
 
     private static final int TABLE_ID = 3;
     private static final String TABLE_NAME = "t";
@@ -435,5 +440,45 @@ class CatalogSchemaManagerTest {
         SchemaRegistry schemaRegistry = future.join();
 
         assertThat(schemaRegistry, is(nullValue()));
+    }
+
+    @Test
+    void dropRegistryRemovesSchemasFromMetastorage() {
+        createSomeTable();
+
+        assertThat(schemaManager.dropRegistry(CAUSALITY_TOKEN_2, TABLE_ID), willCompleteSuccessfully());
+
+        completeCausalityToken(CAUSALITY_TOKEN_2);
+
+        assertThatNoSchemasExist(TABLE_ID);
+        assertThatNoLatestSchemaVersionExists(TABLE_ID);
+    }
+
+    private void assertThatNoSchemasExist(int tableId) {
+        CompletableFuture<List<String>> schemaEntryKeysFuture = new CompletableFuture<>();
+
+        Publisher<Entry> publisher = metaStorageManager.prefix(ByteArray.fromString(tableId + SCHEMA_STORE_PREFIX));
+        publisher.subscribe(
+                new ListAccumulator<Entry, String>(entry -> new String(entry.key(), UTF_8))
+                        .toSubscriber(schemaEntryKeysFuture)
+        );
+
+        assertThat(schemaEntryKeysFuture, willBe(empty()));
+    }
+
+    private void assertThatNoLatestSchemaVersionExists(int tableId) {
+        CompletableFuture<Entry> future = metaStorageManager.get(latestSchemaVersionKey(tableId));
+
+        assertThat(future, willCompleteSuccessfully());
+
+        Entry entry = future.join();
+
+        if (entry != null) {
+            assertThat(entry.value(), is(nullValue()));
+        }
+    }
+
+    private static ByteArray latestSchemaVersionKey(int tableId) {
+        return ByteArray.fromString(tableId + LATEST_SCHEMA_VERSION_STORE_SUFFIX);
     }
 }
