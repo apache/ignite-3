@@ -73,6 +73,8 @@ public class ClientSqlExecuteRequest {
         Session session = readSession(in, sql);
         Statement statement = readStatement(in, sql);
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
+
+        // TODO IGNITE-19898 SQL implicit RO transaction should use observation timestamp.
         HybridTimestamp observableTs = HybridTimestamp.hybridTimestamp(in.unpackLong());
 
         if (arguments == null) {
