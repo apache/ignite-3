@@ -22,19 +22,24 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Group of tests to verify aggregation functions.
@@ -45,6 +50,9 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
 
     private static final List<String> MAP_REDUCE_RULES = List.of("MapReduceHashAggregateConverterRule",
             "MapReduceSortAggregateConverterRule");
+
+    private static final List<String> COLO_RULES = Arrays.stream(DISABLED_RULES).filter(r -> !MAP_REDUCE_RULES.contains(r))
+            .collect(Collectors.toList());
 
     private static final int ROWS = 103;
 
@@ -550,22 +558,29 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-//    @ParameterizedTest
-//    @MethodSource("rulesForGroupingSets")
-    @Test
-    public void testAvgOnEmptyGroup() { //(String[] rules) {
+    @ParameterizedTest
+    @MethodSource("provideRules")
+    public void testAvgOnEmptyGroup(String[] rules) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20009
+        //  Remove after is fixed.
+        Assumptions.assumeFalse(Arrays.stream(rules)
+                .filter(COLO_RULES::contains).count() == COLO_RULES.size(), "AVG is disabled for MAP/REDUCE");
+
         try {
             sql("CREATE TABLE test1 (id INTEGER PRIMARY KEY, str_col VARCHAR, int_col INTEGER, real_col REAL, dec_col DECIMAL);");
 
             assertQuery("SELECT AVG(int_col) FROM test1")
+                    .disableRules(rules)
                     .returns(new Object[]{null})
                     .check();
 
             assertQuery("SELECT AVG(real_col) FROM test1")
+                    .disableRules(rules)
                     .returns(new Object[]{null})
                     .check();
 
             assertQuery("SELECT AVG(dec_col) FROM test1")
+                    .disableRules(rules)
                     .returns(new Object[]{null})
                     .check();
         } finally {
