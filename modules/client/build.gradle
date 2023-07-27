@@ -56,8 +56,6 @@ dependencies {
     testImplementation libs.hamcrest.core
     testImplementation libs.junit5.params
     testImplementation libs.mockito.junit
-    // We use the "subclass" mockmaker, because Mockito 5's default mockmaker causes an OOM error on TC.
-    testImplementation libs.mockito.subclass
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
     testImplementation libs.jmh.core

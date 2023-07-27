@@ -47,6 +47,7 @@ import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallInput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -58,7 +59,7 @@ import picocli.CommandLine;
  * Test for --profile override for --node-url and --cluster-endpoint-url options.
  */
 @MicronautTest
-public class ProfileMixinTest {
+public class ProfileMixinTest extends BaseIgniteAbstractTest {
     /**
      * Cluster URL from default profile in integration_tests.ini.
      */

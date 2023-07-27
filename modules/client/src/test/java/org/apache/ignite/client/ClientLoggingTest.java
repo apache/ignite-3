@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.ArrayList;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.LoggerFactory;
 import org.jetbrains.annotations.Nullable;
@@ -35,7 +36,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests verifies an ability to set custom logger to the client.
  */
-public class ClientLoggingTest {
+public class ClientLoggingTest extends BaseIgniteAbstractTest {
     /** Test server. */
     private TestServer server;
 

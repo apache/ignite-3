@@ -28,6 +28,7 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -36,7 +37,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests schema update logic. See also {@link ClientTableTest#testGetReturningTupleWithUnknownSchemaRequestsNewSchema}.
  */
-public class SchemaUpdateTest {
+public class SchemaUpdateTest extends BaseIgniteAbstractTest {
     private static final String DEFAULT_TABLE = "default_table";
     private TestServer server;
     private IgniteClient client;
