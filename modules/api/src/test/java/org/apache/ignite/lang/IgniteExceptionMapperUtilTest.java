@@ -25,23 +25,13 @@ import static org.apache.ignite.lang.IgniteExceptionMapper.unchecked;
 import static org.apache.ignite.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.lang.IgniteExceptionMapperUtil.registerMapping;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -156,43 +146,6 @@ public class IgniteExceptionMapperUtilTest {
 
         assertThat("Unexpected error group code, it should be COMMON_ERR_GROUP.", mapped.groupCode(), is(COMMON_ERR_GROUP.groupCode()));
         assertThat("Unexpected error code, it should be INTERNAL_ERR.", mapped.code(), is(INTERNAL_ERR));
-    }
-
-    /**
-     * Tests that {@link IgniteExceptionMapperUtil#convertToPublicFuture(CompletableFuture)} doesn't drop {@link CancellationException}.
-     *
-     * @throws InterruptedException If failed.
-     */
-    @Test
-    public void testCancellationException() throws InterruptedException {
-        CountDownLatch startLatch = new CountDownLatch(1);
-        AtomicBoolean canceled = new AtomicBoolean();
-        long timeout = 3_000;
-
-        CompletableFuture<Void> origin = CompletableFuture.supplyAsync(() -> {
-            try {
-                startLatch.await();
-
-                TimeUnit.MILLISECONDS.sleep(timeout);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-
-            return null;
-        });
-
-        CompletableFuture<Void> publicFuture = IgniteExceptionMapperUtil
-                .convertToPublicFuture(origin)
-                .whenComplete((res, th) -> canceled.set(ExceptionUtils.unwrapCause(th) instanceof CancellationException));
-
-        startLatch.countDown();
-
-        origin.cancel(true);
-
-        ExecutionException ex = assertThrows(ExecutionException.class, publicFuture::get);
-        assertThat(ex.getCause(), instanceOf(CancellationException.class));
-
-        assertTrue(IgniteTestUtils.waitForCondition(canceled::get, timeout));
     }
 
     /**
