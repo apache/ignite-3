@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.lang.ErrorGroups.Sql.SQL_ERR_GROUP;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteExceptionMapper.unchecked;
 
 import com.google.auto.service.AutoService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteFragmentExecutionException;
@@ -33,7 +35,7 @@ import org.apache.ignite.lang.IgniteExceptionMappersProvider;
 import org.apache.ignite.sql.SqlException;
 
 /**
- * Blah blah blah.
+ * SQL module exception mapper.
  */
 @AutoService(IgniteExceptionMappersProvider.class)
 public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvider {
@@ -42,7 +44,9 @@ public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvide
         List<IgniteExceptionMapper<?, ?>> mappers = new ArrayList<>();
 
         mappers.add(unchecked(ExecutionCancelledException.class, err -> new SqlException(err.traceId(), err.code(), err)));
+
         mappers.add(unchecked(QueryValidationException.class, err -> new SqlException(err.traceId(), err.code(), err)));
+
         mappers.add(unchecked(RemoteFragmentExecutionException.class, err -> {
             if (err.groupCode() == SQL_ERR_GROUP.groupCode()) {
                 return new SqlException(err.traceId(), err.code(), err.getMessage(), err);
@@ -50,6 +54,9 @@ public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvide
 
             return new IgniteException(err.traceId(), err.code(), err.getMessage(), err);
         }));
+
+        mappers.add(unchecked(CalciteContextException.class,
+                err -> new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. " + err.getMessage(), err)));
 
         return mappers;
     }
