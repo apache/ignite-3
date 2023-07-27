@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -60,6 +59,7 @@ import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.LeaderChangeNotification;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -287,7 +287,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
             int nodes
     ) throws Exception {
         if (raftClients != null) {
-            raftClients.forEach(client -> client.shutdown());
+            raftClients.forEach(TopologyAwareRaftGroupService::shutdown);
         }
 
         for (NetworkAddress addr : getNetworkAddresses(nodes)) {
@@ -338,8 +338,6 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
         PeersAndLearners peersAndLearners = peersAndLearners(clusterServices, isServerAddress, nodes);
 
-        Set<String> placementDriverNodesNames = peersAndLearners.peers().stream().map(Peer::consistentId).collect(toSet());
-
         for (NetworkAddress addr : addresses) {
             var cluster = clusterServices.get(addr);
 
@@ -351,10 +349,14 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
 
                 var dataPath = workDir.resolve("raft_" + localPeer.consistentId());
 
+                var options = new NodeOptions();
+
+                options.setStripes(1);
+
                 var raftServer = new JraftServerImpl(
                         cluster,
                         dataPath,
-                        new NodeOptions(),
+                        options,
                         eventsClientListener
                 );
                 raftServer.start();
@@ -384,7 +386,7 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
             Map<NetworkAddress, ClusterService> clusterServices,
             Predicate<NetworkAddress> isServerAddress,
             int nodes,
-            RaftGroupEventsClientListener eventsClientListener,
+            @Nullable RaftGroupEventsClientListener eventsClientListener,
             boolean notifyOnSubscription
     ) {
         if (eventsClientListener == null) {
