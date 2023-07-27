@@ -86,6 +86,9 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
 
         auto args_data = args_builder.build();
         writer.write_binary(args_data);
+
+        // TODO IGNITE-20057 C++ client: Track observable timestamp
+        writer.write(0); // observableTimestamp.
     };
 
     auto reader_func = [](std::shared_ptr<node_connection> channel, bytes_view msg) -> result_set {
