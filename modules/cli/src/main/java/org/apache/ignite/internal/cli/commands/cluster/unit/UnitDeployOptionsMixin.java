@@ -65,9 +65,7 @@ class UnitDeployOptionsMixin {
     /** Initial set of nodes. */
     private List<String> nodes;
 
-    @Option(names = UNIT_NODES_OPTION, description = UNIT_NODES_OPTION_DESC, split = ",",
-            completionCandidates = UnitNodesCompletionCandidates.class
-    )
+    @Option(names = UNIT_NODES_OPTION, description = UNIT_NODES_OPTION_DESC, split = ",")
     private void setNodes(List<String> values) {
         if (values.size() > 1) {
             List<NodesAlias> aliases = new ArrayList<>();
@@ -91,7 +89,7 @@ class UnitDeployOptionsMixin {
                         spec.commandLine(),
                         "Alias " + aliases.get(0) + " couldn't be used with explicit nodes names list "
                                 + nodeNames
-                                + ". Provide either node names list of single alias."
+                                + ". Provide either node names list or single alias."
                 );
             }
         }

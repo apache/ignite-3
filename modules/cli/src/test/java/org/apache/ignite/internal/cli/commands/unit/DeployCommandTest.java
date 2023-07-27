@@ -53,7 +53,7 @@ class DeployCommandTest extends CliCommandTestBase {
                 () -> assertExitCodeIs(2),
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputContains("Alias ALL couldn't be used with explicit nodes names list [foo]. "
-                        + "Provide either node names list of single alias.")
+                        + "Provide either node names list or single alias.")
         );
     }
 
