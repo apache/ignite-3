@@ -128,7 +128,7 @@ public class HashAggregateConverterRule {
                             agg.getGroupSet(),
                             agg.getGroupSets(),
                             aggregateCalls,
-                            agg.getRowType()
+                            outputType
                     );
                 }
             };

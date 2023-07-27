@@ -148,7 +148,7 @@ public class SortAggregateConverterRule {
                             agg.getGroupSet(),
                             agg.getGroupSets(),
                             aggregateCalls,
-                            agg.getRowType(),
+                            outputType,
                             collation
                     );
                 }
