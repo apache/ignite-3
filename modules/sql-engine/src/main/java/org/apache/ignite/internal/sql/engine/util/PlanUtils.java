@@ -154,13 +154,15 @@ public class PlanUtils {
 
         if (aggregateType == AggregateType.REDUCE) {
             Mapping mapping = Mappings.create(MappingType.INVERSE_SURJECTION, fieldIndices.length(), fieldIndices.cardinality());
-            int[] position = new int[1];
 
-            fieldIndices.stream().forEach(b -> {
-                int i = position[0];
-                mapping.set(b, i);
-                position[0] = i + 1;
-            });
+            int i = 0;
+            int bitPos = fieldIndices.nextSetBit(0);
+
+            while (bitPos != -1) {
+                mapping.set(bitPos, i);
+                bitPos = fieldIndices.nextSetBit(bitPos + 1);
+                i ++;
+            }
 
             return mapping;
         } else {
@@ -177,7 +179,7 @@ public class PlanUtils {
 
             Accumulator acc = accumulators.accumulatorFactory(call).get();
             RelDataType fieldType = acc.returnType(typeFactory);
-            String fieldName = format("_ACC{}", i);
+            String fieldName = "_ACC" + i;
 
             builder.add(fieldName, fieldType);
         }
