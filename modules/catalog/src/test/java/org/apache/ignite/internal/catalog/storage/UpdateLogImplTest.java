@@ -23,18 +23,21 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -47,6 +50,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Tests to verify {@link UpdateLogImpl}. */
 @SuppressWarnings("ConstantConditions")
 class UpdateLogImplTest {
+    private KeyValueStorage keyValueStorage;
 
     private MetaStorageManager metastore;
 
@@ -56,7 +60,9 @@ class UpdateLogImplTest {
     void setUp() {
         vault = new VaultManager(new InMemoryVaultService());
 
-        metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage("test"));
+        keyValueStorage = new SimpleInMemoryKeyValueStorage("test");
+
+        metastore = StandaloneMetaStorageManager.create(vault, keyValueStorage);
 
         vault.start();
         metastore.start();
@@ -64,61 +70,69 @@ class UpdateLogImplTest {
 
     @AfterEach
     public void tearDown() throws Exception {
-        metastore.stop();
-        vault.stop();
+        IgniteUtils.closeAll(
+                metastore == null ? null : metastore::stop,
+                vault == null ? null : vault::stop
+        );
     }
 
     @Test
-    public void logReplayedOnStart() throws Exception {
-        // first, let's append a few entries to the log
-        UpdateLogImpl updateLog = createUpdateLogImpl();
+    void logReplayedOnStart() throws Exception {
+        // First, let's append a few entries to the update log.
+        UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> {/* no-op */});
 
-        long revisionBefore = metastore.appliedRevision();
+        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
 
-        updateLog.registerUpdateHandler((update, ts, causalityToken) -> {/* no-op */});
-        updateLog.start();
+        List<VersionedUpdate> expectedUpdates = List.of(singleEntryUpdateOfVersion(1), singleEntryUpdateOfVersion(2));
 
-        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
+        appendUpdates(updateLogImpl, expectedUpdates);
 
-        List<VersionedUpdate> expectedVersions = List.of(
-                new VersionedUpdate(1, 1L, List.of(new TestUpdateEntry("foo"))),
-                new VersionedUpdate(2, 2L, List.of(new TestUpdateEntry("bar")))
-        );
+        // Let's restart the log and metastore with recovery.
+        updateLogImpl.stop();
 
-        for (VersionedUpdate update : expectedVersions) {
-            assertThat(updateLog.append(update), willBe(true));
-        }
+        restartMetastore();
 
-        // and wait till metastore apply necessary revision
-        assertTrue(
-                waitForCondition(
-                        () -> metastore.appliedRevision() - expectedVersions.size() == revisionBefore,
-                        TimeUnit.SECONDS.toMillis(5)
-                )
-        );
+        var actualUpdates = new ArrayList<VersionedUpdate>();
 
-        updateLog.stop();
+        createAndStartUpdateLogImpl((update, ts, causalityToken) -> actualUpdates.add(update));
 
-        // now let's create new component over a stuffed vault/metastore
-        // and check if log is replayed on start
-        updateLog = createUpdateLogImpl();
-
-        List<VersionedUpdate> actualVersions = new ArrayList<>();
-        List<Long> actualCausalityTokens = new ArrayList<>();
-
-        updateLog.registerUpdateHandler((update, ts, causalityToken) -> {
-            actualVersions.add(update);
-            actualCausalityTokens.add(causalityToken);
-        });
-
-        updateLog.start();
-
-        assertEquals(expectedVersions, actualVersions);
-        assertEquals(List.of(revisionBefore + 1, revisionBefore + 2), actualCausalityTokens);
+        // Let's check that we have recovered to the latest version.
+        assertThat(actualUpdates, equalTo(expectedUpdates));
     }
 
     private UpdateLogImpl createUpdateLogImpl() {
         return new UpdateLogImpl(metastore);
+    }
+
+    private UpdateLogImpl createAndStartUpdateLogImpl(OnUpdateHandler onUpdateHandler) {
+        UpdateLogImpl updateLogImpl = createUpdateLogImpl();
+
+        updateLogImpl.registerUpdateHandler(onUpdateHandler);
+        updateLogImpl.start();
+
+        return updateLogImpl;
+    }
+
+    private void appendUpdates(UpdateLogImpl updateLogImpl, Collection<VersionedUpdate> updates) throws Exception {
+        long revisionBeforeAppend = metastore.appliedRevision();
+
+        updates.forEach(update -> assertThat(updateLogImpl.append(update), willBe(true)));
+
+        assertTrue(waitForCondition(
+                () -> metastore.appliedRevision() - updates.size() == revisionBeforeAppend,
+                TimeUnit.SECONDS.toMillis(1))
+        );
+    }
+
+    private void restartMetastore() throws Exception {
+        long recoverRevision = metastore.appliedRevision();
+
+        metastore.stop();
+
+        metastore = StandaloneMetaStorageManager.create(vault, keyValueStorage);
+        metastore.start();
+
+        assertThat(metastore.recoveryFinishedFuture(), willBe(recoverRevision));
     }
 
     @Test
