@@ -33,6 +33,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -72,6 +73,7 @@ public class ClientSqlExecuteRequest {
         Session session = readSession(in, sql);
         Statement statement = readStatement(in, sql);
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
+        HybridTimestamp observableTs = HybridTimestamp.hybridTimestamp(in.unpackLong());
 
         if (arguments == null) {
             // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
