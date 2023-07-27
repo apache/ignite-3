@@ -17,12 +17,16 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -33,7 +37,7 @@ import org.junit.jupiter.api.Test;
 public class ObservableTimestampPropagationTest {
     private static TestServer testServer;
 
-    private static Ignite ignite;
+    private static FakeIgnite ignite;
 
     private static IgniteClient client;
 
@@ -56,10 +60,20 @@ public class ObservableTimestampPropagationTest {
 
     @Test
     public void testClientPropagatesLatestKnownHybridTimestamp() {
+        assertNull(lastObservableTimestamp());
+
         // Perform request.
         client.tables().tables();
 
         // Verify current timestamp is propagated by performing TX_BEGIN and checking ts value received by server.
         client.transactions().begin();
+
+        assertEquals(1, lastObservableTimestamp());
+    }
+
+    private static @Nullable Long lastObservableTimestamp() {
+        HybridTimestamp ts = ignite.txManager().lastObservableTimestamp();
+
+        return ts == null ? null : ts.longValue();
     }
 }

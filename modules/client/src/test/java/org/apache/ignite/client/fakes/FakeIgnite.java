@@ -24,6 +24,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
@@ -37,6 +38,8 @@ public class FakeIgnite implements Ignite {
     private final String name;
 
     private final HybridClock clock = new HybridClockImpl();
+
+    private final FakeTxManager txMgr = new FakeTxManager(clock);
 
     /**
      * Default constructor.
@@ -70,7 +73,7 @@ public class FakeIgnite implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
-        return new IgniteTransactionsImpl(new FakeTxManager(clock));
+        return new IgniteTransactionsImpl(txMgr);
     }
 
     /** {@inheritDoc} */
@@ -107,5 +110,9 @@ public class FakeIgnite implements Ignite {
     @Override
     public String name() {
         return name;
+    }
+
+    public FakeTxManager txManager() {
+        return txMgr;
     }
 }

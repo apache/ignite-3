@@ -40,6 +40,8 @@ import org.jetbrains.annotations.Nullable;
 public class FakeTxManager implements TxManager {
     private final HybridClock clock;
 
+    private HybridTimestamp lastObservableTimestamp = null;
+
     public FakeTxManager(HybridClock clock) {
         this.clock = clock;
     }
@@ -61,6 +63,8 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public InternalTransaction begin(boolean readOnly, @Nullable HybridTimestamp observableTimestamp) {
+        lastObservableTimestamp = observableTimestamp;
+
         return new InternalTransaction() {
             private final UUID id = UUID.randomUUID();
 
@@ -179,5 +183,9 @@ public class FakeTxManager implements TxManager {
     @Override
     public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
         return null;
+    }
+
+    public @Nullable HybridTimestamp lastObservableTimestamp() {
+        return lastObservableTimestamp;
     }
 }
