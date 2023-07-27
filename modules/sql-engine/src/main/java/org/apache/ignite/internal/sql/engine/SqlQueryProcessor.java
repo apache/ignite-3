@@ -88,10 +88,8 @@ import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.SchemaNotFoundException;
@@ -477,7 +475,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 });
 
         stage.whenComplete((cur, ex) -> {
-            if (ExceptionUtils.unwrapCause(ex) instanceof CancellationException) {
+            if (ex instanceof CancellationException) {
                 queryCancel.cancel();
             }
 
