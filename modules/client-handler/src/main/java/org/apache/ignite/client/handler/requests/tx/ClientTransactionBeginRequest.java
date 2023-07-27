@@ -26,7 +26,6 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,7 +48,7 @@ public class ClientTransactionBeginRequest {
             ClientMessagePacker out,
             IgniteTransactionsImpl transactions,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics) {
+            ClientHandlerMetricSource metrics) throws IgniteInternalCheckedException {
         TransactionOptions options = null;
         HybridTimestamp observableTs = null;
 
@@ -72,7 +71,7 @@ public class ClientTransactionBeginRequest {
             return null;
         } catch (IgniteInternalCheckedException e) {
             tx.rollback();
-            throw new IgniteInternalException(e.getMessage(), e);
+            throw e;
         }
     }
 }
