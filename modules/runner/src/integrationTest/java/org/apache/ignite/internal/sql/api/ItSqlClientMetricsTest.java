@@ -61,12 +61,10 @@ public class ItSqlClientMetricsTest extends ClusterPerClassIntegrationTest {
         assertTrue(queryProcessor().liveSessions().isEmpty());
     }
 
-
     @Override
     protected int nodes() {
         return 1;
     }
-
 
     @Test
     public void testNormalFlow() throws Exception {
