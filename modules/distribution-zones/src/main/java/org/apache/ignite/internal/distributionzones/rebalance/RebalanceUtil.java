@@ -43,12 +43,12 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -96,7 +96,7 @@ public class RebalanceUtil {
     /**
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
      *
-     * @param tableView Table config view.
+     * @param tableDescriptor Table descriptor.
      * @param partId Unique identifier of a partition.
      * @param dataNodes Data nodes.
      * @param replicas Number of replicas for a table.
@@ -107,7 +107,7 @@ public class RebalanceUtil {
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
     public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
-            TableView tableView,
+            CatalogTableDescriptor tableDescriptor,
             TablePartitionId partId,
             Collection<String> dataNodes,
             int replicas,
@@ -186,14 +186,14 @@ public class RebalanceUtil {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
                             "Update metastore pending partitions key [key={}, partition={}, table={}/{}, newVal={}]",
-                            partAssignmentsPendingKey.toString(), partNum, tableView.id(), tableView.name(),
+                            partAssignmentsPendingKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes));
 
                     break;
                 case PLANNED_KEY_UPDATED:
                     LOG.info(
                             "Update metastore planned partitions key [key={}, partition={}, table={}/{}, newVal={}]",
-                            partAssignmentsPlannedKey, partNum, tableView.id(), tableView.name(),
+                            partAssignmentsPlannedKey, partNum, tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes)
                     );
 
@@ -201,7 +201,7 @@ public class RebalanceUtil {
                 case PLANNED_KEY_REMOVED_EQUALS_PENDING:
                     LOG.info(
                             "Remove planned key because current pending key has the same value [key={}, partition={}, table={}/{}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableView.id(), tableView.name(),
+                            partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes)
                     );
 
@@ -210,7 +210,7 @@ public class RebalanceUtil {
                     LOG.info(
                             "Remove planned key because pending is empty and calculated assignments are equal to current assignments "
                                     + "[key={}, partition={}, table={}/{}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableView.id(), tableView.name(),
+                            partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes)
                     );
 
@@ -218,7 +218,7 @@ public class RebalanceUtil {
                 case ASSIGNMENT_NOT_UPDATED:
                     LOG.debug(
                             "Assignments are not updated [key={}, partition={}, table={}/{}, val={}]",
-                            partAssignmentsPlannedKey.toString(), partNum, tableView.id(), tableView.name(),
+                            partAssignmentsPlannedKey.toString(), partNum, tableDescriptor.id(), tableDescriptor.name(),
                             ByteUtils.fromBytes(partAssignmentsBytes)
                     );
 
@@ -226,7 +226,7 @@ public class RebalanceUtil {
                 case OUTDATED_UPDATE_RECEIVED:
                     LOG.debug(
                             "Received outdated rebalance trigger event [revision={}, partition={}, table={}/{}]",
-                            revision, partNum, tableView.id(), tableView.name());
+                            revision, partNum, tableDescriptor.id(), tableDescriptor.name());
 
                     break;
                 default:
@@ -241,8 +241,8 @@ public class RebalanceUtil {
      * provided data nodes, and, if the calculated assignments are different from the ones loaded from the
      * MetaStorages, writes them as pending assignments.
      *
-     * @param tableCfg Table configuration snapshot.
-     * @param zoneCfg Zone configuration snapshot.
+     * @param tableDescriptor Table descriptor.
+     * @param zoneDescriptor Zone descriptor.
      * @param dataNodes Data nodes to use.
      * @param storageRevision MetaStorage revision corresponding to this request.
      * @param metaStorageManager MetaStorage manager used to read/write assignments.
@@ -250,31 +250,31 @@ public class RebalanceUtil {
      *     rebalance triggering completes.
      */
     public static CompletableFuture<?>[] triggerAllTablePartitionsRebalance(
-            TableView tableCfg,
-            DistributionZoneView zoneCfg,
+            CatalogTableDescriptor tableDescriptor,
+            CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             long storageRevision,
             MetaStorageManager metaStorageManager
     ) {
         CompletableFuture<List<Set<Assignment>>> tableAssignmentsFut = tableAssignments(
                 metaStorageManager,
-                tableCfg.id(),
-                zoneCfg.partitions()
+                tableDescriptor.id(),
+                zoneDescriptor.partitions()
         );
 
-        CompletableFuture<?>[] futures = new CompletableFuture[zoneCfg.partitions()];
+        CompletableFuture<?>[] futures = new CompletableFuture[zoneDescriptor.partitions()];
 
-        for (int partId = 0; partId < zoneCfg.partitions(); partId++) {
-            TablePartitionId replicaGrpId = new TablePartitionId(tableCfg.id(), partId);
+        for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
+            TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
 
             int finalPartId = partId;
 
             futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
                     updatePendingAssignmentsKeys(
-                            tableCfg,
+                            tableDescriptor,
                             replicaGrpId,
                             dataNodes,
-                            zoneCfg.replicas(),
+                            zoneDescriptor.replicas(),
                             storageRevision,
                             metaStorageManager,
                             finalPartId,

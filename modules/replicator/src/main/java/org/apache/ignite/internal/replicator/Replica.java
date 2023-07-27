@@ -50,7 +50,8 @@ public class Replica {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
-    public static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+    /** Message factory. */
+    private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Replica group identity, this id is the same as the considered partition's id. */
     private final ReplicationGroupId replicaGrpId;
@@ -72,12 +73,18 @@ public class Replica {
 
     // TODO IGNITE-19120 after replica inoperability logic is introduced, this future should be replaced with something like
     //     VersionedValue (so that PlacementDriverMessages would wait for new leader election)
-    private CompletableFuture<AtomicReference<ClusterNode>> leaderFuture = new CompletableFuture<>();
+    /** Completes when leader is elected. */
+    private final CompletableFuture<AtomicReference<ClusterNode>> leaderFuture = new CompletableFuture<>();
 
-    private AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
+    /** Container of the elected leader. */
+    private final AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
 
     /** Latest lease expiration time. */
-    private volatile HybridTimestamp leaseExpirationTime = null;
+    private volatile HybridTimestamp leaseExpirationTime;
+
+    /** External executor. */
+    // TODO: IGNITE-20063 Maybe get rid of it
+    private final ExecutorService executor;
 
     /** Executor. */
     private final ExecutorService executor;
@@ -91,6 +98,7 @@ public class Replica {
      * @param storageIndexTracker Storage index tracker.
      * @param raftClient Topology aware Raft client.
      * @param localNode Instance of the local node.
+     * @param executor External executor.
      */
     public Replica(
             ReplicationGroupId replicaGrpId,

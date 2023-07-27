@@ -122,7 +122,8 @@ public class ReplicaManager implements IgniteComponent {
     private final Set<Class<?>> messageGroupsToHandle;
 
     /** Executor. */
-    private ExecutorService executor;
+    // TODO: IGNITE-20063 Maybe get rid of it
+    private final ExecutorService executor;
 
     /**
      * Constructor for a replica service.
