@@ -151,6 +151,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             raftClientFactory.put(nodeName, topologyAwareRaftGroupServiceFactory);
 
             var replicaManager = new ReplicaManager(
+                    nodeName,
                     clusterService,
                     cmgManager,
                     clock,

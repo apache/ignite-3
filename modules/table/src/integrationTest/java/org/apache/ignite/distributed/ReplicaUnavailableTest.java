@@ -118,10 +118,13 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         // This test is run without Meta storage.
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of()));
 
-        replicaManager = new ReplicaManager(clusterService,
+        replicaManager = new ReplicaManager(
+                name,
+                clusterService,
                 cmgManager,
                 clock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class));
+                Set.of(TableMessageGroup.class, TxMessageGroup.class)
+        );
 
         replicaManager.start();
     }

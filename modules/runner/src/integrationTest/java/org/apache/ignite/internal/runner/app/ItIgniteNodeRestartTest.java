@@ -259,6 +259,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new TestConfigurationValidator());
 
         ReplicaManager replicaMgr = new ReplicaManager(
+                name,
                 clusterSvc,
                 cmgManager,
                 hybridClock,
