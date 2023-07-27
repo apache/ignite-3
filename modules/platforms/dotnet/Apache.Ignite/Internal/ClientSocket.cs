@@ -700,6 +700,9 @@ namespace Apache.Ignite.Internal
                 _assignmentChangeCallback(this);
             }
 
+            // TODO IGNITE-20056 .NET: Thin 3.0: Track observable timestamp
+            _ = reader.ReadInt64();
+
             var exception = ReadError(ref reader);
 
             if (exception != null)
