@@ -37,6 +37,7 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
@@ -55,6 +56,11 @@ public class ItSqlClientMetricsTest extends ClusterPerClassIntegrationTest {
         createAndPopulateTable();
     }
 
+    @BeforeEach
+    void beforeEach() throws Exception {
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 0);
+    }
+
     @AfterEach
     void afterEach() throws Exception {
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 0);
@@ -68,8 +74,6 @@ public class ItSqlClientMetricsTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testNormalFlow() throws Exception {
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 0);
-
         Session session = sql.createSession();
         ResultSet<SqlRow> rs1 = session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
 
@@ -94,14 +98,12 @@ public class ItSqlClientMetricsTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testMetricsDuringTimeouts() throws Exception {
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 0);
-
         Session session = sql.sessionBuilder().idleTimeout(1, TimeUnit.SECONDS).build();
 
         ResultSet<SqlRow> rs1 = session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 1);
 
-        waitForCondition(() -> queryProcessor().liveSessions().isEmpty(), 10_000);
+        assertTrue(waitForCondition(() -> queryProcessor().liveSessions().isEmpty(), 10_000));
 
         assertInternalSqlException("Session not found", () -> session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME));
 
@@ -117,8 +119,6 @@ public class ItSqlClientMetricsTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testErroneousFlow() throws Exception {
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 0);
-
         Session session = sql.createSession();
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR, () -> session.execute(null, "SELECT * ODINfrom " + DEFAULT_TABLE_NAME));
