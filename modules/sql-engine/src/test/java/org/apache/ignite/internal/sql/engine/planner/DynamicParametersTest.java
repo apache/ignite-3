@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
@@ -31,6 +36,7 @@ import org.junit.jupiter.api.TestFactory;
  * Test cases for dynamic parameters.
  */
 public class DynamicParametersTest extends AbstractPlannerTest {
+    private final String castErrorMessage = "Cast function cannot convert value of type";
 
     /**
      * This test case triggers "Conversion to relational algebra failed to preserve datatypes" assertion,
@@ -42,6 +48,40 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 .sql("SELECT 1 - ? + 2", 1)
                 .ok()
                 .getExecutable().execute();
+    }
+
+    /** Test CAST possibility for different supported types. */
+    @TestFactory
+    public Stream<DynamicTest> testAllowedCasts() {
+        List<DynamicTest> testItems = new ArrayList<>();
+
+        for (NativeTypeSpec type : typesToCheck()) {
+            String typeName = sqlTypeName(type);
+
+            // custom type.
+            UUID uuid = UUID.randomUUID();
+            if (type != NativeTypeSpec.UUID && type != NativeTypeSpec.STRING) {
+                testItems.add(sql(String.format("SELECT CAST(? AS %s)", typeName), uuid).fails(castErrorMessage));
+                testItems.add(sql(String.format("SELECT CAST('%s'::UUID AS %s)", uuid, typeName)).fails(castErrorMessage));
+            } else {
+                testItems.add(sql(String.format("SELECT CAST(? AS %s)", typeName), uuid).ok());
+            }
+
+            LocalTime now = LocalTime.now();
+            if (type != NativeTypeSpec.TIME && type != NativeTypeSpec.TIMESTAMP && type != NativeTypeSpec.DATETIME
+                    && type != NativeTypeSpec.STRING) {
+                testItems.add(sql(String.format("SELECT CAST(? AS %s)", typeName), now).fails(castErrorMessage));
+                testItems.add(sql(String.format("SELECT CAST(time '02:30:00' AS %s)", typeName)).fails(castErrorMessage));
+            } else {
+                testItems.add(sql(String.format("SELECT CAST(? AS %s)", typeName), now).ok());
+            }
+
+            // not supported type.
+            Object custom = new Object();
+            testItems.add(sql(String.format("SELECT CAST(? AS %s)", typeName), custom).fails(castErrorMessage));
+        }
+
+        return testItems.stream();
     }
 
     /** Arithmetic expressions. */
@@ -356,5 +396,61 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("SELECT ? UNION SELECT uuid_col FROM t1", "str")
                         .fails("Type mismatch in column 1 of UNION")
         );
+    }
+
+    private static String sqlTypeName(NativeTypeSpec type) {
+        switch (type) {
+            case BOOLEAN:
+                return "boolean";
+            case INT8:
+                return "tinyint";
+            case INT16:
+                return "smallint";
+            case INT32:
+                return "integer";
+            case INT64:
+            case NUMBER:
+                return "bigint";
+            case FLOAT:
+                return "real";
+            case DOUBLE:
+                return "double";
+            case DECIMAL:
+                return "decimal";
+            case UUID:
+                return "uuid";
+            case STRING:
+                return "varchar";
+            case BYTES:
+                return "varbinary";
+            case BITMASK:
+                return "bitmap";
+            case DATE:
+                return "date";
+            case TIME:
+                return "time";
+            case DATETIME:
+                return "timestamp";
+            case TIMESTAMP:
+                // TODO: Remove after https://issues.apache.org/jira/browse/IGNITE-19274 is implemented.
+                return "timestamp";
+            //return "timestamp with local time zone";
+            default:
+                throw new IllegalStateException("Unexpected type: " + type);
+        }
+    }
+
+    private static Collection<NativeTypeSpec> typesToCheck() {
+        List<NativeTypeSpec> args = new ArrayList<>();
+
+        for (NativeTypeSpec t : NativeTypeSpec.values()) {
+            // TODO: BitSet is not supported https://issues.apache.org/jira/browse/IGNITE-18431
+            if (t == NativeTypeSpec.BITMASK) {
+                continue;
+            }
+            args.add(t);
+        }
+
+        return args;
     }
 }
