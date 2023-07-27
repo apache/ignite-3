@@ -26,6 +26,7 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -62,12 +63,12 @@ public class ObservableTimestampPropagationTest {
     public void testClientPropagatesLatestKnownHybridTimestamp() {
         assertNull(lastObservableTimestamp());
 
-        // Perform request.
-        client.tables().tables();
-
-        // Verify current timestamp is propagated by performing TX_BEGIN and checking ts value received by server.
+        // RW TX does not propagate timestamp.
         client.transactions().begin();
+        assertNull(lastObservableTimestamp());
 
+        // RO TX propagates timestamp.
+        client.transactions().begin(new TransactionOptions().readOnly(true));
         assertEquals(1, lastObservableTimestamp());
     }
 
