@@ -123,7 +123,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testOuterCommute() throws Exception {
-        // Use aggregates that are the some for both MAP and REDUCE phases.
+        // Use aggregates that are the same for both MAP and REDUCE phases.
         String sql = "SELECT SUM(s.id), SUM(h.id) FROM SMALL s RIGHT JOIN HUGE h on h.id = s.id";
 
         IgniteRel phys = physicalPlan(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin");
@@ -174,7 +174,7 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testInnerCommute() throws Exception {
-        // Use aggregates that are the some for both MAP and REDUCE phases.
+        // Use aggregates that are the same for both MAP and REDUCE phases.
         String sql = "SELECT SUM(s.id), SUM(h.id) FROM SMALL s JOIN HUGE h on h.id = s.id";
 
         IgniteRel phys = physicalPlan(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin");

@@ -72,9 +72,10 @@ public final class AggregateRow<RowT> {
 
     /** Writes aggregate state of the given row to given array. */
     public void writeTo(Object[] output, ImmutableBitSet allFields, byte groupId) {
+        int cardinality = allFields.cardinality();
         for (int i = 0; i < accs.size(); i++) {
             AccumulatorWrapper<RowT> wrapper = accs.get(i);
-            output[i + allFields.cardinality()] = wrapper.end();
+            output[i + cardinality] = wrapper.end();
         }
 
         if (groupId != NO_GROUP_ID && type == AggregateType.MAP) {

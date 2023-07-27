@@ -550,6 +550,29 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
         }
     }
 
+//    @ParameterizedTest
+//    @MethodSource("rulesForGroupingSets")
+    @Test
+    public void testAvgOnEmptyGroup() { //(String[] rules) {
+        try {
+            sql("CREATE TABLE test1 (id INTEGER PRIMARY KEY, str_col VARCHAR, int_col INTEGER, real_col REAL, dec_col DECIMAL);");
+
+            assertQuery("SELECT AVG(int_col) FROM test1")
+                    .returns(new Object[]{null})
+                    .check();
+
+            assertQuery("SELECT AVG(real_col) FROM test1")
+                    .returns(new Object[]{null})
+                    .check();
+
+            assertQuery("SELECT AVG(dec_col) FROM test1")
+                    .returns(new Object[]{null})
+                    .check();
+        } finally {
+            sql("DROP TABLE test1");
+        }
+    }
+
     private static Stream<Arguments> rulesForGroupingSets() {
         List<Object[]> rules = Arrays.asList(
                 // Use map/reduce aggregates for grouping sets
