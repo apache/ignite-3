@@ -160,10 +160,28 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                     );
                 }
 
-                return registerSchema(registries, tblId, newSchema);
+                return saveSchemaDescriptor(tblId, newSchema)
+                        .thenApply(t -> registerSchema(tblId, newSchema, registries));
             }));
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    private Map<Integer, SchemaRegistryImpl> registerSchema(int tblId, SchemaDescriptor newSchema,
+            Map<Integer, SchemaRegistryImpl> registries) {
+        SchemaRegistryImpl reg = registries.get(tblId);
+
+        if (reg == null) {
+            Map<Integer, SchemaRegistryImpl> copy = new HashMap<>(registries);
+
+            copy.put(tblId, createSchemaRegistry(tblId, newSchema));
+
+            return copy;
+        } else {
+            reg.onSchemaRegistered(newSchema);
+
+            return registries;
         }
     }
 
@@ -186,39 +204,24 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     }
 
     /**
-     * Registers the new schema in a Schema Registry.
+     * Gets a schema descriptor from the configuration storage.
      *
-     * @param registries Map of schema registries.
-     * @param tableId Table id.
-     * @param schema Schema descriptor.
-     * @return Future that, when complete, will resolve into an updated map of schema registries
-     *     (to be used in {@link IncrementalVersionedValue#update}).
+     * @param tableId Table ID.
+     * @param schemaVer Schema version.
+     * @return Schema descriptor.
      */
-    private CompletableFuture<Map<Integer, SchemaRegistryImpl>> registerSchema(
-            Map<Integer, SchemaRegistryImpl> registries,
-            int tableId,
-            SchemaDescriptor schema
-    ) {
+    private CompletableFuture<SchemaDescriptor> loadSchemaDescriptor(int tableId, int schemaVer) {
+        CompletableFuture<Entry> ent = metastorageMgr.get(schemaWithVerHistKey(tableId, schemaVer));
+
+        return ent.thenApply(e -> SchemaSerializerImpl.INSTANCE.deserialize(e.value()));
+    }
+
+    private CompletableFuture<Boolean> saveSchemaDescriptor(int tableId, SchemaDescriptor schema) {
         ByteArray key = schemaWithVerHistKey(tableId, schema.version());
 
         byte[] serializedSchema = SchemaSerializerImpl.INSTANCE.serialize(schema);
 
-        return metastorageMgr.invoke(notExists(key), put(key, serializedSchema), noop())
-                .thenApply(t -> {
-                    SchemaRegistryImpl reg = registries.get(tableId);
-
-                    if (reg == null) {
-                        Map<Integer, SchemaRegistryImpl> copy = new HashMap<>(registries);
-
-                        copy.put(tableId, createSchemaRegistry(tableId, schema));
-
-                        return copy;
-                    } else {
-                        reg.onSchemaRegistered(schema);
-
-                        return registries;
-                    }
-                });
+        return metastorageMgr.invoke(notExists(key), put(key, serializedSchema), noop());
     }
 
     /**
@@ -230,7 +233,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      */
     private SchemaRegistryImpl createSchemaRegistry(int tableId, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(
-                ver -> inBusyLock(busyLock, () -> getSchemaDescriptor(tableId, ver)),
+                ver -> inBusyLock(busyLock, () -> loadSchemaDescriptor(tableId, ver)),
                 () -> inBusyLock(busyLock, () -> latestSchemaVersion(tableId)),
                 initialSchema
         );
@@ -251,19 +254,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         } else {
             return null;
         }
-    }
-
-    /**
-     * Gets a schema descriptor from the configuration storage.
-     *
-     * @param tableId Table ID.
-     * @param schemaVer Schema version.
-     * @return Schema descriptor.
-     */
-    private CompletableFuture<SchemaDescriptor> getSchemaDescriptor(int tableId, int schemaVer) {
-        CompletableFuture<Entry> ent = metastorageMgr.get(schemaWithVerHistKey(tableId, schemaVer));
-
-        return ent.thenApply(e -> SchemaSerializerImpl.INSTANCE.deserialize(e.value()));
     }
 
     /**
