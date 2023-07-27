@@ -492,8 +492,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     }
 
     private void checkDistinctAggHash(TestCase testCase) throws Exception {
-        assertPlan(testCase,
-                isInstanceOf(IgniteReduceSortAggregate.class)
+        assertPlan(testCase, nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(hasAggregate())
                         .and(not(hasDistinctAggregate()))
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
@@ -511,7 +510,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                                 ))
                                         ))
                                 ))
-                        )),
+                        ))),
                 disableRules
         );
     }
@@ -630,20 +629,20 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
 
     private void checkGroupsWithOrderBySubsetOfGroupColumnsSingle(TestCase testCase, RelCollation collation) throws Exception {
         assertPlan(testCase,
-                isInstanceOf(IgniteReduceSortAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class) //TODO: Why can't Map be pushed down to under 'exchange'.
                                 .and(input(isInstanceOf(IgniteSort.class)
                                         .and(s -> s.collation().equals(collation))
                                         .and(input(isTableScan("TEST")))
                                 ))
-                        )),
+                        ))),
                 disableRules
         );
     }
 
     private void checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase testCase, RelCollation collation) throws Exception {
         assertPlan(testCase,
-                isInstanceOf(IgniteReduceSortAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                 //TODO: Why can't Map be pushed down to under 'exchange'.
                                 .and(input(isInstanceOf(IgniteExchange.class)
@@ -652,7 +651,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                                 .and(input(isTableScan("TEST")))
                                         ))
                                 ))
-                        )),
+                        ))),
                 disableRules
         );
     }
