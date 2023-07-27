@@ -58,7 +58,7 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
-import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -258,6 +258,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new TestConfigurationValidator());
 
         ReplicaManager replicaMgr = new ReplicaManager(
+                name,
                 clusterSvc,
                 cmgManager,
                 hybridClock,
@@ -352,7 +353,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var clockWaiter = new ClockWaiter("test", hybridClock);
 
-        var catalogManager = new CatalogServiceImpl(
+        var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockWaiter
         );

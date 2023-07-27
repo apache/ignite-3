@@ -41,7 +41,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -401,6 +401,7 @@ public class IgniteImpl implements Ignite {
                 distributedConfigurationValidator);
 
         replicaMgr = new ReplicaManager(
+                name,
                 clusterSvc,
                 cmgMgr,
                 clock,
@@ -513,7 +514,7 @@ public class IgniteImpl implements Ignite {
                 SchemaSynchronizationConfiguration.KEY
         );
 
-        catalogManager = new CatalogServiceImpl(
+        catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockWaiter,
                 () -> schemaSyncConfig.delayDuration().value()

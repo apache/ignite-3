@@ -72,7 +72,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -678,6 +678,7 @@ public class ItRebalanceDistributedTest {
                     new TestConfigurationValidator());
 
             replicaManager = new ReplicaManager(
+                    name,
                     clusterService,
                     cmgManager,
                     hybridClock,
@@ -787,7 +788,7 @@ public class ItRebalanceDistributedTest {
 
             clockWaiter = new ClockWaiter("test", hybridClock);
 
-            catalogManager = new CatalogServiceImpl(
+            catalogManager = new CatalogManagerImpl(
                     new UpdateLogImpl(metaStorageManager),
                     clockWaiter
             );
