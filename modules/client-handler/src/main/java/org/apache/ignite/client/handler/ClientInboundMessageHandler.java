@@ -393,6 +393,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
             writeFlags(packer, ctx);
+            packer.packLong(clock.now().longValue());
 
             writeErrorCore(err, packer);
 
