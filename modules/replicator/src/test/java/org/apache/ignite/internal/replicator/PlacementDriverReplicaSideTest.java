@@ -31,6 +31,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -98,16 +99,15 @@ public class PlacementDriverReplicaSideTest {
             }
         });
 
-        Replica replica = new Replica(
+        return new Replica(
                 GRP_ID,
                 completedFuture(null),
                 mock(ReplicaListener.class),
                 storageIndexTracker,
                 raftClient,
-                LOCAL_NODE
+                LOCAL_NODE,
+                ForkJoinPool.commonPool()
         );
-
-        return replica;
     }
 
     @BeforeEach
