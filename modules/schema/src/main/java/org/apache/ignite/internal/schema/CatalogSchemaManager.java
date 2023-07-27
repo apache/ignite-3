@@ -133,10 +133,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
         return onTableCreatedOrAltered(tableDescriptor, event.causalityToken());
     }
 
-    private CompletableFuture<Boolean> onTableCreatedOrAltered(
-            CatalogTableDescriptor tableDescriptor,
-            long causalityToken
-    ) {
+    private CompletableFuture<Boolean> onTableCreatedOrAltered(CatalogTableDescriptor tableDescriptor, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
