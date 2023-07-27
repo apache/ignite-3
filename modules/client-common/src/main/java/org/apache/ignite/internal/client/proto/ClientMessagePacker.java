@@ -559,6 +559,10 @@ public class ClientMessagePacker implements AutoCloseable {
 
         packInt(vals.length);
 
+        if (vals.length == 0) {
+            return;
+        }
+
         // Builder with inline schema.
         // Every element in vals is represented by 3 tuple elements: type, scale, value.
         var builder = new BinaryTupleBuilder(vals.length * 3);

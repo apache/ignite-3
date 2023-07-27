@@ -56,7 +56,7 @@ public class ClientTransactionBeginRequest {
             options = new TransactionOptions().readOnly(true);
 
             // Timestamp makes sense only for read-only transactions.
-            observableTs = HybridTimestamp.hybridTimestamp(in.unpackLong());
+            observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         }
 
         // NOTE: we don't use beginAsync here because it is synchronous anyway.

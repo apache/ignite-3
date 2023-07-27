@@ -180,6 +180,11 @@ public final class ReliableChannel implements AutoCloseable {
         return clientCfg;
     }
 
+    public long observableTimestamp() {
+        // TODO: Store amd update observable timestamp in ReliableChannel.
+        return 0;
+    }
+
     /**
      * Sends request and handles response asynchronously.
      *

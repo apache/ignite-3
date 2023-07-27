@@ -74,13 +74,13 @@ public class ClientSqlExecuteRequest {
         Statement statement = readStatement(in, sql);
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
-        // TODO IGNITE-19898 SQL implicit RO transaction should use observation timestamp.
-        HybridTimestamp observableTs = HybridTimestamp.hybridTimestamp(in.unpackLong());
-
         if (arguments == null) {
             // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
             arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
         }
+
+        // TODO IGNITE-19898 SQL implicit RO transaction should use observation timestamp.
+        HybridTimestamp observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
 
         return session
                 .executeAsync(tx, statement, arguments)
