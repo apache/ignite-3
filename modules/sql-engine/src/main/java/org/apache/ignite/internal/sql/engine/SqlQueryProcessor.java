@@ -88,6 +88,7 @@ import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteExceptionMapperUtil;
@@ -476,7 +477,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 });
 
         stage.whenComplete((cur, ex) -> {
-            if (ex instanceof CancellationException) {
+            if (ExceptionUtils.unwrapCause(ex) instanceof CancellationException) {
                 queryCancel.cancel();
             }
 

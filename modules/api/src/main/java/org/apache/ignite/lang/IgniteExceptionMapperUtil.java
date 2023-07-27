@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
@@ -118,7 +119,13 @@ public class IgniteExceptionMapperUtil {
         return origin
                 .handle((res, err) -> {
                     if (err != null) {
-                        throw new CompletionException(mapToPublicException(unwrapCause(err)));
+                        Throwable cause = unwrapCause(err);
+
+                        if (cause instanceof CancellationException) {
+                            throw (CancellationException) cause;
+                        }
+
+                        throw new CompletionException(mapToPublicException(cause));
                     }
 
                     return res;

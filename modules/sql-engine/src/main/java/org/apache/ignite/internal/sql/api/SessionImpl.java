@@ -255,7 +255,7 @@ public class SessionImpl implements Session {
                             counters.add((long) page.items().get(0).get(0));
                         })
                         .whenComplete((v, ex) -> {
-                            if (ex instanceof CancellationException) {
+                            if (ExceptionUtils.unwrapCause(ex) instanceof CancellationException) {
                                 qryFut.cancel(false);
                             }
                         });
@@ -267,6 +267,10 @@ public class SessionImpl implements Session {
                     .exceptionally((ex) -> {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
+                        if (cause instanceof CancellationException) {
+                            throw (CancellationException) cause;
+                        }
+
                         throw new SqlBatchException(
                                 cause instanceof TraceableException ? ((TraceableException) cause).code() : INTERNAL_ERR,
                                 counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY),
@@ -275,7 +279,7 @@ public class SessionImpl implements Session {
                     .thenApply(v -> counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY));
 
             resFut.whenComplete((cur, ex) -> {
-                if (ex instanceof CancellationException) {
+                if (ExceptionUtils.unwrapCause(ex) instanceof CancellationException) {
                     batchFuts.forEach(f -> f.cancel(false));
                 }
             });
