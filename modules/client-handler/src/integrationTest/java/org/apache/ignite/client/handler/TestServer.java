@@ -116,10 +116,21 @@ public class TestServer {
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
         Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
 
-        var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTablesInternal.class), mock(IgniteTransactionsImpl.class),
-                registry, mock(IgniteCompute.class), clusterService, bootstrapFactory, mock(IgniteSql.class),
-                () -> CompletableFuture.completedFuture(UUID.randomUUID()), mock(MetricManager.class), metrics,
-                authenticationManager(), authenticationConfiguration, new HybridClockImpl()
+        var module = new ClientHandlerModule(
+                mock(QueryProcessor.class),
+                mock(IgniteTablesInternal.class),
+                mock(IgniteTransactionsImpl.class),
+                registry,
+                mock(IgniteCompute.class),
+                clusterService,
+                bootstrapFactory,
+                mock(IgniteSql.class),
+                () -> CompletableFuture.completedFuture(UUID.randomUUID()),
+                mock(MetricManager.class),
+                metrics,
+                authenticationManager(),
+                authenticationConfiguration,
+                new HybridClockImpl()
         );
 
         module.start();
