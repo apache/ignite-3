@@ -86,9 +86,6 @@ public class Replica {
     // TODO: IGNITE-20063 Maybe get rid of it
     private final ExecutorService executor;
 
-    /** Executor. */
-    private final ExecutorService executor;
-
     /**
      * The constructor of a replica server.
      *
