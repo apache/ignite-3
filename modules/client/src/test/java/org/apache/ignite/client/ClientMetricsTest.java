@@ -222,7 +222,7 @@ public class ClientMetricsTest {
         client.tables().tables();
 
         assertEquals(21, metrics().bytesSent());
-        assertEquals(55, metrics().bytesReceived());
+        assertEquals(64, metrics().bytesReceived());
     }
 
     @Test
