@@ -64,7 +64,8 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.putNode(D);
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID, Set.of(A, C, D), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID,
+                Set.of(A, C, D), TIMEOUT_MILLIS);
     }
 
     @Test
@@ -89,7 +90,8 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.putNode(newB);
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID, Set.of(A, newB, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID,
+                Set.of(A, newB, C), TIMEOUT_MILLIS);
     }
 
     /**
@@ -115,6 +117,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
                         .build()
         ).get(10_000, TimeUnit.MILLISECONDS);
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID, Set.of(A, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID,
+                Set.of(A, C), TIMEOUT_MILLIS);
     }
 }

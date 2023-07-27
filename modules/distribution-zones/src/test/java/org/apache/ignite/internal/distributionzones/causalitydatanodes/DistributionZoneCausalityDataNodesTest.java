@@ -551,7 +551,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertEquals(ONE_NODE_NAME, dataNodes3);
 
         // Check that zones is removed and attempt to get data nodes throws an exception.
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS), DistributionZoneNotFoundException.class);
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS),
+                DistributionZoneNotFoundException.class);
     }
 
     /**
@@ -603,7 +604,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertEquals(TWO_NODES_NAMES, dataNodes2);
 
         // Check that zones is removed and attempt to get data nodes throws an exception.
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS), DistributionZoneNotFoundException.class);
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS),
+                DistributionZoneNotFoundException.class);
     }
 
     /**
@@ -742,7 +744,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the zone with the drop zone revision is absent.
         assertThrowsWithCause(
-                () -> distributionZoneManager.dataNodes(dropZoneRevision, ZONE_ID_1).get(TIMEOUT, MILLISECONDS), DistributionZoneNotFoundException.class
+                () -> distributionZoneManager.dataNodes(dropZoneRevision, ZONE_ID_1).get(TIMEOUT, MILLISECONDS),
+                DistributionZoneNotFoundException.class
         );
     }
 
@@ -753,11 +756,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      */
     @Test
     void validationTest() {
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(0, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS), IllegalArgumentException.class);
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(0, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS),
+                IllegalArgumentException.class);
 
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(-1, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS), IllegalArgumentException.class);
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(-1, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS),
+                IllegalArgumentException.class);
 
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(1, -1).get(TIMEOUT, MILLISECONDS), IllegalArgumentException.class);
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(1, -1).get(TIMEOUT, MILLISECONDS),
+                IllegalArgumentException.class);
     }
 
     /**
@@ -829,7 +835,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      * to the data nodes value which were calculated by data nodes from the meta storage manager after topology augmentation maps
      * were cleared.
      *
-     * @throws Exception
+     * @throws Exception If failed.
      */
     @Test
     void checkDataNodesRepeated() throws Exception {

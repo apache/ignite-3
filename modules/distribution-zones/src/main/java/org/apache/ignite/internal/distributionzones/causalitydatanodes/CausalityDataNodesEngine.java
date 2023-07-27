@@ -131,7 +131,7 @@ public class CausalityDataNodesEngine {
      *
      * @param causalityToken Causality token.
      * @param zoneId Zone id.
-     * @return The data nodes for the zoneId.
+     * @return The future with data nodes for the zoneId.
      */
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
         if (causalityToken < 1) {
