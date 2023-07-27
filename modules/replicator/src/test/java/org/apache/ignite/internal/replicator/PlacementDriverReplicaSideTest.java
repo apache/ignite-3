@@ -31,7 +31,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -45,9 +46,12 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -73,6 +77,10 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     private Peer currentLeader = null;
 
     private int countOfTimeoutExceptionsOnReadIndexToThrow = 0;
+
+    private final ExecutorService executor = Executors.newSingleThreadExecutor(
+            NamedThreadFactory.create("common", "replica", log)
+    );
 
     private Replica startReplica() {
         TopologyAwareRaftGroupService raftClient = mock(TopologyAwareRaftGroupService.class);
@@ -107,7 +115,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 storageIndexTracker,
                 raftClient,
                 LOCAL_NODE,
-                ForkJoinPool.commonPool()
+                executor
         );
     }
 
@@ -118,6 +126,11 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         currentLeader = null;
         countOfTimeoutExceptionsOnReadIndexToThrow = 0;
         replica = startReplica();
+    }
+
+    @AfterEach
+    void tearDown() {
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }
 
     /**
