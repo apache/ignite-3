@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
@@ -40,6 +41,22 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
         this.txManager = txManager;
     }
 
+    /**
+     * Begins a transaction.
+     *
+     * @param options Transaction options.
+     * @param observableTimestamp Timestamp.
+     * @return The started transaction.
+     */
+    public InternalTransaction begin(@Nullable TransactionOptions options, @Nullable HybridTimestamp observableTimestamp) {
+        if (options != null && options.timeoutMillis() != 0) {
+            // TODO: IGNITE-15936.
+            throw new UnsupportedOperationException("Timeouts are not supported yet");
+        }
+
+        return txManager.begin(options != null && options.readOnly(), null);
+    }
+
     /** {@inheritDoc} */
     @Override
     public Transaction begin(@Nullable TransactionOptions options) {
@@ -50,14 +67,5 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     @Override
     public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
         return CompletableFuture.completedFuture(begin(options, null));
-    }
-
-    public Transaction begin(@Nullable TransactionOptions options, @Nullable HybridTimestamp observableTimestamp) {
-        if (options != null && options.timeoutMillis() != 0) {
-            // TODO: IGNITE-15936.
-            throw new UnsupportedOperationException("Timeouts are not supported yet");
-        }
-
-        return txManager.begin(options != null && options.readOnly(), null);
     }
 }

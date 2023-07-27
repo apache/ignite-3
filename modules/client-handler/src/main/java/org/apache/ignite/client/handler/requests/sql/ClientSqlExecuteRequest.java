@@ -80,7 +80,7 @@ public class ClientSqlExecuteRequest {
         }
 
         // TODO IGNITE-19898 SQL implicit RO transaction should use observation timestamp.
-        HybridTimestamp observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+        HybridTimestamp unused = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
 
         return session
                 .executeAsync(tx, statement, arguments)
