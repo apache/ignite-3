@@ -341,6 +341,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
+        Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
+                metaStorageMgr.registerRevisionUpdateListener(function::apply);
+
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 null,
                 zonesConfig,

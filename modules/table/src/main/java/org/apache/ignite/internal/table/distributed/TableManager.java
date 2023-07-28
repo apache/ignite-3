@@ -598,37 +598,35 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.newValue());
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
 
-            CompletableFuture<List<Set<Assignment>>> assignments;
+            CompletableFuture<List<Set<Assignment>>> assignmentsFuture;
 
             int tableId = tableDescriptor.id();
 
             // Check if the table already has assignments in the vault.
             // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
             if (partitionAssignments(vaultManager, tableId, 0) != null) {
-                assignments = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
+                assignmentsFuture = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
             } else {
-                assignments = distributionZoneManager.dataNodes(ctx.storageRevision(), tableDescriptor.zoneId())
-                        .thenApply(dataNodes -> {
-                            return AffinityUtils.calculateAssignments(
-                                    dataNodes,
-                                    zoneDescriptor.partitions(),
-                                    zoneDescriptor.replicas()
-                            );
-                        });
+                assignmentsFuture = distributionZoneManager.dataNodes(ctx.storageRevision(), tableDescriptor.zoneId())
+                        .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
+                                dataNodes,
+                                zoneDescriptor.partitions(),
+                                zoneDescriptor.replicas()
+                        ));
             }
 
             CompletableFuture<?> createTableFut = createTableLocally(
                     ctx.storageRevision(),
                     tableDescriptor,
                     zoneDescriptor,
-                    assignments
+                    assignmentsFuture
             ).whenComplete((v, e) -> {
                 if (e == null) {
                     for (var listener : assignmentsChangeListeners) {
                         listener.accept(this);
                     }
                 }
-            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignments));
+            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
 
             return createTableFut;
         } finally {
@@ -911,23 +909,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
         CompletableFuture<?> localPartsUpdateFuture = localPartsByTableIdVv.update(causalityToken,
-                (previous, throwable) -> inBusyLock(busyLock, () -> {
-                    return assignments.thenCompose(newAssignments -> {
-                        PartitionSet parts = new BitSetPartitionSet();
+                (previous, throwable) -> inBusyLock(busyLock, () -> assignments.thenCompose(newAssignments -> {
+                    PartitionSet parts = new BitSetPartitionSet();
 
-                        for (int i = 0; i < newAssignments.size(); i++) {
-                            parts.set(i);
-                        }
+                    for (int i = 0; i < newAssignments.size(); i++) {
+                        parts.set(i);
+                    }
 
-                        return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
-                            var newValue = new HashMap<>(previous);
+                    return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
+                        var newValue = new HashMap<>(previous);
 
-                            newValue.put(tableId, parts);
+                        newValue.put(tableId, parts);
 
-                            return newValue;
-                        });
+                        return newValue;
                     });
-                }));
+                })));
 
         return assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
             if (e != null) {

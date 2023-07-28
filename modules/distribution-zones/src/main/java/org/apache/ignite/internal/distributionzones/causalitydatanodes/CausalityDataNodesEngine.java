@@ -184,9 +184,7 @@ public class CausalityDataNodesEngine {
 
                     Entry topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), zoneLastCfgEntry.getKey());
 
-                    if (topologyEntry.value() == null) {
-                        return emptySet();
-                    }
+                    assert topologyEntry.value() != null : "Logical topology must be initialized.";
 
                     Set<NodeWithAttributes> logicalTopology = fromBytes(topologyEntry.value());
 
