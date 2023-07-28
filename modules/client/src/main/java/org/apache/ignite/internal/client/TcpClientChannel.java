@@ -433,6 +433,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         IgniteException causeWithStackTrace = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
 
         // TODO IGNITE-19837 Retry outdated schema error
+        // How do we pass schema version up the stack? Use internal exception?
         unpacker.skipValues(1); // Error extensions.
 
         try {
