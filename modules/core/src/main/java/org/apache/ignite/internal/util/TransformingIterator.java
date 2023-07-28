@@ -65,9 +65,14 @@ public class TransformingIterator<TinT, ToutT> implements Iterator<ToutT>, AutoC
     }
 
     /**
-     * Creates an iterable that produces a {@link TransformingIterator}.
+     * Creates an iterable that produces an iterator, that applies the given function to each element,
+     * returned by the input iterable.
+     *
+     * @param input The input iterable.
+     * @param function  The function.
+     * @return The iterable.
      */
-    public static <TinT, ToutT> Iterable<ToutT> newIterable(Iterable<TinT> in, Function <TinT, ToutT> function) {
-        return () -> new TransformingIterator<>(in.iterator(), function);
+    public static <TinT, ToutT> Iterable<ToutT> newIterable(Iterable<TinT> input, Function<TinT, ToutT> function) {
+        return () -> new TransformingIterator<>(input.iterator(), function);
     }
 }
