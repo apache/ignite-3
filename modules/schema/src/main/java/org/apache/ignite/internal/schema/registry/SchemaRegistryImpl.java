@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,27 +47,31 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     private final Map<Long, ColumnMapper> mappingCache = new ConcurrentHashMap<>();
 
     /** Schema store. */
-    private final IntFunction<CompletableFuture<SchemaDescriptor>> history;
+    private final IntFunction<CompletableFuture<SchemaDescriptor>> loadSchemaByVersion;
 
     /** The method to provide the latest schema version on cluster. */
     private final Supplier<CompletableFuture<Integer>> latestVersionStore;
 
+    private final PendingComparableValuesTracker<Integer, Void> versionTracker = new PendingComparableValuesTracker<>(0);
+
     /**
      * Constructor.
      *
-     * @param history            Schema history.
+     * @param loadSchemaByVersion            Schema history.
      * @param latestVersionStore The method to provide the latest version of the schema.
      * @param initialSchema      Initial schema.
      */
     public SchemaRegistryImpl(
-            IntFunction<CompletableFuture<SchemaDescriptor>> history,
+            IntFunction<CompletableFuture<SchemaDescriptor>> loadSchemaByVersion,
             Supplier<CompletableFuture<Integer>> latestVersionStore,
             SchemaDescriptor initialSchema
     ) {
-        this.history = history;
+        this.loadSchemaByVersion = loadSchemaByVersion;
         this.latestVersionStore = latestVersionStore;
 
         schemaCache.put(initialSchema.version(), initialSchema);
+
+        versionTracker.update(initialSchema.version(), null);
     }
 
     /** {@inheritDoc} */
@@ -83,7 +88,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             return desc;
         }
 
-        CompletableFuture<SchemaDescriptor> descFut = history.apply(ver);
+        CompletableFuture<SchemaDescriptor> descFut = tableSchema(ver);
 
         if (descFut != null) {
             // TODO: remove blocking code https://issues.apache.org/jira/browse/IGNITE-17931
@@ -92,6 +97,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
 
         if (desc != null) {
             schemaCache.putIfAbsent(ver, desc);
+            versionTracker.update(ver, null);
 
             return desc;
         }
@@ -159,6 +165,11 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         }
 
         return rows;
+    }
+
+    @Override
+    public void close() {
+        versionTracker.close();
     }
 
     /**
@@ -235,6 +246,8 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         }
 
         schemaCache.put(desc.version(), desc);
+
+        versionTracker.update(desc.version(), null);
     }
 
     /**
@@ -262,5 +275,13 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      */
     Map<Long, ColumnMapper> mappingCache() {
         return mappingCache;
+    }
+
+    private CompletableFuture<SchemaDescriptor> tableSchema(int schemaVer) {
+        if (schemaVer < lastSchemaVersion()) {
+            return loadSchemaByVersion.apply(schemaVer);
+        }
+
+        return versionTracker.waitFor(schemaVer).thenApply(unused -> schemaCached(schemaVer));
     }
 }
