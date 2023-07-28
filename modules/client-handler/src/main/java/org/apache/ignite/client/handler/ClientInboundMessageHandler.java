@@ -464,7 +464,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
             writeFlags(out, ctx);
-            out.packLong(clock.now().longValue());
+            int observableTimestampIdx = out.reserveLong();
             out.packNil(); // No error.
 
             var fut = processOperation(in, out, opCode);
@@ -472,6 +472,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             if (fut == null) {
                 // Operation completed synchronously.
                 in.close();
+                out.setLong(observableTimestampIdx, clock.now().longValue());
                 write(out, ctx);
 
                 if (LOG.isTraceEnabled()) {
@@ -495,6 +496,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                         metrics.requestsFailedIncrement();
                     } else {
+                        out.setLong(observableTimestampIdx, clock.now().longValue());
                         write(out, ctx);
 
                         metrics.requestsProcessedIncrement();

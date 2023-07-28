@@ -180,6 +180,28 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Reserve space for long value.
+     *
+     * @return Index of reserved space.
+     */
+    public int reserveLong() {
+        buf.writeByte(Code.INT64);
+        var index = buf.writerIndex();
+
+        buf.writeLong(0);
+        return index;
+    }
+
+    /**
+     * Set long value at reserved index (see {@link #reserveLong()}).
+     * @param index Index.
+     * @param v Value.
+     */
+    public void setLong(int index, long v) {
+        buf.setLong(index, v);
+    }
+
+    /**
      * Writes a long value.
      *
      * @param v the value to be written.
