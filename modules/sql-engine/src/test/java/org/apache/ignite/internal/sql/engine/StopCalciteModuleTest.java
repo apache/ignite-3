@@ -147,7 +147,7 @@ public class StopCalciteModuleTest {
 
     private final ClusterNode localNode = new ClusterNode("mock-node-id", NODE_NAME, null);
 
-    private final int tblId = 1;
+    private final int TABLE_ID = 1;
 
     /**
      * Before.
@@ -176,7 +176,7 @@ public class StopCalciteModuleTest {
         doAnswer(invocation -> {
             EventListener<TableEventParameters> clo = (EventListener<TableEventParameters>) invocation.getArguments()[1];
 
-            clo.notify(new TableEventParameters(0, tblId), null);
+            clo.notify(new TableEventParameters(0, TABLE_ID), null);
 
             return null;
         }).when(tableManager).listen(eq(TableEvent.CREATE), any());
@@ -184,7 +184,7 @@ public class StopCalciteModuleTest {
         doAnswer(invocation -> {
             EventListener<IndexEventParameters> clo = (EventListener<IndexEventParameters>) invocation.getArguments()[1];
 
-            TestHashIndex testHashIndex = TestHashIndex.create(List.of("ID"), "pk_idx", tblId);
+            TestHashIndex testHashIndex = TestHashIndex.create(List.of("ID"), "pk_idx", TABLE_ID);
 
             clo.notify(new IndexEventParameters(0, testHashIndex.tableId(), testHashIndex.id(), testHashIndex.descriptor()), null);
 
@@ -230,6 +230,20 @@ public class StopCalciteModuleTest {
 
     @Test
     public void testStopQueryOnNodeStop() throws Exception {
+        TableImpl tableImpl = new TableImpl(tbl, schemaReg, new HeapLockManager());
+        when(tableManager.tableAsync(anyLong(), eq(TABLE_ID))).thenReturn(completedFuture(tableImpl));
+        when(tableManager.tableAsync(eq(TABLE_ID))).thenReturn(completedFuture(tableImpl));
+
+        when(schemaManager.schemaRegistry(eq(TABLE_ID))).thenReturn(schemaReg);
+
+        when(tbl.tableId()).thenReturn(TABLE_ID);
+        when(tbl.primaryReplicas()).thenReturn(List.of(new PrimaryReplica(localNode, -1L)));
+
+        when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
+        when(tbl.storage().getTableDescriptor()).thenReturn(new StorageTableDescriptor(TABLE_ID, 1, "none"));
+
+        when(txManager.begin(anyBoolean(), any())).thenReturn(new NoOpTransaction(localNode.name()));
+
         SqlQueryProcessor qryProc = new SqlQueryProcessor(
                 testRevisionRegister,
                 clusterSrvc,
@@ -244,20 +258,6 @@ public class StopCalciteModuleTest {
                 clock,
                 catalogManager
         );
-
-        TableImpl tableImpl = new TableImpl(tbl, schemaReg, new HeapLockManager());
-        when(tableManager.tableAsync(anyLong(), eq(tblId))).thenReturn(completedFuture(tableImpl));
-        when(tableManager.tableAsync(eq(tblId))).thenReturn(completedFuture(tableImpl));
-
-        when(schemaManager.schemaRegistry(eq(tblId))).thenReturn(schemaReg);
-
-        when(tbl.tableId()).thenReturn(tblId);
-        when(tbl.primaryReplicas()).thenReturn(List.of(new PrimaryReplica(localNode, -1L)));
-
-        when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
-        when(tbl.storage().getTableDescriptor()).thenReturn(new StorageTableDescriptor(tblId, 1, "none"));
-
-        when(txManager.begin(anyBoolean(), any())).thenReturn(new NoOpTransaction(localNode.name()));
 
         qryProc.start();
 
