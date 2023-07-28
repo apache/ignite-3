@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.rel.agg;
 
-import static org.apache.calcite.plan.RelOptRule.convert;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.AbstractMap.SimpleEntry;
@@ -63,8 +62,12 @@ public class MapReduceAggregates {
             "ANY_VALUE"
     );
 
-    /** Creates an expression that returns a value of {@code args.get(0)} field of its input. */
-    private static final MakeReduceExpr USE_INPUT_FIELD = (rexBuilder, input, args, typeFactory) -> rexBuilder.makeInputRef(input, args.get(0));
+    /**
+     * Creates an expression that returns a value of {@code args.get(0)} field of its input.
+     * Should be used by aggregates that use the same operator for both MAP and REDUCE phases.
+     */
+    private static final MakeReduceExpr USE_INPUT_FIELD = (rexBuilder, input, args, typeFactory) ->
+            rexBuilder.makeInputRef(input, args.get(0));
 
     private MapReduceAggregates() {
 
@@ -124,7 +127,7 @@ public class MapReduceAggregates {
 
         // MAP phase should have no less than the number of arguments as original aggregate.
         // Otherwise there is a bug, because some aggregates were ignored.
-        assert mapAggCalls.size() >= agg.getAggCallList().size():
+        assert mapAggCalls.size() >= agg.getAggCallList().size() :
                 format("The number of MAP aggregates is not correct. Original: {}\nMAP: {}", agg.getAggCallList(), mapAggCalls);
 
         RelNode map = builder.makeMapAgg(

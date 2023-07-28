@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-
 import java.util.BitSet;
 import java.util.List;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -161,7 +159,7 @@ public class PlanUtils {
             while (bitPos != -1) {
                 mapping.set(bitPos, i);
                 bitPos = fieldIndices.nextSetBit(bitPos + 1);
-                i ++;
+                i++;
             }
 
             return mapping;
