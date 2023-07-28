@@ -40,6 +40,7 @@ import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.TestTupleBuilder;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
@@ -55,7 +56,7 @@ import org.mockito.Mockito;
 /**
  * Basic table operations test.
  */
-public class RecordBinaryViewOperationsTest {
+public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
 
     @Test
     public void insert() {

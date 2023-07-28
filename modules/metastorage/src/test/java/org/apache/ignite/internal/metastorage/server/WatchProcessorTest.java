@@ -39,6 +39,7 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,7 +49,7 @@ import org.mockito.InOrder;
 /**
  * Tests for {@link WatchProcessor}.
  */
-public class WatchProcessorTest {
+public class WatchProcessorTest extends BaseIgniteAbstractTest {
     private final WatchProcessor watchProcessor = new WatchProcessor("test", WatchProcessorTest::oldEntry);
 
     private final OnRevisionAppliedCallback revisionCallback = mock(OnRevisionAppliedCallback.class);
