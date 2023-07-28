@@ -376,7 +376,8 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
                 (s, w) -> ser.writeTuples(null, items, s, w, false),
                 r -> null,
                 PartitionAwarenessProvider.of(nodeId),
-                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()),
+                null);
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }

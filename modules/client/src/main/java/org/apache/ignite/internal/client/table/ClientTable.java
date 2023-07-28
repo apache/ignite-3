@@ -318,7 +318,7 @@ public class ClientTable implements Table {
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
             @Nullable PartitionAwarenessProvider provider) {
-        return doSchemaOutOpAsync(opCode, writer, reader, provider, null);
+        return doSchemaOutOpAsync(opCode, writer, reader, provider, null, null);
     }
 
     /**
@@ -336,13 +336,15 @@ public class ClientTable implements Table {
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
             @Nullable PartitionAwarenessProvider provider,
-            @Nullable RetryPolicy retryPolicyOverride) {
+            @Nullable RetryPolicy retryPolicyOverride,
+            @Nullable Integer schemaVersionOverride) {
 
-        CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
+        CompletableFuture<ClientSchema> schemaFut = getSchema(schemaVersionOverride == null ? latestSchemaVer : schemaVersionOverride);
         CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
                 ? CompletableFuture.completedFuture(null)
                 : getPartitionAssignment();
 
+        // TODO: Handle SchemaVersionMismatchException, then retry on specific schema version.
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
