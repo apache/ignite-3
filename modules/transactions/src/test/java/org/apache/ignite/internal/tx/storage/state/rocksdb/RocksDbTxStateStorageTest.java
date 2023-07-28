@@ -27,7 +27,6 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -48,14 +47,14 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     @WorkDirectory
     private Path workDir;
 
-    private final ScheduledExecutorService scheduledExecutor = new ScheduledThreadPoolExecutor(1);
+    private final ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
 
-    private final ExecutorService executor = Executors.newFixedThreadPool(1);
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     @Override
     protected TxStateRocksDbTableStorage createTableStorage() {
         return new TxStateRocksDbTableStorage(
-                1,
+                TABLE_ID,
                 3,
                 workDir,
                 scheduledExecutor,
@@ -64,8 +63,11 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
         );
     }
 
+    @Override
     @AfterEach
-    void shutdownExecutors() {
+    protected void afterTest() {
+        super.afterTest();
+
         IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
     }

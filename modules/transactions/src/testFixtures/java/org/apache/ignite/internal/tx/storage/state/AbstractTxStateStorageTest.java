@@ -50,7 +50,6 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -59,7 +58,7 @@ import org.junit.jupiter.api.function.Executable;
  * Abstract tx storage test.
  */
 public abstract class AbstractTxStateStorageTest {
-    private final int tableId = 1;
+    protected static final int TABLE_ID = 1;
 
     protected TxStateTableStorage tableStorage;
 
@@ -75,8 +74,7 @@ public abstract class AbstractTxStateStorageTest {
         tableStorage.start();
     }
 
-    @AfterEach
-    void afterTest() {
+    protected void afterTest() {
         tableStorage.close();
     }
 
@@ -120,7 +118,7 @@ public abstract class AbstractTxStateStorageTest {
 
     private List<TablePartitionId> generateEnlistedPartitions(int c) {
         return IntStream.range(0, c)
-                .mapToObj(partitionNumber -> new TablePartitionId(tableId, partitionNumber))
+                .mapToObj(partitionNumber -> new TablePartitionId(TABLE_ID, partitionNumber))
                 .collect(toList());
     }
 
