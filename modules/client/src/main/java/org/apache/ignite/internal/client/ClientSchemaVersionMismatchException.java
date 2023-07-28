@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Indicates incompatible schema version.
  */
-class ClientSchemaVersionMismatchException extends IgniteInternalException {
+public class ClientSchemaVersionMismatchException extends IgniteInternalException {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 

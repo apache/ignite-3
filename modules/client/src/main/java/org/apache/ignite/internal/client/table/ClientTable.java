@@ -30,6 +30,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryPolicy;
+import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -289,6 +290,7 @@ public class ClientTable implements Table {
                 ? CompletableFuture.completedFuture(null)
                 : getPartitionAssignment();
 
+        // TODO: Handle SchemaVersionMismatchException, then retry on specific schema version (see below).
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
@@ -338,14 +340,14 @@ public class ClientTable implements Table {
             @Nullable PartitionAwarenessProvider provider,
             @Nullable RetryPolicy retryPolicyOverride,
             @Nullable Integer schemaVersionOverride) {
+        CompletableFuture<T> fut = new CompletableFuture<>();
 
         CompletableFuture<ClientSchema> schemaFut = getSchema(schemaVersionOverride == null ? latestSchemaVer : schemaVersionOverride);
         CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
                 ? CompletableFuture.completedFuture(null)
                 : getPartitionAssignment();
 
-        // TODO: Handle SchemaVersionMismatchException, then retry on specific schema version.
-        return CompletableFuture.allOf(schemaFut, partitionsFut)
+        CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
                     String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
@@ -359,7 +361,30 @@ public class ClientTable implements Table {
                             },
                             preferredNodeName,
                             retryPolicyOverride);
+                })
+                .whenComplete((res, err) -> {
+                    if (err != null) {
+                        if (err.getCause() instanceof ClientSchemaVersionMismatchException) {
+                            // Retry with specific schema version.
+                            int expectedVersion = ((ClientSchemaVersionMismatchException) err.getCause()).expectedVersion();
+
+                            doSchemaOutOpAsync(opCode, writer, reader, provider, retryPolicyOverride, expectedVersion)
+                                    .whenComplete((res0, err0) -> {
+                                        if (err0 != null) {
+                                            fut.completeExceptionally(err0);
+                                        } else {
+                                            fut.complete(res0);
+                                        }
+                                    });
+                        } else {
+                            fut.completeExceptionally(err);
+                        }
+                    } else {
+                        fut.complete(res);
+                    }
                 });
+
+        return fut;
     }
 
     private <T> @Nullable Object readSchemaAndReadData(

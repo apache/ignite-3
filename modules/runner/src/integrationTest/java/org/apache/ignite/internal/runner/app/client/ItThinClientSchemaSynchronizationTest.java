@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientTest {
     @SuppressWarnings("resource")
     @Test
-    void testOutdatedSchemaFromClientThrowsExceptionOnServer() throws InterruptedException {
+    void testOutdatedSchemaFromClientCausesExceptionOnServerAndIsRetriedByClient() throws InterruptedException {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
@@ -48,11 +48,10 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         Tuple rec = Tuple.create().set("ID", 1);
         recordView.insert(null, rec);
 
-        // Modify table, get data - client will use old schema.
-        ses.execute(null, "ALTER TABLE testOutdatedSchemaFromClientThrowsExceptionOnServer ADD COLUMN NAME VARCHAR");
+        // Modify table, get data - client will use old schema, receive error, retry with new schema.
+        ses.execute(null, "ALTER TABLE testOutdatedSchemaFromClientThrowsExceptionOnServer ADD COLUMN NAME VARCHAR NOT NULL");
 
-        // TODO IGNITE-19837 Retry outdated schema error
         IgniteException ex = assertThrows(IgniteException.class, () -> recordView.insert(null, rec));
-        assertThat(ex.getMessage(), containsString("Schema version mismatch [expectedVer=2, actualVer=1]"));
+        assertThat(ex.getMessage(), containsString("null was passed, but column is not nullable"));
     }
 }
