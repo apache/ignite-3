@@ -30,8 +30,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 
 @MicronautTest
-class DeploymentNodesFilterTest {
-    private final DeploymentNodesFilter filter = new DeploymentNodesFilter();
+class DeployUnitsOptionsFilterTest {
+    private final DeployUnitsOptionsFilter filter = new DeployUnitsOptionsFilter();
 
     @Test
     void nodesAreNotExcludedWhenAliasIsNotPresent() {

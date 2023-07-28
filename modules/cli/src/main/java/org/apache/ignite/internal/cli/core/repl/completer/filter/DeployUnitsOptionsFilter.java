@@ -26,7 +26,7 @@ import org.apache.ignite.internal.cli.util.ArrayUtils;
 /**
  * Deployment nodes completer filter. This filter removes activation word from candidates if nodes alias is present.
  */
-public class DeploymentNodesFilter implements CompleterFilter {
+public class DeployUnitsOptionsFilter implements CompleterFilter {
     private final String[] activationWords = {"cluster", "unit", "deploy"};
     private final Set<String> options = Options.UNIT_NODES.names();
 

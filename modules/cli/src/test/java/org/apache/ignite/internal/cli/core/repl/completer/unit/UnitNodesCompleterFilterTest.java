@@ -43,11 +43,20 @@ class UnitNodesCompleterFilterTest {
     }
 
     @Test
-    void doesNotSuggestAliasesNotTheFirstTime() {
+    void doesNotSuggestAliasesWhenNodesAreSpecified() {
         String[] words = {"cluster", "unit", "deploy", "--nodes", "node1", "--nodes"};
         String[] candidates = {"node1", "node2", "ALL", "MAJORITY"};
 
         String[] filteredCandidates = filter.filter(words, candidates);
         assertArrayEquals(new String[]{"node2"}, filteredCandidates);
+    }
+
+    @Test
+    void emptySuggestions() {
+        String[] words = {"cluster", "unit", "deploy", "--nodes", "node1", "--nodes"};
+        String[] candidates = {"node1", "ALL", "MAJORITY"};
+
+        String[] filteredCandidates = filter.filter(words, candidates);
+        assertArrayEquals(new String[]{}, filteredCandidates);
     }
 }
