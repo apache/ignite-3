@@ -132,4 +132,9 @@ public class FakeSchemaRegistry implements SchemaRegistry {
     public List<Row> resolve(Collection<BinaryRow> rows) {
         return rows.stream().map(binaryRow -> binaryRow == null ? null : resolve(binaryRow)).collect(toList());
     }
+
+    @Override
+    public void close() {
+        // No-op.
+    }
 }

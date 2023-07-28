@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -35,7 +36,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests client request balancing.
  */
-public class RequestBalancingTest {
+public class RequestBalancingTest extends BaseIgniteAbstractTest {
     /** Test server 1. */
     private TestServer server1;
 
