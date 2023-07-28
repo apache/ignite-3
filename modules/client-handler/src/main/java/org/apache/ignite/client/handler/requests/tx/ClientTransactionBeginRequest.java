@@ -52,7 +52,8 @@ public class ClientTransactionBeginRequest {
         TransactionOptions options = null;
         HybridTimestamp observableTs = null;
 
-        if (in.unpackBoolean()) {
+        boolean readOnly = in.unpackBoolean();
+        if (readOnly) {
             options = new TransactionOptions().readOnly(true);
 
             // Timestamp makes sense only for read-only transactions.
@@ -62,7 +63,7 @@ public class ClientTransactionBeginRequest {
         // NOTE: we don't use beginAsync here because it is synchronous anyway.
         var tx = transactions.begin(options, observableTs);
 
-        if (observableTs != null) {
+        if (readOnly) {
             // For read-only tx, override observable timestamp that we sent to the client.
             out.meta(tx.readTimestamp());
         }
