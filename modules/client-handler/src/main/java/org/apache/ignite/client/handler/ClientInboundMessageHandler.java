@@ -420,10 +420,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
 
         // Extensions.
-        if (err instanceof SchemaVersionMismatchException) {
+        SchemaVersionMismatchException schemaVersionMismatchException = schemaVersionMismatchException(err);
+        if (schemaVersionMismatchException != null) {
             packer.packMapHeader(1);
             packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
-            packer.packInt(((SchemaVersionMismatchException) err).expectedVersion());
+            packer.packInt(schemaVersionMismatchException.expectedVersion());
         } else {
             packer.packNil(); // No extensions.
         }
@@ -710,5 +711,17 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         } else {
             throw new IllegalArgumentException("Unsupported extension type: " + type.getName());
         }
+    }
+
+    private static @Nullable SchemaVersionMismatchException schemaVersionMismatchException(Throwable e) {
+        while (e != null) {
+            if (e instanceof SchemaVersionMismatchException) {
+                return (SchemaVersionMismatchException) e;
+            }
+
+            e = e.getCause();
+        }
+
+        return null;
     }
 }
