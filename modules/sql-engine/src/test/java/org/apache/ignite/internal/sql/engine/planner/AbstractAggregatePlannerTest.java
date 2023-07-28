@@ -527,7 +527,7 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         assertPlan(testCase.query, Collections.singleton(testCase.schema), predicate, List.of(), rulesToDisable);
     }
 
-    protected void assumeRun(TestCase testCase, String methodName) {
+    protected void assumeRun(String methodName, TestCase testCase) {
         missedCases.remove(testCase);
     }
 
