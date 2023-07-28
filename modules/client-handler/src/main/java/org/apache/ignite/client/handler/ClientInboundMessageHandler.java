@@ -93,6 +93,7 @@ import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.configuration.AuthenticationView;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -393,7 +394,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
             writeFlags(packer, ctx);
-            packer.packLong(clock.now().longValue());
+            packer.packLong(observableTimestamp(null));
 
             writeErrorCore(err, packer);
 
@@ -472,7 +473,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             if (fut == null) {
                 // Operation completed synchronously.
                 in.close();
-                out.setLong(observableTimestampIdx, clock.now().longValue());
+                out.setLong(observableTimestampIdx, observableTimestamp(out));
                 write(out, ctx);
 
                 if (LOG.isTraceEnabled()) {
@@ -496,7 +497,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                         metrics.requestsFailedIncrement();
                     } else {
-                        out.setLong(observableTimestampIdx, clock.now().longValue());
+                        out.setLong(observableTimestampIdx, observableTimestamp(out));
                         write(out, ctx);
 
                         metrics.requestsProcessedIncrement();
@@ -514,6 +515,19 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             metrics.requestsFailedIncrement();
         }
+    }
+
+    private long observableTimestamp(@Nullable ClientMessagePacker out) {
+        // Certain operations can override the timestamp and provide it in the meta object.
+        if (out != null) {
+            Object meta = out.meta();
+
+            if (meta instanceof HybridTimestamp) {
+                return ((HybridTimestamp) meta).longValue();
+            }
+        }
+
+        return clock.now().longValue();
     }
 
     private @Nullable CompletableFuture processOperation(

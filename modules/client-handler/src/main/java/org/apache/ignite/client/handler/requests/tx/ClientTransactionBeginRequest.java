@@ -62,6 +62,11 @@ public class ClientTransactionBeginRequest {
         // NOTE: we don't use beginAsync here because it is synchronous anyway.
         var tx = transactions.begin(options, observableTs);
 
+        if (observableTs != null) {
+            // For read-only tx, override observable timestamp that we sent to the client.
+            out.meta(tx.readTimestamp());
+        }
+
         try {
             long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
             out.packLong(resourceId);

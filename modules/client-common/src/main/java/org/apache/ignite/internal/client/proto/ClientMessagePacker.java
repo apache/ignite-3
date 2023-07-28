@@ -47,6 +47,11 @@ public class ClientMessagePacker implements AutoCloseable {
     private boolean closed;
 
     /**
+     * Metadata.
+     */
+    private @Nullable Object meta;
+
+    /**
      * Constructor.
      *
      * @param buf Buffer.
@@ -655,6 +660,24 @@ public class ClientMessagePacker implements AutoCloseable {
         ByteBuffer buf = builder.build();
         packBinaryHeader(buf.limit() - buf.position());
         writePayload(buf);
+    }
+
+    /**
+     * Gets metadata.
+     *
+     * @return Metadata.
+     */
+    public @Nullable Object meta() {
+        return meta;
+    }
+
+    /**
+     * Sets metadata.
+     *
+     * @param meta Metadata.
+     */
+    public void meta(@Nullable Object meta) {
+        this.meta = meta;
     }
 
     /**
