@@ -44,7 +44,6 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.TableEventParameters;
-import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -192,7 +191,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
                     );
                 }
 
-                return saveSchema(tableId, newSchema)
+                return saveSchemaDescriptor(tableId, newSchema)
                         .thenApply(t -> registerSchema(registries, tableId, newSchema));
             })).thenApply(ignored -> false);
         } finally {
@@ -212,10 +211,28 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
         if (prevSchema == null) {
             // This is intentionally a blocking call, because this method is used in a synchronous part of the configuration listener.
             // See the call site for more details.
-            prevSchema = loadSchema(tableId, prevVersion).get();
+            prevSchema = loadSchemaDescriptor(tableId, prevVersion).get();
         }
 
         schema.columnMapping(SchemaUtils.columnMapper(prevSchema, schema));
+    }
+
+    /**
+     * Loads the table schema descriptor by version from Metastore.
+     *
+     * @param tblId Table id.
+     * @param ver Schema version.
+     * @return Schema representation if schema found, {@code null} otherwise.
+     */
+    private CompletableFuture<SchemaDescriptor> loadSchemaDescriptor(int tblId, int ver) {
+        return metastorageMgr.get(schemaWithVerHistKey(tblId, ver))
+                .thenApply(entry -> {
+                    byte[] value = entry.value();
+
+                    assert value != null;
+
+                    return SchemaSerializerImpl.INSTANCE.deserialize(value);
+                });
     }
 
     /**
@@ -225,7 +242,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
      * @param schema Schema descriptor.
      * @return Future that will be completed when the schema gets saved.
      */
-    private CompletableFuture<Void> saveSchema(int tableId, SchemaDescriptor schema) {
+    private CompletableFuture<Void> saveSchemaDescriptor(int tableId, SchemaDescriptor schema) {
         ByteArray schemaKey = schemaWithVerHistKey(tableId, schema.version());
         ByteArray latestSchemaVersionKey = latestSchemaVersionKey(tableId);
 
@@ -278,75 +295,10 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
      */
     private SchemaRegistryImpl createSchemaRegistry(int tableId, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(
-                ver -> inBusyLock(busyLock, () -> tableSchema(tableId, ver)),
+                ver -> inBusyLock(busyLock, () -> loadSchemaDescriptor(tableId, ver)),
                 () -> inBusyLock(busyLock, () -> latestSchemaVersionOrDefault(tableId)),
                 initialSchema
         );
-    }
-
-    /**
-     * Return table schema of certain version from history.
-     *
-     * @param tblId Table id.
-     * @param schemaVer Schema version.
-     * @return Schema descriptor.
-     */
-    private CompletableFuture<SchemaDescriptor> tableSchema(int tblId, int schemaVer) {
-        CompletableFuture<SchemaDescriptor> fut = new CompletableFuture<>();
-
-        SchemaRegistry registry = registriesVv.latest().get(tblId);
-
-        if (registry.lastSchemaVersion() > schemaVer) {
-            return loadSchema(tblId, schemaVer);
-        }
-
-        CompletionListener<Map<Integer, SchemaRegistryImpl>> schemaListener = (token, regs, e) -> {
-            if (schemaVer <= regs.get(tblId).lastSchemaVersion()) {
-                SchemaRegistry registry0 = registriesVv.latest().get(tblId);
-
-                SchemaDescriptor desc = registry0.schemaCached(schemaVer);
-
-                assert desc != null : "Unexpected empty schema description.";
-
-                fut.complete(desc);
-            }
-        };
-
-        registriesVv.whenComplete(schemaListener);
-
-        // This check is needed for the case when we have registered schemaListener,
-        // but registriesVv has already been completed, so listener would be triggered only for the next versioned value update.
-        if (checkSchemaVersion(tblId, schemaVer)) {
-            registriesVv.removeWhenComplete(schemaListener);
-
-            registry = registriesVv.latest().get(tblId);
-
-            SchemaDescriptor desc = registry.schemaCached(schemaVer);
-
-            assert desc != null : "Unexpected empty schema description.";
-
-            fut.complete(desc);
-        }
-
-        return fut.thenApply(res -> {
-            registriesVv.removeWhenComplete(schemaListener);
-            return res;
-        });
-    }
-
-    /**
-     * Checks that the provided schema version is less or equal than the latest version from the schema registry.
-     *
-     * @param tblId Unique table id.
-     * @param schemaVer Schema version for the table.
-     * @return True, if the schema version is less or equal than the latest version from the schema registry, false otherwise.
-     */
-    private boolean checkSchemaVersion(int tblId, int schemaVer) {
-        SchemaRegistry registry = registriesVv.latest().get(tblId);
-
-        assert registry != null : IgniteStringFormatter.format("Registry for the table not found [tblId={}]", tblId);
-
-        return schemaVer <= registry.lastSchemaVersion();
     }
 
     /**
@@ -476,24 +428,6 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
                     } else {
                         return ByteUtils.bytesToInt(entry.value());
                     }
-                });
-    }
-
-    /**
-     * Loads the table schema descriptor by version from Metastore.
-     *
-     * @param tblId Table id.
-     * @param ver Schema version.
-     * @return Schema representation if schema found, {@code null} otherwise.
-     */
-    private CompletableFuture<SchemaDescriptor> loadSchema(int tblId, int ver) {
-        return metastorageMgr.get(schemaWithVerHistKey(tblId, ver))
-                .thenApply(entry -> {
-                    byte[] value = entry.value();
-
-                    assert value != null;
-
-                    return SchemaSerializerImpl.INSTANCE.deserialize(value);
                 });
     }
 
