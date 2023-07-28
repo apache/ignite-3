@@ -376,12 +376,15 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
+        long revisionBeforeRestart = metaStorageMgr.appliedRevision();
+
         partialNode.stop();
 
         partialNode = startPartialNode(0);
 
         distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
 
+        assertDataNodesFromManager(distributionZoneManager, () -> revisionBeforeRestart, zoneId, Set.of(A), TIMEOUT_MILLIS);
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
     }
 
