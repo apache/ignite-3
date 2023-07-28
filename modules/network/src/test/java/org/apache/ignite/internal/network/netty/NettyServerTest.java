@@ -45,6 +45,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
@@ -63,7 +64,7 @@ import org.mockito.verification.VerificationMode;
  * Tests for {@link NettyServer}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class NettyServerTest {
+public class NettyServerTest extends BaseIgniteAbstractTest {
     /** Bootstrap factory. */
     private NettyBootstrapFactory bootstrapFactory;
 
