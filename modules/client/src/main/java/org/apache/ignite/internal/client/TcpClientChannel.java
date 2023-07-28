@@ -51,6 +51,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
@@ -432,9 +433,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         IgniteException causeWithStackTrace = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
 
-        // TODO IGNITE-19837 Retry outdated schema error
-        // How do we pass schema version up the stack? Use internal exception?
-        unpacker.skipValues(1); // Error extensions.
+        int extSize = unpacker.tryUnpackNil() ? 0 : unpacker.unpackMapHeader();
+        for (int i = 0; i < extSize; i++) {
+            String key = unpacker.unpackString();
+
+            if (key.equals(ErrorExtensions.EXPECTED_SCHEMA_VERSION)) {
+                // TODO IGNITE-19837 Retry outdated schema error
+                // How do we pass schema version up the stack? Use internal exception?
+                int expectedSchemaVersion = unpacker.unpackInt();
+            } else {
+                // Unknown extension - ignore.
+                unpacker.skipValues(1);
+            }
+        }
 
         try {
             // TODO https://issues.apache.org/jira/browse/IGNITE-19539
