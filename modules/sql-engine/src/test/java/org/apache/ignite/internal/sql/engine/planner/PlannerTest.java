@@ -502,13 +502,19 @@ public class PlannerTest extends AbstractPlannerTest {
     @Test
     public void checkTableHintsHandling() throws Exception {
         IgniteSchema publicSchema = createSchema(
-                createTable("PERSON", IgniteDistributions.affinity(0, nextTableId(), Integer.MIN_VALUE),
-                        "PK", Integer.class, "ORG_ID", Integer.class
-                ),
-                createTable("COMPANY", IgniteDistributions.affinity(0, nextTableId(), Integer.MIN_VALUE),
-                        "PK", Integer.class, "ID", Integer.class
-                )
-        );
+                TestBuilders.table()
+                        .name("PERSON")
+                        .distribution(IgniteDistributions.affinity(0, nextTableId(), Integer.MIN_VALUE))
+                        .addColumn("PK", NativeTypes.INT32)
+                        .addColumn("ORG_ID", NativeTypes.INT32)
+                        .build(),
+                TestBuilders.table()
+                        .name("COMPANY")
+                        .distribution(IgniteDistributions.affinity(0, nextTableId(), Integer.MIN_VALUE))
+                        .addColumn("PK", NativeTypes.INT32)
+                        .addColumn("ID", NativeTypes.INT32)
+                        .build()
+                );
 
         String sql = "SELECT * FROM person /*+ use_index(ORG_ID), extra */ t1 JOIN company /*+ use_index(ID) */ t2 ON t1.org_id = t2.id";
 

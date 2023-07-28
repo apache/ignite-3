@@ -60,8 +60,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft1() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -97,8 +97,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft2() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -134,8 +134,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft3() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -171,8 +171,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft4() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -208,8 +208,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft5() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -246,8 +246,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft6() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -292,8 +292,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft7() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -338,8 +338,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft8() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -384,8 +384,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft9() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -430,8 +430,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft10() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -476,8 +476,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft11() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -529,8 +529,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft12() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -568,8 +568,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft13() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -607,8 +607,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft14() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -646,8 +646,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft15() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -685,8 +685,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByLeft16() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -724,8 +724,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByRight1() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -761,8 +761,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByRight2() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -798,8 +798,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByRight3() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -835,8 +835,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByRight4() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -872,8 +872,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByRight5() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -909,8 +909,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByRight6() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -955,8 +955,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByRight7() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -994,8 +994,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByRight8() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1033,8 +1033,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByRight9() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1072,8 +1072,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByRight10() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1111,8 +1111,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testInnerPassThroughOrderByRight11() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1150,8 +1150,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testRightPassThroughOrderByLeft1() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1195,8 +1195,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testRightPassThroughOrderByLeft2() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1241,8 +1241,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testRightPassThroughOrderByRight1() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1278,8 +1278,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testRightPassThroughOrderByRight2() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1315,8 +1315,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testRightPassThroughOrderByRight3() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1352,8 +1352,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testRightPassThroughOrderByRight4() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1389,8 +1389,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testRightPassThroughOrderByRight5() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1426,8 +1426,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testLeftPassThroughOrderByRight1() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1469,8 +1469,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testLeftPassThroughOrderByRight2() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1514,8 +1514,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testFullPassThroughOrderByLeft1() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1557,8 +1557,8 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
     @Test
     public void testFullPassThroughOrderByRight1() throws Exception {
         IgniteSchema schema = createSchema(
-                createTable("LEFT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class),
-                createTable("RIGHT_T", IgniteDistributions.single(), "C1", Integer.class, "C2", Integer.class, "C3", Integer.class)
+                createTableA("LEFT_T"),
+                createTableA("RIGHT_T")
         );
 
         String sql = ""
@@ -1599,7 +1599,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft1() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -1607,7 +1607,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(left, createTestTable("RIGHT_T"));
+        IgniteSchema schema = createSchema(left, createTableB("RIGHT_T"));
 
         String sql = ""
                 + "select * "
@@ -1637,7 +1637,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft2() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_FIRST)
@@ -1645,7 +1645,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(left, createTestTable("RIGHT_T"));
+        IgniteSchema schema = createSchema(left, createTableB("RIGHT_T"));
 
         String sql = ""
                 + "select * "
@@ -1675,7 +1675,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft3() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_FIRST)
@@ -1683,7 +1683,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(left, createTestTable("RIGHT_T"));
+        IgniteSchema schema = createSchema(left, createTableB("RIGHT_T"));
 
         String sql = ""
                 + "select * "
@@ -1713,7 +1713,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft4() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -1721,7 +1721,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(left, createTestTable("RIGHT_T"));
+        IgniteSchema schema = createSchema(left, createTableB("RIGHT_T"));
 
         String sql = ""
                 + "select * "
@@ -1751,7 +1751,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft5() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -1759,7 +1759,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(left, createTestTable("RIGHT_T"));
+        IgniteSchema schema = createSchema(left, createTableB("RIGHT_T"));
 
         String sql = ""
                 + "select * "
@@ -1789,7 +1789,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft6() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -1798,7 +1798,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(left, createTestTable("RIGHT_T"));
+        IgniteSchema schema = createSchema(left, createTableB("RIGHT_T"));
 
         String sql = "select * "
                 + "  from LEFT_T "
@@ -1827,7 +1827,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft7() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_FIRST)
@@ -1836,7 +1836,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(left, createTestTable("RIGHT_T"));
+        IgniteSchema schema = createSchema(left, createTableB("RIGHT_T"));
 
         String sql = ""
                 + "select * "
@@ -1866,7 +1866,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft8() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_FIRST)
@@ -1875,7 +1875,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(left, createTestTable("RIGHT_T"));
+        IgniteSchema schema = createSchema(left, createTableB("RIGHT_T"));
 
         String sql = ""
                 + "select * "
@@ -1906,7 +1906,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft9() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C3", Collation.ASC_NULLS_LAST)
@@ -1915,7 +1915,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(left, createTestTable("RIGHT_T"));
+        IgniteSchema schema = createSchema(left, createTableB("RIGHT_T"));
 
         String sql = ""
                 + "select * "
@@ -1951,7 +1951,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft10() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -1960,7 +1960,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(left, createTestTable("RIGHT_T"));
+        IgniteSchema schema = createSchema(left, createTableB("RIGHT_T"));
 
         String sql = ""
                 + "select * "
@@ -1990,7 +1990,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft11() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -1998,7 +1998,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(left, createTestTable("RIGHT_T"));
+        IgniteSchema schema = createSchema(left, createTableB("RIGHT_T"));
 
         String sql = ""
                 + "select * "
@@ -2037,7 +2037,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft12() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -2046,7 +2046,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(left, createTestTable("RIGHT_T"));
+        IgniteSchema schema = createSchema(left, createTableB("RIGHT_T"));
 
         String sql = ""
                 + "select * "
@@ -2079,7 +2079,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveLeft13() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C3", Collation.ASC_NULLS_LAST)
@@ -2088,7 +2088,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(left, createTestTable("RIGHT_T"));
+        IgniteSchema schema = createSchema(left, createTableB("RIGHT_T"));
 
         String sql = ""
                 + "select * "
@@ -2127,7 +2127,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight1() throws Exception {
-        TestTable right = createTestTable("RIGHT_T",
+        TestTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -2135,7 +2135,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
                 );
 
-        IgniteSchema schema = createSchema(createTestTable("LEFT_T"), right);
+        IgniteSchema schema = createSchema(createTableB("LEFT_T"), right);
 
         String sql = ""
                 + "select * "
@@ -2165,7 +2165,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight2() throws Exception {
-        TestTable right = createTestTable("RIGHT_T",
+        TestTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_FIRST)
@@ -2173,7 +2173,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(createTestTable("LEFT_T"), right);
+        IgniteSchema schema = createSchema(createTableB("LEFT_T"), right);
 
         String sql = ""
                 + "select * "
@@ -2203,7 +2203,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight3() throws Exception {
-        TestTable right = createTestTable("RIGHT_T",
+        TestTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_LAST)
@@ -2211,7 +2211,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(createTestTable("LEFT_T"), right);
+        IgniteSchema schema = createSchema(createTableB("LEFT_T"), right);
 
         String sql = ""
                 + "select * "
@@ -2241,7 +2241,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight4() throws Exception {
-        TestTable right = createTestTable("RIGHT_T",
+        TestTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -2249,7 +2249,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(createTestTable("LEFT_T"), right);
+        IgniteSchema schema = createSchema(createTableB("LEFT_T"), right);
 
         String sql = ""
                 + "select * "
@@ -2279,7 +2279,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight5() throws Exception {
-        TestTable right = createTestTable("RIGHT_T",
+        TestTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -2287,7 +2287,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(createTestTable("LEFT_T"), right);
+        IgniteSchema schema = createSchema(createTableB("LEFT_T"), right);
 
         String sql = ""
                 + "select * "
@@ -2317,7 +2317,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight6() throws Exception {
-        TestTable right = createTestTable("RIGHT_T",
+        TestTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -2326,7 +2326,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(createTestTable("LEFT_T"), right);
+        IgniteSchema schema = createSchema(createTableB("LEFT_T"), right);
 
         String sql = ""
                 + "select * "
@@ -2356,7 +2356,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight7() throws Exception {
-        TestTable right = createTestTable("RIGHT_T",
+        TestTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_LAST)
@@ -2365,7 +2365,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(createTestTable("LEFT_T"), right);
+        IgniteSchema schema = createSchema(createTableB("LEFT_T"), right);
 
         String sql = ""
                 + "select * "
@@ -2395,7 +2395,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight8() throws Exception {
-        TestTable right = createTestTable("RIGHT_T",
+        TestTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.DESC_NULLS_LAST)
@@ -2404,7 +2404,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(createTestTable("LEFT_T"), right);
+        IgniteSchema schema = createSchema(createTableB("LEFT_T"), right);
 
         String sql = ""
                 + "select * "
@@ -2434,7 +2434,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight9() throws Exception {
-        TestTable right = createTestTable("RIGHT_T",
+        TestTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -2443,7 +2443,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(createTestTable("LEFT_T"), right);
+        IgniteSchema schema = createSchema(createTableB("LEFT_T"), right);
 
         String sql = ""
                 + "select * "
@@ -2473,7 +2473,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDerivePreserveRight10() throws Exception {
-        TestTable right = createTestTable("RIGHT_T",
+        TestTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -2481,7 +2481,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        IgniteSchema schema = createSchema(createTestTable("LEFT_T"), right);
+        IgniteSchema schema = createSchema(createTableB("LEFT_T"), right);
 
         String sql = ""
                 + "select * "
@@ -2520,7 +2520,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDeriveMixed1() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx1")
                         .addColumn("C1", Collation.ASC_NULLS_LAST)
@@ -2528,7 +2528,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        TestTable right = createTestTable("RIGHT_T",
+        TestTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx2")
                         .addColumn("C2", Collation.ASC_NULLS_LAST)
@@ -2566,7 +2566,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void testInnerDeriveMixed2() throws Exception {
-        TestTable left = createTestTable("LEFT_T",
+        TestTable left = createTableB("LEFT_T",
                 b -> b.sortedIndex()
                         .name("idx1")
                         .addColumn("C1", Collation.ASC_NULLS_FIRST)
@@ -2574,7 +2574,7 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
                         .end()
         );
 
-        TestTable right = createTestTable("RIGHT_T",
+        TestTable right = createTableB("RIGHT_T",
                 b -> b.sortedIndex()
                         .name("idx2")
                         .addColumn("C3", Collation.ASC_NULLS_FIRST)
@@ -2653,12 +2653,22 @@ public class MergeJoinPlannerTest extends AbstractPlannerTest {
         return sortNodes.isEmpty() ? null : sortNodes.get(0);
     }
 
-    private static TestTable createTestTable(String tableName) {
-        return createTestTable(tableName, ignore -> {
+    private static TestTable createTableA(String tableName) {
+        return TestBuilders.table()
+                .name(tableName)
+                .addColumn("C1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32)
+                .distribution(IgniteDistributions.single())
+                .build();
+    }
+
+    private static TestTable createTableB(String tableName) {
+        return createTableB(tableName, ignore -> {
         });
     }
 
-    private static TestTable createTestTable(String tableName, Consumer<TableBuilder> changer) {
+    private static TestTable createTableB(String tableName, Consumer<TableBuilder> changer) {
         TableBuilder tableBuilder = TestBuilders.table()
                 .name(tableName)
                 .distribution(IgniteDistributions.single())

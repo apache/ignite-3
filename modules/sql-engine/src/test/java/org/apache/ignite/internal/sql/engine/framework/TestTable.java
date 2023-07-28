@@ -27,9 +27,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelDistribution;
-import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -164,43 +161,7 @@ public class TestTable implements IgniteTable {
     /** {@inheritDoc} */
     @Override
     public Statistic getStatistic() {
-        return new Statistic() {
-            /** {@inheritDoc} */
-            @Override
-            public Double getRowCount() {
-                return rowCnt;
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public boolean isKey(ImmutableBitSet cols) {
-                return false;
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public List<ImmutableBitSet> getKeys() {
-                throw new AssertionError();
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public List<RelReferentialConstraint> getReferentialConstraints() {
-                throw new AssertionError();
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public List<RelCollation> getCollations() {
-                return Collections.emptyList();
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public RelDistribution getDistribution() {
-                throw new AssertionError();
-            }
-        };
+        return new TestStatistic(rowCnt);
     }
 
     /** {@inheritDoc} */
