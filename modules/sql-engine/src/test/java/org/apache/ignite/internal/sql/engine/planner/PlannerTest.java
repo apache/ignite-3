@@ -400,7 +400,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
             assertNotNull(rel);
             assertEquals("LogicalProject(DEPTNO=[$0], DEPTNO0=[$4])\n"
-                            + "  LogicalFilter(condition=[=(CAST(+($0, $4)):INTEGER, 2)])\n"
+                            + "  LogicalFilter(condition=[=(+($0, $4), 2)])\n"
                             + "    LogicalJoin(condition=[true], joinType=[inner])\n"
                             + "      IgniteLogicalTableScan(table=[[PUBLIC, DEPT]])\n"
                             + "      IgniteLogicalTableScan(table=[[PUBLIC, EMP]])\n",
@@ -417,10 +417,10 @@ public class PlannerTest extends AbstractPlannerTest {
             assertNotNull(phys);
             assertEquals(
                     "IgniteProject(DEPTNO=[$3], DEPTNO0=[$2])\n"
-                            + "  IgniteCorrelatedNestedLoopJoin(condition=[=(CAST(+($3, $2)):INTEGER, 2)], joinType=[inner], "
+                            + "  IgniteCorrelatedNestedLoopJoin(condition=[=(+($3, $2), 2)], joinType=[inner], "
                             + "variablesSet=[[$cor2]])\n"
                             + "    IgniteTableScan(table=[[PUBLIC, EMP]])\n"
-                            + "    IgniteTableScan(table=[[PUBLIC, DEPT]], filters=[=(CAST(+($t0, $cor2.DEPTNO)):INTEGER, 2)])\n",
+                            + "    IgniteTableScan(table=[[PUBLIC, DEPT]], filters=[=(+($t0, $cor2.DEPTNO), 2)])\n",
                     RelOptUtil.toString(phys),
                     "Invalid plan:\n" + RelOptUtil.toString(phys)
             );
@@ -569,6 +569,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 .addColumn("ID", NativeTypes.INT32)
                 .addColumn("NAME", NativeTypes.STRING)
                 .addColumn("DEPTNO", NativeTypes.INT32)
+                .size(100)
                 .distribution(distribution);
     }
 
@@ -577,6 +578,7 @@ public class PlannerTest extends AbstractPlannerTest {
                 .name("DEPT")
                 .addColumn("DEPTNO", NativeTypes.INT32)
                 .addColumn("NAME", NativeTypes.STRING)
+                .size(100)
                 .distribution(distribution);
     }
 
