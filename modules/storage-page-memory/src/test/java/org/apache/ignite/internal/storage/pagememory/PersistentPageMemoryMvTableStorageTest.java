@@ -21,15 +21,12 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -53,8 +50,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig
+            @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 
@@ -64,7 +60,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
         engine.start();
 
-        initialize(tablesConfig);
+        initialize();
     }
 
     @Override
@@ -79,7 +75,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     protected MvTableStorage createMvTableStorage() {
         return engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(mock(CatalogService.class))
+                new StorageIndexDescriptorSupplier(catalogService)
         );
     }
 

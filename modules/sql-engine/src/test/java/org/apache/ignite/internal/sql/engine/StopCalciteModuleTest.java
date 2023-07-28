@@ -147,7 +147,7 @@ public class StopCalciteModuleTest {
 
     private final ClusterNode localNode = new ClusterNode("mock-node-id", NODE_NAME, null);
 
-    private final int TABLE_ID = 1;
+    private static final int TABLE_ID = 1;
 
     /**
      * Before.
