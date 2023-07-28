@@ -50,6 +50,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -74,6 +75,7 @@ public abstract class AbstractTxStateStorageTest {
         tableStorage.start();
     }
 
+    @AfterEach
     protected void afterTest() {
         tableStorage.close();
     }
