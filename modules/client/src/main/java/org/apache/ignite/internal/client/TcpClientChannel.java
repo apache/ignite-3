@@ -456,7 +456,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         traceId, PROTOCOL_ERR, "Expected schema version is not specified in error extension map.", causeWithStackTrace);
             }
 
-            return (T) new ClientSchemaVersionMismatchException(traceId, code, expectedSchemaVersion, causeWithStackTrace);
+            return (T) new ClientSchemaVersionMismatchException(traceId, code, errMsg, expectedSchemaVersion, causeWithStackTrace);
         }
 
         try {

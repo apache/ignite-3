@@ -36,11 +36,13 @@ class ClientSchemaVersionMismatchException extends IgniteInternalException {
      *
      * @param traceId Trace ID.
      * @param code Error code.
+     * @param message String message.
      * @param expectedVersion Expected schema version.
      * @param cause Cause.
      */
-    ClientSchemaVersionMismatchException(UUID traceId, int code, int expectedVersion, @Nullable Throwable cause) {
-        super(traceId, code, cause);
+    ClientSchemaVersionMismatchException(UUID traceId, int code, @Nullable String message, int expectedVersion, @Nullable Throwable cause) {
+        super(traceId, code, message, cause);
+
         this.expectedVersion = expectedVersion;
     }
 

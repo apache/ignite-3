@@ -396,7 +396,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
-        err = ExceptionUtils.unwrapCause(err);
+        SchemaVersionMismatchException schemaVersionMismatchException = schemaVersionMismatchException(err);
+        err = schemaVersionMismatchException == null ? ExceptionUtils.unwrapCause(err) : schemaVersionMismatchException;
 
         // Trace ID and error code.
         if (err instanceof TraceableException) {
@@ -420,7 +421,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
 
         // Extensions.
-        SchemaVersionMismatchException schemaVersionMismatchException = schemaVersionMismatchException(err);
         if (schemaVersionMismatchException != null) {
             packer.packMapHeader(1);
             packer.packString(ErrorExtensions.EXPECTED_SCHEMA_VERSION);
