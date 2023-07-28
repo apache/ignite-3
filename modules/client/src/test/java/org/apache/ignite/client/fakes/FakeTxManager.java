@@ -133,7 +133,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public HybridTimestamp readTimestamp() {
-                return null;
+                return observableTimestamp;
             }
 
             @Override

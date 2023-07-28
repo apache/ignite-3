@@ -78,6 +78,7 @@ public class ObservableTimestampPropagationTest {
         assertEquals(1, lastObservableTimestamp());
 
         // Subsequent RO TX propagates latest known timestamp.
+        client.tables().tables();
         client.transactions().begin(new TransactionOptions().readOnly(true));
         assertEquals(11, lastObservableTimestamp());
 
