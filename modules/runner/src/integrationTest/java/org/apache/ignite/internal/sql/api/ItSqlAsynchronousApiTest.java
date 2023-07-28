@@ -621,7 +621,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void errors() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT NOT NULL)");
         for (int i = 0; i < ROW_COUNT; ++i) {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
@@ -633,6 +633,9 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkError(SqlException.class, STMT_PARSE_ERR, "Failed to parse query", ses, "SELECT ID FROM");
 
         // Validation errors.
+        checkError(SqlException.class, STMT_VALIDATION_ERR, "Column 'VAL0' does not allow NULLs", ses,
+                "INSERT INTO TEST VALUES (2, NULL)");
+
         checkError(SqlException.class, STMT_VALIDATION_ERR, "Object 'NOT_EXISTING_TABLE' not found", ses,
                 "SELECT * FROM NOT_EXISTING_TABLE");
 
