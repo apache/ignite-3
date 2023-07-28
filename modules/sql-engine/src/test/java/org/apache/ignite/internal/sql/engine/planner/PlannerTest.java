@@ -26,7 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import org.apache.calcite.plan.RelOptUtil;
@@ -39,23 +41,29 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
+import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
-import org.apache.ignite.internal.sql.engine.prepare.MultiStepQueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerPhase;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
-import org.apache.ignite.internal.sql.engine.prepare.QueryTemplate;
 import org.apache.ignite.internal.sql.engine.prepare.Splitter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -128,11 +136,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
-
-        assertNotNull(plan);
-
-        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
+        MultiStepPlan plan = newPlan(phys);
 
         assertNotNull(plan);
 
@@ -164,11 +168,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
-
-        assertNotNull(plan);
-
-        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
+        MultiStepPlan plan = newPlan(phys);
 
         assertNotNull(plan);
 
@@ -206,11 +206,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
-
-        assertNotNull(plan);
-
-        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
+        MultiStepPlan plan = newPlan(phys);
 
         assertEquals(3, plan.fragments().size());
     }
@@ -245,11 +241,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
-
-        assertNotNull(plan);
-
-        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
+        MultiStepPlan plan = newPlan(phys);
 
         assertNotNull(plan);
 
@@ -286,11 +278,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
-
-        assertNotNull(plan);
-
-        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
+        MultiStepPlan plan = newPlan(phys);
 
         assertEquals(3, plan.fragments().size());
     }
@@ -321,11 +309,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = new MultiStepQueryPlan(new QueryTemplate(new Splitter().go(phys)), null);
-
-        assertNotNull(plan);
-
-        plan.init(mapContext(CollectionUtils.first(NODES), this::intermediateMapping));
+        MultiStepPlan plan = newPlan(phys);
 
         assertNotNull(plan);
 
@@ -542,6 +526,19 @@ public class PlannerTest extends AbstractPlannerTest {
         checkSplitAndSerialization(phys, publicSchema);
     }
 
+    private MultiStepPlan newPlan(IgniteRel phys) {
+        List<Fragment> fragments = new Splitter().go(phys);
+        MappingQueryContext ctx = mapContext(CollectionUtils.first(NODES), this::intermediateMapping);
+
+        CollectColocationGroups colocationGroups = new CollectColocationGroups();
+
+        phys.accept(colocationGroups);
+
+        List<Fragment> mappedFragments = FragmentMapping.mapFragments(ctx, fragments, colocationGroups.colocationGroups);
+
+        return new MultiStepPlan(SqlQueryType.QUERY, mappedFragments, new ResultSetMetadataImpl(Collections.emptyList()));
+    }
+
     /**
      * IntermediateMapping.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -554,6 +551,41 @@ public class PlannerTest extends AbstractPlannerTest {
     private static MappingQueryContext mapContext(String locNodeName,
             MappingService mappingService) {
         return new MappingQueryContext(locNodeName, mappingService);
+    }
+
+    private static final class CollectColocationGroups extends IgniteRelShuttle {
+
+        private final Map<Integer, ColocationGroup> colocationGroups = new HashMap<>();
+
+        @Override
+        public IgniteRel visit(IgniteTableModify rel) {
+            TestTable testTable = rel.getTable().unwrapOrThrow(TestTable.class);
+            ColocationGroup group = testTable.colocationGroup();
+
+            colocationGroups.put(testTable.id(), group);
+
+            return super.visit(rel);
+        }
+
+        @Override
+        public IgniteRel visit(IgniteIndexScan rel) {
+            TestTable testTable = rel.getTable().unwrapOrThrow(TestTable.class);
+            ColocationGroup group = testTable.colocationGroup();
+
+            colocationGroups.put(testTable.id(), group);
+
+            return super.visit(rel);
+        }
+
+        @Override
+        public IgniteRel visit(IgniteTableScan rel) {
+            TestTable testTable = rel.getTable().unwrapOrThrow(TestTable.class);
+            ColocationGroup group = testTable.colocationGroup();
+
+            colocationGroups.put(testTable.id(), group);
+
+            return super.visit(rel);
+        }
     }
 
     private static PlanningContext plannerContext(SchemaPlus schema, String sql, Object... params) {

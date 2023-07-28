@@ -44,6 +44,7 @@ import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
@@ -55,7 +56,7 @@ import org.mockito.Mockito;
 /**
  * Tests for {@link InboundDecoder}.
  */
-public class InboundDecoderTest {
+public class InboundDecoderTest extends BaseIgniteAbstractTest {
     /** {@link ByteBuf} allocator. */
     private final UnpooledByteBufAllocator allocator = UnpooledByteBufAllocator.DEFAULT;
 

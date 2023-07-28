@@ -326,7 +326,8 @@ class DefaultMessagingServiceTest {
                         connectionId,
                         recoveryDescriptorProvider,
                         staleIdDetector,
-                        channel -> {}
+                        channel -> {},
+                        new AtomicBoolean(false)
                 ) {
                     @Override
                     protected void finishHandshake() {
