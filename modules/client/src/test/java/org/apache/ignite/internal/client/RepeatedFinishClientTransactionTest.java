@@ -34,12 +34,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests repeated commit/rollback operations.
  */
-public class RepeatedFinishClientTransactionTest {
+public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest {
     @Test
     public void testRepeatedCommitRollbackAfterCommit() throws Exception {
         CountDownLatch txFinishStartedLatch = new CountDownLatch(1);

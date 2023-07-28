@@ -29,6 +29,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
@@ -43,7 +44,7 @@ import org.mockito.Mockito;
 /**
  * Checks if data compliant with the schema, otherwise the correct exception is thrown.
  */
-public class SchemaValidationTest {
+public class SchemaValidationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void columnNotExist() {

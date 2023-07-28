@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -73,7 +74,10 @@ public class Replica {
     // TODO IGNITE-19120 after replica inoperability logic is introduced, this future should be replaced with something like
     //     VersionedValue (so that PlacementDriverMessages would wait for new leader election)
     /** Completes when leader is elected. */
-    private final CompletableFuture<ClusterNode> leaderFuture = new CompletableFuture<>();
+    private final CompletableFuture<AtomicReference<ClusterNode>> leaderFuture = new CompletableFuture<>();
+
+    /** Container of the elected leader. */
+    private final AtomicReference<ClusterNode> leaderRef = new AtomicReference<>();
 
     /** Latest lease expiration time. */
     private volatile HybridTimestamp leaseExpirationTime;
@@ -147,15 +151,17 @@ public class Replica {
     }
 
     private void onLeaderElected(ClusterNode clusterNode, long term) {
+        leaderRef.set(clusterNode);
+
         if (!leaderFuture.isDone()) {
-            leaderFuture.complete(clusterNode);
+            leaderFuture.complete(leaderRef);
         }
 
         listener.onBecomePrimary(clusterNode);
     }
 
     private CompletableFuture<ClusterNode> leaderFuture() {
-        return leaderFuture;
+        return leaderFuture.thenApply(AtomicReference::get);
     }
 
     /**
