@@ -87,6 +87,7 @@ dependencies {
     testFixturesImplementation libs.micronaut.inject
     testFixturesImplementation libs.micronaut.picocli
     testFixturesImplementation libs.micronaut.junit5
+    testFixturesImplementation testFixtures(project(":ignite-core"))
 
     integrationTestAnnotationProcessor libs.picocli.annotation.processor
     integrationTestAnnotationProcessor libs.micronaut.inject.annotation.processor

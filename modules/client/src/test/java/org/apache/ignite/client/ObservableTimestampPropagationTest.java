@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
@@ -36,7 +37,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests that observable timestamp (causality token) is propagated from server to client and back.
  */
-public class ObservableTimestampPropagationTest {
+public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
     private static TestServer testServer;
 
     private static FakeIgnite ignite;

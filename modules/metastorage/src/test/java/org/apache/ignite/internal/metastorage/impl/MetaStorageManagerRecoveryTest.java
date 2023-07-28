@@ -42,6 +42,7 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterService;
@@ -54,7 +55,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests MetaStorage manager recovery basics. */
 @ExtendWith(ConfigurationExtension.class)
-public class MetaStorageManagerRecoveryTest {
+public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "node";
 
     private static final String LEADER_NAME = "ms-leader";

@@ -47,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
@@ -60,7 +61,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for {@link TypeUtils}.
  */
 @ExtendWith(MockitoExtension.class)
-public class TypeUtilsTest {
+public class TypeUtilsTest extends BaseIgniteAbstractTest {
 
     private static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
 

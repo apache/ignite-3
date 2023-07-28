@@ -56,6 +56,7 @@ import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ChannelType;
@@ -72,7 +73,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for {@link ConnectionManager}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ItConnectionManagerTest {
+public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     /** Started connection managers. */
     private final List<ConnectionManagerWrapper> startedManagers = new ArrayList<>();
 

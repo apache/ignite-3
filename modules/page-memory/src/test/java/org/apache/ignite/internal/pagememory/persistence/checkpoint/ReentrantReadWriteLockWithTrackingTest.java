@@ -29,7 +29,7 @@ import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -38,9 +38,7 @@ import org.mockito.ArgumentCaptor;
 /**
  * For {@link ReentrantReadWriteLockWithTracking} testing.
  */
-public class ReentrantReadWriteLockWithTrackingTest {
-    private final IgniteLogger log = Loggers.forClass(getClass());
-
+public class ReentrantReadWriteLockWithTrackingTest extends BaseIgniteAbstractTest {
     @Test
     void testIsWriteLockedByCurrentThread() throws Exception {
         ReentrantReadWriteLockWithTracking lock0 = new ReentrantReadWriteLockWithTracking();

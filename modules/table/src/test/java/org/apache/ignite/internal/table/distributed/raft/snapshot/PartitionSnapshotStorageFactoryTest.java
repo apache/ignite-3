@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * For testing {@link PartitionSnapshotStorageFactory}.
  */
 @ExtendWith(MockitoExtension.class)
-public class PartitionSnapshotStorageFactoryTest {
+public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest {
     @Mock
     private PartitionAccess partitionAccess;
 

@@ -29,13 +29,14 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.internal.network.messages.TestMessageTypes;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.annotations.MessageGroup;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test suite for the {@link AbstractMessagingService} class.
  */
-public class AbstractMessagingServiceTest {
+public class AbstractMessagingServiceTest extends BaseIgniteAbstractTest {
     /**
      * Tests a situation when multiple modules declare message group descriptors with the same group ID. Adding handlers for both of these
      * groups should result in an exception being thrown.

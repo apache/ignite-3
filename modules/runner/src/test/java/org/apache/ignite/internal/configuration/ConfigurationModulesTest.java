@@ -27,13 +27,14 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class ConfigurationModulesTest {
+class ConfigurationModulesTest extends BaseIgniteAbstractTest {
     @Mock
     private RootKey<?, ?> rootKeyA;
     @Mock
