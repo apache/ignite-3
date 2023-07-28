@@ -8,7 +8,7 @@ we ask both an author and a reviewer to check the following requirements:
 \- There is a single JIRA ticket related to the pull request.  
 \- The web-link to the pull request is attached to the JIRA ticket.  
 \- The JIRA ticket has the Patch Available state.  
-\- The description of the JIRA ticket explains WHAT and WHY was made and HOW.
+\- The description of the JIRA ticket explains WHAT and WHY was made and HOW.  
 \- The pull request title is treated as the final commit message. The following pattern must be used: IGNITE-XXXX Change summary where XXXX - number of JIRA issue.
 - [ ] **Design:** new code conforms with the design principles of the components it is added to.
 - [ ] **Patch quality:** patch cannot be split into a smaller pieces, its size is reasonable.
