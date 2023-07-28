@@ -185,7 +185,7 @@ public class SessionImpl implements Session {
                             )
             );
 
-            return result.handle((rs, th) -> {
+            return result.handleAsync((rs, th) -> {
                 if (th == null) {
                     return rs;
                 }
