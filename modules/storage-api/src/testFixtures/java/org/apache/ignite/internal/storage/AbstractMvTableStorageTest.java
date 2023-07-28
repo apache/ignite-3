@@ -120,7 +120,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     protected StorageHashIndexDescriptor hashIdx;
 
-    protected CatalogService catalogService = mock(CatalogService.class);
+    protected final CatalogService catalogService = mock(CatalogService.class);
 
     /**
      * Initializes the internal structures needed for tests.
@@ -128,7 +128,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
     protected final void initialize() {
-        createTableAndIndexes(catalogService);
+        createTestTableAndIndexes(catalogService);
 
         this.tableStorage = createMvTableStorage();
         this.tableStorage.start();
@@ -787,7 +787,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(indexCreateFut, willCompleteSuccessfully());
     }
 
-    private static void createTableAndIndexes(CatalogService catalogService) {
+    private static void createTestTableAndIndexes(CatalogService catalogService) {
         CreateTableParams createTableParams = CreateTableParams.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(DEFAULT_ZONE_NAME)
