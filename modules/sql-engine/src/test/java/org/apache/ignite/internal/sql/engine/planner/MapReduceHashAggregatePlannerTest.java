@@ -506,29 +506,6 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
-    private void checkDistinctAggWithGroupByHash(TestCase testCase) throws Exception {
-        assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(hasAggregate())
-                        .and(not(hasDistinctAggregate()))
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                        .and(not(hasAggregate()))
-                                        .and(hasGroups())
-                                        .and(input(isInstanceOf(IgniteExchange.class)
-                                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                        .and(not(hasAggregate()))
-                                                        .and(hasGroups())
-                                                        .and(input(isTableScan("TEST")))
-                                                ))
-                                        ))
-                                ))
-                        ))
-                ),
-                disableRules
-        );
-    }
-
     private void checkAggWithGroupByIndexColumnsSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
@@ -547,20 +524,6 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                         .and(hasAggregate())
-                                        .and(input(isTableScan("TEST")))
-                                ))
-                        ))
-                ),
-                disableRules
-        );
-    }
-
-    private void checkAggWithGroupByIndexColumnsHashFromExchange(TestCase testCase) throws Exception {
-        assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(hasAggregate())
-                                .and(input(isInstanceOf(IgniteExchange.class)
                                         .and(input(isTableScan("TEST")))
                                 ))
                         ))
@@ -623,7 +586,8 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteProject.class)
                                 .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
                                         .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                //TODO: Why can't Map be pushed down to under 'exchange'.
+                                                //TODO: https://issues.apache.org/jira/browse/IGNITE-20095
+                                                // Why can't Map be pushed down to under 'exchange'.
                                                 .and(input(isInstanceOf(IgniteExchange.class)
                                                         .and(input(isTableScan("TEST")))
                                                 ))
