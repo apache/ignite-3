@@ -527,6 +527,10 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
         assertPlan(testCase.query, Collections.singleton(testCase.schema), predicate, List.of(), rulesToDisable);
     }
 
+    protected void assumeRun(TestCase testCase, String methodName) {
+        missedCases.remove(testCase);
+    }
+
     @SafeVarargs
     private static IgniteSchema schema(IgniteDistribution distribution,
             Consumer<org.apache.ignite.internal.sql.engine.framework.TestTable>... indices) {

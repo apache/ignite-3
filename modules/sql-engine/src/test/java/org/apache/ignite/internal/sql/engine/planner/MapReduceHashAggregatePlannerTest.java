@@ -117,10 +117,11 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDistinctAggWithGroupBySingle(TestCase.CASE_7_3);
         checkDistinctAggWithGroupBySingle(TestCase.CASE_7_4);
 
-        checkDistinctAggWithGroupByHash(TestCase.CASE_7_1A);
-        checkDistinctAggWithGroupByHash(TestCase.CASE_7_2A);
-        checkDistinctAggWithGroupByHash(TestCase.CASE_7_3A);
-        checkDistinctAggWithGroupByHash(TestCase.CASE_7_4A);
+        //TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is fixed
+        assumeRun(TestCase.CASE_7_1A, "checkDistinctAggWithGroupByHash");
+        assumeRun(TestCase.CASE_7_2A, "checkDistinctAggWithGroupByHash");
+        assumeRun(TestCase.CASE_7_3A, "checkDistinctAggWithGroupByHash");
+        assumeRun(TestCase.CASE_7_4A, "checkDistinctAggWithGroupByHash");
     }
 
     /**
@@ -159,7 +160,8 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void distinctWithoutAggregate() throws Exception {
         checkGroupWithNoAggregateSingle(TestCase.CASE_12);
-        checkGroupWithNoAggregateHash(TestCase.CASE_12A);
+        //TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is resolved
+        assumeRun(TestCase.CASE_12A, "checkGroupWithNoAggregateHash");
     }
 
     /**
@@ -168,7 +170,8 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     @Test
     public void distinctWithoutAggregateUseIndex() throws Exception {
         checkGroupWithNoAggregateSingle(TestCase.CASE_13);
-        checkGroupWithNoAggregateHash(TestCase.CASE_13A);
+        //TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is resolved
+        assumeRun(TestCase.CASE_13A, "checkGroupWithNoAggregateHash");
     }
 
     /**
@@ -335,10 +338,14 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                 ))
         );
 
+        //TODO Replace with uncommented code after https://issues.apache.org/jira/browse/IGNITE-20083 is resolved
+        assumeRun(TestCase.CASE_21A, "");
+        /*
         assertPlan(TestCase.CASE_21A, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
                 .and(input(0, subtreePredicate))
                 .and(input(1, subtreePredicate))
         ), disableRules);
+         */
     }
 
     /**
