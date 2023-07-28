@@ -20,16 +20,9 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonWriter.toJson;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationMappingException;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentMappingException;
-import org.apache.ignite.internal.sql.engine.metadata.IgniteFragmentMapping;
-import org.apache.ignite.internal.sql.engine.metadata.NodeMappingException;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
@@ -82,6 +75,13 @@ public class Fragment {
         this.correlated = correlated;
     }
 
+    /** Creates a copy of this fragment with mapping assigned to the given one. */
+    public Fragment withMapping(FragmentMapping mapping) {
+        assert mapping != null;
+
+        return new Fragment(id, root, correlated, remotes, rootSer, mapping);
+    }
+
     /**
      * Get fragment ID.
      */
@@ -109,30 +109,6 @@ public class Fragment {
         return mapping;
     }
 
-    private FragmentMapping mapping(MappingQueryContext ctx, RelMetadataQuery mq, Supplier<List<String>> nodesSource) {
-        try {
-            FragmentMapping mapping = IgniteFragmentMapping.calculateMapping(root, mq, ctx);
-
-            if (rootFragment()) {
-                mapping = FragmentMapping.create(ctx.locNodeName()).colocate(mapping);
-            }
-
-            if (single() && mapping.nodeNames().size() > 1) {
-                // this is possible when the fragment contains scan of a replicated cache, which brings
-                // several nodes (actually all containing nodes) to the colocation group, but this fragment
-                // supposed to be executed on a single node, so let's choose one wisely
-                mapping = FragmentMapping.create(mapping.nodeNames()
-                        .get(ThreadLocalRandom.current().nextInt(mapping.nodeNames().size()))).colocate(mapping);
-            }
-
-            return mapping.finalize(nodesSource);
-        } catch (NodeMappingException e) {
-            throw new FragmentMappingException("Failed to calculate physical distribution", this, e.node(), e);
-        } catch (ColocationMappingException e) {
-            throw new FragmentMappingException("Failed to calculate physical distribution", this, root, e);
-        }
-    }
-
     /**
      * Returns {@code true} if this fragment expecting some correlated variables being set from
      * outside (e.g. parent fragment).
@@ -158,25 +134,7 @@ public class Fragment {
         return root.getCluster() == cluster ? this : new Cloner(cluster).go(this);
     }
 
-    /**
-     * Maps the fragment to its data location.
-     *
-     * @param ctx Planner context.
-     * @param mq  Metadata query.
-     */
-    Fragment map(MappingQueryContext ctx, RelMetadataQuery mq) throws FragmentMappingException {
-        if (mapping != null) {
-            return this;
-        }
-
-        return new Fragment(id, root, correlated, remotes, rootSer, mapping(ctx, mq, nodesSource(ctx)));
-    }
-
-    private Supplier<List<String>> nodesSource(MappingQueryContext ctx) {
-        return () -> ctx.mappingService().executionNodes(single(), null);
-    }
-
-    private boolean single() {
+    public boolean single() {
         return root instanceof IgniteSender
                 && ((IgniteSender) root).sourceDistribution().satisfies(IgniteDistributions.single());
     }
