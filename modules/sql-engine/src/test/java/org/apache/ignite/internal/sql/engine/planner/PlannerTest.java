@@ -584,10 +584,10 @@ public class PlannerTest extends AbstractPlannerTest {
 
     private static UnaryOperator<TableBuilder> developerTable(ColocationGroup colocationGroup, IgniteDistribution distribution) {
         return tableBuilder -> tableBuilder
-                .name("PROJECT")
+                .name("DEVELOPER")
                 .addColumn("ID", NativeTypes.INT32)
                 .addColumn("NAME", NativeTypes.STRING)
-                .addColumn("VER", NativeTypes.INT32)
+                .addColumn("PROJECTID", NativeTypes.INT32)
                 .size(100)
                 .distribution(distribution)
                 .colocationGroup(colocationGroup);
@@ -595,10 +595,10 @@ public class PlannerTest extends AbstractPlannerTest {
 
     private static UnaryOperator<TableBuilder> projectsTable(ColocationGroup colocationGroup, IgniteDistribution distribution) {
         return tableBuilder -> tableBuilder
-                .name("DEVELOPER")
+                .name("PROJECT")
                 .addColumn("ID", NativeTypes.INT32)
                 .addColumn("NAME", NativeTypes.STRING)
-                .addColumn("PROJECTID", NativeTypes.INT32)
+                .addColumn("VER", NativeTypes.INT32)
                 .size(100)
                 .distribution(distribution)
                 .colocationGroup(colocationGroup);
