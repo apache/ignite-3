@@ -52,6 +52,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,7 +61,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for the {@link CmgRaftGroupListener}.
  */
-public class CmgRaftGroupListenerTest {
+public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
     private final ClusterStateStorage storage = spy(new TestClusterStateStorage());
 
     private final LongConsumer onLogicalTopologyChanged = mock(LongConsumer.class);

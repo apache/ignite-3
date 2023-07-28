@@ -26,10 +26,11 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-class SqlSchemaProviderTest {
+class SqlSchemaProviderTest extends BaseIgniteAbstractTest {
     private static MetadataSupplier supplier;
 
     @BeforeAll

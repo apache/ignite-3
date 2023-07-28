@@ -34,10 +34,26 @@ import org.gradle.crypto.checksum.Checksum
 
 configurations {
     dbArtifacts
+    defaultsGenerator
+    dbZip {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+    dbRelease {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+    localDefaults {
+        canBeConsumed = true
+        canBeResolved = false
+    }
 }
 
 dependencies {
-    dbArtifacts(project(':ignite-runner'))
+    dbArtifacts project(':ignite-runner')
+
+    defaultsGenerator configurations.dbArtifacts
+    defaultsGenerator project(path: ':ignite-runner', configuration: 'defaultsGenerator')
 }
 
 def tokens = [
@@ -71,6 +87,19 @@ task replaceZipScriptVars(type: Copy) {
     into "$buildDir/zip/"
 }
 
+def copyConfig = tasks.register('copyConfig', Copy) {
+    from "$rootDir/packaging/config/ignite-config.conf"
+    into layout.buildDirectory.dir("config")
+}
+
+def generateConfigDefaults = tasks.register('generateConfigDefaults', JavaExec) {
+    classpath = configurations.defaultsGenerator
+    mainClass = "org.apache.ignite.internal.configuration.generator.DefaultsGenerator"
+    dependsOn copyConfig
+    args layout.buildDirectory.file("config/ignite-config.conf").get()
+    outputs.file layout.buildDirectory.file("config/ignite-config.conf")
+}
+
 distributions {
     main {
         distributionBaseName = 'ignite3-db'
@@ -91,7 +120,7 @@ distributions {
             }
             into('etc') {
                 from "$buildDir/zip/${zipStartScriptTokens.VARS_FILE_NAME}"
-                from "$rootDir/packaging/config/ignite-config.conf"
+                from generateConfigDefaults
                 from "$buildDir/zip/ignite.java.util.logging.properties"
             }
             into('bin') {
@@ -117,16 +146,9 @@ task createChecksums(type: Checksum) {
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 
-// Expose zip artifacts to be consumed by others
-configurations {
-    dbZip {
-        canBeConsumed = true
-        canBeResolved = false
-    }
-}
-
 artifacts {
     dbZip(distZip)
+    localDefaults generateConfigDefaults
 }
 
 // Explicitly create task so that the resulting artifact is not added to the configuration
@@ -213,7 +235,7 @@ ospackage {
             fileType CONFIG
             from "$buildDir/linux/service/vars.env"
             from "$buildDir/linux/ignite.java.util.logging.properties"
-            from "$rootDir/packaging/config/ignite-config.conf"
+            from generateConfigDefaults
         }
 
         into('etc') {
@@ -224,12 +246,7 @@ ospackage {
     link "/opt/ignite3db", "${packageTokens.INSTALL_DIR}"
 }
 
-configurations {
-    dbRelease {
-        canBeConsumed = true
-        canBeResolved = false
-    }
-}
+
 
 if (project.hasProperty('prepareRelease')) {
     artifacts {
@@ -292,7 +309,7 @@ setupBuilder {
             from('log')
         }
         into('etc') {
-            from "${rootDir}/packaging/config/ignite-config.conf"
+            from generateConfigDefaults
         }
         into('etc') {
             from("ignite.java.util.logging.properties")
