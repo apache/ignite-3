@@ -25,11 +25,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
@@ -71,6 +73,21 @@ public class IgniteComputeImpl implements IgniteCompute {
         }
 
         return executeOnOneNode(randomNode(nodes), units, jobClassName, args);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <R> R execute(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        try {
+            return this.<R>executeAsync(nodes, units, jobClassName, args).join();
+        } catch (CompletionException e) {
+            throw IgniteExceptionUtils.wrap(e);
+        }
     }
 
     private ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -139,6 +156,39 @@ public class IgniteComputeImpl implements IgniteCompute {
         return requiredTable(tableName)
                 .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
                 .thenCompose(primaryNode -> executeOnOneNode(primaryNode, units, jobClassName, args));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <R> R executeColocated(
+            String tableName,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        try {
+            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).join();
+        } catch (CompletionException e) {
+            throw IgniteExceptionUtils.wrap(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <K, R> R executeColocated(
+            String tableName,
+            K key,
+            Mapper<K> keyMapper,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        try {
+            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).join();
+        } catch (CompletionException e) {
+            throw IgniteExceptionUtils.wrap(e);
+        }
     }
 
     private CompletableFuture<TableImpl> requiredTable(String tableName) {

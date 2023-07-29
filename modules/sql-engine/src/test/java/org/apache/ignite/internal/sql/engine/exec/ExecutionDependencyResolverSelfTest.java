@@ -48,6 +48,7 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -237,7 +238,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
         int t1Id = tester.addTable("TEST1", tableType);
 
-        ClusterNode node1 = new ClusterNode("1", "node1", new NetworkAddress("host", 1234));
+        ClusterNode node1 = new ClusterNodeImpl("1", "node1", new NetworkAddress("host", 1234));
 
         List<PrimaryReplica> rs = new ArrayList<>();
         rs.add(new PrimaryReplica(node1, 5));
