@@ -63,32 +63,27 @@ public class ClusterNodeImpl implements ClusterNode {
         this(id, name, address, null);
     }
 
-    /** {@inheritDoc} */
     @Override
     public String id() {
         return id;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String name() {
         return name;
     }
 
-    /** {@inheritDoc} */
     @Override
     public NetworkAddress address() {
         return address;
     }
 
-    /** {@inheritDoc} */
     @Override
     @Nullable
     public NodeMetadata nodeMetadata() {
         return nodeMetadata;
     }
 
-    /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -101,7 +96,6 @@ public class ClusterNodeImpl implements ClusterNode {
         return name.equals(that.name) && address.equals(that.address);
     }
 
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
         int result = name.hashCode();
@@ -109,10 +103,8 @@ public class ClusterNodeImpl implements ClusterNode {
         return result;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(ClusterNodeImpl.class, this);
     }
 }
-
