@@ -26,7 +26,6 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageConcurrencyTest;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -51,9 +50,7 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
     void setUp(
             @WorkDirectory Path workDir,
             @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
-            PersistentPageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.tables.foo = {}")
-            TablesConfiguration tablesConfig
+            PersistentPageMemoryStorageEngineConfiguration engineConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 

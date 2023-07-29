@@ -25,7 +25,6 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
@@ -50,8 +49,7 @@ class RocksDbGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.tables.foo{}") TablesConfiguration tablesConfig
+            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig
     ) {
         engine = new RocksDbStorageEngine("test", engineConfig, workDir);
 

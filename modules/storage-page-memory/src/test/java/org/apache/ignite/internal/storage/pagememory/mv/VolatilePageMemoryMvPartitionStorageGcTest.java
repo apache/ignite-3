@@ -26,7 +26,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageGcTest;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -46,8 +45,7 @@ class VolatilePageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionStor
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.tables.foo = {}") TablesConfiguration tablesConfig
+            @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 

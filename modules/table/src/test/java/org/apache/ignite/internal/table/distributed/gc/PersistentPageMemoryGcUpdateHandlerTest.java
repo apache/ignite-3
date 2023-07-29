@@ -27,7 +27,6 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -52,8 +51,7 @@ class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTes
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.tables.foo{}") TablesConfiguration tablesConfig
+            @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
