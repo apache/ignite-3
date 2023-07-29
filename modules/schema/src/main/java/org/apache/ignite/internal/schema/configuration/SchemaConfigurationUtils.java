@@ -18,26 +18,12 @@
 package org.apache.ignite.internal.schema.configuration;
 
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Helper class for working with schema configuration.
  */
 public class SchemaConfigurationUtils {
-    /**
-     * Looks up the index configuration by ID, {@code null} if absent.
-     *
-     * @param tablesView Tables configuration.
-     * @param indexId Index ID.
-     */
-    public static @Nullable TableIndexView findIndexView(TablesView tablesView, int indexId) {
-        return tablesView.indexes().stream()
-                .filter(tableIndexView -> indexId == tableIndexView.id())
-                .findFirst()
-                .orElse(null);
-    }
-
     /**
      * Looks up the table configuration by ID, {@code null} if absent.
      *

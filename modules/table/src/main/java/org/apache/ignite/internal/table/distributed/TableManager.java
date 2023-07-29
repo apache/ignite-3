@@ -1779,13 +1779,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     }
 
                                     tblChg.delete(name);
-                                })
-                                .changeIndexes(idxChg -> {
-                                    for (TableIndexView index : idxChg) {
-                                        if (index.tableId() == tbl.tableId()) {
-                                            idxChg.delete(index.name());
-                                        }
-                                    }
                                 });
                     })
                     .exceptionally(t -> {

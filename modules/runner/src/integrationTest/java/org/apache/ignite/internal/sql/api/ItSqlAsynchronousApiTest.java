@@ -80,6 +80,7 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -120,6 +121,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20096")
     public void ddl() throws Exception {
         IgniteSql sql = CLUSTER_NODES.get(0).sql();
         Session ses = sql.createSession();

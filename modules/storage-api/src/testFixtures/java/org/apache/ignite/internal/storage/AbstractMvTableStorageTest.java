@@ -73,10 +73,6 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.index.IndexDefinition;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -764,27 +760,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             assertThat(hashIndexStorageRestarted.getNextRowIdToBuild(), equalTo(rowId0));
             assertThat(sortedIndexStorageRestarted.getNextRowIdToBuild(), equalTo(rowId1));
         }
-    }
-
-    private static void createTestIndexes(TablesConfiguration tablesConfig) {
-        List<IndexDefinition> indexDefinitions = List.of(
-                SchemaBuilders.sortedIndex(SORTED_INDEX_NAME)
-                        .addIndexColumn("strKey").done()
-                        .build(),
-                SchemaBuilders.hashIndex(HASH_INDEX_NAME)
-                        .withColumns("strKey")
-                        .build()
-        );
-
-        int tableId = tablesConfig.tables().value().get("foo").id();
-
-        CompletableFuture<Void> indexCreateFut = tablesConfig.indexes().change(ch ->
-                indexDefinitions.forEach(idxDef -> ch.create(idxDef.name(),
-                        c -> SchemaConfigurationConverter.addIndex(idxDef, tableId, idxDef.name().hashCode(), c)
-                ))
-        );
-
-        assertThat(indexCreateFut, willCompleteSuccessfully());
     }
 
     private static void createTestTableAndIndexes(CatalogService catalogService) {

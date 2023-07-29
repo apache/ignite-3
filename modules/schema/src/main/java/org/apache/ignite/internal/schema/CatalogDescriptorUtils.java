@@ -49,8 +49,7 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 /**
  * Helper class for working with catalog descriptors.
  */
-// TODO: IGNITE-19499 Get rid of the table configuration
-// TODO: IGNITE-19500 Get rid of the index configuration
+// TODO: IGNITE-19499 Get rid of the table/index configuration
 @Deprecated(forRemoval = true)
 public class CatalogDescriptorUtils {
     /**
