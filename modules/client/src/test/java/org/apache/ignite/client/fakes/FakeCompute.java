@@ -26,7 +26,7 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
-import org.apache.ignite.lang.IgniteExceptionUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -68,7 +68,7 @@ public class FakeCompute implements IgniteCompute {
         try {
             return this.<R>executeAsync(nodes, units, jobClassName, args).join();
         } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         }
     }
 
@@ -107,7 +107,7 @@ public class FakeCompute implements IgniteCompute {
         try {
             return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).join();
         } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         }
     }
 
@@ -124,7 +124,7 @@ public class FakeCompute implements IgniteCompute {
         try {
             return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).join();
         } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         }
     }
 

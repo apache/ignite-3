@@ -23,7 +23,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -82,7 +81,7 @@ class SyncResultSetAdapter<T> implements ResultSet<T> {
         try {
             ars.closeAsync().toCompletableFuture().join();
         } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         }
     }
 

@@ -177,6 +177,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -185,7 +186,6 @@ import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
@@ -1721,7 +1721,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19539
-        return (ex instanceof IgniteException) ? (IgniteException) ex : IgniteExceptionUtils.wrap(ex);
+        return (ex instanceof IgniteException) ? (IgniteException) ex : ExceptionUtils.wrap(ex);
     }
 
     /**

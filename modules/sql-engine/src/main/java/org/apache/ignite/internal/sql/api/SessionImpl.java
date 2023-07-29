@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
-import static org.apache.ignite.lang.IgniteExceptionUtils.sneakyThrow;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
@@ -48,7 +48,6 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.SqlBatchException;
@@ -329,7 +328,7 @@ public class SessionImpl implements AbstractSession {
         try {
             closeAsync().toCompletableFuture().get();
         } catch (ExecutionException e) {
-            sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
+            sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         } catch (InterruptedException e) {
             throw new SqlException(SESSION_CLOSED_ERR, e);
         }

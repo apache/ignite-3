@@ -32,6 +32,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -50,7 +51,7 @@ public class IgniteExceptionTest {
 
         var originalEx = new CustomTestException(originalTraceId, Table.TABLE_NOT_FOUND_ERR, originalMessage, null);
         var wrappedEx = new CompletionException(originalEx);
-        IgniteException res = IgniteExceptionUtils.wrap(wrappedEx);
+        IgniteException res = ExceptionUtils.wrap(wrappedEx);
 
         assertEquals(originalEx.traceId(), res.traceId());
         assertEquals(originalEx.code(), res.code());
@@ -69,7 +70,7 @@ public class IgniteExceptionTest {
 
         var originalEx = new IgniteCheckedException(originalTraceId, Table.COLUMN_ALREADY_EXISTS_ERR, originalMessage);
         var wrappedEx = new CompletionException(originalEx);
-        IgniteException res = IgniteExceptionUtils.wrap(wrappedEx);
+        IgniteException res = ExceptionUtils.wrap(wrappedEx);
 
         assertEquals(originalEx.traceId(), res.traceId());
         assertEquals(originalEx.code(), res.code());
@@ -85,7 +86,7 @@ public class IgniteExceptionTest {
 
         var originalEx = new IgniteInternalException(originalTraceId, INTERNAL_ERR, originalMessage);
         var wrappedEx = new CompletionException(originalEx);
-        IgniteException res = IgniteExceptionUtils.wrap(wrappedEx);
+        IgniteException res = ExceptionUtils.wrap(wrappedEx);
 
         assertEquals(INTERNAL_ERR, res.code());
         assertSame(originalEx, res.getCause());
@@ -99,7 +100,7 @@ public class IgniteExceptionTest {
 
         var originalEx = new IgniteInternalCheckedException(originalTraceId, INTERNAL_ERR, originalMessage);
         var wrappedEx = new CompletionException(originalEx);
-        IgniteException res = IgniteExceptionUtils.wrap(wrappedEx);
+        IgniteException res = ExceptionUtils.wrap(wrappedEx);
 
         assertEquals(INTERNAL_ERR, res.code());
         assertSame(originalEx, res.getCause());

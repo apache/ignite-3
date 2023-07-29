@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql;
 
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.lang.IgniteExceptionUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -60,7 +60,7 @@ public interface AbstractSession extends Session {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, query, arguments).join());
         } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         }
     }
 
@@ -79,7 +79,7 @@ public interface AbstractSession extends Session {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, statement, arguments).join());
         } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         }
     }
 
@@ -104,7 +104,7 @@ public interface AbstractSession extends Session {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, query, arguments).join());
         } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         }
     }
 
@@ -129,7 +129,7 @@ public interface AbstractSession extends Session {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, statement, arguments).join());
         } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         }
     }
 
@@ -147,7 +147,7 @@ public interface AbstractSession extends Session {
         try {
             return executeBatchAsync(transaction, dmlQuery, batch).join();
         } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         }
     }
 }

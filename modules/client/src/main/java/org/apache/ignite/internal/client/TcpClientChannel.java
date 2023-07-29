@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.client;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
-import static org.apache.ignite.lang.IgniteExceptionUtils.copyExceptionWithCause;
-import static org.apache.ignite.lang.IgniteExceptionUtils.sneakyThrow;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -57,9 +57,9 @@ import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
@@ -323,7 +323,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             metrics.requestsActiveDecrement();
 
             // TODO https://issues.apache.org/jira/browse/IGNITE-19539
-            throw IgniteExceptionUtils.wrap(t);
+            throw ExceptionUtils.wrap(t);
         }
     }
 

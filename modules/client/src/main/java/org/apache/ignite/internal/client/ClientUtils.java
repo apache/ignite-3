@@ -24,7 +24,7 @@ import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.IgniteExceptionUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.LoggerFactory;
 
 /**
@@ -44,10 +44,10 @@ public class ClientUtils {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         } catch (ExecutionException e) {
             //TODO: https://issues.apache.org/jira/browse/IGNITE-19539
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         }
     }
 
@@ -105,7 +105,6 @@ public class ClientUtils {
 
             case ClientOp.TUPLE_GET_AND_REPLACE:
                 return ClientOperationType.TUPLE_GET_AND_REPLACE;
-
             case ClientOp.TUPLE_DELETE:
                 return ClientOperationType.TUPLE_DELETE;
 

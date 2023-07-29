@@ -39,8 +39,8 @@ import org.apache.ignite.internal.client.table.ClientRecordSerializer;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -102,7 +102,7 @@ public class ClientCompute implements IgniteCompute {
         try {
             return this.<R>executeAsync(nodes, units, jobClassName, args).join();
         } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         }
     }
 
@@ -168,7 +168,7 @@ public class ClientCompute implements IgniteCompute {
         try {
             return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).join();
         } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         }
     }
 
@@ -185,7 +185,7 @@ public class ClientCompute implements IgniteCompute {
         try {
             return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).join();
         } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
+            throw ExceptionUtils.wrap(e);
         }
     }
 
