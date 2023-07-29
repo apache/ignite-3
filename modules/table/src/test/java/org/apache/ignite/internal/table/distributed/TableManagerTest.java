@@ -287,6 +287,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         when(replicaMgr.stopReplica(any())).thenReturn(completedFuture(true));
 
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
+
         tblManagerFut = new CompletableFuture<>();
     }
 
@@ -684,6 +686,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(txStateStorage.clear()).thenReturn(completedFuture(null));
 
         mockMetastore();
+
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
 
         // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
         TableManager tableManager = createTableManager(tblManagerFut, (mvTableStorage) -> {
