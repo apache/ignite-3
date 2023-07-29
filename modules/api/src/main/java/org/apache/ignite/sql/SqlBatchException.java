@@ -31,7 +31,7 @@ import java.util.concurrent.ExecutionException;
  */
 public class SqlBatchException extends SqlException {
     /** Empty array of long. */
-    public static final long[] LONG_EMPTY_ARRAY = new long[0];
+    private static final long[] LONG_EMPTY_ARRAY = new long[0];
 
     private final long[] updCntrs;
 
