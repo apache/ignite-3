@@ -384,4 +384,21 @@ class TupleImpl implements Tuple, Serializable {
             colMapping.put(colNames.get(i), i);
         }
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        StringBuilder b = new StringBuilder();
+
+        b.append(Tuple.class.getSimpleName()).append(" [");
+        for (int i = 0; i < colNames.size(); i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(colNames.get(i)).append('=').append(colValues.get(i));
+        }
+        b.append(']');
+
+        return b.toString();
+    }
 }
