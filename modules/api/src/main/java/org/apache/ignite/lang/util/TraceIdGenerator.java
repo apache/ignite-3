@@ -24,7 +24,9 @@ import java.util.UUID;
 import org.apache.ignite.lang.TraceableException;
 import org.jetbrains.annotations.Nullable;
 
-/** This utility class allows extracting and/or creating a trace identifier. */
+/**
+ * This utility class allows to extract trace identifier from an instance of {@link TraceableException} or creating a new trace identifier.
+ **/
 public class TraceIdGenerator {
     /**
      * Returns trace identifier from the provided throwable if it is an instance of {@link TraceableException}
