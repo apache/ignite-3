@@ -23,7 +23,7 @@ import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.util.ExceptionUtils.getOrCreateTraceId;
+import static org.apache.ignite.lang.util.TraceIdGenerator.getOrCreateTraceId;
 
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;

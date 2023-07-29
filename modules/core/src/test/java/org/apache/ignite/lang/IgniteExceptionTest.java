@@ -18,9 +18,9 @@
 package org.apache.ignite.lang;
 
 import static java.lang.invoke.MethodType.methodType;
-import static org.apache.ignite.internal.util.ExceptionUtils.getOrCreateTraceId;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.util.TraceIdGenerator.getOrCreateTraceId;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.any;
 import static org.hamcrest.Matchers.is;

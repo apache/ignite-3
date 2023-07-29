@@ -21,26 +21,11 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.lang.TraceableException;
+import org.jetbrains.annotations.Nullable;
 
-/** Temp class. */
-public class ExceptionUtils {
-    /**
-     * Unwraps exception cause from wrappers like CompletionException and ExecutionException.
-     *
-     * @param e Throwable.
-     * @return Unwrapped throwable.
-     */
-    public static Throwable unwrapCause(Throwable e) {
-        while ((e instanceof CompletionException || e instanceof ExecutionException) && e.getCause() != null) {
-            e = e.getCause();
-        }
-
-        return e;
-    }
-
+/** This utility class allows extracting and/or creating a trace identifier. */
+public class TraceIdGenerator {
     /**
      * Returns trace identifier from the provided throwable if it is an instance of {@link TraceableException}
      * or it has a cause that is an instance of {@link TraceableException}. Otherwise a new trace identifier is generated.
@@ -48,7 +33,7 @@ public class ExceptionUtils {
      * @param t Throwable to extract a trace identifier.
      * @return Returns trace identifier.
      */
-    public static UUID getOrCreateTraceId(Throwable t) {
+    public static UUID getOrCreateTraceId(@Nullable Throwable t) {
         Throwable e = t;
 
         // This collection is used to avoid infinite loops in case of cyclic dependencies.

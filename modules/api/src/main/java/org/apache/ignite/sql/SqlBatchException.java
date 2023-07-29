@@ -18,7 +18,8 @@
 package org.apache.ignite.sql;
 
 import java.util.UUID;
-import org.apache.ignite.lang.util.ExceptionUtils;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Subclass of {@link SqlException} is thrown when an error occurs during a batch update operation. In addition to the
@@ -57,7 +58,9 @@ public class SqlBatchException extends SqlException {
     public SqlBatchException(UUID traceId, int code, String message, Throwable cause) {
         super(traceId, code, message, cause);
 
-        cause = ExceptionUtils.unwrapCause(cause);
+        while ((cause instanceof CompletionException || cause instanceof ExecutionException) && cause.getCause() != null) {
+            cause = cause.getCause();
+        }
 
         updCntrs = cause instanceof SqlBatchException ? ((SqlBatchException) cause).updCntrs : null;
     }
