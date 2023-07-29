@@ -22,7 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_ALREADY_
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteInternalException;
 
-// TODO
+// TODO https://issues.apache.org/jira/browse/IGNITE-20098
 /**
  * This exception is thrown when a new distribution zone failed to be created,
  * because a distribution zone with same name already exists.

@@ -23,7 +23,7 @@ import java.util.UUID;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
-// TODO
+// TODO https://issues.apache.org/jira/browse/IGNITE-20098
 /**
  * Exception is thrown when the distribution zone cannot be dropped because there is a table bound to the distribution zone.
  */
