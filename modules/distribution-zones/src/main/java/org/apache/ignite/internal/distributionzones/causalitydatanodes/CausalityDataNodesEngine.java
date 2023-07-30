@@ -45,6 +45,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
@@ -140,117 +141,123 @@ public class CausalityDataNodesEngine {
             throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
         }
 
-        return inBusyLock(busyLock, () -> zonesVv.get(causalityToken))
-                .thenApply(ignored -> inBusyLock(busyLock, () -> {
-                    ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = zonesVersionedCfg.get(zoneId);
+        return inBusyLock(busyLock, () -> {
+            try {
+                return zonesVv.get(causalityToken);
+            } catch (OutdatedTokenException e) {
+                // This exception means that the DistributionZoneManager has already processed event with the causalityToken.
+                return CompletableFuture.completedFuture(null);
+            }
+        }).thenApply(ignored -> inBusyLock(busyLock, () -> {
+            ConcurrentSkipListMap<Long, ZoneConfiguration> versionedCfg = zonesVersionedCfg.get(zoneId);
 
-                    // Get the latest configuration and configuration revision for a given causality token
-                    Map.Entry<Long, ZoneConfiguration> zoneLastCfgEntry = versionedCfg.floorEntry(causalityToken);
+            // Get the latest configuration and configuration revision for a given causality token
+            Map.Entry<Long, ZoneConfiguration> zoneLastCfgEntry = versionedCfg.floorEntry(causalityToken);
 
-                    if (zoneLastCfgEntry == null) {
-                        // It means that the zone does not exist on a given causality token.
-                        throw new DistributionZoneNotFoundException(zoneId);
+            if (zoneLastCfgEntry == null) {
+                // It means that the zone does not exist on a given causality token.
+                throw new DistributionZoneNotFoundException(zoneId);
+            }
+
+            long lastCfgRevision = zoneLastCfgEntry.getKey();
+
+            ZoneConfiguration zoneLastCfg = zoneLastCfgEntry.getValue();
+
+            String filter = zoneLastCfg.getFilter();
+
+            boolean isZoneRemoved = zoneLastCfg.getIsRemoved();
+
+            if (isZoneRemoved) {
+                // It means that the zone was removed on a given causality token.
+                throw new DistributionZoneNotFoundException(zoneId);
+            }
+
+            // Get revisions of the last scale up and scale down event which triggered immediate data nodes recalculation.
+            long lastScaleUpRevision = getRevisionsOfLastScaleUpEvent(causalityToken, zoneId);
+            long lastScaleDownRevision = getRevisionsOfLastScaleDownEvent(causalityToken, zoneId);
+
+            if (lastCfgRevision == versionedCfg.firstKey()
+                    && lastCfgRevision >= lastScaleUpRevision
+                    && lastCfgRevision >= lastScaleDownRevision
+            ) {
+                // It means that the zone was created but the data nodes value had not updated yet.
+                // So the data nodes value will be equals to the logical topology on the lastCfgRevision.
+
+                Entry topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), zoneLastCfgEntry.getKey());
+
+                assert topologyEntry.value() != null : "Logical topology must be initialized.";
+
+                Set<NodeWithAttributes> logicalTopology = fromBytes(topologyEntry.value());
+
+                Set<Node> logicalTopologyNodes = logicalTopology.stream().map(n -> n.node()).collect(toSet());
+
+                Set<String> dataNodesNames = filterDataNodes(logicalTopologyNodes, filter,
+                        distributionZoneManager.nodesAttributes());
+
+                return dataNodesNames;
+            }
+
+            ZoneState zoneState = zonesState.get(zoneId);
+
+            ConcurrentSkipListMap<Long, Augmentation> subAugmentationMap = null;
+
+            // On the data nodes recalculation we write new data nodes to the meta storage then clear the augmentation map.
+            // Therefore, first we need to read the augmentation map before it is cleared and then read the last data nodes value
+            // from the meta storage.
+            // The zoneState can be null if the zone was removed.
+            if (zoneState != null) {
+                subAugmentationMap = new ConcurrentSkipListMap<>(zoneState.topologyAugmentationMap()
+                        .headMap(causalityToken, true));
+            }
+
+            // Search the revisions of zoneScaleUpChangeTriggerKey and zoneScaleDownChangeTriggerKey with value greater or equals
+            // to expected one.
+            long scaleUpDataNodesRevision = searchTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId));
+            long scaleDownDataNodesRevision = searchTriggerKey(lastScaleDownRevision, zoneId,
+                    zoneScaleDownChangeTriggerKey(zoneId));
+
+            // Choose the highest revision.
+            long dataNodesRevision = max(causalityToken, max(scaleUpDataNodesRevision, scaleDownDataNodesRevision));
+
+            // Read data nodes value from the meta storage on dataNodesRevision and associated trigger keys.
+            Entry dataNodesEntry = msManager.getLocally(zoneDataNodesKey(zoneId), dataNodesRevision);
+            Entry scaleUpChangeTriggerKey = msManager.getLocally(zoneScaleUpChangeTriggerKey(zoneId), dataNodesRevision);
+            Entry scaleDownChangeTriggerKey = msManager.getLocally(zoneScaleDownChangeTriggerKey(zoneId), dataNodesRevision);
+
+            if (dataNodesEntry.value() == null) {
+                // The zone was removed.
+                // In this case it is impossible to find out the data nodes value idempotently.
+                return emptySet();
+            }
+
+            Set<Node> baseDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
+            long scaleUpTriggerRevision = bytesToLong(scaleUpChangeTriggerKey.value());
+            long scaleDownTriggerRevision = bytesToLong(scaleDownChangeTriggerKey.value());
+
+            Set<Node> finalDataNodes = new HashSet<>(baseDataNodes);
+
+            // If the subAugmentationMap is null then it means that the zone was removed.
+            // In this case all nodes from topologyAugmentationMap must be already written to the meta storage.
+            if (subAugmentationMap != null) {
+                // Update the data nodes set with pending data from augmentation map
+                subAugmentationMap.forEach((rev, augmentation) -> {
+                    if (augmentation.addition() && rev > scaleUpTriggerRevision && rev <= lastScaleUpRevision) {
+                        for (Node node : augmentation.nodes()) {
+                            finalDataNodes.add(node);
+                        }
                     }
 
-                    long lastCfgRevision = zoneLastCfgEntry.getKey();
-
-                    ZoneConfiguration zoneLastCfg = zoneLastCfgEntry.getValue();
-
-                    String filter = zoneLastCfg.getFilter();
-
-                    boolean isZoneRemoved = zoneLastCfg.getIsRemoved();
-
-                    if (isZoneRemoved) {
-                        // It means that the zone was removed on a given causality token.
-                        throw new DistributionZoneNotFoundException(zoneId);
+                    if (!augmentation.addition() && rev > scaleDownTriggerRevision && rev <= lastScaleDownRevision) {
+                        for (Node node : augmentation.nodes()) {
+                            finalDataNodes.remove(node);
+                        }
                     }
+                });
+            }
 
-                    // Get revisions of the last scale up and scale down event which triggered immediate data nodes recalculation.
-                    long lastScaleUpRevision = getRevisionsOfLastScaleUpEvent(causalityToken, zoneId);
-                    long lastScaleDownRevision = getRevisionsOfLastScaleDownEvent(causalityToken, zoneId);
-
-                    if (lastCfgRevision == versionedCfg.firstKey()
-                            && lastCfgRevision >= lastScaleUpRevision
-                            && lastCfgRevision >= lastScaleDownRevision
-                    ) {
-                        // It means that the zone was created but the data nodes value had not updated yet.
-                        // So the data nodes value will be equals to the logical topology on the lastCfgRevision.
-
-                        Entry topologyEntry = msManager.getLocally(zonesLogicalTopologyKey(), zoneLastCfgEntry.getKey());
-
-                        assert topologyEntry.value() != null : "Logical topology must be initialized.";
-
-                        Set<NodeWithAttributes> logicalTopology = fromBytes(topologyEntry.value());
-
-                        Set<Node> logicalTopologyNodes = logicalTopology.stream().map(n -> n.node()).collect(toSet());
-
-                        Set<String> dataNodesNames = filterDataNodes(logicalTopologyNodes, filter,
-                                distributionZoneManager.nodesAttributes());
-
-                        return dataNodesNames;
-                    }
-
-                    ZoneState zoneState = zonesState.get(zoneId);
-
-                    ConcurrentSkipListMap<Long, Augmentation> subAugmentationMap = null;
-
-                    // On the data nodes recalculation we write new data nodes to the meta storage then clear the augmentation map.
-                    // Therefore, first we need to read the augmentation map before it is cleared and then read the last data nodes value
-                    // from the meta storage.
-                    // The zoneState can be null if the zone was removed.
-                    if (zoneState != null) {
-                        subAugmentationMap = new ConcurrentSkipListMap<>(zoneState.topologyAugmentationMap()
-                                .headMap(causalityToken, true));
-                    }
-
-                    // Search the revisions of zoneScaleUpChangeTriggerKey and zoneScaleDownChangeTriggerKey with value greater or equals
-                    // to expected one.
-                    long scaleUpDataNodesRevision = searchTriggerKey(lastScaleUpRevision, zoneId, zoneScaleUpChangeTriggerKey(zoneId));
-                    long scaleDownDataNodesRevision = searchTriggerKey(lastScaleDownRevision, zoneId,
-                            zoneScaleDownChangeTriggerKey(zoneId));
-
-                    // Choose the highest revision.
-                    long dataNodesRevision = max(causalityToken, max(scaleUpDataNodesRevision, scaleDownDataNodesRevision));
-
-                    // Read data nodes value from the meta storage on dataNodesRevision and associated trigger keys.
-                    Entry dataNodesEntry = msManager.getLocally(zoneDataNodesKey(zoneId), dataNodesRevision);
-                    Entry scaleUpChangeTriggerKey = msManager.getLocally(zoneScaleUpChangeTriggerKey(zoneId), dataNodesRevision);
-                    Entry scaleDownChangeTriggerKey = msManager.getLocally(zoneScaleDownChangeTriggerKey(zoneId), dataNodesRevision);
-
-                    if (dataNodesEntry.value() == null) {
-                        // The zone was removed.
-                        // In this case it is impossible to find out the data nodes value idempotently.
-                        return emptySet();
-                    }
-
-                    Set<Node> baseDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
-                    long scaleUpTriggerRevision = bytesToLong(scaleUpChangeTriggerKey.value());
-                    long scaleDownTriggerRevision = bytesToLong(scaleDownChangeTriggerKey.value());
-
-                    Set<Node> finalDataNodes = new HashSet<>(baseDataNodes);
-
-                    // If the subAugmentationMap is null then it means that the zone was removed.
-                    // In this case all nodes from topologyAugmentationMap must be already written to the meta storage.
-                    if (subAugmentationMap != null) {
-                        // Update the data nodes set with pending data from augmentation map
-                        subAugmentationMap.forEach((rev, augmentation) -> {
-                            if (augmentation.addition() && rev > scaleUpTriggerRevision && rev <= lastScaleUpRevision) {
-                                for (Node node : augmentation.nodes()) {
-                                    finalDataNodes.add(node);
-                                }
-                            }
-
-                            if (!augmentation.addition() && rev > scaleDownTriggerRevision && rev <= lastScaleDownRevision) {
-                                for (Node node : augmentation.nodes()) {
-                                    finalDataNodes.remove(node);
-                                }
-                            }
-                        });
-                    }
-
-                    // Apply the filter to get the final data nodes set.
-                    return filterDataNodes(finalDataNodes, filter, distributionZoneManager.nodesAttributes());
-                }));
+            // Apply the filter to get the final data nodes set.
+            return filterDataNodes(finalDataNodes, filter, distributionZoneManager.nodesAttributes());
+        }));
     }
 
     /**
