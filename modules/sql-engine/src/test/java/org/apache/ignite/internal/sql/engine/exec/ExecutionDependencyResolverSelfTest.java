@@ -28,6 +28,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +38,7 @@ import java.util.concurrent.CompletionException;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -44,6 +46,9 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -200,11 +205,60 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         assertSame(err, wrapped.getCause());
     }
 
+    /** Fetch colocation group succeeds. */
+    @Test
+    public void testFetchColocationGroup() {
+        Tester tester = new Tester();
+
+        RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
+                .add("ID", SqlTypeName.INTEGER)
+                .build();
+
+        int t1Id = tester.addTable("TEST1", tableType);
+        ColocationGroup g1 = ColocationGroup.forNodes(List.of("n1"));
+
+        tester.setColocationGroup(t1Id, CompletableFuture.completedFuture(g1));
+        tester.setDependencies(t1Id, table1, update1);
+
+        ResolvedDependencies deps = tester.resolveDependencies("SELECT * FROM test1").join();
+
+        ColocationGroup actual = deps.fetchColocationGroup(t1Id).join();
+        assertSame(g1, actual);
+    }
+
+    /** Fetch colocation group propagates an error. */
+    @Test
+    public void testFetchColocationGroupErrorIsReturned() {
+        Tester tester = new Tester();
+
+        RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
+                .add("ID", SqlTypeName.INTEGER)
+                .build();
+
+        int t1Id = tester.addTable("TEST1", tableType);
+
+        ClusterNode node1 = new ClusterNode("1", "node1", new NetworkAddress("host", 1234));
+
+        List<PrimaryReplica> rs = new ArrayList<>();
+        rs.add(new PrimaryReplica(node1, 5));
+
+        IllegalStateException error = new IllegalStateException("Not available");
+        tester.setColocationGroup(t1Id, CompletableFuture.failedFuture(error));
+        tester.setDependencies(t1Id, table1, update1);
+
+        ResolvedDependencies deps = tester.resolveDependencies("SELECT * FROM test1").join();
+
+        CompletionException err = assertThrows(CompletionException.class, () -> deps.fetchColocationGroup(t1Id).join());
+        assertSame(error, err.getCause());
+    }
+
     private class Tester {
 
         final IgniteSchema igniteSchema = new IgniteSchema("PUBLIC");
 
         final Map<Integer, TestExecutableTable> deps = new HashMap<>();
+
+        final Map<Integer, CompletableFuture<ColocationGroup>> colocationGroups = new HashMap<>();
 
         int addTable(String name, RelDataType rowType) {
             IgniteTable table = createTable(igniteSchema, name, rowType, IgniteDistributions.single());
@@ -220,7 +274,10 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         }
 
         void setDependencies(int tableId, ScannableTable table, UpdatableTable updates) {
-            TestExecutableTable executableTable = new TestExecutableTable(table, updates);
+            CompletableFuture<ColocationGroup> defaultReplicaList = CompletableFuture.failedFuture(new IllegalStateException());
+            CompletableFuture<ColocationGroup> replicaList = colocationGroups.getOrDefault(tableId, defaultReplicaList);
+
+            TestExecutableTable executableTable = new TestExecutableTable(table, updates, replicaList);
 
             deps.put(tableId, executableTable);
 
@@ -236,6 +293,10 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
             when(registry.getTable(eq(tableId), any(TableDescriptor.class))).thenReturn(f);
         }
 
+        void setColocationGroup(int tableId, CompletableFuture<ColocationGroup> group) {
+            colocationGroups.put(tableId, group);
+        }
+
         CompletableFuture<ResolvedDependencies> resolveDependencies(String sql) {
             ExecutionDependencyResolver resolver = new ExecutionDependencyResolverImpl(registry);
 
@@ -246,7 +307,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
                 throw new IllegalStateException("Unable to plan: " + sql, e);
             }
 
-            return resolver.resolveDependencies(rel, 1);
+            return resolver.resolveDependencies(List.of(rel), 1);
         }
 
         void checkDependencies(ResolvedDependencies dependencies, int tableId) {
@@ -268,9 +329,12 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
         private final UpdatableTable updates;
 
-        TestExecutableTable(ScannableTable table, UpdatableTable updates) {
+        private final CompletableFuture<ColocationGroup> colocationGroup;
+
+        TestExecutableTable(ScannableTable table, UpdatableTable updates, CompletableFuture<ColocationGroup> colocationGroup) {
             this.table = table;
             this.updates = updates;
+            this.colocationGroup = colocationGroup;
         }
 
         @Override
@@ -281,6 +345,11 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         @Override
         public UpdatableTable updatableTable() {
             return updates;
+        }
+
+        @Override
+        public CompletableFuture<ColocationGroup> fetchColocationGroup() {
+            return colocationGroup;
         }
     }
 }
