@@ -32,7 +32,6 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.Serializable;
 import java.util.HashSet;
@@ -61,11 +60,9 @@ import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.NodeStoppingException;
 
 /**
- * Causality data nodes engine. Contains logic to obtaining zone's data nodes with causality token.
+ * Causality data nodes engine. Contains logic for obtaining zone's data nodes with causality token.
  */
 public class CausalityDataNodesEngine {
     /** Busy lock to stop synchronously. */

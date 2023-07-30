@@ -69,7 +69,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -402,7 +401,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(1)
     @Test
     void dataNodesUpdatedAfterScaleUpChanged() throws Exception {
         // Prerequisite.
@@ -455,7 +453,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(1)
     @Test
     void dataNodesUpdatedAfterScaleDownChanged() throws Exception {
         // Prerequisite.
@@ -501,7 +498,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(1)
     @Test
     void scheduleScaleUpTaskThenDropZone() throws Exception {
         // Prerequisite.
@@ -560,7 +556,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(1)
     @Test
     void scheduleScaleDownTaskThenDropZone() throws Exception {
         // Prerequisite.
@@ -613,7 +608,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(1)
     @Test
     void changeFilter() throws Exception {
         // Prerequisite.
@@ -682,7 +676,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     }
 
-    @RepeatedTest(1)
     @Test
     void createZoneWithNotImmediateTimers() throws Exception {
         // Prerequisite.
@@ -711,7 +704,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(1)
     @Test
     void createThenDropZone() throws Exception {
         // Prerequisite.
@@ -771,7 +763,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(1)
     @Test
     void simpleTopologyChanges() throws Exception {
         // Prerequisite.
