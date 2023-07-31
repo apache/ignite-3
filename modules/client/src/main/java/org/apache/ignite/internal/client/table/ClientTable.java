@@ -80,8 +80,8 @@ public class ClientTable implements Table {
     /**
      * Constructor.
      *
-     * @param ch   Channel.
-     * @param id   Table id.
+     * @param ch Channel.
+     * @param id Table id.
      * @param name Table name.
      */
     public ClientTable(ReliableChannel ch, int id, String name) {
@@ -260,7 +260,7 @@ public class ClientTable implements Table {
     /**
      * Writes transaction, if present.
      *
-     * @param tx  Transaction.
+     * @param tx Transaction.
      * @param out Packer.
      */
     public static void writeTx(@Nullable Transaction tx, PayloadOutputChannel out) {
@@ -285,13 +285,25 @@ public class ClientTable implements Table {
             @Nullable T defaultValue,
             @Nullable PartitionAwarenessProvider provider
     ) {
-        CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
+        return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, provider, null);
+    }
+
+    private <T> CompletableFuture<T> doSchemaOutInOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
+            @Nullable T defaultValue,
+            @Nullable PartitionAwarenessProvider provider,
+            @Nullable Integer schemaVersionOverride
+    ) {
+        CompletableFuture<T> fut = new CompletableFuture<>();
+
+        CompletableFuture<ClientSchema> schemaFut = getSchema(schemaVersionOverride == null ? latestSchemaVer : schemaVersionOverride);
         CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
                 ? CompletableFuture.completedFuture(null)
                 : getPartitionAssignment();
 
-        // TODO: Handle SchemaVersionMismatchException, then retry on specific schema version (see below).
-        return CompletableFuture.allOf(schemaFut, partitionsFut)
+        CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
                     String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
@@ -302,7 +314,30 @@ public class ClientTable implements Table {
                             preferredNodeName,
                             null);
                 })
-                .thenCompose(t -> loadSchemaAndReadData(t, reader));
+                .thenCompose(t -> loadSchemaAndReadData(t, reader))
+                .whenComplete((res, err) -> {
+                    if (err != null) {
+                        if (err.getCause() instanceof ClientSchemaVersionMismatchException) {
+                            // Retry with specific schema version.
+                            int expectedVersion = ((ClientSchemaVersionMismatchException) err.getCause()).expectedVersion();
+
+                            doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, provider, expectedVersion)
+                                    .whenComplete((res0, err0) -> {
+                                        if (err0 != null) {
+                                            fut.completeExceptionally(err0);
+                                        } else {
+                                            fut.complete(res0);
+                                        }
+                                    });
+                        } else {
+                            fut.completeExceptionally(err);
+                        }
+                    } else {
+                        fut.complete(res);
+                    }
+                });
+
+        return fut;
     }
 
     /**
