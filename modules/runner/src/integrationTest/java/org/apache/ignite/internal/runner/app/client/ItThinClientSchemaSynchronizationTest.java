@@ -54,7 +54,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         ses.execute(null, "ALTER TABLE testOutdatedSchemaFromClientThrowsExceptionOnServer ADD COLUMN NAME VARCHAR NOT NULL");
 
         Tuple rec2 = Tuple.create().set("ID", 1).set("NAME", "name");
-        recordView.insert(null, rec2);
+        recordView.upsert(null, rec2);
 
         assertEquals("name", recordView.get(null, rec).stringValue(1));
     }
