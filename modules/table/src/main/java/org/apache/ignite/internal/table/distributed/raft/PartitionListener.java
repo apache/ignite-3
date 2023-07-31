@@ -250,7 +250,7 @@ public class PartitionListener implements RaftGroupListener {
                                 commandTerm
                         );
 
-                        assert txStateChangeRes : "Expecting successful commit for full txn";
+                        assert txStateChangeRes : "Expecting successful commit for full txn " + cmd.txId();
                     }
 
                     storage.lastApplied(commandIndex, commandTerm);
