@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import java.net.InetSocketAddress;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -25,6 +26,8 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.PrimaryMetaTestImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 
@@ -69,15 +72,14 @@ public final class NoOpTransaction implements InternalTransaction {
      * @param readOnly Read-only or not.
      */
     private NoOpTransaction(String name, boolean readOnly) {
-        var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
-        this.tuple = new IgniteBiTuple<>(new ClusterNode(name, name, networkAddress), 1L);
         this.readOnly = readOnly;
         this.replica = new PrimaryMetaTestImpl(name, new HybridTimestamp(1L, 0), HybridTimestamp.MAX_VALUE);
     }
 
     /** Node at which this transaction was start. */
     public ClusterNode clusterNode() {
-        return tuple.get1();
+        var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
+        return new ClusterNode(replica.getLeaseholder(), replica.getLeaseholder(), networkAddress);
     }
 
     @Override
