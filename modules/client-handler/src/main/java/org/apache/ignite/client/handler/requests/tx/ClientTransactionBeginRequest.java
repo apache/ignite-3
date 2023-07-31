@@ -64,7 +64,8 @@ public class ClientTransactionBeginRequest {
         var tx = transactions.begin(options, observableTs);
 
         if (readOnly) {
-            // For read-only tx, override observable timestamp that we sent to the client.
+            // For read-only tx, override observable timestamp that we send to the client:
+            // use readTimestamp() instead of now().
             out.meta(tx.readTimestamp());
         }
 
