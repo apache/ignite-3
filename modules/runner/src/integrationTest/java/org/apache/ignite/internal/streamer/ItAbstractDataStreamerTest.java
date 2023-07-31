@@ -144,16 +144,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             view.streamData(publisher, options);
 
             publisher.submit(tuple(1, "foo"));
-            assertTrue(waitForCondition(() -> {
-                @SuppressWarnings("resource")
-                var tx = ignite().transactions().begin(new TransactionOptions().readOnly(true));
-
-                try {
-                    return view.get(tx, tupleKey(1)) != null;
-                } finally {
-                    tx.rollback();
-                }
-            }, 50, 5000));
+            waitForKey(view, tupleKey(1));
         }
     }
 
@@ -214,8 +205,33 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @Test
-    public void testSchemaUpdateWhileStreaming() {
-        assert false : "TODO";
+    public void testSchemaUpdateWhileStreaming() throws InterruptedException {
+        RecordView<Tuple> view = defaultTable().recordView();
+
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().batchSize(1).build();
+            streamerFut = view.streamData(publisher, options);
+
+            publisher.submit(tuple(1, "foo"));
+            waitForKey(view, tupleKey(1));
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+    }
+
+    private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
+        assertTrue(waitForCondition(() -> {
+            @SuppressWarnings("resource")
+            var tx = ignite().transactions().begin(new TransactionOptions().readOnly(true));
+
+            try {
+                return view.get(tx, key) != null;
+            } finally {
+                tx.rollback();
+            }
+        }, 50, 5000));
     }
 
     private Table defaultTable() {
