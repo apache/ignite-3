@@ -35,9 +35,9 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TraceableException;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -109,26 +109,34 @@ public class ExchangeServiceImpl implements ExchangeService {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> sendError(String nodeName, UUID queryId, long fragmentId, Throwable error) {
-        Throwable errorWithCode = IgniteExceptionMapperUtil.mapToPublicException(ExceptionUtils.unwrapCause(error));
+        Throwable cause = wrapIfNecessary(error);
 
-        if (!(error instanceof ExecutionCancelledException)) {
-            LOG.info(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), errorWithCode);
+        if (!(cause instanceof ExecutionCancelledException)) {
+            LOG.info(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), cause);
         } else if (LOG.isDebugEnabled()) {
-            LOG.debug(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), errorWithCode);
+            LOG.debug(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), cause);
         }
-
-        boolean traceable = errorWithCode instanceof TraceableException;
 
         return messageService.send(
                 nodeName,
                 FACTORY.errorMessage()
                         .queryId(queryId)
                         .fragmentId(fragmentId)
-                        .traceId(traceable ? ((TraceableException) errorWithCode).traceId() : ExceptionUtils.getOrCreateTraceId(error))
-                        .code(traceable ? ((TraceableException) errorWithCode).code() : INTERNAL_ERR)
-                        .message(errorWithCode.getMessage())
+                        .traceId(((TraceableException) cause).traceId())
+                        .code(((TraceableException) cause).code())
+                        .message(cause.getMessage())
                         .build()
         );
+    }
+
+    private static Throwable wrapIfNecessary(Throwable t) {
+        Throwable cause = ExceptionUtils.unwrapCause(t);
+
+        if (cause instanceof TraceableException) {
+            return cause;
+        }
+
+        return new SqlException(INTERNAL_ERR, cause);
     }
 
     private void onMessage(String nodeName, QueryBatchRequestMessage msg) {
