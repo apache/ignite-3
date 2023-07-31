@@ -357,6 +357,7 @@ public class ClientTable implements Table {
             @Nullable PartitionAwarenessProvider provider) {
         return doSchemaOutOpAsync(opCode, writer, reader, provider, null, null);
     }
+
     /**
      * Performs a schema-based operation.
      *
@@ -367,7 +368,7 @@ public class ClientTable implements Table {
      * @param <T> Result type.
      * @return Future representing pending completion of the operation.
      */
-    public <T> CompletableFuture<T> doSchemaOutOpAsync(
+    <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
