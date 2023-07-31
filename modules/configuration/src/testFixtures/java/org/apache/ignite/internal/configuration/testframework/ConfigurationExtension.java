@@ -31,6 +31,7 @@ import static org.mockito.Mockito.withSettings;
 
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
@@ -205,17 +206,23 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
             ParameterContext parameterContext,
             ExtensionContext extensionContext
     ) throws ParameterResolutionException {
+        Store store = extensionContext.getStore(NAMESPACE);
+
+        StorageRevisionListenerHolderImpl revisionListenerHolder;
+
+        if (isStaticExecutable(parameterContext.getDeclaringExecutable())) {
+            revisionListenerHolder = store.get(REVISION_LISTENER_ALL_TEST_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
+        } else {
+            revisionListenerHolder = store.get(REVISION_LISTENER_PER_TEST_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
+        }
+
         if (parameterContext.isAnnotated(InjectConfiguration.class)) {
             Parameter parameter = parameterContext.getParameter();
 
-            ConfigurationAsmGenerator cgen =
-                    extensionContext.getStore(NAMESPACE).get(CGEN_KEY, ConfigurationAsmGenerator.class);
-
-            StorageRevisionListenerHolderImpl revisionListenerHolder = extensionContext.getStore(NAMESPACE)
-                    .get(REVISION_LISTENER_PER_TEST_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
+            ConfigurationAsmGenerator cgen = store.get(CGEN_KEY, ConfigurationAsmGenerator.class);
 
             try {
-                ExecutorService pool = extensionContext.getStore(NAMESPACE).get(POOL_KEY, ExecutorService.class);
+                ExecutorService pool = store.get(POOL_KEY, ExecutorService.class);
 
                 return cfgValue(parameter.getType(), parameter.getAnnotation(InjectConfiguration.class), cgen, pool,
                         revisionListenerHolder);
@@ -226,10 +233,14 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
                 );
             }
         } else if (parameterContext.isAnnotated(InjectRevisionListenerHolder.class)) {
-            return extensionContext.getStore(NAMESPACE).get(REVISION_LISTENER_PER_TEST_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
+            return revisionListenerHolder;
         } else {
             throw new ParameterResolutionException("Unknown parameter:" + parameterContext.getParameter());
         }
+    }
+
+    private static boolean isStaticExecutable(Executable executable) {
+        return isStatic(executable.getModifiers());
     }
 
     /**

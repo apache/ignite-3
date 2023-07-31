@@ -34,8 +34,6 @@ import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -194,12 +192,6 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
         }
 
         return super.unwrap(cls);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-        throw new UnsupportedOperationException("Execution related methods are not available.");
     }
 
     /** {@inheritDoc} */

@@ -18,23 +18,41 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 
-/** Stub implementation for {@link ExecutableTableRegistry}. */
-public final class NoOpExecutableTableRegistry implements ExecutableTableRegistry {
+/** Test implementation of {@link ExecutableTableRegistry}. */
+public final class TestExecutableTableRegistry implements ExecutableTableRegistry {
+
+    private volatile ColocationGroupProvider colocationGroupProvider;
+
+    /** Constructor. */
+    public TestExecutableTableRegistry() {
+        this.colocationGroupProvider = (tableId) ->
+                CompletableFuture.failedFuture(new IllegalStateException("No result for fetch replicas"));
+    }
+
+    /** Sets a function to be called for {@link ExecutableTable#fetchColocationGroup()}. */
+    public void setColocatioGroupProvider(ColocationGroupProvider groupProvider) {
+        assert groupProvider != null;
+        this.colocationGroupProvider = groupProvider;
+    }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor) {
-        return CompletableFuture.completedFuture(new NoOpExecutableTable(tableId));
+        return CompletableFuture.completedFuture(new TestExecutableTable(tableId, colocationGroupProvider));
     }
 
-    private static final class NoOpExecutableTable implements ExecutableTable {
+    private static final class TestExecutableTable implements ExecutableTable {
 
         private final int tableId;
 
-        private NoOpExecutableTable(int tableId) {
+        private final ColocationGroupProvider fetchReplicas;
+
+        private TestExecutableTable(int tableId, ColocationGroupProvider fetchReplicas) {
             this.tableId = tableId;
+            this.fetchReplicas = fetchReplicas;
         }
 
         /** {@inheritDoc} */
@@ -49,8 +67,22 @@ public final class NoOpExecutableTableRegistry implements ExecutableTableRegistr
             throw noDependency();
         }
 
+        /** {@inheritDoc} */
+        @Override
+        public CompletableFuture<ColocationGroup> fetchColocationGroup() {
+            return fetchReplicas.getGroup(tableId);
+        }
+
         private IllegalStateException noDependency() {
             return new IllegalStateException("NoOpExecutableTable: " + tableId);
         }
+    }
+
+    /** Provides colocation groups. */
+    @FunctionalInterface
+    public interface ColocationGroupProvider {
+
+        /** Retrieves colocation group for a table with the given id. */
+        CompletableFuture<ColocationGroup> getGroup(int tableId);
     }
 }

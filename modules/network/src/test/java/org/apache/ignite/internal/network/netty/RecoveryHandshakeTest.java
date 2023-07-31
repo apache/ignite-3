@@ -541,7 +541,15 @@ public class RecoveryHandshakeTest {
 
     private RecoveryClientHandshakeManager createRecoveryClientHandshakeManager(String consistentId, UUID launchId,
             RecoveryDescriptorProvider provider, StaleIdDetector staleIdDetector) {
-        return new RecoveryClientHandshakeManager(launchId, consistentId, CONNECTION_ID, provider, staleIdDetector, channel -> {});
+        return new RecoveryClientHandshakeManager(
+                launchId,
+                consistentId,
+                CONNECTION_ID,
+                provider,
+                staleIdDetector,
+                channel -> {},
+                new AtomicBoolean(false)
+        );
     }
 
     private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(RecoveryDescriptorProvider provider) {
@@ -555,7 +563,15 @@ public class RecoveryHandshakeTest {
 
     private RecoveryServerHandshakeManager createRecoveryServerHandshakeManager(String consistentId, UUID launchId,
             RecoveryDescriptorProvider provider, StaleIdDetector staleIdDetector) {
-        return new RecoveryServerHandshakeManager(launchId, consistentId, MESSAGE_FACTORY, provider, staleIdDetector, channel -> {});
+        return new RecoveryServerHandshakeManager(
+                launchId,
+                consistentId,
+                MESSAGE_FACTORY,
+                provider,
+                staleIdDetector,
+                channel -> {},
+                new AtomicBoolean(false)
+        );
     }
 
     private RecoveryDescriptorProvider createRecoveryDescriptorProvider() {

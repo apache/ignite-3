@@ -426,7 +426,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return List of current primary replicas for each partition.
      */
-    List<PrimaryReplica> primaryReplicas();
+    CompletableFuture<List<PrimaryReplica>> primaryReplicas();
 
     /**
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
