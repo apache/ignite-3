@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
@@ -24,8 +25,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -132,13 +135,27 @@ public class ClientTableCommon {
 
         assert tuple instanceof BinaryTupleContainer : "Tuple must be a BinaryTupleContainer: " + tuple.getClass();
         BinaryTupleReader binaryTuple = ((BinaryTupleContainer) tuple).binaryTuple();
-        assert binaryTuple != null : "Binary tuple must not be null: " + tuple.getClass();
 
         int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : schema.length();
-        assert elementCount == binaryTuple.elementCount() :
-                "Tuple element count mismatch: " + elementCount + " != " + binaryTuple.elementCount();
 
-        packer.packBinaryTuple(binaryTuple);
+        if (binaryTuple != null) {
+            assert elementCount == binaryTuple.elementCount() :
+                    "Tuple element count mismatch: " + elementCount + " != " + binaryTuple.elementCount() + " (" + tuple.getClass() + ")";
+
+            packer.packBinaryTuple(binaryTuple);
+        } else {
+            assert "UpgradingRowAdapter".equals(tuple.getClass().getName()) : "Binary tuple must not be null: " + tuple.getClass();
+
+            // Underlying binary tuple is not available or can't be used as is, pack columns one by one.
+            var builder = new BinaryTupleBuilder(elementCount);
+
+            for (var i = 0; i < elementCount; i++) {
+                var col = schema.column(i);
+                Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
+
+                ClientBinaryTupleUtils.appendValue(builder, getColumnType(col.type().spec()), col.name(), getDecimalScale(col.type()), v);
+            }
+        }
     }
 
     /**

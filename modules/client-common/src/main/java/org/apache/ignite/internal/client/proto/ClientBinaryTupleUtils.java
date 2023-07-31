@@ -33,6 +33,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client binary tuple utils.
@@ -191,6 +192,100 @@ public class ClientBinaryTupleUtils {
             throw unsupportedTypeException(obj.getClass());
         }
     }
+
+    /**
+     * Writes a column value to the binary tuple.
+     *
+     * @param builder Builder.
+     * @param type Column type.
+     * @param name Column name.
+     * @param scale Scale.
+     * @param v Value.
+     */
+    public static void appendValue(BinaryTupleBuilder builder, ColumnType type, String name, int scale, @Nullable Object v) {
+        if (v == null) {
+            builder.appendNull();
+            return;
+        }
+
+        try {
+            switch (type) {
+                case BOOLEAN:
+                    builder.appendBoolean((boolean) v);
+                    return;
+
+                case INT8:
+                    builder.appendByte((byte) v);
+                    return;
+
+                case INT16:
+                    builder.appendShort((short) v);
+                    return;
+
+                case INT32:
+                    builder.appendInt((int) v);
+                    return;
+
+                case INT64:
+                    builder.appendLong((long) v);
+                    return;
+
+                case FLOAT:
+                    builder.appendFloat((float) v);
+                    return;
+
+                case DOUBLE:
+                    builder.appendDouble((double) v);
+                    return;
+
+                case DECIMAL:
+                    builder.appendDecimalNotNull((BigDecimal) v, scale);
+                    return;
+
+                case UUID:
+                    builder.appendUuidNotNull((UUID) v);
+                    return;
+
+                case STRING:
+                    builder.appendStringNotNull((String) v);
+                    return;
+
+                case BYTE_ARRAY:
+                    builder.appendBytesNotNull((byte[]) v);
+                    return;
+
+                case BITMASK:
+                    builder.appendBitmaskNotNull((BitSet) v);
+                    return;
+
+                case DATE:
+                    builder.appendDateNotNull((LocalDate) v);
+                    return;
+
+                case TIME:
+                    builder.appendTimeNotNull((LocalTime) v);
+                    return;
+
+                case DATETIME:
+                    builder.appendDateTimeNotNull((LocalDateTime) v);
+                    return;
+
+                case TIMESTAMP:
+                    builder.appendTimestampNotNull((Instant) v);
+                    return;
+
+                case NUMBER:
+                    builder.appendNumberNotNull((BigInteger) v);
+                    return;
+
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + type);
+            }
+        } catch (ClassCastException e) {
+            throw new IgniteException(PROTOCOL_ERR, "Incorrect value type for column '" + name + "': " + e.getMessage(), e);
+        }
+    }
+
 
     private static void appendTypeAndScale(BinaryTupleBuilder builder, ColumnType type, int scale) {
         builder.appendInt(type.ordinal());
