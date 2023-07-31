@@ -465,6 +465,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             out.packInt(ServerMessageType.RESPONSE);
             out.packLong(requestId);
             writeFlags(out, ctx);
+
+            // Observable timestamp should be calculated after the operation is processed; reserve space, write later.
             int observableTimestampIdx = out.reserveLong();
             out.packNil(); // No error.
 
