@@ -30,7 +30,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
-import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -392,20 +391,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     private static ColumnCollation toEventCollation(CatalogColumnCollation collation) {
         return ColumnCollation.get(collation.asc(), collation.nullsFirst());
-    }
-
-    private <T> CompletableFuture<T> inBusyLock(Supplier<CompletableFuture<T>> supplier) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return supplier.get();
-        } catch (Throwable t) {
-            return failedFuture(t);
-        } finally {
-            busyLock.leaveBusy();
-        }
     }
 
     private void startIndexes() {
