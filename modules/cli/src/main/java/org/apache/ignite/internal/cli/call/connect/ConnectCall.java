@@ -34,7 +34,6 @@ import org.apache.ignite.internal.cli.core.exception.handler.IgniteCliApiExcepti
 import org.apache.ignite.internal.cli.core.repl.ConnectionHeartBeat;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
-import org.apache.ignite.internal.cli.core.repl.SessionInfo.ConnectionStatus;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
@@ -86,8 +85,9 @@ public class ConnectCall implements Call<UrlCallInput, String> {
             stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), nodeUrl);
 
             String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(configuration, nodeUrl);
-            session.connect(new SessionInfo(nodeUrl, fetchNodeName(nodeUrl), jdbcUrl, username, ConnectionStatus.OPEN));
-            connectionHeartBeat.start(session, clientFactory);
+            sessionInfo = new SessionInfo(nodeUrl, fetchNodeName(nodeUrl), jdbcUrl, username);
+            session.connect(sessionInfo);
+            connectionHeartBeat.start(sessionInfo);
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
         } catch (Exception e) {
             session.disconnect();

@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.cli.core.repl;
 
 import jakarta.inject.Singleton;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.cli.core.repl.SessionInfo.ConnectionStatus;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -35,52 +37,90 @@ import org.apache.ignite.rest.client.invoker.ApiException;
 @Singleton
 public class ConnectionHeartBeat {
 
-    private static final IgniteLogger log = CliLoggers.forClass(Session.class);
+    private static final IgniteLogger log = CliLoggers.forClass(ConnectionHeartBeat.class);
 
     /** CLI check connection period period. */
-    private static final int CLI_CHECK_CONNECTION_PERIOD_SECONDS = 10;
+    public static long CLI_CHECK_CONNECTION_PERIOD_SECONDS = 5;
 
-    /** Scheduled executor for idle safe time sync. */
-    private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor =
-            Executors.newScheduledThreadPool(1, new NamedThreadFactory("cli-check-connection-thread", log));
+    /** Scheduled executor for connection heartbeat. */
+    @Nullable
+    private ScheduledExecutorService scheduledConnectionHeartbeatExecutor;
+
+    private final ApiClientFactory clientFactory;
+
+    private final List<? extends AsyncConnectionEventListener> listeners;
+
+    private final AtomicBoolean connected = new AtomicBoolean(false);
+
+    public ConnectionHeartBeat(ApiClientFactory clientFactory, List<? extends AsyncConnectionEventListener> listeners) {
+        this.clientFactory = clientFactory;
+        this.listeners = listeners;
+    }
 
     /**
-     * Start connection heartbeat.
+     * Starts connection heartbeat. By default connection will be checked every 5 sec.
      *
-     * @param session session
-     * @param clientFactory api client factory to ping connection.
+     * @param sessionInfo session info with node url
      */
-    public void start(Session session, ApiClientFactory clientFactory) {
-        scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
-                () -> pingConnection(session, clientFactory),
-                0,
-                CLI_CHECK_CONNECTION_PERIOD_SECONDS,
-                TimeUnit.SECONDS
-        );
+    public void start(SessionInfo sessionInfo) {
+        connectionEstablished();
+
+        if (scheduledConnectionHeartbeatExecutor == null) {
+            scheduledConnectionHeartbeatExecutor =
+                    Executors.newScheduledThreadPool(1, new NamedThreadFactory("cli-check-connection-thread", log));
+
+            //Start connection heart beat
+            scheduledConnectionHeartbeatExecutor.scheduleAtFixedRate(
+                    () -> pingConnection(sessionInfo.nodeUrl()),
+                    0,
+                    CLI_CHECK_CONNECTION_PERIOD_SECONDS,
+                    TimeUnit.SECONDS
+            );
+        }
     }
 
+    /**
+     * Stops connection heartbeat.
+     */
     public void stop() {
-        scheduledIdleSafeTimeSyncExecutor.shutdownNow();
+        if (scheduledConnectionHeartbeatExecutor != null) {
+            scheduledConnectionHeartbeatExecutor.shutdownNow();
+            scheduledConnectionHeartbeatExecutor = null;
+        }
     }
 
-    private static void pingConnection(Session session, ApiClientFactory clientFactory) {
+    private void connectionLost() {
+        listeners.forEach(it -> {
+            try {
+                it.onConnectionLost();
+            } catch (Exception e) {
+                log.warn("Got an exception: ", e);
+            }
+        });
+    }
+
+    private void connectionEstablished() {
+        listeners.forEach(it -> {
+            try {
+                it.onConnection();
+            } catch (Exception e) {
+                log.warn("Got an exception: ", e);
+            }
+        });
+    }
+
+    private void pingConnection(String nodeUrl) {
         try {
-            new NodeManagementApi(clientFactory.getClient(session.info().nodeUrl())).nodeState();
-            SessionInfo currentSessionInfo = session.info();
-            session.updateSessionInfo(new SessionInfo(
-                    currentSessionInfo.nodeUrl(),
-                    currentSessionInfo.nodeName(),
-                    currentSessionInfo.jdbcUrl(),
-                    currentSessionInfo.username(),
-                    ConnectionStatus.OPEN));
+            new NodeManagementApi(clientFactory.getClient(nodeUrl)).nodeState();
+            if (!connected.get()) {
+                connected.compareAndSet(false, true);
+                connectionEstablished();
+            }
         } catch (ApiException exception) {
-            SessionInfo currentSessionInfo = session.info();
-            session.updateSessionInfo(new SessionInfo(
-                    currentSessionInfo.nodeUrl(),
-                    currentSessionInfo.nodeName(),
-                    currentSessionInfo.jdbcUrl(),
-                    currentSessionInfo.username(),
-                    ConnectionStatus.BROkEN));
+            if (connected.get()) {
+                connected.compareAndSet(true, false);
+                connectionLost();
+            }
         }
     }
 }

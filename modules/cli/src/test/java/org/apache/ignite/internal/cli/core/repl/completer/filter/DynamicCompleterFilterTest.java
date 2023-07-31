@@ -25,7 +25,6 @@ import static org.hamcrest.Matchers.emptyArray;
 import java.util.Collections;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
-import org.apache.ignite.internal.cli.core.repl.SessionInfo.ConnectionStatus;
 import org.junit.jupiter.api.Test;
 
 class DynamicCompleterFilterTest {
@@ -54,7 +53,7 @@ class DynamicCompleterFilterTest {
 
     private static Session connected() {
         Session session = new Session(Collections.emptyList());
-        session.connect(new SessionInfo("nodeUrl", "nodeName", "jdbcUrl", null, ConnectionStatus.OPEN));
+        session.connect(new SessionInfo("nodeUrl", "nodeName", "jdbcUrl", null));
         return session;
     }
 

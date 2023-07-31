@@ -17,37 +17,15 @@
 
 package org.apache.ignite.internal.cli.core.repl;
 
-/** Representation of session details. */
-public class SessionInfo {
-    private final String nodeUrl;
 
-    private final String nodeName;
+/**
+ * Connection event listener. Notified if connection lost or established.
+ */
+public interface AsyncConnectionEventListener {
 
-    private final String jdbcUrl;
+    /** Invoked when connection to the node unstable or lost. Implementation must be async. */
+    void onConnectionLost();
 
-    private final String username;
-
-    /** Constructor. */
-    public SessionInfo(String nodeUrl, String nodeName, String jdbcUrl, String username) {
-        this.nodeUrl = nodeUrl;
-        this.nodeName = nodeName;
-        this.jdbcUrl = jdbcUrl;
-        this.username = username;
-    }
-
-    public String nodeUrl() {
-        return nodeUrl;
-    }
-
-    public String nodeName() {
-        return nodeName;
-    }
-
-    public String jdbcUrl() {
-        return jdbcUrl;
-    }
-
-    public String username() {
-        return username;
-    }
+    /** Invoked when connection to the node successfully established. Implementation must be async. */
+    void onConnection();
 }

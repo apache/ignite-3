@@ -21,17 +21,20 @@ import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 
 import jakarta.inject.Singleton;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.cli.core.repl.AsyncConnectionEventListener;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
-import org.apache.ignite.internal.cli.core.repl.SessionInfo.ConnectionStatus;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 
 /**
  * Provider for prompt in REPL.
  */
 @Singleton
-public class ReplPromptProvider implements PromptProvider {
+public class ReplPromptProvider implements PromptProvider, AsyncConnectionEventListener {
     private final Session session;
+
+    private final AtomicBoolean connected = new AtomicBoolean(false);
 
     public ReplPromptProvider(Session session) {
         this.session = session;
@@ -46,7 +49,7 @@ public class ReplPromptProvider implements PromptProvider {
         SessionInfo sessionInfo = session.info();
         if (sessionInfo != null) {
             String username = sessionInfo.username();
-            Color color = sessionInfo.connectionStatus() == ConnectionStatus.BROkEN ? Color.YELLOW : Color.GREEN;
+            Color color = connected.get() ? Color.GREEN : Color.YELLOW;
             return ansi(fg(color).mark(
                     "["
                             + (username != null ? username + ":" : "")
@@ -55,5 +58,15 @@ public class ReplPromptProvider implements PromptProvider {
             )) + postfix;
         }
         return ansi(fg(Color.RED).mark("[disconnected]")) + postfix;
+    }
+
+    @Override
+    public void onConnectionLost() {
+        connected.compareAndSet(true, false);
+    }
+
+    @Override
+    public void onConnection() {
+        connected.compareAndSet(false, true);
     }
 }
