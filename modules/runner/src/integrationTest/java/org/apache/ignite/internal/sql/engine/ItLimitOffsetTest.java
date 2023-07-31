@@ -25,9 +25,11 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,35 +59,43 @@ public class ItLimitOffsetTest extends ClusterPerClassIntegrationTest {
 
         String bigInt = BigDecimal.valueOf(10000000000L).toString();
 
-        //todo: correct exception https://issues.apache.org/jira/browse/IGNITE-16095, here and all checks near.
-        IgniteException ret = assertThrows(IgniteException.class, ()
+        SqlException ret = assertThrows(SqlException.class, ()
                 -> session.execute(null, "SELECT * FROM test OFFSET " + bigInt + " ROWS"));
         assertTrue(ret.getMessage().contains("Illegal value of offset"));
+        assertEquals(Sql.STMT_VALIDATION_ERR, ret.code());
 
-        ret = assertThrows(IgniteException.class,
+        ret = assertThrows(SqlException.class,
                 () -> session.execute(null, "SELECT * FROM test FETCH FIRST " + bigInt + " ROWS ONLY"));
         assertTrue(ret.getMessage().contains("Illegal value of fetch / limit"));
+        assertEquals(Sql.STMT_VALIDATION_ERR, ret.code());
 
-        ret = assertThrows(IgniteException.class, () -> session.execute(null, "SELECT * FROM test LIMIT " + bigInt));
+        ret = assertThrows(SqlException.class, () -> session.execute(null, "SELECT * FROM test LIMIT " + bigInt));
         assertTrue(ret.getMessage().contains("Illegal value of fetch / limit"));
+        assertEquals(Sql.STMT_VALIDATION_ERR, ret.code());
 
-        assertThrows(IgniteException.class, () -> session.execute(null, "SELECT * FROM test OFFSET -1 ROWS "
+        ret = assertThrows(SqlException.class, () -> session.execute(null, "SELECT * FROM test OFFSET -1 ROWS "
                 + "FETCH FIRST -1 ROWS ONLY"));
+        assertEquals(Sql.STMT_PARSE_ERR, ret.code());
 
-        assertThrows(IgniteException.class, () -> session.execute(null, "SELECT * FROM test OFFSET -1 ROWS"));
+        ret = assertThrows(SqlException.class, () -> session.execute(null, "SELECT * FROM test OFFSET -1 ROWS"));
+        assertEquals(Sql.STMT_PARSE_ERR, ret.code());
 
-        assertThrows(IgniteException.class, () -> session.execute(null, "SELECT * FROM test OFFSET 2+1 ROWS"));
+        ret = assertThrows(SqlException.class, () -> session.execute(null, "SELECT * FROM test OFFSET 2+1 ROWS"));
+        assertEquals(Sql.STMT_PARSE_ERR, ret.code());
 
         // Check with parameters
-        ret = assertThrows(IgniteException.class, () -> session.execute(null, "SELECT * FROM test OFFSET ? "
+        ret = assertThrows(SqlException.class, () -> session.execute(null, "SELECT * FROM test OFFSET ? "
                 + "ROWS FETCH FIRST ? ROWS ONLY", -1, -1));
         assertTrue(ret.getMessage().contains("Illegal value of fetch / limit"));
+        assertEquals(Sql.STMT_VALIDATION_ERR, ret.code());
 
-        ret = assertThrows(IgniteException.class, () -> session.execute(null, "SELECT * FROM test OFFSET ? ROWS", -1));
+        ret = assertThrows(SqlException.class, () -> session.execute(null, "SELECT * FROM test OFFSET ? ROWS", -1));
         assertTrue(ret.getMessage().contains("Illegal value of offset"));
+        assertEquals(Sql.STMT_VALIDATION_ERR, ret.code());
 
-        ret = assertThrows(IgniteException.class, () -> session.execute(null, "SELECT * FROM test FETCH FIRST ? ROWS ONLY", -1));
+        ret = assertThrows(SqlException.class, () -> session.execute(null, "SELECT * FROM test FETCH FIRST ? ROWS ONLY", -1));
         assertTrue(ret.getMessage().contains("Illegal value of fetch / limit"));
+        assertEquals(Sql.STMT_VALIDATION_ERR, ret.code());
     }
 
     /**
