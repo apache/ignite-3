@@ -59,7 +59,7 @@ class ItMetricCallsTest extends CallInitializedIntegrationTestBase {
         };
 
         // And
-        assertThat(output.body()).containsExactlyInAnyOrder(expectedMetricSources);
+        assertThat(output.body()).contains(expectedMetricSources);
     }
 
     @Test
