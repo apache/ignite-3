@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dep
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneCatalogDescriptorUtils.toZoneDescriptor;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
@@ -45,7 +46,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmen
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -95,7 +95,6 @@ import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -136,7 +135,6 @@ import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageView;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -2732,43 +2730,5 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private CatalogZoneDescriptor getZoneDescriptor(int id) {
         return toZoneDescriptor(getZoneById(zonesConfig, id).value());
-    }
-
-    // TODO: IGNITE-19719 Fix it
-    /**
-     * Converts a distribution zone configuration to a Distribution zone descriptor.
-     *
-     * @param config Distribution zone configuration.
-     */
-    @Deprecated(forRemoval = true)
-    public static CatalogZoneDescriptor toZoneDescriptor(DistributionZoneView config) {
-        return new CatalogZoneDescriptor(
-                config.zoneId(),
-                config.name(),
-                config.partitions(),
-                config.replicas(),
-                config.dataNodesAutoAdjust(),
-                config.dataNodesAutoAdjustScaleUp(),
-                config.dataNodesAutoAdjustScaleDown(),
-                config.filter(),
-                toDataStorageDescriptor(config.dataStorage())
-        );
-    }
-
-    @Deprecated(forRemoval = true)
-    private static CatalogDataStorageDescriptor toDataStorageDescriptor(DataStorageView config) {
-        String dataRegion;
-
-        try {
-            Method dataRegionMethod = config.getClass().getMethod("dataRegion");
-
-            dataRegionMethod.setAccessible(true);
-
-            dataRegion = (String) dataRegionMethod.invoke(config);
-        } catch (ReflectiveOperationException e) {
-            dataRegion = e.getMessage();
-        }
-
-        return new CatalogDataStorageDescriptor(config.name(), dataRegion);
     }
 }

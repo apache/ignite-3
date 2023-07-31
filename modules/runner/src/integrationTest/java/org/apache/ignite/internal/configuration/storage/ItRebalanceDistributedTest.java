@@ -148,6 +148,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.LockManager;
@@ -183,7 +184,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
-public class ItRebalanceDistributedTest {
+public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
 
@@ -677,6 +678,7 @@ public class ItRebalanceDistributedTest {
                     new TestConfigurationValidator());
 
             replicaManager = new ReplicaManager(
+                    name,
                     clusterService,
                     cmgManager,
                     hybridClock,

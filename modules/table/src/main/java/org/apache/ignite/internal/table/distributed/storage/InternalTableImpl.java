@@ -1144,29 +1144,28 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 The method should be removed, SQL engine should use placementDriver directly
-    public List<PrimaryReplica> primaryReplicas() {
+    public CompletableFuture<List<PrimaryReplica>> primaryReplicas() {
         List<Entry<RaftGroupService>> entries = new ArrayList<>(raftGroupServiceByPartitionId.int2ObjectEntrySet());
-        List<CompletableFuture<ReplicaMeta>> futs = new ArrayList<>();
+        List<CompletableFuture<PrimaryReplica>> result = new ArrayList<>();
 
         entries.sort(Comparator.comparingInt(Entry::getIntKey));
 
         for (Entry<RaftGroupService> e : entries) {
-            // TODO: sanpwc add timeout
-            futs.add(placementDriver.awaitPrimaryReplica(e.getValue().groupId(), clock.now()).orTimeout(10_000, TimeUnit.SECONDS));
+            CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(e.getValue().groupId(),
+                    clock.now()).orTimeout(10_000, TimeUnit.SECONDS);
+
+            result.add(f.thenApply(rm -> {
+                ClusterNode node = clusterNodeResolver.apply(rm.getLeaseholder());
+                return new PrimaryReplica(node, rm.getStartTime().longValue());
+            }));
         }
 
-        List<PrimaryReplica> primaryReplicas = new ArrayList<>(entries.size());
+        CompletableFuture<Void> all = CompletableFuture.allOf(result.toArray(new CompletableFuture[0]));
 
-        for (CompletableFuture<ReplicaMeta> fut : futs) {
-            ReplicaMeta primaryReplica = fut.join();
-            // TODO: sanpwc Consider removing clusterNodeResolver usage.
-            ClusterNode primaryNode = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
-
-            primaryReplicas.add(new PrimaryReplica(primaryNode, primaryReplica.getStartTime().longValue()));
-        }
-
-        return primaryReplicas;
+        return all.thenApply(v -> result.stream()
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList())
+        );
     }
 
     @Override

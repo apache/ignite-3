@@ -40,7 +40,17 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
 
         return new RollbackTxOnErrorPublisher<>(
                 tx,
-                internalTbl.scan(part, tx.id(), recipient, null, null, null, 0, null)
+                internalTbl.scan(
+                        part,
+                        tx.id(),
+                        recipient.getLeaseholder(),
+                        recipient.getStartTime().longValue(),
+                        null,
+                        null,
+                        null,
+                        0,
+                        null
+                )
         );
     }
 

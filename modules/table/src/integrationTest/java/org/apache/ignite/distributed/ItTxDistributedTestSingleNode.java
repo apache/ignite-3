@@ -326,6 +326,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of()));
 
             ReplicaManager replicaMgr = new ReplicaManager(
+                    node.name(),
                     cluster.get(i),
                     cmgManager,
                     clock,

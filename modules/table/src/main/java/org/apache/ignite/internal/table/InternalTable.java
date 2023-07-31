@@ -429,9 +429,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return List of current primary replicas for each partition.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 The method should be removed, SQL engine should use placementDriver directly
-    @Deprecated
-    List<PrimaryReplica> primaryReplicas();
+    CompletableFuture<List<PrimaryReplica>> primaryReplicas();
 
     /**
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if

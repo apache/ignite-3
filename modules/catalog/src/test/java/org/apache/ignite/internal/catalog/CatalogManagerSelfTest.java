@@ -108,6 +108,7 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
@@ -135,7 +136,7 @@ import org.mockito.ArgumentCaptor;
 /**
  * Catalog service self test.
  */
-public class CatalogManagerSelfTest {
+public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
     private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
     private static final String ZONE_NAME = DEFAULT_ZONE_NAME;
     private static final String TABLE_NAME = "myTable";

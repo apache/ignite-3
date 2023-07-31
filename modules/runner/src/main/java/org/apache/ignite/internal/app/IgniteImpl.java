@@ -403,6 +403,7 @@ public class IgniteImpl implements Ignite {
                 distributedConfigurationValidator);
 
         replicaMgr = new ReplicaManager(
+                name,
                 clusterSvc,
                 cmgMgr,
                 clock,

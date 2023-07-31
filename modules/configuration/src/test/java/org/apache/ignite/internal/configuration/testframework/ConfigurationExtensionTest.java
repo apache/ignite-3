@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.testframework;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.sample.DiscoveryConfiguration;
 import org.apache.ignite.internal.configuration.sample.ExtendedDiscoveryConfiguration;
 import org.apache.ignite.internal.configuration.sample.ExtendedDiscoveryConfigurationSchema;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -48,6 +50,15 @@ class ConfigurationExtensionTest {
 
     @InjectRevisionListenerHolder
     private ConfigurationStorageRevisionListenerHolder fieldRevisionListenerHolder;
+
+    @BeforeAll
+    static void staticParameterInjection(
+            @InjectConfiguration(internalExtensions = ExtendedDiscoveryConfigurationSchema.class) DiscoveryConfiguration paramCfg
+    ) {
+        assertThat(paramCfg.joinTimeout().update(100), willCompleteSuccessfully());
+
+        assertEquals(100, paramCfg.joinTimeout().value());
+    }
 
     /** Test that contains injected parameter. */
     @Test

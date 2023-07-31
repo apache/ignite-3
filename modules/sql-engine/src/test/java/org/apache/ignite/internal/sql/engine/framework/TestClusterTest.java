@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
-import org.apache.ignite.internal.sql.engine.prepare.MultiStepQueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -79,8 +79,8 @@ public class TestClusterTest {
         }
 
         // Ensure the plan contains full table scan.
-        assertTrue(plan instanceof MultiStepQueryPlan);
-        Fragment fragment = ((MultiStepQueryPlan) plan).fragments().get(1);
+        assertTrue(plan instanceof MultiStepPlan);
+        Fragment fragment = ((MultiStepPlan) plan).fragments().get(1);
         assertTrue(fragment.root().getInput(0) instanceof IgniteTableScan);
     }
 
@@ -99,8 +99,8 @@ public class TestClusterTest {
         }
 
         // Ensure the plan uses index.
-        assertTrue(plan instanceof MultiStepQueryPlan);
-        Fragment fragment = ((MultiStepQueryPlan) plan).fragments().get(1);
+        assertTrue(plan instanceof MultiStepPlan);
+        Fragment fragment = ((MultiStepPlan) plan).fragments().get(1);
         assertTrue(fragment.root().getInput(0) instanceof IgniteIndexScan);
     }
 }
