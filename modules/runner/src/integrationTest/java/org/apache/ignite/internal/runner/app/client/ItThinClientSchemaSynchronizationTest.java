@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -31,15 +29,15 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for client schema synchronization.
  */
+@SuppressWarnings("resource")
 public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientTest {
-    @SuppressWarnings("resource")
     @Test
-    void testOutdatedSchemaFromClientThrowsExceptionOnServer() throws InterruptedException {
+    void testClientUsesLatestSchemaOnWrite() throws InterruptedException {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
         // Create table, insert data.
-        String tableName = "testOutdatedSchemaFromClientThrowsExceptionOnServer";
+        String tableName = "testClientUsesLatestSchemaOnWrite";
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         waitForTableOnAllNodes(tableName);
@@ -48,11 +46,55 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         Tuple rec = Tuple.create().set("ID", 1);
         recordView.insert(null, rec);
 
-        // Modify table, get data - client will use old schema.
-        ses.execute(null, "ALTER TABLE testOutdatedSchemaFromClientThrowsExceptionOnServer ADD COLUMN NAME VARCHAR");
+        // Modify table, insert data - client will use old schema, receive error, retry with new schema.
+        // The process is transparent for the user: updated schema is in effect immediately.
+        ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
 
-        // TODO IGNITE-19837 Retry outdated schema error
-        IgniteException ex = assertThrows(IgniteException.class, () -> recordView.insert(null, rec));
-        assertThat(ex.getMessage(), containsString("Schema version mismatch [expectedVer=2, actualVer=1]"));
+        Tuple rec2 = Tuple.create().set("ID", 1).set("NAME", "name");
+        recordView.upsert(null, rec2);
+
+        assertEquals("name", recordView.get(null, rec).stringValue(1));
+    }
+
+    @Test
+    void testClientUsesLatestSchemaOnRead() throws InterruptedException {
+        IgniteClient client = client();
+        Session ses = client.sql().createSession();
+
+        // Create table, insert data.
+        String tableName = "testClientUsesLatestSchemaOnRead";
+        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+
+        waitForTableOnAllNodes(tableName);
+        RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
+
+        Tuple rec = Tuple.create().set("ID", 1);
+        recordView.insert(null, rec);
+
+        // Modify table, insert data - client will use old schema, receive error, retry with new schema.
+        // The process is transparent for the user: updated schema is in effect immediately.
+        ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR DEFAULT 'def_name'");
+        assertEquals("def_name", recordView.get(null, rec).stringValue(1));
+    }
+
+    @Test
+    void testClientUsesLatestSchemaOnReadWithNotNullColumn() throws InterruptedException {
+        IgniteClient client = client();
+        Session ses = client.sql().createSession();
+
+        // Create table, insert data.
+        String tableName = "testClientUsesLatestSchemaOnReadWithNotNullColumn";
+        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+
+        waitForTableOnAllNodes(tableName);
+        RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
+
+        Tuple rec = Tuple.create().set("ID", 1);
+        recordView.insert(null, rec);
+
+        // Modify table and get old row.
+        // It still has null value in the old column, even though it is not allowed by the new schema.
+        ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        assertNull(recordView.get(null, rec).stringValue(1));
     }
 }

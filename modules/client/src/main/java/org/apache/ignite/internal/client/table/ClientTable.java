@@ -30,6 +30,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryPolicy;
+import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -79,8 +80,8 @@ public class ClientTable implements Table {
     /**
      * Constructor.
      *
-     * @param ch   Channel.
-     * @param id   Table id.
+     * @param ch Channel.
+     * @param id Table id.
      * @param name Table name.
      */
     public ClientTable(ReliableChannel ch, int id, String name) {
@@ -259,7 +260,7 @@ public class ClientTable implements Table {
     /**
      * Writes transaction, if present.
      *
-     * @param tx  Transaction.
+     * @param tx Transaction.
      * @param out Packer.
      */
     public static void writeTx(@Nullable Transaction tx, PayloadOutputChannel out) {
@@ -284,12 +285,25 @@ public class ClientTable implements Table {
             @Nullable T defaultValue,
             @Nullable PartitionAwarenessProvider provider
     ) {
-        CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
+        return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, provider, null);
+    }
+
+    private <T> CompletableFuture<T> doSchemaOutInOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
+            @Nullable T defaultValue,
+            @Nullable PartitionAwarenessProvider provider,
+            @Nullable Integer schemaVersionOverride
+    ) {
+        CompletableFuture<T> fut = new CompletableFuture<>();
+
+        CompletableFuture<ClientSchema> schemaFut = getSchema(schemaVersionOverride == null ? latestSchemaVer : schemaVersionOverride);
         CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
                 ? CompletableFuture.completedFuture(null)
                 : getPartitionAssignment();
 
-        return CompletableFuture.allOf(schemaFut, partitionsFut)
+        CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
                     String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
@@ -300,7 +314,30 @@ public class ClientTable implements Table {
                             preferredNodeName,
                             null);
                 })
-                .thenCompose(t -> loadSchemaAndReadData(t, reader));
+                .thenCompose(t -> loadSchemaAndReadData(t, reader))
+                .whenComplete((res, err) -> {
+                    if (err != null) {
+                        if (err.getCause() instanceof ClientSchemaVersionMismatchException) {
+                            // Retry with specific schema version.
+                            int expectedVersion = ((ClientSchemaVersionMismatchException) err.getCause()).expectedVersion();
+
+                            doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, provider, expectedVersion)
+                                    .whenComplete((res0, err0) -> {
+                                        if (err0 != null) {
+                                            fut.completeExceptionally(err0);
+                                        } else {
+                                            fut.complete(res0);
+                                        }
+                                    });
+                        } else {
+                            fut.completeExceptionally(err);
+                        }
+                    } else {
+                        fut.complete(res);
+                    }
+                });
+
+        return fut;
     }
 
     /**
@@ -318,7 +355,7 @@ public class ClientTable implements Table {
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
             @Nullable PartitionAwarenessProvider provider) {
-        return doSchemaOutOpAsync(opCode, writer, reader, provider, null);
+        return doSchemaOutOpAsync(opCode, writer, reader, provider, null, null);
     }
 
     /**
@@ -331,19 +368,42 @@ public class ClientTable implements Table {
      * @param <T> Result type.
      * @return Future representing pending completion of the operation.
      */
-    public <T> CompletableFuture<T> doSchemaOutOpAsync(
+    <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
             @Nullable PartitionAwarenessProvider provider,
             @Nullable RetryPolicy retryPolicyOverride) {
+        return doSchemaOutOpAsync(opCode, writer, reader, provider, retryPolicyOverride, null);
+    }
 
-        CompletableFuture<ClientSchema> schemaFut = getLatestSchema();
+    /**
+     * Performs a schema-based operation.
+     *
+     * @param opCode Op code.
+     * @param writer Writer.
+     * @param reader Reader.
+     * @param provider Partition awareness provider.
+     * @param retryPolicyOverride Retry policy override.
+     * @param schemaVersionOverride Schema version override.
+     * @param <T> Result type.
+     * @return Future representing pending completion of the operation.
+     */
+    private <T> CompletableFuture<T> doSchemaOutOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            Function<ClientMessageUnpacker, T> reader,
+            @Nullable PartitionAwarenessProvider provider,
+            @Nullable RetryPolicy retryPolicyOverride,
+            @Nullable Integer schemaVersionOverride) {
+        CompletableFuture<T> fut = new CompletableFuture<>();
+
+        CompletableFuture<ClientSchema> schemaFut = getSchema(schemaVersionOverride == null ? latestSchemaVer : schemaVersionOverride);
         CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
                 ? CompletableFuture.completedFuture(null)
                 : getPartitionAssignment();
 
-        return CompletableFuture.allOf(schemaFut, partitionsFut)
+        CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
                     String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
@@ -357,7 +417,30 @@ public class ClientTable implements Table {
                             },
                             preferredNodeName,
                             retryPolicyOverride);
+                })
+                .whenComplete((res, err) -> {
+                    if (err != null) {
+                        if (err.getCause() instanceof ClientSchemaVersionMismatchException) {
+                            // Retry with specific schema version.
+                            int expectedVersion = ((ClientSchemaVersionMismatchException) err.getCause()).expectedVersion();
+
+                            doSchemaOutOpAsync(opCode, writer, reader, provider, retryPolicyOverride, expectedVersion)
+                                    .whenComplete((res0, err0) -> {
+                                        if (err0 != null) {
+                                            fut.completeExceptionally(err0);
+                                        } else {
+                                            fut.complete(res0);
+                                        }
+                                    });
+                        } else {
+                            fut.completeExceptionally(err);
+                        }
+                    } else {
+                        fut.complete(res);
+                    }
                 });
+
+        return fut;
     }
 
     private <T> @Nullable Object readSchemaAndReadData(
