@@ -220,7 +220,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             var options = DataStreamerOptions.builder().batchSize(1).build();
             streamerFut = view.streamData(publisher, options);
 
-            publisher.submit(tuple(1, "foo"));
+            publisher.submit(tupleKey(1));
             waitForKey(view, tupleKey(1));
 
             ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
