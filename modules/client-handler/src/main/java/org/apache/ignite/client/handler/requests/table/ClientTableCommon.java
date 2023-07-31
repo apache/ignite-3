@@ -144,8 +144,6 @@ public class ClientTableCommon {
 
             packer.packBinaryTuple(binaryTuple);
         } else {
-            assert "UpgradingRowAdapter".equals(tuple.getClass().getName()) : "Binary tuple must not be null: " + tuple.getClass();
-
             // Underlying binary tuple is not available or can't be used as is, pack columns one by one.
             var builder = new BinaryTupleBuilder(elementCount);
 
@@ -155,6 +153,8 @@ public class ClientTableCommon {
 
                 ClientBinaryTupleUtils.appendValue(builder, getColumnType(col.type().spec()), col.name(), getDecimalScale(col.type()), v);
             }
+
+            packer.packBinaryTuple(builder);
         }
     }
 

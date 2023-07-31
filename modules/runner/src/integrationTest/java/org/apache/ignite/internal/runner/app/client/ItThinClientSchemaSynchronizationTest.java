@@ -24,7 +24,6 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -79,8 +78,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20103")
-    void testGetOldRowAfterSchemaUpdate() throws InterruptedException {
+    void testClientUsesLatestSchemaOnReadWithNotNullColumn() throws InterruptedException {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
@@ -95,6 +93,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         recordView.insert(null, rec);
 
         // Modify table and get old row.
+        // It still has null value in the old column, even though it is not allowed by the new schema.
         ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
         assertNull(recordView.get(null, rec).stringValue(1));
     }
