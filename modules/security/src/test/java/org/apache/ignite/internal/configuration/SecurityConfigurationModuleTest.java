@@ -52,8 +52,8 @@ class SecurityConfigurationModuleTest {
     }
 
     @Test
-    void providesNoInternalSchemaExtensions() {
-        assertThat(module.internalSchemaExtensions(), is(empty()));
+    void providesNoSchemaExtensions() {
+        assertThat(module.schemaExtensions(), is(empty()));
     }
 
     @Test

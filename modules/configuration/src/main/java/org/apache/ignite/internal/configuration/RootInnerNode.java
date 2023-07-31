@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.configuration;
 
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 
 /**
@@ -28,8 +28,11 @@ public class RootInnerNode {
     /** Root node. */
     private final InnerNode node;
 
-    /** Internal configuration. */
-    private final boolean internal;
+    /** Internal configuration extensions. */
+    private final boolean privateExtension;
+
+    /** Public configuration extensions. */
+    private final boolean publicExtension;
 
     /**
      * Constructor.
@@ -40,7 +43,8 @@ public class RootInnerNode {
     public RootInnerNode(RootKey<?, ?> key, InnerNode node) {
         this.node = node;
 
-        internal = key.internal();
+        privateExtension = key.privateExtension();
+        publicExtension = key.publicExtension();
     }
 
     /**
@@ -48,7 +52,8 @@ public class RootInnerNode {
      */
     public RootInnerNode(RootInnerNode rootInnerNode) {
         node = rootInnerNode.node.copy();
-        internal = rootInnerNode.internal;
+        privateExtension = rootInnerNode.privateExtension;
+        publicExtension = rootInnerNode.publicExtension;
     }
 
     /**
@@ -61,11 +66,20 @@ public class RootInnerNode {
     }
 
     /**
-     * Check if the root configuration is marked with {@link InternalConfiguration}.
+     * Check if the root configuration is marked with {@link ConfigurationExtension} an is internal.
      *
      * @return {@code true} if the root configuration is internal.
      */
-    public boolean internal() {
-        return internal;
+    public boolean privateExtension() {
+        return privateExtension;
+    }
+
+    /**
+     * Check if the root configuration is marked with {@link ConfigurationExtension} an is public.
+     *
+     * @return {@code true} if the root configuration is public.
+     */
+    public boolean publicExtension() {
+        return publicExtension;
     }
 }

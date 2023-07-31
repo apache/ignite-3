@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.configuration.testframework;
 
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.Value;
 
 /**
  * Configuration schema for {@link ConfigurationExtensionTest#notifications()}.
  */
-@InternalConfiguration
+@ConfigurationExtension
 public class ExtendedConfigurationSchema extends BasicConfigurationSchema {
     @Value(hasDefault = true)
     public int invisible = 2;
