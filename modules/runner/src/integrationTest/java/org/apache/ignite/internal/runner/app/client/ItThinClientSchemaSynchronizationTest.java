@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.client.IgniteClient;
@@ -34,7 +35,7 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientTest {
     @SuppressWarnings("resource")
     @Test
-    void testOutdatedSchemaFromClientCausesExceptionOnServerAndIsRetriedByClient() throws InterruptedException {
+    void testClientReceivesUpdatedSchema() throws InterruptedException {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
@@ -48,11 +49,13 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         Tuple rec = Tuple.create().set("ID", 1);
         recordView.insert(null, rec);
 
-        // Modify table, get data - client will use old schema, receive error, retry with new schema.
-        // Column validation error indicates that client uses new schema.
+        // Modify table, insert data - client will use old schema, receive error, retry with new schema.
+        // The process is transparent for the user: updated schema can be used immediately.
         ses.execute(null, "ALTER TABLE testOutdatedSchemaFromClientThrowsExceptionOnServer ADD COLUMN NAME VARCHAR NOT NULL");
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> recordView.insert(null, rec));
-        assertThat(ex.getMessage(), containsString("null was passed, but column is not nullable"));
+        Tuple rec2 = Tuple.create().set("ID", 1).set("NAME", "name");
+        recordView.insert(null, rec2);
+
+        assertEquals("name", recordView.get(null, rec).stringValue(1));
     }
 }
