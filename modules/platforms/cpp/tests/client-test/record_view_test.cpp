@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#include "ignite_runner_suite.h"
 #include "all_fields_type.h"
+#include "ignite_runner_suite.h"
 
 #include "tests/test-common/test_utils.h"
 
@@ -35,9 +35,16 @@ using namespace ignite;
  */
 struct test_type {
     test_type() = default;
-    explicit test_type(std::int64_t key) : key(key) {}
-    explicit test_type(std::string val) : val(std::move(val)) {}
-    explicit test_type(std::int64_t key, std::string val) : key(key), val(std::move(val)) {}
+
+    explicit test_type(std::int64_t key)
+        : key(key) {}
+
+    explicit test_type(std::string val)
+        : val(std::move(val)) {}
+
+    explicit test_type(std::int64_t key, std::string val)
+        : key(key)
+        , val(std::move(val)) {}
 
     std::int64_t key{0};
     std::string val;
@@ -45,9 +52,16 @@ struct test_type {
 
 struct wrong_mapping_key {
     wrong_mapping_key() = default;
-    explicit wrong_mapping_key(std::int64_t key) : key(key) {}
-    explicit wrong_mapping_key(std::string val) : val(std::move(val)) {}
-    explicit wrong_mapping_key(std::int64_t key, std::string val) : key(key), val(std::move(val)) {}
+
+    explicit wrong_mapping_key(std::int64_t key)
+        : key(key) {}
+
+    explicit wrong_mapping_key(std::string val)
+        : val(std::move(val)) {}
+
+    explicit wrong_mapping_key(std::int64_t key, std::string val)
+        : key(key)
+        , val(std::move(val)) {}
 
     std::int64_t key{0};
     std::string val;
@@ -55,9 +69,16 @@ struct wrong_mapping_key {
 
 struct wrong_mapping_value {
     wrong_mapping_value() = default;
-    explicit wrong_mapping_value(std::int64_t key) : key(key) {}
-    explicit wrong_mapping_value(std::string val) : val(std::move(val)) {}
-    explicit wrong_mapping_value(std::int64_t key, std::string val) : key(key), val(std::move(val)) {}
+
+    explicit wrong_mapping_value(std::int64_t key)
+        : key(key) {}
+
+    explicit wrong_mapping_value(std::string val)
+        : val(std::move(val)) {}
+
+    explicit wrong_mapping_value(std::int64_t key, std::string val)
+        : key(key)
+        , val(std::move(val)) {}
 
     std::int64_t key{0};
     std::string val;
@@ -76,7 +97,7 @@ ignite_tuple convert_to_tuple(test_type &&value) {
 }
 
 template<>
-test_type convert_from_tuple(ignite_tuple&& value) {
+test_type convert_from_tuple(ignite_tuple &&value) {
     test_type res;
 
     res.key = value.get<std::int64_t>("key");
@@ -98,7 +119,7 @@ ignite_tuple convert_to_tuple(wrong_mapping_key &&value) {
 }
 
 template<>
-wrong_mapping_key convert_from_tuple(ignite_tuple&& value) {
+wrong_mapping_key convert_from_tuple(ignite_tuple &&value) {
     wrong_mapping_key res;
 
     res.key = value.get<std::int64_t>("id");
@@ -120,7 +141,7 @@ ignite_tuple convert_to_tuple(wrong_mapping_value &&value) {
 }
 
 template<>
-wrong_mapping_value convert_from_tuple(ignite_tuple&& value) {
+wrong_mapping_value convert_from_tuple(ignite_tuple &&value) {
     wrong_mapping_value res;
 
     res.key = value.get<std::int64_t>("key");
@@ -131,7 +152,7 @@ wrong_mapping_value convert_from_tuple(ignite_tuple&& value) {
     return res;
 }
 
-}
+} // namespace ignite
 
 /**
  * Test suite.
@@ -257,7 +278,6 @@ TEST_F(record_view_test, upsert_get_async) {
     EXPECT_EQ(val.val, res->val);
 }
 
-
 TEST_F(record_view_test, upsert_overrides_value) {
     test_type key{1};
     test_type val{1, "foo"};
@@ -286,7 +306,10 @@ TEST_F(record_view_test, get_all_empty) {
 TEST_F(record_view_test, get_all_nonexisting) {
     auto res = view.get_all(nullptr, {test_type(-42)});
 
-    ASSERT_TRUE(res.empty());
+    ASSERT_FALSE(res.empty());
+
+    EXPECT_EQ(res.size(), 1);
+    EXPECT_EQ(res.front(), std::nullopt);
 }
 
 TEST_F(record_view_test, upsert_all_empty_no_throw) {
@@ -294,11 +317,11 @@ TEST_F(record_view_test, upsert_all_empty_no_throw) {
 }
 
 TEST_F(record_view_test, upsert_all_get_all) {
-    static constexpr std::size_t records_num = 10;
+    static constexpr std::int64_t records_num = 10;
 
     std::vector<test_type> records;
     records.reserve(records_num);
-    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
+    for (std::int64_t i = 1; i < 1 + records_num; ++i)
         records.emplace_back(i, "Val" + std::to_string(i));
 
     std::vector<test_type> keys;
@@ -308,24 +331,28 @@ TEST_F(record_view_test, upsert_all_get_all) {
     view.upsert_all(nullptr, records);
     auto res = view.get_all(nullptr, keys);
 
-    // TODO: Key order should be preserved by the server (IGNITE-16004).
-    EXPECT_EQ(res.size(), 2);
+    ASSERT_EQ(res.size(), keys.size());
 
-    ASSERT_TRUE(res[0].has_value());
-    EXPECT_EQ(9, res[0]->key);
-    EXPECT_EQ("Val9", res[0]->val);
+    for (std::size_t i = 0; i < keys.size(); ++i) {
+        auto key = keys[i];
+        auto val = res[i];
 
-    ASSERT_TRUE(res[1].has_value());
-    EXPECT_EQ(10, res[1]->key);
-    EXPECT_EQ("Val10", res[1]->val);
+        if (key.key <= records_num) {
+            ASSERT_TRUE(val.has_value()) << "Key = " << key.key;
+            EXPECT_EQ(key.key, val->key);
+            EXPECT_EQ("Val" + std::to_string(key.key), val->val);
+        } else {
+            ASSERT_FALSE(val.has_value()) << "Key = " << key.key << ", Res = " << val->val;
+        }
+    }
 }
 
 TEST_F(record_view_test, upsert_all_get_all_async) {
-    static constexpr std::size_t records_num = 10;
+    static constexpr std::int64_t records_num = 10;
 
     std::vector<test_type> records;
     records.reserve(records_num);
-    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
+    for (std::int64_t i = 1; i < 1 + records_num; ++i)
         records.emplace_back(i, "Val" + std::to_string(i));
 
     std::vector<test_type> keys;
@@ -338,21 +365,25 @@ TEST_F(record_view_test, upsert_all_get_all_async) {
         if (!check_and_set_operation_error(*all_done, res))
             return;
 
-        // TODO: Key order should be preserved by the server (IGNITE-16004).
         view.get_all_async(nullptr, keys, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
     });
 
     auto res = all_done->get_future().get();
 
-    EXPECT_EQ(res.size(), 2);
+    ASSERT_EQ(res.size(), keys.size());
 
-    ASSERT_TRUE(res[0].has_value());
-    EXPECT_EQ(9, res[0]->key);
-    EXPECT_EQ("Val9", res[0]->val);
+    for (std::size_t i = 0; i < keys.size(); ++i) {
+        auto key = keys[i];
+        auto val = res[i];
 
-    ASSERT_TRUE(res[1].has_value());
-    EXPECT_EQ(10, res[1]->key);
-    EXPECT_EQ("Val10", res[1]->val);
+        if (key.key <= records_num) {
+            ASSERT_TRUE(val.has_value()) << "Key = " << key.key;
+            EXPECT_EQ(key.key, val->key);
+            EXPECT_EQ("Val" + std::to_string(key.key), val->val);
+        } else {
+            ASSERT_FALSE(val.has_value()) << "Key = " << key.key << ", Res = " << val->val;
+        }
+    }
 }
 
 TEST_F(record_view_test, get_and_upsert_new_record) {
@@ -395,8 +426,7 @@ TEST_F(record_view_test, get_and_upsert_existing_record_async) {
         if (res.value().has_value())
             first->set_exception(std::make_exception_ptr(ignite_error("Expected nullopt on first insertion")));
 
-        view.get_and_upsert_async(
-            nullptr, val2, [&](auto res) { result_set_promise(*first, std::move(res)); });
+        view.get_and_upsert_async(nullptr, val2, [&](auto res) { result_set_promise(*first, std::move(res)); });
     });
 
     auto res = first->get_future().get();
@@ -455,8 +485,7 @@ TEST_F(record_view_test, insert_existing_record_async) {
             if (res.value())
                 all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on second insertion")));
 
-            view.get_async(
-                nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+            view.get_async(nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
         });
     });
 
@@ -514,18 +543,16 @@ TEST_F(record_view_test, insert_all_overlapped_async) {
         if (!res.value().empty())
             all_done->set_exception(std::make_exception_ptr(ignite_error("Expected empty return on first insertion")));
 
-        view.insert_all_async(
-            nullptr, {test_type(1, "foo"), test_type(2, "baz"), test_type(3, "bar")}, [&](auto res) {
-                if (!check_and_set_operation_error(*all_done, res))
-                    return;
+        view.insert_all_async(nullptr, {test_type(1, "foo"), test_type(2, "baz"), test_type(3, "bar")}, [&](auto res) {
+            if (!check_and_set_operation_error(*all_done, res))
+                return;
 
-                if (res.value().size() != 2)
-                    all_done->set_exception(std::make_exception_ptr(
-                        ignite_error("Expected 2 on second insertion but got " + std::to_string(res.value().size()))));
+            if (res.value().size() != 2)
+                all_done->set_exception(std::make_exception_ptr(
+                    ignite_error("Expected 2 on second insertion but got " + std::to_string(res.value().size()))));
 
-                view.get_async(
-                    nullptr, test_type(2), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
-            });
+            view.get_async(nullptr, test_type(2), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+        });
     });
 
     auto res = all_done->get_future().get();
@@ -584,8 +611,7 @@ TEST_F(record_view_test, replace_existing_async) {
             if (!res.value())
                 all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on replace")));
 
-            view.get_async(
-                nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+            view.get_async(nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
         });
     });
 
@@ -650,8 +676,7 @@ TEST_F(record_view_test, replace_exact_existing_right_async) {
             if (!res.value())
                 all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on replace")));
 
-            view.get_async(
-                nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+            view.get_async(nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
         });
     });
 
@@ -702,8 +727,7 @@ TEST_F(record_view_test, get_and_replace_existing_async) {
         if (!res.value())
             all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
 
-        view.get_and_replace_async(
-            nullptr, val2, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+        view.get_and_replace_async(nullptr, val2, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
     });
 
     auto res = all_done->get_future().get();
@@ -741,8 +765,7 @@ TEST_F(record_view_test, remove_existing_async) {
         if (!res.value())
             all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
 
-        view.remove_async(
-            nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+        view.remove_async(nullptr, test_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
     });
 
     auto res = all_done->get_future().get();
@@ -793,8 +816,7 @@ TEST_F(record_view_test, remove_exact_existing_async) {
             if (res.value())
                 all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on second remove")));
 
-            view.remove_exact_async(
-                nullptr, val, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+            view.remove_exact_async(nullptr, val, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
         });
     });
 
@@ -993,4 +1015,3 @@ TEST_F(record_view_test, types_test) {
     EXPECT_EQ(ignite_date_time({2020, 7, 28}, {2, 15, 52, 6000000}), res->m_datetime2);
     EXPECT_EQ(ignite_timestamp(3875238472, 248700000), res->m_timestamp2);
 }
-

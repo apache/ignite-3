@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.CatalogService.PUBLIC;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 
 import java.util.Arrays;
 import java.util.List;
@@ -68,13 +68,13 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public CatalogEventParameters createEventParameters(long causalityToken) {
-        return new AddColumnEventParameters(causalityToken, tableId, descriptors);
+    public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
+        return new AddColumnEventParameters(causalityToken, catalogVersion, tableId, descriptors);
     }
 
     @Override
     public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(PUBLIC));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
 
         return new Catalog(
                 catalog.version(),

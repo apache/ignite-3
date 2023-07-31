@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -38,6 +40,7 @@ import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.TestTupleBuilder;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
@@ -53,7 +56,7 @@ import org.mockito.Mockito;
 /**
  * Basic table operations test.
  */
-public class RecordBinaryViewOperationsTest {
+public class RecordBinaryViewOperationsTest extends BaseIgniteAbstractTest {
 
     @Test
     public void insert() {
@@ -356,9 +359,7 @@ public class RecordBinaryViewOperationsTest {
                         Tuple.create().set("id", 3L)
                 ));
 
-        assertEquals(2, res.size());
-        assertTrue(res.contains(rec1));
-        assertTrue(res.contains(rec3));
+        assertThat(res, contains(rec1, null, rec3));
     }
 
     @Test
@@ -384,9 +385,7 @@ public class RecordBinaryViewOperationsTest {
                         Tuple.create().set("id", 3L)
                 ));
 
-        assertEquals(2, res.size());
-        assertTrue(res.contains(rec1));
-        assertTrue(res.contains(rec3));
+        assertThat(res, contains(rec1, null, rec3));
 
         Tuple upRec1 = Tuple.create().set("id", 1L).set("val", 112L);
         Tuple rec2 = Tuple.create().set("id", 2L).set("val", 22L);
@@ -402,11 +401,7 @@ public class RecordBinaryViewOperationsTest {
                         Tuple.create().set("id", 3L)
                 ));
 
-        assertEquals(3, res.size());
-
-        assertTrue(res.contains(upRec1));
-        assertTrue(res.contains(rec2));
-        assertTrue(res.contains(upRec3));
+        assertThat(res, contains(upRec1, rec2, upRec3));
     }
 
     @Test
@@ -532,9 +527,7 @@ public class RecordBinaryViewOperationsTest {
                         Tuple.create().set("id", 3L)
                 ));
 
-        assertEquals(1, current.size());
-
-        assertTrue(current.contains(tuple2));
+        assertThat(current, contains(null, tuple2, null));
     }
 
     @Test
@@ -588,9 +581,7 @@ public class RecordBinaryViewOperationsTest {
                         Tuple.create().set("id", 3L)
                 ));
 
-        assertEquals(1, current.size());
-
-        assertTrue(current.contains(tuple3Upsert));
+        assertThat(current, contains(null, null, tuple3Upsert));
     }
 
     @Test

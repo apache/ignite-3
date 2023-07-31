@@ -22,8 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -95,7 +94,6 @@ import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Table;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -154,7 +152,7 @@ public class DdlCommandHandler {
         } else if (cmd instanceof DropZoneCommand) {
             return handleDropZone((DropZoneCommand) cmd);
         } else {
-            return failedFuture(new IgniteInternalCheckedException(UNSUPPORTED_DDL_OPERATION_ERR, "Unsupported DDL operation ["
+            return failedFuture(new SqlException(STMT_VALIDATION_ERR, "Unsupported DDL operation ["
                     + "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; "
                     + "cmd=\"" + cmd + "\"]"));
         }
@@ -314,7 +312,7 @@ public class DdlCommandHandler {
             return completedFuture(Boolean.FALSE);
         }
 
-        return addColumnInternal(cmd.tableName(), cmd.columns(), cmd.ifColumnNotExists())
+        return addColumnInternal(cmd.tableName(), cmd.columns())
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
@@ -324,7 +322,7 @@ public class DdlCommandHandler {
             return completedFuture(Boolean.FALSE);
         }
 
-        return dropColumnInternal(cmd.tableName(), cmd.columns(), cmd.ifColumnExists())
+        return dropColumnInternal(cmd.tableName(), cmd.columns())
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 
@@ -414,10 +412,9 @@ public class DdlCommandHandler {
      *
      * @param fullName Table with schema name.
      * @param colsDef Columns defenitions.
-     * @param ignoreColumnExistance Flag indicates exceptionally behavior in case of already existing column.
      * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
-    private CompletableFuture<Boolean> addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean ignoreColumnExistance) {
+    private CompletableFuture<Boolean> addColumnInternal(String fullName, List<ColumnDefinition> colsDef) {
         AtomicBoolean retUsr = new AtomicBoolean(true);
 
         return tableManager.alterTableAsync(
@@ -430,34 +427,18 @@ public class DdlCommandHandler {
 
                         Set<String> colNamesToOrders = columnNames(chng.columns());
 
-                        List<ColumnDefinition> colsDef0;
+                        colsDef.stream()
+                                .filter(k -> colNamesToOrders.contains(k.name()))
+                                .findAny()
+                                .ifPresent(c -> {
+                                    throw new ColumnAlreadyExistsException(c.name());
+                                });
 
-                        if (ignoreColumnExistance) {
-                            colsDef0 = colsDef.stream().filter(k -> {
-                                if (colNamesToOrders.contains(k.name())) {
-                                    retUsr.set(false);
-
-                                    return false;
-                                } else {
-                                    return true;
-                                }
-                            }).collect(Collectors.toList());
-                        } else {
-                            colsDef.stream()
-                                    .filter(k -> colNamesToOrders.contains(k.name()))
-                                    .findAny()
-                                    .ifPresent(c -> {
-                                        throw new ColumnAlreadyExistsException(c.name());
-                                    });
-
-                            colsDef0 = colsDef;
-                        }
-
-                        for (ColumnDefinition col : colsDef0) {
+                        for (ColumnDefinition col : colsDef) {
                             cols.create(col.name(), colChg -> convertColumnDefinition(col, colChg));
                         }
 
-                        retTbl.set(!colsDef0.isEmpty());
+                        retTbl.set(!colsDef.isEmpty());
                     });
 
                     return retTbl.get();
@@ -504,10 +485,9 @@ public class DdlCommandHandler {
      *
      * @param tableName Table name.
      * @param colNames Columns definitions.
-     * @param ignoreColumnExistence Flag indicates exceptionally behavior in case of already existing column.
      * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
-    private CompletableFuture<Boolean> dropColumnInternal(String tableName, Set<String> colNames, boolean ignoreColumnExistence) {
+    private CompletableFuture<Boolean> dropColumnInternal(String tableName, Set<String> colNames) {
         AtomicBoolean ret = new AtomicBoolean(true);
 
         return tableManager.alterTableAsync(
@@ -530,15 +510,13 @@ public class DdlCommandHandler {
                             if (!colNamesToOrders.contains(colName)) {
                                 ret.set(false);
 
-                                if (!ignoreColumnExistence) {
-                                    throw new ColumnNotFoundException(DEFAULT_SCHEMA_NAME, tableName, colName);
-                                }
+                                throw new ColumnNotFoundException(DEFAULT_SCHEMA_NAME, tableName, colName);
                             } else {
                                 colNames0.add(colName);
                             }
 
                             if (primaryCols.contains(colName)) {
-                                throw new SqlException(DROP_IDX_COLUMN_CONSTRAINT_ERR, IgniteStringFormatter
+                                throw new SqlException(STMT_VALIDATION_ERR, IgniteStringFormatter
                                         .format("Can`t delete column, belongs to primary key: [name={}]", colName));
                             }
                         }
@@ -579,7 +557,7 @@ public class DdlCommandHandler {
             sb.app("Column ").app(e.getKey()).app(" is used by indexes ").app(e.getValue()).app(". ");
         }
 
-        throw new SqlException(DROP_IDX_COLUMN_CONSTRAINT_ERR, sb.toString());
+        throw new SqlException(STMT_VALIDATION_ERR, sb.toString());
     }
 
     private static void convert(NativeType colType, ColumnTypeChange colTypeChg) {
@@ -589,6 +567,7 @@ public class DdlCommandHandler {
         colTypeChg.changeType(typeName);
 
         switch (spec) {
+            case BOOLEAN:
             case INT8:
             case INT16:
             case INT32:

@@ -17,21 +17,27 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.index.ColumnCollation;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -49,6 +55,9 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Index bounds check tests.
@@ -75,11 +84,8 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                         .add("C2", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR), true))
                         .add("C3", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER), true))
                         .add("C4", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER), true))
+                        .add("C5", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.TINYINT), true))
                         .build(), "TEST") {
-            @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                return ColocationGroup.forNodes(select(NODES, 0));
-            }
 
             @Override
             public IgniteDistribution distribution() {
@@ -453,14 +459,86 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 nodeOrAnyChild(isIndexScan("TEST", "C1C2C3")).negate());
     }
 
-    private static Predicate<SearchBounds> exact(Object val) {
-        return b -> b instanceof ExactBounds && matchValue(val, ((ExactBounds) b).bound());
+    /**
+     * Index bound checks - search key lies out of value range.
+     */
+    @ParameterizedTest
+    @MethodSource("boundsTypeLimits")
+    public void testBoundsTypeLimits(RelDataType type, Object value, Predicate<SearchBounds> bounds) throws Exception {
+        TestTable table = createTableWithIndex("TEST2", "C2", type);
+        publicSchema.addTable(table);
+
+        assertBounds("SELECT * FROM test2 WHERE C2 = " + value, List.of(), publicSchema, bounds);
     }
 
-    private Predicate<SearchBounds> multi(Predicate<SearchBounds>... predicates) {
-        return b -> b instanceof MultiBounds
+    private static Stream<Arguments> boundsTypeLimits() {
+        RelDataType tinyintType = TYPE_FACTORY.createSqlType(SqlTypeName.TINYINT);
+        byte[] tinyIntTypeLimits = {Byte.MIN_VALUE, Byte.MAX_VALUE};
+
+        RelDataType smallIntType = TYPE_FACTORY.createSqlType(SqlTypeName.SMALLINT);
+        short[] smallIntLimits = {Short.MIN_VALUE, Short.MAX_VALUE};
+
+        RelDataType intType = TYPE_FACTORY.createSqlType(SqlTypeName.INTEGER);
+        int[] intLimits = {Integer.MIN_VALUE, Integer.MAX_VALUE};
+
+        RelDataType bigIntType = TYPE_FACTORY.createSqlType(SqlTypeName.BIGINT);
+        BigDecimal[] bigIntTypeLimits = {BigDecimal.valueOf(Long.MIN_VALUE), BigDecimal.valueOf(Long.MAX_VALUE)};
+
+        RelDataType decimal3Type = TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 3);
+        BigDecimal[] decimal3TypeLimits = {BigDecimal.valueOf(-999), BigDecimal.valueOf(999)};
+        RelDataType decimal53Type = TYPE_FACTORY.createSqlType(SqlTypeName.DECIMAL, 5, 3);
+        BigDecimal[] decimal53TypeLimits = {new BigDecimal("-99.999"), new BigDecimal("99.999")};
+
+        return Stream.of(
+                Arguments.arguments(tinyintType, -129, exact(tinyIntTypeLimits[0])),
+                Arguments.arguments(tinyintType, -128, exact(tinyIntTypeLimits[0])),
+                Arguments.arguments(tinyintType, 127, exact(tinyIntTypeLimits[1])),
+                Arguments.arguments(tinyintType, 128, exact(tinyIntTypeLimits[1])),
+
+                Arguments.arguments(smallIntType, (-(int) Math.pow(2, 15) - 1), exact(smallIntLimits[0])),
+                Arguments.arguments(smallIntType, (-(int) Math.pow(2, 15)), exact(smallIntLimits[0])),
+                Arguments.arguments(smallIntType, ((int) Math.pow(2, 15)), exact(smallIntLimits[1])),
+                Arguments.arguments(smallIntType, ((int) Math.pow(2, 15) + 1), exact(smallIntLimits[1])),
+
+                Arguments.arguments(intType, (-(long) Math.pow(2, 31) - 1), exact(intLimits[0])),
+                Arguments.arguments(intType, (-(long) Math.pow(2, 31)), exact(intLimits[0])),
+                Arguments.arguments(intType, ((long) Math.pow(2, 31)), exact(intLimits[1])),
+                Arguments.arguments(intType, ((long) Math.pow(2, 31) + 1), exact(intLimits[1])),
+
+                Arguments.arguments(decimal3Type, "(-1000)::DECIMAL(3)", exact(decimal3TypeLimits[0])),
+                Arguments.arguments(decimal3Type, "(-999)::DECIMAL(3)", exact(decimal3TypeLimits[0])),
+                Arguments.arguments(decimal3Type, "999::DECIMAL(3)", exact(decimal3TypeLimits[1])),
+                Arguments.arguments(decimal3Type, "1000::DECIMAL(3)",  exact(decimal3TypeLimits[1])),
+
+                Arguments.arguments(decimal53Type, "(-100.000)::DECIMAL(5, 3)",  exact(decimal53TypeLimits[0])),
+                Arguments.arguments(decimal53Type, "(100.000)::DECIMAL(5, 3)",  exact(decimal53TypeLimits[1])),
+
+                // TODO https://issues.apache.org/jira/browse/IGNITE-19858
+                //  Cause serialization/deserialization mismatch in AbstractPlannerTest::checkSplitAndSerialization
+                //Arguments.arguments(bigIntType, BigInteger.TWO.pow(63).add(BigInteger.ONE).negate(),
+                //        exact(bigIntTypeLimits[0])),
+                //Arguments.arguments(bigIntType, BigInteger.TWO.pow(63), exact(bigIntTypeLimits[1])),
+                //Arguments.arguments(bigIntType, BigInteger.TWO.pow(63).add(BigInteger.ONE), exact(bigIntTypeLimits[1])),
+
+                //Arguments.arguments(realType, BigDecimal.valueOf(Float.MAX_VALUE).add(BigDecimal.ONE) + "::REAL",
+                //        exact(Float.MAX_VALUE)),
+
+                //Arguments.arguments(realType, BigDecimal.valueOf(Double.MAX_VALUE).add(BigDecimal.ONE),
+                //        exact(Double.MAX_VALUE)),
+                Arguments.arguments(bigIntType, BigInteger.TWO.pow(63).negate(), exact(bigIntTypeLimits[0]))
+        );
+    }
+
+    private static Predicate<SearchBounds> exact(Object val) {
+        Predicate<SearchBounds> p = b -> b instanceof ExactBounds && matchValue(val, ((ExactBounds) b).bound());
+        return named(p, format("={}", val));
+    }
+
+    private static Predicate<SearchBounds> multi(Predicate<SearchBounds>... predicates) {
+        Predicate<SearchBounds> p = b -> b instanceof MultiBounds
                 && ((MultiBounds) b).bounds().size() == predicates.length
                 && matchBounds(((MultiBounds) b).bounds(), predicates);
+        return named(p, Arrays.toString(predicates));
     }
 
     private void assertBounds(String sql, Predicate<SearchBounds>... predicates) throws Exception {
@@ -478,11 +556,9 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 .and(scan -> matchBounds(scan.searchBounds(), predicates))), params);
     }
 
-    private boolean matchBounds(List<SearchBounds> searchBounds, Predicate<SearchBounds>... predicates) {
+    private static boolean  matchBounds(List<SearchBounds> searchBounds, Predicate<SearchBounds>... predicates) {
         for (int i = 0; i < predicates.length; i++) {
             if (!predicates[i].test(searchBounds.get(i))) {
-                lastErrorMsg = "Not expected bounds: " + searchBounds.get(i);
-
                 return false;
             }
         }
@@ -496,11 +572,16 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
             boolean lowerInclude,
             boolean upperInclude
     ) {
-        return b -> b instanceof RangeBounds
+        Predicate<SearchBounds> range = b -> b instanceof RangeBounds
                 && matchValue(lower, ((RangeBounds) b).lowerBound())
                 && matchValue(upper, ((RangeBounds) b).upperBound())
                 && lowerInclude == ((RangeBounds) b).lowerInclude()
                 && upperInclude == ((RangeBounds) b).upperInclude();
+
+        String lc = lowerInclude ? "[" : "(";
+        String uc = upperInclude ? "]" : ")";
+
+        return named(range, format("{}{}, {}{}", lc, lower, upper, uc));
     }
 
     private static boolean matchValue(@Nullable Object val, RexNode bound) {
@@ -510,7 +591,40 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
         bound = RexUtil.removeCast(bound);
 
-        return Objects.toString(val).equals(Objects.toString(
-                bound instanceof RexLiteral ? ((RexLiteral) bound).getValueAs(val.getClass()) : bound));
+        String actual = Objects.toString(bound instanceof RexLiteral ? ((RexLiteral) bound).getValueAs(val.getClass()) : bound);
+        String expected = Objects.toString(val);
+        return expected.equals(actual);
+    }
+
+    private static Predicate<SearchBounds> named(Predicate<SearchBounds> p, String name) {
+        return new Predicate<>() {
+            @Override
+            public boolean test(SearchBounds bounds) {
+                return p.test(bounds);
+            }
+
+            @Override
+            public String toString() {
+                return name;
+            }
+        };
+    }
+
+    private TestTable createTableWithIndex(String tableName, String column, RelDataType type) {
+        IgniteTypeFactory typeFactory = Commons.typeFactory();
+
+        RelDataType rowType = new Builder(typeFactory)
+                .add("C1", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER), true))
+                .add(column, typeFactory.createTypeWithNullability(type, true))
+                .build();
+        TestTable testTable = new TestTable(tableName, rowType, 400d) {
+            @Override
+            public IgniteDistribution distribution() {
+                return IgniteDistributions.single();
+            }
+        };
+
+        testTable.addIndex(tableName + "_" + column + "_IDX", 1);
+        return testTable;
     }
 }

@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.util.ObjectFactory;
@@ -45,10 +46,19 @@ public final class MarshallerUtil {
     public static int getValueSize(Object val, NativeType type) throws InvalidTypeException {
         switch (type.spec()) {
             case BYTES:
+                if (val instanceof byte[]) {
+                    byte[] bytes = (byte[]) val;
+                    if (bytes.length == 0 || bytes[0] == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+                        return bytes.length + 1;
+                    }
+                    return bytes.length;
+                }
                 // Return zero for pojo as they are not serialized yet.
-                return (val instanceof byte[]) ? ((byte[]) val).length : 0;
+                return 0;
+
             case STRING:
-                return utf8EncodedLength((CharSequence) val);
+                CharSequence chars = (CharSequence) val;
+                return chars.length() == 0 ? 1 : utf8EncodedLength(chars);
 
             case NUMBER:
                 return sizeInBytes((BigInteger) val);
@@ -69,7 +79,9 @@ public final class MarshallerUtil {
      */
     public static @NotNull BinaryMode mode(@NotNull Class<?> cls) {
         // Primitives.
-        if (cls == byte.class) {
+        if (cls == boolean.class) {
+            return BinaryMode.P_BOOLEAN;
+        } else if (cls == byte.class) {
             return BinaryMode.P_BYTE;
         } else if (cls == short.class) {
             return BinaryMode.P_SHORT;
@@ -81,7 +93,9 @@ public final class MarshallerUtil {
             return BinaryMode.P_FLOAT;
         } else if (cls == double.class) {
             return BinaryMode.P_DOUBLE;
-        } else if (cls == Byte.class) { // Boxed primitives.
+        } else if (cls == Boolean.class) { // Boxed primitives.
+            return BinaryMode.BOOLEAN;
+        } else if (cls == Byte.class) {
             return BinaryMode.BYTE;
         } else if (cls == Short.class) {
             return BinaryMode.SHORT;

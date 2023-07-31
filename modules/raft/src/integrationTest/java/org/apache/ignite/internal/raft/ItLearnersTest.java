@@ -401,7 +401,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
             RaftGroupListener listener
     ) {
         try {
-            return node.loza.startRaftGroupNode(
+            return node.loza.startRaftGroupNodeAndWaitNodeReadyFuture(
                     new RaftNodeId(RAFT_GROUP_ID, serverPeer),
                     memberConfiguration,
                     listener,

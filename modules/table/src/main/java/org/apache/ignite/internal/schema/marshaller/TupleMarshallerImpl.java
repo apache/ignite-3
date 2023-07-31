@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.table.Tuple;
@@ -70,11 +71,14 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 SchemaDescriptor tupleSchema = ((SchemaAware) tuple).schema();
                 BinaryTupleReader tupleReader = ((BinaryTupleContainer) tuple).binaryTuple();
 
-                if (tupleSchema != null
-                        && tupleReader != null
-                        && tupleSchema.version() == schema.version()
-                        && !binaryTupleRebuildRequired(schema)) {
-                    return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
+                if (tupleSchema != null && tupleReader != null) {
+                    if (tupleSchema.version() != schema.version()) {
+                        throw new SchemaVersionMismatchException(schema.version(), tupleSchema.version());
+                    }
+
+                    if (!binaryTupleRebuildRequired(schema)) {
+                        return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
+                    }
                 }
             }
 
@@ -312,7 +316,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      */
     private static RowAssembler createAssembler(SchemaDescriptor schema, InternalTuple keyTuple, InternalTuple valTuple) {
         Columns valueColumns = valTuple.tuple != null ? schema.valueColumns() : null;
-        boolean hasNulls = keyTuple.hasNulls || valTuple.hasNulls;
+
         int totalValueSize;
         if (keyTuple.estimatedValueSize < 0 || valTuple.estimatedValueSize < 0) {
             totalValueSize = -1;
@@ -320,7 +324,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             totalValueSize = keyTuple.estimatedValueSize + valTuple.estimatedValueSize;
         }
 
-        return new RowAssembler(schema.keyColumns(), valueColumns, schema.version(), hasNulls, totalValueSize);
+        return new RowAssembler(schema.keyColumns(), valueColumns, schema.version(), totalValueSize);
     }
 
     /**

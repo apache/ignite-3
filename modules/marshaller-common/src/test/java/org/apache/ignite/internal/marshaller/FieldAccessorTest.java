@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.marshaller;
 
 import static org.apache.ignite.internal.marshaller.BinaryMode.BITSET;
+import static org.apache.ignite.internal.marshaller.BinaryMode.BOOLEAN;
 import static org.apache.ignite.internal.marshaller.BinaryMode.BYTE;
 import static org.apache.ignite.internal.marshaller.BinaryMode.BYTE_ARR;
 import static org.apache.ignite.internal.marshaller.BinaryMode.DATE;
@@ -47,6 +48,7 @@ import java.util.BitSet;
 import java.util.Random;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.marshaller.testobjects.TestSimpleObject;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,7 +59,7 @@ import org.mockito.stubbing.Answer;
 /**
  * Check field accessor correctness.
  */
-public class FieldAccessorTest {
+public class FieldAccessorTest extends BaseIgniteAbstractTest {
     /** Random. */
     private Random rnd;
 
@@ -82,6 +84,7 @@ public class FieldAccessorTest {
     @Test
     public void fieldAccessor() throws Exception {
         MarshallerColumn[] cols = new MarshallerColumn[]{
+                new MarshallerColumn("primitiveBooleanCol", BOOLEAN),
                 new MarshallerColumn("primitiveByteCol", BYTE),
                 new MarshallerColumn("primitiveShortCol", SHORT),
                 new MarshallerColumn("primitiveIntCol", INT),
@@ -89,6 +92,7 @@ public class FieldAccessorTest {
                 new MarshallerColumn("primitiveFloatCol", FLOAT),
                 new MarshallerColumn("primitiveDoubleCol", DOUBLE),
 
+                new MarshallerColumn("booleanCol", BOOLEAN),
                 new MarshallerColumn("byteCol", BYTE),
                 new MarshallerColumn("shortCol", SHORT),
                 new MarshallerColumn("intCol", INT),
@@ -254,6 +258,7 @@ public class FieldAccessorTest {
         };
 
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeNull();
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).writeBoolean(Mockito.anyBoolean());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeByte(Mockito.anyByte());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeShort(Mockito.anyShort());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeInt(Mockito.anyInt());
@@ -273,6 +278,8 @@ public class FieldAccessorTest {
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeTime(Mockito.any(LocalTime.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).writeTimestamp(Mockito.any(Instant.class));
 
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readBoolean();
+        Mockito.doAnswer(rowAnswer).when(mockedRow).readBooleanBoxed();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readByte();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readByteBoxed();
         Mockito.doAnswer(rowAnswer).when(mockedRow).readShort();

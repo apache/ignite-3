@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.schema.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -63,7 +65,7 @@ import org.mockito.Mockito;
 /**
  * Basic table operations test.
  */
-public class KeyValueViewOperationsTest {
+public class KeyValueViewOperationsTest extends BaseIgniteAbstractTest {
     private final Random rnd = new Random();
 
     @Test
@@ -630,6 +632,7 @@ public class KeyValueViewOperationsTest {
         Mapper<TestObjectWithAllTypes> valMapper = Mapper.of(TestObjectWithAllTypes.class);
 
         Column[] valCols = {
+                new Column("primitiveBooleanCol".toUpperCase(), BOOLEAN, false),
                 new Column("primitiveByteCol".toUpperCase(), INT8, false),
                 new Column("primitiveShortCol".toUpperCase(), INT16, false),
                 new Column("primitiveIntCol".toUpperCase(), INT32, false),
@@ -637,6 +640,7 @@ public class KeyValueViewOperationsTest {
                 new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
                 new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
 
+                new Column("booleanCol".toUpperCase(), BOOLEAN, true),
                 new Column("byteCol".toUpperCase(), INT8, true),
                 new Column("shortCol".toUpperCase(), INT16, true),
                 new Column("intCol".toUpperCase(), INT32, true),

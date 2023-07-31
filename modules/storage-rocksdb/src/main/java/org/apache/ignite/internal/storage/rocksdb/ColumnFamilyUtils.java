@@ -158,6 +158,10 @@ public class ColumnFamilyUtils {
             NativeType nativeType;
 
             switch (nativeTypeSpec) {
+                case BOOLEAN:
+                    nativeType = NativeTypes.BOOLEAN;
+                    break;
+
                 case INT8:
                     nativeType = NativeTypes.INT8; //TODO IGNITE-19751 Only use INT64.
                     break;

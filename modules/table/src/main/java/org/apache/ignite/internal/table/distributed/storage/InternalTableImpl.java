@@ -82,6 +82,7 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -301,7 +302,8 @@ public class InternalTableImpl implements InternalTable {
 
         final boolean implicit = tx == null;
 
-        if (!implicit && tx.state() != null) {
+        // It's possible to have null txState if transaction isn't started yet.
+        if (!implicit && !(tx.state() == TxState.PENDING || tx.state() == null)) {
             return failedFuture(new TransactionException(
                     "The operation is attempted for completed transaction"));
         }
@@ -450,11 +452,13 @@ public class InternalTableImpl implements InternalTable {
                                 throw new TransactionException(e);
                             } catch (Throwable e) {
                                 throw new TransactionException(
+                                        INTERNAL_ERR,
                                         IgniteStringFormatter.format(
-                                                "Failed to enlist partition[tableName={}, partId={}] into a transaction",
+                                                "Failed to enlist partition [tableName={}, partId={}] into a transaction",
                                                 tableName,
                                                 partId
-                                        )
+                                        ),
+                                        e
                                 );
                             }
                         })
@@ -559,7 +563,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
+    public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
         if (tx != null && tx.isReadOnly()) {
             BinaryRowEx firstRow = keyRows.iterator().next();
 
@@ -589,7 +593,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> getAll(
+    public CompletableFuture<List<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
@@ -1110,26 +1114,27 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public List<PrimaryReplica> primaryReplicas() {
+    public CompletableFuture<List<PrimaryReplica>> primaryReplicas() {
         List<Entry<RaftGroupService>> entries = new ArrayList<>(raftGroupServiceByPartitionId.int2ObjectEntrySet());
-        List<CompletableFuture<LeaderWithTerm>> futs = new ArrayList<>();
+        List<CompletableFuture<PrimaryReplica>> result = new ArrayList<>();
 
         entries.sort(Comparator.comparingInt(Entry::getIntKey));
 
         for (Entry<RaftGroupService> e : entries) {
-            futs.add(e.getValue().refreshAndGetLeaderWithTerm());
+            CompletableFuture<LeaderWithTerm> f = e.getValue().refreshAndGetLeaderWithTerm();
+
+            result.add(f.thenApply(lt -> {
+                ClusterNode node = clusterNodeResolver.apply(lt.leader().consistentId());
+                return new PrimaryReplica(node, lt.term());
+            }));
         }
 
-        List<PrimaryReplica> primaryReplicas = new ArrayList<>(entries.size());
+        CompletableFuture<Void> all = CompletableFuture.allOf(result.toArray(new CompletableFuture[0]));
 
-        for (CompletableFuture<LeaderWithTerm> fut : futs) {
-            LeaderWithTerm leaderWithTerm = fut.join();
-            ClusterNode primaryNode = clusterNodeResolver.apply(leaderWithTerm.leader().consistentId());
-
-            primaryReplicas.add(new PrimaryReplica(primaryNode, leaderWithTerm.term()));
-        }
-
-        return primaryReplicas;
+        return all.thenApply(v -> result.stream()
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList())
+        );
     }
 
     @Override
@@ -1240,7 +1245,7 @@ public class InternalTableImpl implements InternalTable {
      * @param rowBatches Row batches by partition ID.
      * @return Future of collecting results.
      */
-    static CompletableFuture<Collection<BinaryRow>> collectMultiRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
+    static CompletableFuture<List<BinaryRow>> collectMultiRowsResponsesWithRestoreOrder(Collection<RowBatch> rowBatches) {
         return allResultFutures(rowBatches)
                 .thenApply(response -> {
                     var result = new BinaryRow[RowBatch.getTotalRequestedRowSize(rowBatches)];
@@ -1315,10 +1320,18 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to get the primary replica.");
             }
 
+            String consistentId = primaryPeerAndTerm.leader().consistentId();
+
+            ClusterNode node = clusterNodeResolver.apply(consistentId);
+
+            if (node == null) {
+                throw new TransactionException(REPLICA_UNAVAILABLE_ERR, "Failed to resolve the primary replica node [consistentId="
+                        + consistentId + ']');
+            }
+
             TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
-            return tx.enlist(partGroupId,
-                    new IgniteBiTuple<>(clusterNodeResolver.apply(primaryPeerAndTerm.leader().consistentId()), primaryPeerAndTerm.term()));
+            return tx.enlist(partGroupId, new IgniteBiTuple<>(node, primaryPeerAndTerm.term()));
         });
     }
 

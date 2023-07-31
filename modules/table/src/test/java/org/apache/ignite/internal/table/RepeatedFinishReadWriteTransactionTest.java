@@ -236,7 +236,7 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
-        public InternalTransaction begin(boolean readOnly) {
+        public InternalTransaction begin(boolean readOnly, HybridTimestamp observableTimestamp) {
             return null;
         }
 
@@ -246,8 +246,8 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
-        public boolean changeState(UUID txId, @Nullable TxState before, TxState after) {
-            return false;
+        public void changeState(UUID txId, @Nullable TxState before, TxState after) {
+            // No-op.
         }
 
         @Override
@@ -278,6 +278,11 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         @Override
         public int finished() {
+            return 0;
+        }
+
+        @Override
+        public int pending() {
             return 0;
         }
 

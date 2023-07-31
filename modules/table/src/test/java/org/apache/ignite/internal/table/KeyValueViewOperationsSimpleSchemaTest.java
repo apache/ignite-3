@@ -42,6 +42,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.UnexpectedNullValueException;
@@ -56,7 +57,7 @@ import org.mockito.Mockito;
 /**
  * Basic table operations test.
  */
-public class KeyValueViewOperationsSimpleSchemaTest {
+public class KeyValueViewOperationsSimpleSchemaTest extends BaseIgniteAbstractTest {
     /**
      * Creates table view.
      *
@@ -477,6 +478,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         Long key = 42L;
 
         List<NativeType> allTypes = List.of(
+                NativeTypes.BOOLEAN,
                 NativeTypes.INT8,
                 NativeTypes.INT16,
                 NativeTypes.INT32,

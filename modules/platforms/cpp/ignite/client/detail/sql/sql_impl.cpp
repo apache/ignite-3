@@ -48,14 +48,14 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
 
         prop_builder.start();
         for (const auto &property : properties) {
-            prop_builder.claim_string(property.first);
-            claim_primitive_with_type(prop_builder, property.second);
+            prop_builder.claim_varlen(property.first);
+            protocol::claim_primitive_with_type(prop_builder, property.second);
         }
 
         prop_builder.layout();
         for (const auto &property : properties) {
-            prop_builder.append_string(property.first);
-            append_primitive_with_type(prop_builder, property.second);
+            prop_builder.append_varlen(property.first);
+            protocol::append_primitive_with_type(prop_builder, property.second);
         }
 
         auto prop_data = prop_builder.build();
@@ -76,12 +76,12 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
 
         args_builder.start();
         for (const auto &arg : args) {
-            claim_primitive_with_type(args_builder, arg);
+            protocol::claim_primitive_with_type(args_builder, arg);
         }
 
         args_builder.layout();
         for (const auto &arg : args) {
-            append_primitive_with_type(args_builder, arg);
+            protocol::append_primitive_with_type(args_builder, arg);
         }
 
         auto args_data = args_builder.build();

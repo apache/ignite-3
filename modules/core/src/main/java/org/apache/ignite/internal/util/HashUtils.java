@@ -64,28 +64,13 @@ public class HashUtils {
     }
 
     /**
-     * Generates 32-bit hash from the byte array with the given offset, length and seed.
-     *
-     * @param data   The input byte array.
-     * @param offset The first element of array.
-     * @param length The length of array.
-     * @param seed   The initial seed value.
-     * @return The 32-bit hash.
-     */
-    public static int hash32(byte[] data, int offset, int length, int seed) {
-        long hash = hash64(data, offset, length, seed);
-
-        return (int) (hash ^ (hash >>> 32));
-    }
-
-    /**
      * Generates 32-bit hash from the byte value.
      *
      * @param data The input byte.
      * @return The 32-bit hash.
      */
-    public static int hash32(byte data, int seed) {
-        long hash = hash64(data, seed);
+    public static int hash32(byte data) {
+        long hash = hash64(data, 0);
 
         return (int) (hash ^ (hash >>> 32));
     }
@@ -96,10 +81,20 @@ public class HashUtils {
      * @param data The input short value.
      * @return The 32-bit hash.
      */
-    public static int hash32(short data, int seed) {
-        long hash = hash64(data, seed);
+    public static int hash32(short data) {
+        long hash = hash64(data, 0);
 
         return (int) (hash ^ (hash >>> 32));
+    }
+
+    /**
+     * Generates 32-bit hash from the integer value.
+     *
+     * @param data The input integer value.
+     * @return The 32-bit hash.
+     */
+    public static int hash32(int data) {
+        return hash32(data, 0);
     }
 
     /**
@@ -120,10 +115,33 @@ public class HashUtils {
      * @param data The input long value.
      * @return The 32-bit hash.
      */
+    public static int hash32(long data) {
+        return hash32(data, 0);
+    }
+
+    /**
+     * Generates 32-bit hash from the long value.
+     *
+     * @param data The input long value.
+     * @return The 32-bit hash.
+     */
     public static int hash32(long data, int seed) {
         long hash = hash64(data, seed);
 
         return (int) (hash ^ (hash >>> 32));
+    }
+
+    /**
+     * Combines two hash values, using second value as a seed for the hash of the first one.
+     *
+     * <p>The operation is not commutative - the order of the arguments matters.
+     *
+     * @param hash1 The first hash.
+     * @param hash2 The second hash.
+     * @return The combined 32-bit hash.
+     */
+    public static int combine(int hash1, int hash2) {
+        return hash32(hash1, hash2);
     }
 
     /**

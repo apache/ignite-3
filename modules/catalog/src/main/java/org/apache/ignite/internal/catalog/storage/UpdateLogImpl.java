@@ -27,8 +27,10 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -39,8 +41,6 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.vault.VaultEntry;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
@@ -56,26 +56,19 @@ public class UpdateLogImpl implements UpdateLog {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final MetaStorageManager metastore;
-    private final VaultManager vault;
 
     private volatile OnUpdateHandler onUpdateHandler;
-    private volatile @Nullable UpdateListener listener = null;
+    private volatile @Nullable UpdateListener listener;
 
     /**
      * Creates the object.
      *
      * @param metastore A metastore is used to store and distribute updates across the cluster.
-     * @param vault A vault is used to recover state and replay updates on start.
      */
-    public UpdateLogImpl(
-            MetaStorageManager metastore,
-            VaultManager vault
-    ) {
-        this.vault = vault;
+    public UpdateLogImpl(MetaStorageManager metastore) {
         this.metastore = metastore;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
         if (!busyLock.enterBusy()) {
@@ -92,19 +85,17 @@ public class UpdateLogImpl implements UpdateLog {
                 );
             }
 
-            restoreStateFromVault(handler);
+            recoveryStateFromMetastore(handler);
 
-            UpdateListener listener = new UpdateListener(handler);
+            UpdateListener listener = new UpdateListener(onUpdateHandler);
             this.listener = listener;
 
             metastore.registerPrefixWatch(CatalogKey.updatePrefix(), listener);
-
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         if (!stopGuard.compareAndSet(false, true)) {
@@ -121,13 +112,11 @@ public class UpdateLogImpl implements UpdateLog {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void registerUpdateHandler(OnUpdateHandler handler) {
         onUpdateHandler = handler;
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> append(VersionedUpdate update) {
         if (!busyLock.enterBusy()) {
@@ -155,20 +144,29 @@ public class UpdateLogImpl implements UpdateLog {
         }
     }
 
-    private void restoreStateFromVault(OnUpdateHandler handler) {
+    private void recoveryStateFromMetastore(OnUpdateHandler handler) {
+        CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
+
+        assert recoveryFinishedFuture.isDone();
+
+        long recoveryRevision = recoveryFinishedFuture.join();
+
         int ver = 1;
 
         // TODO: IGNITE-19790 Read range from metastore
         while (true) {
-            VaultEntry entry = vault.get(CatalogKey.update(ver++)).join();
+            ByteArray key = CatalogKey.update(ver++);
+            Entry entry = metastore.getLocally(key, recoveryRevision);
 
-            if (entry == null) {
+            if (entry.empty() || entry.tombstone()) {
                 break;
             }
 
-            VersionedUpdate update = fromBytes(entry.value());
+            VersionedUpdate update = fromBytes(Objects.requireNonNull(entry.value()));
 
-            handler.handle(update);
+            long revision = entry.revision();
+
+            handler.handle(update, metastore.timestampByRevision(revision), revision);
         }
     }
 
@@ -193,11 +191,10 @@ public class UpdateLogImpl implements UpdateLog {
     private static class UpdateListener implements WatchListener {
         private final OnUpdateHandler onUpdateHandler;
 
-        UpdateListener(OnUpdateHandler onUpdateHandler) {
+        private UpdateListener(OnUpdateHandler onUpdateHandler) {
             this.onUpdateHandler = onUpdateHandler;
         }
 
-        /** {@inheritDoc} */
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
             for (EntryEvent eventEntry : event.entryEvents()) {
@@ -210,13 +207,12 @@ public class UpdateLogImpl implements UpdateLog {
 
                 VersionedUpdate update = fromBytes(payload);
 
-                onUpdateHandler.handle(update);
+                onUpdateHandler.handle(update, event.timestamp(), event.revision());
             }
 
             return CompletableFuture.completedFuture(null);
         }
 
-        /** {@inheritDoc} */
         @Override
         public void onError(Throwable e) {
             assert false;

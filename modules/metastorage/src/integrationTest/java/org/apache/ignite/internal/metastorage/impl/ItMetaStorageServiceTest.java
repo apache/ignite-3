@@ -99,6 +99,7 @@ import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
@@ -125,7 +126,7 @@ import org.mockito.ArgumentCaptor;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class ItMetaStorageServiceTest {
+public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     /** Base network port. */
     private static final int NODE_PORT_BASE = 20_000;
 
@@ -194,7 +195,7 @@ public class ItMetaStorageServiceTest {
                     clock
             );
 
-            this.clusterTime = new ClusterTimeImpl(new IgniteSpinBusyLock(), clock);
+            this.clusterTime = new ClusterTimeImpl(clusterService.nodeName(), new IgniteSpinBusyLock(), clock);
 
             this.mockStorage = mock(KeyValueStorage.class);
         }
@@ -235,7 +236,9 @@ public class ItMetaStorageServiceTest {
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
 
             try {
-                return raftManager.startRaftGroupNode(raftNodeId, configuration, listener, RaftGroupEventsListener.noopLsnr);
+                return raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
+                        raftNodeId, configuration, listener, RaftGroupEventsListener.noopLsnr
+                );
             } catch (NodeStoppingException e) {
                 throw new IllegalStateException(e);
             }

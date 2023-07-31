@@ -97,11 +97,9 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.externalize.RelJsonReader;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.Cloner;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.Splitter;
@@ -570,6 +568,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 return;
             }
         } catch (Throwable th) {
+            if (lastErrorMsg == null) {
+                lastErrorMsg = th.getMessage();
+            }
+
             String invalidPlanMsg = "Failed to validate plan (" + lastErrorMsg + "):\n"
                     + RelOptUtil.toString(plan, SqlExplainLevel.ALL_ATTRIBUTES);
 
@@ -965,12 +967,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-            throw new AssertionError();
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public IgniteDistribution distribution() {
             throw new AssertionError();
         }
@@ -1036,7 +1032,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * TestTableDescriptor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    static class TestTableDescriptor implements TableDescriptor {
+    public static class TestTableDescriptor implements TableDescriptor {
         private final Supplier<IgniteDistribution> distributionSupp;
 
         private final RelDataType rowType;
@@ -1045,7 +1041,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
          * Constructor.
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          */
-        TestTableDescriptor(Supplier<IgniteDistribution> distribution, RelDataType rowType) {
+        public TestTableDescriptor(Supplier<IgniteDistribution> distribution, RelDataType rowType) {
             this.distributionSupp = distribution;
             this.rowType = rowType;
         }

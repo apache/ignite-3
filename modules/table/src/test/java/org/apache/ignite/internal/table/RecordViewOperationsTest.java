@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.schema.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -29,6 +30,8 @@ import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -50,6 +53,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.RecordView;
@@ -61,7 +65,7 @@ import org.mockito.Mockito;
 /**
  * Basic table operations test.
  */
-public class RecordViewOperationsTest {
+public class RecordViewOperationsTest extends BaseIgniteAbstractTest {
 
     private final Random rnd = new Random();
 
@@ -282,9 +286,7 @@ public class RecordViewOperationsTest {
 
         Collection<TestObjectWithAllTypes> res = tbl.getAll(null, List.of(key1, key2, key3));
 
-        assertEquals(2, res.size());
-        assertTrue(res.contains(val1));
-        assertTrue(res.contains(val3));
+        assertThat(res, contains(val1, null, val3));
     }
 
     /**
@@ -300,12 +302,14 @@ public class RecordViewOperationsTest {
         Mapper<TestObjectWithAllTypes> recMapper = Mapper.of(TestObjectWithAllTypes.class);
 
         Column[] valCols = {
+                new Column("primitiveBooleanCol".toUpperCase(), BOOLEAN, false),
                 new Column("primitiveByteCol".toUpperCase(), INT8, false),
                 new Column("primitiveShortCol".toUpperCase(), INT16, false),
                 new Column("primitiveIntCol".toUpperCase(), INT32, false),
                 new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
                 new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
 
+                new Column("booleanCol".toUpperCase(), BOOLEAN, true),
                 new Column("byteCol".toUpperCase(), INT8, true),
                 new Column("shortCol".toUpperCase(), INT16, true),
                 new Column("intCol".toUpperCase(), INT32, true),

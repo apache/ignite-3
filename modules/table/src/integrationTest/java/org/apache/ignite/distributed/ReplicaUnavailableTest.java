@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.NODE_PORT_BASE;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.startNode;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
@@ -117,10 +118,13 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         // This test is run without Meta storage.
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of()));
 
-        replicaManager = new ReplicaManager(clusterService,
+        replicaManager = new ReplicaManager(
+                name,
+                clusterService,
                 cmgManager,
                 clock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class));
+                Set.of(TableMessageGroup.class, TxMessageGroup.class)
+        );
 
         replicaManager.start();
     }
@@ -196,7 +200,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     try {
                         log.info("Replica msg " + message.getClass().getSimpleName());
 
-                        replicaManager.stopReplica(tablePartitionId).join();
+                        assertThat(replicaManager.stopReplica(tablePartitionId), willSucceedFast());
                     } catch (NodeStoppingException e) {
                         throw new RuntimeException(e);
                     }

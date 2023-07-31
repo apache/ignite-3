@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -31,16 +32,22 @@ import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Default implementation of {@link NodeEventCallback}.
  */
 public class DefaultNodeCallback extends NodeEventCallback {
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultNodeCallback.class);
+
     private final DeploymentUnitStore deploymentUnitStore;
 
     private final DeployMessagingService messaging;
 
     private final FileDeployerService deployer;
+
+    private final DeploymentUnitAcquiredWaiter undeployer;
 
     private final DownloadTracker tracker;
 
@@ -54,6 +61,7 @@ public class DefaultNodeCallback extends NodeEventCallback {
      * @param deploymentUnitStore Deployment units store.
      * @param messaging Deployment messaging service.
      * @param deployer Deployment unit file system service.
+     * @param undeployer Deployment unit undeployer.
      * @param cmgManager Cluster management group manager.
      * @param nodeName Node consistent ID.
      */
@@ -61,6 +69,7 @@ public class DefaultNodeCallback extends NodeEventCallback {
             DeploymentUnitStore deploymentUnitStore,
             DeployMessagingService messaging,
             FileDeployerService deployer,
+            DeploymentUnitAcquiredWaiter undeployer,
             DownloadTracker tracker,
             ClusterManagementGroupManager cmgManager,
             String nodeName
@@ -68,6 +77,7 @@ public class DefaultNodeCallback extends NodeEventCallback {
         this.deploymentUnitStore = deploymentUnitStore;
         this.messaging = messaging;
         this.deployer = deployer;
+        this.undeployer = undeployer;
         this.tracker = tracker;
         this.cmgManager = cmgManager;
         this.nodeName = nodeName;
@@ -77,7 +87,17 @@ public class DefaultNodeCallback extends NodeEventCallback {
     public void onUploading(String id, Version version, List<UnitNodeStatus> holders) {
         tracker.track(id, version,
                 () -> messaging.downloadUnitContent(id, version, new ArrayList<>(getDeployedNodeIds(holders)))
-                        .thenCompose(content -> deployer.deploy(id, version, content))
+                        .thenCompose(content -> {
+                            org.apache.ignite.internal.deployunit.DeploymentUnit unit = UnitContent.toDeploymentUnit(content);
+                            return deployer.deploy(id, version, unit)
+                                    .whenComplete((deployed, err) -> {
+                                        try {
+                                            unit.close();
+                                        } catch (Exception e) {
+                                            LOG.error("Failed to close deployment unit", e);
+                                        }
+                                    });
+                        })
                         .thenApply(deployed -> {
                             if (deployed) {
                                 return deploymentUnitStore.updateNodeStatus(nodeName, id, version, DEPLOYED);
@@ -102,8 +122,7 @@ public class DefaultNodeCallback extends NodeEventCallback {
 
     @Override
     public void onObsolete(String id, Version version, List<UnitNodeStatus> holders) {
-        //TODO: IGNITE-19708
-        deploymentUnitStore.updateNodeStatus(nodeName, id, version, REMOVING);
+        undeployer.submitToAcquireRelease(new DeploymentUnit(id, version));
     }
 
     @Override

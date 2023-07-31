@@ -34,7 +34,9 @@ using namespace ignite;
  */
 struct test_key_type {
     test_key_type() = default;
-    explicit test_key_type(std::int64_t key) : key(key) {}
+
+    explicit test_key_type(std::int64_t key)
+        : key(key) {}
 
     std::int64_t key{0};
 };
@@ -44,11 +46,12 @@ struct test_key_type {
  */
 struct test_value_type {
     test_value_type() = default;
-    explicit test_value_type(std::string val) : val(std::move(val)) {}
+
+    explicit test_value_type(std::string val)
+        : val(std::move(val)) {}
 
     std::string val;
 };
-
 
 namespace ignite {
 
@@ -62,7 +65,7 @@ ignite_tuple convert_to_tuple(test_key_type &&value) {
 }
 
 template<>
-test_key_type convert_from_tuple(ignite_tuple&& value) {
+test_key_type convert_from_tuple(ignite_tuple &&value) {
     test_key_type res;
 
     res.key = value.get<std::int64_t>("key");
@@ -80,7 +83,7 @@ ignite_tuple convert_to_tuple(test_value_type &&value) {
 }
 
 template<>
-test_value_type convert_from_tuple(ignite_tuple&& value) {
+test_value_type convert_from_tuple(ignite_tuple &&value) {
     test_value_type res;
 
     res.val = value.get<std::string>("val");
@@ -88,7 +91,7 @@ test_value_type convert_from_tuple(ignite_tuple&& value) {
     return res;
 }
 
-}
+} // namespace ignite
 
 /**
  * Test suite.
@@ -176,7 +179,10 @@ TEST_F(key_value_view_test, get_all_empty) {
 TEST_F(key_value_view_test, get_all_nonexisting) {
     auto res = kv_view.get_all(nullptr, {test_key_type(-42)});
 
-    ASSERT_TRUE(res.empty());
+    ASSERT_FALSE(res.empty());
+
+    EXPECT_EQ(res.size(), 1);
+    EXPECT_EQ(res.front(), std::nullopt);
 }
 
 TEST_F(key_value_view_test, put_all_empty_no_throw) {
@@ -184,11 +190,11 @@ TEST_F(key_value_view_test, put_all_empty_no_throw) {
 }
 
 TEST_F(key_value_view_test, put_all_get_all) {
-    static constexpr std::size_t records_num = 10;
+    static constexpr std::int64_t records_num = 10;
 
     std::vector<std::pair<test_key_type, test_value_type>> records;
     records.reserve(records_num);
-    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
+    for (std::int64_t i = 1; i < 1 + records_num; ++i)
         records.emplace_back(i, "Val" + std::to_string(i));
 
     std::vector<test_key_type> keys;
@@ -198,22 +204,27 @@ TEST_F(key_value_view_test, put_all_get_all) {
     kv_view.put_all(nullptr, records);
     auto res = kv_view.get_all(nullptr, keys);
 
-    // TODO: Key order should be preserved by the server (IGNITE-16004).
-    EXPECT_EQ(res.size(), 2);
+    ASSERT_EQ(res.size(), keys.size());
 
-    ASSERT_TRUE(res[0].has_value());
-    EXPECT_EQ("Val9", res[0]->val);
+    for (std::size_t i = 0; i < keys.size(); ++i) {
+        auto key = keys[i];
+        auto val = res[i];
 
-    ASSERT_TRUE(res[1].has_value());
-    EXPECT_EQ("Val10", res[1]->val);
+        if (key.key <= records_num) {
+            ASSERT_TRUE(val.has_value()) << "Key = " << key.key;
+            EXPECT_EQ("Val" + std::to_string(key.key), val->val);
+        } else {
+            ASSERT_FALSE(val.has_value()) << "Key = " << key.key << ", Res = " << val->val;
+        }
+    }
 }
 
 TEST_F(key_value_view_test, put_all_get_all_async) {
-    static constexpr std::size_t records_num = 10;
+    static constexpr std::int64_t records_num = 10;
 
     std::vector<std::pair<test_key_type, test_value_type>> records;
     records.reserve(records_num);
-    for (std::int64_t i = 1; i < 1 + std::int64_t(records_num); ++i)
+    for (std::int64_t i = 1; i < 1 + records_num; ++i)
         records.emplace_back(i, "Val" + std::to_string(i));
 
     std::vector<test_key_type> keys;
@@ -226,19 +237,24 @@ TEST_F(key_value_view_test, put_all_get_all_async) {
         if (!check_and_set_operation_error(*all_done, res))
             return;
 
-        // TODO: Key order should be preserved by the server (IGNITE-16004).
         kv_view.get_all_async(nullptr, keys, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
     });
 
     auto res = all_done->get_future().get();
 
-    EXPECT_EQ(res.size(), 2);
+    ASSERT_EQ(res.size(), keys.size());
 
-    ASSERT_TRUE(res[0].has_value());
-    EXPECT_EQ("Val9", res[0]->val);
+    for (std::size_t i = 0; i < keys.size(); ++i) {
+        auto key = keys[i];
+        auto val = res[i];
 
-    ASSERT_TRUE(res[1].has_value());
-    EXPECT_EQ("Val10", res[1]->val);
+        if (key.key <= records_num) {
+            ASSERT_TRUE(val.has_value()) << "Key = " << key.key;
+            EXPECT_EQ("Val" + std::to_string(key.key), val->val);
+        } else {
+            ASSERT_FALSE(val.has_value()) << "Key = " << key.key << ", Res = " << val->val;
+        }
+    }
 }
 
 TEST_F(key_value_view_test, get_and_put_new_record) {
@@ -282,8 +298,7 @@ TEST_F(key_value_view_test, get_and_put_existing_record_async) {
         if (res.value().has_value())
             first->set_exception(std::make_exception_ptr(ignite_error("Expected nullopt on first insertion")));
 
-        kv_view.get_and_put_async(
-            nullptr, key, val2, [&](auto res) { result_set_promise(*first, std::move(res)); });
+        kv_view.get_and_put_async(nullptr, key, val2, [&](auto res) { result_set_promise(*first, std::move(res)); });
     });
 
     auto res = first->get_future().get();
@@ -549,7 +564,8 @@ TEST_F(key_value_view_test, remove_existing_async) {
         if (!res.value())
             all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
 
-        kv_view.remove_async(nullptr, test_key_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+        kv_view.remove_async(
+            nullptr, test_key_type(42), [&](auto res) { result_set_promise(*all_done, std::move(res)); });
     });
 
     auto res = all_done->get_future().get();
@@ -591,8 +607,7 @@ TEST_F(key_value_view_test, remove_exact_existing_async) {
         if (res.value())
             all_done->set_exception(std::make_exception_ptr(ignite_error("Expected false on second remove")));
 
-        kv_view.remove_async(
-            nullptr, key, val, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+        kv_view.remove_async(nullptr, key, val, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
     });
 
     auto res2 = all_done->get_future().get();
@@ -633,8 +648,7 @@ TEST_F(key_value_view_test, get_and_remove_existing_async) {
         if (!res.value())
             all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insertion")));
 
-        kv_view.get_and_remove_async(
-            nullptr, key, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+        kv_view.get_and_remove_async(nullptr, key, [&](auto res) { result_set_promise(*all_done, std::move(res)); });
     });
 
     auto res = all_done->get_future().get();
@@ -670,9 +684,8 @@ TEST_F(key_value_view_test, contains_async) {
             if (!res.value())
                 all_done->set_exception(std::make_exception_ptr(ignite_error("Expected true on insert")));
 
-            kv_view.contains_async(nullptr, test_key_type(1), [&](ignite_result<bool> &&res) {
-                result_set_promise(*all_done, std::move(res));
-            });
+            kv_view.contains_async(nullptr, test_key_type(1),
+                [&](ignite_result<bool> &&res) { result_set_promise(*all_done, std::move(res)); });
         });
     });
 
@@ -730,8 +743,8 @@ TEST_F(key_value_view_test, remove_all_empty) {
 }
 
 TEST_F(key_value_view_test, remove_all_exact_nonexisting) {
-    auto res = kv_view.remove_all(nullptr, {
-        {test_key_type(1), test_value_type("foo")}, {test_key_type(2), test_value_type("bar")}});
+    auto res = kv_view.remove_all(
+        nullptr, {{test_key_type(1), test_value_type("foo")}, {test_key_type(2), test_value_type("bar")}});
 
     // TODO: Key order should be preserved by the server (IGNITE-16004).
     ASSERT_EQ(2, res.size());
@@ -740,8 +753,8 @@ TEST_F(key_value_view_test, remove_all_exact_nonexisting) {
 TEST_F(key_value_view_test, remove_all_exact_overlapped) {
     kv_view.put_all(nullptr, {{test_key_type(1), test_value_type("foo")}, {test_key_type(2), test_value_type("bar")}});
 
-    auto res = kv_view.remove_all(nullptr, {
-        {test_key_type(1), test_value_type("baz")}, {test_key_type(2), test_value_type("bar")}});
+    auto res = kv_view.remove_all(
+        nullptr, {{test_key_type(1), test_value_type("baz")}, {test_key_type(2), test_value_type("bar")}});
 
     EXPECT_EQ(res.size(), 1);
     EXPECT_EQ(1, res.front().key);
@@ -754,13 +767,15 @@ TEST_F(key_value_view_test, remove_all_exact_overlapped) {
 TEST_F(key_value_view_test, remove_all_exact_overlapped_async) {
     auto all_done = std::make_shared<std::promise<std::vector<test_key_type>>>();
 
-    kv_view.put_all_async(nullptr, {{test_key_type(1), test_value_type("foo")}, {test_key_type(2), test_value_type("bar")}}, [&](auto res) {
-        if (!check_and_set_operation_error(*all_done, res))
-            return;
+    kv_view.put_all_async(nullptr,
+        {{test_key_type(1), test_value_type("foo")}, {test_key_type(2), test_value_type("bar")}}, [&](auto res) {
+            if (!check_and_set_operation_error(*all_done, res))
+                return;
 
-        kv_view.remove_all_async(nullptr, {{test_key_type(1), test_value_type("baz")}, {test_key_type(2), test_value_type("bar")}},
-            [&](auto res) { result_set_promise(*all_done, std::move(res)); });
-    });
+            kv_view.remove_all_async(nullptr,
+                {{test_key_type(1), test_value_type("baz")}, {test_key_type(2), test_value_type("bar")}},
+                [&](auto res) { result_set_promise(*all_done, std::move(res)); });
+        });
 
     auto res = all_done->get_future().get();
     EXPECT_EQ(res.size(), 1);

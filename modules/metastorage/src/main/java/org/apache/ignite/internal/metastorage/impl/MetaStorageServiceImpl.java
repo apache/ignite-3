@@ -39,6 +39,7 @@ import org.apache.ignite.internal.metastorage.command.GetAndPutCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.GetAndRemoveCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
+import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
@@ -276,10 +277,10 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      * @param safeTime New safe time.
      * @return Future that will be completed when message is sent.
      */
-    public CompletableFuture<Void> syncTime(HybridTimestamp safeTime) {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19199 Only propagate safe time when ms is idle
+    public CompletableFuture<Void> syncTime(HybridTimestamp safeTime, long term) {
         SyncTimeCommand syncTimeCommand = context.commandsFactory().syncTimeCommand()
                 .safeTimeLong(safeTime.longValue())
+                .initiatorTerm(term)
                 .build();
 
         return context.raftService().run(syncTimeCommand);
@@ -289,6 +290,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public CompletableFuture<Void> compact() {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public CompletableFuture<Long> currentRevision() {
+        GetCurrentRevisionCommand cmd = context.commandsFactory().getCurrentRevisionCommand().build();
+
+        return context.raftService().run(cmd);
     }
 
     @Override

@@ -42,6 +42,7 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -54,7 +55,10 @@ import org.jetbrains.annotations.TestOnly;
  * The another role of the manager is providing a node, which is leaseholder at the moment, for a particular replication group.
  */
 public class PlacementDriverManager implements IgniteComponent {
-    public static final String PLACEMENTDRIVER_PREFIX = "placementdriver.lease.";
+    public static final String PLACEMENTDRIVER_LEASES_KEY_STRING = "placementdriver.leases";
+
+    public static final ByteArray PLACEMENTDRIVER_LEASES_KEY = ByteArray.fromString(PLACEMENTDRIVER_LEASES_KEY_STRING);
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -84,8 +88,6 @@ public class PlacementDriverManager implements IgniteComponent {
 
     /** Lease updater. */
     private final LeaseUpdater leaseUpdater;
-
-    private volatile boolean isActiveActor;
 
     /**
      * The constructor.
@@ -198,6 +200,8 @@ public class PlacementDriverManager implements IgniteComponent {
         busyLock.block();
 
         withRaftClientIfPresent(TopologyAwareRaftGroupService::shutdown);
+
+        leaseUpdater.deactivate();
     }
 
     private void withRaftClientIfPresent(Consumer<TopologyAwareRaftGroupService> closure) {
@@ -208,7 +212,7 @@ public class PlacementDriverManager implements IgniteComponent {
         });
     }
 
-    private void onLeaderChange(ClusterNode leader, Long term) {
+    private void onLeaderChange(ClusterNode leader, long term) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
@@ -232,8 +236,6 @@ public class PlacementDriverManager implements IgniteComponent {
     private void takeOverActiveActor() {
         LOG.info("Placement driver active actor is starting.");
 
-        isActiveActor = true;
-
         leaseUpdater.activate();
     }
 
@@ -244,13 +246,11 @@ public class PlacementDriverManager implements IgniteComponent {
     private void stepDownActiveActor() {
         LOG.info("Placement driver active actor is stopping.");
 
-        isActiveActor = false;
-
         leaseUpdater.deactivate();
     }
 
     @TestOnly
     boolean isActiveActor() {
-        return isActiveActor;
+        return leaseUpdater.active();
     }
 }

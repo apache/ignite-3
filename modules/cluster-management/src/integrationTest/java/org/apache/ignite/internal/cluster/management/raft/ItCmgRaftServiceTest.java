@@ -128,7 +128,7 @@ public class ItCmgRaftServiceTest {
                 if (serverPeer == null) {
                     raftService = raftManager.startRaftGroupService(CmgGroupId.INSTANCE, configuration);
                 } else {
-                    raftService = raftManager.startRaftGroupNode(
+                    raftService = raftManager.startRaftGroupNodeAndWaitNodeReadyFuture(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             configuration,
                             new CmgRaftGroupListener(

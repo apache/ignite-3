@@ -56,6 +56,7 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,7 +69,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests to verify {@link SqlSchemaManagerImpl}.
  */
 @ExtendWith(MockitoExtension.class)
-public class SqlSchemaManagerTest {
+public class SqlSchemaManagerTest extends BaseIgniteAbstractTest {
     private final int tableId = 1;
 
     private final int indexId = 2;
@@ -202,7 +203,7 @@ public class SqlSchemaManagerTest {
 
         IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
 
-        assertEquals(igniteTable.id(), igniteIndex.index().tableId());
+        assertEquals(igniteTable.id(), igniteIndex.tableId());
         assertSame(igniteIndex, igniteTable.indexes().get("PUBLIC.I"));
 
         sqlSchemaManager.onIndexDropped("PUBLIC", igniteTable.id(), indexId, testRevisionRegister.actualToken() + 1);

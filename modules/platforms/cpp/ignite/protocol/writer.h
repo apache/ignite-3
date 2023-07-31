@@ -26,10 +26,10 @@
 
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
 #include <msgpack.h>
 #include <string_view>
-#include <map>
 
 namespace ignite::protocol {
 
@@ -141,6 +141,13 @@ public:
             msgpack_pack_str_with_body(m_packer.get(), pair.second.data(), pair.second.size());
         }
     }
+
+    /**
+     * Write array header.
+     *
+     * @param size Size of the array.
+     */
+    void write_array_header(std::size_t size) { msgpack_pack_array(m_packer.get(), size); }
 
     /**
      * Write bitset.

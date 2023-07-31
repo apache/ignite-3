@@ -34,8 +34,6 @@ import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,8 +42,6 @@ import org.junit.jupiter.api.BeforeEach;
  * Tests for the {@link DistributedConfigurationStorage}.
  */
 public class DistributedConfigurationStorageTest extends ConfigurationStorageTest {
-    private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
-
     private final KeyValueStorage metaStorage = new SimpleInMemoryKeyValueStorage("test");
 
     private final MetaStorageManager metaStorageManager = mockMetaStorageManager();
@@ -55,7 +51,6 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
      */
     @BeforeEach
     void start() {
-        vaultManager.start();
         metaStorage.start();
         metaStorageManager.start();
     }
@@ -67,13 +62,12 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
     void stop() throws Exception {
         metaStorageManager.stop();
         metaStorage.close();
-        vaultManager.stop();
     }
 
     /** {@inheritDoc} */
     @Override
     public ConfigurationStorage getStorage() {
-        return new DistributedConfigurationStorage(metaStorageManager, vaultManager);
+        return new DistributedConfigurationStorage(metaStorageManager);
     }
 
     /**

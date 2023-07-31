@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.marshaller;
 
 import static org.apache.ignite.internal.schema.DefaultValueProvider.constantProvider;
+import static org.apache.ignite.internal.schema.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -117,7 +118,7 @@ public class KvMarshallerTest {
 
     @TestFactory
     public Stream<DynamicNode> basicTypes() {
-        NativeType[] types = new NativeType[]{INT8, INT16, INT32, INT64, FLOAT, DOUBLE, UUID, STRING, BYTES,
+        NativeType[] types = new NativeType[]{BOOLEAN, INT8, INT16, INT32, INT64, FLOAT, DOUBLE, UUID, STRING, BYTES,
                 NativeTypes.bitmaskOf(5), NativeTypes.numberOf(42), NativeTypes.decimalOf(12, 3)};
 
         return marshallerFactoryProvider().stream().map(factory ->
@@ -499,9 +500,9 @@ public class KvMarshallerTest {
         BinaryRow row4 = marshaller4.marshal(1L, new TestPojoWrapper(serializedPojo));
 
         // Verify all rows are equivalent.
-        assertArrayEquals(row.bytes(), row2.bytes());
-        assertArrayEquals(row.bytes(), row3.bytes());
-        assertArrayEquals(row.bytes(), row4.bytes());
+        assertEquals(row, row2);
+        assertEquals(row, row3);
+        assertEquals(row, row4);
 
         // Check key.
         assertEquals(1L, marshaller1.unmarshalKey(new Row(schema, row)));
@@ -627,6 +628,7 @@ public class KvMarshallerTest {
 
     private Column[] columnsAllTypes(boolean nullable) {
         Column[] cols = new Column[]{
+                new Column("primitiveBooleanCol".toUpperCase(), BOOLEAN, false, constantProvider(true)),
                 new Column("primitiveByteCol".toUpperCase(), INT8, false, constantProvider((byte) 0x42)),
                 new Column("primitiveShortCol".toUpperCase(), INT16, false, constantProvider((short) 0x4242)),
                 new Column("primitiveIntCol".toUpperCase(), INT32, false, constantProvider(0x42424242)),
@@ -634,6 +636,7 @@ public class KvMarshallerTest {
                 new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
                 new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
 
+                new Column("booleanCol".toUpperCase(), BOOLEAN, nullable),
                 new Column("byteCol".toUpperCase(), INT8, nullable),
                 new Column("shortCol".toUpperCase(), INT16, nullable),
                 new Column("intCol".toUpperCase(), INT32, nullable),

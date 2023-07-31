@@ -17,7 +17,8 @@
 
 package org.apache.ignite.distributed;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,7 +42,6 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -213,9 +213,6 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             public void onError(Throwable throwable) {
                 gotException.set(throwable);
                 subscriberFinishedLatch.countDown();
-
-                // Rollback the transaction manually, because only ID of the explicit transaction is passed to the internal table.
-                tx.rollback();
             }
 
             @Override
@@ -263,9 +260,6 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             public void onError(Throwable throwable) {
                 gotException.set(throwable);
                 gotExceptionLatch.countDown();
-
-                // Rollback the transaction manually, because only ID of the explicit transaction is passed to the internal table.
-                tx.rollback();
             }
 
             @Override
@@ -448,14 +442,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
 
         subscriberAllDataAwaitLatch.await();
 
-        assertEquals(submittedItems.size(), retrievedItems.size());
-
-        List<byte[]> expItems = submittedItems.stream().map(BinaryRow::bytes).collect(Collectors.toList());
-        List<byte[]> gotItems = retrievedItems.stream().map(BinaryRow::bytes).collect(Collectors.toList());
-
-        for (int i = 0; i < expItems.size(); i++) {
-            assertArrayEquals(expItems.get(i), gotItems.get(i));
-        }
+        assertThat(submittedItems, is(retrievedItems));
 
         if (tx != null) {
             tx.commit();

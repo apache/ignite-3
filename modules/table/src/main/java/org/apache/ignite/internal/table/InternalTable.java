@@ -103,10 +103,12 @@ public interface InternalTable extends ManuallyCloseable {
      * Asynchronously get rows from the table.
      *
      * @param keyRows Rows with key columns set.
-     * @param tx      The transaction.
-     * @return Future representing pending completion of the operation.
+     * @param tx      Transaction or {@code null} to auto-commit.
+     * @return Future that will return rows with all columns filled from the table. The order of collection elements is
+     *      guaranteed to be the same as the order of {@code keyRows}. If a record does not exist, the
+     *      element at the corresponding index of the resulting collection is {@code null}.
      */
-    CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @Nullable InternalTransaction tx);
+    CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @Nullable InternalTransaction tx);
 
     /**
      * Asynchronously get rows from the table for the proposed read timestamp.
@@ -114,9 +116,11 @@ public interface InternalTable extends ManuallyCloseable {
      * @param keyRows       Rows with key columns set.
      * @param readTimestamp Read timestamp.
      * @param recipientNode Cluster node that will handle given get request.
-     * @return Future representing pending completion of the operation.
+     * @return Future that will return rows with all columns filled from the table. The order of collection elements is
+     *      guaranteed to be the same as the order of {@code keyRows}. If a record does not exist, the
+     *      element at the corresponding index of the resulting collection is {@code null}.
      */
-    CompletableFuture<Collection<BinaryRow>> getAll(
+    CompletableFuture<List<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
@@ -422,7 +426,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return List of current primary replicas for each partition.
      */
-    List<PrimaryReplica> primaryReplicas();
+    CompletableFuture<List<PrimaryReplica>> primaryReplicas();
 
     /**
      * Returns cluster node that is the leader of the corresponding partition group or throws an exception if

@@ -25,24 +25,20 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
-import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
@@ -133,7 +129,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
                 .clusterName("cluster")
                 .build();
 
-        IgnitionManager.init(initParameters);
+        TestIgnitionManager.init(initParameters);
 
         assertThat(future, willCompleteSuccessfully());
 
@@ -181,7 +177,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         res = internalTable.get(keyValueRow, node.clock().now(), node.node()).get();
 
-        assertEquals(res.byteBuffer(), keyValueRow.byteBuffer());
+        assertRowEquals(res, keyValueRow);
     }
 
     @Test
@@ -213,7 +209,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
-        assertEquals(res.byteBuffer(), keyValueRow2.byteBuffer());
+        assertRowEquals(res, keyValueRow2);
     }
 
     @Test
@@ -247,9 +243,9 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         CountDownLatch latch = new CountDownLatch(1);
 
-        List<ByteBuffer> list = new ArrayList<>();
+        List<BinaryRow> list = new ArrayList<>();
 
-        res.subscribe(new Subscriber<BinaryRow>() {
+        res.subscribe(new Subscriber<>() {
             @Override
             public void onSubscribe(Subscription subscription) {
                 subscription.request(100);
@@ -257,7 +253,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
             @Override
             public void onNext(BinaryRow item) {
-                list.add(item.byteBuffer());
+                list.add(item);
             }
 
             @Override
@@ -274,7 +270,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         assertEquals(1, list.size());
 
-        assertEquals(list.get(0), keyValueRow2.byteBuffer());
+        assertRowEquals(list.get(0), keyValueRow2);
     }
 
     @Test
@@ -302,13 +298,13 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         BinaryRow res = internalTable.get(keyValueRow, node.clock().now(), node.node()).get();
 
-        assertEquals(res.byteBuffer(), keyValueRow.byteBuffer());
+        assertRowEquals(res, keyValueRow);
 
         tx2.commit();
 
         res = internalTable.get(keyValueRow, node.clock().now(), node.node()).get();
 
-        assertEquals(res.byteBuffer(), keyValueRow2.byteBuffer());
+        assertRowEquals(res, keyValueRow2);
     }
 
     @Test
@@ -321,13 +317,13 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         Row keyValueRow2 = createKeyValueRow(2, 2, "some string row" + 2);
         Row keyValueRow3 = createKeyValueRow(3, 3, "some string row" + 3);
 
-        Set<BinaryRowEx> rowsToSearch = Set.of(keyValueRow1, keyValueRow2, keyValueRow3);
+        List<BinaryRowEx> rowsToSearch = List.of(keyValueRow1, keyValueRow2, keyValueRow3);
 
         KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
 
-        Collection<BinaryRow> res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
+        List<BinaryRow> res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
 
-        assertEquals(res.size(), 3);
+        assertEquals(3, res.size());
 
         node.transactions().runInTransaction(txs -> {
             for (int i = 0; i < 15; i++) {
@@ -337,13 +333,11 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
 
-        assertEquals(res.size(), 3);
+        assertEquals(3, res.size());
 
-        Set<ByteBuffer> resultKeys = res.stream().map(BinaryRow::byteBuffer).collect(Collectors.toSet());
-
-        assertTrue(resultKeys.contains(keyValueRow1.byteBuffer()));
-        assertTrue(resultKeys.contains(keyValueRow2.byteBuffer()));
-        assertTrue(resultKeys.contains(keyValueRow3.byteBuffer()));
+        for (int i = 0; i < 3; i++) {
+            assertRowEquals(res.get(i), rowsToSearch.get(i));
+        }
     }
 
     @Test
@@ -356,25 +350,23 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         Row keyValueRow2 = createKeyValueRow(2, 2, "some string row" + 2);
         Row keyValueRow3 = createKeyValueRow(3, 3, "some string row" + 3);
 
-        Set<BinaryRowEx> rowsToSearch = Set.of(keyValueRow1, keyValueRow2, keyValueRow3);
+        List<BinaryRowEx> rowsToSearch = List.of(keyValueRow1, keyValueRow2, keyValueRow3);
 
         KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
 
-        Collection<BinaryRow> res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
+        List<BinaryRow> res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
 
-        assertEquals(res.size(), 3);
+        assertEquals(3, res.size());
 
         populateData(node(), keyValueView, false);
 
         res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
 
-        assertEquals(res.size(), 3);
+        assertEquals(3, res.size());
 
-        Set<ByteBuffer> resultKeys = res.stream().map(BinaryRow::byteBuffer).collect(Collectors.toSet());
-
-        assertTrue(resultKeys.contains(keyValueRow1.byteBuffer()));
-        assertTrue(resultKeys.contains(keyValueRow2.byteBuffer()));
-        assertTrue(resultKeys.contains(keyValueRow3.byteBuffer()));
+        for (int i = 0; i < 3; i++) {
+            assertRowEquals(res.get(i), rowsToSearch.get(i));
+        }
 
         node.transactions().runInTransaction(txs -> {
             for (int i = 0; i < 15; i++) {
@@ -388,13 +380,11 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
 
-        assertEquals(res.size(), 3);
+        assertEquals(3, res.size());
 
-        resultKeys = res.stream().map(BinaryRow::byteBuffer).collect(Collectors.toSet());
-
-        assertTrue(resultKeys.contains(newKeyValueRow1.byteBuffer()));
-        assertTrue(resultKeys.contains(newKeyValueRow2.byteBuffer()));
-        assertTrue(resultKeys.contains(newKeyValueRow3.byteBuffer()));
+        assertRowEquals(res.get(0), newKeyValueRow1);
+        assertRowEquals(res.get(1), newKeyValueRow2);
+        assertRowEquals(res.get(2), newKeyValueRow3);
     }
 
     @Test
@@ -480,7 +470,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
     }
 
     private static Row createKeyValueRow(long id, int value, String str) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA_1, false, -1);
+        RowAssembler rowBuilder = new RowAssembler(SCHEMA_1, -1);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendInt(value);
@@ -553,5 +543,11 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
     protected static IgniteImpl node() {
         return (IgniteImpl) NODE;
+    }
+
+    private static void assertRowEquals(BinaryRow row1, BinaryRow row2) {
+        assertThat(row1.schemaVersion(), is(row2.schemaVersion()));
+        assertThat(row1.hasValue(), is(row2.hasValue()));
+        assertThat(row1.tupleSlice(), is(row2.tupleSlice()));
     }
 }

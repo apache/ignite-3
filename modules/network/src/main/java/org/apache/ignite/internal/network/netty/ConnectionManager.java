@@ -46,6 +46,7 @@ import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManage
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ChannelType;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.jetbrains.annotations.Nullable;
@@ -54,7 +55,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Class that manages connections both incoming and outgoing.
  */
-public class ConnectionManager {
+public class ConnectionManager implements ChannelCreationListener {
     /** Message factory. */
     private static final NetworkMessagesFactory FACTORY = new NetworkMessagesFactory();
 
@@ -92,10 +93,12 @@ public class ConnectionManager {
     private final StaleIdDetector staleIdDetector;
 
     /** Factory producing {@link RecoveryClientHandshakeManager} instances. */
-    private final RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory;
+    private final @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory;
 
     /** Start flag. */
     private final AtomicBoolean started = new AtomicBoolean(false);
+
+    private final AtomicBoolean stopping = new AtomicBoolean(false);
 
     /** Stop flag. */
     private final AtomicBoolean stopped = new AtomicBoolean(false);
@@ -131,7 +134,7 @@ public class ConnectionManager {
                 consistentId,
                 bootstrapFactory,
                 staleIdDetector,
-                new DefaultRecoveryClientHandshakeManagerFactory(staleIdDetector)
+                null
         );
     }
 
@@ -153,7 +156,7 @@ public class ConnectionManager {
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
-            RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory
+            @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory
     ) {
         this.serializationService = serializationService;
         this.launchId = launchId;
@@ -165,7 +168,6 @@ public class ConnectionManager {
         this.server = new NettyServer(
                 networkConfiguration,
                 this::createServerHandshakeManager,
-                this::onNewIncomingChannel,
                 this::onMessage,
                 serializationService,
                 bootstrapFactory
@@ -221,6 +223,7 @@ public class ConnectionManager {
      * @return Sender.
      */
     public OrderingFuture<NettySender> channel(@Nullable String consistentId, ChannelType type, InetSocketAddress address) {
+        // Problem is we can't look up a channel by consistent id because consistent id is not known yet.
         if (consistentId != null) {
             // If consistent id is known, try looking up a channel by consistent id. There can be an outbound connection
             // or an inbound connection associated with that consistent id.
@@ -234,13 +237,17 @@ public class ConnectionManager {
             }
         }
 
-        // Get an existing client or create a new one. NettyClient provides a CompletableFuture that resolves
+        // Get an existing client or create a new one. NettyClient provides a future that resolves
         // when the client is ready for write operations, so previously started client, that didn't establish connection
         // or didn't perform the handshake operation, can be reused.
-        NettyClient client = clients.compute(
+        @Nullable NettyClient client = clients.compute(
                 new ConnectorKey<>(address, type),
                 (key, existingClient) -> isClientConnected(existingClient) ? existingClient : connect(key.id(), key.type())
         );
+
+        if (client == null) {
+            return OrderingFuture.failedFuture(new NodeStoppingException("No outgoing connections are allowed as the node is stopping"));
+        }
 
         return client.sender();
     }
@@ -263,22 +270,28 @@ public class ConnectionManager {
      *
      * @param channel Channel from client to this {@link #server}.
      */
-    private void onNewIncomingChannel(NettySender channel) {
+    @Override
+    public void handshakeFinished(NettySender channel) {
         ConnectorKey<String> key = new ConnectorKey<>(channel.consistentId(), getChannel(channel.channelId()));
         NettySender oldChannel = channels.put(key, channel);
 
-        if (oldChannel != null) {
-            oldChannel.close();
-        }
+        // Old channel can still be in the map, but it must be closed already by the tie breaker in the
+        // handshake manager.
+        assert oldChannel == null || !oldChannel.isOpen() : "Incorrect channel creation flow";
     }
 
     /**
      * Create new client from this node to specified address.
      *
      * @param address Target address.
-     * @return New netty client.
+     * @return New netty client or {@code null} if we are stopping.
      */
+    @Nullable
     private NettyClient connect(InetSocketAddress address, ChannelType channelType) {
+        if (stopping.get()) {
+            return null;
+        }
+
         var client = new NettyClient(
                 address,
                 serializationService,
@@ -288,10 +301,7 @@ public class ConnectionManager {
         );
 
         client.start(clientBootstrap).whenComplete((sender, throwable) -> {
-            if (throwable == null) {
-                ConnectorKey<String> key = new ConnectorKey<>(sender.consistentId(), getChannel(sender.channelId()));
-                channels.put(key, sender);
-            } else {
+            if (throwable != null) {
                 clients.remove(new ConnectorKey<>(address, channelType));
             }
         });
@@ -344,6 +354,18 @@ public class ConnectionManager {
     }
 
     private HandshakeManager createClientHandshakeManager(short connectionId) {
+        if (clientHandshakeManagerFactory == null) {
+            return new RecoveryClientHandshakeManager(
+                    launchId,
+                    consistentId,
+                    connectionId,
+                    descriptorProvider,
+                    staleIdDetector,
+                    this,
+                    stopping
+            );
+        }
+
         return clientHandshakeManagerFactory.create(
                 launchId,
                 consistentId,
@@ -353,7 +375,15 @@ public class ConnectionManager {
     }
 
     private HandshakeManager createServerHandshakeManager() {
-        return new RecoveryServerHandshakeManager(launchId, consistentId, FACTORY, descriptorProvider, staleIdDetector);
+        return new RecoveryServerHandshakeManager(
+                launchId,
+                consistentId,
+                FACTORY,
+                descriptorProvider,
+                staleIdDetector,
+                this,
+                stopping
+        );
     }
 
     /**
@@ -391,22 +421,20 @@ public class ConnectionManager {
     }
 
     /**
-     * Factory producing vanilla {@link RecoveryClientHandshakeManager} instances.
+     * Returns collection of all channels of this connection manager.
+     *
+     * @return Collection of all channels of this connection manager.
      */
-    private static class DefaultRecoveryClientHandshakeManagerFactory implements RecoveryClientHandshakeManagerFactory {
-        private final StaleIdDetector staleIdDetector;
+    @TestOnly
+    public Map<ConnectorKey<String>, NettySender> channels() {
+        return Map.copyOf(channels);
+    }
 
-        private DefaultRecoveryClientHandshakeManagerFactory(StaleIdDetector staleIdDetector) {
-            this.staleIdDetector = staleIdDetector;
-        }
-
-        @Override
-        public RecoveryClientHandshakeManager create(UUID launchId,
-                String consistentId,
-                short connectionId,
-                RecoveryDescriptorProvider recoveryDescriptorProvider
-        ) {
-            return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, recoveryDescriptorProvider, staleIdDetector);
-        }
+    /**
+     * Marks this connection manager as being stopped. In this state, it does not make any new connections, does not accept any connections
+     * and does not consider handshake rejections as critical events.
+     */
+    public void initiateStopping() {
+        stopping.set(true);
     }
 }

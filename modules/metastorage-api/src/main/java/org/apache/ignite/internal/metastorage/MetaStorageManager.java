@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
@@ -65,6 +67,9 @@ public interface MetaStorageManager extends IgniteComponent {
      * Returns all entries corresponding to the given key and bounded by given revisions.
      * All these entries are ordered by revisions and have the same key.
      * The lower bound and the upper bound are inclusive.
+     *
+     * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
+     * up to user to wait for the appropriate time to call this method.
      * TODO: IGNITE-19735 move this method to another interface for interaction with local KeyValueStorage.
      *
      * @param key The key.
@@ -74,6 +79,42 @@ public interface MetaStorageManager extends IgniteComponent {
      */
     @Deprecated
     List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound);
+
+    /**
+     * Returns an entry by the given key and bounded by the given revision. The entry is obtained
+     * from the local storage.
+     *
+     * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
+     * up to user to wait for the appropriate time to call this method.
+     *
+     * @param key The key.
+     * @param revUpperBound The upper bound of revision.
+     * @return Value corresponding to the given key.
+     */
+    Entry getLocally(ByteArray key, long revUpperBound);
+
+    /**
+     * Returns cursor by entries which correspond to the given keys range and bounded by revision number. The entries in the cursor
+     * are obtained from the local storage.
+     *
+     * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
+     * up to user to wait for the appropriate time to call this method.
+     *
+     * @param startKey Start key of range (inclusive).
+     * @param endKey Last key of range (exclusive).
+     * @param revUpperBound Upper bound of revision.
+     * @return Cursor by entries which correspond to the given keys range.
+     */
+    Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revUpperBound);
+
+    /**
+     * Looks up a timestamp by a revision. This should only be invoked if it is guaranteed that the
+     * revision is available in the local storage. This method always operates locally.
+     *
+     * @param revision Revision by which to do a lookup.
+     * @return Timestamp corresponding to the revision.
+     */
+    HybridTimestamp timestampByRevision(long revision);
 
     /**
      * Retrieves entries for given keys.
@@ -89,6 +130,16 @@ public interface MetaStorageManager extends IgniteComponent {
      * Inserts or updates entries with given keys and given values.
      */
     CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals);
+
+    /**
+     * Removes an entry for the given key.
+     */
+    CompletableFuture<Void> remove(ByteArray key);
+
+    /**
+     * Removes entries for given keys.
+     */
+    CompletableFuture<Void> removeAll(Set<ByteArray> keys);
 
     /**
      * Retrieves entries for the given key prefix in lexicographic order. Shortcut for {@link #prefix(ByteArray, long)} where
@@ -196,4 +247,16 @@ public interface MetaStorageManager extends IgniteComponent {
      * @return Cluster time.
      */
     ClusterTime clusterTime();
+
+    /**
+     * Returns a future which completes when MetaStorage manager finished local recovery.
+     * The value of the future is the revision which must be used for state recovery by other components.
+     */
+    CompletableFuture<Long> recoveryFinishedFuture();
+
+    /** Registers a Meta Storage revision update listener. */
+    void registerRevisionUpdateListener(RevisionUpdateListener listener);
+
+    /** Unregisters a Meta Storage revision update listener. */
+    void unregisterRevisionUpdateListener(RevisionUpdateListener listener);
 }

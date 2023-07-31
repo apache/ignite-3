@@ -60,5 +60,5 @@
 #endif
 
 #ifndef UNUSED_VALUE
-#define UNUSED_VALUE (void)
+# define UNUSED_VALUE (void)
 #endif // UNUSED_VALUE

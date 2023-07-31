@@ -23,9 +23,14 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple;
 internal interface IHashedColumnIndexProvider
 {
     /// <summary>
-    /// Gets a value indicating whether the value of a column at specified index should be hashed.
+    /// Gets the number of hashed columns.
+    /// </summary>
+    int HashedColumnCount { get; }
+
+    /// <summary>
+    /// Gets a value indicating the hash order for the column at specified index.
     /// </summary>
     /// <param name="index">Column index.</param>
-    /// <returns>True when hashed column; false otherwise.</returns>
-    bool IsHashedColumnIndex(int index);
+    /// <returns>The order of the column within the hash, when applicable; -1 otherwise.</returns>
+    int HashedColumnOrder(int index);
 }

@@ -93,7 +93,13 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
         return 1;
     }
 
-    private static Problem extractProblem(ApiException cause) {
+    /**
+     * Extracts a @{link Problem} from the API exception.
+     *
+     * @param cause Exception returned from the API call.
+     * @return Extracted {@link Problem}
+     */
+    public static Problem extractProblem(ApiException cause) {
         try {
             return objectMapper.readValue(cause.getResponseBody(), Problem.class);
         } catch (JsonProcessingException ex) {

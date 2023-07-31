@@ -19,7 +19,7 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackArgs;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackDeploymentUnits;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 
 import java.util.List;
@@ -48,16 +48,17 @@ public class ClientComputeExecuteColocatedRequest {
             ClientMessagePacker out,
             IgniteCompute compute,
             IgniteTables tables) {
-        var table = readTable(in, tables);
-        var keyTuple = readTuple(in, table, true);
+        return readTableAsync(in, tables).thenCompose(table -> {
+            var keyTuple = readTuple(in, table, true);
 
-        List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
-        String jobClassName = in.unpackString();
-        Object[] args = unpackArgs(in);
+            List<DeploymentUnit> deploymentUnits = unpackDeploymentUnits(in);
+            String jobClassName = in.unpackString();
+            Object[] args = unpackArgs(in);
 
-        return compute.executeColocated(table.name(), keyTuple, deploymentUnits, jobClassName, args).thenAccept(val -> {
-            out.packInt(table.schemaView().lastSchemaVersion());
-            out.packObjectAsBinaryTuple(val);
+            return compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, args).thenAccept(val -> {
+                out.packInt(table.schemaView().lastSchemaVersion());
+                out.packObjectAsBinaryTuple(val);
+            });
         });
     }
 }

@@ -39,6 +39,7 @@ import java.sql.Timestamp;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
@@ -61,25 +62,28 @@ import org.mockito.Mockito;
 public class PreparedStatementParamsTest {
 
     /** Values for supported JDBC types. */
-    private static final Map<JDBCType, Object> SUPPORTED_TYPES = Map.ofEntries(
-            Map.entry(JDBCType.BOOLEAN, true),
-            Map.entry(JDBCType.TINYINT, (byte) 1),
-            Map.entry(JDBCType.SMALLINT, (short) 1),
-            Map.entry(JDBCType.INTEGER, 1),
-            Map.entry(JDBCType.BIGINT, 1L),
-            Map.entry(JDBCType.FLOAT, 1.0f),
-            Map.entry(JDBCType.REAL, 1.0f),
-            Map.entry(JDBCType.DOUBLE, 1.0d),
-            Map.entry(JDBCType.DECIMAL, new BigDecimal("123")),
-            Map.entry(JDBCType.CHAR, "123"),
-            Map.entry(JDBCType.VARCHAR, "123"),
-            Map.entry(JDBCType.BINARY, new byte[]{1, 2, 3}),
-            Map.entry(JDBCType.VARBINARY, new byte[]{1, 2, 3}),
-            Map.entry(JDBCType.DATE, new Date(1)),
-            Map.entry(JDBCType.TIME, Time.valueOf(LocalTime.NOON)),
-            Map.entry(JDBCType.TIMESTAMP, Timestamp.valueOf("2000-01-01 00:00:00.000")),
-            Map.entry(JDBCType.OTHER, new UUID(1, 1))
-    );
+    private static final Map<JDBCType, Object> SUPPORTED_TYPES = new HashMap<>();
+
+    static {
+        SUPPORTED_TYPES.put(JDBCType.BOOLEAN, true);
+        SUPPORTED_TYPES.put(JDBCType.TINYINT, (byte) 1);
+        SUPPORTED_TYPES.put(JDBCType.SMALLINT, (short) 1);
+        SUPPORTED_TYPES.put(JDBCType.INTEGER, 1);
+        SUPPORTED_TYPES.put(JDBCType.BIGINT, 1L);
+        SUPPORTED_TYPES.put(JDBCType.FLOAT, 1.0f);
+        SUPPORTED_TYPES.put(JDBCType.REAL, 1.0f);
+        SUPPORTED_TYPES.put(JDBCType.DOUBLE, 1.0d);
+        SUPPORTED_TYPES.put(JDBCType.DECIMAL, new BigDecimal("123"));
+        SUPPORTED_TYPES.put(JDBCType.CHAR, "123");
+        SUPPORTED_TYPES.put(JDBCType.VARCHAR, "123");
+        SUPPORTED_TYPES.put(JDBCType.BINARY, new byte[]{1, 2, 3});
+        SUPPORTED_TYPES.put(JDBCType.VARBINARY, new byte[]{1, 2, 3});
+        SUPPORTED_TYPES.put(JDBCType.DATE, new Date(1));
+        SUPPORTED_TYPES.put(JDBCType.TIME, Time.valueOf(LocalTime.NOON));
+        SUPPORTED_TYPES.put(JDBCType.TIMESTAMP, Timestamp.valueOf("2000-01-01 00:00:00.000"));
+        SUPPORTED_TYPES.put(JDBCType.OTHER, new UUID(1, 1));
+        SUPPORTED_TYPES.put(JDBCType.NULL, null);
+    }
 
     private JdbcConnection conn;
 
@@ -357,7 +361,7 @@ public class PreparedStatementParamsTest {
                 .map(e -> {
                     JDBCType jdbcType = e.getKey();
                     Object value = e.getValue();
-                    String javaTypeName = value.getClass().getTypeName();
+                    String javaTypeName = (value != null) ? value.getClass().getTypeName() : "NULL";
 
                     return Arguments.of(jdbcType, value, javaTypeName);
                 });

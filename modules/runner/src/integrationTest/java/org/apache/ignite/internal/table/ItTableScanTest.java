@@ -136,7 +136,10 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx1);
 
-        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, tx1.id(), recipient, sortedIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
+                tx1,
+                internalTable.scan(PART_ID, tx1.id(), recipient, sortedIndexId, null, null, 0, null)
+        );
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -409,7 +412,10 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
 
-        Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
+                tx,
+                internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null)
+        );
 
         CompletableFuture<Void> scanned = new CompletableFuture<>();
 
@@ -434,7 +440,10 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(ROW_IDS.size() + 1, scannedRows.size());
 
-        Publisher<BinaryRow> publisher1 = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+        Publisher<BinaryRow> publisher1 = new RollbackTxOnErrorPublisher<>(
+                tx,
+                internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null)
+        );
 
         assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
 
@@ -450,24 +459,27 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
 
         BinaryTuplePrefix lowBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(1,
-                new BinaryTupleBuilder(1, false).appendInt(5).build()));
+                new BinaryTupleBuilder(1).appendInt(5).build()));
         BinaryTuplePrefix upperBound = BinaryTuplePrefix.fromBinaryTuple(new BinaryTuple(1,
-                new BinaryTupleBuilder(1, false).appendInt(9).build()));
+                new BinaryTupleBuilder(1).appendInt(9).build()));
 
         int soredIndexId = getSortedIndexId();
 
         InternalTransaction tx = startTxWithEnlistedPartition(PART_ID, false);
         PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
 
-        Publisher<BinaryRow> publisher = internalTable.scan(
-                PART_ID,
-                tx.id(),
-                recipient,
-                soredIndexId,
-                lowBound,
-                upperBound,
-                INCLUDE_LEFT | INCLUDE_RIGHT,
-                null
+        Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
+                tx,
+                internalTable.scan(
+                        PART_ID,
+                        tx.id(),
+                        recipient,
+                        soredIndexId,
+                        lowBound,
+                        upperBound,
+                        INCLUDE_LEFT | INCLUDE_RIGHT,
+                        null
+                )
         );
 
         List<BinaryRow> scannedRows = scanAllRows(publisher);
@@ -482,15 +494,18 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         assertThrows(TransactionException.class, () ->
                 kvView.put(null, Tuple.create().set("key", 9), Tuple.create().set("valInt", 9).set("valStr", "New_9")));
 
-        Publisher<BinaryRow> publisher1 = internalTable.scan(
-                PART_ID,
-                tx.id(),
-                recipient,
-                soredIndexId,
-                lowBound,
-                upperBound,
-                INCLUDE_LEFT | INCLUDE_RIGHT,
-                null
+        Publisher<BinaryRow> publisher1 = new RollbackTxOnErrorPublisher<>(
+                tx,
+                internalTable.scan(
+                        PART_ID,
+                        tx.id(),
+                        recipient,
+                        soredIndexId,
+                        lowBound,
+                        upperBound,
+                        INCLUDE_LEFT | INCLUDE_RIGHT,
+                        null
+                )
         );
 
         List<BinaryRow> scannedRows1 = scanAllRows(publisher1);
@@ -536,7 +551,10 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
             try {
                 PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
 
-                Publisher<BinaryRow> publisher = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+                Publisher<BinaryRow> publisher = new RollbackTxOnErrorPublisher<>(
+                        tx,
+                        internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null)
+                );
 
                 // Non-thread-safe collection is fine, HB is guaranteed by "Thread#join" inside of "runRace".
                 List<BinaryRow> scannedRows = new ArrayList<>();
@@ -559,7 +577,10 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
                         () -> scannedRows.addAll(scanAllRows(publisher))
                 );
 
-                Publisher<BinaryRow> publisher1 = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+                Publisher<BinaryRow> publisher1 = new RollbackTxOnErrorPublisher<>(
+                        tx,
+                        internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null)
+                );
 
                 assertEquals(scanAllRows(publisher1).size(), scannedRows.size());
             } finally {
@@ -633,7 +654,10 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
             } else {
                 PrimaryReplica recipient = getLeaderRecipient(PART_ID, tx);
 
-                publisher = internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null);
+                publisher = new RollbackTxOnErrorPublisher<>(
+                        tx,
+                        internalTable.scan(PART_ID, tx.id(), recipient, sortedIndexId, null, null, 0, null)
+                );
             }
 
             List<BinaryRow> scannedRows = scanAllRows(publisher);

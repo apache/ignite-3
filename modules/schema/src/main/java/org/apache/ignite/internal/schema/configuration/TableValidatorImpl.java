@@ -113,7 +113,7 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
 
             if (!colocationDups.isEmpty()) {
                 ctx.addIssue(new ValidationIssue(newTable.name(),
-                        "Colocation columns contains duplicates [duplicates=" + colocationDups + "]"));
+                        "Colocation columns contains duplicates: [duplicates=" + colocationDups + "]"));
             }
         }
     }

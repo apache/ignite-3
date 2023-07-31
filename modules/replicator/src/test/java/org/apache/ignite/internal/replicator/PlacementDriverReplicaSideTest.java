@@ -31,28 +31,34 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
+import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test for placement driver messages processing on replica side.
  */
-public class PlacementDriverReplicaSideTest {
+public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     private static final ReplicationGroupId GRP_ID = new TestReplicationGroupId("group_1");
 
     private static final ClusterNode LOCAL_NODE = new ClusterNode("id0", "name0", new NetworkAddress("localhost", 1234));
@@ -62,21 +68,25 @@ public class PlacementDriverReplicaSideTest {
 
     private Replica replica;
 
-    private AtomicReference<BiConsumer<ClusterNode, Long>> callbackHolder = new AtomicReference<>();
+    private final AtomicReference<LeaderElectionListener> callbackHolder = new AtomicReference<>();
 
     private PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
-    private AtomicLong indexOnLeader = new AtomicLong(0);
+    private final AtomicLong indexOnLeader = new AtomicLong(0);
 
     private Peer currentLeader = null;
 
     private int countOfTimeoutExceptionsOnReadIndexToThrow = 0;
 
+    private final ExecutorService executor = Executors.newSingleThreadExecutor(
+            NamedThreadFactory.create("common", "replica", log)
+    );
+
     private Replica startReplica() {
         TopologyAwareRaftGroupService raftClient = mock(TopologyAwareRaftGroupService.class);
 
         when(raftClient.subscribeLeader(any())).thenAnswer(invocationOnMock -> {
-            BiConsumer<ClusterNode, Long> callback = invocationOnMock.getArgument(0);
+            LeaderElectionListener callback = invocationOnMock.getArgument(0);
             callbackHolder.set(callback);
 
             return completedFuture(null);
@@ -98,16 +108,15 @@ public class PlacementDriverReplicaSideTest {
             }
         });
 
-        Replica replica = new Replica(
+        return new Replica(
                 GRP_ID,
                 completedFuture(null),
                 mock(ReplicaListener.class),
                 storageIndexTracker,
                 raftClient,
-                LOCAL_NODE
+                LOCAL_NODE,
+                executor
         );
-
-        return replica;
     }
 
     @BeforeEach
@@ -119,6 +128,11 @@ public class PlacementDriverReplicaSideTest {
         replica = startReplica();
     }
 
+    @AfterEach
+    void tearDown() {
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+    }
+
     /**
      * Imitates leader election for the group.
      *
@@ -126,7 +140,7 @@ public class PlacementDriverReplicaSideTest {
      */
     private void leaderElection(ClusterNode leader) {
         if (callbackHolder.get() != null) {
-            callbackHolder.get().accept(leader, 1L);
+            callbackHolder.get().onLeaderElected(leader, 1L);
         }
     }
 

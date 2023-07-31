@@ -213,12 +213,7 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
-                logger?.Warn($"Connection failed before or during handshake [remoteAddress={socket.RemoteEndPoint}]: {e.Message}.", e);
-
-                if (connected)
-                {
-                    Metrics.ConnectionsActiveDecrement();
-                }
+                logger?.Warn($"Connection failed before or during handshake [remoteAddress={endPoint.EndPoint}]: {e.Message}.", e);
 
                 if (e.GetBaseException() is TimeoutException)
                 {
@@ -231,6 +226,11 @@ namespace Apache.Ignite.Internal
 
                 // ReSharper disable once MethodHasAsyncOverload
                 socket.Dispose();
+
+                if (connected)
+                {
+                    Metrics.ConnectionsActiveDecrement();
+                }
 
                 throw new IgniteClientConnectionException(
                     ErrorGroups.Client.Connection,
@@ -278,7 +278,7 @@ namespace Apache.Ignite.Internal
                     {
                         var completionSource = (TaskCompletionSource<PooledBuffer>)state!;
 
-                        if (task.IsCanceled || task.Exception?.GetBaseException() is TaskCanceledException or ObjectDisposedException)
+                        if (task.IsCanceled || task.Exception?.GetBaseException() is OperationCanceledException or ObjectDisposedException)
                         {
                             // Canceled task means Dispose was called.
                             completionSource.TrySetException(
@@ -399,6 +399,9 @@ namespace Apache.Ignite.Internal
             string className = reader.ReadString();
             string? message = reader.ReadStringNullable();
             string? javaStackTrace = reader.ReadStringNullable();
+
+            // TODO IGNITE-19838 Retry outdated schema error
+            reader.Skip(); // Error extensions.
 
             return ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
         }

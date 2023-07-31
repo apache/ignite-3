@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+
 /**
  * Execution related APIs of a table.
  */
@@ -25,7 +28,7 @@ public interface ExecutableTable {
     /**
      * Returns read API.
      */
-    ScannableTable scanableTable();
+    ScannableTable scannableTable();
 
     /**
      * Returns table modification API.
@@ -33,8 +36,7 @@ public interface ExecutableTable {
     UpdatableTable updatableTable();
 
     /**
-     * Returns a row converter that converts rows to execution engine representation.
+     * Requests a current colocation group for this table.
      */
-    //TODO: Remove this method after is https://issues.apache.org/jira/browse/IGNITE-19726
-    TableRowConverter rowConverter();
+    CompletableFuture<ColocationGroup> fetchColocationGroup();
 }

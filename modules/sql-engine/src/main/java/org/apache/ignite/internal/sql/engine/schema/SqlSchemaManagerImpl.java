@@ -21,9 +21,8 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.OBJECT_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_EVALUATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -39,7 +38,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
 import java.util.function.LongFunction;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
@@ -57,7 +55,6 @@ import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.table.InternalTable;
@@ -125,7 +122,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     calciteSchemaVv.completeExceptionally(
                             token,
                             new IgniteInternalException(
-                                    SCHEMA_EVALUATION_ERR, "Couldn't evaluate sql schemas for causality token: " + token, throwable)
+                                    INTERNAL_ERR, "Couldn't evaluate sql schemas for causality token: " + token, throwable)
                     );
 
                     return;
@@ -200,7 +197,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             IgniteTable table = tablesVv.latest().get(id);
 
             if (table == null) {
-                throw new IgniteInternalException(OBJECT_NOT_FOUND_ERR,
+                throw new IgniteInternalException(INTERNAL_ERR,
                         format("Table not found [tableId={}]", id));
             }
 
@@ -391,7 +388,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, table.tableId(), table.tableId());
 
         InternalTable internalTable = table.internalTable();
-        Supplier<ColocationGroup> colocationGroup = IgniteTableImpl.partitionedGroup(internalTable);
         DoubleSupplier rowCount = IgniteTableImpl.rowCountStatistic(internalTable);
 
         return new IgniteTableImpl(
@@ -399,7 +395,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 internalTable.tableId(),
                 internalTable.name(),
                 schemaRegistry.lastSchemaVersion(),
-                colocationGroup,
                 rowCount
         );
     }

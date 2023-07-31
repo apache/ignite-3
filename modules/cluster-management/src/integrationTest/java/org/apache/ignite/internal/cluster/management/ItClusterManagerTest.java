@@ -51,7 +51,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -347,11 +346,10 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         stopNodes(List.of(leaderNode));
 
-        // Issue the JoinReadCommand on the joining node. It is expected that the joining node is still treated as validated.
+        // Issue the JoinReadyCommand on the joining node. It is expected that the joining node is still treated as validated.
         assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19689")
     @Test
     void testClusterConfigurationIsRemovedFromClusterStateAfterUpdating(TestInfo testInfo) throws Exception {
         // Start a cluster of 3 nodes so that the CMG leader node could be stopped later.
@@ -383,6 +381,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         // Wait for a new leader to be elected.
         MockNode newLeaderNode = Awaitility.await()
+                .timeout(60, TimeUnit.SECONDS)
                 .until(() -> findLeaderNode(cluster), Optional::isPresent)
                 .get();
 

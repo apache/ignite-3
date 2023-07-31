@@ -45,6 +45,7 @@ import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
@@ -63,7 +64,7 @@ import org.mockito.verification.VerificationMode;
  * Tests for {@link NettyServer}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class NettyServerTest {
+public class NettyServerTest extends BaseIgniteAbstractTest {
     /** Bootstrap factory. */
     private NettyBootstrapFactory bootstrapFactory;
 
@@ -179,10 +180,7 @@ public class NettyServerTest {
         server = new NettyServer(
                 serverCfg.value(),
                 () -> handshakeManager,
-                sender -> {
-                },
-                (message) -> {
-                },
+                (message) -> {},
                 new SerializationService(registry, mock(UserObjectSerializationContext.class)),
                 bootstrapFactory
         );
@@ -219,8 +217,8 @@ public class NettyServerTest {
         InOrder order = Mockito.inOrder(handshakeManager);
 
         order.verify(handshakeManager, timeout()).onInit(any());
-        order.verify(handshakeManager, timeout()).handshakeFuture();
         order.verify(handshakeManager, timeout()).onConnectionOpen();
+        order.verify(handshakeManager, timeout()).handshakeFuture();
         order.verify(handshakeManager, timeout()).onMessage(any());
     }
 
@@ -246,7 +244,6 @@ public class NettyServerTest {
         var server = new NettyServer(
                 serverCfg.value(),
                 () -> mock(HandshakeManager.class),
-                null,
                 null,
                 null,
                 bootstrapFactory

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
+import static org.apache.ignite.internal.schema.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -50,6 +51,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.testobjects.TestSimpleObject;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,7 +62,7 @@ import org.mockito.stubbing.Answer;
 /**
  * Check field binding correctness.
  */
-public class ColumnBindingTest {
+public class ColumnBindingTest extends BaseIgniteAbstractTest {
     /** Random. */
     private Random rnd;
 
@@ -84,6 +86,7 @@ public class ColumnBindingTest {
     @Test
     public void fieldBinding() throws Exception {
         Column[] cols = new Column[]{
+                new Column("primitiveBooleanCol", BOOLEAN, false),
                 new Column("primitiveByteCol", INT8, false),
                 new Column("primitiveShortCol", INT16, false),
                 new Column("primitiveIntCol", INT32, false),
@@ -91,6 +94,7 @@ public class ColumnBindingTest {
                 new Column("primitiveFloatCol", FLOAT, false),
                 new Column("primitiveDoubleCol", DOUBLE, false),
 
+                new Column("booleanCol", BOOLEAN, false),
                 new Column("byteCol", INT8, false),
                 new Column("shortCol", INT16, false),
                 new Column("intCol", INT32, false),
@@ -338,6 +342,7 @@ public class ColumnBindingTest {
         };
 
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendNull();
+        Mockito.doAnswer(asmAnswer).when(mockedAsm).appendBoolean(Mockito.anyBoolean());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendByte(Mockito.anyByte());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendShort(Mockito.anyShort());
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendInt(Mockito.anyInt());
@@ -357,6 +362,8 @@ public class ColumnBindingTest {
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendTime(Mockito.any(LocalTime.class));
         Mockito.doAnswer(asmAnswer).when(mockedAsm).appendTimestamp(Mockito.any(Instant.class));
 
+        Mockito.doAnswer(rowAnswer).when(mockedRow).booleanValue(Mockito.anyInt());
+        Mockito.doAnswer(rowAnswer).when(mockedRow).booleanValueBoxed(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).byteValue(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).byteValueBoxed(Mockito.anyInt());
         Mockito.doAnswer(rowAnswer).when(mockedRow).shortValue(Mockito.anyInt());

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import java.util.Collection;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -36,17 +37,25 @@ import org.jetbrains.annotations.Nullable;
  * <p>TBD: events
  */
 public interface CatalogService {
-    String PUBLIC = "PUBLIC";
+    String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
     String DEFAULT_ZONE_NAME = "Default";
 
-    CatalogTableDescriptor table(String tableName, long timestamp);
+    @Nullable CatalogTableDescriptor table(String tableName, long timestamp);
 
-    CatalogTableDescriptor table(int tableId, long timestamp);
+    @Nullable CatalogTableDescriptor table(int tableId, long timestamp);
 
-    CatalogIndexDescriptor index(String indexName, long timestamp);
+    @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion);
 
-    CatalogIndexDescriptor index(int indexId, long timestamp);
+    Collection<CatalogTableDescriptor> tables(int catalogVersion);
+
+    @Nullable CatalogIndexDescriptor index(String indexName, long timestamp);
+
+    @Nullable CatalogIndexDescriptor index(int indexId, long timestamp);
+
+    @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion);
+
+    Collection<CatalogIndexDescriptor> indexes(int catalogVersion);
 
     CatalogSchemaDescriptor schema(int version);
 
@@ -61,6 +70,13 @@ public interface CatalogService {
     CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
 
     int activeCatalogVersion(long timestamp);
+
+    /**
+     * Returns the latest registered version of the catalog.
+     *
+     * <p>NOTE: This method should only be used at the start of components that may be removed or moved in the future.
+     */
+    int latestCatalogVersion();
 
     void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
 }
