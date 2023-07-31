@@ -280,6 +280,6 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         FakeIgnite ign = new FakeIgnite();
         ((FakeIgniteTables) ign.tables()).createTable("t");
 
-        server = new TestServer(0, ign, shouldDropConnection, null, null, UUID.randomUUID(), null, null, null);
+        server = new TestServer(0, ign, shouldDropConnection, null, null, UUID.randomUUID(), null, null);
     }
 }

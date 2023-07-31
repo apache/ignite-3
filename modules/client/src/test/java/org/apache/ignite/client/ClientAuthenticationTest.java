@@ -112,7 +112,6 @@ public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
                 null,
                 UUID.randomUUID(),
                 authenticationConfiguration,
-                null,
                 null);
 
         if (basicAuthn) {

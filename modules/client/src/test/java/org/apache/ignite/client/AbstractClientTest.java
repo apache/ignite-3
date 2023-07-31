@@ -141,7 +141,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
             Ignite ignite,
             String nodeName
     ) {
-        return new TestServer(idleTimeout, ignite, null, null, nodeName, clusterId, null, null, null);
+        return new TestServer(idleTimeout, ignite, null, null, nodeName, clusterId, null, null);
     }
 
     /**

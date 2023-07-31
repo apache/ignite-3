@@ -289,7 +289,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     private FakeIgnite startTestServer2(Function<Integer, Boolean> shouldDropConnection, Function<Integer, Integer> responseDelay) {
         var ignite2 = new FakeIgnite("server-2");
-        testServer2 = new TestServer(10_000, ignite2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null, null, null);
+        testServer2 = new TestServer(10_000, ignite2, shouldDropConnection, responseDelay, null, UUID.randomUUID(), null, null);
 
         return ignite2;
     }

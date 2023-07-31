@@ -105,7 +105,7 @@ public class ClientLoggingTest extends BaseIgniteAbstractTest {
     }
 
     private static TestServer startServer(FakeIgnite ignite, @Nullable Integer port) {
-        return new TestServer(0, ignite, null, null, null, AbstractClientTest.clusterId, null, port, null);
+        return new TestServer(0, ignite, null, null, null, AbstractClientTest.clusterId, null, port);
     }
 
     private static IgniteClient createClient(LoggerFactory loggerFactory, int... ports) {

@@ -94,7 +94,6 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 null,
                 AbstractClientTest.clusterId,
                 null,
-                null,
                 null
         );
         client = clientBuilder()
@@ -120,7 +119,6 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 null,
                 AbstractClientTest.clusterId,
                 null,
-                null,
                 null
         );
 
@@ -141,7 +139,6 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 responseDelay,
                 null,
                 AbstractClientTest.clusterId,
-                null,
                 null,
                 null
         );
@@ -165,7 +162,6 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
                 responseDelay,
                 null,
                 AbstractClientTest.clusterId,
-                null,
                 null,
                 null
         );

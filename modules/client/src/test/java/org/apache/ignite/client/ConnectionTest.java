@@ -55,7 +55,7 @@ public class ConnectionTest extends AbstractClientTest {
 
     @Test
     public void testDefaultClientConfig() throws Exception {
-        try (var ignored = new TestServer(0, new FakeIgnite(), null, null, "abc", clusterId, null, 10800, null)) {
+        try (var ignored = new TestServer(0, new FakeIgnite(), null, null, "abc", clusterId, null, 10800)) {
             IgniteClient.builder()
                     .addresses("localhost")
                     .build()
@@ -91,7 +91,7 @@ public class ConnectionTest extends AbstractClientTest {
     public void testNoResponseFromServerWithinConnectTimeoutThrowsException() throws Exception {
         Function<Integer, Integer> responseDelay = x -> 500;
 
-        try (var srv = new TestServer(300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null, null)) {
+        try (var srv = new TestServer(300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null)) {
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srv.port())
                     .retryPolicy(new RetryLimitPolicy().retryLimit(1))

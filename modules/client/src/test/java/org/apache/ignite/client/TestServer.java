@@ -104,6 +104,32 @@ public class TestServer implements AutoCloseable {
 
     /**
      * Constructor.
+     */
+    public TestServer(
+            long idleTimeout,
+            Ignite ignite,
+            @Nullable Function<Integer, Boolean> shouldDropConnection,
+            @Nullable Function<Integer, Integer> responseDelay,
+            @Nullable String nodeName,
+            UUID clusterId,
+            @Nullable AuthenticationConfiguration authenticationConfiguration,
+            @Nullable Integer port
+    ) {
+        this(
+                idleTimeout,
+                ignite,
+                shouldDropConnection,
+                responseDelay,
+                nodeName,
+                clusterId,
+                authenticationConfiguration,
+                port,
+                null
+        );
+    }
+
+    /**
+     * Constructor.
      *
      * @param idleTimeout Idle timeout.
      * @param ignite Ignite.
