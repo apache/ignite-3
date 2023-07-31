@@ -118,6 +118,14 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
+    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs)
+            throws TxIdMismatchException, StorageException {
+        handleSnapshotInterference(rowId);
+
+        partitionStorage.addWriteCommitted(rowId, row, commitTs);
+    }
+
+    @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
         handleSnapshotInterference(rowId);
 

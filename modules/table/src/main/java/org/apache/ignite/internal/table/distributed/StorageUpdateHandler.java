@@ -124,16 +124,16 @@ public class StorageUpdateHandler {
 
             locker.lock(rowId);
 
-            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+            if (commitTs != null) {
+                storage.addWriteCommitted(rowId, row, commitTs);
+            } else {
+                BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
-            if (commitTs != null) { // TODO do in one step.
-                storage.commitWrite(rowId, commitTs);
-            }
-
-            if (oldRow != null) {
-                assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
-                // Previous uncommitted row should be removed from indexes.
-                tryRemovePreviousWritesIndex(rowId, oldRow);
+                if (oldRow != null) {
+                    assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
+                    // Previous uncommitted row should be removed from indexes.
+                    tryRemovePreviousWritesIndex(rowId, oldRow);
+                }
             }
 
             indexUpdateHandler.addToIndexes(row, rowId);
@@ -182,16 +182,16 @@ public class StorageUpdateHandler {
 
                     locker.lock(rowId);
 
-                    BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+                    if (commitTs != null) {
+                        storage.addWriteCommitted(rowId, row, commitTs);
+                    } else {
+                        BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
-                    if (commitTs != null) { // TODO do in one step.
-                        storage.commitWrite(rowId, commitTs);
-                    }
-
-                    if (oldRow != null) {
-                        assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
-                        // Previous uncommitted row should be removed from indexes.
-                        tryRemovePreviousWritesIndex(rowId, oldRow);
+                        if (oldRow != null) {
+                            assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
+                            // Previous uncommitted row should be removed from indexes.
+                            tryRemovePreviousWritesIndex(rowId, oldRow);
+                        }
                     }
 
                     rowIds.add(rowId);
