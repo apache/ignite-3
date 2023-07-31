@@ -334,7 +334,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     }
 
     /**
-     * DDL is non-transactional.
+     * DDL is transactional.
      */
     @Test
     public void ddlInTransaction() {
