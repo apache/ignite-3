@@ -33,12 +33,12 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("resource")
 public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientTest {
     @Test
-    void testClientReceivesUpdatedSchema() throws InterruptedException {
+    void testClientUsesLatestSchemaOnWrite() throws InterruptedException {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
         // Create table, insert data.
-        String tableName = "testClientReceivesUpdatedSchema";
+        String tableName = "testClientUsesLatestSchemaOnWrite";
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         waitForTableOnAllNodes(tableName);
