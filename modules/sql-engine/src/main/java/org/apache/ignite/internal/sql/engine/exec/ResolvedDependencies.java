@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 
 /**
  * Provides access to resolved dependencies.
@@ -45,6 +48,18 @@ public class ResolvedDependencies {
     public UpdatableTable updatableTable(int tableId) {
         ExecutableTable executableTable = getTable(tableId);
         return executableTable.updatableTable();
+    }
+
+    /**
+     * Retrieves colocation group for a table with the given id.
+     */
+    public CompletableFuture<ColocationGroup> fetchColocationGroup(int tableId) {
+        ExecutableTable executableTable = getTable(tableId);
+        return executableTable.fetchColocationGroup();
+    }
+
+    public Set<Integer> tableIds() {
+        return tableMap.keySet();
     }
 
     private ExecutableTable getTable(int tableId) {
