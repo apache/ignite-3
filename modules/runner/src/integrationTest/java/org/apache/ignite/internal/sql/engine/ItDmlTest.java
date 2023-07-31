@@ -540,10 +540,9 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
         sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
 
-        SqlException err = assertThrowsSqlException(STMT_VALIDATION_ERR, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
-
         var expectedMessage = "Failed to validate query. From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
-        assertEquals(expectedMessage, err.getMessage(), "error message");
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
     }
 
     private void checkQueryResult(String sql, List<Object> expectedVals) {

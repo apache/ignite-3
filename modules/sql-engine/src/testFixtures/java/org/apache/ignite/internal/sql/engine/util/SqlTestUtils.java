@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Duration;
@@ -32,6 +35,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import javax.annotation.Nullable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.sql.ColumnType;
@@ -53,9 +57,31 @@ public class SqlTestUtils {
      * @param executable Supplier to execute and check thrown exception.
      * @return Thrown the {@link SqlException}.
      */
+    @CanIgnoreReturnValue
     public static SqlException assertThrowsSqlException(int expectedCode, Executable executable) {
+        return assertThrowsSqlException(expectedCode, null, executable);
+    }
+
+    /**
+     * <em>Assert</em> that execution of the supplied {@code executable} throws
+     * an {@link SqlException} with expected error code and message.
+     *
+     * @param expectedCode Expected error code of {@link SqlException}.
+     * @param expMsg Expected error message of {@link SqlException} or {@code null} to skip checking the exception message.
+     * @param executable Supplier to execute and check thrown exception.
+     * @return Thrown the {@link SqlException}.
+     */
+    @CanIgnoreReturnValue
+    public static SqlException assertThrowsSqlException(int expectedCode, @Nullable String expMsg, Executable executable) {
         SqlException ex = assertThrows(SqlException.class, executable);
         assertEquals(expectedCode, ex.code());
+
+        if (expMsg != null) {
+            String msg = ex.getMessage();
+
+            assertNotNull(msg, "Error message was null, but expected '" + expMsg + "'.");
+            assertTrue(msg.contains(expMsg), "Error message '" + ex.getMessage() + "' doesn't contain '" + expMsg + "'.");
+        }
 
         return ex;
     }
