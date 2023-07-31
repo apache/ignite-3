@@ -32,6 +32,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -180,7 +181,7 @@ public class IndexManagerTest {
                                 .primaryKeyColumns(List.of("c1"))
                                 .build()
                 ),
-                willCompleteSuccessfully()
+                willBe(nullValue())
         );
     }
 
@@ -265,7 +266,6 @@ public class IndexManagerTest {
 
     @Test
     @SuppressWarnings("ConstantConditions")
-    // TODO: IGNITE-19500 может все поменяться и мне понадобиться идентификатор таблицы из конфигурации, скорее всего!
     public void eventIsFiredWhenIndexCreated() {
         String indexName = "idx";
 
@@ -284,17 +284,16 @@ public class IndexManagerTest {
         });
 
         assertThat(
-                indexManager.createIndexAsync(
+                catalogManager.createIndex(
                         CreateSortedIndexParams.builder()
                                 .schemaName(DEFAULT_SCHEMA_NAME)
                                 .indexName(indexName)
                                 .tableName(TABLE_NAME)
                                 .columns(List.of("c2"))
                                 .collations(List.of(ASC_NULLS_LAST))
-                                .build(),
-                        true
+                                .build()
                 ),
-                willBe(true)
+                willBe(nullValue())
         );
 
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) catalogManager.index(indexName, clock.nowLong());
@@ -307,11 +306,8 @@ public class IndexManagerTest {
         assertThat(holder.get().indexDescriptor().name(), equalTo(indexName));
 
         assertThat(
-                indexManager.dropIndexAsync(
-                        DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexName).build(),
-                        true
-                ),
-                willBe(true)
+                catalogManager.dropIndex(DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexName).build()),
+                willBe(nullValue())
         );
 
         assertThat(holder.get(), notNullValue());

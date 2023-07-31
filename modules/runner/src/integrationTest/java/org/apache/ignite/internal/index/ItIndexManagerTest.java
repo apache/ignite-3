@@ -24,11 +24,13 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -56,9 +58,11 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<IndexEventParameters> pkCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
 
-        sql("CREATE TABLE tname (c1 INT PRIMARY KEY, c2 INT, c3 INT)");
+        String tableName = "TNAME";
 
-        TableImpl table = (TableImpl) ignite.tables().table("tname");
+        sql(String.format("CREATE TABLE %s (c1 INT PRIMARY KEY, c2 INT, c3 INT)", tableName));
+
+        TableImpl table = (TableImpl) ignite.tables().table(tableName);
 
         {
             assertThat(pkCreatedFuture, willCompleteSuccessfully());
@@ -73,17 +77,20 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
 
+        CatalogManager catalogManager = ((IgniteImpl) ignite).catalogManager();
+
+        String indexName = "INAME";
+
         assertThat(
-                indexManager.createIndexAsync(
+                catalogManager.createIndex(
                         CreateHashIndexParams.builder()
                                 .schemaName(DEFAULT_SCHEMA_NAME)
-                                .indexName("INAME")
-                                .tableName("TNAME")
+                                .indexName(indexName)
+                                .tableName(tableName)
                                 .columns(List.of("C3", "C2"))
-                                .build(),
-                        true
+                                .build()
                 ),
-                willBe(true)
+                willBe(nullValue())
         );
 
         int createdIndexId;
@@ -95,7 +102,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
             assertThat(parameters, notNullValue());
             assertThat(parameters.tableId(), equalTo(table.tableId()));
             assertThat(parameters.indexDescriptor().columns(), hasItems("C3", "C2"));
-            assertThat(parameters.indexDescriptor().name(), equalTo("INAME"));
+            assertThat(parameters.indexDescriptor().name(), equalTo(indexName));
 
             createdIndexId = parameters.indexId();
         }
@@ -103,8 +110,8 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
         CompletableFuture<IndexEventParameters> indexDroppedFuture = registerListener(indexManager, IndexEvent.DROP);
 
         assertThat(
-                indexManager.dropIndexAsync(DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName("INAME").build(), true),
-                willBe(true)
+                catalogManager.dropIndex(DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexName).build()),
+                willBe(nullValue())
         );
 
         {
