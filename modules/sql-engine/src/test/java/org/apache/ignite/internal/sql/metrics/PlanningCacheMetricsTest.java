@@ -70,7 +70,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
         }
     }
 
-    private void checkCachePlanStatistics(String qry, PrepareService prepareService, MetricSet metricSet, int hit, int miss) {
+    private void checkCachePlanStatistics(String qry, PrepareService prepareService, MetricSet metricSet, int hits, int misses) {
         IgniteSchema schema = createSchema(createTable("T", 10, IgniteDistributions.single(), "A", Integer.class, "B", Integer.class));
         BaseQueryContext ctx = baseQueryContext(Collections.singletonList(schema), null);
 
@@ -80,8 +80,8 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
         await(prepareService.prepareAsync(parsedResult, ctx));
 
         assertEquals("sql.plan.cache", metricSet.name());
-        assertEquals(String.valueOf(hit), metricSet.get("Hit").getValueAsString());
-        assertEquals(String.valueOf(miss), metricSet.get("Miss").getValueAsString());
+        assertEquals(String.valueOf(hits), metricSet.get("Hits").getValueAsString());
+        assertEquals(String.valueOf(misses), metricSet.get("Misses").getValueAsString());
     }
 
 }

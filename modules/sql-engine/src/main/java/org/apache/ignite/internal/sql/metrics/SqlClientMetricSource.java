@@ -27,7 +27,7 @@ import org.apache.ignite.internal.metrics.MetricSetBuilder;
  */
 public class SqlClientMetricSource extends AbstractMetricSource<SqlClientMetricSource.Holder> {
     public static final String NAME = "sql.client";
-    public static final String METRIC_CURSOR_OPEN = "CursorOpen";
+    public static final String METRIC_OPEN_CURSORS = "OpenCursors";
     private final IntSupplier numberOfOpenCursors;
 
     /**
@@ -45,7 +45,7 @@ public class SqlClientMetricSource extends AbstractMetricSource<SqlClientMetricS
     /** {@inheritDoc} */
     @Override
     protected void init(MetricSetBuilder bldr, Holder holder) {
-        bldr.intGauge(METRIC_CURSOR_OPEN, "Number of current open cursors", numberOfOpenCursors);
+        bldr.intGauge(METRIC_OPEN_CURSORS, "Number of current open cursors", numberOfOpenCursors);
     }
 
     /** {@inheritDoc} */

@@ -58,12 +58,12 @@ public class ItSqlClientMetricsTest extends ClusterPerClassIntegrationTest {
 
     @BeforeEach
     void beforeEach() throws Exception {
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 0);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
     }
 
     @AfterEach
     void afterEach() throws Exception {
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 0);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
         assertTrue(queryProcessor().liveSessions().isEmpty());
     }
 
@@ -77,23 +77,23 @@ public class ItSqlClientMetricsTest extends ClusterPerClassIntegrationTest {
         Session session = sql.createSession();
         ResultSet<SqlRow> rs1 = session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
 
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 1);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
         //ToDo: https://issues.apache.org/jira/browse/IGNITE-20022 - We could implement auto cleanup resources when result set is fully read
         rs1.forEachRemaining(c -> {});
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 1);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
 
         ResultSet<SqlRow> rs2 = session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 2);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 2);
 
         rs1.close();
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 1);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
 
         session.close();
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 1);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
 
         rs2.close();
 
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 0);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
     }
 
     @Test
@@ -101,13 +101,13 @@ public class ItSqlClientMetricsTest extends ClusterPerClassIntegrationTest {
         Session session = sql.sessionBuilder().idleTimeout(1, TimeUnit.SECONDS).build();
 
         ResultSet<SqlRow> rs1 = session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 1);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
 
         assertTrue(waitForCondition(() -> queryProcessor().liveSessions().isEmpty(), 10_000));
 
         assertInternalSqlException("Session not found", () -> session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME));
 
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 1);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
         rs1.close();
         session.close();
     }
@@ -122,14 +122,14 @@ public class ItSqlClientMetricsTest extends ClusterPerClassIntegrationTest {
         Session session = sql.createSession();
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR, () -> session.execute(null, "SELECT * ODINfrom " + DEFAULT_TABLE_NAME));
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 0);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
         assertInternalSqlException("Column 'A' not found in any table", () -> session.execute(null, "SELECT a from " + DEFAULT_TABLE_NAME));
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 0);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
         session.close();
         assertThrowsSqlException(Sql.SESSION_CLOSED_ERR, () -> session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME));
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_CURSOR_OPEN, 0);
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
     }
 
     private void assertMetricValue(MetricSet metricSet, String metricName, Object expectedValue) throws InterruptedException {

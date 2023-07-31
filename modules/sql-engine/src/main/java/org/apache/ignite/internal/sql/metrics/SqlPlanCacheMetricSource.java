@@ -47,7 +47,7 @@ public class SqlPlanCacheMetricSource extends AbstractMetricSource<SqlPlanCacheM
         Holder h = holder();
 
         if (h != null) {
-            h.cachePlanMiss.add(count);
+            h.cachePlanMisses.add(count);
         }
     }
 
@@ -55,7 +55,7 @@ public class SqlPlanCacheMetricSource extends AbstractMetricSource<SqlPlanCacheM
     @Override
     protected void init(MetricSetBuilder bldr, Holder holder) {
         bldr.register(holder.cachePlanHits);
-        bldr.register(holder.cachePlanMiss);
+        bldr.register(holder.cachePlanMisses);
     }
 
     /** {@inheritDoc} */
@@ -68,7 +68,7 @@ public class SqlPlanCacheMetricSource extends AbstractMetricSource<SqlPlanCacheM
      * Holder.
      */
     protected static class Holder implements AbstractMetricSource.Holder<Holder> {
-        private final AtomicLongMetric cachePlanHits = new AtomicLongMetric("Hit", "Cache plan hits");
-        private final AtomicLongMetric cachePlanMiss = new AtomicLongMetric("Miss", "Cache plan misses");
+        private final AtomicLongMetric cachePlanHits = new AtomicLongMetric("Hits", "Cache plan hits");
+        private final AtomicLongMetric cachePlanMisses = new AtomicLongMetric("Misses", "Cache plan misses");
     }
 }
