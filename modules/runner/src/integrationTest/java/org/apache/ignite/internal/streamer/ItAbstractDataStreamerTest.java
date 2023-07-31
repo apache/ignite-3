@@ -31,7 +31,9 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -204,9 +206,14 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertNull(view.get(null, tupleKey(10_000)));
     }
 
+    @SuppressWarnings("resource")
     @Test
     public void testSchemaUpdateWhileStreaming() throws InterruptedException {
-        RecordView<Tuple> view = defaultTable().recordView();
+        Session ses = ignite().sql().createSession();
+
+        String tableName = "testSchemaUpdateWhileStreaming";
+        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+        RecordView<Tuple> view = ignite().tables().table(tableName).recordView();
 
         CompletableFuture<Void> streamerFut;
 
@@ -216,9 +223,14 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             publisher.submit(tuple(1, "foo"));
             waitForKey(view, tupleKey(1));
+
+            ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+            publisher.submit(tuple(2, "bar"));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertEquals("bar", view.get(null, tupleKey(2)).stringValue("name"));
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {

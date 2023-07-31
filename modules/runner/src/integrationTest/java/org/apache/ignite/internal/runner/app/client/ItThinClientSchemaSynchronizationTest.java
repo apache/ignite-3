@@ -83,7 +83,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         Session ses = client.sql().createSession();
 
         // Create table, insert data.
-        String tableName = "testGetOldRowAfterSchemaUpdate";
+        String tableName = "testClientUsesLatestSchemaOnReadWithNotNullColumn";
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         waitForTableOnAllNodes(tableName);
