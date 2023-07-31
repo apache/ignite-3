@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * This utility class allows to extract trace identifier from an instance of {@link TraceableException} or creating a new trace identifier.
  **/
-public class TraceIdGenerator {
+public class TraceIdUtils {
     /**
      * Returns trace identifier from the provided throwable if it is an instance of {@link TraceableException}
      * or it has a cause that is an instance of {@link TraceableException}. Otherwise a new trace identifier is generated.
