@@ -35,6 +35,8 @@ public class SqlBatchException extends SqlException {
     /**
      * Creates a grid exception with the given throwable as a cause and source of error message.
      *
+     * @param traceId Unique identifier of the exception.
+     * @param code Full error code.
      * @param updCntrs Array that describes the outcome of a batch execution.
      * @param cause Non-null throwable cause.
      */
