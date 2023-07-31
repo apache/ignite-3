@@ -660,7 +660,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return null;
                     });
         });
-
     }
 
     /**

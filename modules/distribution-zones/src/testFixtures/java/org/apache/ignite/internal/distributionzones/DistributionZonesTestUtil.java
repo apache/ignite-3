@@ -489,9 +489,7 @@ public class DistributionZonesTestUtil {
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
-            Set<String> dataNodes = null;
-
-            dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), zoneId).get(5, TimeUnit.SECONDS);
+            Set<String> dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), zoneId).get(5, TimeUnit.SECONDS);
 
             assertThat(dataNodes, is(expectedValueNames));
         }

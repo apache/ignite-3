@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptySet;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -945,7 +946,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             revision
                     );
                 } else if (res.getAsBoolean()) {
-                    LOG.debug("Update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
+                    LOG.info("Update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
                             zoneId, dataNodes, revision);
                 } else {
                     LOG.debug(
@@ -988,7 +989,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             revision
                     );
                 } else if (res.getAsBoolean()) {
-                    LOG.debug("Delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
+                    LOG.info("Delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
                 } else {
                     LOG.debug("Failed to delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
                 }
@@ -1438,7 +1439,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             if (invokeResult) {
                                 // TODO: https://issues.apache.org/jira/browse/IGNITE-19491 Properly utilise this map
                                 // Currently we call clean up only on a node that successfully writes data nodes.
-                                LOG.debug(
+                                LOG.info(
                                         "Updating data nodes for a zone after scale up has succeeded "
                                                 + "[zoneId = {}, dataNodes = {}, revision = {}]",
                                         zoneId,
@@ -1543,7 +1544,7 @@ public class DistributionZoneManager implements IgniteComponent {
                         .thenApply(StatementResult::getAsBoolean)
                         .thenCompose(invokeResult -> inBusyLock(busyLock, () -> {
                             if (invokeResult) {
-                                LOG.debug(
+                                LOG.info(
                                         "Updating data nodes for a zone after scale down has succeeded "
                                                 + "[zoneId = {}, dataNodes = {}, revision = {}]",
                                         zoneId,
@@ -1927,13 +1928,13 @@ public class DistributionZoneManager implements IgniteComponent {
         private static final long serialVersionUID = -7957428671075739621L;
 
         /** Names of the node. */
-        Set<Node> nodes;
+        private final Set<Node> nodes;
 
         /** Flag that indicates whether {@code nodeNames} should be added or removed. */
-        boolean addition;
+        private final boolean addition;
 
         Augmentation(Set<Node> nodes, boolean addition) {
-            this.nodes = nodes;
+            this.nodes = unmodifiableSet(nodes);
             this.addition = addition;
         }
 
