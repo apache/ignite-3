@@ -38,8 +38,6 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.index.ColumnCollation;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -88,10 +86,6 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                         .add("C4", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.INTEGER), true))
                         .add("C5", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.TINYINT), true))
                         .build(), "TEST") {
-            @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                return ColocationGroup.forNodes(select(NODES, 0));
-            }
 
             @Override
             public IgniteDistribution distribution() {
@@ -624,11 +618,6 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 .add(column, typeFactory.createTypeWithNullability(type, true))
                 .build();
         TestTable testTable = new TestTable(tableName, rowType, 400d) {
-            @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                return ColocationGroup.forNodes(select(NODES, 0));
-            }
-
             @Override
             public IgniteDistribution distribution() {
                 return IgniteDistributions.single();
