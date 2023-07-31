@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -34,10 +33,6 @@ import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
@@ -70,13 +65,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.lang.ErrorGroups;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
-import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 
 /**
@@ -180,123 +169,6 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
         if (LOG.isInfoEnabled()) {
             LOG.info("Index manager stopped");
-        }
-    }
-
-    /**
-     * Creates the index.
-     *
-     * @param createIndexCommandParams Parameters for the index creation command.
-     * @param failIfExists Flag indicates whether exception be thrown if index exists or not.
-     * @return Future represented the result of creation, {@code true} if the index was created successfully.
-     */
-    public CompletableFuture<Boolean> createIndexAsync(
-            AbstractIndexCommandParams createIndexCommandParams,
-            boolean failIfExists
-    ) {
-        return inBusyLock(() -> {
-            String schemaName = createIndexCommandParams.schemaName();
-            String indexName = createIndexCommandParams.indexName();
-            String tableName = createIndexCommandParams.tableName();
-
-            // TODO: IGNITE-19500 валидацию надо перенести, создание должно быть только в каталоге или нет?
-            validateName(indexName);
-
-            CompletableFuture<Void> createIndexFuture;
-
-            if (createIndexCommandParams instanceof CreateHashIndexParams) {
-                createIndexFuture = catalogManager.createIndex((CreateHashIndexParams) createIndexCommandParams);
-            } else if (createIndexCommandParams instanceof CreateSortedIndexParams) {
-                createIndexFuture = catalogManager.createIndex(((CreateSortedIndexParams) createIndexCommandParams));
-            } else {
-                throw new IgniteInternalException(
-                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                        "Unknown index type: [schema={}, table={}, index={}, params={}]",
-                        schemaName, tableName, indexName, createIndexCommandParams
-                );
-            }
-
-            return createIndexFuture
-                    .handle((unused, throwable) -> {
-                        if (throwable != null) {
-                            throwable = ExceptionUtils.unwrapCause(throwable);
-
-                            if (LOG.isDebugEnabled()) {
-                                LOG.debug(
-                                        "Error creating index: [schema={}, table={}, index={}]",
-                                        throwable,
-                                        schemaName, tableName, indexName
-                                );
-                            }
-
-                            if (!failIfExists && throwable instanceof IndexAlreadyExistsException) {
-                                return false;
-                            }
-
-                            throw new CompletionException(throwable);
-                        }
-
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug(
-                                    "Index has been created: [schema={}, table={}, index={}]",
-                                    schemaName, tableName, indexName
-                            );
-                        }
-
-                        return true;
-                    });
-        });
-    }
-
-    /**
-     * Drops the index.
-     *
-     * @param dropIndexCommandParams Parameters for the destroy index command.
-     * @param failIfNotExists Flag, which force failure, when {@code trues} if index doen't not exists.
-     * @return Future representing the result of the operation.
-     */
-    public CompletableFuture<Boolean> dropIndexAsync(
-            DropIndexParams dropIndexCommandParams,
-            boolean failIfNotExists
-    ) {
-        return inBusyLock(() -> {
-            String schemaName = dropIndexCommandParams.schemaName();
-            String indexName = dropIndexCommandParams.indexName();
-
-            // TODO: IGNITE-19500 валидацию надо перенести, удаление должно быть только в каталоге или нет?
-            validateName(indexName);
-
-            return catalogManager.dropIndex(dropIndexCommandParams)
-                    .handle((unused, throwable) -> {
-                        if (throwable != null) {
-                            throwable = ExceptionUtils.unwrapCause(throwable);
-
-                            if (LOG.isDebugEnabled()) {
-                                LOG.debug("Error while deleting index: [schema={}, index={}]", throwable, schemaName, indexName);
-                            }
-
-                            if (!failIfNotExists && throwable instanceof IndexNotFoundException) {
-                                return false;
-                            }
-
-                            throw new CompletionException(throwable);
-                        }
-
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("index has been deleted: [schema={}, index={}]", schemaName, indexName);
-                        }
-
-                        return true;
-                    });
-        });
-    }
-
-    private static void validateName(String indexName) {
-        if (StringUtils.nullOrEmpty(indexName)) {
-            throw new IgniteInternalException(
-                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                    "Index name should be at least 1 character long"
-            );
         }
     }
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -44,9 +43,6 @@ import org.apache.ignite.lang.TableNotFoundException;
  * TODO: IGNITE-19082 Drop this wrapper when all the versioned schema stuff will be moved from Configuration to Catalog.
  */
 public class DdlCommandHandlerWrapper extends DdlCommandHandler {
-
-    private final CatalogManager catalogManager;
-
     /**
      * Constructor.
      */
@@ -57,9 +53,7 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
             DataStorageManager dataStorageManager,
             CatalogManager catalogManager
     ) {
-        super(distributionZoneManager, tableManager, indexManager, dataStorageManager);
-
-        this.catalogManager = Objects.requireNonNull(catalogManager, "Catalog service");
+        super(distributionZoneManager, tableManager, dataStorageManager, catalogManager);
     }
 
     /** Handles ddl commands. */

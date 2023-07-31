@@ -36,9 +36,11 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
@@ -74,6 +76,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -82,6 +85,8 @@ import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.SqlException;
@@ -92,9 +97,9 @@ public class DdlCommandHandler {
 
     private final TableManager tableManager;
 
-    private final IndexManager indexManager;
-
     private final DataStorageManager dataStorageManager;
+
+    protected final CatalogManager catalogManager;
 
     /**
      * Constructor.
@@ -102,13 +107,13 @@ public class DdlCommandHandler {
     public DdlCommandHandler(
             DistributionZoneManager distributionZoneManager,
             TableManager tableManager,
-            IndexManager indexManager,
-            DataStorageManager dataStorageManager
+            DataStorageManager dataStorageManager,
+            CatalogManager catalogManager
     ) {
         this.distributionZoneManager = distributionZoneManager;
         this.tableManager = tableManager;
-        this.indexManager = indexManager;
         this.dataStorageManager = dataStorageManager;
+        this.catalogManager = catalogManager;
     }
 
     /** Handles ddl commands. */
@@ -338,15 +343,42 @@ public class DdlCommandHandler {
                             "Can't create index on duplicate columns: " + String.join(", ", cmd.columns()));
                 });
 
-        return indexManager.createIndexAsync(
-                DdlToCatalogCommandConverter.convert(cmd),
-                !cmd.ifNotExists()
-        );
+        boolean failIfExists = !cmd.ifNotExists();
+
+        return catalogCreateIndexAsync(cmd)
+                .handle((unused, throwable) -> {
+                    if (throwable != null) {
+                        throwable = ExceptionUtils.unwrapCause(throwable);
+
+                        if (!failIfExists && throwable instanceof IndexAlreadyExistsException) {
+                            return false;
+                        }
+
+                        throw new CompletionException(throwable);
+                    }
+
+                    return true;
+                });
     }
 
     /** Handles drop index command. */
     private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
-        return indexManager.dropIndexAsync(DdlToCatalogCommandConverter.convert(cmd), !cmd.ifNotExists());
+        boolean failIfNotExists = !cmd.ifNotExists();
+
+        return catalogManager.dropIndex(DdlToCatalogCommandConverter.convert(cmd))
+                .handle((unused, throwable) -> {
+                    if (throwable != null) {
+                        throwable = ExceptionUtils.unwrapCause(throwable);
+
+                        if (!failIfNotExists && throwable instanceof IndexNotFoundException) {
+                            return false;
+                        }
+
+                        throw new CompletionException(throwable);
+                    }
+
+                    return true;
+                });
     }
 
     /**
@@ -534,5 +566,16 @@ public class DdlCommandHandler {
     /** Column names set. */
     private static Set<String> columnNames(NamedListView<? extends ColumnView> cols) {
         return new HashSet<>(cols.namedListKeys());
+    }
+
+    private CompletableFuture<Void> catalogCreateIndexAsync(CreateIndexCommand cmd) {
+        switch (cmd.type()) {
+            case HASH:
+                return catalogManager.createIndex((CreateHashIndexParams) DdlToCatalogCommandConverter.convert(cmd));
+            case SORTED:
+                return catalogManager.createIndex((CreateSortedIndexParams) DdlToCatalogCommandConverter.convert(cmd));
+            default:
+                throw new IllegalArgumentException("Unknown index type: " + cmd.type());
+        }
     }
 }

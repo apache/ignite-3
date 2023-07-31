@@ -22,13 +22,14 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
@@ -41,7 +42,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -60,9 +60,6 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
     private TableManager tableManager;
 
     @Mock
-    private IndexManager indexManager;
-
-    @Mock
     private DataStorageManager dataStorageManager;
 
     /** DDL commands handler. */
@@ -71,7 +68,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
     /** Inner initialisation. */
     @BeforeEach
     void before() {
-        DistributionZoneManager distributionZoneManager = Mockito.mock(DistributionZoneManager.class,
+        DistributionZoneManager distributionZoneManager = mock(DistributionZoneManager.class,
                 (Answer<CompletableFuture<Void>>) invocationOnMock -> {
                     Object[] arguments = invocationOnMock.getArguments();
                     invocationResultHolder.set(Arrays.copyOf(arguments, arguments.length, Object[].class));
@@ -79,7 +76,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
                     return CompletableFuture.completedFuture(null);
                 });
 
-        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, dataStorageManager, mock(CatalogManager.class));
     }
 
 
