@@ -49,6 +49,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         recordView.insert(null, rec);
 
         // Modify table, get data - client will use old schema, receive error, retry with new schema.
+        // Column validation error indicates that client uses new schema.
         ses.execute(null, "ALTER TABLE testOutdatedSchemaFromClientThrowsExceptionOnServer ADD COLUMN NAME VARCHAR NOT NULL");
 
         IgniteException ex = assertThrows(IgniteException.class, () -> recordView.insert(null, rec));
