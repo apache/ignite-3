@@ -48,13 +48,34 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         recordView.insert(null, rec);
 
         // Modify table, insert data - client will use old schema, receive error, retry with new schema.
-        // The process is transparent for the user: updated schema can be used immediately.
+        // The process is transparent for the user: updated schema is in effect immediately.
         ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
 
         Tuple rec2 = Tuple.create().set("ID", 1).set("NAME", "name");
         recordView.upsert(null, rec2);
 
         assertEquals("name", recordView.get(null, rec).stringValue(1));
+    }
+
+    @Test
+    void testClientUsesLatestSchemaOnRead() throws InterruptedException {
+        IgniteClient client = client();
+        Session ses = client.sql().createSession();
+
+        // Create table, insert data.
+        String tableName = "testClientUsesLatestSchemaOnRead";
+        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+
+        waitForTableOnAllNodes(tableName);
+        RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
+
+        Tuple rec = Tuple.create().set("ID", 1);
+        recordView.insert(null, rec);
+
+        // Modify table, insert data - client will use old schema, receive error, retry with new schema.
+        // The process is transparent for the user: updated schema is in effect immediately.
+        ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR DEFAULT 'def_name'");
+        assertEquals("def_name", recordView.get(null, rec).stringValue(1));
     }
 
     @Test
