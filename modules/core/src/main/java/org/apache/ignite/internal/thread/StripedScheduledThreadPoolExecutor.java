@@ -18,39 +18,47 @@
 package org.apache.ignite.internal.thread;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.logger.IgniteLogger;
 
-public class StripedScheduledThreadPoolExecutor extends AbstractStripedThreadPoolExecutor<ScheduledExecutorService> implements ScheduledExecutorService {
+/**
+ * An {@link ScheduledExecutorService} that executes submitted tasks using pooled grid threads.
+ */
+public class StripedScheduledThreadPoolExecutor extends AbstractStripedThreadPoolExecutor<ScheduledExecutorService>
+        implements ScheduledExecutorService {
     /**
-     * Create striped thread pool.
+     * Create striped scheduled thread pool.
      *
      * @param concurrentLvl Concurrency level.
+     * @param threadFactory The factory to use when the executor creates a new thread.
+     * @param executionHandler The handler to use when execution is blocked
+     *        because the thread bounds and queue capacities are reached.
      */
     public StripedScheduledThreadPoolExecutor(
             int concurrentLvl,
-            String nodeName,
-            String poolName,
-            IgniteLogger log) {
-        super(createExecutors(concurrentLvl, nodeName, poolName, log));
+            ThreadFactory threadFactory,
+            RejectedExecutionHandler executionHandler
+    ) {
+        super(createExecutors(concurrentLvl, threadFactory, executionHandler));
     }
 
     private static ScheduledExecutorService[] createExecutors(
             int concurrentLvl,
-            String nodeName,
-            String poolName,
-            IgniteLogger log) {
+            ThreadFactory threadFactory,
+            RejectedExecutionHandler executionHandler
+    ) {
         ScheduledExecutorService[] execs = new ScheduledExecutorService[concurrentLvl];
 
         for (int i = 0; i < concurrentLvl; i++) {
             ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
                     1,
-                    new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, poolName + "-1"), log),
-                    new ThreadPoolExecutor.DiscardPolicy()
+                    threadFactory,
+                    executionHandler
             );
 
             execs[i] = executor;
@@ -59,6 +67,18 @@ public class StripedScheduledThreadPoolExecutor extends AbstractStripedThreadPoo
         return execs;
     }
 
+    /**
+     * Executes the given command at some time in the future. The command with the same {@code index} will be executed in the same thread.
+     *
+     * @param command The task to execute.
+     * @param delay The time from now to delay execution.
+     * @param unit The time unit of the delay parameter.
+     * @param idx Striped index.
+     * @return A ScheduledFuture representing pending completion of the task and whose {@code get()} method will return
+     *         {@code null} upon completion.
+     * @throws RejectedExecutionException If the task cannot be scheduled for execution.
+     * @throws NullPointerException If command or unit is null.
+     */
     public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit, int idx) {
         return commandExecutor(idx).schedule(command, delay, unit);
     }

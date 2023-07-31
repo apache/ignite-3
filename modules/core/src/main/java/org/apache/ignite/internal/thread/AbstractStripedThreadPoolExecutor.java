@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -30,10 +31,21 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * An abstract executor that executes submitted tasks using pooled grid threads.
+ */
 public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorService> implements ExecutorService {
     /** Executors. */
     private final E[] execs;
 
+    /** Used to obtain a random executor. */
+    private final Random random = new Random();
+
+    /**
+     * The constructor.
+     *
+     * @param execs Executors.
+     */
     AbstractStripedThreadPoolExecutor(E[] execs) {
         this.execs = execs;
     }
@@ -41,10 +53,10 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
     /**
      * Executes the given command at some time in the future. The command with the same {@code index} will be executed in the same thread.
      *
-     * @param task the runnable task
+     * @param task The runnable task.
      * @param idx  Striped index.
-     * @throws RejectedExecutionException if this task cannot be accepted for execution.
-     * @throws NullPointerException       If command is null
+     * @throws RejectedExecutionException If this task cannot be accepted for execution.
+     * @throws NullPointerException If command is null.
      */
     public void execute(Runnable task, int idx) {
         commandExecutor(idx).execute(task);
@@ -52,8 +64,8 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
 
     /** {@inheritDoc} */
     @Override
-    public void execute(Runnable cmd) {
-        throw new UnsupportedOperationException();
+    public void execute(Runnable task) {
+        commandExecutor(random.nextInt(execs.length)).execute(task);
     }
 
     /**
@@ -61,10 +73,10 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
      * same {@code index} will be executed in the same thread.
      *
      * @param task The task to submit.
-     * @param idx  Striped index.
-     * @return a {@link Future} representing pending completion of the task.
-     * @throws RejectedExecutionException if the task cannot be scheduled for execution.
-     * @throws NullPointerException       if the task is {@code null}.
+     * @param idx Striped index.
+     * @return A {@link Future} representing pending completion of the task.
+     * @throws RejectedExecutionException If the task cannot be scheduled for execution.
+     * @throws NullPointerException If the task is {@code null}.
      */
     public CompletableFuture<?> submit(Runnable task, int idx) {
         return CompletableFuture.runAsync(task, commandExecutor(idx));
@@ -89,16 +101,6 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
     @Override
     public Future<?> submit(Runnable task) {
         throw new UnsupportedOperationException();
-    }
-
-    /**
-     * Sets stripped thread ID.
-     *
-     * @param idx Index.
-     * @return Stripped thread ID.
-     */
-    public int threadId(int idx) {
-        return idx < execs.length ? idx : idx % execs.length;
     }
 
     /** {@inheritDoc} */
@@ -198,7 +200,23 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
         return S.toString(AbstractStripedThreadPoolExecutor.class, this);
     }
 
+    /**
+     * Return an executor by an index.
+     *
+     * @param idx Index of executor.
+     * @return Executor.
+     */
     E commandExecutor(int idx) {
         return execs[threadId(idx)];
+    }
+
+    /**
+     * Sets stripped thread ID.
+     *
+     * @param idx Index.
+     * @return Stripped thread ID.
+     */
+    private int threadId(int idx) {
+        return idx < execs.length ? idx : idx % execs.length;
     }
 }
