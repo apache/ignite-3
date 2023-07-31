@@ -47,7 +47,7 @@ public class ClientTupleDeleteRequest {
             ClientResourceRegistry resources
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, resources);
+            var tx = readTx(in, out, resources);
             var tuple = readTuple(in, table, true);
 
             return table.recordView().deleteAsync(tx, tuple).thenAccept(res -> {

@@ -48,7 +48,7 @@ public class ClientTupleReplaceExactRequest {
             ClientResourceRegistry resources
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, resources);
+            var tx = readTx(in, out, resources);
             var schema = readSchema(in, table);
 
             var oldTuple = readTuple(in, false, schema);
