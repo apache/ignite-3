@@ -934,7 +934,7 @@ public final class ExceptionUtils {
      *     CustomException copy = createCopyWithCause(c);
      *
      *     // The following line prints: CustomException IGN_SPECIFIC_ERR_CODE TraceId XYZ wrong argument
-     *     // but it should be just as follows: XYZ wrong argument
+     *     // but it should be just as follows: wrong argument
      *     copy.getMessage();
      *
      *     // The following line prints: IGN_SPECIFIC_ERR_CODE TraceId XYZ CustomException IGN_SPECIFIC_ERR_CODE TraceId XYZ wrong argument
