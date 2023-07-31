@@ -213,6 +213,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertNull(view.get(null, tupleKey(10_000)));
     }
 
+    @Test
+    public void testSchemaUpdateWhileStreaming() {
+        assert false : "TODO";
+    }
+
     private Table defaultTable() {
         //noinspection resource
         return ignite().tables().table(TABLE_NAME);
