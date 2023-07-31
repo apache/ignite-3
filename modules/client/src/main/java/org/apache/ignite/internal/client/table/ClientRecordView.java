@@ -372,8 +372,7 @@ public class ClientRecordView<R> implements RecordView<R> {
                 (s, w) -> ser.writeRecs(null, items, s, w, TuplePart.KEY_AND_VAL),
                 r -> null,
                 PartitionAwarenessProvider.of(nodeId),
-                new RetryLimitPolicy().retryLimit(opts.retryLimit()),
-                null);
+                new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }

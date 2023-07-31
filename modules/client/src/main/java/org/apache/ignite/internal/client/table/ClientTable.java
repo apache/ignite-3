@@ -322,7 +322,6 @@ public class ClientTable implements Table {
             @Nullable PartitionAwarenessProvider provider) {
         return doSchemaOutOpAsync(opCode, writer, reader, provider, null, null);
     }
-
     /**
      * Performs a schema-based operation.
      *
@@ -334,6 +333,27 @@ public class ClientTable implements Table {
      * @return Future representing pending completion of the operation.
      */
     public <T> CompletableFuture<T> doSchemaOutOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            Function<ClientMessageUnpacker, T> reader,
+            @Nullable PartitionAwarenessProvider provider,
+            @Nullable RetryPolicy retryPolicyOverride) {
+        return doSchemaOutOpAsync(opCode, writer, reader, provider, retryPolicyOverride, null);
+    }
+
+    /**
+     * Performs a schema-based operation.
+     *
+     * @param opCode Op code.
+     * @param writer Writer.
+     * @param reader Reader.
+     * @param provider Partition awareness provider.
+     * @param retryPolicyOverride Retry policy override.
+     * @param schemaVersionOverride Schema version override.
+     * @param <T> Result type.
+     * @return Future representing pending completion of the operation.
+     */
+    private <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<ClientMessageUnpacker, T> reader,
