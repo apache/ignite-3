@@ -18,23 +18,16 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -49,13 +42,10 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -76,8 +66,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IndexNotFoundException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -193,74 +181,6 @@ public class IndexManagerTest {
                 clockWaiter == null ? null : clockWaiter::stop,
                 catalogManager == null ? null : catalogManager::stop,
                 indexManager == null ? null : indexManager::stop
-        );
-    }
-
-    @Test
-    void catalogChangedWhenCreateIsInvoked() {
-        String indexName = "idx";
-
-        assertThat(
-                indexManager.createIndexAsync(
-                        CreateSortedIndexParams.builder()
-                                .schemaName(DEFAULT_SCHEMA_NAME)
-                                .indexName(indexName)
-                                .tableName(TABLE_NAME)
-                                .columns(List.of("c1", "c2"))
-                                .collations(List.of(ASC_NULLS_LAST, DESC_NULLS_FIRST))
-                                .build(),
-                        true
-                ),
-                willBe(true)
-        );
-
-        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) catalogManager.index(indexName, clock.nowLong());
-        CatalogTableDescriptor table = catalogManager.table(TABLE_NAME, clock.nowLong());
-
-        assertEquals(table.id(), index.tableId());
-        assertEquals(indexName, index.name());
-        assertFalse(index.unique());
-
-        assertThat(
-                index.columns().stream().map(CatalogIndexColumnDescriptor::name).collect(toList()),
-                contains("c1", "c2")
-        );
-
-        assertThat(
-                index.columns().stream().map(CatalogIndexColumnDescriptor::collation).collect(toList()),
-                contains(ASC_NULLS_LAST, DESC_NULLS_FIRST)
-        );
-    }
-
-    @Test
-    public void createIndexWithEmptyName() {
-        assertThat(
-                indexManager.createIndexAsync(
-                        CreateHashIndexParams.builder()
-                                .schemaName(DEFAULT_SCHEMA_NAME)
-                                .indexName("")
-                                .tableName("tName")
-                                .build(),
-                        true
-                ),
-                willThrowFast(IgniteInternalException.class, "Index name should be at least 1 character long")
-        );
-    }
-
-    @Test
-    public void dropNonExistingIndex() {
-        String schemaName = DEFAULT_SCHEMA_NAME;
-        String indexName = "nonExisting";
-
-        assertThat(
-                indexManager.dropIndexAsync(
-                        DropIndexParams.builder().schemaName(schemaName).indexName(indexName).build(),
-                        true
-                ),
-                willThrowFast(
-                        IndexNotFoundException.class,
-                        format("Index does not exist [name=\"{}\".\"{}\"]", schemaName, indexName)
-                )
         );
     }
 

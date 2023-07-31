@@ -17,22 +17,15 @@
 
 package org.apache.ignite.internal.index;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
@@ -77,21 +70,9 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexCreatedFuture = registerListener(indexManager, IndexEvent.CREATE);
 
-        CatalogManager catalogManager = ((IgniteImpl) ignite).catalogManager();
-
         String indexName = "INAME";
 
-        assertThat(
-                catalogManager.createIndex(
-                        CreateHashIndexParams.builder()
-                                .schemaName(DEFAULT_SCHEMA_NAME)
-                                .indexName(indexName)
-                                .tableName(tableName)
-                                .columns(List.of("C3", "C2"))
-                                .build()
-                ),
-                willBe(nullValue())
-        );
+        sql(String.format("CREATE INDEX %s ON %s (c3, c2)", indexName, tableName));
 
         int createdIndexId;
         {
@@ -109,10 +90,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<IndexEventParameters> indexDroppedFuture = registerListener(indexManager, IndexEvent.DROP);
 
-        assertThat(
-                catalogManager.dropIndex(DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(indexName).build()),
-                willBe(nullValue())
-        );
+        sql(String.format("DROP INDEX %s", indexName));
 
         {
             assertThat(indexDroppedFuture, willCompleteSuccessfully());
