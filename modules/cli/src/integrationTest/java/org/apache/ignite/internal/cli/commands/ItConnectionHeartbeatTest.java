@@ -27,6 +27,7 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.cli.core.repl.ConnectionHeartBeat;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.prompt.ReplPromptProvider;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,12 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
     void setUp() {
         //Set connection check timeout to 1 sec to make test fast
         ConnectionHeartBeat.CLI_CHECK_CONNECTION_PERIOD_SECONDS = 1L;
+    }
+
+    @AfterEach
+    void teardown() {
+        // Start all nodes
+        allNodeNames().forEach(this::startNode);
     }
 
     @Override
