@@ -40,7 +40,6 @@ import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -224,12 +223,6 @@ public class TestTable implements IgniteTable {
             CalciteConnectionConfig config
     ) {
         throw new AssertionError();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-        return colocationGroup;
     }
 
     /** {@inheritDoc} */
