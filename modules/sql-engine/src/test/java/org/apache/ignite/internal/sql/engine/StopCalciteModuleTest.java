@@ -237,7 +237,7 @@ public class StopCalciteModuleTest {
         when(schemaManager.schemaRegistry(eq(TABLE_ID))).thenReturn(schemaReg);
 
         when(tbl.tableId()).thenReturn(TABLE_ID);
-        when(tbl.primaryReplicas()).thenReturn(List.of(new PrimaryReplica(localNode, -1L)));
+        when(tbl.primaryReplicas()).thenReturn(completedFuture(List.of(new PrimaryReplica(localNode, -1L))));
 
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
         when(tbl.storage().getTableDescriptor()).thenReturn(new StorageTableDescriptor(TABLE_ID, 1, "none"));
