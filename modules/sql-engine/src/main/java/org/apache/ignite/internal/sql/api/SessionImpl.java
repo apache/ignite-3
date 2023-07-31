@@ -170,10 +170,12 @@ public class SessionImpl implements Session {
             return CompletableFuture.failedFuture(new SqlException(SESSION_CLOSED_ERR, "Session is closed."));
         }
 
+        CompletableFuture<AsyncResultSet<SqlRow>> result;
+
         try {
             QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction);
 
-            CompletableFuture<AsyncResultSet<SqlRow>> result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
+            result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
                             .thenApply(
                                     batchRes -> new AsyncResultSetImpl<>(
@@ -184,25 +186,22 @@ public class SessionImpl implements Session {
                                     )
                             )
             );
-
-            return result.handleAsync((rs, th) -> {
-                if (th == null) {
-                    return rs;
-                }
-
-                Throwable cause = ExceptionUtils.unwrapCause(th);
-
-                if (cause instanceof SessionNotFoundException) {
-                    closeInternal();
-                }
-
-                throw new CompletionException(mapToPublicException(cause));
-            });
         } catch (Exception e) {
             return CompletableFuture.failedFuture(mapToPublicException(e));
         } finally {
             busyLock.leaveBusy();
         }
+
+        // Closing a session must be done outside of the lock.
+        return result.exceptionally((th) -> {
+            Throwable cause = ExceptionUtils.unwrapCause(th);
+
+            if (cause instanceof SessionNotFoundException) {
+                closeInternal();
+            }
+
+            throw new CompletionException(mapToPublicException(cause));
+        });
     }
 
     /** {@inheritDoc} */
