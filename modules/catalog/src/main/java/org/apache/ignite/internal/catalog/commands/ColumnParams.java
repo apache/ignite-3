@@ -17,7 +17,12 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+
+import org.apache.ignite.internal.util.StringUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.SqlException;
 
 /** Defines a particular column within table. */
 public class ColumnParams {
