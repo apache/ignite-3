@@ -44,7 +44,7 @@ public @interface ConfigurationExtension {
 
     /**
      * Controls whether this configuration is part of the public configuration or is hidden from the end user.
-     * The extension is internal by default.
+     * An extension is internal by default.
      */
     boolean internal() default true;
 

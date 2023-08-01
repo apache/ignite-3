@@ -583,7 +583,7 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Get configuration schemas and their validated internal extensions.
+     * Get configuration schemas and their validated extensions.
      *
      * @param extensions Schema extensions with {@link ConfigurationExtension}.
      * @return Mapping: original of the scheme -> schema extensions.

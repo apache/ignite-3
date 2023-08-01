@@ -31,9 +31,6 @@ public class RootInnerNode {
     /** Internal configuration extensions. */
     private final boolean privateExtension;
 
-    /** Public configuration extensions. */
-    private final boolean publicExtension;
-
     /**
      * Constructor.
      *
@@ -44,7 +41,6 @@ public class RootInnerNode {
         this.node = node;
 
         privateExtension = key.privateExtension();
-        publicExtension = key.publicExtension();
     }
 
     /**
@@ -53,7 +49,6 @@ public class RootInnerNode {
     public RootInnerNode(RootInnerNode rootInnerNode) {
         node = rootInnerNode.node.copy();
         privateExtension = rootInnerNode.privateExtension;
-        publicExtension = rootInnerNode.publicExtension;
     }
 
     /**
@@ -74,12 +69,4 @@ public class RootInnerNode {
         return privateExtension;
     }
 
-    /**
-     * Check if the root configuration is marked with {@link ConfigurationExtension} an is public.
-     *
-     * @return {@code true} if the root configuration is public.
-     */
-    public boolean publicExtension() {
-        return publicExtension;
-    }
 }
