@@ -79,12 +79,12 @@ public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
      *
      * @param tableName Table name.
      * @param indexName Index name.
-     * @param failIfNotExist Throw an exception if the index does not exist.
+     * @param failIfExist Throw an exception if the index exist.
      */
-    private static void tryToCreateIndex(String tableName, String indexName, boolean failIfNotExist) {
+    private static void tryToCreateIndex(String tableName, String indexName, boolean failIfExist) {
         sql(String.format(
                 "CREATE INDEX %s ON %s (valInt, valStr)",
-                failIfNotExist ? indexName : "IF NOT EXISTS " + indexName, tableName
+                failIfExist ? indexName : "IF NOT EXISTS " + indexName, tableName
         ));
     }
 
