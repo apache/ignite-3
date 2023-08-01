@@ -148,7 +148,7 @@ public class ClientTupleSerializer {
             appendValue(builder, noValueSet, col, v);
         }
 
-        if (tuple.columnCount() > usedCols) {
+        if (!keyOnly && tuple.columnCount() > usedCols) {
             Set<String> extraColumns = new HashSet<>();
             for (int i = 0; i < tuple.columnCount(); i++) {
                 extraColumns.add(tuple.columnName(i));
