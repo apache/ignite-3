@@ -58,7 +58,7 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
     private final Map<String, IgniteSchemaIndex> indexMap;
 
     /** Constructor. */
-    public IgniteSchemaTable(String name, int tableId,  int version, TableDescriptor desc,
+    public IgniteSchemaTable(String name, int tableId, int version, TableDescriptor desc,
             IgniteStatistic statistic, Map<String, IgniteSchemaIndex> indexMap) {
 
         this.id = tableId;
@@ -186,7 +186,7 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
 
     /** {@inheritDoc} */
     @Override
-    public  <C> @Nullable C unwrap(Class<C> cls) {
+    public <C> @Nullable C unwrap(Class<C> cls) {
         if (cls.isInstance(desc)) {
             return cls.cast(desc);
         }
@@ -196,8 +196,8 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
 
     /** {@inheritDoc} */
     @Override
-    public Map<String, IgniteIndex> indexes() {
-        throw new UnsupportedOperationException("getIndexes() should be used instead");
+    public Map<String, IgniteSchemaIndex> indexes() {
+        return indexMap;
     }
 
     /** {@inheritDoc} */
@@ -216,10 +216,5 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
     @Override
     public void removeIndex(String idxName) {
         throw new UnsupportedOperationException("IndexMap is not modifiable");
-    }
-
-    /** Returns a map of indexes defined for this table. */
-    public Map<String, IgniteSchemaIndex> getIndexes() {
-        return indexMap;
     }
 }

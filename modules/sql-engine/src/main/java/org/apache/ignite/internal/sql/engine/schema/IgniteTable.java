@@ -192,7 +192,7 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      *
      * @return Indexes for the current table.
      */
-    Map<String, IgniteIndex> indexes();
+    Map<String, IgniteSchemaIndex> indexes();
 
     /**
      * Adds index to table.

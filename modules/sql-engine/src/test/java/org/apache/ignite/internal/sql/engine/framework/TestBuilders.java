@@ -45,10 +45,9 @@ import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteCatalogSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -355,12 +354,7 @@ public class TestBuilders {
                     .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
-            Map<Integer, IgniteIndex> indexMap = tableMap.values().stream()
-                    .map(TestTable.class::cast)
-                    .flatMap(t -> t.indexes().values().stream().map(TestIndex.class::cast))
-                    .collect(Collectors.toMap(TestIndex::id, Function.identity()));
-
-            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, indexMap, SCHEMA_VERSION));
+            var schemaManager = new PredefinedSchemaManager(new IgniteCatalogSchema("PUBLIC", SCHEMA_VERSION, tableMap));
             var colocationGroupProvider = new TestColocationGroupProvider(tableBuilders, tableMap, nodeNames);
 
             Map<String, TestNode> nodes = nodeNames.stream()

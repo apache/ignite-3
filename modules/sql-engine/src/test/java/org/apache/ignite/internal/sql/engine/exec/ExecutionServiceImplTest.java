@@ -141,7 +141,7 @@ public class ExecutionServiceImplTest {
     private final TestTable table = createTable("TEST_TBL", 1_000_000, IgniteDistributions.random(),
             "ID", NativeTypes.INT32, "VAL", NativeTypes.INT32);
 
-    private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(table.name(), table), null, SCHEMA_VERSION);
+    private final IgniteCatalogSchema schema = new IgniteCatalogSchema("PUBLIC", SCHEMA_VERSION, Map.of(table.name(), table));
 
     private final List<CapturingMailboxRegistry> mailboxes = new ArrayList<>();
 
@@ -641,7 +641,7 @@ public class ExecutionServiceImplTest {
                 .build();
     }
 
-    private SchemaPlus wrap(IgniteSchema schema) {
+    private SchemaPlus wrap(IgniteCatalogSchema schema) {
         var schemaPlus = Frameworks.createRootSchema(false);
 
         schemaPlus.add(schema.getName(), schema);

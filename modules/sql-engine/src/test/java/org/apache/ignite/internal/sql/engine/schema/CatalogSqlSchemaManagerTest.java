@@ -375,7 +375,7 @@ public class CatalogSqlSchemaManagerTest {
         IgniteSchemaTable table = (IgniteSchemaTable) schema.getTable(testTable.name);
         assertNotNull(table);
 
-        IgniteSchemaIndex testIdx = table.getIndexes().get(testIndex.name);
+        IgniteSchemaIndex testIdx = table.indexes().get(testIndex.name);
 
         assertEquals(testIndex.name, testIdx.name());
         assertEquals(Type.HASH, testIdx.type());
@@ -419,7 +419,7 @@ public class CatalogSqlSchemaManagerTest {
         IgniteSchemaTable table = (IgniteSchemaTable) schema.getTable(testTable.name);
         assertNotNull(table);
 
-        IgniteSchemaIndex testIdx = table.getIndexes().get(testIndex.name);
+        IgniteSchemaIndex testIdx = table.indexes().get(testIndex.name);
 
         assertEquals(testIndex.name, testIdx.name());
         assertEquals(Type.SORTED, testIdx.type());
