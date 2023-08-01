@@ -145,25 +145,25 @@ public class IgniteSqlFunctions {
     /** CAST(java long AS DECIMAL). */
     public static BigDecimal toBigDecimal(long val, int precision, int scale) {
         BigDecimal decimal = BigDecimal.valueOf(val);
-        return convertDecimal(decimal, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** CAST(INT AS DECIMAL). */
     public static BigDecimal toBigDecimal(int val, int precision, int scale) {
         BigDecimal decimal = new BigDecimal(val);
-        return convertDecimal(decimal, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** CAST(java short AS DECIMAL). */
     public static BigDecimal toBigDecimal(short val, int precision, int scale) {
         BigDecimal decimal = new BigDecimal(val);
-        return convertDecimal(decimal, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** CAST(java byte AS DECIMAL). */
     public static BigDecimal toBigDecimal(byte val, int precision, int scale) {
         BigDecimal decimal = new BigDecimal(val);
-        return convertDecimal(decimal, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** CAST(BOOL AS DECIMAL). */
@@ -177,29 +177,7 @@ public class IgniteSqlFunctions {
             return null;
         }
         BigDecimal decimal = new BigDecimal(s.trim());
-        return convertDecimal(decimal, precision, scale);
-    }
-
-    /** CAST(REAL AS DECIMAL). */
-    public static BigDecimal toBigDecimal(Number num, int precision, int scale) {
-        if (num == null) {
-            return null;
-        }
-
-        BigDecimal dec;
-        if (num instanceof Float) {
-            dec = new BigDecimal(num.floatValue());
-        } else if (num instanceof Double) {
-            dec = new BigDecimal(num.doubleValue());
-        } else if (num instanceof BigDecimal) {
-            dec = (BigDecimal) num;
-        } else if (num instanceof BigInteger) {
-            dec = new BigDecimal((BigInteger) num);
-        } else {
-            dec = new BigDecimal(num.longValue());
-        }
-
-        return convertDecimal(dec, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** Cast object depending on type to DECIMAL. */
@@ -213,31 +191,39 @@ public class IgniteSqlFunctions {
         }
 
         return o instanceof Number ? toBigDecimal((Number) o, precision, scale)
-               : toBigDecimal(o.toString(), precision, scale);
+                : toBigDecimal(o.toString(), precision, scale);
     }
 
-    /**
-     * Converts the given {@code BigDecimal} to a decimal with the given {@code precision} and {@code scale}
-     * according to SQL spec for CAST specification: General Rules, 8.
-     */
-    public static BigDecimal convertDecimal(BigDecimal value, int precision, int scale) {
+    /** Convert and validate input. */
+    public static BigDecimal toBigDecimal(Number value, int precision, int scale) {
         assert precision > 0 : "Invalid precision: " + precision;
+
+        if (value == null) {
+            return null;
+        }
+
+        if (checkPrecisionScale(value, precision, scale)) {
+            BigDecimal dec = convertToBigDecimal(value);
+            return dec.setScale(scale, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal dec = convertToBigDecimal(value);
 
         int defaultPrecision = IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL);
         if (precision == defaultPrecision) {
             // This branch covers at least one known case: access to dynamic parameter from context.
             // In this scenario precision = DefaultTypePrecision, because types for dynamic params
             // are created by toSql(createType(param.class)).
-            return value;
+            return dec;
         }
 
-        boolean nonZero = !value.unscaledValue().equals(BigInteger.ZERO);
+        boolean nonZero = !dec.unscaledValue().equals(BigInteger.ZERO);
 
         if (nonZero) {
             if (scale > precision) {
                 throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
             } else {
-                int currentSignificantDigits = value.precision() - value.scale();
+                int currentSignificantDigits = dec.precision() - dec.scale();
                 int expectedSignificantDigits = precision - scale;
 
                 if (currentSignificantDigits > expectedSignificantDigits) {
@@ -246,7 +232,86 @@ public class IgniteSqlFunctions {
             }
         }
 
-        return value.setScale(scale, RoundingMode.HALF_UP);
+        return dec.setScale(scale, RoundingMode.HALF_UP);
+    }
+
+    /** Check precision scale for fraction numbers. */
+    private static boolean checkPrecisionScale(Number num, int precision, int scale) {
+        if (num.longValue() != 0) {
+            return false;
+        }
+
+        if (!(num instanceof Double) && !(num instanceof Float) && !(num instanceof BigDecimal)) {
+            return false;
+        }
+
+        boolean canProcess = true;
+
+        if (num instanceof Double) {
+            Double num0 = (Double) num;
+            canProcess = !num0.isInfinite() && !num0.isNaN();
+        }
+
+        if (num instanceof Float) {
+            Float num0 = (Float) num;
+            canProcess = !num0.isInfinite() && !num0.isNaN();
+        }
+
+        if (canProcess) {
+            int lastSignificantDigit = 0;
+
+            String strRepr = num.toString();
+            int pos = strRepr.indexOf('.');
+
+            if (pos == -1) {
+                return false;
+            }
+
+            // fractional part
+            strRepr = strRepr.substring(pos + 1);
+
+            // length of fractional part
+            int processingDigits = strRepr.length();
+
+            // cut if scale is less than processing digits
+            if (scale < processingDigits) {
+                strRepr = strRepr.substring(0, scale);
+            }
+
+            // calculate overall processing digits
+            int digit = scale > processingDigits ? scale - processingDigits : 0;
+            for (int i = strRepr.length() - 1; i >= 0; i--) {
+                digit++;
+                if (strRepr.charAt(i) != '0') {
+                    lastSignificantDigit = digit;
+                }
+            }
+
+            if (lastSignificantDigit > precision) {
+                throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private static BigDecimal convertToBigDecimal(Number value) {
+        BigDecimal dec;
+        if (value instanceof Float) {
+            dec = new BigDecimal(value.floatValue());
+        } else if (value instanceof Double) {
+            dec = new BigDecimal(value.doubleValue());
+        } else if (value instanceof BigDecimal) {
+            dec = (BigDecimal) value;
+        } else if (value instanceof BigInteger) {
+            dec = new BigDecimal((BigInteger) value);
+        } else {
+            dec = new BigDecimal(value.longValue());
+        }
+
+        return dec;
     }
 
     /** CAST(VARCHAR AS VARBINARY). */
