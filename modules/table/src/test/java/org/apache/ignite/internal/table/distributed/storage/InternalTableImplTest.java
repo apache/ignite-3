@@ -109,7 +109,8 @@ public class InternalTableImplTest {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
-                mock(HybridClock.class)
+                mock(HybridClock.class),
+                mock(PlacementDriver.class)
         );
 
         List<BinaryRowEx> originalRows = List.of(
