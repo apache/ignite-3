@@ -24,9 +24,11 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -34,6 +36,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.marshaller.MarshallerColumn;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.table.Tuple;
@@ -138,6 +141,20 @@ public class ClientTupleSerializer {
             Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
 
             appendValue(builder, noValueSet, col, v);
+        }
+
+        if (tuple.columnCount() > count) {
+            Set<String> extraColumns = new HashSet<>();
+            for (int i = 0; i < tuple.columnCount(); i++) {
+                extraColumns.add(tuple.columnName(i));
+            }
+
+            for (ClientColumn c : schema.columns()) {
+                extraColumns.remove(c.name());
+            }
+
+            throw new IllegalArgumentException(String.format("Tuple doesn't match schema: schemaVersion=%s, extraColumns=%s",
+                    schema.version(), extraColumns));
         }
 
         out.out().packBinaryTuple(builder, noValueSet);
@@ -307,7 +324,7 @@ public class ClientTupleSerializer {
         return res;
     }
 
-    private static void appendValue(BinaryTupleBuilder builder, BitSet noValueSet, ClientColumn col, Object v) {
+    private static void appendValue(BinaryTupleBuilder builder, BitSet noValueSet, ClientColumn col, @Nullable Object v) {
         if (v == NO_VALUE) {
             noValueSet.set(col.schemaIndex());
             builder.appendNull();
