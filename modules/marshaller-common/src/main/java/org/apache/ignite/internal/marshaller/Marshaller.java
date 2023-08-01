@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.marshaller;
 
+import java.lang.reflect.Field;
 import java.util.Objects;
 import org.apache.ignite.internal.util.Factory;
 import org.apache.ignite.internal.util.ObjectFactory;
@@ -91,6 +92,15 @@ public abstract class Marshaller {
 
             fieldAccessors[i] = (fieldName == null) ? FieldAccessor.noopAccessor(col) :
                     FieldAccessor.create(mapper.targetType(), fieldName, col, i);
+        }
+
+        var fields = mapper.fields();
+        if (fields.size() > cols.length) {
+            for (String field : fields) {
+//                if (field.isAnnotationPresent(MarshallerIgnore.class)) {
+//                    throw new IllegalArgumentException("Field " + field.getName() + " is annotated with @MarshallerIgnore.");
+//                }
+            }
         }
 
         return new PojoMarshaller(new ObjectFactory<>(mapper.targetType()), fieldAccessors);

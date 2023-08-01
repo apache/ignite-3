@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table.mapper;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
@@ -62,6 +63,12 @@ class PojoMapperImpl<T> implements PojoMapper<T> {
     @Override
     public String fieldForColumn(@NotNull String columnName) {
         return mapping.get(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Collection<String> fields() {
+        return mapping.values();
     }
 
     /** {@inheritDoc} */

@@ -36,7 +36,12 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         Table table = ignite().tables().table(TABLE_NAME);
         var pojoView = table.recordView(TestPojo2.class);
 
-        pojoView.upsert(null, new TestPojo2());
+        var pojo = new TestPojo2();
+        pojo.key = 1;
+        pojo.val = "val";
+        pojo.unmapped = "unmapped";
+
+        pojoView.upsert(null, pojo);
     }
 
     private static class TestPojo2 {
