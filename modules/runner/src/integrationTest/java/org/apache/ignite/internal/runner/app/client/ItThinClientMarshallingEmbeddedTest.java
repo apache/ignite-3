@@ -18,32 +18,13 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import org.apache.ignite.Ignite;
-import org.apache.ignite.table.Table;
-import org.junit.jupiter.api.Test;
 
 /**
- * Tests marshaller, ensures consistent behavior across client and embedded modes.
+ * Runs {@link ItThinClientMarshallingTest} against embedded API.
  */
-public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
+public class ItThinClientMarshallingEmbeddedTest extends ItThinClientMarshallingTest {
+    @Override
     protected Ignite ignite() {
-        return client();
-    }
-
-    // TODO: Same tests run against client and embedded APIs.
-    @SuppressWarnings("resource")
-    @Test
-    public void testUnmappedPojoFieldsAreRejected() {
-        Table table = ignite().tables().table(TABLE_NAME);
-        var pojoView = table.recordView(TestPojo2.class);
-
-        pojoView.upsert(null, new TestPojo2());
-    }
-
-    private static class TestPojo2 {
-        public int key;
-
-        public String val;
-
-        public String unmapped;
+        return server();
     }
 }
