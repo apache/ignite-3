@@ -62,6 +62,11 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public InternalTransaction begin(boolean readOnly) {
+        return begin(readOnly, readOnly ? clock.now() : null);
+    }
+
+    @Override
     public InternalTransaction begin(boolean readOnly, @Nullable HybridTimestamp observableTimestamp) {
         lastObservableTimestamp = observableTimestamp;
 
