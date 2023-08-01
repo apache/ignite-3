@@ -381,10 +381,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 topologyAwareRaftGroupServiceFactory,
                 vault,
                 null,
-                null
+                null,
+                catalogManager
         );
 
-        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager);
+        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,

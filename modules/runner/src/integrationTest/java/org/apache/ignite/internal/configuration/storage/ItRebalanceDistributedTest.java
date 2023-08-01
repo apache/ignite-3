@@ -828,7 +828,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     topologyAwareRaftGroupServiceFactory,
                     vaultManager,
                     cmgManager,
-                    distributionZoneManager
+                    distributionZoneManager,
+                    catalogManager
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

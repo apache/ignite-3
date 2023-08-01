@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.storage.index;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,9 +29,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
     @BeforeEach
-    void setUp(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
+    void beforeEach() {
         var storage = new TestMvTableStorage(1, 10);
 
-        initialize(storage, tablesConfig);
+        initialize(storage);
     }
 }

@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
@@ -365,7 +366,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     MvTableStorage mvTableStorage = storageEngine.createMvTable(
                             new StorageTableDescriptor(1, 1, DEFAULT_DATA_REGION_NAME),
-                            new StorageIndexDescriptorSupplier(tablesCfg)
+                            new StorageIndexDescriptorSupplier(mock(CatalogService.class))
                     );
                     mvTableStorage.start();
 

@@ -25,6 +25,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
@@ -88,6 +89,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -207,8 +209,6 @@ import org.jetbrains.annotations.TestOnly;
  * Table manager.
  */
 public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTablesInternal, IgniteComponent {
-    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
-
     private static final long QUERY_DATA_NODES_COUNT_TIMEOUT = TimeUnit.SECONDS.toMillis(3);
 
     /** The logger. */
@@ -375,6 +375,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final ConfiguredTablesCache configuredTablesCache;
 
+    private final CatalogManager catalogManager;
+
+    /** Versioned value used only at manager startup to correctly fire table creation events. */
+    private final IncrementalVersionedValue<Void> startVv;
+
     /**
      * Creates a new table manager.
      *
@@ -395,6 +400,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         volatile tables.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
+     * @param catalogManager Catalog manager.
      */
     public TableManager(
             String nodeName,
@@ -420,7 +426,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             VaultManager vaultManager,
             ClusterManagementGroupManager cmgMgr,
-            DistributionZoneManager distributionZoneManager
+            DistributionZoneManager distributionZoneManager,
+            CatalogManager catalogManager
     ) {
         this.tablesCfg = tablesCfg;
         this.zonesConfig = zonesConfig;
@@ -443,6 +450,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.cmgMgr = cmgMgr;
         this.distributionZoneManager = distributionZoneManager;
+        this.catalogManager = catalogManager;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -498,6 +506,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         indexBuilder = new IndexBuilder(nodeName, cpus);
 
         configuredTablesCache = new ConfiguredTablesCache(tablesCfg, getMetadataLocallyOnly);
+
+        startVv = new IncrementalVersionedValue<>(registry);
     }
 
     @Override
@@ -505,6 +515,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         mvGc.start();
 
         lowWatermark.start();
+
+        fireCreateTablesOnManagerStart();
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
@@ -1303,7 +1315,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         MvTableStorage tableStorage = engine.createMvTable(
                 new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.getDataRegion()),
-                new StorageIndexDescriptorSupplier(tablesCfg)
+                new StorageIndexDescriptorSupplier(catalogManager)
         );
 
         tableStorage.start();
@@ -1767,13 +1779,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     }
 
                                     tblChg.delete(name);
-                                })
-                                .changeIndexes(idxChg -> {
-                                    for (TableIndexView index : idxChg) {
-                                        if (index.tableId() == tbl.tableId()) {
-                                            idxChg.delete(index.name());
-                                        }
-                                    }
                                 });
                     })
                     .exceptionally(t -> {
@@ -1942,6 +1947,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
         try {
             return tablesById(causalityToken).thenApply(tablesById -> tablesById.get(id));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Asynchronously gets the table using causality token.
+     *
+     * @param causalityToken Causality token.
+     * @param name Table name.
+     * @return Future.
+     */
+    public CompletableFuture<TableImpl> tableAsync(long causalityToken, String name) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            return tablesById(causalityToken).thenApply(tablesById -> findTableImplByName(tablesById.values(), name));
         } finally {
             busyLock.leaveBusy();
         }
@@ -2653,6 +2676,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
+    // TODO: IGNITE-19499 Only catalog should be used
     private int[] collectTableIndexIds(int tableId) {
         return tablesCfg.value().indexes().stream()
                 .filter(tableIndexView -> tableIndexView.tableId() == tableId)
@@ -2709,6 +2733,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return startedTables.get(tableId);
     }
 
+    /**
+     * Returns a table instance if it exists, {@code null} otherwise.
+     *
+     * @param name Table name.
+     */
+    @TestOnly
+    public @Nullable TableImpl getTable(String name) {
+        return findTableImplByName(startedTables.values(), name);
+    }
+
     private @Nullable CatalogTableDescriptor getTableDescriptor(int id) {
         TableView tableView = findTableView(tablesCfg.value(), id);
 
@@ -2717,5 +2751,40 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private CatalogZoneDescriptor getZoneDescriptor(int id) {
         return toZoneDescriptor(getZoneById(zonesConfig, id).value());
+    }
+
+    private static @Nullable TableImpl findTableImplByName(Collection<TableImpl> tables, String name) {
+        return tables.stream().filter(table -> table.name().equals(name)).findAny().orElse(null);
+    }
+
+    /**
+     * Fires table creation events so that indexes can be correctly created at IndexManager startup.
+     *
+     * <p>NOTE: This is a temporary solution that must be get rid/remake/change.
+     */
+    // TODO: IGNITE-19499 Need to get rid/remake/change
+    private void fireCreateTablesOnManagerStart() {
+        CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
+
+        assert recoveryFinishFuture.isDone();
+
+        long causalityToken = recoveryFinishFuture.join();
+
+        List<CompletableFuture<?>> fireEventFutures = new ArrayList<>();
+
+        for (TableView tableView : tablesCfg.tables().value()) {
+            fireEventFutures.add(fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableView.id())));
+        }
+
+        startVv.update(causalityToken, (unused, throwable) -> allOf(fireEventFutures.toArray(CompletableFuture[]::new)))
+                .whenComplete((unused, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Error when firing table creation events at manager start", throwable);
+                    } else {
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Manager successfully fired table creation events at manager start");
+                        }
+                    }
+                });
     }
 }

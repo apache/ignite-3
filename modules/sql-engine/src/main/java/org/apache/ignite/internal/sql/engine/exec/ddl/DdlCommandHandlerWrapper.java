@@ -17,12 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
@@ -30,19 +26,15 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
-import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
-import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 
@@ -51,9 +43,6 @@ import org.apache.ignite.lang.TableNotFoundException;
  * TODO: IGNITE-19082 Drop this wrapper when all the versioned schema stuff will be moved from Configuration to Catalog.
  */
 public class DdlCommandHandlerWrapper extends DdlCommandHandler {
-
-    private final CatalogManager catalogManager;
-
     /**
      * Constructor.
      */
@@ -64,9 +53,7 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
             DataStorageManager dataStorageManager,
             CatalogManager catalogManager
     ) {
-        super(distributionZoneManager, tableManager, indexManager, dataStorageManager);
-
-        this.catalogManager = Objects.requireNonNull(catalogManager, "Catalog service");
+        super(distributionZoneManager, tableManager, dataStorageManager, catalogManager);
     }
 
     /** Handles ddl commands. */
@@ -104,21 +91,6 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
             return ddlCommandFuture
                     .thenCompose(res -> catalogManager.alterColumn(DdlToCatalogCommandConverter.convert((AlterColumnCommand) cmd))
                             .handle(handleModificationResult(((AlterColumnCommand) cmd).ifTableExists(), TableNotFoundException.class))
-                    );
-        } else if (cmd instanceof CreateIndexCommand) {
-            return ddlCommandFuture
-                    .thenCompose(res -> {
-                        AbstractIndexCommandParams params = DdlToCatalogCommandConverter.convert((CreateIndexCommand) cmd);
-                        if (params instanceof CreateSortedIndexParams) {
-                            return catalogManager.createIndex((CreateSortedIndexParams) params);
-                        } else {
-                            return catalogManager.createIndex((CreateHashIndexParams) params);
-                        }
-                    }).handle(handleModificationResult(((CreateIndexCommand) cmd).ifNotExists(), IndexAlreadyExistsException.class));
-        } else if (cmd instanceof DropIndexCommand) {
-            return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.dropIndex(DdlToCatalogCommandConverter.convert((DropIndexCommand) cmd))
-                            .handle(handleModificationResult(((DropIndexCommand) cmd).ifNotExists(), IndexNotFoundException.class))
                     );
         } else if (cmd instanceof CreateZoneCommand) {
             CreateZoneCommand zoneCommand = (CreateZoneCommand) cmd;

@@ -65,6 +65,7 @@ import java.util.function.LongFunction;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -285,6 +286,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(distributionZoneManager.zoneIdAsyncInternal(ZONE_NAME)).thenReturn(completedFuture(ZONE_ID));
 
         when(replicaMgr.stopReplica(any())).thenReturn(completedFuture(true));
+
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
 
         tblManagerFut = new CompletableFuture<>();
     }
@@ -684,6 +687,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockMetastore();
 
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
+
         // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
         TableManager tableManager = createTableManager(tblManagerFut, (mvTableStorage) -> {
             doReturn(completedFuture(mvPartitionStorage)).when(mvTableStorage).createMvPartition(anyInt());
@@ -881,7 +886,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 vaultManager,
                 cmgMgr,
-                distributionZoneManager
+                distributionZoneManager,
+                mock(CatalogManager.class)
         ) {
 
             @Override

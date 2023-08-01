@@ -144,8 +144,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final SchemaManager schemaManager;
 
-    private final Consumer<LongFunction<CompletableFuture<?>>> registry;
-
     private final DataStorageManager dataStorageManager;
 
     private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
@@ -195,7 +193,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             HybridClock clock,
             CatalogManager catalogManager
     ) {
-        this.registry = registry;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
         this.indexManager = indexManager;
@@ -207,6 +204,16 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.replicaService = replicaService;
         this.clock = clock;
         this.catalogManager = catalogManager;
+
+        sqlSchemaManager = new SqlSchemaManagerImpl(
+                tableManager,
+                schemaManager,
+                registry,
+                busyLock
+        );
+
+        registerTableListener(TableEvent.CREATE, new TableCreatedListener((SqlSchemaManagerImpl) sqlSchemaManager));
+        registerIndexListener(IndexEvent.CREATE, new IndexCreatedListener((SqlSchemaManagerImpl) sqlSchemaManager));
     }
 
     /** {@inheritDoc} */
@@ -238,14 +245,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 msgSrvc
         ));
 
-        SqlSchemaManagerImpl sqlSchemaManager = new SqlSchemaManagerImpl(
-                tableManager,
-                schemaManager,
-                registry,
-                busyLock
-        );
-
-        sqlSchemaManager.registerListener(prepareSvc);
+        ((SqlSchemaManagerImpl) sqlSchemaManager).registerListener(prepareSvc);
 
         this.prepareSvc = prepareSvc;
 
@@ -261,7 +261,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
 
-        sqlSchemaManager.registerListener(executableTableRegistry);
+        ((SqlSchemaManagerImpl) sqlSchemaManager).registerListener(executableTableRegistry);
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
@@ -280,14 +280,10 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.executionSrvc = executionSrvc;
 
-        registerTableListener(TableEvent.CREATE, new TableCreatedListener(sqlSchemaManager));
-        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(sqlSchemaManager));
-        registerTableListener(TableEvent.DROP, new TableDroppedListener(sqlSchemaManager));
+        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(((SqlSchemaManagerImpl) sqlSchemaManager)));
+        registerTableListener(TableEvent.DROP, new TableDroppedListener(((SqlSchemaManagerImpl) sqlSchemaManager)));
 
-        registerIndexListener(IndexEvent.CREATE, new IndexCreatedListener(sqlSchemaManager));
-        registerIndexListener(IndexEvent.DROP, new IndexDroppedListener(sqlSchemaManager));
-
-        this.sqlSchemaManager = sqlSchemaManager;
+        registerIndexListener(IndexEvent.DROP, new IndexDroppedListener(((SqlSchemaManagerImpl) sqlSchemaManager)));
 
         services.forEach(LifecycleAware::start);
     }

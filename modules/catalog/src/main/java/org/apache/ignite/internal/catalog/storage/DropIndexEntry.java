@@ -41,14 +41,25 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
     private final int tableId;
 
     /**
+     * Table name for with the index was removed.
+     *
+     * <p>NOTE: This is a temporary solution to avoid getting the table id from the configuration if the table has been dropped.
+     */
+    @Deprecated(forRemoval = true)
+    // TODO: IGNITE-19499 Should be removed and only the table id from the catalog should be used
+    private final String tableName;
+
+    /**
      * Constructs the object.
      *
      * @param indexId An id of an index to drop.
      * @param tableId Table ID for which the index was removed.
+     *
      */
-    public DropIndexEntry(int indexId, int tableId) {
+    public DropIndexEntry(int indexId, int tableId, String tableName) {
         this.indexId = indexId;
         this.tableId = tableId;
+        this.tableName = tableName;
     }
 
     /** Returns an id of an index to drop. */
@@ -68,7 +79,7 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new DropIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
+        return new DropIndexEventParameters(causalityToken, catalogVersion, indexId, tableId, tableName);
     }
 
     @Override

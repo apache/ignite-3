@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -41,7 +42,6 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
@@ -71,9 +71,6 @@ import org.mockito.quality.Strictness;
 public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     @Mock
     private TableManager tableManager;
-
-    @Mock
-    private IndexManager indexManager;
 
     @Mock
     private DataStorageManager dataStorageManager;
@@ -123,7 +120,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
                 "node"
         );
 
-        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, dataStorageManager, mock(CatalogManager.class));
     }
 
     @AfterEach

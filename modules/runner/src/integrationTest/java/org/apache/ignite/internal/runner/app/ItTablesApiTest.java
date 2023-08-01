@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
@@ -31,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,11 +52,9 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -73,9 +71,6 @@ import org.junit.jupiter.api.TestInfo;
  * Integration tests to check consistent of java API on different nodes.
  */
 public class ItTablesApiTest extends IgniteAbstractTest {
-    /** Schema name. */
-    public static final String SCHEMA = "PUBLIC";
-
     /** Table name. */
     public static final String TABLE_NAME = "TBL1";
 
@@ -251,80 +246,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
 
     /**
-     * Tries to create an index which is already created.
-     */
-    @Test
-    public void testAddIndex() {
-        clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
-
-        Ignite ignite0 = clusterNodes.get(0);
-
-        createTable(ignite0, TABLE_NAME);
-
-        tryToCreateIndex(ignite0, TABLE_NAME, true);
-
-        try {
-            tryToCreateIndex(ignite0, TABLE_NAME, true);
-        } catch (Throwable e) {
-            IgniteTestUtils.hasCause(e, IndexAlreadyExistsException.class, null);
-        }
-
-        tryToCreateIndex(ignite0, TABLE_NAME, false);
-    }
-
-    /**
-     * Tries to create an index which is already created from lagged node.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testAddIndexFromLaggedNode() throws Exception {
-        clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
-
-        Ignite ignite0 = clusterNodes.get(0);
-
-        createTable(ignite0, TABLE_NAME);
-
-        Ignite ignite1 = clusterNodes.get(1);
-
-        WatchListenerInhibitor ignite1Inhibitor = metastorageEventsInhibitor(ignite1);
-
-        ignite1Inhibitor.startInhibit();
-
-        tryToCreateIndex(ignite0, TABLE_NAME, true);
-
-        CompletableFuture<Void> addIndesFut = runAsync(() -> tryToCreateIndex(ignite1, TABLE_NAME, true));
-        CompletableFuture<Void> addIndesIfNotExistsFut = runAsync(() -> addIndexIfNotExists(ignite1, TABLE_NAME));
-
-        for (Ignite ignite : clusterNodes) {
-            if (ignite != ignite1) {
-                try {
-                    tryToCreateIndex(ignite, TABLE_NAME, true);
-
-                    fail("Should not reach here");
-                } catch (Throwable e) {
-                    IgniteTestUtils.hasCause(e, IndexAlreadyExistsException.class, null);
-                }
-
-                addIndexIfNotExists(ignite, TABLE_NAME);
-            }
-        }
-
-        assertFalse(addIndesFut.isDone());
-        assertFalse(addIndesIfNotExistsFut.isDone());
-
-        ignite1Inhibitor.stopInhibit();
-
-        try {
-            addIndesFut.get(10, TimeUnit.SECONDS);
-        } catch (Throwable e) {
-            IgniteTestUtils.hasCause(e, IndexAlreadyExistsException.class, null);
-        }
-
-        addIndesIfNotExistsFut.get(10, TimeUnit.SECONDS);
-    }
-
-    /**
      * Tries to create a column which is already created.
      */
     @Test
@@ -466,11 +387,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param tableName Table name.
      */
     protected Table createTable(Ignite node, String tableName) {
-        List<ColumnDefinition> cols = new ArrayList<>();
-        cols.add(SchemaBuilders.column("key", ColumnType.INT64).build());
-        cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
-        cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
-
         var tmpl = "CREATE TABLE %s (key BIGINT PRIMARY KEY, valInt INT, valStr VARCHAR)";
         var sql = String.format(tmpl, tableName);
 
@@ -492,7 +408,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
             return await(((TableManager) node.tables()).createTableAsync(
                     tableName,
                     DEFAULT_ZONE_NAME,
-                    tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(Arrays.asList(
+                    tblCh -> convert(SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, tableName).columns(Arrays.asList(
                                     SchemaBuilders.column("key", ColumnType.INT64).build(),
                                     SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),
                                     SchemaBuilders.column("valStr", ColumnType.string())
@@ -578,33 +494,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
             addColumnInternal(node, tableName, col);
         } catch (ColumnAlreadyExistsException ex) {
             log.info("Column already exists [naem={}]", col.name());
-        }
-    }
-
-    /**
-     * Adds a column.
-     *
-     * @param node Cluster node.
-     * @param tableName Table name.
-     */
-    protected void tryToCreateIndex(Ignite node, String tableName, boolean failIfNotExist) {
-        var tmpl  = "CREATE INDEX %s testHI ON %s (valInt, valStr)";
-        var sql = String.format(tmpl, failIfNotExist ? "" : "IF NOT EXISTS", tableName);
-
-        try (Session ses = node.sql().createSession()) {
-            ses.execute(null, sql);
-        }
-    }
-
-    /**
-     * Creates a table if it does not exist.
-     *
-     * @param node Cluster node.
-     * @param tableName Table name.
-     */
-    protected void addIndexIfNotExists(Ignite node, String tableName) {
-        try (Session ses = node.sql().createSession()) {
-            ses.execute(null, String.format("CREATE INDEX IF NOT EXISTS testHI ON %s (valInt)", tableName));
         }
     }
 }

@@ -545,10 +545,11 @@ public class IgniteImpl implements Ignite {
                 topologyAwareRaftGroupServiceFactory,
                 vaultMgr,
                 cmgMgr,
-                distributionZoneManager
+                distributionZoneManager,
+                catalogManager
         );
 
-        indexManager = new IndexManager(tablesConfig, schemaManager, distributedTblMgr);
+        indexManager = new IndexManager(tablesConfig, schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
 
         qryEngine = new SqlQueryProcessor(
                 registry,
@@ -1095,5 +1096,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public TxManager txManager() {
         return txManager;
+    }
+
+    /** Returns the node's catalog manager. */
+    @TestOnly
+    public CatalogManager catalogManager() {
+        return catalogManager;
     }
 }

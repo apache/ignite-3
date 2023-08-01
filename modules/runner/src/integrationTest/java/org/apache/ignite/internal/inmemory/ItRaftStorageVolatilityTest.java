@@ -20,10 +20,6 @@ package org.apache.ignite.internal.inmemory;
 import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
@@ -42,11 +38,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.configuration.EntryCountBudgetChange;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageChange;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.junit.jupiter.api.Test;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -240,18 +231,13 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
-        int zoneId = await(createZone(
-                node(0).distributionZoneManager(), "zone1", 1, DEFAULT_PARTITION_COUNT,
-                dataStorageChange -> dataStorageChange.convert(VolatilePageMemoryDataStorageChange.class)));
+        String zoneName = "zone1";
 
-        TableDefinition tableDef = SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
-                SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
-        ).withPrimaryKey("ID").build();
+        executeSql(String.format("CREATE ZONE \"%s\" ENGINE aimem", zoneName));
 
-        await(((TableManager) node(0).tables()).createTableAsync(tableName, DEFAULT_ZONE_NAME, tableChange -> {
-            SchemaConfigurationConverter.convert(tableDef, tableChange)
-                    .changeZoneId(zoneId);
-        }));
+        executeSql(String.format(
+                "CREATE TABLE \"%s\"(id INTEGER PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='%s'",
+                tableName, zoneName
+        ));
     }
 }

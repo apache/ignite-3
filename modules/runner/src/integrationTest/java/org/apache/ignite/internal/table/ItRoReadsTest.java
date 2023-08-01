@@ -17,11 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_REPLICA_COUNT;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
-import static org.apache.ignite.internal.runner.app.ItTablesApiTest.SCHEMA;
-import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -52,9 +48,12 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.QueryContext;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -149,12 +148,14 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void createTable() {
-        table = startTable(node(), TABLE_NAME);
+        startTable(TABLE_NAME);
+
+        table = ((TableManager) node().tables()).getTable(TABLE_NAME);
     }
 
     @AfterEach
     void dropTable() {
-        stopTable(node(), TABLE_NAME);
+        stopTable(TABLE_NAME);
 
         table = null;
     }
@@ -515,26 +516,20 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static Table startTable(Ignite node, String tableName) {
-        List<ColumnDefinition> cols = new ArrayList<>();
-        cols.add(SchemaBuilders.column("key", ColumnType.INT64).build());
-        cols.add(SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build());
-        cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
-
+    private static void startTable(String tableName) {
         String zoneName = "zone_" + tableName;
-        int zoneId = await(createZone(((IgniteImpl) node).distributionZoneManager(), zoneName, 1, DEFAULT_REPLICA_COUNT));
 
-        return await(((TableManager) node.tables()).createTableAsync(
-                tableName,
-                zoneName,
-                tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
-                        cols).withPrimaryKey("key").build(), tblCh)
+        sql(String.format("CREATE ZONE \"%s\" WITH PARTITIONS=1", zoneName));
+
+        sql(String.format(
+                "CREATE TABLE \"%s\"(\"key\" BIGINT PRIMARY KEY, valInt INTEGER, valStr VARCHAR DEFAULT 'default') WITH PRIMARY_ZONE='%s'",
+                tableName, zoneName
         ));
     }
 
-    private static void stopTable(Ignite node, String tableName) {
-        await(((TableManager) node.tables()).dropTableAsync(tableName));
-        await(((IgniteImpl) node).distributionZoneManager().dropZone("zone_" + tableName));
+    private static void stopTable(String tableName) {
+        sql(String.format("DROP TABLE IF EXISTS \"%s\"", tableName));
+        sql(String.format("DROP ZONE IF EXISTS \"%s\"", "zone_" + tableName));
     }
 
     protected static int nodes() {
@@ -549,5 +544,23 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         assertThat(row1.schemaVersion(), is(row2.schemaVersion()));
         assertThat(row1.hasValue(), is(row2.hasValue()));
         assertThat(row1.tupleSlice(), is(row2.tupleSlice()));
+    }
+
+    private static List<List<Object>> sql(String sql, Object... args) {
+        var queryEngine = new TestQueryProcessor(node());
+
+        SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
+
+        try {
+            var context = QueryContext.create(SqlQueryType.ALL);
+
+            CompletableFuture<AsyncSqlCursor<List<Object>>> queryFuture = queryEngine.querySingleAsync(sessionId, context, sql, args);
+
+            assertThat(queryFuture, willCompleteSuccessfully());
+
+            return getAllFromCursor(queryFuture.join());
+        } finally {
+            queryEngine.closeSession(sessionId);
+        }
     }
 }

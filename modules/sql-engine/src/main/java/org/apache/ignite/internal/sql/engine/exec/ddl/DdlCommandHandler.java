@@ -24,12 +24,8 @@ import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SC
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -40,9 +36,11 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
@@ -59,13 +57,6 @@ import org.apache.ignite.internal.schema.configuration.ValueSerializationHelper;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultChange;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexView;
-import org.apache.ignite.internal.schema.configuration.index.IndexColumnView;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexChange;
-import org.apache.ignite.internal.schema.configuration.index.SortedIndexView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
@@ -82,11 +73,9 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -94,8 +83,9 @@ import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Table;
-import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.IndexAlreadyExistsException;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.SqlException;
@@ -106,9 +96,9 @@ public class DdlCommandHandler {
 
     private final TableManager tableManager;
 
-    private final IndexManager indexManager;
-
     private final DataStorageManager dataStorageManager;
+
+    protected final CatalogManager catalogManager;
 
     /**
      * Constructor.
@@ -116,13 +106,13 @@ public class DdlCommandHandler {
     public DdlCommandHandler(
             DistributionZoneManager distributionZoneManager,
             TableManager tableManager,
-            IndexManager indexManager,
-            DataStorageManager dataStorageManager
+            DataStorageManager dataStorageManager,
+            CatalogManager catalogManager
     ) {
         this.distributionZoneManager = distributionZoneManager;
         this.tableManager = tableManager;
-        this.indexManager = indexManager;
         this.dataStorageManager = dataStorageManager;
+        this.catalogManager = catalogManager;
     }
 
     /** Handles ddl commands. */
@@ -352,59 +342,14 @@ public class DdlCommandHandler {
                             "Can't create index on duplicate columns: " + String.join(", ", cmd.columns()));
                 });
 
-        Consumer<TableIndexChange> indexChanger = tableIndexChange -> {
-            switch (cmd.type()) {
-                case SORTED:
-                    createSortedIndexInternal(cmd, tableIndexChange.convert(SortedIndexChange.class));
-
-                    break;
-                case HASH:
-                    createHashIndexInternal(cmd, tableIndexChange.convert(HashIndexChange.class));
-
-                    break;
-                default:
-                    throw new AssertionError("Unknown index type [type=" + cmd.type() + "]");
-            }
-        };
-
-        return indexManager.createIndexAsync(
-                cmd.schemaName(),
-                cmd.indexName(),
-                cmd.tableName(),
-                !cmd.ifNotExists(),
-                indexChanger);
+        return catalogCreateIndexAsync(cmd)
+                .handle(handleModificationResult(cmd.ifNotExists(), IndexAlreadyExistsException.class));
     }
 
     /** Handles drop index command. */
     private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
-        return indexManager.dropIndexAsync(cmd.schemaName(), cmd.indexName(), !cmd.ifNotExists());
-    }
-
-    /**
-     * Creates sorted index.
-     *
-     * @param cmd Create index command.
-     * @param indexChange Index configuration changer.
-     */
-    private void createSortedIndexInternal(CreateIndexCommand cmd, SortedIndexChange indexChange) {
-        indexChange.changeColumns(colsInit -> {
-            for (int i = 0; i < cmd.columns().size(); i++) {
-                String columnName = cmd.columns().get(i);
-                Collation collation = cmd.collations().get(i);
-                //TODO: https://issues.apache.org/jira/browse/IGNITE-17563 Pass null ordering for columns.
-                colsInit.create(columnName, colInit -> colInit.changeAsc(collation.asc));
-            }
-        });
-    }
-
-    /**
-     * Creates hash index.
-     *
-     * @param cmd Create index command.
-     * @param indexChange Index configuration changer.
-     */
-    private void createHashIndexInternal(CreateIndexCommand cmd, HashIndexChange indexChange) {
-        indexChange.changeColumnNames(cmd.columns().toArray(ArrayUtils.STRING_EMPTY_ARRAY));
+        return catalogManager.dropIndex(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifNotExists(), IndexNotFoundException.class));
     }
 
     /**
@@ -504,8 +449,6 @@ public class DdlCommandHandler {
 
                         Set<String> primaryCols = Set.of(priKey.columns());
 
-                        reportIndexedColumns(tableName, colNames, primaryCols);
-
                         for (String colName : colNames) {
                             if (!colNamesToOrders.contains(colName)) {
                                 ret.set(false);
@@ -526,38 +469,6 @@ public class DdlCommandHandler {
 
                     return ret.get();
                 }).thenApply(v -> ret.get());
-    }
-
-    private void reportIndexedColumns(String tableName, Set<String> colNames, Set<String> pkColNames) throws SqlException {
-        Map<String, List<String>> indexedColumns = new HashMap<>();
-
-        for (TableIndexView idxCfg : indexManager.indexConfigurations(tableName)) {
-            if (idxCfg instanceof SortedIndexView) {
-                for (IndexColumnView colView : ((SortedIndexView) idxCfg).columns()) {
-                    if (colNames.contains(colView.name()) && !pkColNames.contains(colView.name())) {
-                        indexedColumns.computeIfAbsent(colView.name(), v -> new ArrayList<>()).add(idxCfg.name());
-                    }
-                }
-            } else if (idxCfg instanceof HashIndexView) {
-                for (String colName : ((HashIndexView) idxCfg).columnNames()) {
-                    if (colNames.contains(colName) && !pkColNames.contains(colName)) {
-                        indexedColumns.computeIfAbsent(colName, v -> new ArrayList<>()).add(idxCfg.name());
-                    }
-                }
-            }
-        }
-
-        if (indexedColumns.isEmpty()) {
-            return;
-        }
-
-        IgniteStringBuilder sb = new IgniteStringBuilder("Can`t delete column(s). ");
-
-        for (Entry<String, List<String>> e : indexedColumns.entrySet()) {
-            sb.app("Column ").app(e.getKey()).app(" is used by indexes ").app(e.getValue()).app(". ");
-        }
-
-        throw new SqlException(STMT_VALIDATION_ERR, sb.toString());
     }
 
     private static void convert(NativeType colType, ColumnTypeChange colTypeChg) {
@@ -626,5 +537,16 @@ public class DdlCommandHandler {
     /** Column names set. */
     private static Set<String> columnNames(NamedListView<? extends ColumnView> cols) {
         return new HashSet<>(cols.namedListKeys());
+    }
+
+    private CompletableFuture<Void> catalogCreateIndexAsync(CreateIndexCommand cmd) {
+        switch (cmd.type()) {
+            case HASH:
+                return catalogManager.createIndex((CreateHashIndexParams) DdlToCatalogCommandConverter.convert(cmd));
+            case SORTED:
+                return catalogManager.createIndex((CreateSortedIndexParams) DdlToCatalogCommandConverter.convert(cmd));
+            default:
+                throw new IllegalArgumentException("Unknown index type: " + cmd.type());
+        }
     }
 }

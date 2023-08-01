@@ -22,12 +22,13 @@ import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateM
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
@@ -68,10 +69,10 @@ public class RocksDbStorageEngineTest {
     }
 
     @Test
-    void testCreateTableWithDefaultDataRegion(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
+    void testCreateTableWithDefaultDataRegion() {
         table = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(tablesConfig)
+                new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 
         table.start();
@@ -80,18 +81,17 @@ public class RocksDbStorageEngineTest {
     }
 
     @Test
-    void testCreateTableWithDynamicCustomDataRegion(@InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig) {
+    void testCreateTableWithDynamicCustomDataRegion() {
         String customRegionName = "foobar";
 
         CompletableFuture<Void> engineConfigChangeFuture = engineConfig.regions()
-                .change(c -> c.create(customRegionName, rocksDbDataRegionChange -> {
-                }));
+                .change(c -> c.create(customRegionName, rocksDbDataRegionChange -> { /* No-op. */ }));
 
         assertThat(engineConfigChangeFuture, willCompleteSuccessfully());
 
         table = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, customRegionName),
-                new StorageIndexDescriptorSupplier(tablesConfig)
+                new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 
         table.start();

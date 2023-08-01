@@ -40,7 +40,6 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -69,8 +68,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig
+            @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 
@@ -80,7 +78,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         engine.start();
 
-        initialize(tablesConfig);
+        initialize();
     }
 
     @AfterEach
@@ -95,7 +93,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     protected MvTableStorage createMvTableStorage() {
         return engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(tablesConfig)
+                new StorageIndexDescriptorSupplier(catalogService)
         );
     }
 
