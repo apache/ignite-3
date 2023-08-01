@@ -63,12 +63,12 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
 
         recClass = mapper.targetType();
 
-        keyMarsh = Marshaller.createMarshaller(schema.keyColumns().columns(), mapper, true);
-        valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), mapper, false);
+        keyMarsh = Marshaller.createMarshaller(schema.keyColumns().columns(), mapper, true, true);
+        valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), mapper, false, true);
 
         recMarsh = Marshaller.createMarshaller(
                 ArrayUtils.concat(schema.keyColumns().columns(), schema.valueColumns().columns()),
-                mapper, false
+                mapper, false, false
         );
     }
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -44,7 +45,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         pojo.val = "val";
         pojo.unmapped = "unmapped";
 
-        IgniteException ex = assertThrows(IgniteException.class, () -> pojoView.upsert(null, pojo));
+        Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, pojo), IllegalArgumentException.class);
         assertEquals("Fields [unmapped2, unmapped] are not mapped to columns.", ex.getMessage());
     }
 

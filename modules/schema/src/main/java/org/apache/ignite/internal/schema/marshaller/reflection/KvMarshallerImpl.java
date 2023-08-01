@@ -61,8 +61,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         keyClass = keyMapper.targetType();
         valClass = valueMapper.targetType();
 
-        keyMarsh = Marshaller.createMarshaller(schema.keyColumns().columns(), keyMapper, true);
-        valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), valueMapper, false);
+        keyMarsh = Marshaller.createMarshaller(schema.keyColumns().columns(), keyMapper, true, true);
+        valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), valueMapper, false, true);
     }
 
     /** {@inheritDoc} */

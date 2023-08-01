@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
@@ -39,16 +41,21 @@ public abstract class Marshaller {
     /**
      * Creates a marshaller for class.
      *
-     * @param cols             Columns.
-     * @param mapper           Mapper.
+     * @param cols Columns.
+     * @param mapper Mapper.
      * @param requireAllFields If specified class should contain fields for all columns.
+     * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
      * @return Marshaller.
      */
-    public static <T> Marshaller createMarshaller(Column[] cols, @NotNull Mapper<T> mapper, boolean requireAllFields) {
+    static <T> Marshaller createMarshaller(
+            Column[] cols,
+            @NotNull Mapper<T> mapper,
+            boolean requireAllFields,
+            boolean allowUnmappedFields) {
         if (mapper instanceof OneColumnMapper) {
             return simpleMarshaller(cols, (OneColumnMapper<T>) mapper);
         } else if (mapper instanceof PojoMapper) {
-            return pojoMarshaller(cols, (PojoMapper<T>) mapper, requireAllFields);
+            return pojoMarshaller(cols, (PojoMapper<T>) mapper, requireAllFields, allowUnmappedFields);
         } else {
             throw new IllegalArgumentException("Mapper of unsupported type: " + mapper.getClass());
         }
@@ -79,12 +86,17 @@ public abstract class Marshaller {
     /**
      * Creates a pojo marshaller for class.
      *
-     * @param cols             Columns.
-     * @param mapper           Mapper.
+     * @param cols Columns.
+     * @param mapper Mapper.
      * @param requireAllFields If specified class should contain fields for all columns.
+     * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
      * @return Pojo marshaller.
      */
-    static <T> ObjectMarshaller pojoMarshaller(Column[] cols, @NotNull PojoMapper<T> mapper, boolean requireAllFields) {
+    private static <T> ObjectMarshaller pojoMarshaller(
+            Column[] cols,
+            @NotNull PojoMapper<T> mapper,
+            boolean requireAllFields,
+            boolean allowUnmappedFields) {
         final Class<T> targetType = mapper.targetType();
 
         ColumnBinding[] columnBindings = new ColumnBinding[cols.length];
@@ -103,6 +115,19 @@ public abstract class Marshaller {
                 columnBindings[i] = ColumnBinding.unmappedFieldBinding(col);
             } else {
                 columnBindings[i] = ColumnBinding.createFieldBinding(col, targetType, fieldName, mapper.converterForColumn(col.name()));
+            }
+        }
+
+        if (!allowUnmappedFields) {
+            var fields = mapper.fields();
+            if (fields.size() > cols.length) {
+                Set<String> fieldSet = new HashSet<>(fields);
+                for (Column col : cols) {
+                    String fieldName = mapper.fieldForColumn(col.name());
+                    fieldSet.remove(fieldName);
+                }
+
+                throw new IllegalArgumentException("Fields " + fieldSet + " are not mapped to columns.");
             }
         }
 
