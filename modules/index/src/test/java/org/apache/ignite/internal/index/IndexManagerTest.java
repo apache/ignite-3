@@ -175,13 +175,7 @@ public class IndexManagerTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                vaultManager == null ? null : vaultManager::stop,
-                metaStorageManager == null ? null : metaStorageManager::stop,
-                clockWaiter == null ? null : clockWaiter::stop,
-                catalogManager == null ? null : catalogManager::stop,
-                indexManager == null ? null : indexManager::stop
-        );
+        IgniteUtils.stopAll(vaultManager, metaStorageManager, clockWaiter, catalogManager, indexManager);
     }
 
     @Test

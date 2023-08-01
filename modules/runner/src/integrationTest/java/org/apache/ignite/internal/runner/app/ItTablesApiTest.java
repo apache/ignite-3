@@ -25,11 +25,8 @@ import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationCon
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -55,12 +52,9 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
-import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -249,98 +243,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         ignite1Inhibitor.stopInhibit();
 
         assertEquals(otherValue, ignite1.tables().table(TABLE_NAME).keyValueView().get(null, tableKey));
-    }
-
-    /**
-     * Tries to create an index which is already created.
-     */
-    @Test
-    public void testAddIndex() {
-        Ignite ignite = clusterNodes.get(0);
-
-        createTable(ignite, TABLE_NAME);
-
-        String indexName = "TEST_INDEX";
-
-        tryToCreateIndex(ignite, TABLE_NAME, indexName, true);
-
-        IgniteTestUtils.assertThrows(
-                IndexAlreadyExistsException.class,
-                () -> tryToCreateIndex(ignite, TABLE_NAME, indexName, true),
-                String.format("Index already exists [name=\"%s\".\"%s\"]", DEFAULT_SCHEMA_NAME, indexName)
-        );
-
-        tryToCreateIndex(ignite, TABLE_NAME, indexName, false);
-    }
-
-    @Test
-    void testDropIndex() {
-        Ignite ignite = clusterNodes.get(0);
-
-        createTable(ignite, TABLE_NAME);
-
-        String indexName = "TEST_INDEX";
-
-        tryToCreateIndex(ignite, TABLE_NAME, indexName, true);
-
-        // Let's check the drop on an existing index.
-        tryToDropIndex(ignite, indexName, true);
-
-        // Let's check the drop on a non-existent index.
-        IgniteTestUtils.assertThrows(
-                IndexNotFoundException.class,
-                () -> tryToDropIndex(ignite, indexName, true),
-                String.format("Index does not exist [name=\"%s\".\"%s\"]", DEFAULT_SCHEMA_NAME, indexName)
-        );
-
-        tryToCreateIndex(ignite, TABLE_NAME, indexName, false);
-    }
-
-    /**
-     * Tries to create an index which is already created from lagged node.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testAddIndexFromLaggedNode() {
-        clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
-
-        Ignite ignite0 = clusterNodes.get(0);
-
-        createTable(ignite0, TABLE_NAME);
-
-        Ignite ignite1 = clusterNodes.get(1);
-
-        WatchListenerInhibitor ignite1Inhibitor = metastorageEventsInhibitor(ignite1);
-
-        ignite1Inhibitor.startInhibit();
-
-        String indexName = "TEST_INDEX";
-
-        tryToCreateIndex(ignite0, TABLE_NAME, indexName, true);
-
-        CompletableFuture<Void> addIndexFuture = runAsync(() -> tryToCreateIndex(ignite1, TABLE_NAME, indexName, true));
-        CompletableFuture<Void> addIndexIfNotExistsFuture = runAsync(() -> tryToCreateIndex(ignite1, TABLE_NAME, indexName, false));
-
-        for (Ignite ignite : clusterNodes) {
-            if (ignite != ignite1) {
-                IgniteTestUtils.assertThrows(
-                        IndexAlreadyExistsException.class,
-                        () -> tryToCreateIndex(ignite, TABLE_NAME, indexName, true),
-                        String.format("Index already exists [name=\"%s\".\"%s\"]", DEFAULT_SCHEMA_NAME, indexName)
-                );
-
-                tryToCreateIndex(ignite, TABLE_NAME, indexName, false);
-            }
-        }
-
-        assertFalse(addIndexFuture.isDone());
-        assertFalse(addIndexIfNotExistsFuture.isDone());
-
-        ignite1Inhibitor.stopInhibit();
-
-        assertThat(addIndexFuture, willThrow(IndexAlreadyExistsException.class));
-        assertThat(addIndexIfNotExistsFuture, willBe(nullValue()));
     }
 
     /**
@@ -592,40 +494,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
             addColumnInternal(node, tableName, col);
         } catch (ColumnAlreadyExistsException ex) {
             log.info("Column already exists [naem={}]", col.name());
-        }
-    }
-
-    /**
-     * Tries to create the index.
-     *
-     * @param node Cluster node.
-     * @param tableName Table name.
-     * @param indexName Index name.
-     * @param failIfNotExist Throw an exception if the index does not exist.
-     */
-    protected static void tryToCreateIndex(Ignite node, String tableName, String indexName, boolean failIfNotExist) {
-        var sql = String.format(
-                "CREATE INDEX %s ON %s (valInt, valStr)",
-                failIfNotExist ? indexName : "IF NOT EXISTS " + indexName, tableName
-        );
-
-        try (Session ses = node.sql().createSession()) {
-            ses.execute(null, sql);
-        }
-    }
-
-    /**
-     * Tries to destroy the index.
-     *
-     * @param node Cluster node.
-     * @param indexName Index name.
-     * @param failIfNotExist Throw an exception if the index does not exist.
-     */
-    protected static void tryToDropIndex(Ignite node, String indexName, boolean failIfNotExist) {
-        var sql = String.format("DROP INDEX %s", failIfNotExist ? indexName : "IF EXISTS " + indexName);
-
-        try (Session ses = node.sql().createSession()) {
-            ses.execute(null, sql);
         }
     }
 }

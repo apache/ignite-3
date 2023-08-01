@@ -516,7 +516,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         lowWatermark.start();
 
-        fireCreateTablesOnStartManager();
+        fireCreateTablesOnManagerStart();
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
@@ -2763,7 +2763,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * <p>NOTE: This is a temporary solution that must be get rid/remake/change.
      */
     // TODO: IGNITE-19499 Need to get rid/remake/change
-    private void fireCreateTablesOnStartManager() {
+    private void fireCreateTablesOnManagerStart() {
         CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
 
         assert recoveryFinishFuture.isDone();

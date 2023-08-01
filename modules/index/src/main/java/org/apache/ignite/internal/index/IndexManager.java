@@ -127,9 +127,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
     @Override
     public void start() {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Index manager is about to start");
-        }
+        LOG.debug("Index manager is about to start");
 
         startIndexes();
 
@@ -145,30 +143,22 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             return onIndexDrop((DropIndexEventParameters) parameters);
         });
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Index manager started");
-        }
+        LOG.info("Index manager started");
     }
 
     @Override
     public void stop() throws Exception {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Index manager is about to stop");
-        }
+        LOG.debug("Index manager is about to stop");
 
         if (!stopGuard.compareAndSet(false, true)) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Index manager already stopped");
-            }
+            LOG.debug("Index manager already stopped");
 
             return;
         }
 
         busyLock.block();
 
-        if (LOG.isInfoEnabled()) {
-            LOG.info("Index manager stopped");
-        }
+        LOG.info("Index manager stopped");
     }
 
     private CompletableFuture<Boolean> onIndexDrop(DropIndexEventParameters parameters) {

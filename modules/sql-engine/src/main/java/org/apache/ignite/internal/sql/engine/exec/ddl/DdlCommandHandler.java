@@ -76,7 +76,6 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -343,42 +342,14 @@ public class DdlCommandHandler {
                             "Can't create index on duplicate columns: " + String.join(", ", cmd.columns()));
                 });
 
-        boolean failIfExists = !cmd.ifNotExists();
-
         return catalogCreateIndexAsync(cmd)
-                .handle((unused, throwable) -> {
-                    if (throwable != null) {
-                        throwable = ExceptionUtils.unwrapCause(throwable);
-
-                        if (!failIfExists && throwable instanceof IndexAlreadyExistsException) {
-                            return false;
-                        }
-
-                        throw new CompletionException(throwable);
-                    }
-
-                    return true;
-                });
+                .handle(handleModificationResult(cmd.ifNotExists(), IndexAlreadyExistsException.class));
     }
 
     /** Handles drop index command. */
     private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
-        boolean failIfNotExists = !cmd.ifNotExists();
-
         return catalogManager.dropIndex(DdlToCatalogCommandConverter.convert(cmd))
-                .handle((unused, throwable) -> {
-                    if (throwable != null) {
-                        throwable = ExceptionUtils.unwrapCause(throwable);
-
-                        if (!failIfNotExists && throwable instanceof IndexNotFoundException) {
-                            return false;
-                        }
-
-                        throw new CompletionException(throwable);
-                    }
-
-                    return true;
-                });
+                .handle(handleModificationResult(cmd.ifNotExists(), IndexNotFoundException.class));
     }
 
     /**
