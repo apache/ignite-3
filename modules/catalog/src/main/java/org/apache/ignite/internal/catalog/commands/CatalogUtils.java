@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -33,10 +32,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.SqlException;
 
 /**
  * Catalog utils.
