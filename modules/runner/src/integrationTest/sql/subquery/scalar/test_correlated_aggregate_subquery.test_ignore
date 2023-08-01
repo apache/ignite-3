@@ -2,7 +2,6 @@
 # description: Test correlated aggregate subqueries
 # group: [scalar]
 # Ignore https://issues.apache.org/jira/browse/IGNITE-15588
-# Ignore https://issues.apache.org/jira/browse/IGNITE-15605
 # Ignore https://issues.apache.org/jira/browse/IGNITE-15594
 # Ignore https://issues.apache.org/jira/browse/IGNITE-16000
 
