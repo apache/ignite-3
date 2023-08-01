@@ -343,7 +343,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req)).handle(
                     (rows, err) -> {
                         if (req.full() && (err != null || rows.size() < req.batchSize())) {
-                            cleanupLocal(req.transactionId(), err != null);
+                            cleanupLocal(req.transactionId());
                         }
 
                         if (err != null) {
@@ -1340,19 +1340,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Clean up txn locally.
      *
      * @param txId Tx ID.
-     * @param committed {@code True} if committed.
      */
-    private void cleanupLocal(UUID txId, boolean committed) {
-        txCleanupReadyFutures.compute(txId, (id, txOps) -> {
-            assert txOps != null;
-
-            txOps.futures.clear();
-
-            txOps.state = committed ? TxState.COMMITED : TxState.ABORTED;
-
-            return txOps;
-        });
-
+    private void cleanupLocal(UUID txId) {
         releaseTxLocks(txId);
     }
 
@@ -1369,24 +1358,27 @@ public class PartitionReplicaListener implements ReplicaListener {
     private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, boolean cleanup, Supplier<CompletableFuture<T>> op) {
         var fut = new CompletableFuture<T>();
 
-        txCleanupReadyFutures.compute(txId, (id, txOps) -> {
-            if (txOps == null) {
-                txOps = new TxCleanupReadyFutureList();
-            }
+        if (!cleanup) {
+            txCleanupReadyFutures.compute(txId, (id, txOps) -> {
+                if (txOps == null) {
+                    txOps = new TxCleanupReadyFutureList();
+                }
 
-            if (txOps.state == TxState.ABORTED || txOps.state == TxState.COMMITED) {
-                fut.completeExceptionally(new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished."));
-            } else {
-                txOps.futures.computeIfAbsent(cmdType, type -> new ArrayList<>()).add(fut);
-            }
+                if (txOps.state == TxState.ABORTED || txOps.state == TxState.COMMITED) {
+                    fut.completeExceptionally(
+                            new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished."));
+                } else {
+                    txOps.futures.computeIfAbsent(cmdType, type -> new ArrayList<>()).add(fut);
+                }
 
-            return txOps;
-        });
+                return txOps;
+            });
+        }
 
         if (!fut.isDone()) {
             op.get().whenComplete((v, th) -> {
                 if (cleanup) { // Cleanup local
-                    cleanupLocal(txId, th == null);
+                    cleanupLocal(txId);
                 }
 
                 if (th != null) {
@@ -1774,10 +1766,20 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
     private CompletableFuture<Object> applyUpdateCommand(UpdateCommand cmd) {
-        storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.rowBuffer(), null,
-                null);
+        if (!cmd.full()) {
+            storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.rowBuffer(), null,
+                    null);
+        }
 
-        return applyCmdWithExceptionHandling(cmd);
+        return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
+            if (cmd.full() && cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.rowBuffer(),
+                        null,
+                        cmd.safeTime());
+            }
+
+            return res;
+        });
     }
 
     /**
@@ -1787,9 +1789,18 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
     private CompletableFuture<Object> applyUpdateAllCommand(UpdateAllCommand cmd) {
-        storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), null, null);
+        if (!cmd.full()) {
+            storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), null, null);
+        }
 
-        return applyCmdWithExceptionHandling(cmd);
+        return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
+            if (cmd.full() && cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), null,
+                        cmd.safeTime());
+            }
+
+            return res;
+        });
     }
 
     /**

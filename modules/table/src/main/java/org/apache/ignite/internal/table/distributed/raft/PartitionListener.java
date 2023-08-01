@@ -213,8 +213,6 @@ public class PartitionListener implements RaftGroupListener {
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
             }
-
-            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
         });
     }
 
@@ -233,24 +231,9 @@ public class PartitionListener implements RaftGroupListener {
 
         storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.rowBuffer(),
                 rowId -> {
+                    // Cleanup is not required for one-phase transactions.
                     if (!cmd.full()) {
                         txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId);
-                    } else {
-                        TxMeta txMetaToSet = new TxMeta(
-                                COMMITED,
-                                List.of(cmd.tablePartitionId().asTablePartitionId()),
-                                cmd.safeTime()
-                        );
-
-                        boolean txStateChangeRes = txStateStorage.compareAndSet(
-                                cmd.txId(),
-                                null,
-                                txMetaToSet,
-                                commandIndex,
-                                commandTerm
-                        );
-
-                        assert txStateChangeRes : "Expecting successful commit for full txn " + cmd.txId();
                     }
 
                     storage.lastApplied(commandIndex, commandTerm);
@@ -274,26 +257,11 @@ public class PartitionListener implements RaftGroupListener {
 
         storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(),
                 rowIds -> {
+                    // Cleanup is not required for one-phase transactions.
                     if (!cmd.full()) {
                         for (RowId rowId : rowIds) {
                             txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new TreeSet<>()).add(rowId);
                         }
-                    } else {
-                        TxMeta txMetaToSet = new TxMeta(
-                                COMMITED,
-                                List.of(cmd.tablePartitionId().asTablePartitionId()),
-                                cmd.safeTime()
-                        );
-
-                        boolean txStateChangeRes = txStateStorage.compareAndSet(
-                                cmd.txId(),
-                                null,
-                                txMetaToSet,
-                                commandIndex,
-                                commandTerm
-                        );
-
-                        assert txStateChangeRes : "Expecting successful commit for full txn";
                     }
 
                     storage.lastApplied(commandIndex, commandTerm);
