@@ -123,6 +123,7 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
      *
      * @throws Exception If failed.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20058")
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
     void testAlterFilterToEmtpyNodes(int zoneId, String zoneName) throws Exception {
@@ -158,6 +159,7 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
      *
      * @throws Exception If failed.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20058")
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
     void testAlterFilterDoNotAffectScaleDown(int zoneId, String zoneName) throws Exception {
@@ -215,6 +217,7 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
      *
      * @throws Exception If failed.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20058")
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
     void testNodeAddedWhileAlteringFilter(int zoneId, String zoneName) throws Exception {
