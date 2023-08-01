@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
+import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 
 /**
  * HashAggregateNode.
@@ -56,7 +57,12 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
     private final List<Grouping> groupings;
 
-    /** Mapping between group columns and their positions inside an input row.*/
+    /**
+     * Mapping between group columns and their positions inside an input row.
+     * This mapping is required to assemble group keys defined for grouping sets,
+     * because key value positions vary depending on aggregation phase.
+     * See {@link PlanUtils#computeAggFieldMapping(List, AggregateType)}.
+     */
     private final Mapping mapping;
 
     private int requested;

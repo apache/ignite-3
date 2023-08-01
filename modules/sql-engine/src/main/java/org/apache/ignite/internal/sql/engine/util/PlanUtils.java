@@ -62,7 +62,7 @@ public class PlanUtils {
     }
 
     /**
-     * Creates a row type for REDUCE phase of a two phase aggregate used by hash-based map/reduce implementation.
+     * Creates a row type for a MAP phase of a two phase aggregate used by sort-based map/reduce implementation.
      *
      * <p>Given the grouping keys f0, f1, f2 and aggregates (agg1 and agg2) in produces the following type:
      *
@@ -139,7 +139,8 @@ public class PlanUtils {
      *   3 -> 2
      * </pre>
      *
-     * <p>Generates identity mapping for other phases.
+     * <p>Generates identity mapping for other phases, because colocated aggregates and map phase aggregate
+     * build keys directly from input rows.
      */
     public static Mapping computeAggFieldMapping(List<ImmutableBitSet> groupingSets, AggregateType aggregateType) {
         BitSet fieldIndices = new BitSet();
