@@ -90,6 +90,7 @@ public abstract class Marshaller {
             boolean requireAllFields,
             boolean allowUnmappedFields) {
         FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length];
+        int usedFields = 0;
 
         // Build handlers.
         for (int i = 0; i < cols.length; i++) {
@@ -103,11 +104,15 @@ public abstract class Marshaller {
 
             fieldAccessors[i] = (fieldName == null) ? FieldAccessor.noopAccessor(col) :
                     FieldAccessor.create(mapper.targetType(), fieldName, col, i);
+
+            if (fieldName != null) {
+                usedFields++;
+            }
         }
 
         if (!allowUnmappedFields) {
             var fields = mapper.fields();
-            if (fields.size() > cols.length) {
+            if (fields.size() > usedFields) {
                 Set<String> fieldSet = new HashSet<>(fields);
                 for (MarshallerColumn col : cols) {
                     String fieldName = mapper.fieldForColumn(col.name());

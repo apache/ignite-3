@@ -36,7 +36,6 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
-import org.apache.ignite.internal.marshaller.MarshallerColumn;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.table.Tuple;
@@ -136,14 +135,20 @@ public class ClientTupleSerializer {
         var builder = new BinaryTupleBuilder(count);
         var noValueSet = new BitSet(count);
 
+        int usedCols = 0;
+
         for (var i = 0; i < count; i++) {
             var col = columns[i];
             Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
 
+            if (v != NO_VALUE) {
+                usedCols++;
+            }
+
             appendValue(builder, noValueSet, col, v);
         }
 
-        if (tuple.columnCount() > count) {
+        if (tuple.columnCount() > usedCols) {
             Set<String> extraColumns = new HashSet<>();
             for (int i = 0; i < tuple.columnCount(); i++) {
                 extraColumns.add(tuple.columnName(i));
