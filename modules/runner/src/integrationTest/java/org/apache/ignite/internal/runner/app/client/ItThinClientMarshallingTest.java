@@ -19,11 +19,11 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -47,6 +47,18 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
         Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, pojo), IllegalArgumentException.class);
         assertEquals("Fields [unmapped2, unmapped] are not mapped to columns.", ex.getMessage());
+    }
+
+    @SuppressWarnings("resource")
+    @Test
+    public void testUnmappedTupleFieldsAreRejected() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var tupleView = table.recordView();
+
+        var tuple = Tuple.create().set("key", 1).set("val", "val").set("unmapped", "unmapped");
+
+        Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, tuple), IgniteException.class);
+        assertEquals("Tuple doesn't match schema: schemaVersion=1, extraColumns=[UNMAPPED]", ex.getMessage());
     }
 
     private static class TestPojo2 {
