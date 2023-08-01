@@ -213,6 +213,8 @@ public class PartitionListener implements RaftGroupListener {
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
             }
+
+            updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
         });
     }
 
