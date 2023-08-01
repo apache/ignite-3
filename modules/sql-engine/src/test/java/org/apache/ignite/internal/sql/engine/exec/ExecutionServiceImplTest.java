@@ -879,7 +879,6 @@ public class ExecutionServiceImplTest {
         return new TestTable(
                 new TableDescriptorImpl(columns, distr),
                 name,
-                ColocationGroup.forNodes(nodeNames),
                 size
         ) {
 

@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -45,7 +44,6 @@ import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
@@ -53,7 +51,6 @@ import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
-import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerPhase;
@@ -61,11 +58,10 @@ import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.Splitter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
-import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -83,6 +79,10 @@ import org.junit.jupiter.api.condition.OS;
  */
 @DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
 public class PlannerTest extends AbstractPlannerTest {
+    private static final String DEVELOPER_TABLE = "DEVELOPER";
+
+    private static final String PROJECT_TABLE = "PROJECT";
+
     private static List<String> NODES;
 
     private static List<NodeWithTerm> NODES_WITH_TERM;
@@ -115,8 +115,16 @@ public class PlannerTest extends AbstractPlannerTest {
         ));
 
         IgniteSchema publicSchema = createSchemaFrom(
-                projectsTable(partitionedGroup, IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)),
-                developerTable(partitionedGroup, IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+                developerTable(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)),
+                projectsTable(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+        );
+
+        int developerTableId = ((IgniteTable) publicSchema.getTable(DEVELOPER_TABLE)).id();
+        int projectTableId = ((IgniteTable) publicSchema.getTable(PROJECT_TABLE)).id();
+
+        Map<Integer, ColocationGroup> colocationGroups = Map.of(
+                developerTableId, partitionedGroup,
+                projectTableId, partitionedGroup
         );
 
         SchemaPlus schema = createRootSchema(false)
@@ -136,7 +144,8 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = newPlan(phys);
+        MultiStepPlan plan = newPlan(phys,
+                colocationGroups);
 
         assertNotNull(plan);
 
@@ -148,8 +157,16 @@ public class PlannerTest extends AbstractPlannerTest {
         ColocationGroup replicatedGroup = ColocationGroup.forNodes(select(NODES, 0, 1, 2, 3));
 
         IgniteSchema publicSchema = createSchemaFrom(
-                projectsTable(replicatedGroup, IgniteDistributions.broadcast()),
-                developerTable(replicatedGroup, IgniteDistributions.broadcast())
+                developerTable(IgniteDistributions.broadcast()),
+                projectsTable(IgniteDistributions.broadcast())
+        );
+
+        int developerTableId = ((IgniteTable) publicSchema.getTable(DEVELOPER_TABLE)).id();
+        int projectTableId = ((IgniteTable) publicSchema.getTable(PROJECT_TABLE)).id();
+
+        Map<Integer, ColocationGroup> colocationGroups = Map.of(
+                developerTableId, replicatedGroup,
+                projectTableId, replicatedGroup
         );
 
         SchemaPlus schema = createRootSchema(false)
@@ -168,7 +185,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = newPlan(phys);
+        MultiStepPlan plan = newPlan(phys, colocationGroups);
 
         assertNotNull(plan);
 
@@ -186,8 +203,16 @@ public class PlannerTest extends AbstractPlannerTest {
         ));
 
         IgniteSchema publicSchema = createSchemaFrom(
-                developerTable(replicatedGroup, IgniteDistributions.broadcast()),
-                projectsTable(partitionedGroup, IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+                developerTable(IgniteDistributions.broadcast()),
+                projectsTable(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+        );
+
+        int developerTableId = ((IgniteTable) publicSchema.getTable(DEVELOPER_TABLE)).id();
+        int projectTableId = ((IgniteTable) publicSchema.getTable(PROJECT_TABLE)).id();
+
+        Map<Integer, ColocationGroup> colocationGroups = Map.of(
+                developerTableId, replicatedGroup,
+                projectTableId, partitionedGroup
         );
 
         SchemaPlus schema = createRootSchema(false)
@@ -206,7 +231,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = newPlan(phys);
+        MultiStepPlan plan = newPlan(phys, colocationGroups);
 
         assertEquals(3, plan.fragments().size());
     }
@@ -221,8 +246,16 @@ public class PlannerTest extends AbstractPlannerTest {
         ));
 
         IgniteSchema publicSchema = createSchemaFrom(
-                developerTable(replicatedGroup, IgniteDistributions.broadcast()),
-                projectsTable(partitionedGroup, IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+                developerTable(IgniteDistributions.broadcast()),
+                projectsTable(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+        );
+
+        int developerTableId = ((IgniteTable) publicSchema.getTable(DEVELOPER_TABLE)).id();
+        int projectTableId = ((IgniteTable) publicSchema.getTable(PROJECT_TABLE)).id();
+
+        Map<Integer, ColocationGroup> colocationGroups = Map.of(
+                developerTableId, replicatedGroup,
+                projectTableId, partitionedGroup
         );
 
         SchemaPlus schema = createRootSchema(false)
@@ -241,7 +274,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = newPlan(phys);
+        MultiStepPlan plan = newPlan(phys, colocationGroups);
 
         assertNotNull(plan);
 
@@ -258,8 +291,16 @@ public class PlannerTest extends AbstractPlannerTest {
         ));
 
         IgniteSchema publicSchema = createSchemaFrom(
-                developerTable(replicatedGroup, IgniteDistributions.broadcast()),
-                projectsTable(partitionedGroup, IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+                developerTable(IgniteDistributions.broadcast()),
+                projectsTable(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+        );
+
+        int developerTableId = ((IgniteTable) publicSchema.getTable(DEVELOPER_TABLE)).id();
+        int projectTableId = ((IgniteTable) publicSchema.getTable(PROJECT_TABLE)).id();
+
+        Map<Integer, ColocationGroup> colocationGroups = Map.of(
+                developerTableId, replicatedGroup,
+                projectTableId, partitionedGroup
         );
 
         SchemaPlus schema = createRootSchema(false)
@@ -278,7 +319,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = newPlan(phys);
+        MultiStepPlan plan = newPlan(phys, colocationGroups);
 
         assertEquals(3, plan.fragments().size());
     }
@@ -289,8 +330,16 @@ public class PlannerTest extends AbstractPlannerTest {
         ColocationGroup projectsGroup = ColocationGroup.forNodes(select(NODES, 0, 1));
 
         IgniteSchema publicSchema = createSchemaFrom(
-                developerTable(developerGroup, IgniteDistributions.broadcast()),
-                projectsTable(projectsGroup, IgniteDistributions.broadcast())
+                developerTable(IgniteDistributions.broadcast()),
+                projectsTable(IgniteDistributions.broadcast())
+        );
+
+        int developerTableId = ((IgniteTable) publicSchema.getTable(DEVELOPER_TABLE)).id();
+        int projectTableId = ((IgniteTable) publicSchema.getTable(PROJECT_TABLE)).id();
+
+        Map<Integer, ColocationGroup> colocationGroups = Map.of(
+                developerTableId, developerGroup,
+                projectTableId, projectsGroup
         );
 
         SchemaPlus schema = createRootSchema(false)
@@ -309,7 +358,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(phys);
 
-        MultiStepPlan plan = newPlan(phys);
+        MultiStepPlan plan = newPlan(phys, colocationGroups);
 
         assertNotNull(plan);
 
@@ -498,7 +547,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .addColumn("PK", NativeTypes.INT32)
                         .addColumn("ID", NativeTypes.INT32)
                         .build()
-                );
+        );
 
         String sql = "SELECT * FROM person /*+ use_index(ORG_ID), extra */ t1 JOIN company /*+ use_index(ID) */ t2 ON t1.org_id = t2.id";
 
@@ -526,15 +575,11 @@ public class PlannerTest extends AbstractPlannerTest {
         checkSplitAndSerialization(phys, publicSchema);
     }
 
-    private MultiStepPlan newPlan(IgniteRel phys) {
+    private MultiStepPlan newPlan(IgniteRel phys, Map<Integer, ColocationGroup> colocationGroups) {
         List<Fragment> fragments = new Splitter().go(phys);
         MappingQueryContext ctx = mapContext(CollectionUtils.first(NODES), this::intermediateMapping);
 
-        CollectColocationGroups colocationGroups = new CollectColocationGroups();
-
-        phys.accept(colocationGroups);
-
-        List<Fragment> mappedFragments = FragmentMapping.mapFragments(ctx, fragments, colocationGroups.colocationGroups);
+        List<Fragment> mappedFragments = FragmentMapping.mapFragments(ctx, fragments, colocationGroups);
 
         return new MultiStepPlan(SqlQueryType.QUERY, mappedFragments, new ResultSetMetadataImpl(Collections.emptyList()));
     }
@@ -551,41 +596,6 @@ public class PlannerTest extends AbstractPlannerTest {
     private static MappingQueryContext mapContext(String locNodeName,
             MappingService mappingService) {
         return new MappingQueryContext(locNodeName, mappingService);
-    }
-
-    private static final class CollectColocationGroups extends IgniteRelShuttle {
-
-        private final Map<Integer, ColocationGroup> colocationGroups = new HashMap<>();
-
-        @Override
-        public IgniteRel visit(IgniteTableModify rel) {
-            TestTable testTable = rel.getTable().unwrapOrThrow(TestTable.class);
-            ColocationGroup group = testTable.colocationGroup();
-
-            colocationGroups.put(testTable.id(), group);
-
-            return super.visit(rel);
-        }
-
-        @Override
-        public IgniteRel visit(IgniteIndexScan rel) {
-            TestTable testTable = rel.getTable().unwrapOrThrow(TestTable.class);
-            ColocationGroup group = testTable.colocationGroup();
-
-            colocationGroups.put(testTable.id(), group);
-
-            return super.visit(rel);
-        }
-
-        @Override
-        public IgniteRel visit(IgniteTableScan rel) {
-            TestTable testTable = rel.getTable().unwrapOrThrow(TestTable.class);
-            ColocationGroup group = testTable.colocationGroup();
-
-            colocationGroups.put(testTable.id(), group);
-
-            return super.visit(rel);
-        }
     }
 
     private static PlanningContext plannerContext(SchemaPlus schema, String sql, Object... params) {
@@ -620,25 +630,23 @@ public class PlannerTest extends AbstractPlannerTest {
                 .distribution(distribution);
     }
 
-    private static UnaryOperator<TableBuilder> developerTable(ColocationGroup colocationGroup, IgniteDistribution distribution) {
+    private static UnaryOperator<TableBuilder> developerTable(IgniteDistribution distribution) {
         return tableBuilder -> tableBuilder
-                .name("DEVELOPER")
+                .name(DEVELOPER_TABLE)
                 .addColumn("ID", NativeTypes.INT32)
                 .addColumn("NAME", NativeTypes.STRING)
                 .addColumn("PROJECTID", NativeTypes.INT32)
                 .size(100)
-                .distribution(distribution)
-                .colocationGroup(colocationGroup);
+                .distribution(distribution);
     }
 
-    private static UnaryOperator<TableBuilder> projectsTable(ColocationGroup colocationGroup, IgniteDistribution distribution) {
+    private static UnaryOperator<TableBuilder> projectsTable(IgniteDistribution distribution) {
         return tableBuilder -> tableBuilder
-                .name("PROJECT")
+                .name(PROJECT_TABLE)
                 .addColumn("ID", NativeTypes.INT32)
                 .addColumn("NAME", NativeTypes.STRING)
                 .addColumn("VER", NativeTypes.INT32)
                 .size(100)
-                .distribution(distribution)
-                .colocationGroup(colocationGroup);
+                .distribution(distribution);
     }
 }

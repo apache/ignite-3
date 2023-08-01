@@ -36,7 +36,6 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -47,9 +46,8 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A test table that implements all the necessary for the optimizer methods to be used
- * to prepare a query, as well as provides access to the data to use this table in
- * execution-related scenarios.
+ * A test table that implements all the necessary for the optimizer methods to be used to prepare a query, as well as provides access to the
+ * data to use this table in execution-related scenarios.
  */
 public class TestTable implements IgniteTable {
     private static final String DATA_PROVIDER_NOT_CONFIGURED_MESSAGE_TEMPLATE =
@@ -62,7 +60,6 @@ public class TestTable implements IgniteTable {
 
     private final String name;
     private final double rowCnt;
-    private final ColocationGroup colocationGroup;
     private final TableDescriptor descriptor;
     private final Map<String, DataProvider<?>> dataProviders;
 
@@ -71,13 +68,11 @@ public class TestTable implements IgniteTable {
     public TestTable(
             TableDescriptor descriptor,
             String name,
-            ColocationGroup colocationGroup,
             double rowCnt
     ) {
         this.descriptor = descriptor;
         this.name = name;
         this.rowCnt = rowCnt;
-        this.colocationGroup = colocationGroup;
 
         dataProviders = Collections.emptyMap();
     }
@@ -93,8 +88,6 @@ public class TestTable implements IgniteTable {
         this.name = name;
         this.rowCnt = rowCnt;
         this.dataProviders = dataProviders;
-
-        this.colocationGroup = ColocationGroup.forNodes(List.copyOf(dataProviders.keySet()));
     }
 
     /**
@@ -184,11 +177,6 @@ public class TestTable implements IgniteTable {
             CalciteConnectionConfig config
     ) {
         throw new AssertionError();
-    }
-
-    /** Returns colocation group for table. */
-    public ColocationGroup colocationGroup() {
-        return colocationGroup;
     }
 
     /** {@inheritDoc} */

@@ -138,8 +138,6 @@ public class TestBuilders {
         /** Returns a builder of the test hash-index object. */
         public HashIndexBuilder hashIndex();
 
-        TableBuilder colocationGroup(ColocationGroup colocationGroup);
-
         /**
          * Builds a table.
          *
@@ -405,8 +403,6 @@ public class TestBuilders {
     }
 
     private static class TableBuilderImpl extends AbstractTableBuilderImpl<TableBuilder> implements TableBuilder {
-        private ColocationGroup colocationGroup = ColocationGroup.forNodes(List.of());
-
         /** {@inheritDoc} */
         @Override
         public SortedIndexBuilder sortedIndex() {
@@ -417,14 +413,6 @@ public class TestBuilders {
         @Override
         public HashIndexBuilder hashIndex() {
             return new HashIndexBuilderImpl(this);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public TableBuilder colocationGroup(ColocationGroup colocationGroup) {
-            this.colocationGroup = colocationGroup;
-
-            return self();
         }
 
         /** {@inheritDoc} */
@@ -445,7 +433,6 @@ public class TestBuilders {
             TestTable testTable = new TestTable(
                     new TableDescriptorImpl(columns, distribution),
                     Objects.requireNonNull(name),
-                    colocationGroup,
                     size
             );
 

@@ -606,7 +606,6 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 .addColumn("C3", NativeTypes.INT32)
                 .addColumn("C4", NativeTypes.INT32)
                 .addColumn("C5", NativeTypes.INT8)
-                .colocationGroup(ColocationGroup.forNodes(select(NODES, 0)))
                 .distribution(IgniteDistributions.single())
                 .size(100)
                 .sortedIndex()
@@ -623,7 +622,6 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 .addColumn("C1", NativeTypes.INT32)
                 .addColumn(column, IgniteTypeFactory.relDataTypeToNative(type))
                 .size(400)
-                .colocationGroup(ColocationGroup.forNodes(select(NODES, 0)))
                 .distribution(IgniteDistributions.single());
     }
 }
