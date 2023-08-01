@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.tx.impl;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
@@ -37,6 +39,25 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
      */
     public IgniteTransactionsImpl(TxManager txManager) {
         this.txManager = txManager;
+    }
+
+    /**
+     * Begins a transaction.
+     *
+     * @param options Transaction options.
+     * @param observableTimestamp Observable timestamp, applicable only for read-only transactions. Read-only transactions
+     *      can use some time to the past to avoid waiting for time that is safe for reading on non-primary replica. To do so, client
+     *      should provide this observable timestamp that is calculated according to the commit time of the latest read-write transaction,
+     *      to guarantee that read-only transaction will see the modified data.
+     * @return The started transaction.
+     */
+    public InternalTransaction begin(@Nullable TransactionOptions options, @Nullable HybridTimestamp observableTimestamp) {
+        if (options != null && options.timeoutMillis() != 0) {
+            // TODO: IGNITE-15936.
+            throw new UnsupportedOperationException("Timeouts are not supported yet");
+        }
+
+        return txManager.begin(options != null && options.readOnly(), observableTimestamp);
     }
 
     /** {@inheritDoc} */
