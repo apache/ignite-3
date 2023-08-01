@@ -200,11 +200,7 @@ public class CatalogUtils {
             case DATETIME:
                 return DEFAULT_TIMESTAMP_PRECISION;
             default:
-                /*
-                 * Precision shall be great than 0.
-                 * SQL`16 part 2 section 6.1 syntax rule 21
-                 */
-                return 1;
+                return 0;
         }
     }
 

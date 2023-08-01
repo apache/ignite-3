@@ -412,7 +412,7 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
         assertEquals(DefaultValue.Type.CONSTANT, column.defaultValue().type());
         assertEquals("Ignite!", ((DefaultValue.ConstantValue) column.defaultValue()).value());
 
-        assertEquals(0, column.length());
+        assertEquals(Integer.MAX_VALUE, column.length());
         assertEquals(0, column.precision());
         assertEquals(0, column.scale());
     }

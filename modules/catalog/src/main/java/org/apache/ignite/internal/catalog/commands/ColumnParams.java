@@ -17,12 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-
-import org.apache.ignite.internal.util.StringUtils;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.SqlException;
 
 /** Defines a particular column within table. */
 public class ColumnParams {
@@ -163,7 +158,7 @@ public class ColumnParams {
          *
          * @return {@code this}.
          */
-        public Builder precision(int precision) {
+        public Builder precision(Integer precision) {
             params.precision = precision;
 
             return this;
@@ -174,7 +169,7 @@ public class ColumnParams {
          *
          * @return {@code this}.
          */
-        public Builder scale(int scale) {
+        public Builder scale(Integer scale) {
             params.scale = scale;
 
             return this;
@@ -185,7 +180,7 @@ public class ColumnParams {
          *
          * @return {@code this}.
          */
-        public Builder length(int length) {
+        public Builder length(Integer length) {
             params.length = length;
 
             return this;
