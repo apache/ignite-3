@@ -206,7 +206,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /**
      * Map to control clock's update in the read only transactions concurrently with a commit timestamp.
-     * TODO: IGNITE-17261 review this after the commit timestamp will be provided from a commit request (request.commitTimestamp()).
+     * TODO: IGNITE-20034 review this after the commit timestamp will be provided from a commit request (request.commitTimestamp()).
      */
     private final ConcurrentHashMap<UUID, CompletableFuture<TxMeta>> txTimestampUpdateMap = new ConcurrentHashMap<>();
 
@@ -388,7 +388,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future to transaction state meta or {@code null}.
      */
     private CompletableFuture<TxMeta> getTxStateConcurrently(TxStateReplicaRequest txStateReq) {
-        //TODO: IGNITE-17261 review this after the commit timestamp will be provided from a commit request (request.commitTimestamp()).
+        //TODO: IGNITE-20034 review this after the commit timestamp will be provided from a commit request (request.commitTimestamp()).
         CompletableFuture<TxMeta> txStateFut = new CompletableFuture<>();
 
         txTimestampUpdateMap.compute(txStateReq.txId(), (uuid, fut) -> {
@@ -1138,7 +1138,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future to wait of the finish.
      */
     private CompletableFuture<Object> finishTransaction(List<TablePartitionId> aggregatedGroupIds, UUID txId, boolean commit) {
-        // TODO: IGNITE-17261 Timestamp from request is not using until the issue has not been fixed (request.commitTimestamp())
+        // TODO: IGNITE-20034 Timestamp from request is not using until the issue has not been fixed (request.commitTimestamp())
         var fut = new CompletableFuture<TxMeta>();
 
         txTimestampUpdateMap.put(txId, fut);

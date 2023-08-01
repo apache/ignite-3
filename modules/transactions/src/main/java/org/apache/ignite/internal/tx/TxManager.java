@@ -63,7 +63,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The state or null if the state is unknown.
      */
-    // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+    // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
     @Deprecated
     @Nullable TxState state(UUID txId);
 
@@ -74,7 +74,7 @@ public interface TxManager extends IgniteComponent {
      * @param before Before state.
      * @param after After state.
      */
-    // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+    // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
     @Deprecated
     void changeState(UUID txId, @Nullable TxState before, TxState after);
 
