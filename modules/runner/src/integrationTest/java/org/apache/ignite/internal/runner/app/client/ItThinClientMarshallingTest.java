@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.apache.ignite.Ignite;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +33,6 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         return client();
     }
 
-    // TODO: Same tests run against client and embedded APIs.
     @SuppressWarnings("resource")
     @Test
     public void testUnmappedPojoFieldsAreRejected() {
@@ -41,7 +44,8 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         pojo.val = "val";
         pojo.unmapped = "unmapped";
 
-        pojoView.upsert(null, pojo);
+        IgniteException ex = assertThrows(IgniteException.class, () -> pojoView.upsert(null, pojo));
+        assertEquals("Fields [unmapped2, unmapped] are not mapped to columns.", ex.getMessage());
     }
 
     private static class TestPojo2 {
@@ -50,5 +54,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         public String val;
 
         public String unmapped;
+
+        public String unmapped2;
     }
 }
