@@ -41,7 +41,6 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.jetbrains.annotations.Nullable;
 
@@ -126,7 +125,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
 
         double cost = 0;
 
-        if (type == Type.HASH) {
+        if (type == IgniteIndex.Type.HASH) {
             boolean notExact = (searchBounds() == null)
                     || searchBounds().stream().anyMatch(bound -> bound.type() == SearchBounds.Type.RANGE);
 

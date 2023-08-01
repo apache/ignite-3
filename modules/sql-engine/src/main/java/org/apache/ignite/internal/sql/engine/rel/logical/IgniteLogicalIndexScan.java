@@ -27,9 +27,8 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -111,7 +110,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             RelTraitSet traits,
             RelOptTable tbl,
             String idxName,
-            IgniteIndex.Type type,
+            Type type,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable List<SearchBounds> searchBounds,

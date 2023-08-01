@@ -428,7 +428,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private DistributedQueryManager getOrCreateQueryManager(QueryStartRequest msg) {
         return queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            BaseQueryContext ctx = createQueryContext(key, msg.schema(), (int)msg.schemaVersion(), msg.parameters());
+            BaseQueryContext ctx = createQueryContext(key, msg.schema(), (int) msg.schemaVersion(), msg.parameters());
 
             return new DistributedQueryManager(ctx);
         });

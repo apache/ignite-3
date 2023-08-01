@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.framework;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -57,7 +56,7 @@ public class TestTable implements IgniteTable {
     private static final AtomicInteger ID = new AtomicInteger();
 
     private final int id = ID.incrementAndGet();
-    private final Map<String, IgniteIndex> indexes = new HashMap<>();
+    private final Map<String, IgniteSchemaIndex> indexes;
 
     private final String name;
     private final double rowCnt;
@@ -75,6 +74,7 @@ public class TestTable implements IgniteTable {
         this.name = name;
         this.rowCnt = rowCnt;
 
+        indexes = Map.of();
         dataProviders = Collections.emptyMap();
     }
 
@@ -83,12 +83,14 @@ public class TestTable implements IgniteTable {
             TableDescriptor descriptor,
             String name,
             Map<String, DataProvider<?>> dataProviders,
-            double rowCnt
+            double rowCnt,
+            Map<String, IgniteSchemaIndex> indexMap
     ) {
         this.descriptor = descriptor;
         this.name = name;
         this.rowCnt = rowCnt;
         this.dataProviders = dataProviders;
+        indexes = indexMap;
     }
 
     /**
@@ -195,19 +197,19 @@ public class TestTable implements IgniteTable {
     /** {@inheritDoc} */
     @Override
     public Map<String, IgniteSchemaIndex> indexes() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return indexes;
     }
 
     /** {@inheritDoc} */
     @Override
     public void addIndex(IgniteIndex idxTbl) {
-        indexes.put(idxTbl.name(), idxTbl);
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteIndex getIndex(String idxName) {
-        return indexes.get(idxName);
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */

@@ -146,7 +146,7 @@ public class TestNode implements LifecycleAware {
                     @Override
                     public Node<Object[]> visit(IgniteIndexScan rel) {
                         TestTable tbl = rel.getTable().unwrap(TestTable.class);
-                        TestIndex idx = (TestIndex) tbl.getIndex(rel.indexName());
+                        TestIndex idx = (TestIndex) tbl.indexes().get(rel.indexName());
 
                         DataProvider<Object[]> dataProvider = idx.dataProvider(ctx.localNode().name());
 

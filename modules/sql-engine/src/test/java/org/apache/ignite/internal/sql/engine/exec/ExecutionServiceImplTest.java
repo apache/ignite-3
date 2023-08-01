@@ -34,7 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -90,7 +89,6 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteCatalogSchema;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -783,7 +781,9 @@ public class ExecutionServiceImplTest {
                     MailboxRegistry mailboxRegistry,
                     ExchangeService exchangeService,
                     ResolvedDependencies deps) {
-                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(ctx.getRootSchema().unwrap(IgniteCatalogSchema.class), ctx.rowHandler());
+                IgniteCatalogSchema schema = ctx.getRootSchema().unwrap(IgniteCatalogSchema.class);
+
+                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(schema, ctx.rowHandler());
 
                 return new LogicalRelImplementor<>(ctx, funcFactory, mailboxRegistry, exchangeService, deps) {
                     @Override

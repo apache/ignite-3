@@ -71,8 +71,8 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(String name, int version) {
-        return schema(name);
+    public @Nullable SchemaPlus schema(@Nullable String name, int version) {
+        return getSchema(name);
     }
 
     /** {@inheritDoc} */
@@ -83,11 +83,11 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus latestSchema(@Nullable String name) {
-        return schema(name);
+    public @Nullable SchemaPlus latestSchema(@Nullable String name) {
+        return getSchema(name);
     }
 
-    private SchemaPlus schema(@Nullable String schemaName) {
+    private @Nullable SchemaPlus getSchema(@Nullable String schemaName) {
         return root.getSubSchema(schemaName == null ? DEFAULT_SCHEMA_NAME : schemaName);
     }
 }

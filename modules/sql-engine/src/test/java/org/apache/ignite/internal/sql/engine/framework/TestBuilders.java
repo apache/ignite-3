@@ -33,6 +33,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
@@ -47,10 +48,12 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteCatalogSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -424,15 +427,18 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Table must contain at least one column");
             }
 
-            TestTable testTable = new TestTable(
-                    new TableDescriptorImpl(columns, distribution),
+            TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
+
+            Map<String, IgniteSchemaIndex> indexMap = indexBuilders.stream()
+                    .map(idx -> idx.build(tableDescriptor))
+                    .collect(Collectors.toMap(TestIndex::name, Function.identity()));
+
+            return new TestTable(
+                    tableDescriptor,
                     Objects.requireNonNull(name),
-                    size
+                    size,
+                    indexMap
             );
-
-            indexBuilders.stream().map(AbstractIndexBuilderImpl::build).forEach(testTable::addIndex);
-
-            return testTable;
         }
 
         /** {@inheritDoc} */
@@ -476,11 +482,13 @@ public class TestBuilders {
         }
 
         private TestTable build() {
-            TestTable testTable = new TestTable(new TableDescriptorImpl(columns, distribution), name, dataProviders, size);
+            TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
 
-            indexBuilders.forEach(idx -> testTable.addIndex(idx.build()));
+            Map<String, IgniteSchemaIndex> indexMap = indexBuilders.stream()
+                    .map(idx -> idx.build(tableDescriptor))
+                    .collect(Collectors.toMap(TestIndex::name, Function.identity()));
 
-            return testTable;
+            return new TestTable(tableDescriptor, name, dataProviders, size, indexMap);
         }
     }
 
@@ -508,7 +516,7 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public TestIndex build() {
+        public TestIndex build(TableDescriptor desc) {
             if (name == null) {
                 throw new IllegalArgumentException("Name is not specified");
             }
@@ -521,7 +529,9 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Collation must be specified for each of columns.");
             }
 
-            return new TestIndex(name, Type.SORTED, columns, collations, dataProviders);
+            RelCollation collation = TraitUtils.createCollation(columns, collations, desc);
+
+            return TestIndex.createSorted(name, desc.distribution(), collation, dataProviders);
         }
     }
 
@@ -548,7 +558,7 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public TestIndex build() {
+        public TestIndex build(TableDescriptor desc) {
             if (name == null) {
                 throw new IllegalArgumentException("Name is not specified");
             }
@@ -559,7 +569,9 @@ public class TestBuilders {
 
             assert collations == null : "Collation is not supported.";
 
-            return new TestIndex(name, Type.HASH, columns, null, dataProviders);
+            RelCollation collation = TraitUtils.createCollation(columns, collations, desc);
+
+            return TestIndex.createHash(name, desc.distribution(), collation, dataProviders);
         }
     }
 
@@ -586,10 +598,12 @@ public class TestBuilders {
         }
 
         @Override
-        TestIndex build() {
+        TestIndex build(TableDescriptor desc) {
             assert collations.size() == columns.size();
 
-            return TestIndex.createSorted(name, columns, collations, dataProviders);
+            RelCollation collation = TraitUtils.createCollation(columns, collations, desc);
+
+            return TestIndex.createSorted(name, desc.distribution(), collation, dataProviders);
         }
     }
 
@@ -616,10 +630,12 @@ public class TestBuilders {
         }
 
         @Override
-        TestIndex build() {
+        TestIndex build(TableDescriptor desc) {
             assert collations == null;
 
-            return TestIndex.createHash(name, columns, dataProviders);
+            RelCollation collation = TraitUtils.createCollation(columns, collations, desc);
+
+            return TestIndex.createHash(name, desc.distribution(), collation, dataProviders);
         }
     }
 
@@ -728,7 +744,7 @@ public class TestBuilders {
             return self();
         }
 
-        abstract TestIndex build();
+        abstract TestIndex build(TableDescriptor desc);
     }
 
     private abstract static class AbstractDataSourceBuilderImpl<ChildT> {
