@@ -81,6 +81,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -461,6 +462,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                             }));
 
                             tableChange.changePrimaryKey(primaryKeyChange -> primaryKeyChange.changeColumns("k1"));
+
+                            ((ExtendedTableChange) tableChange).changeSchemaId(1);
                         }));
             });
         });
