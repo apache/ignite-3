@@ -33,6 +33,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -68,7 +69,7 @@ public class ClientSqlExecuteRequest {
             IgniteSql sql,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics) {
-        var tx = readTx(in, resources);
+        var tx = readTx(in, out, resources);
         Session session = readSession(in, sql);
         Statement statement = readStatement(in, sql);
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
@@ -78,9 +79,20 @@ public class ClientSqlExecuteRequest {
             arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
         }
 
+        // TODO IGNITE-19898 SQL implicit RO transaction should use observation timestamp.
+        HybridTimestamp unused = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+
         return session
                 .executeAsync(tx, statement, arguments)
-                .thenCompose(asyncResultSet -> writeResultSetAsync(out, resources, asyncResultSet, session, metrics));
+                .thenCompose(asyncResultSet -> {
+                    //noinspection StatementWithEmptyBody
+                    if (tx == null) {
+                        // TODO IGNITE-19898 Return readTimestamp from implicit RO TX to the client
+                        // out.meta(asyncResultSet.tx().readTimestamp());
+                    }
+
+                    return writeResultSetAsync(out, resources, asyncResultSet, session, metrics);
+                });
     }
 
     private static CompletionStage<Void> writeResultSetAsync(

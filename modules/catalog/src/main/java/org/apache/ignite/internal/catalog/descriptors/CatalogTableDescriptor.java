@@ -35,7 +35,11 @@ import org.jetbrains.annotations.Nullable;
 public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private static final long serialVersionUID = -2021394971104316570L;
 
+    public static final int INITIAL_TABLE_VERSION = 1;
+
     private final int zoneId;
+
+    private final int tableVersion;
 
     private final List<CatalogTableColumnDescriptor> columns;
     private final List<String> primaryKeyColumns;
@@ -50,6 +54,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * @param id Table id.
      * @param name Table name.
      * @param zoneId Distribution zone ID.
+     * @param tableVersion Version of the table.
      * @param columns Table column descriptors.
      * @param pkCols Primary key column names.
      * @param colocationCols Colocation column names.
@@ -58,6 +63,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             int id,
             String name,
             int zoneId,
+            int tableVersion,
             List<CatalogTableColumnDescriptor> columns,
             List<String> pkCols,
             @Nullable List<String> colocationCols
@@ -65,6 +71,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         super(id, Type.TABLE, name);
 
         this.zoneId = zoneId;
+        this.tableVersion = tableVersion;
         this.columns = Objects.requireNonNull(columns, "No columns defined.");
         primaryKeyColumns = Objects.requireNonNull(pkCols, "No primary key columns.");
         colocationColumns = colocationCols == null ? pkCols : colocationCols;
@@ -87,6 +94,10 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
     public int zoneId() {
         return zoneId;
+    }
+
+    public int tableVersion() {
+        return tableVersion;
     }
 
     public List<String> primaryKeyColumns() {

@@ -204,11 +204,16 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
         @Override
         public void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener) {
-
+            // No-op.
         }
 
         @Override
-        public void close() throws Exception {
+        public void addObservableTimestampListener(Consumer<Long> listener) {
+            // No-op.
+        }
+
+        @Override
+        public void close() {
 
         }
     }
