@@ -40,7 +40,7 @@ public final class RowConverter {
     /**
      * Creates binary tuple schema for index rows.
      */
-    public static BinaryTupleSchema createIndexRowSchema(List<String> indexedColumns, TableDescriptor tableDescriptor) {
+    public static BinaryTupleSchema createIndexRowSchema(List<Integer> indexedColumns, TableDescriptor tableDescriptor) {
         Element[] elements = indexedColumns.stream()
                 .map(tableDescriptor::columnDescriptor)
                 .map(colDesc -> new Element(colDesc.physicalType(), true))

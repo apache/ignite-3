@@ -31,7 +31,7 @@ import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeIterable;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaIndex;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.SubscriptionUtils;
@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     /** Schema index. */
-    private final IgniteIndex schemaIndex;
+    private final IgniteSchemaIndex schemaIndex;
 
     private final ScannableTable table;
 
@@ -75,7 +75,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     public IndexScanNode(
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
-            IgniteIndex schemaIndex,
+            IgniteSchemaIndex schemaIndex,
             ScannableTable table,
             TableDescriptor tableDescriptor,
             Collection<PartitionWithTerm> partsWithTerms,
@@ -124,7 +124,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private Publisher<RowT> partitionPublisher(PartitionWithTerm partWithTerm, @Nullable RangeCondition<RowT> cond) {
         int indexId = schemaIndex.id();
-        List<String> columns = schemaIndex.columns();
+        List<Integer> columns = schemaIndex.collation().getKeys();
         ExecutionContext<RowT> ctx = context();
 
         switch (schemaIndex.type()) {

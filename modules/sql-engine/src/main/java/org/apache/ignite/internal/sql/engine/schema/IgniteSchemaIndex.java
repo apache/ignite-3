@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
+
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.calcite.plan.Convention;
@@ -28,6 +30,8 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.RelFieldCollation.NullDirection;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -37,11 +41,14 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescript
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 
 /**
  * Auxiliary data structure to represent a table index.
  */
 public class IgniteSchemaIndex {
+
+    private final int id;
 
     private final String name;
 
@@ -52,11 +59,17 @@ public class IgniteSchemaIndex {
     private final Type type;
 
     /** Constructor. */
-    public IgniteSchemaIndex(String name, Type type, IgniteDistribution tableDistribution, RelCollation collation) {
+    public IgniteSchemaIndex(int indexId, String name, Type type, IgniteDistribution tableDistribution, RelCollation collation) {
+        this.id = indexId;
         this.name = name;
         this.type = type;
         this.tableDistribution = tableDistribution;
         this.collation = collation;
+    }
+
+    /** Returns an id of the index. */
+    public int id() {
+        return id;
     }
 
     /** Returns the name of this index. */
@@ -139,5 +152,17 @@ public class IgniteSchemaIndex {
         } else {
             throw new IllegalArgumentException("Unexpected index type: " + descriptor);
         }
+    }
+
+    //TODO: cache rowType as it can't be changed.
+    public RelDataType getRowType(IgniteTypeFactory typeFactory, TableDescriptor tableDescriptor) {
+        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
+
+        for (RelFieldCollation fieldCollation : collation.getFieldCollations()) {
+            ColumnDescriptor colDesc = tableDescriptor.columnDescriptor(fieldCollation.getFieldIndex());
+            b.add(colDesc.name(), native2relationalType(typeFactory, colDesc.physicalType(), colDesc.nullable()));
+        }
+
+        return b.build();
     }
 }

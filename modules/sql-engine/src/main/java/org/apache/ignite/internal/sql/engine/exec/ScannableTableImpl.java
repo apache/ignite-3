@@ -83,7 +83,7 @@ public class ScannableTableImpl implements ScannableTable {
             PartitionWithTerm partWithTerm,
             RowFactory<RowT> rowFactory,
             int indexId,
-            List<String> columns,
+            List<Integer> columns,
             @Nullable RangeCondition<RowT> cond,
             @Nullable BitSet requiredColumns
     ) {
@@ -143,7 +143,8 @@ public class ScannableTableImpl implements ScannableTable {
             PartitionWithTerm partWithTerm,
             RowFactory<RowT> rowFactory,
             int indexId,
-            List<String> columns, RowT key,
+            List<Integer> columns,
+            RowT key,
             @Nullable BitSet requiredColumns
     ) {
 

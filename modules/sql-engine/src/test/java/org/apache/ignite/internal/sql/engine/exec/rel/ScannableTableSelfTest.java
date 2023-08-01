@@ -48,11 +48,11 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
-import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.SortedIndex;
@@ -641,7 +641,7 @@ public class ScannableTableSelfTest {
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
             RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, input.rowType);
             RangeCondition<Object[]> rangeCondition = condition.asRangeCondition();
-            List<String> indexColumns = input.getIndexColumns();
+            List<Integer> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexRangeScan(ctx, new PartitionWithTerm(partitionId, term), rowFactory,
                     indexId, indexColumns, rangeCondition, requiredFields);
@@ -675,7 +675,7 @@ public class ScannableTableSelfTest {
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
             RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, input.rowType);
-            List<String> indexColumns = input.getIndexColumns();
+            List<Integer> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexLookup(ctx, new PartitionWithTerm(partitionId, term), rowFactory,
                     indexId, indexColumns, key, requiredFields);
@@ -743,15 +743,8 @@ public class ScannableTableSelfTest {
             publisher.closeExceptionally(t);
         }
 
-        private List<String> getIndexColumns() {
-            List<String> columns = new ArrayList<>();
-
-            indexColumns.stream().forEach(i -> {
-                RelDataTypeField field = rowType.getFieldList().get(i);
-                columns.add(field.getName());
-            });
-
-            return columns;
+        private List<Integer> getIndexColumns() {
+            return indexColumns.stream().boxed().collect(Collectors.toList());
         }
     }
 

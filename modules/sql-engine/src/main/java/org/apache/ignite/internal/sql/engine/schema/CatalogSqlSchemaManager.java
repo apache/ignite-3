@@ -50,6 +50,7 @@ import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -116,21 +117,11 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             TableDescriptorImpl tableDescriptorImpl = tableDescriptorMap.get(tableId);
             assert tableDescriptorImpl != null : "Table is not found in schema: " + tableId;
 
-            String indexName = indexDescriptor.name();
             Map<String, IgniteSchemaIndex> tableIndexes = schemaTableIndexes.computeIfAbsent(tableId, id -> new LinkedHashMap<>());
 
-            Type type;
-            if (indexDescriptor instanceof CatalogSortedIndexDescriptor) {
-                type = Type.SORTED;
-            } else if (indexDescriptor instanceof CatalogHashIndexDescriptor) {
-                type = Type.HASH;
-            } else {
-                throw new IllegalArgumentException("Unexpected index type: " + indexDescriptor);
-            }
+            IgniteSchemaIndex schemaIndex = createSchemaIndex(indexDescriptor, tableDescriptorImpl);
 
-            RelCollation indexCollation = IgniteSchemaIndex.createIndexCollation(indexDescriptor, tableDescriptorImpl);
-            IgniteSchemaIndex schemaIndex = new IgniteSchemaIndex(indexName, type, tableDescriptorImpl.distribution(), indexCollation);
-            tableIndexes.put(indexName, schemaIndex);
+            tableIndexes.put(schemaIndex.name(), schemaIndex);
 
             schemaTableIndexes.put(tableId, tableIndexes);
         }
@@ -154,6 +145,24 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         SchemaPlus rootSchema = Frameworks.createRootSchema(false);
         IgniteCatalogSchema igniteSchema = new IgniteCatalogSchema(schemaName, version, schemaTables);
         return rootSchema.add(schemaName, igniteSchema);
+    }
+
+    private static IgniteSchemaIndex createSchemaIndex(CatalogIndexDescriptor indexDescriptor, TableDescriptorImpl tableDescriptorImpl) {
+        Type type;
+        if (indexDescriptor instanceof CatalogSortedIndexDescriptor) {
+            type = IgniteIndex.Type.SORTED;
+        } else if (indexDescriptor instanceof CatalogHashIndexDescriptor) {
+            type = IgniteIndex.Type.HASH;
+        } else {
+            throw new IllegalArgumentException("Unexpected index type: " + indexDescriptor);
+        }
+
+        int indexId = indexDescriptor.id();
+        String indexName = indexDescriptor.name();
+        IgniteDistribution distribution = tableDescriptorImpl.distribution();
+        RelCollation indexCollation = IgniteSchemaIndex.createIndexCollation(indexDescriptor, tableDescriptorImpl);
+
+        return new IgniteSchemaIndex(indexId, indexName, type, distribution, indexCollation);
     }
 
     private static TableDescriptorImpl createTableDescriptor(CatalogTableDescriptor descriptor) {

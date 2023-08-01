@@ -39,10 +39,9 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
 /**
  * LogicalScanConverterRule.
@@ -62,10 +61,10 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                 ) {
                     RelOptCluster cluster = rel.getCluster();
                     IgniteTable table = rel.getTable().unwrap(IgniteTable.class);
-                    IgniteIndex index = table.getIndex(rel.indexName());
+                    IgniteSchemaIndex index = table.indexes().get(rel.indexName());
 
                     RelDistribution distribution = table.distribution();
-                    RelCollation collation = TraitUtils.createCollation(index.columns(), index.collations(), table.descriptor());
+                    RelCollation collation = index.collation();
                     RelCollation outputCollation = index.type() == Type.HASH ? RelCollations.EMPTY : collation;
 
                     if (rel.projects() != null || rel.requiredColumns() != null) {

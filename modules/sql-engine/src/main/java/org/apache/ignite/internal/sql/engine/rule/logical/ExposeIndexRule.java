@@ -32,8 +32,8 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.immutables.value.Value;
 
@@ -66,8 +66,8 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
         RexNode condition = scan.condition();
         ImmutableBitSet requiredCols = scan.requiredColumns();
 
-        List<IgniteLogicalIndexScan> indexes = igniteTable.indexes().keySet().stream()
-                .map(idxName -> igniteTable.toRel(cluster, optTable, idxName, proj, condition, requiredCols))
+        List<IgniteLogicalIndexScan> indexes = igniteTable.indexes().values().stream()
+                .map(idx -> idx.toRel(cluster, optTable, proj, condition, requiredCols))
                 .filter(idx -> filter(igniteTable, idx.indexName(), idx.searchBounds()))
                 .collect(Collectors.toList());
 
@@ -85,7 +85,7 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
 
     /** Filter pre known not applicable variants. Significant shrink search space in some cases. */
     private static boolean filter(IgniteTable table, String idxName, List<SearchBounds> searchBounds) {
-        IgniteIndex index = table.getIndex(idxName);
+        IgniteSchemaIndex index = table.indexes().get(idxName);
 
         return index.type() == Type.SORTED || (searchBounds != null
                 && searchBounds.stream().noneMatch(bound -> bound.type() == SearchBounds.Type.RANGE));

@@ -32,6 +32,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.stream.Collectors;
+import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
@@ -49,8 +50,11 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaIndex;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
@@ -177,7 +181,12 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         TableDescriptor tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
 
-        IgniteIndex schemaIndex = new IgniteIndex(index);
+        //TODO: avoid IgniteIndex creation.
+        IgniteIndex idx = new IgniteIndex(index);
+        RelCollation collations = TraitUtils.createCollation(idx.columns(), idx.collations(), tableDescriptor);
+        IgniteDistribution distribution = tableDescriptor.distribution();
+
+        IgniteSchemaIndex schemaIndex = new IgniteSchemaIndex(index.id(), index.name(), idx.type(), distribution, collations);
         RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
         SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
         List<PartitionWithTerm> partitions = scannableTable.getPartitions();
@@ -212,7 +221,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         /** {@inheritDoc} */
         @Override
         public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
-                RowFactory<RowT> rowFactory, int indexId, List<String> columns,
+                RowFactory<RowT> rowFactory, int indexId, List<Integer> columns,
                 @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns) {
 
             List<T> list = partitionedData.get(partWithTerm.partId());
@@ -221,7 +230,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         @Override
         public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
-                RowFactory<RowT> rowFactory, int indexId, List<String> columns,
+                RowFactory<RowT> rowFactory, int indexId, List<Integer> columns,
                 RowT key, @Nullable BitSet requiredColumns) {
 
             return newPublisher(ctx, partWithTerm, rowFactory);

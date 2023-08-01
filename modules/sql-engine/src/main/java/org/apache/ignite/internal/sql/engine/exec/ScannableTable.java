@@ -57,7 +57,7 @@ public interface ScannableTable {
      * @return A publisher that produces rows.
      */
     <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
-            RowFactory<RowT> rowFactory, int indexId, List<String> columns,
+            RowFactory<RowT> rowFactory, int indexId, List<Integer> columns,
             @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns);
 
     /**
@@ -74,6 +74,6 @@ public interface ScannableTable {
      * @return A publisher that produces rows.
      */
     <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithTerm partWithTerm,
-            RowFactory<RowT> rowFactory, int indexId, List<String> columns,
+            RowFactory<RowT> rowFactory, int indexId, List<Integer> columns,
             RowT key, @Nullable BitSet requiredColumns);
 }
