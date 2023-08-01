@@ -43,11 +43,11 @@ public class ObservableTimestampPropagationTest {
 
     private static IgniteClient client;
 
-    private static final AtomicLong observableTimestamp = new AtomicLong(1);
+    private static final AtomicLong currentServerTimestamp = new AtomicLong(1);
 
     @BeforeAll
     public static void startServer2() {
-        TestHybridClock clock = new TestHybridClock(observableTimestamp::get);
+        TestHybridClock clock = new TestHybridClock(currentServerTimestamp::get);
 
         ignite = new FakeIgnite("server-2");
         testServer = new TestServer(0, ignite, null, null, "server-2", UUID.randomUUID(), null, null, clock);
@@ -73,7 +73,7 @@ public class ObservableTimestampPropagationTest {
         assertEquals(1, lastObservableTimestamp());
 
         // Increase timestamp on server - client does not know about it initially.
-        observableTimestamp.set(11);
+        currentServerTimestamp.set(11);
         client.transactions().begin(new TransactionOptions().readOnly(true));
         assertEquals(1, lastObservableTimestamp());
 
@@ -83,7 +83,7 @@ public class ObservableTimestampPropagationTest {
         assertEquals(11, lastObservableTimestamp());
 
         // Smaller timestamp from server is ignored by client.
-        observableTimestamp.set(9);
+        currentServerTimestamp.set(9);
         client.transactions().begin(new TransactionOptions().readOnly(true));
         client.transactions().begin(new TransactionOptions().readOnly(true));
         assertEquals(11, lastObservableTimestamp());
