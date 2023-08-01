@@ -42,13 +42,13 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -367,16 +367,26 @@ public class ClientTableCommon {
      * Reads transaction.
      *
      * @param in Unpacker.
+     * @param out Packer.
      * @param resources Resource registry.
      * @return Transaction, if present, or null.
      */
-    public static @Nullable Transaction readTx(ClientMessageUnpacker in, ClientResourceRegistry resources) {
+    public static @Nullable InternalTransaction readTx(
+            ClientMessageUnpacker in, ClientMessagePacker out, ClientResourceRegistry resources) {
         if (in.tryUnpackNil()) {
             return null;
         }
 
         try {
-            return resources.get(in.unpackLong()).get(Transaction.class);
+            var tx = resources.get(in.unpackLong()).get(InternalTransaction.class);
+
+            if (tx != null && tx.isReadOnly()) {
+                // For read-only tx, override observable timestamp that we send to the client:
+                // use readTimestamp() instead of now().
+                out.meta(tx.readTimestamp());
+            }
+
+            return tx;
         } catch (IgniteInternalCheckedException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }

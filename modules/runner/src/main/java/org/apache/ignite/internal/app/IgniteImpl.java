@@ -605,7 +605,8 @@ public class IgniteImpl implements Ignite {
                 metricManager,
                 new ClientHandlerMetricSource(),
                 authenticationManager,
-                authenticationConfiguration
+                authenticationConfiguration,
+                clock
                 );
 
         restComponent = createRestComponent(name);

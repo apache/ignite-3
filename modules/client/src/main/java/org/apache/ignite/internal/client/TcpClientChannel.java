@@ -102,6 +102,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Topology change listeners. */
     private final Collection<Consumer<ClientChannel>> assignmentChangeListeners = new CopyOnWriteArrayList<>();
 
+    /** Observable timestamp listeners. */
+    private final Collection<Consumer<Long>> observableTimestampListeners = new CopyOnWriteArrayList<>();
+
     /** Closed flag. */
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -402,6 +405,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
         }
 
+        long observableTimestamp = unpacker.unpackLong();
+
+        for (Consumer<Long> listener : observableTimestampListeners) {
+            listener.accept(observableTimestamp);
+        }
+
         if (unpacker.tryUnpackNil()) {
             boolean completed = pendingReq.complete(unpacker);
 
@@ -487,6 +496,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener) {
         assignmentChangeListeners.add(listener);
+    }
+
+    @Override
+    public void addObservableTimestampListener(Consumer<Long> listener) {
+        observableTimestampListeners.add(listener);
     }
 
     private static void validateConfiguration(ClientChannelConfiguration cfg) {
