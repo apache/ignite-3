@@ -142,7 +142,7 @@ public class IgniteInternalException extends RuntimeException implements Traceab
      * @param message Detail message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteInternalException(UUID traceId, int code, String message, @Nullable Throwable cause) {
+    public IgniteInternalException(UUID traceId, int code, @Nullable String message, @Nullable Throwable cause) {
         super(message, cause);
 
         this.traceId = traceId;

@@ -574,7 +574,15 @@ public class CatalogSqlSchemaManagerTest {
                 columnDescriptors.add(newCol);
             }
 
-            return new CatalogTableDescriptor(id, name, zoneId, columnDescriptors, primaryKey, colocationKey);
+            return new CatalogTableDescriptor(
+                    id,
+                    name,
+                    zoneId,
+                    CatalogTableDescriptor.INITIAL_TABLE_VERSION,
+                    columnDescriptors,
+                    primaryKey,
+                    colocationKey
+            );
         }
     }
 

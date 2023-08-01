@@ -17,33 +17,26 @@
 
 package org.apache.ignite.internal.catalog.events;
 
-import java.util.Collection;
-
 /**
- * Drop column event parameters contains descriptors of dropped columns.
+ * Event that is related to a table.
  */
-public class DropColumnEventParameters extends TableEventParameters {
-
-    private final Collection<String> columns;
+public abstract class TableEventParameters extends CatalogEventParameters {
+    private final int tableId;
 
     /**
      * Constructor.
      *
      * @param causalityToken Causality token.
      * @param catalogVersion Catalog version.
-     * @param tableId An id of table, which columns are dropped from.
-     * @param columns Names of columns to drop.
+     * @param tableId ID of the table to which the event relates.
      */
-    public DropColumnEventParameters(long causalityToken, int catalogVersion, int tableId, Collection<String> columns) {
-        super(causalityToken, catalogVersion, tableId);
-
-        this.columns = columns;
+    public TableEventParameters(long causalityToken, int catalogVersion, int tableId) {
+        super(causalityToken, catalogVersion);
+        this.tableId = tableId;
     }
 
-    /**
-     * Returns names of columns to drop.
-     */
-    public Collection<String> columns() {
-        return columns;
+    /** Returns an id of a modified table. */
+    public int tableId() {
+        return tableId;
     }
 }

@@ -57,6 +57,9 @@ public:
     IGNITE_API void begin_async(ignite_callback<transaction> callback) {
         auto writer_func = [](protocol::writer &writer) {
             writer.write_bool(false); // readOnly.
+
+            // TODO IGNITE-20057 C++ client: Track observable timestamp
+            writer.write(0); // observableTimestamp.
         };
 
         auto reader_func = [](protocol::reader &reader, std::shared_ptr<node_connection> conn) mutable -> transaction {
