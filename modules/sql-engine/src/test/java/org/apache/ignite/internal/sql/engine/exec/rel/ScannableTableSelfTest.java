@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -134,7 +135,17 @@ public class ScannableTableSelfTest {
         } else {
             ClusterNode clusterNode = tx.clusterNode();
 
-            verify(internalTable).scan(partitionId, tx.id(), new PrimaryReplica(clusterNode, term), null, null, null, 0, null);
+            verify(internalTable).scan(
+                    partitionId,
+                    tx.id(),
+                    clusterNode.name(),
+                    term,
+                    null,
+                    null,
+                    null,
+                    0,
+                    null
+            );
         }
 
         data.sendRows();
@@ -213,7 +224,8 @@ public class ScannableTableSelfTest {
             verify(internalTable).scan(
                     eq(partitionId),
                     eq(tx.id()),
-                    eq(primaryReplica),
+                    eq(primaryReplica.node().name()),
+                    eq(primaryReplica.term()),
                     eq(indexId),
                     condition.lowerValue != null ? any(BinaryTuplePrefix.class) : isNull(),
                     condition.upperValue != null ? any(BinaryTuplePrefix.class) : isNull(),
@@ -285,7 +297,8 @@ public class ScannableTableSelfTest {
             verify(internalTable).scan(
                     eq(partitionId),
                     eq(tx.id()),
-                    eq(primaryReplica),
+                    eq(primaryReplica.node().name()),
+                    eq(primaryReplica.term()),
                     eq(indexId),
                     nullable(BinaryTuplePrefix.class),
                     nullable(BinaryTuplePrefix.class),
@@ -402,7 +415,8 @@ public class ScannableTableSelfTest {
             verify(internalTable).scan(
                     eq(partitionId),
                     eq(tx.id()),
-                    eq(primaryReplica),
+                    eq(primaryReplica.node().name()),
+                    eq(primaryReplica.term()),
                     eq(indexId),
                     prefix.capture(),
                     nullable(BinaryTuplePrefix.class),
@@ -599,7 +613,7 @@ public class ScannableTableSelfTest {
                         .scan(anyInt(), any(HybridTimestamp.class), any(ClusterNode.class));
             } else {
                 doAnswer(invocation -> input.publisher).when(internalTable)
-                        .scan(anyInt(), any(UUID.class), any(PrimaryReplica.class), isNull(), isNull(), isNull(), eq(0), isNull());
+                        .scan(anyInt(), any(UUID.class), any(String.class), anyLong(), isNull(), isNull(), isNull(), eq(0), isNull());
             }
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
@@ -630,7 +644,8 @@ public class ScannableTableSelfTest {
                 doAnswer(i -> input.publisher).when(internalTable).scan(
                         anyInt(),
                         any(UUID.class),
-                        any(PrimaryReplica.class),
+                        any(String.class),
+                        anyLong(),
                         any(Integer.class),
                         nullable(BinaryTuplePrefix.class),
                         nullable(BinaryTuplePrefix.class),
