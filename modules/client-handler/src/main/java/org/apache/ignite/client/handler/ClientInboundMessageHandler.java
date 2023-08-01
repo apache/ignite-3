@@ -394,6 +394,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
             writeFlags(packer, ctx);
+
+            // Include server timestamp in error response as well:
+            // an operation can modify data and then throw an exception (e.g. Compute task),
+            // so we still need to update client-side timestamp to preserve causality guarantees.
             packer.packLong(observableTimestamp(null));
 
             writeErrorCore(err, packer);
