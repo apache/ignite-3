@@ -346,13 +346,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         @Override
         public void run() {
             while (true) {
-                safeTime.update(CLOCK.now(), null);
-
                 try {
-                    Thread.sleep(1_000);
+                    Thread.sleep(1_500);
                 } catch (InterruptedException e) {
-                    LOG.warn("The sfe time updater thread is interrupted");
+                    LOG.warn("The safe time updater thread is interrupted");
                 }
+
+                safeTime.update(CLOCK.now(), null);
             }
         }
     }
