@@ -26,7 +26,8 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.schema.IgniteCatalogSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
@@ -35,11 +36,11 @@ import org.apache.ignite.internal.util.HashCalculator;
  * Factory for creating a function to calculate the hash of the specified fields of a row.
  */
 public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
-    private final SqlSchemaManager sqlSchemaManager;
     private final RowHandler<T> rowHandler;
+    private final IgniteCatalogSchema schema;
 
-    public HashFunctionFactoryImpl(SqlSchemaManager sqlSchemaManager, RowHandler<T> rowHandler) {
-        this.sqlSchemaManager = sqlSchemaManager;
+    public HashFunctionFactoryImpl(IgniteCatalogSchema schema, RowHandler<T> rowHandler) {
+        this.schema = schema;
         this.rowHandler = rowHandler;
     }
 
@@ -48,7 +49,15 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
     public RowHashFunction<T> create(int[] fields, int tableId) {
         int fieldCnt = fields.length;
         NativeType[] fieldTypes = new NativeType[fieldCnt];
-        TableDescriptor tblDesc = sqlSchemaManager.tableById(tableId).descriptor();
+        //TODO: optimize this
+        TableDescriptor tblDesc = schema.getTableNames().stream()
+                .map(schema::getTable)
+                .map(IgniteTable.class::cast)
+                .filter(t -> t.id() == tableId)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("No table found: tableId=" + tableId))
+                .descriptor();
+
         ImmutableIntList colocationColumns = tblDesc.distribution().getKeys();
 
         assert colocationColumns.size() == fieldCnt : "fieldsCount=" + fieldCnt + ", colocationColumns=" + colocationColumns;

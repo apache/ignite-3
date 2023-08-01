@@ -89,6 +89,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
+import org.apache.ignite.internal.sql.engine.schema.IgniteCatalogSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
@@ -591,10 +592,6 @@ public class ExecutionServiceImplTest {
 
         when(topologyService.localMember()).thenReturn(clusterNode);
 
-        when(schemaManagerMock.tableById(anyInt())).thenReturn(table);
-
-        when(schemaManagerMock.actualSchemaAsync(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
-
         TestExecutableTableRegistry executableTableRegistry = new TestExecutableTableRegistry();
         executableTableRegistry.setColocatioGroupProvider((tableId) -> {
             // Make sure the exception is handled properly if it occurs during the mapping phase.
@@ -786,7 +783,7 @@ public class ExecutionServiceImplTest {
                     MailboxRegistry mailboxRegistry,
                     ExchangeService exchangeService,
                     ResolvedDependencies deps) {
-                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(mock(SqlSchemaManager.class), ctx.rowHandler());
+                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(ctx.getRootSchema().unwrap(IgniteCatalogSchema.class), ctx.rowHandler());
 
                 return new LogicalRelImplementor<>(ctx, funcFactory, mailboxRegistry, exchangeService, deps) {
                     @Override

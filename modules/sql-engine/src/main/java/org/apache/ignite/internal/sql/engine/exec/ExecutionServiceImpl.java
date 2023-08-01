@@ -81,6 +81,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
+import org.apache.ignite.internal.sql.engine.schema.IgniteCatalogSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -172,7 +173,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 dependencyResolver,
                 (ctx, deps) -> new LogicalRelImplementor<>(
                         ctx,
-                        new HashFunctionFactoryImpl<>(sqlSchemaManager, handler),
+                        new HashFunctionFactoryImpl<>(ctx.getRootSchema().unwrap(IgniteCatalogSchema.class), handler),
                         mailboxRegistry,
                         exchangeSrvc,
                         deps)

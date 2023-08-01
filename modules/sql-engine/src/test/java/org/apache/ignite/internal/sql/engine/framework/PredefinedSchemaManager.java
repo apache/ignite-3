@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -68,12 +70,6 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(@Nullable String schema) {
-        return schema == null ? root : root.getSubSchema(schema);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public SchemaPlus schema(String name, int version) {
         return schema(name);
     }
@@ -86,13 +82,11 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
+    public SchemaPlus latestSchema(@Nullable String name) {
         return schema(name);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public IgniteTable tableById(int id) {
-        return tableById.get(id);
+    private SchemaPlus schema(@Nullable String schemaName) {
+        return root.getSubSchema(schemaName == null ? DEFAULT_SCHEMA_NAME : schemaName);
     }
 }

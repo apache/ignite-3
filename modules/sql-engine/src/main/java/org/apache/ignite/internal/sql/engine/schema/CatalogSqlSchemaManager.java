@@ -69,25 +69,11 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(@Nullable String schema) {
-        // Should be removed -schema(name, version) must be used instead
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public SchemaPlus schema(String name, int version) {
         String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
 
         Entry<String, Integer> entry = Map.entry(schemaName, version);
         return cache.computeIfAbsent(entry, (e) -> createSqlSchema(e.getValue(), catalogManager.schema(e.getKey(), e.getValue())));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteTable tableById(int id) {
-        // Should be removed - this method is used to obtain native types from a table.
-        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -98,10 +84,10 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
+    public SchemaPlus latestSchema(@Nullable String name) {
         String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
 
-        int version = catalogManager.activeCatalogVersion(timestamp);
+        int version = catalogManager.activeCatalogVersion(Long.MAX_VALUE);
 
         CatalogSchemaDescriptor descriptor = catalogManager.schema(schemaName, version);
 

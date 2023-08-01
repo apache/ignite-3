@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
@@ -59,6 +58,7 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteCatalogSchema;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
@@ -131,7 +131,7 @@ public class TestNode implements LifecycleAware {
                 dependencyResolver,
                 (ctx, deps) -> new LogicalRelImplementor<Object[]>(
                         ctx,
-                        new HashFunctionFactoryImpl<>(schemaManager, rowHandler),
+                        new HashFunctionFactoryImpl<>(ctx.getRootSchema().unwrap(IgniteCatalogSchema.class), rowHandler),
                         mailboxRegistry,
                         exchangeService,
                         deps

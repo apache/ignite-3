@@ -34,7 +34,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -224,31 +223,19 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
     private static class ErroneousSchemaManager implements SqlSchemaManager {
         /** {@inheritDoc} */
         @Override
-        public SchemaPlus schema(@Nullable String schema) {
-            return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public SchemaPlus schema(@Nullable String name, int version) {
             return null;
         }
 
         /** {@inheritDoc} */
         @Override
-        public IgniteTable tableById(int id) {
+        public CompletableFuture<?> actualSchemaAsync(int ver) {
             throw new UnsupportedOperationException();
         }
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<SchemaPlus> actualSchemaAsync(int ver) {
-            throw new UnsupportedOperationException();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
+        public SchemaPlus latestSchema(@Nullable String name) {
             throw new UnsupportedOperationException();
         }
     }
