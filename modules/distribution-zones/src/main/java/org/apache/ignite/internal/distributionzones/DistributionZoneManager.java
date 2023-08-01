@@ -668,6 +668,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
             long revision = ctx.storageRevision();
 
+            LOG.info("onUpdateScaleUp " + zoneId + " " + revision + " " + newScaleUp);
+
             // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
             // and this map will be initialized on a manager start or with onCreate configuration notification
             ZoneState zoneState = zonesState.get(zoneId);
@@ -792,6 +794,8 @@ public class DistributionZoneManager implements IgniteComponent {
             int zoneId = ctx.oldValue().zoneId();
 
             long revision = ctx.storageRevision();
+
+            LOG.info("onDelete " + revision);
 
             ZoneState zoneState = zonesState.get(zoneId);
 
@@ -949,7 +953,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     LOG.info("Update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
                             zoneId, dataNodes, revision);
                 } else {
-                    LOG.debug(
+                    LOG.info(
                             "Failed to update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
                             zoneId,
                             dataNodes,
@@ -991,7 +995,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 } else if (res.getAsBoolean()) {
                     LOG.info("Delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
                 } else {
-                    LOG.debug("Failed to delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
+                    LOG.info("Failed to delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
                 }
             });
         } finally {
@@ -1087,13 +1091,13 @@ public class DistributionZoneManager implements IgniteComponent {
                             newTopology.version()
                     );
                 } else if (res.getAsBoolean()) {
-                    LOG.debug(
+                    LOG.info(
                             "Distribution zones' logical topology and version keys were updated [topology = {}, version = {}]",
                             Arrays.toString(logicalTopology.toArray()),
                             newTopology.version()
                     );
                 } else {
-                    LOG.debug(
+                    LOG.info(
                             "Failed to update distribution zones' logical topology and version keys [topology = {}, version = {}]",
                             Arrays.toString(logicalTopology.toArray()),
                             newTopology.version()
@@ -1195,6 +1199,8 @@ public class DistributionZoneManager implements IgniteComponent {
                                     .filter(node -> !logicalTopology.contains(node))
                                     .map(NodeWithAttributes::node)
                                     .collect(toSet());
+
+                    LOG.info("MetastorageTopologyListener " + revision + " " + addedNodes + " " + removedNodes);
 
                     NamedConfigurationTree<DistributionZoneConfiguration, DistributionZoneView, DistributionZoneChange> zones =
                             zonesConfiguration.distributionZones();
@@ -1313,6 +1319,8 @@ public class DistributionZoneManager implements IgniteComponent {
             if (!addedNodes.isEmpty()) {
                 zonesState.get(zoneId).nodesToAddToDataNodes(addedNodes, revision);
 
+                LOG.info("scheduleTimers addedNodes " + zoneId + " " + addedNodes);
+
                 if (autoAdjustScaleUp != INFINITE_TIMER_VALUE) {
                     zonesState.get(zoneId).rescheduleScaleUp(
                             autoAdjustScaleUp,
@@ -1323,6 +1331,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
             if (!removedNodes.isEmpty()) {
                 zonesState.get(zoneId).nodesToRemoveFromDataNodes(removedNodes, revision);
+
+                LOG.info("scheduleTimers removedNodes " + zoneId + " " + removedNodes);
 
                 if (autoAdjustScaleDown != INFINITE_TIMER_VALUE) {
                     zonesState.get(zoneId).rescheduleScaleDown(
@@ -1401,7 +1411,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 long scaleDownTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleDownChangeTriggerKey(zoneId)));
 
                 if (revision <= scaleUpTriggerRevision) {
-                    LOG.debug(
+                    LOG.info(
                             "Revision of the event is less than the scale up revision from the metastorage "
                                     + "[zoneId = {}, revision = {}, scaleUpTriggerRevision = {}]",
                             zoneId,
@@ -1447,9 +1457,11 @@ public class DistributionZoneManager implements IgniteComponent {
                                         revision
                                 );
 
+                                LOG.info("zoneState.cleanUp " + scaleDownTriggerRevision + " " + revision);
+
                                 zoneState.cleanUp(Math.min(scaleDownTriggerRevision, revision));
                             } else {
-                                LOG.debug("Updating data nodes for a zone after scale up has not succeeded "
+                                LOG.info("Updating data nodes for a zone after scale up has not succeeded "
                                                 + "[zoneId = {}, dataNodes = {}, revision = {}]",
                                         zoneId,
                                         newDataNodes,
@@ -1512,7 +1524,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 long scaleDownTriggerRevision = extractChangeTriggerRevision(values.get(zoneScaleDownChangeTriggerKey(zoneId)));
 
                 if (revision <= scaleDownTriggerRevision) {
-                    LOG.debug(
+                    LOG.info(
                             "Revision of the event is less than the scale down revision from the metastorage "
                                     + "[zoneId = {}, revision = {}, scaleUpTriggerRevision = {}]",
                             zoneId,
@@ -1552,11 +1564,13 @@ public class DistributionZoneManager implements IgniteComponent {
                                         revision
                                 );
 
+                                LOG.info("saveDataNodesToMetaStorageOnScaleDown revision " + revision);
+
                                 // TODO: https://issues.apache.org/jira/browse/IGNITE-19491 Properly utilise this map
                                 // Currently we call clean up only on a node that successfully writes data nodes.
                                 zoneState.cleanUp(Math.min(scaleUpTriggerRevision, revision));
                             } else {
-                                LOG.debug("Updating data nodes for a zone after scale down has not succeeded "
+                                LOG.info("Updating data nodes for a zone after scale down has not succeeded "
                                                 + "[zoneId = {}, dataNodes = {}, revision = {}]",
                                         zoneId,
                                         newDataNodes,
