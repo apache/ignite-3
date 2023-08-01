@@ -239,13 +239,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return queryManager.execute(tx, plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, @Nullable String schema, Object[] params) {
+    private BaseQueryContext createQueryContext(UUID queryId, @Nullable String schema, int catalogVersion, Object[] params) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
                 .parameters(params)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(sqlSchemaManager.schema(schema))
+                                .defaultSchema(sqlSchemaManager.schema(schema, catalogVersion))
                                 .build()
                 )
                 .logger(LOG)
@@ -330,7 +330,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private void onMessage(String nodeName, QueryStartRequest msg) {
         assert nodeName != null && msg != null;
 
-        CompletableFuture<?> fut = sqlSchemaManager.actualSchemaAsync(msg.schemaVersion());
+        CompletableFuture<?> fut = sqlSchemaManager.actualSchemaAsync((int) msg.schemaVersion());
 
         if (fut.isDone()) {
             submitFragment(nodeName, msg);
@@ -427,7 +427,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private DistributedQueryManager getOrCreateQueryManager(QueryStartRequest msg) {
         return queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
+            BaseQueryContext ctx = createQueryContext(key, msg.schema(), (int)msg.schemaVersion(), msg.parameters());
 
             return new DistributedQueryManager(ctx);
         });

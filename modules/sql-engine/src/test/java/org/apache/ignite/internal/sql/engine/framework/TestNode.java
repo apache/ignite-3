@@ -79,12 +79,12 @@ import org.apache.ignite.network.TopologyService;
  */
 public class TestNode implements LifecycleAware {
     private final String nodeName;
-    private final SchemaPlus schema;
     private final PrepareService prepareService;
     private final ExecutionService executionService;
     private final ParserService parserService;
 
     private final List<LifecycleAware> services = new ArrayList<>();
+    private final SqlSchemaManager schemaManager;
 
     /**
      * Constructs the object.
@@ -101,7 +101,7 @@ public class TestNode implements LifecycleAware {
     ) {
         this.nodeName = nodeName;
         this.prepareService = registerService(new PrepareServiceImpl(nodeName, 0, mock(DdlSqlToCommandConverter.class), PLANNING_TIMEOUT));
-        this.schema = schemaManager.schema("PUBLIC");
+        this.schemaManager = schemaManager;
 
         TopologyService topologyService = clusterService.topologyService();
         MessagingService messagingService = clusterService.messagingService();
@@ -223,7 +223,7 @@ public class TestNode implements LifecycleAware {
                 .cancel(new QueryCancel())
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(schema)
+                                .defaultSchema(schemaManager.latestSchema("PUBLIC"))
                                 .build()
                 )
                 .build();

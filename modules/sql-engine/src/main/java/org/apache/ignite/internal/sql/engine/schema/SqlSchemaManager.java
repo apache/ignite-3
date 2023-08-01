@@ -47,7 +47,8 @@ public interface SqlSchemaManager {
     /**
      * Wait for {@code ver} schema version, just a stub, need to be removed after IGNITE-18733.
      */
-    CompletableFuture<?> actualSchemaAsync(long ver);
+    @Deprecated
+    CompletableFuture<?> actualSchemaAsync(int ver);
 
     /**
      * Returns a required schema if specified, or default schema otherwise.

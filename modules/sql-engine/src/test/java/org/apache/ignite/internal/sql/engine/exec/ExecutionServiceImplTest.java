@@ -579,6 +579,7 @@ public class ExecutionServiceImplTest {
         var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService);
 
         var schemaManagerMock = mock(SqlSchemaManager.class);
+        when(schemaManagerMock.actualSchemaAsync(anyInt())).thenReturn(CompletableFuture.completedFuture(null));
 
         var clusterNode = new ClusterNode(UUID.randomUUID().toString(), nodeName, NetworkAddress.from("127.0.0.1:1111"));
 
@@ -610,7 +611,7 @@ public class ExecutionServiceImplTest {
         rootSch.add(schema.getName(), schema);
         SchemaPlus plus = rootSch.plus().getSubSchema(schema.getName());
 
-        when(schemaManagerMock.schema(any())).thenReturn(plus);
+        when(schemaManagerMock.schema(any(), anyInt())).thenReturn(plus);
 
         var executionService = new ExecutionServiceImpl<>(
                 messageService,

@@ -275,6 +275,11 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         return catalogByVer.lastEntry().getKey();
     }
 
+    @Override
+    public CompletableFuture<Void> catalogReadyFuture(int ver) {
+        return versionTracker.waitFor(ver);
+    }
+
     private Catalog catalog(int version) {
         return catalogByVer.get(version);
     }
