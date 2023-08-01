@@ -124,6 +124,7 @@ public class CatalogUtils {
      * @param params Parameters.
      * @return Column descriptor.
      */
+    // FIXME: IGNITE-20105 Default values should be taken from the SQL standard
     public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
         int precision = params.precision() != null ? params.precision() : 0;
         int scale = params.scale() != null ? params.scale() : 0;
