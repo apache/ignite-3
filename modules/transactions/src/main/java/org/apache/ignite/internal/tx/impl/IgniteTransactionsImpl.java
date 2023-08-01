@@ -45,7 +45,10 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
      * Begins a transaction.
      *
      * @param options Transaction options.
-     * @param observableTimestamp Timestamp.
+     * @param observableTimestamp Observable timestamp, applicable only for read-only transactions. Read-only transactions
+     *      can use some time to the past to avoid waiting for time that is safe for reading on non-primary replica. To do so, client
+     *      should provide this observable timestamp that is calculated according to the commit time of the latest read-write transaction,
+     *      to guarantee that read-only transaction will see the modified data.
      * @return The started transaction.
      */
     public InternalTransaction begin(@Nullable TransactionOptions options, @Nullable HybridTimestamp observableTimestamp) {
