@@ -128,6 +128,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE timestamps(id INTEGER PRIMARY KEY, i TIMESTAMP(9))");
 
+        // TODO: IGNITE-19274 Add column with TIMESTAMP WITH LOCAL TIME ZONE
         sql(String.format("CREATE TABLE %s(\"%s\" INTEGER PRIMARY KEY, \"TIMESTAMP\" TIMESTAMP(9))", kvTblName, keyCol));
 
         Table tbl = node.tables().table(kvTblName);
