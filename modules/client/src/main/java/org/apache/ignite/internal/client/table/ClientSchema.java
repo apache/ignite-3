@@ -150,10 +150,10 @@ public class ClientSchema {
 
     public <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
         // TODO: Cache Marshallers (IGNITE-16094).
-        return createMarshaller(mapper, part);
+        return getMarshaller(mapper, part, false);
     }
 
-    private Marshaller createMarshaller(Mapper mapper, TuplePart part) {
+    <T> Marshaller getMarshaller(Mapper mapper, TuplePart part, boolean allowUnmappedFields) {
         int colCount = columns.length;
         int firstColIdx = 0;
 
@@ -172,8 +172,7 @@ public class ClientSchema {
             cols[i] = new MarshallerColumn(col.name(), mode(col.type()), null, col.scale());
         }
 
-        // TODO: allowUnmappedFields should be always false, even for keys.
-        return Marshaller.createMarshaller(cols, mapper, part == TuplePart.KEY, part == TuplePart.KEY);
+        return Marshaller.createMarshaller(cols, mapper, part == TuplePart.KEY, allowUnmappedFields);
     }
 
     private static BinaryMode mode(ColumnType dataType) {
