@@ -198,8 +198,8 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public byte[] zbytes;
     }
 
-    /** Partial column set. */
-    protected static class IncompleteKeyPojo {
+    /** Composite key. */
+    protected static class CompositeKeyPojo {
         public String id;
         public int gid;
     }

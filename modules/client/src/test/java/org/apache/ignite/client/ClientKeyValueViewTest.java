@@ -142,11 +142,11 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     @Test
     public void testAllColumnsPojoPutBinaryGet() {
         Table table = fullTable();
-        KeyValueView<AllColumnsPojo, AllColumnsValPojo> pojoView = table.keyValueView(
-                Mapper.of(AllColumnsPojo.class),
+        KeyValueView<CompositeKeyPojo, AllColumnsValPojo> pojoView = table.keyValueView(
+                Mapper.of(CompositeKeyPojo.class),
                 Mapper.of(AllColumnsValPojo.class));
 
-        var key = new AllColumnsPojo();
+        var key = new CompositeKeyPojo();
         key.gid = 111;
         key.id = "112";
 
@@ -205,13 +205,13 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
     @Test
     public void testNullablePrimitiveFields() {
-        KeyValueView<IncompleteKeyPojo, IncompleteValPojoNullable> pojoView = fullTable().keyValueView(
-                IncompleteKeyPojo.class,
+        KeyValueView<CompositeKeyPojo, IncompleteValPojoNullable> pojoView = fullTable().keyValueView(
+                CompositeKeyPojo.class,
                 IncompleteValPojoNullable.class);
 
         RecordView<Tuple> tupleView = fullTable().recordView();
 
-        var rec = new IncompleteKeyPojo();
+        var rec = new CompositeKeyPojo();
         rec.id = "1";
         rec.gid = 1;
 
