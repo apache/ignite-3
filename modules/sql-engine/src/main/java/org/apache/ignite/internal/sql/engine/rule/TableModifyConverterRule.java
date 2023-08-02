@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import static org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule.createMapping;
-
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
@@ -28,7 +26,6 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.plan.volcano.RelSubset;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
@@ -44,11 +41,11 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.mapping.Mappings;
 import org.apache.calcite.util.mapping.Mappings.TargetMapping;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
-import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -80,22 +77,11 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
 
         IgniteDistribution distribution = igniteTable.distribution();
 
-        // TODO
-        if (rel.getOperation() == Operation.DELETE && rel.getInput() instanceof RelSubset
-                && ((RelSubset) rel.getInput()).getRelList().get(0) instanceof ProjectableFilterableTableScan) {
+        if (rel.getOperation() == Operation.DELETE) {
+            TargetMapping mapping =
+                    Mappings.target(distribution.getKeys(), igniteTable.getRowType(cluster.getTypeFactory()).getFieldCount());
 
-            ProjectableFilterableTableScan scan = (ProjectableFilterableTableScan) ((RelSubset) rel.getInput()).getRelList().get(0);
-
-            if (scan.projects() != null || scan.requiredColumns() != null) {
-                TargetMapping mapping = createMapping(
-                        scan.projects(),
-                        scan.requiredColumns(),
-                        igniteTable.getRowType(cluster.getTypeFactory()).getFieldCount()
-                );
-
-                distribution = distribution.apply(mapping);
-                // outputCollation = outputCollation.apply(mapping);
-            }
+            distribution = distribution.apply(mapping);
         }
 
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
@@ -132,12 +118,10 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
                 false, ImmutableList.of(0), -1, null, RelCollations.EMPTY, 0, tableModify,
                 sumType, null);
 
-        IgniteDistribution targetDistrib = IgniteDistributions.single();
-
         IgniteColocatedHashAggregate sumAgg = new IgniteColocatedHashAggregate(
                 cluster,
                 outTrait.replace(IgniteDistributions.single()),
-                convert(tableModify, inTrait.replace(targetDistrib)),
+                convert(tableModify, inTrait.replace(IgniteDistributions.single())),
                 ImmutableBitSet.of(),
                 List.of(ImmutableBitSet.of()),
                 List.of(sum)
