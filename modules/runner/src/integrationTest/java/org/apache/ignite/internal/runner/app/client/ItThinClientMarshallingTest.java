@@ -61,7 +61,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         pojo.val = "val";
 
         Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, pojo, pojo), IllegalArgumentException.class);
-        assertEquals("Fields [unmapped2, unmapped] are not mapped to columns.", ex.getMessage());
+        assertEquals("Fields [val] are not mapped to columns.", ex.getMessage());
     }
 
     @SuppressWarnings("resource")
