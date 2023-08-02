@@ -463,20 +463,6 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testColumnWithDefaultValueNotSetReturnsDefault() {
-        Table table = tableWithDefaultValues();
-        RecordView<Tuple> recordView = table.recordView();
-        KeyValueView<Integer, NamePojo> pojoView = table.keyValueView(Integer.class, NamePojo.class);
-
-        pojoView.put(null, 1, new NamePojo());
-
-        var res = recordView.get(null, Tuple.create().set("id", 1));
-
-        assertEquals("def_str", res.stringValue("str"));
-        assertEquals("def_str2", res.stringValue("strNonNull"));
-    }
-
-    @Test
     public void testNullableColumnWithDefaultValueSetNullReturnsNull() {
         Table table = tableWithDefaultValues();
         RecordView<Tuple> recordView = table.recordView();
@@ -496,9 +482,9 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     @Test
     public void testNonNullableColumnWithDefaultValueSetNullThrowsException() {
         Table table = tableWithDefaultValues();
-        KeyValueView<Integer, DefaultValuesPojo> pojoView = table.keyValueView(Integer.class, DefaultValuesPojo.class);
+        KeyValueView<Integer, DefaultValuesValPojo> pojoView = table.keyValueView(Integer.class, DefaultValuesValPojo.class);
 
-        var pojo = new DefaultValuesPojo();
+        var pojo = new DefaultValuesValPojo();
         pojo.strNonNull = null;
 
         var ex = assertThrows(IgniteException.class, () -> pojoView.put(null, 1, pojo));

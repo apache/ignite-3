@@ -238,4 +238,10 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public String str;
         public String strNonNull;
     }
+
+    /** Columns with default values. */
+    protected static class DefaultValuesValPojo {
+        public String str;
+        public String strNonNull;
+    }
 }
