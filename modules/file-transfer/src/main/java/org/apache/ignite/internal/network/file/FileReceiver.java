@@ -33,6 +33,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.file.messages.FileChunk;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
+import org.apache.ignite.internal.network.file.messages.FileTransferErrorMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
 import org.apache.ignite.internal.util.FilesUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -137,6 +138,28 @@ class FileReceiver implements ManuallyCloseable {
         } else {
             handler.receiveFileChunk(chunk);
         }
+    }
+
+    CompletableFuture<Void> receiveFileTransferErrorMessage(FileTransferErrorMessage errorMessage) {
+        return CompletableFuture.runAsync(() -> receiveFileTransferErrorMessage0(errorMessage), executorService)
+                .whenComplete((v, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Failed to receive file transfer error message. Id: {}. Exception: {}",
+                                errorMessage.transferId(),
+                                throwable
+                        );
+                    }
+                });
+    }
+
+    private void receiveFileTransferErrorMessage0(FileTransferErrorMessage errorMessage) {
+        FileTransferringMessagesHandler handler = transferIdToHandler.get(errorMessage.transferId());
+        if (handler == null) {
+            throw new FileTransferException("Handler is not found for unknown transferId: " + errorMessage.transferId());
+        } else {
+            handler.receiveFileTransferError(new FileTransferException(errorMessage.error().message()));
+        }
+
     }
 
     private static void deleteDirectoryIfExists(Path directory) {

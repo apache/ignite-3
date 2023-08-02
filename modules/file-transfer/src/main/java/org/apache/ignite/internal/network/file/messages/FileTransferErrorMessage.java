@@ -17,18 +17,26 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
+import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * File transfer error.
+ * File transfer error message.
  */
-@Transferable(FileTransferringMessageType.FILE_TRANSFER_ERROR)
-public interface FileTransferError extends NetworkMessage {
+@Transferable(FileTransferringMessageType.FILE_TRANSFER_ERROR_MESSAGE)
+public interface FileTransferErrorMessage extends NetworkMessage {
     /**
-     * Returns the error message.
+     * Returns transfer ID.
      *
-     * @return The error message.
+     * @return Transfer ID.
      */
-    String message();
+    UUID transferId();
+
+    /**
+     * Returns error message.
+     *
+     * @return Error message.
+     */
+    FileTransferError error();
 }

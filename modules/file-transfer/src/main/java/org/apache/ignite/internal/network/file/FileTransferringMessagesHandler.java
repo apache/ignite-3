@@ -101,6 +101,13 @@ class FileTransferringMessagesHandler implements ManuallyCloseable {
         }
     }
 
+    void receiveFileTransferError(Throwable error) {
+        if (result.isDone()) {
+            throw new IllegalStateException("Received file transfer error after result is already done.");
+        }
+        result.completeExceptionally(error);
+    }
+
     private void doInLock(String fileName, Runnable runnable) {
         Lock lock = fileNameToLock.computeIfAbsent(fileName, k -> new ReentrantLock());
         lock.lock();

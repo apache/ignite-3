@@ -29,7 +29,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -39,6 +40,8 @@ import org.apache.ignite.internal.network.file.messages.FileChunk;
 import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
 import org.apache.ignite.internal.network.file.messages.FileDownloadResponse;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
+import org.apache.ignite.internal.network.file.messages.FileTransferError;
+import org.apache.ignite.internal.network.file.messages.FileTransferErrorMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
 import org.apache.ignite.internal.network.file.messages.FileTransferringMessageType;
@@ -58,6 +61,8 @@ public class FileTransferringServiceImpl implements FileTransferringService {
     private static final IgniteLogger LOG = Loggers.forClass(FileTransferringServiceImpl.class);
 
     private static final ChannelType FILE_TRANSFERRING_CHANNEL = ChannelType.register((short) 1, "FileTransferring");
+
+    private static final long DOWNLOAD_RESPONSE_TIMEOUT = 10_000;
 
     /**
      * Cluster service.
@@ -89,8 +94,11 @@ public class FileTransferringServiceImpl implements FileTransferringService {
             Path tempDirectory
     ) {
         this.messagingService = messagingService;
-        this.executorService = Executors.newFixedThreadPool(
+        this.executorService = new ThreadPoolExecutor(
+                0,
                 configuration.value().threadPoolSize(),
+                0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<Runnable>(),
                 NamedThreadFactory.create(nodeName, "file-transfer", LOG)
         );
         this.fileSender = new FileSender(
@@ -110,6 +118,8 @@ public class FileTransferringServiceImpl implements FileTransferringService {
                         processDownloadRequest((FileDownloadRequest) message, senderConsistentId, correlationId);
                     } else if (message instanceof FileUploadRequest) {
                         processUploadRequest((FileUploadRequest) message);
+                    } else if (message instanceof FileTransferErrorMessage) {
+                        processFileTransferErrorMessage((FileTransferErrorMessage) message);
                     } else if (message instanceof FileTransferInfo) {
                         processFileTransferInfo((FileTransferInfo) message);
                     } else if (message instanceof FileHeader) {
@@ -120,6 +130,10 @@ public class FileTransferringServiceImpl implements FileTransferringService {
                         LOG.error("Unexpected message received: {}", message);
                     }
                 });
+    }
+
+    private void processFileTransferErrorMessage(FileTransferErrorMessage message) {
+        fileReceiver.receiveFileTransferErrorMessage(message);
     }
 
     private void processUploadRequest(FileUploadRequest message) {
@@ -139,28 +153,36 @@ public class FileTransferringServiceImpl implements FileTransferringService {
 
     private void processDownloadRequest(FileDownloadRequest message, String senderConsistentId, Long correlationId) {
         metadataToProvider.get(message.metadata().messageType()).files(message.metadata())
-                .handle((files, e) -> {
+                .whenComplete((files, e) -> {
                     if (e != null) {
                         LOG.error("Failed to get files for download. Metadata: {}", message.metadata(), e);
-                        // todo send error response
-                        return completedFuture(null);
+                        FileDownloadResponse errorResponse = factory.fileDownloadResponse()
+                                .error(toError(e))
+                                .build();
+                        messagingService.respond(senderConsistentId, FILE_TRANSFERRING_CHANNEL, errorResponse, correlationId);
+                    } else {
+                        FileDownloadResponse response = factory.fileDownloadResponse().build();
+                        messagingService.respond(senderConsistentId, FILE_TRANSFERRING_CHANNEL, response, correlationId)
+                                .thenCompose(v -> sendFiles(senderConsistentId, message.transferId(), files));
                     }
-
-                    FileDownloadResponse response = factory.fileDownloadResponse().build();
-                    return messagingService.respond(senderConsistentId, FILE_TRANSFERRING_CHANNEL, response, correlationId)
-                            .thenCompose(v -> sendFiles(senderConsistentId, message.transferId(), files));
-                })
-                .thenCompose(it -> it);
+                });
     }
 
     private CompletableFuture<Void> sendFiles(String recipientConsistentId, UUID transferId, List<File> files) {
         return fileSender.send(recipientConsistentId, transferId, files)
-                .whenComplete((v, e) -> {
+                .<CompletableFuture<Void>>handle((v, e) -> {
                     if (e != null) {
                         LOG.error("Failed to send files to node: {}. Exception: {}", recipientConsistentId, e);
-                        // todo send error response
+                        FileTransferErrorMessage message = factory.fileTransferErrorMessage()
+                                .transferId(transferId)
+                                .error(toError(e))
+                                .build();
+                        messagingService.send(recipientConsistentId, FILE_TRANSFERRING_CHANNEL, message);
+                        return failedFuture(new FileTransferException("Failed to send files to node: " + recipientConsistentId, e));
+                    } else {
+                        return completedFuture(null);
                     }
-                });
+                }).thenCompose(it -> it);
     }
 
     private void processFileTransferInfo(FileTransferInfo info) {
@@ -212,15 +234,15 @@ public class FileTransferringServiceImpl implements FileTransferringService {
                 .build();
 
         return fileReceiver.registerTransfer(transferId)
-                .thenCompose(handler -> messagingService.invoke(nodeConsistentId, FILE_TRANSFERRING_CHANNEL, message, Long.MAX_VALUE)
-                        .thenApply(FileDownloadResponse.class::cast)
-                        .thenCompose(response -> {
-                            if (response.error() != null) {
-                                // todo handle error
-                                return failedFuture(new RuntimeException(response.error().errorMessage()));
-                            }
-                            return handler.result();
-                        }));
+                .thenCompose(
+                        handler -> messagingService.invoke(nodeConsistentId, FILE_TRANSFERRING_CHANNEL, message, DOWNLOAD_RESPONSE_TIMEOUT)
+                                .thenApply(FileDownloadResponse.class::cast)
+                                .thenCompose(response -> {
+                                    if (response.error() != null) {
+                                        return failedFuture(new FileTransferException(response.error().message()));
+                                    }
+                                    return handler.result();
+                                }));
     }
 
     @Override
@@ -248,5 +270,11 @@ public class FileTransferringServiceImpl implements FileTransferringService {
         } catch (IOException e) {
             LOG.error("Failed to delete directory: {}. Exception: {}", directory, e);
         }
+    }
+
+    private FileTransferError toError(Throwable throwable) {
+        return factory.fileTransferError()
+                .message(throwable.getMessage())
+                .build();
     }
 }
