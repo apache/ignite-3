@@ -462,9 +462,9 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     public void testNullableColumnWithDefaultValueSetNullReturnsNull() {
         Table table = tableWithDefaultValues();
         RecordView<Tuple> recordView = table.recordView();
-        KeyValueView<Integer, DefaultValuesPojo> pojoView = table.keyValueView(Integer.class, DefaultValuesPojo.class);
+        KeyValueView<Integer, DefaultValuesValPojo> pojoView = table.keyValueView(Integer.class, DefaultValuesValPojo.class);
 
-        var pojo = new DefaultValuesPojo();
+        var pojo = new DefaultValuesValPojo();
         pojo.str = null;
         pojo.strNonNull = "s";
 
