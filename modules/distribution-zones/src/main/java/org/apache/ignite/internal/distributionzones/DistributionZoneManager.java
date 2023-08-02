@@ -92,6 +92,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -138,11 +139,10 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Distribution zones manager.
  */
+// TODO: IGNITE-20114 избавиться от констант
 public class DistributionZoneManager implements IgniteComponent {
     /** Name of the default distribution zone. */
     public static final String DEFAULT_ZONE_NAME = "Default";
-
-    private static final String DISTRIBUTION_ZONE_MANAGER_POOL_NAME = "dst-zones-scheduler";
 
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
@@ -180,9 +180,11 @@ public class DistributionZoneManager implements IgniteComponent {
     private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
 
     /** Distribution zone configuration. */
+    // TODO: IGNITE-20114 избавиться
     private final DistributionZonesConfiguration zonesConfiguration;
 
     /** Tables configuration. */
+    // TODO: IGNITE-20114 избавиться
     private final TablesConfiguration tablesConfiguration;
 
     /** Meta Storage manager. */
@@ -207,7 +209,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * Map with states for distribution zones. States are needed to track nodes that we want to add or remove from the data nodes,
      * schedule and stop scale up and scale down processes.
      */
-    private final Map<Integer, ZoneState> zonesState;
+    private final Map<Integer, ZoneState> zonesState = new ConcurrentHashMap<>();
 
     /** Listener for a topology events. */
     private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
@@ -231,7 +233,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * The logical topology on the last watch event.
      * It's enough to mark this field by volatile because we don't update the collection after it is assigned to the field.
      */
-    private volatile Set<NodeWithAttributes> logicalTopology;
+    private volatile Set<NodeWithAttributes> logicalTopology = emptySet();
 
     /**
      * Local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
@@ -240,7 +242,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
      */
-    private Map<String, Map<String, String>> nodesAttributes;
+    private Map<String, Map<String, String>> nodesAttributes = new ConcurrentHashMap<>();
 
     /** Watch listener for logical topology keys. */
     private final WatchListener topologyWatchListener;
@@ -251,43 +253,41 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Watch listener for data nodes keys. */
     private final DistributionZoneRebalanceEngine rebalanceEngine;
 
+    /** Catalog manager. */
+    private final CatalogManager catalogManager;
+
     /**
      * Creates a new distribution zone manager.
      *
+     * @param nodeName Node name.
      * @param zonesConfiguration Distribution zones configuration.
      * @param tablesConfiguration Tables configuration.
      * @param metaStorageManager Meta Storage manager.
      * @param logicalTopologyService Logical topology service.
      * @param vaultMgr Vault manager.
-     * @param nodeName Node name.
+     * @param catalogManager Catalog manager.
      */
     public DistributionZoneManager(
+            String nodeName,
             DistributionZonesConfiguration zonesConfiguration,
             TablesConfiguration tablesConfiguration,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             VaultManager vaultMgr,
-            String nodeName
+            CatalogManager catalogManager
     ) {
         this.zonesConfiguration = zonesConfiguration;
         this.tablesConfiguration = tablesConfiguration;
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
         this.vaultMgr = vaultMgr;
+        this.catalogManager = catalogManager;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
 
         this.dataNodesWatchListener = createMetastorageDataNodesListener();
 
-        zonesState = new ConcurrentHashMap<>();
-
-        logicalTopology = emptySet();
-
-        nodesAttributes = new ConcurrentHashMap<>();
-
-        executor = createZoneManagerExecutor(
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG)
-        );
+        executor = createZoneManagerExecutor(NamedThreadFactory.create(nodeName, "dst-zones-scheduler", LOG));
 
         // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
         // meta storage notification thread that won't start before all components start.
@@ -513,7 +513,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     } catch (ConfigurationNodeAlreadyExistException e) {
                         throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
                     } catch (ConfigurationNodeDoesNotExistException | ConfigurationNodeRemovedException e) {
-                        throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
+                        throw new DistributionZoneNotFoundException(name, e);
                     }
 
                     try {

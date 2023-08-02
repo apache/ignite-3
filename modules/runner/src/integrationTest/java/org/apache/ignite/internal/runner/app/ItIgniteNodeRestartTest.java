@@ -341,20 +341,21 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
-        DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
-                zonesConfig,
-                tablesConfig,
-                metaStorageMgr,
-                logicalTopologyService,
-                vault,
-                name
-        );
-
         var clockWaiter = new ClockWaiter("test", hybridClock);
 
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockWaiter
+        );
+
+        DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
+                name,
+                zonesConfig,
+                tablesConfig,
+                metaStorageMgr,
+                logicalTopologyService,
+                vault,
+                catalogManager
         );
 
         TableManager tableManager = new TableManager(

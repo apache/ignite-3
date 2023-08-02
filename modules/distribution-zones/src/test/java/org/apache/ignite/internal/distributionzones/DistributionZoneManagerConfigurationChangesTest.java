@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -144,12 +145,14 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         metaStorageManager.put(zonesLogicalTopologyVersionKey(), longToBytes(0));
 
         distributionZoneManager = new DistributionZoneManager(
+                "test",
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageManager,
                 logicalTopologyService,
                 vaultMgr,
-                "test"
+                // TODO: IGNITE-20114 вернуться позже
+                mock(CatalogManager.class)
         );
 
         vaultMgr.start();

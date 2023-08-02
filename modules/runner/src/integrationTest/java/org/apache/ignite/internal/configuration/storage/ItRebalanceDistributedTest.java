@@ -795,14 +795,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
             distributionZoneManager = new DistributionZoneManager(
+                    name,
                     zonesCfg,
                     tablesCfg,
                     metaStorageManager,
                     logicalTopologyService,
                     vaultManager,
-                    name
+                    catalogManager
             );
-
 
             tableManager = new TableManager(
                     name,

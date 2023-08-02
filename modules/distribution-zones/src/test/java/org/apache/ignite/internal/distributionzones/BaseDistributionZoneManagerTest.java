@@ -26,6 +26,7 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -124,12 +125,14 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
         zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         distributionZoneManager = new DistributionZoneManager(
+                "test",
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 vaultMgr,
-                "test"
+                // TODO: IGNITE-20114 вернуться позже
+                mock(CatalogManager.class)
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.

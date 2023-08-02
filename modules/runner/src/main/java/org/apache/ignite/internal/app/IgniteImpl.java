@@ -498,15 +498,6 @@ public class IgniteImpl implements Ignite {
 
         schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
-        distributionZoneManager = new DistributionZoneManager(
-                zonesConfiguration,
-                tablesConfig,
-                metaStorageMgr,
-                logicalTopologyService,
-                vaultMgr,
-                name
-        );
-
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
@@ -519,6 +510,16 @@ public class IgniteImpl implements Ignite {
                 new UpdateLogImpl(metaStorageMgr),
                 clockWaiter,
                 () -> schemaSyncConfig.delayDuration().value()
+        );
+
+        distributionZoneManager = new DistributionZoneManager(
+                name,
+                zonesConfiguration,
+                tablesConfig,
+                metaStorageMgr,
+                logicalTopologyService,
+                vaultMgr,
+                catalogManager
         );
 
         distributedTblMgr = new TableManager(
