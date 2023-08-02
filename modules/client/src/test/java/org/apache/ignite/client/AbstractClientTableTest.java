@@ -171,6 +171,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         }
     }
 
+    /** Person without key. */
     protected static class PersonValPojo {
         public String name;
 
