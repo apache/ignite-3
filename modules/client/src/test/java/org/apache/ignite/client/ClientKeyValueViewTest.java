@@ -93,7 +93,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
         KeyValueView<IncompletePojo, IncompletePojo> pojoView = table.keyValueView(IncompletePojo.class, IncompletePojo.class);
 
-        kvView.put(null, allColumnsTableKey(1), allColumnsTableVal("x"));
+        kvView.put(null, allColumnsTableKey(1), allColumnsTableVal("x", true));
 
         var key = new IncompletePojo();
         key.id = "1";
@@ -110,7 +110,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
                 Mapper.of(IncompletePojo.class),
                 Mapper.of(AllColumnsValPojo.class));
 
-        table.recordView().upsert(null, allColumnsTableVal("foo"));
+        table.recordView().upsert(null, allColumnsTableVal("foo", false));
 
         var key = new IncompletePojo();
         key.gid = (int) (long) DEFAULT_ID;

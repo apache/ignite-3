@@ -109,10 +109,8 @@ public class AbstractClientTableTest extends AbstractClientTest {
         return Tuple.create().set("gid", id).set("id", String.valueOf(id));
     }
 
-    protected static Tuple allColumnsTableVal(String name) {
-        return Tuple.create()
-                .set("gid", DEFAULT_ID)
-                .set("id", String.valueOf(DEFAULT_ID))
+    protected static Tuple allColumnsTableVal(String name, boolean skipKey) {
+        var tuple = Tuple.create()
                 .set("zboolean", true)
                 .set("zbyte", (byte) 11)
                 .set("zshort", (short) 12)
@@ -129,6 +127,14 @@ public class AbstractClientTableTest extends AbstractClientTest {
                 .set("zdecimal", BigDecimal.valueOf(21))
                 .set("znumber", BigInteger.valueOf(22))
                 .set("zuuid", uuid);
+
+        if (!skipKey) {
+            tuple
+                    .set("gid", DEFAULT_ID)
+                    .set("id", String.valueOf(DEFAULT_ID));
+        }
+
+        return tuple;
     }
 
     protected Table fullTable() {
