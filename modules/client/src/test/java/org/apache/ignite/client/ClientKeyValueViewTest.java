@@ -51,15 +51,14 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     @Test
     public void testBinaryPutPojoGet() {
         Table table = defaultTable();
-        KeyValueView<Long, PersonPojo> pojoView = table.keyValueView(Mapper.of(Long.class), Mapper.of(PersonPojo.class));
+        KeyValueView<Long, PersonValPojo> pojoView = table.keyValueView(Mapper.of(Long.class), Mapper.of(PersonValPojo.class));
 
         table.recordView().upsert(null, tuple());
 
-        PersonPojo val = pojoView.get(null, DEFAULT_ID);
-        PersonPojo missingVal = pojoView.get(null, -1L);
+        PersonValPojo val = pojoView.get(null, DEFAULT_ID);
+        PersonValPojo missingVal = pojoView.get(null, -1L);
 
         assertEquals(DEFAULT_NAME, val.name);
-        assertEquals(0, val.id); // Not mapped in value part.
         assertNull(missingVal);
     }
 
