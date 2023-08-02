@@ -86,6 +86,31 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         assertEquals("Tuple doesn't match schema: schemaVersion=1, extraColumns=[UNMAPPED]", ex.getMessage());
     }
 
+    @SuppressWarnings("resource")
+    @Test
+    public void testKvUnmappedKeyTupleFieldsAreRejected() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var tupleView = table.keyValueView();
+
+        var tuple = Tuple.create().set("key", 1).set("val", "val");
+
+        Throwable ex = assertThrowsWithCause(() -> tupleView.put(null, tuple, tuple), IgniteException.class);
+        assertEquals("Key tuple doesn't match schema: schemaVersion=1, extraColumns=[VAL]", ex.getMessage());
+    }
+
+    @SuppressWarnings("resource")
+    @Test
+    public void testKvUnmappedValTupleFieldsAreRejected() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var tupleView = table.keyValueView();
+
+        var key = Tuple.create().set("key", 1);
+        var tuple = Tuple.create().set("key", 1).set("val", "val");
+
+        Throwable ex = assertThrowsWithCause(() -> tupleView.put(null, key, tuple), IgniteException.class);
+        assertEquals("Value tuple doesn't match schema: schemaVersion=1, extraColumns=[KEY]", ex.getMessage());
+    }
+
     private static class TestPojo2 {
         public int key;
 
