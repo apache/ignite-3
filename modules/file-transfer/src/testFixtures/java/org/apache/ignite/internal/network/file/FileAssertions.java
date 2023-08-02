@@ -28,9 +28,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * File assertions.
@@ -47,20 +47,26 @@ public class FileAssertions {
         try {
             Files.walkFileTree(expected, new SimpleFileVisitor<>() {
                 @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
                     Path otherDir = actual.resolve(expected.relativize(dir));
                     if (!Files.exists(otherDir)) {
                         throw new AssertionError("Directory " + dir + " does not exist in " + actual);
                     }
-                    List<String> expectedFiles = Arrays.stream(dir.toFile().listFiles())
-                            .map(File::getName)
-                            .collect(Collectors.toList());
 
-                    List<String> actualFiles = Arrays.stream(otherDir.toFile().listFiles())
-                            .map(File::getName)
-                            .collect(Collectors.toList());
+                    try (Stream<Path> expectedFilesStream = Files.list(dir);
+                            Stream<Path> actualFilesStream = Files.list(otherDir)) {
+                        List<String> expectedFiles = expectedFilesStream
+                                .map(Path::toFile)
+                                .map(File::getName)
+                                .collect(Collectors.toList());
 
-                    assertThat(expectedFiles, is(actualFiles));
+                        List<String> actualFiles = actualFilesStream
+                                .map(Path::toFile)
+                                .map(File::getName)
+                                .collect(Collectors.toList());
+
+                        assertThat(expectedFiles, is(actualFiles));
+                    }
                     return FileVisitResult.CONTINUE;
                 }
 
