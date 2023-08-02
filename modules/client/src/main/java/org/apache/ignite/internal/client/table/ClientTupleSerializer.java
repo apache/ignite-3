@@ -149,17 +149,7 @@ public class ClientTupleSerializer {
         }
 
         if (!keyOnly && tuple.columnCount() > usedCols) {
-            Set<String> extraColumns = new HashSet<>();
-            for (int i = 0; i < tuple.columnCount(); i++) {
-                extraColumns.add(tuple.columnName(i));
-            }
-
-            for (ClientColumn c : schema.columns()) {
-                extraColumns.remove(c.name());
-            }
-
-            throw new IllegalArgumentException(String.format("Tuple doesn't match schema: schemaVersion=%s, extraColumns=%s",
-                    schema.version(), extraColumns));
+            throwSchemaMismatchException(tuple, schema, TuplePart.KEY_AND_VAL);
         }
 
         out.out().packBinaryTuple(builder, noValueSet);
@@ -192,14 +182,37 @@ public class ClientTupleSerializer {
         var noValueSet = new BitSet(columns.length);
         var builder = new BinaryTupleBuilder(columns.length);
 
+        int usedKeyCols = 0;
+        int usedValCols = 0;
+
         for (ClientColumn col : columns) {
-            Object v = col.key()
-                    ? key.valueOrDefault(col.name(), NO_VALUE)
-                    : val != null
-                            ? val.valueOrDefault(col.name(), NO_VALUE)
-                            : NO_VALUE;
+            Object v;
+
+            if (col.key()) {
+                v = key.valueOrDefault(col.name(), NO_VALUE);
+
+                if (v != NO_VALUE) {
+                    usedKeyCols++;
+                }
+            } else {
+                v = val != null
+                        ? val.valueOrDefault(col.name(), NO_VALUE)
+                        : NO_VALUE;
+
+                if (v != NO_VALUE) {
+                    usedValCols++;
+                }
+            }
 
             appendValue(builder, noValueSet, col, v);
+        }
+
+        if (key.columnCount() > usedKeyCols) {
+            throwSchemaMismatchException(key, schema, TuplePart.KEY);
+        }
+
+        if (val != null && val.columnCount() > usedValCols) {
+            throwSchemaMismatchException(key, schema, TuplePart.VAL);
         }
 
         out.out().packBinaryTuple(builder, noValueSet);
@@ -402,5 +415,32 @@ public class ClientTupleSerializer {
         }
 
         return hashCalc.hash();
+    }
+
+    private static void throwSchemaMismatchException(@NotNull Tuple tuple, ClientSchema schema, TuplePart part) {
+        ClientColumn[] columns = schema.columns();
+        Set<String> extraColumns = new HashSet<>();
+        int start = part == TuplePart.VAL ? schema.keyColumnCount() : 0;
+        int end = part == TuplePart.KEY ? schema.keyColumnCount() : columns.length;
+
+        for (int i = 0; i < tuple.columnCount(); i++) {
+            extraColumns.add(tuple.columnName(i));
+        }
+
+
+        for (int i = start; i < end; i++) {
+            extraColumns.remove(columns[i].name());
+        }
+
+        String prefix = "Tuple";
+
+        if (part == TuplePart.KEY) {
+            prefix = "Key tuple";
+        } else if (part == TuplePart.VAL) {
+            prefix = "Value tuple";
+        }
+
+        throw new IllegalArgumentException(String.format("%s doesn't match schema: schemaVersion=%s, extraColumns=%s",
+                prefix, schema.version(), extraColumns));
     }
 }
