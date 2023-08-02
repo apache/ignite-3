@@ -150,7 +150,7 @@ public class ClientSchema {
 
     public <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
         // TODO: Cache Marshallers (IGNITE-16094).
-        return getMarshaller(mapper, part, false);
+        return getMarshaller(mapper, part, part == TuplePart.KEY);
     }
 
     <T> Marshaller getMarshaller(Mapper mapper, TuplePart part, boolean allowUnmappedFields) {
