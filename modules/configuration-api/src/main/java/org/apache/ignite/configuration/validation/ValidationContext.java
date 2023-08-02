@@ -92,4 +92,9 @@ public interface ValidationContext<VIEWT> {
      * @param <T> Owner view type.
      */
     <T> @Nullable T getNewOwner();
+
+    /**
+     * Check if this validation is running for cluster initialization properties.
+     */
+    boolean isClusterInitializing();
 }

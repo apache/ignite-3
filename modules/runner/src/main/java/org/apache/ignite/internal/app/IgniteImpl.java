@@ -445,7 +445,7 @@ public class IgniteImpl implements Ignite {
 
         distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,
-                new HoconPresentation(clusterCfgMgr.configurationRegistry())
+                new HoconPresentation(clusterCfgMgr.configurationRegistry(), true)
         );
 
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));

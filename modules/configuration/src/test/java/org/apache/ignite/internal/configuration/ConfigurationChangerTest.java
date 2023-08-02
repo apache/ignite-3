@@ -22,6 +22,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.FirstConfiguration.KEY;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.CoreMatchers.is;
@@ -566,6 +567,42 @@ public class ConfigurationChangerTest {
 
         changer.change(source(DefaultsConfiguration.KEY, (DefaultsChange c) -> c.changeDefStr("foo"))).get(1, SECONDS);
         assertEquals(3, storage.lastRevision().get(1, SECONDS));
+    }
+
+    /**
+     * Test changing @Immutable parameters.
+     */
+    @Test
+    public void testImmutablePropertyChange() throws Exception {
+        ConfigurationChanger changer =  new TestConfigurationChanger(
+                List.of(KEY),
+                storage,
+                generator,
+                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of())
+        );
+        changer.start();
+        changer.onDefaultsPersisted().get(1, SECONDS);
+
+        //default value set in start
+        FirstView defaultRoot = (FirstView) changer.getRootNode(KEY);
+
+        assertEquals(0, defaultRoot.child().intCfg());
+
+        // Initialize immutable property
+        changer.changeWithClusterInit(source(KEY, (FirstChange parent) -> parent
+                .changeChild(change -> change.changeIntCfg(1))
+        )).get(1, SECONDS);
+
+        FirstView newRoot = (FirstView) changer.getRootNode(KEY);
+
+        assertEquals(1, newRoot.child().intCfg());
+
+        // Any change beyond the above actions should lead to an exception
+        assertThat(
+                changer.change(source(KEY, (FirstChange parent) -> parent
+                        .changeChild(change -> change.changeIntCfg(5))
+                )),
+                willThrowFast(ConfigurationChangeException.class));
     }
 
     private static <CHANGET> ConfigurationSource source(RootKey<?, ? super CHANGET> rootKey, Consumer<CHANGET> changer) {

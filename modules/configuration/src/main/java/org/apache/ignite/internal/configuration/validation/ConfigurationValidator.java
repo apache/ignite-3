@@ -56,7 +56,8 @@ public interface ConfigurationValidator {
      *
      * @param oldRoots Old known roots.
      * @param newRoots New roots.
+     * @param clusterInit Runs at the initialization of cluster.
      * @return List of validation results.
      */
-    List<ValidationIssue> validate(SuperRoot oldRoots, SuperRoot newRoots);
+    List<ValidationIssue> validate(SuperRoot oldRoots, SuperRoot newRoots, boolean clusterInit);
 }

@@ -28,6 +28,7 @@ import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
+import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -39,13 +40,20 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
     /** Configuration registry. */
     private final ConfigurationRegistry registry;
 
+    private final boolean clusterInit;
+
     /**
      * Constructor.
      *
      * @param registry Configuration registry.
      */
     public HoconPresentation(ConfigurationRegistry registry) {
+        this(registry, false);
+    }
+
+    public HoconPresentation(ConfigurationRegistry registry, boolean clusterInit) {
         this.registry = registry;
+        this.clusterInit = clusterInit;
     }
 
     /** {@inheritDoc} */
@@ -76,21 +84,26 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
             return CompletableFuture.failedFuture(new IllegalArgumentException(e));
         }
 
-        return registry.change(HoconConverter.hoconSource(config.root()))
-                .exceptionally(e -> {
-                    if (e instanceof CompletionException) {
-                        e = e.getCause();
-                    }
+        ConfigurationSource source = HoconConverter.hoconSource(config.root());
 
-                    if (e instanceof IllegalArgumentException) {
-                        throw (RuntimeException) e;
-                    } else if (e instanceof ConfigurationValidationException) {
-                        throw (RuntimeException) e;
-                    } else if (e instanceof ConfigurationChangeException) {
-                        throw (RuntimeException) e.getCause();
-                    } else {
-                        throw new IgniteException(e);
-                    }
-                });
+        CompletableFuture<Void> change = clusterInit
+                ? registry.changeWithClusterInit(source)
+                : registry.change(source);
+
+        return change.exceptionally(e -> {
+            if (e instanceof CompletionException) {
+                e = e.getCause();
+            }
+
+            if (e instanceof IllegalArgumentException) {
+                throw (RuntimeException) e;
+            } else if (e instanceof ConfigurationValidationException) {
+                throw (RuntimeException) e;
+            } else if (e instanceof ConfigurationChangeException) {
+                throw (RuntimeException) e.getCause();
+            } else {
+                throw new IgniteException(e);
+            }
+        });
     }
 }

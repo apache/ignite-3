@@ -122,18 +122,18 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
         src.descend(changes);
         addDefaults(changes);
         dropNulls(changes);
-        return validate(emptySuperRoot(), changes);
+        return validate(emptySuperRoot(), changes, false);
     }
 
     /** {@inheritDoc} */
     @Override
     public List<ValidationIssue> validate(SuperRoot newRoots) {
-        return validate(emptySuperRoot(), newRoots);
+        return validate(emptySuperRoot(), newRoots, false);
     }
 
     /** {@inheritDoc} */
     @Override
-    public List<ValidationIssue> validate(SuperRoot oldRoots, SuperRoot newRoots) {
+    public List<ValidationIssue> validate(SuperRoot oldRoots, SuperRoot newRoots, boolean clusterInit) {
         List<ValidationIssue> issues = new ArrayList<>();
         newRoots.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
             /** {@inheritDoc} */
@@ -209,7 +209,8 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
                                 val,
                                 currentKey,
                                 currentPath,
-                                issues
+                                issues,
+                                clusterInit
                         );
 
                         ((Validator<Annotation, Object>) validator).validate(annotation, ctx);

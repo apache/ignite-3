@@ -180,6 +180,16 @@ public class ConfigurationRegistry implements IgniteComponent {
     }
 
     /**
+     * Change configuration at the initialization of cluster.
+     *
+     * @param changesSrc Configuration source to create patch from it.
+     * @return Future that is completed on change completion.
+     */
+    public CompletableFuture<Void> changeWithClusterInit(ConfigurationSource changesSrc) {
+        return changer.changeWithClusterInit(changesSrc);
+    }
+
+    /**
      * Change configuration.
      *
      * @param changesSrc Configuration source to create patch from it.

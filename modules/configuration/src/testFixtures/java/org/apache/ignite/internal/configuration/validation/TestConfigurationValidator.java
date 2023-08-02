@@ -44,7 +44,7 @@ public class TestConfigurationValidator implements ConfigurationValidator {
     }
 
     @Override
-    public List<ValidationIssue> validate(SuperRoot oldRoots, SuperRoot newRoots) {
+    public List<ValidationIssue> validate(SuperRoot oldRoots, SuperRoot newRoots, boolean clusterInit) {
         return Collections.emptyList();
     }
 }

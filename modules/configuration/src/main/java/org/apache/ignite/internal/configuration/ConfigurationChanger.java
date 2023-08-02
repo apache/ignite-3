@@ -285,7 +285,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * default values that are not persisted to the storage and writes them if there are any.
      */
     private void persistDefaults() {
-        changeInternally(ConfigurationUtil.EMPTY_CFG_SRC, true)
+        changeInternally(ConfigurationUtil.EMPTY_CFG_SRC, true, false)
                 .whenComplete((v, e) -> {
                     if (e == null) {
                         defaultsPersisted.complete(null);
@@ -295,13 +295,23 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                 });
     }
 
+    /**
+     * This change was produced from the cluster properties initialization.
+     */
+    public CompletableFuture<Void> changeWithClusterInit(ConfigurationSource source) {
+        if (storageRoots == null) {
+            throw new ComponentNotStartedException();
+        }
+        return defaultsPersisted.thenCompose(v -> changeInternally(source, false, true));
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> change(ConfigurationSource source) {
         if (storageRoots == null) {
             throw new ComponentNotStartedException();
         }
-        return defaultsPersisted.thenCompose(v -> changeInternally(source, false));
+        return defaultsPersisted.thenCompose(v -> changeInternally(source, false, false));
     }
 
     /**
@@ -520,12 +530,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * @return Future that will be completed after changes are written to the storage.
      * @throws ComponentNotStartedException if changer is not started.
      */
-    private CompletableFuture<Void> changeInternally(ConfigurationSource src, boolean onStartup) {
+    private CompletableFuture<Void> changeInternally(ConfigurationSource src, boolean onStartup, boolean clusterInit) {
         return storage.lastRevision()
             .thenComposeAsync(storageRevision -> {
                 assert storageRevision != null;
 
-                return changeInternally0(src, storageRevision, onStartup);
+                return changeInternally0(src, storageRevision, onStartup, clusterInit);
             }, pool)
             .exceptionally(throwable -> {
                 Throwable cause = throwable.getCause();
@@ -546,7 +556,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * @param onStartup if {@code true} this change is triggered right after startup
      * @return Future that will be completed after changes are written to the storage.
      */
-    private CompletableFuture<Void> changeInternally0(ConfigurationSource src, long storageRevision, boolean onStartup) {
+    private CompletableFuture<Void> changeInternally0(ConfigurationSource src, long storageRevision, boolean onStartup,
+            boolean clusterInit) {
         // Read lock protects "storageRoots" field from being updated, thus guaranteeing a thread-safe read of configuration inside the
         // change closure.
         rwLock.readLock().lock();
@@ -558,7 +569,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             if (localRoots.version < storageRevision) {
                 // Need to wait for the configuration updates from the storage, then try to update again (loop).
-                return localRoots.changeFuture.thenCompose(v -> changeInternally(src, onStartup));
+                return localRoots.changeFuture.thenCompose(v -> changeInternally(src, onStartup, clusterInit));
             }
 
             SuperRoot curRoots = localRoots.roots;
@@ -579,7 +590,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             dropNulls(changes);
 
-            validateConfiguration(curRoots, changes);
+            validateConfiguration(curRoots, changes, clusterInit);
 
             // "allChanges" map can be empty here in case the given update matches the current state of the local configuration. We
             // still try to write the empty update, because local configuration can be obsolete. If this is the case, then the CAS will
@@ -592,7 +603,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                         } else {
                             // Here we go to next iteration of an implicit spin loop; we have to do it via recursion
                             // because we work with async code (futures).
-                            return localRoots.changeFuture.thenCompose(v -> changeInternally(src, onStartup));
+                            return localRoots.changeFuture.thenCompose(v -> changeInternally(src, onStartup, clusterInit));
                         }
                     });
         } finally {
@@ -609,8 +620,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     }
 
 
-    private void validateConfiguration(SuperRoot curRoots, SuperRoot changes) {
-        List<ValidationIssue> validationIssues = configurationValidator.validate(curRoots, changes);
+    private void validateConfiguration(SuperRoot curRoots, SuperRoot changes, boolean clusterInit) {
+        List<ValidationIssue> validationIssues = configurationValidator.validate(curRoots, changes, clusterInit);
 
         if (!validationIssues.isEmpty()) {
             throw new ConfigurationValidationException(validationIssues);

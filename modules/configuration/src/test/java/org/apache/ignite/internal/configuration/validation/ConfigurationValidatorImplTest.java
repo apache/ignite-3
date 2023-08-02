@@ -191,7 +191,7 @@ public class ConfigurationValidatorImplTest {
         Set<Validator<LeafValidation, String>> validators = Set.of(validator);
 
         ConfigurationValidatorImpl configurationValidator = new ConfigurationValidatorImpl(configurationTreeGenerator, validators);
-        List<ValidationIssue> actual = configurationValidator.validate(rootsNode, rootsNode);
+        List<ValidationIssue> actual = configurationValidator.validate(rootsNode, rootsNode, false);
 
         List<ValidationIssue> expected = List.of(
                 new ExValidationIssue("bar", "root.child.str", "foo", "foo"),
@@ -232,7 +232,7 @@ public class ConfigurationValidatorImplTest {
         Set<Validator<InnerValidation, ?>> validators = Set.of(validator);
 
         ConfigurationValidatorImpl configurationValidator = new ConfigurationValidatorImpl(configurationTreeGenerator, validators);
-        List<ValidationIssue> actual = configurationValidator.validate(rootsNode, rootsNode);
+        List<ValidationIssue> actual = configurationValidator.validate(rootsNode, rootsNode, false);
 
         List<ValidationIssue> expected = List.of(
                 new ExValidationIssue("bar", "root.child", "foo", "foo"),
@@ -265,7 +265,7 @@ public class ConfigurationValidatorImplTest {
         Set<Validator<NamedListValidation, NamedListView<?>>> validators = Set.of(validator);
 
         ConfigurationValidatorImpl configurationValidator = new ConfigurationValidatorImpl(configurationTreeGenerator, validators);
-        List<ValidationIssue> actual = configurationValidator.validate(rootsNode, rootsNode);
+        List<ValidationIssue> actual = configurationValidator.validate(rootsNode, rootsNode, false);
 
         List<ValidationIssue> expected = List.of(
                 new ExValidationIssue("bar", "root.elements", List.of(), List.of()),
@@ -342,7 +342,7 @@ public class ConfigurationValidatorImplTest {
         Set<Validator<?, ?>> validators = Set.of(innerValidator, leafValidator, namedListValidator);
 
         ConfigurationValidatorImpl configurationValidator = new ConfigurationValidatorImpl(configurationTreeGenerator, validators);
-        List<ValidationIssue> actual = configurationValidator.validate(rootsNode, rootsNode);
+        List<ValidationIssue> actual = configurationValidator.validate(rootsNode, rootsNode, false);
 
         // Checks that for a nested/leaf/named configuration their owners will be correctly returned.
         assertThat(actual, empty());

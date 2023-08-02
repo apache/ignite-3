@@ -52,6 +52,9 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
     /** List of issues, should be used as a write-only collection. */
     private final List<ValidationIssue> issues;
 
+    /**  If {@code true} this validation is performed at the initialization of cluster. */
+    private final boolean clusterInit;
+
     /**
      * Constructor.
      *
@@ -61,6 +64,7 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
      * @param currentKey Key corresponding to the value.
      * @param currentPath List representation of {@code currentKey}.
      * @param issues List of issues, should be used as a write-only collection.
+     * @param clusterInit Whether this validation is performed at the initialization of cluster.
      */
     ValidationContextImpl(
             SuperRoot oldRoots,
@@ -68,7 +72,8 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
             VIEWT val,
             String currentKey,
             List<String> currentPath,
-            List<ValidationIssue> issues
+            List<ValidationIssue> issues,
+            boolean clusterInit
     ) {
         this.oldRoots = oldRoots;
         this.newRoots = newRoots;
@@ -76,6 +81,7 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
         this.currentKey = currentKey;
         this.currentPath = currentPath;
         this.issues = issues;
+        this.clusterInit = clusterInit;
 
         assert !currentPath.isEmpty();
     }
@@ -140,5 +146,11 @@ class ValidationContextImpl<VIEWT> implements ValidationContext<VIEWT> {
         } catch (KeyNotFoundException ignore) {
             return null;
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isClusterInitializing() {
+        return clusterInit;
     }
 }

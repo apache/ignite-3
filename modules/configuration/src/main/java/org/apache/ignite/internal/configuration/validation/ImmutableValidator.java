@@ -33,7 +33,7 @@ public class ImmutableValidator implements Validator<Immutable, Object> {
         Object oldValue = ctx.getOldValue();
         Object newValue = ctx.getNewValue();
 
-        if (oldValue != null && !Objects.deepEquals(oldValue, newValue)) {
+        if (oldValue != null && !Objects.deepEquals(oldValue, newValue) && !ctx.isClusterInitializing()) {
             ctx.addIssue(new ValidationIssue(
                     ctx.currentKey(),
                     "'" + ctx.currentKey() + "' configuration value is immutable and cannot be updated [curVal="
