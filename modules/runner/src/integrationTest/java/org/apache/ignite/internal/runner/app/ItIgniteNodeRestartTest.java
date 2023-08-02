@@ -89,6 +89,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
 import org.apache.ignite.internal.raft.Loza;
@@ -390,6 +391,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager);
 
+        var metricManager = new MetricManager();
+
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,
                 clusterSvc,
@@ -402,7 +405,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
                 replicaSvc,
                 hybridClock,
-                catalogManager
+                catalogManager,
+                metricManager
         );
 
         // Preparing the result map.
