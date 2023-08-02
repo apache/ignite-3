@@ -26,6 +26,7 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.plan.volcano.RelSubset;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
@@ -45,6 +46,7 @@ import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
+import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -77,8 +79,18 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
         IgniteDistribution distribution = igniteTable.distribution();
 
         if (rel.getOperation() == Operation.DELETE) {
-            distribution = distribution.apply(
-                    Mappings.target(distribution.getKeys(), igniteTable.getRowType(cluster.getTypeFactory()).getFieldCount()));
+            assert rel.getInput() instanceof RelSubset;
+
+            for (RelNode relInput : ((RelSubset) rel.getInput()).getRels()) {
+                if (relInput instanceof ProjectableFilterableTableScan) {
+                    ImmutableBitSet requiredColumns = ((ProjectableFilterableTableScan) relInput).requiredColumns();
+
+                    distribution = distribution.apply(
+                            Mappings.target(requiredColumns.toList(), igniteTable.getRowType(cluster.getTypeFactory()).getFieldCount()));
+
+                    break;
+                }
+            }
         }
 
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)

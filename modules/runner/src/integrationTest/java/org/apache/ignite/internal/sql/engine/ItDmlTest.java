@@ -614,15 +614,15 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testDeleteUsingCompositePkWithGap() {
-        sql("CREATE TABLE test (a int, b INT NOT NULL, c INT NOT NULL, d INT NOT NULL, PRIMARY KEY(d, b))");
+        sql("CREATE TABLE test (a int, b INT NOT NULL, c INT NOT NULL, d VARCHAR NOT NULL, PRIMARY KEY(d, b))");
         sql("INSERT INTO test VALUES "
-                + "(0, 1, 0, 3),"
-                + "(0, 2, 0, 3),"
-                + "(0, 2, 0, 4)");
+                + "(0, 1, 0, '3'),"
+                + "(0, 2, 0, '3'),"
+                + "(0, 2, 0, '4')");
 
-        sql("DELETE FROM test WHERE d = 3");
+        sql("DELETE FROM test WHERE d = '3'");
 
-        assertQuery("SELECT d FROM test WHERE b = 2 or b = 1").returns(4).check();
+        assertQuery("SELECT d FROM test WHERE b = 2 or b = 1").returns("4").check();
     }
 
     private static void checkDuplicatePk(IgniteException ex) {
