@@ -286,7 +286,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                 continue;
             }
 
-            Object value = hnd.get(colDesc.logicalIndex(), row);
+            Object value = hnd.get(keyOnly ? colDesc.physicalIndex() : colDesc.logicalIndex(), row);
 
             // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
             assert value != DEFAULT_VALUE_PLACEHOLDER;
@@ -303,7 +303,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                 continue;
             }
 
-            Object val = hnd.get(colDesc.logicalIndex(), row);
+            Object val = hnd.get(keyOnly ? colDesc.physicalIndex() : colDesc.logicalIndex(), row);
 
             val = TypeUtils.fromInternal(val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
 

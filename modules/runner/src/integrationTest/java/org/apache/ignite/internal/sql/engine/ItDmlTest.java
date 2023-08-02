@@ -612,6 +612,17 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .check();
     }
 
+    @Test
+    public void testDeleteUsingCompositePk2GapAndNoGapX() {
+        sql("create table test (a int not null, b int not null, c int not null, primary key(c,a))");
+        sql("insert into test values(1, 5, 7)");
+        sql("insert into test values(3, 5, 7)");
+        sql("delete from test where a = 3");
+
+        assertQuery("select a from test where a = 3").returnNothing().check();
+        assertQuery("select c from test where a = 1").returns(7).check();
+    }
+
     private static void checkDuplicatePk(IgniteException ex) {
         assertEquals(CONSTRAINT_VIOLATION_ERR, ex.code());
         assertThat(ex.getMessage(), containsString("PK unique constraint is violated"));
