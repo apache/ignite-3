@@ -172,8 +172,7 @@ public class ClientSchema {
             cols[i] = new MarshallerColumn(col.name(), mode(col.type()), null, col.scale());
         }
 
-        // TODO: allowUnmappedFields should be always false, even for keys.
-        return Marshaller.createMarshaller(cols, mapper, part == TuplePart.KEY, part == TuplePart.KEY);
+        return Marshaller.createMarshaller(cols, mapper);
     }
 
     private static BinaryMode mode(ColumnType dataType) {

@@ -38,19 +38,15 @@ public abstract class Marshaller {
      *
      * @param cols Columns.
      * @param mapper Mapper.
-     * @param requireAllFields If specified class should contain fields for all columns.
-     * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
      * @return Marshaller.
      */
     public static <T> Marshaller createMarshaller(
             MarshallerColumn[] cols,
-            @NotNull Mapper<T> mapper,
-            boolean requireAllFields,
-            boolean allowUnmappedFields) {
+            @NotNull Mapper<T> mapper) {
         if (mapper instanceof OneColumnMapper) {
             return simpleMarshaller(cols, (OneColumnMapper<T>) mapper);
         } else if (mapper instanceof PojoMapper) {
-            return pojoMarshaller(cols, (PojoMapper<T>) mapper, requireAllFields, allowUnmappedFields);
+            return pojoMarshaller(cols, (PojoMapper<T>) mapper);
         } else {
             throw new IllegalArgumentException("Mapper of unsupported type: " + mapper.getClass());
         }
@@ -80,15 +76,11 @@ public abstract class Marshaller {
      *
      * @param cols                Columns.
      * @param mapper              Mapper.
-     * @param requireAllFields    If specified class should contain fields for all columns.
-     * @param allowUnmappedFields Whether specified class can contain fields that are not mapped to columns.
      * @return Pojo marshaller.
      */
     private static <T> PojoMarshaller pojoMarshaller(
             MarshallerColumn[] cols,
-            @NotNull PojoMapper<T> mapper,
-            boolean requireAllFields,
-            boolean allowUnmappedFields) {
+            @NotNull PojoMapper<T> mapper) {
         FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length];
         int usedFields = 0;
 
@@ -98,7 +90,7 @@ public abstract class Marshaller {
 
             String fieldName = mapper.fieldForColumn(col.name());
 
-            if (requireAllFields && fieldName == null) {
+            if (fieldName == null) {
                 throw new IllegalArgumentException("No field found for column " + col.name());
             }
 
@@ -110,17 +102,15 @@ public abstract class Marshaller {
             }
         }
 
-        if (!allowUnmappedFields) {
-            var fields = mapper.fields();
-            if (fields.size() > usedFields) {
-                Set<String> fieldSet = new HashSet<>(fields);
-                for (MarshallerColumn col : cols) {
-                    String fieldName = mapper.fieldForColumn(col.name());
-                    fieldSet.remove(fieldName);
-                }
-
-                throw new IllegalArgumentException("Fields " + fieldSet + " are not mapped to columns.");
+        var fields = mapper.fields();
+        if (fields.size() > usedFields) {
+            Set<String> fieldSet = new HashSet<>(fields);
+            for (MarshallerColumn col : cols) {
+                String fieldName = mapper.fieldForColumn(col.name());
+                fieldSet.remove(fieldName);
             }
+
+            throw new IllegalArgumentException("Fields " + fieldSet + " are not mapped to columns.");
         }
 
         return new PojoMarshaller(new ObjectFactory<>(mapper.targetType()), fieldAccessors);
