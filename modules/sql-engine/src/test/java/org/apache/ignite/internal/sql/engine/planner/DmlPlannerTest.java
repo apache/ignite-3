@@ -50,7 +50,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         IgniteSchema schema = createSchema(test1);
 
         // There should be no exchanges and other operations.
-        assertPlan("INSERT INTO TEST1 (C1, C2) VALUES(1, 2)", schema,
+        assertPlan("INSERT INTO TEST1 (C0, C1, C2, C3) VALUES(0, 1, 2, 3)", schema,
                 isInstanceOf(IgniteTableModify.class).and(input(isInstanceOf(IgniteValues.class))));
     }
 
@@ -149,23 +149,15 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("nonSingleDistributions")
     public void testDelete(IgniteDistribution distribution) throws Exception {
-        // TODO
-        IgniteTable test1 = TestBuilders.table()
-                .name("TEST1")
-                .addKeyColumn("A", NativeTypes.INT32)
-                .addColumn("B", NativeTypes.INT32)
-                .addKeyColumn("C", NativeTypes.INT32)
-                .addColumn("D", NativeTypes.INT32)
-                .distribution(distribution)
-                .build();
+        IgniteTable test1 = newTestTable("TEST1", distribution);
 
         IgniteSchema schema = createSchema(test1);
 
-        assertPlan("DELETE FROM TEST1 WHERE A = 1", schema,
+        assertPlan("DELETE FROM TEST1 WHERE C0 = 1", schema,
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                         .and(e -> e.distribution().equals(IgniteDistributions.single())))
-                        .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class))
-                                .and(hasChildThat(isInstanceOf(IgniteTableScan.class))))
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class)
+                                .and(input(isTableScan("TEST1")))))
         );
     }
 
@@ -212,8 +204,10 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     private static TestTable newTestTable(String tableName, IgniteDistribution distribution) {
         return TestBuilders.table()
                 .name(tableName)
+                .addKeyColumn("C0", NativeTypes.INT32)
                 .addColumn("C1", NativeTypes.INT32)
-                .addColumn("C2", NativeTypes.INT32)
+                .addKeyColumn("C2", NativeTypes.INT32)
+                .addColumn("C3", NativeTypes.INT32)
                 .distribution(distribution)
                 .build();
     }
