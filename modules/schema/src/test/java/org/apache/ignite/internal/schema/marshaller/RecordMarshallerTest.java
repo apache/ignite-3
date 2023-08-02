@@ -48,6 +48,7 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.lang.reflect.Field;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.testobjects.TestBitmaskObject;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithNoDefaultConstructor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithPrivateConstructor;
@@ -218,22 +220,16 @@ public class RecordMarshallerTest {
     public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                keyColumns(),
-                new Column[]{
-                        new Column("primitiveLongCol".toUpperCase(), INT64, false),
-                        new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true),
-                }
+                new Column[]{ new Column("key".toUpperCase(), INT32, false) },
+                new Column[]{ new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true) }
         );
 
-        RecordMarshaller<TestObjectWithAllTypes> marshaller = factory.create(schema, TestObjectWithAllTypes.class);
+        RecordMarshaller<TestBitmaskObject> marshaller = factory.create(schema, TestBitmaskObject.class);
 
-        final TestObjectWithAllTypes rec = TestObjectWithAllTypes.randomObject(rnd);
+        TestBitmaskObject rec = new TestBitmaskObject(1, IgniteTestUtils.randomBitSet(rnd, 42));
 
-        assertThrows(
-                MarshallerException.class,
-                () -> marshaller.marshal(rec),
-                "Failed to write field [name=bitmaskCol]"
-        );
+        MarshallerException ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec));
+        assertEquals("Failed to write field [id=1]", ex.getMessage());
     }
 
     @ParameterizedTest
