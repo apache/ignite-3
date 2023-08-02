@@ -210,6 +210,17 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public Double zdouble;
     }
 
+    /** Partial column set. */
+    protected static class IncompleteValPojoNullable {
+        public Boolean zboolean;
+        public Byte zbyte;
+        public Short zshort;
+        public Integer zint;
+        public Long zlong;
+        public Float zfloat;
+        public Double zdouble;
+    }
+
     /** Columns of all types. */
     protected static class AllColumnsPojo {
         public int gid;
