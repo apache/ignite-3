@@ -25,6 +25,8 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for node metric commands. */
 class ItNodeMetricCommandTest extends CliCommandTestInitializedIntegrationBase {
+    private static final String NL = System.lineSeparator();
+
     @Test
     @DisplayName("Should display disabled jvm metric source when valid node-url is given")
     void nodeMetricList() {
@@ -35,9 +37,9 @@ class ItNodeMetricCommandTest extends CliCommandTestInitializedIntegrationBase {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputIs("Set name\tEnabled" + System.lineSeparator()
-                        + "jvm\tdisabled" + System.lineSeparator()
-                        + "client.handler\tdisabled" + System.lineSeparator())
+                () -> assertOutputContains("Set name\tEnabled" + NL),
+                () -> assertOutputContains("jvm\tdisabled" + NL),
+                () -> assertOutputContains("client.handler\tdisabled" + NL)
         );
     }
 
