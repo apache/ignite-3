@@ -88,7 +88,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testMissingValueColumnsAreSkipped() {
+    public void testMissingValueColumnsThrowException() {
         Table table = fullTable();
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
         KeyValueView<IncompletePojo, IncompletePojo> pojoView = table.keyValueView(IncompletePojo.class, IncompletePojo.class);
@@ -99,14 +99,8 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         key.id = "1";
         key.gid = 1;
 
-        // This POJO does not have fields for all table columns, and this is ok.
-        IncompletePojo val = pojoView.get(null, key);
-
-        assertEquals(0, val.gid);
-        assertNull(val.id);
-        assertEquals("x", val.zstring);
-        assertEquals(2, val.zbytes[1]);
-        assertEquals(11, val.zbyte);
+        IgniteException e = assertThrows(IgniteException.class, () -> pojoView.get(null, key));
+        assertEquals("Fields [gid, id] are not mapped to columns.", e.getMessage());
     }
 
     @Test
