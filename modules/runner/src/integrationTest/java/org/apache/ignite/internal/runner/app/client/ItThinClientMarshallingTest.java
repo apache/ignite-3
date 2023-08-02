@@ -57,11 +57,21 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         var kvPojoView = table.keyValueView(TestPojo.class, TestPojo.class);
 
         var pojo = new TestPojo();
-        pojo.key = 1;
-        pojo.val = "val";
 
         Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, pojo, pojo), IllegalArgumentException.class);
         assertEquals("Fields [val] are not mapped to columns.", ex.getMessage());
+    }
+
+    @SuppressWarnings("resource")
+    @Test
+    public void testKvUnmappedValPojoFieldsAreRejected() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var kvPojoView = table.keyValueView(Integer.class, TestPojo.class);
+
+        var pojo = new TestPojo();
+
+        Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, 1, pojo), IllegalArgumentException.class);
+        assertEquals("Fields [key] are not mapped to columns.", ex.getMessage());
     }
 
     @SuppressWarnings("resource")
