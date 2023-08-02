@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.file;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.network.file.FileAssertions.assertContentEquals;
 import static org.apache.ignite.internal.network.file.FileGenerator.randomFile;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.network.file.messages.TransferMetadata;
 import org.apache.ignite.internal.network.file.messages.TransferMetadataImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -86,7 +86,7 @@ public class ItFileTransferringTest {
                 node0.nodeName(),
                 TransferMetadataImpl.builder().build()
         );
-        assertThat(download.thenAccept(path -> assertContentEquals(unitPath, path)), CompletableFutureMatcher.willCompleteSuccessfully());
+        assertThat(download.thenAccept(path -> assertContentEquals(unitPath, path)), willCompleteSuccessfully());
     }
 
     @Test
@@ -109,15 +109,18 @@ public class ItFileTransferringTest {
 
         Node node1 = cluster.members.get(1);
 
-        CompletableFuture<Path> future = new CompletableFuture<>();
-        node1.fileTransferringService().addFileHandler(TransferMetadata.class, ((metadata, uploadedFile) -> {
-            future.complete(uploadedFile);
+        CompletableFuture<Path> uploadedFilesDirFuture = new CompletableFuture<>();
+        node1.fileTransferringService().addFileHandler(TransferMetadata.class, ((metadata, uploadedFilesDir) -> {
+            uploadedFilesDirFuture.complete(uploadedFilesDir);
             return completedFuture(null);
         }));
 
         node0.fileTransferringService().upload(node1.nodeName(), TransferMetadataImpl.builder().build());
 
-        assertThat(future.thenAccept(path -> assertContentEquals(unitPath, path)), CompletableFutureMatcher.willCompleteSuccessfully());
-        await().until(() -> !Files.exists(future.get()));
+        assertThat(
+                uploadedFilesDirFuture.thenAccept(path -> assertContentEquals(unitPath, path)),
+                willCompleteSuccessfully()
+        );
+        await().until(() -> !Files.exists(uploadedFilesDirFuture.get()));
     }
 }

@@ -99,7 +99,11 @@ public class TestCluster {
 
         try {
             Path nodeDir = Files.createDirectory(workDir.resolve("node-" + clusterSvc.nodeName()));
-            FileTransferringServiceImpl fileTransferringService = new FileTransferringServiceImpl(clusterSvc.messagingService(), nodeDir);
+            FileTransferringServiceImpl fileTransferringService = new FileTransferringServiceImpl(
+                    clusterSvc.nodeName(),
+                    clusterSvc.messagingService(),
+                    nodeDir
+            );
             return new Node(nodeDir, clusterSvc, fileTransferringService);
         } catch (IOException e) {
             throw new RuntimeException(e);

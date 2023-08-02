@@ -26,10 +26,11 @@ import org.apache.ignite.internal.network.file.messages.TransferMetadata;
  */
 public interface FileHandler<M extends TransferMetadata> {
     /**
-     * Handles the uploaded file.
+     * Handles the uploaded files.
      *
-     * @param uploadedFile The temporary path to the uploaded file. The file will be deleted after the method returns.
+     * @param uploadedFileDir The temporary path to the directory with the uploaded files. The directory will be deleted after the
+     *         method returns.
      * @return A future that will be completed when the file is handled.
      */
-    CompletableFuture<Void> handleUpload(M metadata, Path uploadedFile);
+    CompletableFuture<Void> handleUpload(M metadata, Path uploadedFileDir);
 }

@@ -22,7 +22,7 @@ import org.apache.ignite.network.annotations.MessageGroup;
 /**
  * File transferring message types.
  */
-@MessageGroup(groupType = 200, groupName = "DeploymentUnit")
+@MessageGroup(groupType = 200, groupName = "FileTransfer")
 public final class FileTransferringMessageType {
     public static final short FILE_TRANSFER_INFO = 0;
     public static final short FILE_HEADER = 1;

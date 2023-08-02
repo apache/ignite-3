@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.file;
 
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,26 +28,30 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.NetworkMessage;
 
 class FileSender implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(FileSender.class);
+
     private final int chunkSize;
+
     private final RateLimiter rateLimiter;
+
     private final BiFunction<String, NetworkMessage, CompletableFuture<Void>> send;
+
+    private final ExecutorService executorService;
 
     private final Queue<FileTransferringRequest> filesToSend = new ConcurrentLinkedQueue<>();
 
-    private final ExecutorService executorService = newSingleThreadExecutor(
-            new NamedThreadFactory("FileSenderExecutor", LOG)
-    );
-
     FileSender(
+            String nodeName,
             int chunkSize,
             RateLimiter rateLimiter,
             BiFunction<String, NetworkMessage, CompletableFuture<Void>> send
@@ -54,6 +59,9 @@ class FileSender implements ManuallyCloseable {
         this.send = send;
         this.chunkSize = chunkSize;
         this.rateLimiter = rateLimiter;
+        this.executorService = newSingleThreadExecutor(
+                NamedThreadFactory.create(nodeName, "FileSenderExecutor", LOG)
+        );
     }
 
     /**
@@ -95,8 +103,8 @@ class FileSender implements ManuallyCloseable {
 
     @Override
     public void close() {
-        executorService.shutdown();
-        filesToSend.forEach(it -> it.complete(new InterruptedException("File sender is closed")));
+        shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
+        filesToSend.forEach(it -> it.complete(new NodeStoppingException()));
     }
 
     private static class FileTransferringRequest {

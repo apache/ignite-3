@@ -28,7 +28,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.internal.network.file.messages.ChunkedFile;
+import org.apache.ignite.internal.network.file.messages.FileChunk;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -125,11 +125,11 @@ class FileTransferringMessagesStreamTest {
 
             // check the first ChunkedFile
             assertTrue(stream.hasNextMessage());
-            ChunkedFile chunkedFile1 = (ChunkedFile) stream.nextMessage();
-            assertEquals(transferId, chunkedFile1.transferId());
-            assertEquals(header1.fileName(), chunkedFile1.fileName());
-            assertEquals(0, chunkedFile1.offset());
-            assertEquals(file1.length(), chunkedFile1.data().length);
+            FileChunk fileChunk1 = (FileChunk) stream.nextMessage();
+            assertEquals(transferId, fileChunk1.transferId());
+            assertEquals(header1.fileName(), fileChunk1.fileName());
+            assertEquals(0, fileChunk1.offset());
+            assertEquals(file1.length(), fileChunk1.data().length);
 
             // check the second FileHeader
             assertTrue(stream.hasNextMessage());
@@ -140,11 +140,11 @@ class FileTransferringMessagesStreamTest {
 
             // check the second ChunkedFile
             assertTrue(stream.hasNextMessage());
-            ChunkedFile chunkedFile2 = (ChunkedFile) stream.nextMessage();
-            assertEquals(transferId, chunkedFile2.transferId());
-            assertEquals(header2.fileName(), chunkedFile2.fileName());
-            assertEquals(0, chunkedFile2.offset());
-            assertEquals(file2.length(), chunkedFile2.data().length);
+            FileChunk fileChunk2 = (FileChunk) stream.nextMessage();
+            assertEquals(transferId, fileChunk2.transferId());
+            assertEquals(header2.fileName(), fileChunk2.fileName());
+            assertEquals(0, fileChunk2.offset());
+            assertEquals(file2.length(), fileChunk2.data().length);
 
             // check the stream is empty
             assertFalse(stream.hasNextMessage());
@@ -179,19 +179,19 @@ class FileTransferringMessagesStreamTest {
 
             // check the first ChunkedFile
             assertTrue(stream.hasNextMessage());
-            ChunkedFile chunkedFile1 = (ChunkedFile) stream.nextMessage();
-            assertEquals(transferId, chunkedFile1.transferId());
-            assertEquals(header1.fileName(), chunkedFile1.fileName());
-            assertEquals(0, chunkedFile1.offset());
-            assertEquals(chunkSize, chunkedFile1.data().length);
+            FileChunk fileChunk1 = (FileChunk) stream.nextMessage();
+            assertEquals(transferId, fileChunk1.transferId());
+            assertEquals(header1.fileName(), fileChunk1.fileName());
+            assertEquals(0, fileChunk1.offset());
+            assertEquals(chunkSize, fileChunk1.data().length);
 
             // check the second ChunkedFile
             assertTrue(stream.hasNextMessage());
-            ChunkedFile chunkedFile2 = (ChunkedFile) stream.nextMessage();
-            assertEquals(transferId, chunkedFile2.transferId());
-            assertEquals(header1.fileName(), chunkedFile2.fileName());
-            assertEquals(chunkSize, chunkedFile2.offset());
-            assertEquals(file1.length() - chunkSize, chunkedFile2.data().length);
+            FileChunk fileChunk2 = (FileChunk) stream.nextMessage();
+            assertEquals(transferId, fileChunk2.transferId());
+            assertEquals(header1.fileName(), fileChunk2.fileName());
+            assertEquals(chunkSize, fileChunk2.offset());
+            assertEquals(file1.length() - chunkSize, fileChunk2.data().length);
 
             // check the second FileHeader
             assertTrue(stream.hasNextMessage());
@@ -202,19 +202,19 @@ class FileTransferringMessagesStreamTest {
 
             // check the third ChunkedFile
             assertTrue(stream.hasNextMessage());
-            ChunkedFile chunkedFile3 = (ChunkedFile) stream.nextMessage();
-            assertEquals(transferId, chunkedFile3.transferId());
-            assertEquals(header2.fileName(), chunkedFile3.fileName());
-            assertEquals(0, chunkedFile3.offset());
-            assertEquals(chunkSize, chunkedFile3.data().length);
+            FileChunk fileChunk3 = (FileChunk) stream.nextMessage();
+            assertEquals(transferId, fileChunk3.transferId());
+            assertEquals(header2.fileName(), fileChunk3.fileName());
+            assertEquals(0, fileChunk3.offset());
+            assertEquals(chunkSize, fileChunk3.data().length);
 
             // check the fourth ChunkedFile
             assertTrue(stream.hasNextMessage());
-            ChunkedFile chunkedFile4 = (ChunkedFile) stream.nextMessage();
-            assertEquals(transferId, chunkedFile4.transferId());
-            assertEquals(header2.fileName(), chunkedFile4.fileName());
-            assertEquals(chunkSize, chunkedFile4.offset());
-            assertEquals(file2.length() - chunkSize, chunkedFile4.data().length);
+            FileChunk fileChunk4 = (FileChunk) stream.nextMessage();
+            assertEquals(transferId, fileChunk4.transferId());
+            assertEquals(header2.fileName(), fileChunk4.fileName());
+            assertEquals(chunkSize, fileChunk4.offset());
+            assertEquals(file2.length() - chunkSize, fileChunk4.data().length);
 
             // check the stream is empty
             assertFalse(stream.hasNextMessage());
@@ -250,19 +250,19 @@ class FileTransferringMessagesStreamTest {
 
             // check the first ChunkedFile
             assertTrue(stream.hasNextMessage());
-            ChunkedFile chunkedFile1 = (ChunkedFile) stream.nextMessage();
-            assertEquals(transferId, chunkedFile1.transferId());
-            assertEquals(header1.fileName(), chunkedFile1.fileName());
-            assertEquals(0, chunkedFile1.offset());
-            assertEquals(chunkSize, chunkedFile1.data().length);
+            FileChunk fileChunk1 = (FileChunk) stream.nextMessage();
+            assertEquals(transferId, fileChunk1.transferId());
+            assertEquals(header1.fileName(), fileChunk1.fileName());
+            assertEquals(0, fileChunk1.offset());
+            assertEquals(chunkSize, fileChunk1.data().length);
 
             // check the second ChunkedFile
             assertTrue(stream.hasNextMessage());
-            ChunkedFile chunkedFile2 = (ChunkedFile) stream.nextMessage();
-            assertEquals(transferId, chunkedFile2.transferId());
-            assertEquals(header1.fileName(), chunkedFile2.fileName());
-            assertEquals(chunkSize, chunkedFile2.offset());
-            assertEquals(chunkSize, chunkedFile2.data().length);
+            FileChunk fileChunk2 = (FileChunk) stream.nextMessage();
+            assertEquals(transferId, fileChunk2.transferId());
+            assertEquals(header1.fileName(), fileChunk2.fileName());
+            assertEquals(chunkSize, fileChunk2.offset());
+            assertEquals(chunkSize, fileChunk2.data().length);
 
             // check the second FileHeader
             assertTrue(stream.hasNextMessage());
@@ -280,11 +280,11 @@ class FileTransferringMessagesStreamTest {
 
             // check the third ChunkedFile
             assertTrue(stream.hasNextMessage());
-            ChunkedFile chunkedFile3 = (ChunkedFile) stream.nextMessage();
-            assertEquals(transferId, chunkedFile3.transferId());
-            assertEquals(header3.fileName(), chunkedFile3.fileName());
-            assertEquals(0, chunkedFile3.offset());
-            assertEquals(chunkSize, chunkedFile3.data().length);
+            FileChunk fileChunk3 = (FileChunk) stream.nextMessage();
+            assertEquals(transferId, fileChunk3.transferId());
+            assertEquals(header3.fileName(), fileChunk3.fileName());
+            assertEquals(0, fileChunk3.offset());
+            assertEquals(chunkSize, fileChunk3.data().length);
 
             // check the stream is empty
             assertFalse(stream.hasNextMessage());

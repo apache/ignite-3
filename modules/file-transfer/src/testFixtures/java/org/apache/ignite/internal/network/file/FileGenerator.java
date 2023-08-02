@@ -27,7 +27,7 @@ import java.util.Random;
  */
 public class FileGenerator {
     /**
-     * Generates a random file with the given content size.
+     * Generates a random file with the given content size. The file be deleted on exit.
      *
      * @param dir Directory to create the file in.
      * @param contentSize Size of the file content.
@@ -38,6 +38,7 @@ public class FileGenerator {
             Path tempFile = Files.createTempFile(dir, null, null);
             byte[] bytes = new byte[contentSize];
             new Random().nextBytes(bytes);
+            tempFile.toFile().deleteOnExit();
             return Files.write(tempFile, bytes);
         } catch (IOException e) {
             throw new RuntimeException(e);

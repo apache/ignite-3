@@ -24,14 +24,11 @@ import java.util.List;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.network.file.messages.ChunkedFile;
-import org.apache.ignite.internal.network.file.messages.ChunkedFileImpl;
+import org.apache.ignite.internal.network.file.messages.FileChunk;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
-import org.apache.ignite.internal.network.file.messages.FileHeaderImpl;
+import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
-import org.apache.ignite.internal.network.file.messages.FileTransferInfoImpl;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,9 +45,12 @@ public class FileTransferringMessagesStream implements ManuallyCloseable {
     @Nullable
     private ChunkedFileReader currFile;
 
-    private final AtomicReference<FileTransferInfo> fileTransferInfo = new AtomicReference<>();
+    @Nullable
+    private FileTransferInfo fileTransferInfo;
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
+
+    private final FileTransferFactory factory = new FileTransferFactory();
 
     /**
      * Creates a new stream of messages to send files.
@@ -75,7 +75,7 @@ public class FileTransferringMessagesStream implements ManuallyCloseable {
         this.transferId = transferId;
         this.filesToSend = new LinkedList<>(filesToSend);
         this.chunkSize = chunkSize;
-        this.fileTransferInfo.set(fileTransferInfo());
+        this.fileTransferInfo = fileTransferInfo();
     }
 
     /**
@@ -92,7 +92,7 @@ public class FileTransferringMessagesStream implements ManuallyCloseable {
             // 1. there is a file transfer info message to send.
             // 2. there are files to send.
             // 3. there is a current file to send.
-            return fileTransferInfo.get() != null || !filesToSend.isEmpty() || (currFile != null && !currFile.isFinished());
+            return fileTransferInfo != null || !filesToSend.isEmpty() || (currFile != null && !currFile.isFinished());
         }
     }
 
@@ -108,12 +108,13 @@ public class FileTransferringMessagesStream implements ManuallyCloseable {
             throw new IllegalStateException("There are no more messages to send.");
         }
 
-        FileTransferInfo info = fileTransferInfo.getAndSet(null);
-        if (info != null) {
+        if (fileTransferInfo != null) {
+            FileTransferInfo info = fileTransferInfo;
+            fileTransferInfo = null;
             return info;
         } else {
             if (currFile == null || currFile.isFinished()) {
-                openNextFile();
+                switchToNextFile();
                 return header();
             } else {
                 return nextChunk();
@@ -122,7 +123,7 @@ public class FileTransferringMessagesStream implements ManuallyCloseable {
     }
 
     private FileTransferInfo fileTransferInfo() {
-        return FileTransferInfoImpl.builder()
+        return factory.fileTransferInfo()
                 .transferId(transferId)
                 .filesCount(filesToSend.size())
                 .build();
@@ -134,7 +135,7 @@ public class FileTransferringMessagesStream implements ManuallyCloseable {
     private FileHeader header() throws IOException {
         assert currFile != null : "Current file is null.";
 
-        return FileHeaderImpl.builder()
+        return factory.fileHeader()
                 .transferId(transferId)
                 .fileName(currFile.fileName())
                 .fileSize(currFile.length())
@@ -148,11 +149,11 @@ public class FileTransferringMessagesStream implements ManuallyCloseable {
      * @throws IOException if an I/O error occurs.
      * @throws IllegalStateException if the current file is finished.
      */
-    private ChunkedFile nextChunk() throws IOException {
+    private FileChunk nextChunk() throws IOException {
         assert currFile != null : "Current file is null.";
         assert !currFile.isFinished() : "Current file is finished.";
 
-        return ChunkedFileImpl.builder()
+        return factory.fileChunk()
                 .transferId(transferId)
                 .fileName(currFile.fileName())
                 .offset(currFile.offset())
@@ -160,7 +161,7 @@ public class FileTransferringMessagesStream implements ManuallyCloseable {
                 .build();
     }
 
-    private void openNextFile() throws IOException {
+    private void switchToNextFile() throws IOException {
         closeCurrFile();
 
         if (filesToSend.isEmpty()) {

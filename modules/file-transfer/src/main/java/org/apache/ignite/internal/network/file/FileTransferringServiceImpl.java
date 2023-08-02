@@ -32,16 +32,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.file.messages.ChunkedFile;
+import org.apache.ignite.internal.network.file.messages.FileChunk;
 import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
-import org.apache.ignite.internal.network.file.messages.FileDownloadRequestImpl;
 import org.apache.ignite.internal.network.file.messages.FileDownloadResponse;
-import org.apache.ignite.internal.network.file.messages.FileDownloadResponseImpl;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
+import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
 import org.apache.ignite.internal.network.file.messages.FileTransferringMessageType;
 import org.apache.ignite.internal.network.file.messages.FileUploadRequest;
-import org.apache.ignite.internal.network.file.messages.FileUploadRequestImpl;
 import org.apache.ignite.internal.network.file.messages.TransferMetadata;
 import org.apache.ignite.internal.util.FilesUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -69,8 +67,12 @@ public class FileTransferringServiceImpl implements FileTransferringService {
     private final FileSender fileSender;
 
     private final Map<UUID, FileReceiver> transferIdToReceiver = new ConcurrentHashMap<>();
+
     private final Map<Short, FileProvider<TransferMetadata>> metadataToProvider = new ConcurrentHashMap<>();
+
     private final Map<Short, FileHandler<TransferMetadata>> metadataToHandler = new ConcurrentHashMap<>();
+
+    private final FileTransferFactory factory = new FileTransferFactory();
 
     /**
      * Constructor.
@@ -78,10 +80,10 @@ public class FileTransferringServiceImpl implements FileTransferringService {
      * @param messagingService Messaging service.
      * @param tempDirectory Temporary directory.
      */
-    public FileTransferringServiceImpl(MessagingService messagingService, Path tempDirectory) {
+    public FileTransferringServiceImpl(String nodeName, MessagingService messagingService, Path tempDirectory) {
         this.messagingService = messagingService;
         this.tempDirectory = tempDirectory;
-        this.fileSender = new FileSender(CHUNK_SIZE, new RateLimiter(CONCURRENT_REQUESTS), (recipientConsistentId, message) -> {
+        this.fileSender = new FileSender(nodeName, CHUNK_SIZE, new RateLimiter(CONCURRENT_REQUESTS), (recipientConsistentId, message) -> {
             return messagingService.send(recipientConsistentId, FILE_TRANSFERRING_CHANNEL, message);
         });
     }
@@ -98,8 +100,10 @@ public class FileTransferringServiceImpl implements FileTransferringService {
                         processFileTransferInfo((FileTransferInfo) message);
                     } else if (message instanceof FileHeader) {
                         processFileHeader((FileHeader) message);
-                    } else if (message instanceof ChunkedFile) {
-                        processChunkedFile((ChunkedFile) message);
+                    } else if (message instanceof FileChunk) {
+                        processFileChunk((FileChunk) message);
+                    } else {
+                        LOG.error("Unexpected message received: {}", message);
                     }
                 });
     }
@@ -134,16 +138,15 @@ public class FileTransferringServiceImpl implements FileTransferringService {
                         return completedFuture(null);
                     }
 
-                    FileDownloadResponse response = FileDownloadResponseImpl.builder()
-                            .build();
+                    FileDownloadResponse response = factory.fileDownloadResponse().build();
 
                     return messagingService.respond(senderConsistentId, FILE_TRANSFERRING_CHANNEL, response, correlationId)
-                            .thenCompose(v -> send(senderConsistentId, message.transferId(), files));
+                            .thenCompose(v -> sendFiles(senderConsistentId, message.transferId(), files));
                 })
                 .thenCompose(it -> it);
     }
 
-    private CompletableFuture<Void> send(String recipientConsistentId, UUID transferId, List<File> files) {
+    private CompletableFuture<Void> sendFiles(String recipientConsistentId, UUID transferId, List<File> files) {
         return fileSender.send(recipientConsistentId, transferId, files)
                 .whenComplete((v, e) -> {
                     if (e != null) {
@@ -158,7 +161,7 @@ public class FileTransferringServiceImpl implements FileTransferringService {
         if (receiver == null) {
             LOG.warn("File receiver is not found for file transfer info: {}", info);
         } else {
-            receiver.receive(info);
+            receiver.receiveFileTransferInfo(info);
         }
     }
 
@@ -167,16 +170,16 @@ public class FileTransferringServiceImpl implements FileTransferringService {
         if (receiver == null) {
             LOG.warn("File receiver is not found for file header: {}", header);
         } else {
-            receiver.receive(header);
+            receiver.receiveFileHeader(header);
         }
     }
 
-    private void processChunkedFile(ChunkedFile chunkedFile) {
-        FileReceiver receiver = transferIdToReceiver.get(chunkedFile.transferId());
+    private void processFileChunk(FileChunk fileChunk) {
+        FileReceiver receiver = transferIdToReceiver.get(fileChunk.transferId());
         if (receiver == null) {
-            LOG.warn("File receiver is not found for chunked file: {}", chunkedFile);
+            LOG.warn("File receiver is not found for chunked file: {}", fileChunk);
         } else {
-            receiver.receive(chunkedFile);
+            receiver.receiveFileChunk(fileChunk);
         }
     }
 
@@ -246,15 +249,15 @@ public class FileTransferringServiceImpl implements FileTransferringService {
     }
 
     @Override
-    public CompletableFuture<Path> download(String node, TransferMetadata transferMetadata) {
+    public CompletableFuture<Path> download(String nodeConsistentId, TransferMetadata transferMetadata) {
         UUID transferId = UUID.randomUUID();
-        FileDownloadRequest message = FileDownloadRequestImpl.builder()
+        FileDownloadRequest message = factory.fileDownloadRequest()
                 .transferId(transferId)
                 .metadata(transferMetadata)
                 .build();
 
         return createFileReceiver(message.transferId())
-                .thenCompose(fileReceiver -> messagingService.invoke(node, FILE_TRANSFERRING_CHANNEL, message, Long.MAX_VALUE)
+                .thenCompose(fileReceiver -> messagingService.invoke(nodeConsistentId, FILE_TRANSFERRING_CHANNEL, message, Long.MAX_VALUE)
                         .thenApply(FileDownloadResponse.class::cast)
                         .thenCompose(response -> {
                             if (response.error() != null) {
@@ -266,17 +269,17 @@ public class FileTransferringServiceImpl implements FileTransferringService {
     }
 
     @Override
-    public CompletableFuture<Void> upload(String node, TransferMetadata transferMetadata) {
+    public CompletableFuture<Void> upload(String nodeConsistentId, TransferMetadata transferMetadata) {
         return metadataToProvider.get(transferMetadata.messageType()).files(transferMetadata)
                 .thenCompose(files -> {
                     UUID transferId = UUID.randomUUID();
-                    FileUploadRequest message = FileUploadRequestImpl.builder()
+                    FileUploadRequest message = factory.fileUploadRequest()
                             .transferId(transferId)
                             .metadata(transferMetadata)
                             .build();
 
-                    return messagingService.send(node, FILE_TRANSFERRING_CHANNEL, message)
-                            .thenCompose(v -> send(node, transferId, files));
+                    return messagingService.send(nodeConsistentId, FILE_TRANSFERRING_CHANNEL, message)
+                            .thenCompose(v -> sendFiles(nodeConsistentId, transferId, files));
                 });
     }
 }

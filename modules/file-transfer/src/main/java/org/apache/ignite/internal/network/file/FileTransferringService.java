@@ -46,20 +46,20 @@ public interface FileTransferringService extends IgniteComponent {
     <M extends TransferMetadata> void addFileHandler(Class<M> metadata, FileHandler<M> handler);
 
     /**
-     * Downloads files for the given metadata.
+     * Downloads files for the given metadata from the given node.
      *
-     * @param node Node.
+     * @param nodeConsistentId consistent ID of a node.
      * @param transferMetadata Metadata.
      * @return Temporary path to the downloaded files. The caller is responsible for deleting the files.
      */
-    CompletableFuture<Path> download(String node, TransferMetadata transferMetadata);
+    CompletableFuture<Path> download(String nodeConsistentId, TransferMetadata transferMetadata);
 
     /**
-     * Uploads files for the given metadata.
+     * Uploads files for the given metadata to the given node.
      *
-     * @param node Node.
+     * @param nodeConsistentId consistent ID of a node.
      * @param transferMetadata Metadata.
      * @return Future that will be completed when the upload is finished.
      */
-    CompletableFuture<Void> upload(String node, TransferMetadata transferMetadata);
+    CompletableFuture<Void> upload(String nodeConsistentId, TransferMetadata transferMetadata);
 }

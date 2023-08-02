@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.network.file.messages.ChunkedFile;
+import org.apache.ignite.internal.network.file.messages.FileChunk;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -44,44 +44,44 @@ class FileReceiver implements ManuallyCloseable {
         this.dir = dir;
     }
 
-    void receive(FileTransferInfo info) {
+    void receiveFileTransferInfo(FileTransferInfo info) {
         if (result.isDone()) {
             throw new IllegalStateException("Received file transfer info after result is already done.");
         }
         filesCount.set(info.filesCount());
     }
 
-    void receive(FileHeader header) {
+    void receiveFileHeader(FileHeader header) {
         if (result.isDone()) {
             throw new IllegalStateException("Received file header after result is already done.");
         }
-        doInLock(header.fileName(), () -> receive0(header));
+        doInLock(header.fileName(), () -> receiveFileHeader0(header));
     }
 
-    void receive(ChunkedFile chunkedFile) {
-        if (result.isDone()) {
-            throw new IllegalStateException("Received chunked file after result is already done.");
-        }
-        doInLock(chunkedFile.fileName(), () -> receive0(chunkedFile));
-    }
-
-    private void receive0(FileHeader header) {
+    private void receiveFileHeader0(FileHeader header) {
         try {
             Path path = Files.createFile(dir.resolve(header.fileName()));
-            fileNameToWriter.put(header.fileName(), new ChunkedFileWriter(path, header.fileSize()));
+            fileNameToWriter.put(header.fileName(), ChunkedFileWriter.open(path, header.fileSize()));
         } catch (IOException e) {
             result.completeExceptionally(e);
         }
     }
 
-    private void receive0(ChunkedFile chunkedFile) {
+    void receiveFileChunk(FileChunk fileChunk) {
+        if (result.isDone()) {
+            throw new IllegalStateException("Received chunked file after result is already done.");
+        }
+        doInLock(fileChunk.fileName(), () -> receiveFileChunk0(fileChunk));
+    }
+
+    private void receiveFileChunk0(FileChunk fileChunk) {
         try {
-            ChunkedFileWriter writer = fileNameToWriter.get(chunkedFile.fileName());
-            writer.write(chunkedFile);
+            ChunkedFileWriter writer = fileNameToWriter.get(fileChunk.fileName());
+            writer.write(fileChunk);
 
             if (writer.isFinished()) {
                 writer.close();
-                fileNameToWriter.remove(chunkedFile.fileName());
+                fileNameToWriter.remove(fileChunk.fileName());
                 filesFinished.incrementAndGet();
             }
 
