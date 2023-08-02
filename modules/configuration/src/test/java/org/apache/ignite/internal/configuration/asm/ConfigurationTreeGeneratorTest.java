@@ -79,7 +79,9 @@ public class ConfigurationTreeGeneratorTest {
             ExtendedTestRootConfigurationSchema.class,
             ExtendedSecondTestRootConfigurationSchema.class,
             ExtendedTestConfigurationSchema.class,
-            ExtendedSecondTestConfigurationSchema.class
+            ExtendedSecondTestConfigurationSchema.class,
+            ExtendedPublicTestRootConfigurationSchema.class,
+            ExtendedPublicTestConfigurationSchema.class
     );
 
     private static Collection<Class<?>> polymorphicExtensions = List.of(
@@ -249,7 +251,7 @@ public class ConfigurationTreeGeneratorTest {
     }
 
     @Test
-    void testConstructInternalConfig() {
+    void testConstructExtendedConfig() {
         InnerNode innerNode = generator.instantiateNode(TestRootConfiguration.KEY.schemaClass());
 
         addDefaults(innerNode);
@@ -264,6 +266,9 @@ public class ConfigurationTreeGeneratorTest {
         assertThrows(NoSuchElementException.class, () -> subInnerNode.construct("str3", null, false));
         assertThrows(NoSuchElementException.class, () -> subInnerNode.construct("i1", null, false));
 
+        // Check that public extensions will not lead to an exception
+        innerNode.construct("pub1", null, false);
+
         // Check that fields for internal configuration will be changed.
 
         innerNode.construct("str1", null, true);
@@ -271,6 +276,7 @@ public class ConfigurationTreeGeneratorTest {
 
         subInnerNode.construct("str3", null, true);
         subInnerNode.construct("i1", null, true);
+        subInnerNode.construct("pub2", null, true);
     }
 
     @Test
@@ -755,6 +761,16 @@ public class ConfigurationTreeGeneratorTest {
     }
 
     /**
+     * Extending the {@link TestRootConfigurationSchema}  with a public extension.
+     */
+    @ConfigurationExtension(internal = false)
+    public static class ExtendedPublicTestRootConfigurationSchema extends TestRootConfigurationSchema {
+        /** Integer field. */
+        @Value(hasDefault = true)
+        public int pub1 = 42;
+    }
+
+    /**
      * Test configuration schema.
      */
     @Config
@@ -790,6 +806,16 @@ public class ConfigurationTreeGeneratorTest {
         /** Integer field. */
         @Value(hasDefault = true)
         public int i1 = 0;
+    }
+
+    /**
+     * Extending the {@link TestConfigurationSchema} with a public extension.
+     */
+    @ConfigurationExtension(internal = false)
+    public static class ExtendedPublicTestConfigurationSchema extends TestConfigurationSchema {
+        /** Integer field. */
+        @Value(hasDefault = true)
+        public int pub2 = 22;
     }
 
     /**
