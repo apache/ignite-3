@@ -29,12 +29,12 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests marshaller, ensures consistent behavior across client and embedded modes.
  */
+@SuppressWarnings("resource")
 public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     protected Ignite ignite() {
         return client();
     }
 
-    @SuppressWarnings("resource")
     @Test
     public void testUnmappedPojoFieldsAreRejected() {
         // TODO: KV view tests for Pojo and tuples.
@@ -50,7 +50,6 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         assertEquals("Fields [unmapped2, unmapped] are not mapped to columns.", ex.getMessage());
     }
 
-    @SuppressWarnings("resource")
     @Test
     public void testKvUnmappedKeyPojoFieldsAreRejected() {
         Table table = ignite().tables().table(TABLE_NAME);
@@ -62,7 +61,6 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         assertEquals("Fields [val] are not mapped to columns.", ex.getMessage());
     }
 
-    @SuppressWarnings("resource")
     @Test
     public void testKvUnmappedValPojoFieldsAreRejected() {
         Table table = ignite().tables().table(TABLE_NAME);
@@ -74,7 +72,6 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         assertEquals("Fields [key] are not mapped to columns.", ex.getMessage());
     }
 
-    @SuppressWarnings("resource")
     @Test
     public void testUnmappedTupleFieldsAreRejected() {
         Table table = ignite().tables().table(TABLE_NAME);
@@ -86,7 +83,6 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         assertEquals("Tuple doesn't match schema: schemaVersion=1, extraColumns=[UNMAPPED]", ex.getMessage());
     }
 
-    @SuppressWarnings("resource")
     @Test
     public void testKvUnmappedKeyTupleFieldsAreRejected() {
         Table table = ignite().tables().table(TABLE_NAME);
@@ -98,7 +94,6 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         assertEquals("Key tuple doesn't match schema: schemaVersion=1, extraColumns=[VAL]", ex.getMessage());
     }
 
-    @SuppressWarnings("resource")
     @Test
     public void testKvUnmappedValTupleFieldsAreRejected() {
         Table table = ignite().tables().table(TABLE_NAME);
