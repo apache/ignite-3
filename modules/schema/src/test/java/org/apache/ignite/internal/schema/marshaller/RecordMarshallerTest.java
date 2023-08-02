@@ -137,7 +137,7 @@ public class RecordMarshallerTest {
 
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
-    public void widerType(MarshallerFactory factory) throws MarshallerException {
+    public void widerType(MarshallerFactory factory) {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
                 keyColumns(),
@@ -147,28 +147,15 @@ public class RecordMarshallerTest {
                 }
         );
 
-        RecordMarshaller<TestObjectWithAllTypes> marshaller = factory.create(schema, TestObjectWithAllTypes.class);
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> factory.create(schema, TestObjectWithAllTypes.class));
 
-        final TestObjectWithAllTypes rec = TestObjectWithAllTypes.randomObject(rnd);
-
-        BinaryRow row = marshaller.marshal(rec);
-
-        TestObjectWithAllTypes restoredRec = marshaller.unmarshal(new Row(schema, row));
-
-        assertTrue(rec.getClass().isInstance(restoredRec));
-
-        TestObjectWithAllTypes expectedRec = new TestObjectWithAllTypes();
-
-        expectedRec.setPrimitiveLongCol(rec.getPrimitiveLongCol());
-        expectedRec.setIntCol(rec.getIntCol());
-        expectedRec.setPrimitiveDoubleCol(rec.getPrimitiveDoubleCol());
-        expectedRec.setStringCol(rec.getStringCol());
-
-        assertEquals(expectedRec, restoredRec);
-
-        // Check non-mapped fields has default values.
-        assertNull(restoredRec.getUuidCol());
-        assertEquals(0, restoredRec.getPrimitiveIntCol());
+        assertEquals(
+                "Fields [booleanCol, primitiveFloatCol, floatCol, dateTimeCol, bitmaskCol, timestampCol, uuidCol, decimalCol, "
+                        + "primitiveBooleanCol, timeCol, doubleCol, primitiveByteCol, numberCol, primitiveIntCol, nullLongCol, longCol, "
+                        + "primitiveShortCol, bytesCol, shortCol, dateCol, byteCol, nullBytesCol] are not mapped to columns.",
+                ex.getMessage());
     }
 
     @ParameterizedTest
@@ -222,7 +209,7 @@ public class RecordMarshallerTest {
 
         TestSimpleObject rec = TestSimpleObject.randomObject(rnd);
 
-        var ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec));
+        MarshallerException ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec));
         assertEquals("Failed to write field [id=0]", ex.getMessage());
     }
 
