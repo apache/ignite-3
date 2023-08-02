@@ -60,6 +60,9 @@ import org.jetbrains.annotations.Nullable;
  * Util class for Distribution Zones flow.
  */
 public class DistributionZonesUtil {
+    /** Key prefix for distribution zone's keys. */
+    private static final String DISTRIBUTION_ZONE_PREFIX = "distributionZone.";
+
     /** Key prefix for zone's data nodes and trigger keys. */
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
 
@@ -91,6 +94,10 @@ public class DistributionZonesUtil {
 
     /** Key prefix for zones' logical topology nodes in vault. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT = "vault." + DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY;
+
+    /** Key prefix for zones' configurations in vault. */
+    private static final String DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT = "vault." + DISTRIBUTION_ZONE_PREFIX
+            + "versionedConfiguration.";
 
     /** Key prefix for zones' logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "version";
@@ -154,11 +161,21 @@ public class DistributionZonesUtil {
     }
 
     /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT}.
+     *
+     * @param zoneId Zone id.
+     * @return ByteArray representation.
+     */
+    public static ByteArray zoneVersionedConfigurationKey(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT + zoneId);
+    }
+
+    /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX}.
      *
      * @return ByteArray representation.
      */
-    static ByteArray zonesLogicalTopologyPrefix() {
+    public static ByteArray zonesLogicalTopologyPrefix() {
         return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
     }
 
@@ -217,7 +234,7 @@ public class DistributionZonesUtil {
     /**
      * The key prefix needed for processing an event about zone's data nodes.
      */
-    static ByteArray zonesDataNodesPrefix() {
+    public static ByteArray zonesDataNodesPrefix() {
         return DISTRIBUTION_ZONES_DATA_NODES_KEY;
     }
 

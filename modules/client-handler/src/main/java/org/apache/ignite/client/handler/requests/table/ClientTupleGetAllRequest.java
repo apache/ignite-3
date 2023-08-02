@@ -49,7 +49,7 @@ public class ClientTupleGetAllRequest {
             ClientResourceRegistry resources
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, resources);
+            var tx = readTx(in, out, resources);
             var keyTuples = readTuples(in, table, true);
 
             return table.recordView().getAllAsync(tx, keyTuples).thenAccept(tuples ->

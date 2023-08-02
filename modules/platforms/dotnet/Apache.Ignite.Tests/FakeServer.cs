@@ -339,6 +339,7 @@ namespace Apache.Ignite.Tests
             writer.Write(0); // Message type.
             writer.Write(requestId);
             writer.Write(PartitionAssignmentChanged ? (int)ResponseFlags.PartitionAssignmentChanged : 0);
+            writer.Write(0); // Observable timestamp.
 
             if (!isError)
             {
