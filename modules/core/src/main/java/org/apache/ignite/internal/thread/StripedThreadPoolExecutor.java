@@ -31,7 +31,7 @@ public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor
     /**
      * Create striped thread pool.
      *
-     * @param concurrentLvl          Concurrency level.
+     * @param concurrencyLvl          Concurrency level.
      * @param threadNamePrefix       Thread name prefix.
      * @param allowCoreThreadTimeOut Sets the policy governing whether core threads may time out and terminate if no tasks arrive within the
      *                               keep-alive time.
@@ -39,25 +39,25 @@ public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor
      *                               will wait for new tasks before terminating.
      */
     public StripedThreadPoolExecutor(
-            int concurrentLvl,
+            int concurrencyLvl,
             String threadNamePrefix,
             UncaughtExceptionHandler exHnd,
             boolean allowCoreThreadTimeOut,
             long keepAliveTime) {
-        super(createExecutors(concurrentLvl, threadNamePrefix, exHnd, allowCoreThreadTimeOut, keepAliveTime));
+        super(createExecutors(concurrencyLvl, threadNamePrefix, exHnd, allowCoreThreadTimeOut, keepAliveTime));
     }
 
     private static ExecutorService[] createExecutors(
-            int concurrentLvl,
+            int concurrencyLvl,
             String threadNamePrefix,
             UncaughtExceptionHandler exHnd,
             boolean allowCoreThreadTimeOut,
             long keepAliveTime) {
-        ExecutorService[] execs = new ExecutorService[concurrentLvl];
+        ExecutorService[] execs = new ExecutorService[concurrencyLvl];
 
         ThreadFactory factory = new NamedThreadFactory(threadNamePrefix, true, exHnd);
 
-        for (int i = 0; i < concurrentLvl; i++) {
+        for (int i = 0; i < concurrencyLvl; i++) {
             ThreadPoolExecutor executor = new ThreadPoolExecutor(
                     1,
                     1,

@@ -34,27 +34,27 @@ public class StripedScheduledThreadPoolExecutor extends AbstractStripedThreadPoo
     /**
      * Create striped scheduled thread pool.
      *
-     * @param concurrentLvl Concurrency level.
+     * @param concurrencyLvl Concurrency level.
      * @param threadFactory The factory to use when the executor creates a new thread.
      * @param executionHandler The handler to use when execution is blocked
      *        because the thread bounds and queue capacities are reached.
      */
     public StripedScheduledThreadPoolExecutor(
-            int concurrentLvl,
+            int concurrencyLvl,
             ThreadFactory threadFactory,
             RejectedExecutionHandler executionHandler
     ) {
-        super(createExecutors(concurrentLvl, threadFactory, executionHandler));
+        super(createExecutors(concurrencyLvl, threadFactory, executionHandler));
     }
 
     private static ScheduledExecutorService[] createExecutors(
-            int concurrentLvl,
+            int concurrencyLvl,
             ThreadFactory threadFactory,
             RejectedExecutionHandler executionHandler
     ) {
-        ScheduledExecutorService[] execs = new ScheduledExecutorService[concurrentLvl];
+        ScheduledExecutorService[] execs = new ScheduledExecutorService[concurrencyLvl];
 
-        for (int i = 0; i < concurrentLvl; i++) {
+        for (int i = 0; i < concurrencyLvl; i++) {
             ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(
                     1,
                     threadFactory,

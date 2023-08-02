@@ -1768,11 +1768,12 @@ public class DistributionZoneManager implements IgniteComponent {
          *
          * @param delay Delay to start runnable in seconds.
          * @param runnable Custom logic to run.
+         * @param zoneId Unique id of a zone to determine the executor of the task.
          */
-        public synchronized void rescheduleScaleUp(long delay, Runnable runnable, int idx) {
+        public synchronized void rescheduleScaleUp(long delay, Runnable runnable, int zoneId) {
             stopScaleUp();
 
-            scaleUpTask = executor.schedule(runnable, delay, SECONDS, idx);
+            scaleUpTask = executor.schedule(runnable, delay, SECONDS, zoneId);
 
             scaleUpTaskDelay = delay;
         }
@@ -1783,11 +1784,12 @@ public class DistributionZoneManager implements IgniteComponent {
          *
          * @param delay Delay to start runnable in seconds.
          * @param runnable Custom logic to run.
+         * @param zoneId Unique id of a zone to determine the executor of the task.
          */
-        public synchronized void rescheduleScaleDown(long delay, Runnable runnable, int idx) {
+        public synchronized void rescheduleScaleDown(long delay, Runnable runnable, int zoneId) {
             stopScaleDown();
 
-            scaleDownTask = executor.schedule(runnable, delay, SECONDS, idx);
+            scaleDownTask = executor.schedule(runnable, delay, SECONDS, zoneId);
 
             scaleDownTaskDelay = delay;
         }

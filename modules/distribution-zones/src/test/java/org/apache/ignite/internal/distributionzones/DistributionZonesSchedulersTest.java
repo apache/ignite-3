@@ -99,8 +99,8 @@ public class DistributionZonesSchedulersTest {
     }
 
     /**
-     * Tests that scaleUp/scaleDown tasks with a zero delay will not be canceled by other tasks. Tests that scaleUp/scaleDown tasks with a
-     * delay grater then zero will be canceled by other tasks.
+     * Tests that scaleUp/scaleDown tasks with a zero delay will not be canceled by other tasks.
+     * Tests that scaleUp/scaleDown tasks with a delay grater then zero will be canceled by other tasks.
      */
     private static void testReScheduling(IgniteTriConsumer<Long, Runnable, Integer> fn) throws InterruptedException {
         AtomicInteger counter = new AtomicInteger();
@@ -109,7 +109,8 @@ public class DistributionZonesSchedulersTest {
 
         CountDownLatch lastTaskLatch = new CountDownLatch(1);
 
-        fn.accept(0L,
+        fn.accept(
+                0L,
                 () -> {
                     try {
                         assertTrue(firstTaskLatch.await(3, TimeUnit.SECONDS));
@@ -119,7 +120,8 @@ public class DistributionZonesSchedulersTest {
                         throw new RuntimeException(e);
                     }
                 },
-                STRIPE_0);
+                STRIPE_0
+        );
 
         fn.accept(1L, counter::incrementAndGet, STRIPE_0);
 
@@ -133,13 +135,15 @@ public class DistributionZonesSchedulersTest {
 
         fn.accept(0L, counter::incrementAndGet, STRIPE_0);
 
-        fn.accept(0L,
+        fn.accept(
+                0L,
                 () -> {
                     counter.incrementAndGet();
 
                     lastTaskLatch.countDown();
                 },
-                STRIPE_0);
+                STRIPE_0
+        );
 
         firstTaskLatch.countDown();
 
@@ -169,7 +173,8 @@ public class DistributionZonesSchedulersTest {
 
         AtomicBoolean sequentialOrder = new AtomicBoolean(true);
 
-        fn.accept(0L,
+        fn.accept(
+                0L,
                 () -> {
                     try {
                         assertTrue(latch.await(3, TimeUnit.SECONDS));
@@ -183,19 +188,23 @@ public class DistributionZonesSchedulersTest {
                         throw new RuntimeException(e);
                     }
                 },
-                STRIPE_0);
+                STRIPE_0
+        );
 
         for (int i = 2; i < 11; i++) {
             int j = i;
 
-            fn.accept(0L, () -> {
-                counter.incrementAndGet();
+            fn.accept(
+                    0L,
+                    () -> {
+                        counter.incrementAndGet();
 
-                if (counter.get() != j) {
-                    sequentialOrder.set(false);
-                }
-            },
-                    STRIPE_0);
+                        if (counter.get() != j) {
+                            sequentialOrder.set(false);
+                        }
+                    },
+                    STRIPE_0
+            );
         }
 
         latch.countDown();
@@ -276,7 +285,8 @@ public class DistributionZonesSchedulersTest {
     ) {
         CountDownLatch latch = new CountDownLatch(1);
 
-        fn.accept(0L,
+        fn.accept(
+                0L,
                 () -> {
                     try {
                         assertTrue(latch.await(3, TimeUnit.SECONDS));
@@ -284,10 +294,10 @@ public class DistributionZonesSchedulersTest {
                         throw new RuntimeException(e);
                     }
                 },
-                STRIPE_0);
+                STRIPE_0
+        );
 
-        fn.accept(1L, () -> {
-        }, STRIPE_1);
+        fn.accept(1L, () -> {}, STRIPE_0);
 
         assertFalse(isTaskCancelled.get());
 
@@ -314,8 +324,8 @@ public class DistributionZonesSchedulersTest {
     }
 
     /**
-     * {@link ZoneState#stopScaleUp()} and {@link ZoneState#stopScaleDown()} doesn't cancel task if it is not started and has a delay equal
-     * to zero.
+     * {@link ZoneState#stopScaleUp()} and {@link ZoneState#stopScaleDown()} doesn't cancel task
+     * if it is not started and has a delay equal to zero.
      */
     private static void testNotCancelTask(
             IgniteTriConsumer<Long, Runnable, Integer> fn,
@@ -324,7 +334,8 @@ public class DistributionZonesSchedulersTest {
     ) {
         CountDownLatch latch = new CountDownLatch(1);
 
-        fn.accept(0L,
+        fn.accept(
+                0L,
                 () -> {
                     try {
                         assertTrue(latch.await(3, TimeUnit.SECONDS));
@@ -332,10 +343,10 @@ public class DistributionZonesSchedulersTest {
                         throw new RuntimeException(e);
                     }
                 },
-                STRIPE_0);
+                STRIPE_0
+        );
 
-        fn.accept(0L, () -> {
-        }, STRIPE_0);
+        fn.accept(0L, () -> {}, STRIPE_0);
 
         assertFalse(isTaskCancelled.get());
 
@@ -355,7 +366,8 @@ public class DistributionZonesSchedulersTest {
 
         CountDownLatch scaleUpTaskLatch = new CountDownLatch(1);
 
-        state.rescheduleScaleUp(0L,
+        state.rescheduleScaleUp(
+                0L,
                 () -> {
                     try {
                         assertTrue(scaleUpTaskLatch.await(3, TimeUnit.SECONDS));
@@ -363,16 +375,17 @@ public class DistributionZonesSchedulersTest {
                         throw new RuntimeException(e);
                     }
                 },
-                STRIPE_0);
+                STRIPE_0
+        );
 
-        state.rescheduleScaleUp(0L, () -> {
-        }, STRIPE_0);
+        state.rescheduleScaleUp(0L, () -> {}, STRIPE_0);
 
         assertFalse(state.scaleUpTask().isCancelled());
 
         CountDownLatch scaleDownTaskLatch = new CountDownLatch(1);
 
-        state.rescheduleScaleDown(0L,
+        state.rescheduleScaleDown(
+                0L,
                 () -> {
                     try {
                         assertTrue(scaleDownTaskLatch.await(3, TimeUnit.SECONDS));
@@ -380,10 +393,10 @@ public class DistributionZonesSchedulersTest {
                         throw new RuntimeException(e);
                     }
                 },
-                STRIPE_0);
+                STRIPE_0
+        );
 
-        state.rescheduleScaleDown(0L, () -> {
-        }, STRIPE_0);
+        state.rescheduleScaleDown(0L, () -> {}, STRIPE_0);
 
         assertFalse(state.scaleDownTask().isCancelled());
 
@@ -397,7 +410,7 @@ public class DistributionZonesSchedulersTest {
     }
 
     /**
-     * Check that two tass for different zones can be run concurrently.
+     * Check that two tasks for different zones can be run concurrently.
      */
     @Test
     public void testTasksForTwoZonesDoesNotBlockEachOther() throws Exception {
@@ -407,7 +420,8 @@ public class DistributionZonesSchedulersTest {
         CountDownLatch taskLatch0 = new CountDownLatch(1);
         CountDownLatch taskLatch1 = new CountDownLatch(1);
 
-        state0.rescheduleScaleUp(0L,
+        state0.rescheduleScaleUp(
+                0L,
                 () -> {
                     taskLatch0.countDown();
 
@@ -418,15 +432,13 @@ public class DistributionZonesSchedulersTest {
                         throw new RuntimeException(e);
                     }
                 },
-                STRIPE_0);
+                STRIPE_0
+        );
 
         // Wait when the first task is started.
         assertTrue(taskLatch0.await(3, TimeUnit.SECONDS));
 
-        state1.rescheduleScaleUp(0L,
-                () -> {
-                },
-                STRIPE_1);
+        state1.rescheduleScaleUp(0L, () -> {}, STRIPE_1);
 
         assertTrue(waitForCondition(() -> state1.scaleUpTask().isDone(), 3000));
 

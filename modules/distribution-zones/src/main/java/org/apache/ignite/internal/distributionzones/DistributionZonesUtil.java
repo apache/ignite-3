@@ -591,13 +591,13 @@ public class DistributionZonesUtil {
      * ScheduledThreadPoolExecutor guarantee that tasks scheduled for exactly the same
      * execution time are enabled in first-in-first-out (FIFO) order of submission.
      *
-     * @param concurrentLvl Number of threads.
+     * @param concurrencyLvl Number of threads.
      * @param namedThreadFactory Named thread factory.
      * @return Executor.
      */
-    static StripedScheduledThreadPoolExecutor createZoneManagerExecutor(int concurrentLvl, NamedThreadFactory namedThreadFactory) {
+    static StripedScheduledThreadPoolExecutor createZoneManagerExecutor(int concurrencyLvl, NamedThreadFactory namedThreadFactory) {
         return new StripedScheduledThreadPoolExecutor(
-                concurrentLvl,
+                concurrencyLvl,
                 namedThreadFactory,
                 new ThreadPoolExecutor.DiscardPolicy()
         );

@@ -54,7 +54,7 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
      * Executes the given command at some time in the future. The command with the same {@code index} will be executed in the same thread.
      *
      * @param task The runnable task.
-     * @param idx  Striped index.
+     * @param idx Striped index.
      * @throws RejectedExecutionException If this task cannot be accepted for execution.
      * @throws NullPointerException If command is null.
      */
