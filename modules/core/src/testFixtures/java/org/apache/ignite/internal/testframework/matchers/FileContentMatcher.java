@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.testframework.matchers;
 
+import static org.hamcrest.CoreMatchers.is;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import org.hamcrest.Description;
+import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
 
 /**
@@ -29,10 +31,11 @@ import org.hamcrest.TypeSafeMatcher;
  */
 public class FileContentMatcher extends TypeSafeMatcher<Path> {
 
-    private final byte[] expectedContent;
+    /** Matcher to forward the result of the completable future. */
+    private final Matcher<byte[]> matcher;
 
-    private FileContentMatcher(byte[] expectedContent) {
-        this.expectedContent = expectedContent;
+    private FileContentMatcher(Matcher<byte[]> matcher) {
+        this.matcher = matcher;
     }
 
     /**
@@ -43,17 +46,26 @@ public class FileContentMatcher extends TypeSafeMatcher<Path> {
      */
     public static FileContentMatcher hasContent(Path path) {
         try {
-            return new FileContentMatcher(Files.readAllBytes(path));
+            return new FileContentMatcher(is(Files.readAllBytes(path)));
         } catch (IOException e) {
             throw new RuntimeException("Could not read file content", e);
         }
     }
 
+    /**
+     * Creates a matcher for matching file content.
+     *
+     * @param matcher Matcher for matching file content.
+     * @return Matcher for matching file content.
+     */
+    public static FileContentMatcher hasContent(Matcher<byte[]> matcher) {
+        return new FileContentMatcher(matcher);
+    }
+
     @Override
     protected boolean matchesSafely(Path path) {
         try {
-            byte[] actualContent = Files.readAllBytes(path);
-            return Arrays.equals(actualContent, expectedContent);
+            return matcher.matches(Files.readAllBytes(path));
         } catch (IOException e) {
             throw new RuntimeException("Could not read file content", e);
         }
@@ -61,13 +73,13 @@ public class FileContentMatcher extends TypeSafeMatcher<Path> {
 
     @Override
     public void describeTo(Description description) {
-        description.appendText("matches content: ").appendValue(expectedContent);
+        description.appendText("matches content: ").appendDescriptionOf(matcher);
     }
 
     @Override
     protected void describeMismatchSafely(Path item, Description mismatchDescription) {
         try {
-            mismatchDescription.appendText("was ").appendValue(Files.readAllLines(item));
+            mismatchDescription.appendText("was ").appendValue(Files.readAllBytes(item));
         } catch (IOException e) {
             throw new RuntimeException("Could not read file content", e);
         }
