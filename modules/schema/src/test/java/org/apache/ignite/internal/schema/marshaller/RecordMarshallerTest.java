@@ -64,6 +64,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithNoDefaultConstructor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithPrivateConstructor;
+import org.apache.ignite.internal.schema.testobjects.TestSimpleObject;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
@@ -207,22 +208,22 @@ public class RecordMarshallerTest {
     public void classWithWrongFieldType(MarshallerFactory factory) {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                keyColumns(),
                 new Column[]{
-                        new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
-                        new Column("shortCol".toUpperCase(), UUID, true)
+                        new Column("longCol".toUpperCase(), NativeTypes.bitmaskOf(42), false),
+                        new Column("intCol".toUpperCase(), UUID, false)
+                },
+                new Column[]{
+                        new Column("bytesCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
+                        new Column("stringCol".toUpperCase(), UUID, true)
                 }
         );
 
-        RecordMarshaller<TestObjectWithAllTypes> marshaller = factory.create(schema, TestObjectWithAllTypes.class);
+        RecordMarshaller<TestSimpleObject> marshaller = factory.create(schema, TestSimpleObject.class);
 
-        final TestObjectWithAllTypes rec = TestObjectWithAllTypes.randomObject(rnd);
+        TestSimpleObject rec = TestSimpleObject.randomObject(rnd);
 
-        assertThrows(
-                MarshallerException.class,
-                () -> marshaller.marshal(rec),
-                "Failed to write field [name=shortCol]"
-        );
+        var ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec));
+        assertEquals("Failed to write field [id=0]", ex.getMessage());
     }
 
     @ParameterizedTest
