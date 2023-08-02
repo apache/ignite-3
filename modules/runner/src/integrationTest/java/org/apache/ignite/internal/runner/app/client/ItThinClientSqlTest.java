@@ -427,11 +427,11 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     void testResultSetMappingColumnNameMismatch() {
         String query = "select 1 as foo, 2 as bar";
 
-        ResultSet<Pojo> resultSet = client().sql().createSession().execute(null, Mapper.of(Pojo.class), query);
-        Pojo row = resultSet.next();
+        IgniteException e = assertThrows(
+                IgniteException.class,
+                () -> client().sql().createSession().execute(null, Mapper.of(Pojo.class), query));
 
-        assertEquals(0, row.num);
-        assertNull(row.str);
+        assertEquals("Failed to deserialize server response: Fields [str, num] are not mapped to columns.", e.getMessage());
     }
 
     @Test
