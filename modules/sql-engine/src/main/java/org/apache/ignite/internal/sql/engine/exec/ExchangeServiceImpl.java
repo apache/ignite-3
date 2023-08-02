@@ -109,12 +109,16 @@ public class ExchangeServiceImpl implements ExchangeService {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> sendError(String nodeName, UUID queryId, long fragmentId, Throwable error) {
-        Throwable cause = wrapIfNecessary(error);
+        Throwable traceableErr = ExceptionUtils.unwrapCause(error);
 
-        if (!(cause instanceof ExecutionCancelledException)) {
-            LOG.info(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), cause);
+        if (!(traceableErr instanceof TraceableException)) {
+            traceableErr = error = new SqlException(INTERNAL_ERR, error);
+        }
+
+        if (!(traceableErr instanceof ExecutionCancelledException)) {
+            LOG.info(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), error);
         } else if (LOG.isDebugEnabled()) {
-            LOG.debug(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), cause);
+            LOG.debug(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), error);
         }
 
         return messageService.send(
@@ -122,21 +126,11 @@ public class ExchangeServiceImpl implements ExchangeService {
                 FACTORY.errorMessage()
                         .queryId(queryId)
                         .fragmentId(fragmentId)
-                        .traceId(((TraceableException) cause).traceId())
-                        .code(((TraceableException) cause).code())
-                        .message(cause.getMessage())
+                        .traceId(((TraceableException) traceableErr).traceId())
+                        .code(((TraceableException) traceableErr).code())
+                        .message(traceableErr.getMessage())
                         .build()
         );
-    }
-
-    private static Throwable wrapIfNecessary(Throwable t) {
-        Throwable cause = ExceptionUtils.unwrapCause(t);
-
-        if (cause instanceof TraceableException) {
-            return cause;
-        }
-
-        return new SqlException(INTERNAL_ERR, cause);
     }
 
     private void onMessage(String nodeName, QueryBatchRequestMessage msg) {
