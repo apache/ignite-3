@@ -61,7 +61,9 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
@@ -87,6 +89,8 @@ import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -604,7 +608,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 IgniteRel treeRoot = relationalTreeFromJsonString(fragmentString, ctx);
                 long schemaVersion = ctx.schemaVersion();
 
-                return dependencyResolver.resolveDependencies(treeRoot, schemaVersion).thenComposeAsync(deps -> {
+                return dependencyResolver.resolveDependencies(List.of(treeRoot), schemaVersion).thenComposeAsync(deps -> {
                     return executeFragment(treeRoot, deps, context);
                 }, exec);
             }).exceptionally(ex -> {
@@ -635,11 +639,18 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
         }
 
-        private AsyncCursor<List<Object>> execute(InternalTransaction tx, MultiStepPlan plan) {
-            taskExecutor.execute(() -> {
-                try {
-                    plan.init(new MappingQueryContext(localNode.name(), mappingSrvc));
+        private AsyncCursor<List<Object>> execute(InternalTransaction tx, MultiStepPlan notMappedPlan) {
+            CompletableFuture<MultiStepPlan> f = mapFragments(notMappedPlan);
 
+            f.whenCompleteAsync((plan, mappingErr) -> {
+                if (mappingErr != null) {
+                    if (!root.completeExceptionally(mappingErr)) {
+                        root.thenAccept(root -> root.onError(mappingErr));
+                    }
+                    return;
+                }
+
+                try {
                     List<Fragment> fragments = plan.fragments();
 
                     // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
@@ -741,7 +752,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         root.thenAccept(root -> root.onError(t));
                     }
                 }
-            });
+            }, taskExecutor);
 
             return new AsyncCursor<>() {
                 @Override
@@ -818,6 +829,22 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     enlist(tableId, assignments);
                 }
             }.visit(fragment.root());
+        }
+
+        private CompletableFuture<MultiStepPlan> mapFragments(MultiStepPlan plan) {
+            Iterable<IgniteRel> fragments = TransformingIterator.newIterable(plan.fragments(), (f) -> f.root());
+
+            CompletableFuture<ResolvedDependencies> fut = dependencyResolver.resolveDependencies(fragments,
+                    ctx.schemaVersion());
+
+            return fut.thenCompose(deps -> {
+                return fetchColocationGroups(deps).thenApply(colocationGroups -> {
+                    MappingQueryContext mappingCtx = new MappingQueryContext(localNode.name(), mappingSrvc);
+                    List<Fragment> mappedFragments = FragmentMapping.mapFragments(mappingCtx, plan.fragments(), colocationGroups);
+
+                    return plan.replaceFragments(mappedFragments);
+                });
+            });
         }
 
         private CompletableFuture<Void> close(boolean cancel) {
@@ -938,6 +965,22 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
 
             return start;
+        }
+
+        private CompletableFuture<Map<Integer, ColocationGroup>> fetchColocationGroups(ResolvedDependencies deps) {
+            List<CompletableFuture<Pair<Integer, ColocationGroup>>> list = new ArrayList<>();
+
+            for (Integer tableId : deps.tableIds()) {
+                CompletableFuture<ColocationGroup> f = deps.fetchColocationGroup(tableId);
+                list.add(f.thenApply(c -> new Pair<>(tableId, c)));
+            }
+
+            CompletableFuture<Void> all = CompletableFuture.allOf(list.toArray(new CompletableFuture[0]));
+
+            return all.thenApply(
+                    v -> list.stream()
+                            .map(CompletableFuture::join)
+                            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
         }
     }
 

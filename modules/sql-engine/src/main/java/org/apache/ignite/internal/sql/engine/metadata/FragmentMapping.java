@@ -19,15 +19,29 @@ package org.apache.ignite.internal.sql.engine.metadata;
 
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.rel.metadata.RelMetadataQuery;
+import org.apache.ignite.internal.sql.engine.prepare.Fragment;
+import org.apache.ignite.internal.sql.engine.prepare.FragmentSplitter;
+import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
+import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,6 +50,9 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class FragmentMapping implements Serializable {
+
+    private static final int MAPPING_ATTEMPTS = 3;
+
     private final List<ColocationGroup> colocationGroups;
 
     /**
@@ -208,5 +225,115 @@ public class FragmentMapping implements Serializable {
         }
 
         return first(groups);
+    }
+
+    /**
+     * Computes mapping for each fragment of the given list of not mapped fragments.
+     */
+    public static List<Fragment> mapFragments(MappingQueryContext ctx, List<Fragment> notMappedFragments,
+            Map<Integer, ColocationGroup> colocationGroups) {
+
+        List<Fragment> fragments = Commons.transform(notMappedFragments, fragment -> fragment.attach(ctx.cluster()));
+
+        Exception ex = null;
+        RelMetadataQuery mq = first(fragments).root().getCluster().getMetadataQuery();
+        for (int i = 0; i < MAPPING_ATTEMPTS; i++) {
+            try {
+                return doMap(fragments, ctx, mq, colocationGroups);
+            } catch (FragmentMappingException e) {
+                if (ex == null) {
+                    ex = e;
+                } else {
+                    ex.addSuppressed(e);
+                }
+
+                fragments = replace(fragments, e.fragment(), new FragmentSplitter(e.node()).go(e.fragment()));
+            }
+        }
+
+        throw new IgniteInternalException(INTERNAL_ERR, "Failed to map query.", ex);
+    }
+
+    private static List<Fragment> doMap(List<Fragment> fragments, MappingQueryContext ctx, RelMetadataQuery mq,
+            Map<Integer, ColocationGroup> colocationGroups) {
+
+        List<Fragment> frgs = new ArrayList<>(fragments.size());
+
+        RelOptCluster cluster = Commons.cluster();
+
+        for (Fragment fragment : fragments) {
+            if (fragment.mapping() != null) {
+                continue;
+            }
+
+            Supplier<List<String>> getNodes = () -> ctx.mappingService().executionNodes(fragment.single(), null);
+            FragmentMapping mapping1 = mapFragment(fragment, ctx, mq, getNodes, colocationGroups);
+            Fragment mapped = fragment.withMapping(mapping1);
+
+            frgs.add(mapped.attach(cluster));
+        }
+
+        return frgs;
+    }
+
+    private static FragmentMapping mapFragment(Fragment fragment, MappingQueryContext ctx,
+            RelMetadataQuery mq, Supplier<List<String>> nodesSource, Map<Integer, ColocationGroup> colocationGroups) {
+
+        try {
+            FragmentMapping mapping = new IgniteFragmentMapping(mq, ctx, colocationGroups).computeMapping(fragment.root());
+
+            if (fragment.rootFragment()) {
+                mapping = create(ctx.locNodeName()).colocate(mapping);
+            }
+
+            if (fragment.single() && mapping.nodeNames().size() > 1) {
+                // this is possible when the fragment contains scan of a replicated cache, which brings
+                // several nodes (actually all containing nodes) to the colocation group, but this fragment
+                // supposed to be executed on a single node, so let's choose one wisely
+                mapping = create(mapping.nodeNames()
+                        .get(ThreadLocalRandom.current().nextInt(mapping.nodeNames().size()))).colocate(mapping);
+            }
+
+            return mapping.finalize(nodesSource);
+        } catch (NodeMappingException e) {
+            throw new FragmentMappingException("Failed to calculate physical distribution", fragment, e.node(), e);
+        } catch (ColocationMappingException e) {
+            throw new FragmentMappingException("Failed to calculate physical distribution", fragment, fragment.root(), e);
+        }
+    }
+
+    private static List<Fragment> replace(List<Fragment> fragments, Fragment fragment, List<Fragment> replacement) {
+        assert !nullOrEmpty(replacement);
+
+        Long2LongOpenHashMap newTargets = new Long2LongOpenHashMap();
+        for (Fragment fragment0 : replacement) {
+            for (IgniteReceiver remote : fragment0.remotes()) {
+                newTargets.put(remote.exchangeId(), fragment0.fragmentId());
+            }
+        }
+
+        List<Fragment> fragments0 = new ArrayList<>(fragments.size() + replacement.size() - 1);
+        for (Fragment fragment0 : fragments) {
+            if (fragment0 == fragment) {
+                fragment0 = first(replacement);
+            } else if (!fragment0.rootFragment()) {
+                IgniteSender sender = (IgniteSender) fragment0.root();
+
+                long newTargetId = newTargets.getOrDefault(sender.exchangeId(), Long.MIN_VALUE);
+
+                if (newTargetId != Long.MIN_VALUE) {
+                    sender = new IgniteSender(sender.getCluster(), sender.getTraitSet(),
+                            sender.getInput(), sender.exchangeId(), newTargetId, sender.distribution());
+
+                    fragment0 = new Fragment(fragment0.fragmentId(), fragment0.correlated(), sender, fragment0.remotes());
+                }
+            }
+
+            fragments0.add(fragment0);
+        }
+
+        fragments0.addAll(replacement.subList(1, replacement.size()));
+
+        return fragments0;
     }
 }

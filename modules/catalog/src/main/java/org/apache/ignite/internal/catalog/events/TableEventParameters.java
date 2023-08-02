@@ -15,32 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
-
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.sql.ResultSetMetadata;
+package org.apache.ignite.internal.catalog.events;
 
 /**
- * Distributed query plan.
+ * Event that is related to a table.
  */
-public class MultiStepQueryPlan extends AbstractMultiStepPlan {
+public abstract class TableEventParameters extends CatalogEventParameters {
+    private final int tableId;
+
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
-     * @param meta Fields metadata.
+     * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
+     * @param tableId ID of the table to which the event relates.
      */
-    public MultiStepQueryPlan(QueryTemplate queryTemplate, ResultSetMetadata meta) {
-        super(queryTemplate, meta);
+    public TableEventParameters(long causalityToken, int catalogVersion, int tableId) {
+        super(causalityToken, catalogVersion);
+        this.tableId = tableId;
     }
 
-    /** {@inheritDoc} */
-    @Override public SqlQueryType type() {
-        return SqlQueryType.QUERY;
-    }
-
-    /** {@inheritDoc} */
-    @Override public QueryPlan copy() {
-        return new MultiStepQueryPlan(queryTemplate, meta);
+    /** Returns an id of a modified table. */
+    public int tableId() {
+        return tableId;
     }
 }

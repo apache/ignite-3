@@ -19,6 +19,8 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
@@ -37,6 +39,16 @@ public class SchemaUtils {
      */
     public static SchemaDescriptor prepareSchemaDescriptor(int schemaVer, TableView tableView) {
         return ConfigurationToSchemaDescriptorConverter.convert(schemaVer, tableView);
+    }
+
+    /**
+     * Creates schema descriptor for the table with specified descriptor.
+     *
+     * @param tableDescriptor Table descriptor.
+     * @return Schema descriptor.
+     */
+    public static SchemaDescriptor prepareSchemaDescriptor(CatalogTableDescriptor tableDescriptor) {
+        return CatalogToSchemaDescriptorConverter.convert(tableDescriptor);
     }
 
     /**

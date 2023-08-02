@@ -46,6 +46,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -69,6 +71,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener {
     private static final IgniteLogger LOG = Loggers.forClass(PrepareServiceImpl.class);
+
+    /** DML metadata holder. */
+    private static final ResultSetMetadata DML_METADATA = new ResultSetMetadataImpl(List.of(
+            new ColumnMetadataImpl("ROWCOUNT", ColumnType.INT64,
+                    ColumnMetadata.UNDEFINED_PRECISION, ColumnMetadata.UNDEFINED_SCALE, false, null)));
 
     /** Default planner timeout, in ms. */
     public static final long DEFAULT_PLANNER_TIMEOUT = 15000L;
@@ -270,9 +277,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             // Split query plan to query fragments.
             List<Fragment> fragments = new Splitter().go(igniteRel);
 
-            QueryTemplate template = new QueryTemplate(fragments);
-
-            return new MultiStepQueryPlan(template, resultSetMetadata(validated.dataType(), validated.origins()));
+            return new MultiStepPlan(SqlQueryType.QUERY, fragments, resultSetMetadata(validated.dataType(), validated.origins()));
         }, planningPool));
 
         return planFut.thenApply(QueryPlan::copy);
@@ -297,9 +302,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             // Split query plan to query fragments.
             List<Fragment> fragments = new Splitter().go(igniteRel);
 
-            QueryTemplate template = new QueryTemplate(fragments);
-
-            return new MultiStepDmlPlan(template);
+            return new MultiStepPlan(SqlQueryType.DML, fragments, DML_METADATA);
         }, planningPool));
 
         return planFut.thenApply(QueryPlan::copy);

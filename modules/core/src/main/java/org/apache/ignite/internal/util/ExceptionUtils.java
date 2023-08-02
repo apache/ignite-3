@@ -449,7 +449,7 @@ public final class ExceptionUtils {
      * @param t Throwable to extract a trace identifier.
      * @return Returns trace identifier.
      */
-    public static UUID getOrCreateTraceId(Throwable t) {
+    public static UUID getOrCreateTraceId(@Nullable Throwable t) {
         Throwable e = t;
 
         // This collection is used to avoid infinite loops in case of cyclic dependencies.

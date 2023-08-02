@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.metadata;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.rel.BiRel;
@@ -64,191 +65,211 @@ import org.apache.ignite.internal.util.CollectionUtils;
 /**
  * Fragment mapping calculation.
  */
-public class IgniteFragmentMapping {
+public class IgniteFragmentMapping implements IgniteRelVisitor<FragmentMapping> {
+
+    private final RelMetadataQuery mq;
+
+    private final MappingQueryContext ctx;
+
+    private final Map<Integer, ColocationGroup> colocationGroups;
+
     /**
      * Fragment info calculation entry point.
      *
-     * @param rel Root node of a calculated fragment.
-     * @param mq  Metadata query instance.
-     * @return Fragment meta information.
+     * @param mq  Metadata query instance. Used to request appropriate metadata from node children.
+     * @param ctx context.
+     * @param colocationGroups resolved colocation groups.
      */
-    public static FragmentMapping calculateMapping(RelNode rel, RelMetadataQuery mq, MappingQueryContext ctx) {
+    public IgniteFragmentMapping(RelMetadataQuery mq, MappingQueryContext ctx, Map<Integer, ColocationGroup> colocationGroups) {
         assert mq instanceof RelMetadataQueryEx;
 
-        IgniteRelVisitor<FragmentMapping> visitor = new IgniteRelVisitor<>() {
-            @Override
-            public FragmentMapping visit(IgniteSender rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+        this.mq = mq;
+        this.ctx = ctx;
+        this.colocationGroups = colocationGroups;
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteFilter rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    /**
+     * Computes fragment mapping for the given rel node.
+     *
+     * @param rel Root node of a calculated fragment.
+     *
+     * @return Fragment meta information.
+     */
+    public FragmentMapping computeMapping(IgniteRel rel) {
+        return rel.accept(this);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteTrimExchange rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteSender rel) {
+        return mapSingleRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteProject rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteFilter rel) {
+        return mapFilter(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteNestedLoopJoin rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteTrimExchange rel) {
+        return mapTrimExchange(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteCorrelatedNestedLoopJoin rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteProject rel) {
+        return mapSingleRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteMergeJoin rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteNestedLoopJoin rel) {
+        return mapBiRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteIndexScan rel) {
-                return fragmentMapping(rel, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteCorrelatedNestedLoopJoin rel) {
+        return mapBiRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteTableScan rel) {
-                return fragmentMapping(rel, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteMergeJoin rel) {
+        return mapBiRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteReceiver rel) {
-                return fragmentMapping(rel);
-            }
+    @Override
+    public FragmentMapping visit(IgniteIndexScan rel) {
+        return mapIndexScan(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteExchange rel) {
-                throw new AssertionError("Unexpected call: " + rel);
-            }
+    @Override
+    public FragmentMapping visit(IgniteTableScan rel) {
+        return mapTableScan(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteColocatedHashAggregate rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteReceiver rel) {
+        return mapReceiver(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteMapHashAggregate rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteExchange rel) {
+        throw new AssertionError("Unexpected call: " + rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteReduceHashAggregate rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteColocatedHashAggregate rel) {
+        return mapSingleRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteColocatedSortAggregate rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteMapHashAggregate rel) {
+        return mapSingleRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteMapSortAggregate rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteReduceHashAggregate rel) {
+        return mapSingleRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteReduceSortAggregate rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteColocatedSortAggregate rel) {
+        return mapSingleRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteTableModify rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteMapSortAggregate rel) {
+        return mapSingleRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteValues rel) {
-                return fragmentMapping(rel, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteReduceSortAggregate rel) {
+        return mapSingleRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteUnionAll rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteTableModify rel) {
+        return mapTableModify(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteSort rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteValues rel) {
+        return mapValues(rel, ctx);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteTableSpool rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteUnionAll rel) {
+        return mapSetOp(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteSortedIndexSpool rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteSort rel) {
+        return mapSingleRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteLimit rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteTableSpool rel) {
+        return mapSingleRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteHashIndexSpool rel) {
-                return fragmentMapping(rel, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteSortedIndexSpool rel) {
+        return mapSingleRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteSetOp rel) {
-                assert rel instanceof SetOp;
-                SetOp rel0 = (SetOp) rel;
-                return fragmentMapping(rel0, mq, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteLimit rel) {
+        return mapSingleRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteTableFunctionScan rel) {
-                return fragmentMapping(rel, ctx);
-            }
+    @Override
+    public FragmentMapping visit(IgniteHashIndexSpool rel) {
+        return mapSingleRel(rel);
+    }
 
-            @Override
-            public FragmentMapping visit(IgniteRel rel) {
-                throw new AssertionError("Unexpected call: " + rel);
-            }
-        };
+    @Override
+    public FragmentMapping visit(IgniteSetOp rel) {
+        assert rel instanceof SetOp;
+        SetOp rel0 = (SetOp) rel;
+        return mapSetOp(rel0);
+    }
 
-        IgniteRel rel0 = (IgniteRel) rel;
+    @Override
+    public FragmentMapping visit(IgniteTableFunctionScan rel) {
+        return mapTableFunction(rel);
+    }
 
-        return rel0.accept(visitor);
+    @Override
+    public FragmentMapping visit(IgniteRel rel) {
+        throw new AssertionError("Unexpected call: " + rel);
+    }
+
+    private FragmentMapping doComputeMapping(RelNode relNode) {
+        IgniteRel igniteRel = (IgniteRel) relNode;
+        return igniteRel.accept(this);
     }
 
     /**
      * Requests meta information about nodes capable to execute a query over particular partitions.
      *
      * @param rel Relational node.
-     * @param mq  Metadata query instance. Used to request appropriate metadata from node children.
      * @return Nodes mapping, representing a list of nodes capable to execute a query over particular partitions.
      */
-    private static FragmentMapping fragmentMapping(SingleRel rel, RelMetadataQuery mq, MappingQueryContext ctx) {
-        return calculateMapping(rel.getInput(), mq, ctx);
+    private FragmentMapping mapSingleRel(SingleRel rel) {
+        return doComputeMapping(rel.getInput());
     }
 
     /**
-     * See {@link IgniteFragmentMapping#fragmentMapping(SingleRel, RelMetadataQuery, MappingQueryContext)}.
+     * See {@link IgniteFragmentMapping#mapSingleRel(SingleRel)}.
      *
      * <p>{@link ColocationMappingException} may be thrown on two children nodes locations merge. This means that the fragment
      * (which part the parent node is) cannot be executed on any node and additional exchange is needed. This case we throw {@link
      * NodeMappingException} with an edge, where we need the additional exchange. After the exchange is put into the fragment and the
      * fragment is split into two ones, fragment meta information will be recalculated for all fragments.
      */
-    private static FragmentMapping fragmentMapping(BiRel rel, RelMetadataQuery mq, MappingQueryContext ctx) {
+    private FragmentMapping mapBiRel(BiRel rel) {
         RelNode left = rel.getLeft();
         RelNode right = rel.getRight();
 
-        FragmentMapping frgLeft = calculateMapping(left, mq, ctx);
-        FragmentMapping frgRight = calculateMapping(right, mq, ctx);
+        FragmentMapping frgLeft = doComputeMapping(left);
+        FragmentMapping frgRight = doComputeMapping(right);
 
         try {
             return frgLeft.colocate(frgRight);
@@ -271,26 +292,27 @@ public class IgniteFragmentMapping {
     }
 
     /**
-     * See {@link IgniteFragmentMapping#fragmentMapping(SingleRel, RelMetadataQuery, MappingQueryContext)}
+     * See {@link IgniteFragmentMapping#mapSingleRel(SingleRel)}
      *
      * <p>{@link ColocationMappingException} may be thrown on two children nodes locations merge. This means that the
-     * fragment (which part the parent node is) cannot be executed on any node and additional exchange is needed. This case we throw {@link
-     * NodeMappingException} with an edge, where we need the additional exchange. After the exchange is put into the fragment and the
-     * fragment is split into two ones, fragment meta information will be recalculated for all fragments.
+     * fragment (which part the parent node is) cannot be executed on any node and additional exchange is needed.
+     * This case we throw {@link NodeMappingException} with an edge, where we need the additional exchange.
+     * After the exchange is put into the fragment and the fragment is split into two ones, fragment meta information
+     * will be recalculated for all fragments.
      */
-    private static FragmentMapping fragmentMapping(SetOp rel, RelMetadataQuery mq, MappingQueryContext ctx) {
+    private FragmentMapping mapSetOp(SetOp rel) {
         FragmentMapping res = null;
 
         if (TraitUtils.distribution(rel) == IgniteDistributions.random()) {
             for (RelNode input : rel.getInputs()) {
-                res = res == null ? calculateMapping(input, mq, ctx) : res.combine(
-                        calculateMapping(input, mq, ctx));
+                res = res == null ? doComputeMapping(input) : res.combine(
+                        doComputeMapping(input));
             }
         } else {
             for (RelNode input : rel.getInputs()) {
                 try {
-                    res = res == null ? calculateMapping(input, mq, ctx) : res.colocate(
-                            calculateMapping(input, mq, ctx));
+                    res = res == null ? doComputeMapping(input) : res.colocate(
+                            doComputeMapping(input));
                 } catch (ColocationMappingException e) {
                     throw new NodeMappingException("Failed to calculate physical distribution", input, e);
                 }
@@ -301,70 +323,70 @@ public class IgniteFragmentMapping {
     }
 
     /**
-     * See {@link IgniteFragmentMapping#fragmentMapping(SingleRel, RelMetadataQuery, MappingQueryContext)}.
+     * See {@link IgniteFragmentMapping#mapSingleRel(SingleRel)}.
      *
      * <p>Prunes involved partitions (hence nodes, involved in query execution) if possible.
      */
-    private static FragmentMapping fragmentMapping(IgniteFilter rel, RelMetadataQuery mq, MappingQueryContext ctx) {
-        return calculateMapping(rel.getInput(), mq, ctx).prune(rel);
+    private FragmentMapping mapFilter(IgniteFilter rel) {
+        return doComputeMapping(rel.getInput()).prune(rel);
     }
 
     /**
-     * See {@link IgniteFragmentMapping#fragmentMapping(SingleRel, RelMetadataQuery, MappingQueryContext)}.
+     * See {@link IgniteFragmentMapping#mapSingleRel(SingleRel)}.
      *
      * <p>Prunes involved partitions (hence nodes, involved in query execution) if possible.
      */
-    private static FragmentMapping fragmentMapping(IgniteTrimExchange rel, RelMetadataQuery mq, MappingQueryContext ctx) {
+    private FragmentMapping mapTrimExchange(IgniteTrimExchange rel) {
         try {
-            return FragmentMapping.create(rel.sourceId())
-                    .colocate(calculateMapping(rel.getInput(), mq, ctx));
+            FragmentMapping mapping = doComputeMapping(rel.getInput());
+
+            return FragmentMapping.create(rel.sourceId()).colocate(mapping);
         } catch (ColocationMappingException e) {
             throw new AssertionError(e);
         }
     }
 
     /**
-     * See {@link IgniteFragmentMapping#fragmentMapping(SingleRel, RelMetadataQuery, MappingQueryContext)}.
+     * See {@link IgniteFragmentMapping#mapSingleRel(SingleRel)}.
      */
-    private static FragmentMapping fragmentMapping(IgniteReceiver rel) {
+    private FragmentMapping mapReceiver(IgniteReceiver rel) {
         return FragmentMapping.create(rel.exchangeId());
     }
 
     /**
-     * See {@link IgniteFragmentMapping#fragmentMapping(SingleRel, RelMetadataQuery, MappingQueryContext)}.
+     * See {@link IgniteFragmentMapping#mapSingleRel(SingleRel)}.
      */
-    private static FragmentMapping fragmentMapping(IgniteIndexScan rel, MappingQueryContext ctx) {
-        return getFragmentMapping(rel.sourceId(), rel, ctx);
+    private FragmentMapping mapIndexScan(IgniteIndexScan rel) {
+        return mapScan(rel.sourceId(), rel);
     }
 
     /**
-     * See {@link IgniteFragmentMapping#fragmentMapping(SingleRel, RelMetadataQuery, MappingQueryContext)}.
+     * See {@link IgniteFragmentMapping#mapSingleRel(SingleRel)}.
      */
-    private static FragmentMapping fragmentMapping(IgniteTableScan rel, MappingQueryContext ctx) {
-        return getFragmentMapping(rel.sourceId(), rel, ctx);
+    private FragmentMapping mapTableScan(IgniteTableScan rel) {
+        return mapScan(rel.sourceId(), rel);
     }
 
     /**
-     * See {@link IgniteFragmentMapping#fragmentMapping(SingleRel, RelMetadataQuery, MappingQueryContext)}.
+     * See {@link IgniteFragmentMapping#mapSingleRel(SingleRel)}.
      */
-    private static FragmentMapping fragmentMapping(IgniteValues rel, MappingQueryContext ctx) {
+    private FragmentMapping mapValues(IgniteValues rel, MappingQueryContext ctx) {
         ColocationGroup group = ColocationGroup.forNodes(ctx.mappingService().executionNodes(false, null));
 
         return FragmentMapping.create(rel.sourceId(), group);
     }
 
     /**
-     * See {@link IgniteFragmentMapping#fragmentMapping(SingleRel, RelMetadataQuery, MappingQueryContext)}.
+     * See {@link IgniteFragmentMapping#mapSingleRel(SingleRel)}.
      */
-    private static FragmentMapping fragmentMapping(IgniteTableModify rel, RelMetadataQuery mq, MappingQueryContext ctx) {
+    private FragmentMapping mapTableModify(IgniteTableModify rel) {
         RelNode input = rel.getInput();
-        FragmentMapping mapping = calculateMapping(input, mq, ctx);
+        FragmentMapping mapping = doComputeMapping(input);
+        IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
 
-        // In case of the statement like UPDATE t SET a = a + 1
-        // this will be the second call to the collation group, hence the result may differ.
-        // But such query should be rejected during execution, since we will try to do RW read
-        // from replica that is not primary anymore.
-        ColocationGroup tableColocationGroup = rel.getTable().unwrap(IgniteTable.class).colocationGroup(ctx);
+        ColocationGroup tableColocationGroup = colocationGroups.get(igniteTable.id());
+        assert tableColocationGroup != null : "No colocation group for " + igniteTable.id();
+
         List<NodeWithTerm> assignments = tableColocationGroup.assignments().stream()
                 .map(CollectionUtils::first)
                 .collect(Collectors.toList());
@@ -382,16 +404,19 @@ public class IgniteFragmentMapping {
     }
 
     /**
-     * See {@link IgniteFragmentMapping#fragmentMapping(SingleRel, RelMetadataQuery, MappingQueryContext)}.
+     * See {@link IgniteFragmentMapping#mapSingleRel(SingleRel)}.
      */
-    private static FragmentMapping fragmentMapping(IgniteTableFunctionScan rel, MappingQueryContext ctx) {
+    private FragmentMapping mapTableFunction(IgniteTableFunctionScan rel) {
         ColocationGroup group = ColocationGroup.forNodes(ctx.mappingService().executionNodes(false, null));
 
         return FragmentMapping.create(rel.sourceId(), group);
     }
 
-    private static FragmentMapping getFragmentMapping(long sourceId, ProjectableFilterableTableScan rel, MappingQueryContext ctx) {
-        ColocationGroup group = rel.getTable().unwrap(IgniteTable.class).colocationGroup(ctx);
+    private FragmentMapping mapScan(long sourceId, ProjectableFilterableTableScan rel) {
+        IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
+
+        ColocationGroup group = colocationGroups.get(igniteTable.id());
+        assert group != null : "No colocation group for " + igniteTable.id();
 
         return FragmentMapping.create(sourceId, group);
     }

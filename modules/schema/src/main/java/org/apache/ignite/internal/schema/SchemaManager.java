@@ -81,7 +81,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
 
-    /** Versioned store for tables by name. */
+    /** Versioned store for tables by ID. */
     private final IncrementalVersionedValue<Map<Integer, SchemaRegistryImpl>> registriesVv;
 
     /** Meta storage manager. */
