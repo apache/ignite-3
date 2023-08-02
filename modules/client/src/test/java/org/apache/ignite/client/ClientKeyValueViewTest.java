@@ -100,7 +100,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         key.gid = 1;
 
         IgniteException e = assertThrows(IgniteException.class, () -> pojoView.get(null, key));
-        assertEquals("Fields [gid, id] are not mapped to columns.", e.getMessage());
+        assertEquals("Failed to deserialize server response: Fields [gid, id] are not mapped to columns.", e.getMessage());
     }
 
     @Test
