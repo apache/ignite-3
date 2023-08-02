@@ -109,8 +109,8 @@ public class DataStreamerTest extends AbstractClientTableTest {
         try (var publisher = new SubmissionPublisher<Map.Entry<Tuple, Tuple>>()) {
             streamerFut = view.streamData(publisher, null);
 
-            publisher.submit(Map.entry(tupleKey(1L), tuple(1L, "foo")));
-            publisher.submit(Map.entry(tupleKey(2L), tuple(2L, "bar")));
+            publisher.submit(Map.entry(tupleKey(1L), tupleVal("foo")));
+            publisher.submit(Map.entry(tupleKey(2L), tupleVal("bar")));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();

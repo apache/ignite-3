@@ -496,7 +496,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
             try (SubmissionPublisher<Entry<Tuple, Tuple>> publisher = new SubmissionPublisher<>()) {
                 fut = recordView.streamData(publisher, null);
-                publisher.submit(Map.entry(t, t));
+                publisher.submit(Map.entry(t, Tuple.create()));
             }
 
             fut.join();
