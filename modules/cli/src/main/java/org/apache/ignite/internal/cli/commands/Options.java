@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static java.util.stream.Collectors.toSet;
+
+import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 
 /**
@@ -79,6 +83,10 @@ public enum Options {
 
     public String shortName() {
         return shortName;
+    }
+
+    public Set<String> names() {
+        return Stream.of(fullName, shortName).collect(toSet());
     }
 
     public String description() {
