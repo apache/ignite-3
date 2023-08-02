@@ -52,7 +52,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
-import org.apache.ignite.internal.sql.engine.schema.IgniteCatalogSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
 
@@ -222,7 +222,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
     }
 
     public long schemaVersion() {
-        return Objects.requireNonNull(schema().unwrap(IgniteCatalogSchema.class)).version();
+        return Objects.requireNonNull(schema().unwrap(IgniteSchema.class)).version();
     }
 
     /**

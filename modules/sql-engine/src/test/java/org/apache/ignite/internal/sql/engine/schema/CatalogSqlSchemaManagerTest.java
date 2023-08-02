@@ -100,7 +100,7 @@ public class CatalogSqlSchemaManagerTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
         assertEquals(testSchema.name, schema.getName());
         assertEquals(testSchema.version, schema.version());
@@ -157,7 +157,7 @@ public class CatalogSqlSchemaManagerTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteSchemaTable table = getTable(schema, testTable);
 
@@ -198,7 +198,7 @@ public class CatalogSqlSchemaManagerTest {
 
         {
             SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
-            IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+            IgniteSchema schema = unwrapSchema(schemaPlus);
 
             assertEquals(DEFAULT_SCHEMA_NAME, schema.getName());
             assertEquals(testSchema.version, schema.version());
@@ -206,7 +206,7 @@ public class CatalogSqlSchemaManagerTest {
 
         {
             SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(null);
-            IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+            IgniteSchema schema = unwrapSchema(schemaPlus);
 
             assertEquals(DEFAULT_SCHEMA_NAME, schema.getName());
             assertEquals(testSchema.version, schema.version());
@@ -235,7 +235,7 @@ public class CatalogSqlSchemaManagerTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteTable table = getTable(schema, testTable);
 
@@ -275,7 +275,7 @@ public class CatalogSqlSchemaManagerTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
@@ -303,7 +303,7 @@ public class CatalogSqlSchemaManagerTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
@@ -337,7 +337,7 @@ public class CatalogSqlSchemaManagerTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
@@ -370,7 +370,7 @@ public class CatalogSqlSchemaManagerTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteSchemaTable table = (IgniteSchemaTable) schema.getTable(testTable.name);
         assertNotNull(table);
@@ -414,7 +414,7 @@ public class CatalogSqlSchemaManagerTest {
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
         SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
-        IgniteCatalogSchema schema = unwrapSchema(schemaPlus);
+        IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteSchemaTable table = (IgniteSchemaTable) schema.getTable(testTable.name);
         assertNotNull(table);
@@ -435,13 +435,13 @@ public class CatalogSqlSchemaManagerTest {
         return new CatalogSqlSchemaManager(catalogManager, 200);
     }
 
-    private IgniteCatalogSchema unwrapSchema(SchemaPlus schemaPlus) {
-        IgniteCatalogSchema igniteSchema = schemaPlus.unwrap(IgniteCatalogSchema.class);
+    private IgniteSchema unwrapSchema(SchemaPlus schemaPlus) {
+        IgniteSchema igniteSchema = schemaPlus.unwrap(IgniteSchema.class);
         assertNotNull(igniteSchema);
         return igniteSchema;
     }
 
-    private static IgniteSchemaTable getTable(IgniteCatalogSchema schema, TestTable testTable) {
+    private static IgniteSchemaTable getTable(IgniteSchema schema, TestTable testTable) {
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
         return (IgniteSchemaTable) table;

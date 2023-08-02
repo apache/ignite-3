@@ -142,7 +142,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
 
         // create root schema
         SchemaPlus rootSchema = Frameworks.createRootSchema(false);
-        IgniteCatalogSchema igniteSchema = new IgniteCatalogSchema(schemaName, version, schemaTables);
+        IgniteSchema igniteSchema = new IgniteSchema(schemaName, version, schemaTables);
         return rootSchema.add(schemaName, igniteSchema);
     }
 

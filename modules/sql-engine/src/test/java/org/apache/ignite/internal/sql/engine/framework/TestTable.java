@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -68,23 +67,19 @@ public class TestTable implements IgniteTable {
     public TestTable(
             TableDescriptor descriptor,
             String name,
-            double rowCnt
+            double rowCnt,
+            Map<String, IgniteSchemaIndex> indexMap
     ) {
-        this.descriptor = descriptor;
-        this.name = name;
-        this.rowCnt = rowCnt;
-
-        indexes = Map.of();
-        dataProviders = Collections.emptyMap();
+        this(descriptor, name, rowCnt, indexMap, Map.of());
     }
 
     /** Constructor. */
     public TestTable(
             TableDescriptor descriptor,
             String name,
-            Map<String, DataProvider<?>> dataProviders,
             double rowCnt,
-            Map<String, IgniteSchemaIndex> indexMap
+            Map<String, IgniteSchemaIndex> indexMap,
+            Map<String, DataProvider<?>> dataProviders
     ) {
         this.descriptor = descriptor;
         this.name = name;

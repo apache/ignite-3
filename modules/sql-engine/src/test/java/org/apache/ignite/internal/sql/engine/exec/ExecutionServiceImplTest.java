@@ -88,7 +88,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
-import org.apache.ignite.internal.sql.engine.schema.IgniteCatalogSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -139,7 +139,7 @@ public class ExecutionServiceImplTest {
     private final TestTable table = createTable("TEST_TBL", 1_000_000, IgniteDistributions.random(),
             "ID", NativeTypes.INT32, "VAL", NativeTypes.INT32);
 
-    private final IgniteCatalogSchema schema = new IgniteCatalogSchema("PUBLIC", SCHEMA_VERSION, Map.of(table.name(), table));
+    private final IgniteSchema schema = new IgniteSchema("PUBLIC", SCHEMA_VERSION, Map.of(table.name(), table));
 
     private final List<CapturingMailboxRegistry> mailboxes = new ArrayList<>();
 
@@ -639,7 +639,7 @@ public class ExecutionServiceImplTest {
                 .build();
     }
 
-    private SchemaPlus wrap(IgniteCatalogSchema schema) {
+    private SchemaPlus wrap(IgniteSchema schema) {
         var schemaPlus = Frameworks.createRootSchema(false);
 
         schemaPlus.add(schema.getName(), schema);
@@ -781,7 +781,7 @@ public class ExecutionServiceImplTest {
                     MailboxRegistry mailboxRegistry,
                     ExchangeService exchangeService,
                     ResolvedDependencies deps) {
-                IgniteCatalogSchema schema = ctx.getRootSchema().unwrap(IgniteCatalogSchema.class);
+                IgniteSchema schema = ctx.getRootSchema().unwrap(IgniteSchema.class);
 
                 HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(schema, ctx.rowHandler());
 
@@ -877,7 +877,8 @@ public class ExecutionServiceImplTest {
         return new TestTable(
                 new TableDescriptorImpl(columns, distr),
                 name,
-                size
+                size,
+                Map.of()
         ) {
 
         };

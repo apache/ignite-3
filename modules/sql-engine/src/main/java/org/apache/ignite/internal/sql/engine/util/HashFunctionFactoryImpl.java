@@ -26,8 +26,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.IgniteCatalogSchema;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
@@ -37,9 +36,9 @@ import org.apache.ignite.internal.util.HashCalculator;
  */
 public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
     private final RowHandler<T> rowHandler;
-    private final IgniteCatalogSchema schema;
+    private final IgniteSchema schema;
 
-    public HashFunctionFactoryImpl(IgniteCatalogSchema schema, RowHandler<T> rowHandler) {
+    public HashFunctionFactoryImpl(IgniteSchema schema, RowHandler<T> rowHandler) {
         this.schema = schema;
         this.rowHandler = rowHandler;
     }
@@ -49,14 +48,8 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
     public RowHashFunction<T> create(int[] fields, int tableId) {
         int fieldCnt = fields.length;
         NativeType[] fieldTypes = new NativeType[fieldCnt];
-        //TODO: optimize this
-        TableDescriptor tblDesc = schema.getTableNames().stream()
-                .map(schema::getTable)
-                .map(IgniteTable.class::cast)
-                .filter(t -> t.id() == tableId)
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("No table found: tableId=" + tableId))
-                .descriptor();
+
+        TableDescriptor tblDesc = schema.getTable(tableId).descriptor();
 
         ImmutableIntList colocationColumns = tblDesc.distribution().getKeys();
 

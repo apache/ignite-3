@@ -32,6 +32,7 @@ import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.schema.NativeType;
@@ -89,7 +90,6 @@ import org.opentest4j.AssertionFailedError;
  * </pre>
  *
  * <p><b>Schema initialization</b>
- * Tables can be added to schema via {@code table} methods and initial schema can be set via {@link #withSchema(Consumer)} method.
  *
  * <pre>
  *     new StatementChecker()
@@ -115,8 +115,6 @@ public class StatementChecker {
     private final Map<String, Function<TestBuilders.TableBuilder, TestTable>> testTables = new HashMap<>();
 
     private boolean dumpPlan;
-
-    private Consumer<IgniteSchema> initSchema = (schema) -> {};
 
     private Consumer<StatementChecker> setup = (checker) -> {};
 
@@ -147,12 +145,6 @@ public class StatementChecker {
     /** Sets a function that is going to be called prior to test run. */
     public StatementChecker setup(Consumer<StatementChecker> setup) {
         this.setup = setup;
-        return this;
-    }
-
-    /** Sets a function that initializes initial schema. */
-    public StatementChecker withSchema(Consumer<IgniteSchema> initSchema) {
-        this.initSchema = initSchema;
         return this;
     }
 
@@ -359,16 +351,17 @@ public class StatementChecker {
     }
 
     private IgniteSchema createSchema() {
-        IgniteSchema schema = new IgniteSchema("PUBLIC");
-        this.initSchema.accept(schema);
+        Map<String, Table> tableMap = new HashMap<>();
         for (Map.Entry<String, Function<TestBuilders.TableBuilder, TestTable>> entry : testTables.entrySet()) {
             String tableName = entry.getKey();
             Function<TableBuilder, TestTable> addTable = entry.getValue();
 
             TestTable table = addTable.apply(TestBuilders.table().name(tableName));
-            schema.addTable(table);
+
+            tableMap.put(tableName, table);
         }
-        return schema;
+
+        return new IgniteSchema("PUBLIC", 0, tableMap);
     }
 
     private DynamicTest shouldPass(String name, Throwable exception, Consumer<IgniteRel> check) {

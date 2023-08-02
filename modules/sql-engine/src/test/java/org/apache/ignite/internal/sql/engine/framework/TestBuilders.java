@@ -46,8 +46,8 @@ import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
-import org.apache.ignite.internal.sql.engine.schema.IgniteCatalogSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -357,7 +357,7 @@ public class TestBuilders {
                     .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
-            var schemaManager = new PredefinedSchemaManager(new IgniteCatalogSchema("PUBLIC", SCHEMA_VERSION, tableMap));
+            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", SCHEMA_VERSION, tableMap));
             var colocationGroupProvider = new TestColocationGroupProvider(tableBuilders, tableMap, nodeNames);
 
             Map<String, TestNode> nodes = nodeNames.stream()
@@ -488,7 +488,7 @@ public class TestBuilders {
                     .map(idx -> idx.build(tableDescriptor))
                     .collect(Collectors.toMap(TestIndex::name, Function.identity()));
 
-            return new TestTable(tableDescriptor, name, dataProviders, size, indexMap);
+            return new TestTable(tableDescriptor, name, size, indexMap, dataProviders);
         }
     }
 

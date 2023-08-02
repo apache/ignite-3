@@ -28,7 +28,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.sql.engine.schema.IgniteCatalogSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
@@ -48,16 +47,16 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     private final Map<Integer, IgniteTable> tableById;
 
     /** Constructs schema manager from a single schema. */
-    PredefinedSchemaManager(IgniteCatalogSchema schema) {
+    PredefinedSchemaManager(IgniteSchema schema) {
         this(List.of(schema));
     }
 
     /** Constructs schema manager from a collection of schemas. */
-    PredefinedSchemaManager(Collection<IgniteCatalogSchema> schemas) {
+    PredefinedSchemaManager(Collection<IgniteSchema> schemas) {
         this.root = Frameworks.createRootSchema(false);
         this.tableById = new HashMap<>();
 
-        for (IgniteCatalogSchema schema : schemas) {
+        for (IgniteSchema schema : schemas) {
             root.add(schema.getName(), schema);
 
             tableById.putAll(
