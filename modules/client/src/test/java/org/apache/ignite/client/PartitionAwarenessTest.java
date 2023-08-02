@@ -381,15 +381,16 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         Tuple t1 = Tuple.create().set("ID", 1L);
         Tuple t2 = Tuple.create().set("ID", 2L);
+        Tuple val = Tuple.create();
 
-        assertOpOnNode(nodeKey1, "insert", x -> kvView.putIfAbsent(null, t1, t1));
-        assertOpOnNode(nodeKey2, "insert", x -> kvView.putIfAbsent(null, t2, t2));
+        assertOpOnNode(nodeKey1, "insert", x -> kvView.putIfAbsent(null, t1, val));
+        assertOpOnNode(nodeKey2, "insert", x -> kvView.putIfAbsent(null, t2, val));
 
-        assertOpOnNode(nodeKey1, "upsert", x -> kvView.put(null, t1, t1));
-        assertOpOnNode(nodeKey2, "upsert", x -> kvView.put(null, t2, t2));
+        assertOpOnNode(nodeKey1, "upsert", x -> kvView.put(null, t1, val));
+        assertOpOnNode(nodeKey2, "upsert", x -> kvView.put(null, t2, val));
 
-        assertOpOnNode(nodeKey1, "upsertAll", x -> kvView.putAll(null, Map.of(t1, t1)));
-        assertOpOnNode(nodeKey2, "upsertAll", x -> kvView.putAll(null, Map.of(t2, t2)));
+        assertOpOnNode(nodeKey1, "upsertAll", x -> kvView.putAll(null, Map.of(t1, val)));
+        assertOpOnNode(nodeKey2, "upsertAll", x -> kvView.putAll(null, Map.of(t2, val)));
 
         assertOpOnNode(nodeKey1, "get", x -> kvView.get(null, t1));
         assertOpOnNode(nodeKey2, "get", x -> kvView.get(null, t2));
@@ -400,26 +401,26 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         assertOpOnNode(nodeKey1, "getAll", x -> kvView.getAll(null, List.of(t1)));
         assertOpOnNode(nodeKey2, "getAll", x -> kvView.getAll(null, List.of(t2)));
 
-        assertOpOnNode(nodeKey1, "getAndUpsert", x -> kvView.getAndPut(null, t1, t1));
-        assertOpOnNode(nodeKey2, "getAndUpsert", x -> kvView.getAndPut(null, t2, t2));
+        assertOpOnNode(nodeKey1, "getAndUpsert", x -> kvView.getAndPut(null, t1, val));
+        assertOpOnNode(nodeKey2, "getAndUpsert", x -> kvView.getAndPut(null, t2, val));
 
-        assertOpOnNode(nodeKey1, "getAndReplace", x -> kvView.getAndReplace(null, t1, t1));
-        assertOpOnNode(nodeKey2, "getAndReplace", x -> kvView.getAndReplace(null, t2, t2));
+        assertOpOnNode(nodeKey1, "getAndReplace", x -> kvView.getAndReplace(null, t1, val));
+        assertOpOnNode(nodeKey2, "getAndReplace", x -> kvView.getAndReplace(null, t2, val));
 
         assertOpOnNode(nodeKey1, "getAndDelete", x -> kvView.getAndRemove(null, t1));
         assertOpOnNode(nodeKey2, "getAndDelete", x -> kvView.getAndRemove(null, t2));
 
-        assertOpOnNode(nodeKey1, "replace", x -> kvView.replace(null, t1, t1));
-        assertOpOnNode(nodeKey2, "replace", x -> kvView.replace(null, t2, t2));
+        assertOpOnNode(nodeKey1, "replace", x -> kvView.replace(null, t1, val));
+        assertOpOnNode(nodeKey2, "replace", x -> kvView.replace(null, t2, val));
 
-        assertOpOnNode(nodeKey1, "replace", x -> kvView.replace(null, t1, t1, t1));
-        assertOpOnNode(nodeKey2, "replace", x -> kvView.replace(null, t2, t2, t2));
+        assertOpOnNode(nodeKey1, "replace", x -> kvView.replace(null, t1, val, val));
+        assertOpOnNode(nodeKey2, "replace", x -> kvView.replace(null, t2, val, val));
 
         assertOpOnNode(nodeKey1, "delete", x -> kvView.remove(null, t1));
         assertOpOnNode(nodeKey2, "delete", x -> kvView.remove(null, t2));
 
-        assertOpOnNode(nodeKey1, "deleteExact", x -> kvView.remove(null, t1, t1));
-        assertOpOnNode(nodeKey2, "deleteExact", x -> kvView.remove(null, t2, t2));
+        assertOpOnNode(nodeKey1, "deleteExact", x -> kvView.remove(null, t1, val));
+        assertOpOnNode(nodeKey2, "deleteExact", x -> kvView.remove(null, t2, val));
 
         assertOpOnNode(nodeKey1, "deleteAll", x -> kvView.removeAll(null, List.of(t1)));
         assertOpOnNode(nodeKey2, "deleteAll", x -> kvView.removeAll(null, List.of(t2)));
