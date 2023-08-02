@@ -72,7 +72,7 @@ include(':ignite-code-deployment')
 include(':ignite-security')
 include(':ignite-catalog')
 include(":ignite-arch-test")
-include(":ignite-file-transferring")
+include(":ignite-file-transfer")
 
 project(":ignite-examples").projectDir = file('examples')
 project(":ignite-page-memory").projectDir = file('modules/page-memory')
@@ -130,7 +130,7 @@ project(":ignite-code-deployment").projectDir = file('modules/code-deployment')
 project(":ignite-security").projectDir = file('modules/security')
 project(":ignite-catalog").projectDir = file('modules/catalog')
 project(":ignite-arch-test").projectDir = file('modules/arch-test')
-project(":ignite-file-transferring").projectDir = file('modules/file-transferring')
+project(":ignite-file-transfer").projectDir = file('modules/file-transfer')
 
 ext.isCiServer = System.getenv().containsKey("IGNITE_CI")
 
