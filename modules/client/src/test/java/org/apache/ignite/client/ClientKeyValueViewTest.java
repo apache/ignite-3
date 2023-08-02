@@ -142,14 +142,16 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     @Test
     public void testAllColumnsPojoPutBinaryGet() {
         Table table = fullTable();
-        KeyValueView<AllColumnsPojo, AllColumnsPojo> pojoView = table.keyValueView(
+        KeyValueView<AllColumnsPojo, AllColumnsValPojo> pojoView = table.keyValueView(
                 Mapper.of(AllColumnsPojo.class),
-                Mapper.of(AllColumnsPojo.class));
+                Mapper.of(AllColumnsValPojo.class));
 
-        var val = new AllColumnsPojo();
+        var key = new AllColumnsPojo();
+        key.gid = 111;
+        key.id = "112";
 
-        val.gid = 111;
-        val.id = "112";
+        var val = new AllColumnsValPojo();
+
         val.zboolean = true;
         val.zbyte = 113;
         val.zshort = 114;
@@ -167,7 +169,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         val.znumber = BigInteger.valueOf(123);
         val.zuuid = uuid;
 
-        pojoView.put(null, val, val);
+        pojoView.put(null, key, val);
 
         Tuple res = table.recordView().get(null, Tuple.create().set("id", "112").set("gid", 111L));
 
