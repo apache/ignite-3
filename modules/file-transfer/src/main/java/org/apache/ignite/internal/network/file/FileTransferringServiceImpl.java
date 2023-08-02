@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -66,7 +65,7 @@ public class FileTransferringServiceImpl implements FileTransferringService {
 
     private final FileSender fileSender;
 
-    private final Map<UUID, FileReceiver> transferIdToReceiver = new ConcurrentHashMap<>();
+    private final FileReceiver fileReceiver;
 
     private final Map<Short, FileProvider<TransferMetadata>> metadataToProvider = new ConcurrentHashMap<>();
 
@@ -86,6 +85,7 @@ public class FileTransferringServiceImpl implements FileTransferringService {
         this.fileSender = new FileSender(nodeName, CHUNK_SIZE, new RateLimiter(CONCURRENT_REQUESTS), (recipientConsistentId, message) -> {
             return messagingService.send(recipientConsistentId, FILE_TRANSFERRING_CHANNEL, message);
         });
+        this.fileReceiver = new FileReceiver(tempDirectory, nodeName);
     }
 
     @Override
@@ -109,8 +109,8 @@ public class FileTransferringServiceImpl implements FileTransferringService {
     }
 
     private void processUploadRequest(FileUploadRequest message) {
-        createFileReceiver(message.transferId())
-                .thenCompose(receiver -> handleFileTransferring(message.transferId(), receiver))
+        fileReceiver.registerTransfer(message.transferId())
+                .thenCompose(FileTransferringMessagesHandler::result)
                 .thenCompose(path -> {
                     return metadataToHandler.get(message.metadata().messageType()).handleUpload(message.metadata(), path)
                             .whenComplete((v, e) -> {
@@ -157,73 +157,20 @@ public class FileTransferringServiceImpl implements FileTransferringService {
     }
 
     private void processFileTransferInfo(FileTransferInfo info) {
-        FileReceiver receiver = transferIdToReceiver.get(info.transferId());
-        if (receiver == null) {
-            LOG.warn("File receiver is not found for file transfer info: {}", info);
-        } else {
-            receiver.receiveFileTransferInfo(info);
-        }
+        fileReceiver.receiveFileTransferInfo(info);
     }
 
     private void processFileHeader(FileHeader header) {
-        FileReceiver receiver = transferIdToReceiver.get(header.transferId());
-        if (receiver == null) {
-            LOG.warn("File receiver is not found for file header: {}", header);
-        } else {
-            receiver.receiveFileHeader(header);
-        }
+        fileReceiver.receiveFileHeader(header);
     }
 
     private void processFileChunk(FileChunk fileChunk) {
-        FileReceiver receiver = transferIdToReceiver.get(fileChunk.transferId());
-        if (receiver == null) {
-            LOG.warn("File receiver is not found for chunked file: {}", fileChunk);
-        } else {
-            receiver.receiveFileChunk(fileChunk);
-        }
-    }
-
-    private CompletableFuture<FileReceiver> createFileReceiver(UUID transferId) {
-        try {
-            Path directory = Files.createDirectory(tempDirectory.resolve(transferId.toString()));
-            FileReceiver receiver = new FileReceiver(directory);
-            transferIdToReceiver.put(transferId, receiver);
-            return completedFuture(receiver);
-        } catch (IOException e) {
-            return failedFuture(e);
-        }
-    }
-
-    private CompletableFuture<Path> handleFileTransferring(UUID transferId, FileReceiver fileReceiver) {
-        return fileReceiver.result()
-                .whenComplete((v, e) -> {
-                    transferIdToReceiver.remove(transferId);
-                    try {
-                        fileReceiver.close();
-                    } catch (Exception ex) {
-                        LOG.error("Failed to close file receiver: {}. Exception: {}", fileReceiver, ex);
-                    }
-                    if (e != null) {
-                        LOG.error("Failed to receive file. Id: {}. Exception: {}", transferId, e);
-                        deleteDirectoryIfExists(fileReceiver.dir());
-                    }
-                });
-    }
-
-    private static void deleteDirectoryIfExists(Path directory) {
-        try {
-            FilesUtils.deleteDirectoryIfExists(directory);
-        } catch (IOException e) {
-            LOG.error("Failed to delete directory: {}. Exception: {}", directory, e);
-        }
+        fileReceiver.receiveFileChunk(fileChunk);
     }
 
     @Override
     public void stop() throws Exception {
-        IgniteUtils.closeAllManually(Stream.concat(
-                transferIdToReceiver.values().stream(),
-                Stream.of(fileSender)
-        ));
+        IgniteUtils.closeAllManually(Stream.of(fileSender, fileReceiver));
     }
 
     @Override
@@ -256,15 +203,15 @@ public class FileTransferringServiceImpl implements FileTransferringService {
                 .metadata(transferMetadata)
                 .build();
 
-        return createFileReceiver(message.transferId())
-                .thenCompose(fileReceiver -> messagingService.invoke(nodeConsistentId, FILE_TRANSFERRING_CHANNEL, message, Long.MAX_VALUE)
+        return fileReceiver.registerTransfer(transferId)
+                .thenCompose(handler -> messagingService.invoke(nodeConsistentId, FILE_TRANSFERRING_CHANNEL, message, Long.MAX_VALUE)
                         .thenApply(FileDownloadResponse.class::cast)
                         .thenCompose(response -> {
                             if (response.error() != null) {
                                 // todo handle error
                                 return failedFuture(new RuntimeException(response.error().errorMessage()));
                             }
-                            return handleFileTransferring(transferId, fileReceiver);
+                            return handler.result();
                         }));
     }
 
@@ -281,5 +228,13 @@ public class FileTransferringServiceImpl implements FileTransferringService {
                     return messagingService.send(nodeConsistentId, FILE_TRANSFERRING_CHANNEL, message)
                             .thenCompose(v -> sendFiles(nodeConsistentId, transferId, files));
                 });
+    }
+
+    private static void deleteDirectoryIfExists(Path directory) {
+        try {
+            FilesUtils.deleteDirectoryIfExists(directory);
+        } catch (IOException e) {
+            LOG.error("Failed to delete directory: {}. Exception: {}", directory, e);
+        }
     }
 }

@@ -17,103 +17,145 @@
 
 package org.apache.ignite.internal.network.file;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.file.messages.FileChunk;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.FilesUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 
+/**
+ * File receiver.
+ */
 class FileReceiver implements ManuallyCloseable {
-    private final Path dir;
-    private final AtomicInteger filesCount = new AtomicInteger(-1);
-    private final AtomicInteger filesFinished = new AtomicInteger(0);
-    private final CompletableFuture<Path> result = new CompletableFuture<>();
-    private final Map<String, ChunkedFileWriter> fileNameToWriter = new ConcurrentHashMap<>();
-    private final Map<String, Lock> fileNameToLock = new ConcurrentHashMap<>();
+    private static final IgniteLogger LOG = Loggers.forClass(FileReceiver.class);
 
-    FileReceiver(Path dir) {
-        this.dir = dir;
+    private final Path tempDirectory;
+
+    private final ExecutorService executorService;
+
+    private final Map<UUID, FileTransferringMessagesHandler> transferIdToHandler = new ConcurrentHashMap<>();
+
+    FileReceiver(Path tempDirectory, String nodeName) {
+        this.tempDirectory = tempDirectory;
+        this.executorService = newSingleThreadExecutor(
+                NamedThreadFactory.create(nodeName, "FileReceiverExecutor", LOG)
+        );
     }
 
-    void receiveFileTransferInfo(FileTransferInfo info) {
-        if (result.isDone()) {
-            throw new IllegalStateException("Received file transfer info after result is already done.");
+    private CompletableFuture<FileTransferringMessagesHandler> createHandler(UUID transferId) {
+        try {
+            Path directory = Files.createDirectory(tempDirectory.resolve(transferId.toString()));
+            FileTransferringMessagesHandler receiver = new FileTransferringMessagesHandler(directory);
+            return completedFuture(receiver);
+        } catch (IOException e) {
+            return failedFuture(e);
         }
-        filesCount.set(info.filesCount());
     }
 
-    void receiveFileHeader(FileHeader header) {
-        if (result.isDone()) {
-            throw new IllegalStateException("Received file header after result is already done.");
+    CompletableFuture<FileTransferringMessagesHandler> registerTransfer(UUID transferId) {
+        return createHandler(transferId)
+                .thenApply(handler -> {
+                    transferIdToHandler.put(transferId, handler);
+                    handler.result()
+                            .whenComplete((path, throwable) -> {
+                                transferIdToHandler.remove(transferId);
+                                try {
+                                    handler.close();
+                                } catch (Exception ex) {
+                                    LOG.error("Failed to close handler. Exception: {}", ex);
+                                }
+                                if (throwable != null) {
+                                    LOG.error("Failed to receive file. Id: {}. Exception: {}", transferId, throwable);
+                                    deleteDirectoryIfExists(handler.dir());
+                                }
+                            });
+                    return handler;
+                });
+    }
+
+    CompletableFuture<Void> receiveFileTransferInfo(FileTransferInfo info) {
+        return CompletableFuture.runAsync(() -> receiveFileTransferInfo0(info), executorService)
+                .whenComplete((v, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Failed to receive file transfer info. Id: {}. Exception: {}", info.transferId(), throwable);
+                    }
+                });
+    }
+
+    private void receiveFileTransferInfo0(FileTransferInfo info) {
+        FileTransferringMessagesHandler handler = transferIdToHandler.get(info.transferId());
+        if (handler == null) {
+            throw new FileTransferException("Handler is not found for unknown transferId: " + info.transferId());
+        } else {
+            handler.receiveFileTransferInfo(info);
         }
-        doInLock(header.fileName(), () -> receiveFileHeader0(header));
+    }
+
+    CompletableFuture<Void> receiveFileHeader(FileHeader header) {
+        return CompletableFuture.runAsync(() -> receiveFileHeader0(header), executorService)
+                .whenComplete((v, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Failed to receive file header. Id: {}. Exception: {}", header.transferId(), throwable);
+                    }
+                });
     }
 
     private void receiveFileHeader0(FileHeader header) {
+        FileTransferringMessagesHandler handler = transferIdToHandler.get(header.transferId());
+        if (handler == null) {
+            throw new FileTransferException("Handler is not found for unknown transferId: " + header.transferId());
+        } else {
+            handler.receiveFileHeader(header);
+        }
+    }
+
+    CompletableFuture<Void> receiveFileChunk(FileChunk chunk) {
+        return CompletableFuture.runAsync(() -> receiveFileChunk0(chunk), executorService)
+                .whenComplete((v, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Failed to receive file chunk. Id: {}. Exception: {}", chunk.transferId(), throwable);
+                    }
+                });
+    }
+
+    private void receiveFileChunk0(FileChunk chunk) {
+        FileTransferringMessagesHandler handler = transferIdToHandler.get(chunk.transferId());
+        if (handler == null) {
+            throw new FileTransferException("Handler is not found for unknown transferId: " + chunk.transferId());
+        } else {
+            handler.receiveFileChunk(chunk);
+        }
+    }
+
+    private static void deleteDirectoryIfExists(Path directory) {
         try {
-            Path path = Files.createFile(dir.resolve(header.fileName()));
-            fileNameToWriter.put(header.fileName(), ChunkedFileWriter.open(path, header.fileSize()));
+            FilesUtils.deleteDirectoryIfExists(directory);
         } catch (IOException e) {
-            result.completeExceptionally(e);
+            LOG.error("Failed to delete directory: {}. Exception: {}", directory, e);
         }
-    }
-
-    void receiveFileChunk(FileChunk fileChunk) {
-        if (result.isDone()) {
-            throw new IllegalStateException("Received chunked file after result is already done.");
-        }
-        doInLock(fileChunk.fileName(), () -> receiveFileChunk0(fileChunk));
-    }
-
-    private void receiveFileChunk0(FileChunk fileChunk) {
-        try {
-            ChunkedFileWriter writer = fileNameToWriter.get(fileChunk.fileName());
-            writer.write(fileChunk);
-
-            if (writer.isFinished()) {
-                writer.close();
-                fileNameToWriter.remove(fileChunk.fileName());
-                filesFinished.incrementAndGet();
-            }
-
-            if (filesFinished.get() == filesCount.get()) {
-                result.complete(dir);
-            }
-
-        } catch (IOException e) {
-            result.completeExceptionally(e);
-        }
-    }
-
-    private void doInLock(String fileName, Runnable runnable) {
-        Lock lock = fileNameToLock.computeIfAbsent(fileName, k -> new ReentrantLock());
-        lock.lock();
-        try {
-            runnable.run();
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    CompletableFuture<Path> result() {
-        return result;
-    }
-
-    Path dir() {
-        return dir;
     }
 
     @Override
     public void close() throws Exception {
-        IgniteUtils.closeAllManually(fileNameToWriter.values().stream());
+        shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
+        IgniteUtils.closeAllManually(transferIdToHandler.values());
     }
 }

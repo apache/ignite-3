@@ -95,7 +95,7 @@ class FileSender implements ManuallyCloseable {
                     request.complete();
                     filesToSend.remove();
                 }
-            } catch (Exception e) {
+            } catch (IOException e) {
                 request.complete(e);
             }
         }
