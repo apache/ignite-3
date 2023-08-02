@@ -40,8 +40,10 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -441,10 +443,14 @@ public class ExecutionTest extends AbstractExecutionTest {
         ScanNode<Object[]> left = new ScanNode<>(ctx, new TestTable(leftSize, rowType));
         ScanNode<Object[]> right = new ScanNode<>(ctx, new TestTable(rightSize, rowType));
 
-        RelDataType joinRowType = TypeUtils.createRowType(
-                tf,
-                int.class, String.class, int.class,
-                int.class, String.class, int.class);
+        RowSchema joinRowType = RowSchema.builder()
+                .addField(NativeTypes.INT32)
+                .addField(NativeTypes.STRING)
+                .addField(NativeTypes.INT32)
+                .addField(NativeTypes.INT32)
+                .addField(NativeTypes.STRING)
+                .addField(NativeTypes.INT32)
+                .build();
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
@@ -453,7 +459,7 @@ public class ExecutionTest extends AbstractExecutionTest {
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2).equals(getFieldFromBiRows(hnd, 3, r1, r2)),
                 Set.of(new CorrelationId(0)),
                 joinType,
-                hnd.factory(ctx.getTypeFactory(), joinRowType)
+                hnd.factory(joinRowType)
         );
 
         IgniteTestUtils.setFieldValue(join, "rightInBufferSize", rightBufSize);
