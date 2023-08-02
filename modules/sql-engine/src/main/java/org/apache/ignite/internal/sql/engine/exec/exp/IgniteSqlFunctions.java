@@ -202,14 +202,13 @@ public class IgniteSqlFunctions {
             return null;
         }
 
-        if (checkPrecisionScale(value, precision, scale)) {
-            BigDecimal dec = convertToBigDecimal(value);
-            return dec.setScale(scale, RoundingMode.HALF_UP);
+        BigDecimal dec = convertToBigDecimal(value);
+        int defaultPrecision = IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL);
+
+        if (checkPrecisionScaleFractionPart(value, precision, scale)) {
+            return precision == defaultPrecision ? dec : dec.setScale(scale, RoundingMode.HALF_UP);
         }
 
-        BigDecimal dec = convertToBigDecimal(value);
-
-        int defaultPrecision = IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL);
         if (precision == defaultPrecision) {
             // This branch covers at least one known case: access to dynamic parameter from context.
             // In this scenario precision = DefaultTypePrecision, because types for dynamic params
@@ -236,7 +235,7 @@ public class IgniteSqlFunctions {
     }
 
     /** Check precision scale for fraction numbers. */
-    private static boolean checkPrecisionScale(Number num, int precision, int scale) {
+    private static boolean checkPrecisionScaleFractionPart(Number num, int precision, int scale) {
         if (num.longValue() != 0) {
             return false;
         }
