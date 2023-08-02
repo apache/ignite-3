@@ -106,6 +106,9 @@ public final class ReliableChannel implements AutoCloseable {
      * the table will compare its version with channel version to detect an update. */
     private final AtomicLong assignmentVersion = new AtomicLong();
 
+    /** Observable timestamp, or causality token. Sent by the server with every response, and required by some requests. */
+    private final AtomicLong observableTimestamp = new AtomicLong();
+
     /** Cluster id from the first handshake. */
     private final AtomicReference<UUID> clusterId = new AtomicReference<>();
 
@@ -178,6 +181,10 @@ public final class ReliableChannel implements AutoCloseable {
 
     public IgniteClientConfiguration configuration() {
         return clientCfg;
+    }
+
+    public long observableTimestamp() {
+        return observableTimestamp.get();
     }
 
     /**
@@ -649,6 +656,21 @@ public final class ReliableChannel implements AutoCloseable {
         }
     }
 
+    private void onObservableTimestampReceived(Long newTs) {
+        // Atomically update the observable timestamp to max(newTs, curTs).
+        while (true) {
+            long curTs = observableTimestamp.get();
+
+            if (curTs >= newTs) {
+                break;
+            }
+
+            if (observableTimestamp.compareAndSet(curTs, newTs)) {
+                break;
+            }
+        }
+    }
+
     private void onTopologyAssignmentChanged(ClientChannel clientChannel) {
         // NOTE: Multiple channels will send the same update to us, resulting in multiple cache invalidations.
         // This could be solved with a cluster-wide AssignmentVersion, but we don't have that.
@@ -793,6 +815,7 @@ public final class ReliableChannel implements AutoCloseable {
                     }
 
                     ch.addTopologyAssignmentChangeListener(ReliableChannel.this::onTopologyAssignmentChanged);
+                    ch.addObservableTimestampListener(ReliableChannel.this::onObservableTimestampReceived);
 
                     ClusterNode newNode = ch.protocolContext().clusterNode();
 

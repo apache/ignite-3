@@ -18,26 +18,17 @@
 package org.apache.ignite.client.fakes;
 
 import java.util.Collection;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
-import org.apache.ignite.tx.TransactionOptions;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Fake Ignite.
@@ -46,6 +37,8 @@ public class FakeIgnite implements Ignite {
     private final String name;
 
     private final HybridClock clock = new HybridClockImpl();
+
+    private final FakeTxManager txMgr = new FakeTxManager(clock);
 
     /**
      * Default constructor.
@@ -79,91 +72,7 @@ public class FakeIgnite implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
-        return new IgniteTransactions() {
-            @Override
-            public Transaction begin(TransactionOptions options) {
-                return beginAsync(options).join();
-            }
-
-            @Override
-            public CompletableFuture<Transaction> beginAsync(TransactionOptions options) {
-                return CompletableFuture.completedFuture(new InternalTransaction() {
-                    private final UUID id = UUID.randomUUID();
-
-                    private final HybridTimestamp timestamp = clock.now();
-
-                    @Override
-                    public @NotNull UUID id() {
-                        return id;
-                    }
-
-                    @Override
-                    public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
-                        return null;
-                    }
-
-                    @Override
-                    public TxState state() {
-                        return null;
-                    }
-
-                    @Override
-                    public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
-                        return false;
-                    }
-
-                    @Override
-                    public TablePartitionId commitPartition() {
-                        return null;
-                    }
-
-                    @Override
-                    public IgniteBiTuple<ClusterNode, Long> enlist(
-                            TablePartitionId tablePartitionId,
-                            IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
-                        return null;
-                    }
-
-                    @Override
-                    public void enlistResultFuture(CompletableFuture<?> resultFuture) {}
-
-                    @Override
-                    public void commit() throws TransactionException {
-
-                    }
-
-                    @Override
-                    public CompletableFuture<Void> commitAsync() {
-                        return CompletableFuture.completedFuture(null);
-                    }
-
-                    @Override
-                    public void rollback() throws TransactionException {
-
-                    }
-
-                    @Override
-                    public CompletableFuture<Void> rollbackAsync() {
-                        return CompletableFuture.completedFuture(null);
-                    }
-
-                    @Override
-                    public boolean isReadOnly() {
-                        return false;
-                    }
-
-                    @Override
-                    public HybridTimestamp readTimestamp() {
-                        return null;
-                    }
-
-                    @Override
-                    public HybridTimestamp startTimestamp() {
-                        return timestamp;
-                    }
-                });
-            }
-        };
+        return new IgniteTransactionsImpl(txMgr);
     }
 
     /** {@inheritDoc} */
@@ -200,5 +109,9 @@ public class FakeIgnite implements Ignite {
     @Override
     public String name() {
         return name;
+    }
+
+    public FakeTxManager txManager() {
+        return txMgr;
     }
 }

@@ -341,7 +341,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
+        Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
+                metaStorageMgr.registerRevisionUpdateListener(function::apply);
+
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
+                null,
                 zonesConfig,
                 tablesConfig,
                 metaStorageMgr,
@@ -1014,9 +1018,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 DEFAULT_CLIENT_PORT + 11
         );
 
-        PartialNode partialNode = startPartialNode(1, cfgString);
+        IgniteImpl node1 = startNode(1, cfgString);
 
-        TableManager tableManager = findComponent(partialNode.startedComponents(), TableManager.class);
+        TableManager tableManager = (TableManager) node1.tables();
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
     }
@@ -1041,9 +1045,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         log.info("Starting the node.");
 
-        PartialNode partialNode = startPartialNode(nodes.size() - 1, null);
+        IgniteImpl node = startNode(nodes.size() - 1, null);
 
-        TableManager tableManager = findComponent(partialNode.startedComponents(), TableManager.class);
+        log.info("After starting the node.");
+
+        TableManager tableManager = (TableManager) node.tables();
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
         assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());

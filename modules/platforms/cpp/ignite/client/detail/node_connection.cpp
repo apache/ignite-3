@@ -91,6 +91,9 @@ void node_connection::process_message(bytes_view msg) {
     auto flags = reader.read_int32();
     UNUSED_VALUE flags; // Flags are unused for now.
 
+    auto observable_timestamp = reader.read_int64();
+    UNUSED_VALUE observable_timestamp; // // TODO IGNITE-20057 C++ client: Track observable timestamp
+
     auto handler = get_and_remove_handler(req_id);
     if (!handler) {
         m_logger->log_error("Missing handler for request with id=" + std::to_string(req_id));
