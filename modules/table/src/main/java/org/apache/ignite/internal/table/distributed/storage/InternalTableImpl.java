@@ -1114,26 +1114,27 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public List<PrimaryReplica> primaryReplicas() {
+    public CompletableFuture<List<PrimaryReplica>> primaryReplicas() {
         List<Entry<RaftGroupService>> entries = new ArrayList<>(raftGroupServiceByPartitionId.int2ObjectEntrySet());
-        List<CompletableFuture<LeaderWithTerm>> futs = new ArrayList<>();
+        List<CompletableFuture<PrimaryReplica>> result = new ArrayList<>();
 
         entries.sort(Comparator.comparingInt(Entry::getIntKey));
 
         for (Entry<RaftGroupService> e : entries) {
-            futs.add(e.getValue().refreshAndGetLeaderWithTerm());
+            CompletableFuture<LeaderWithTerm> f = e.getValue().refreshAndGetLeaderWithTerm();
+
+            result.add(f.thenApply(lt -> {
+                ClusterNode node = clusterNodeResolver.apply(lt.leader().consistentId());
+                return new PrimaryReplica(node, lt.term());
+            }));
         }
 
-        List<PrimaryReplica> primaryReplicas = new ArrayList<>(entries.size());
+        CompletableFuture<Void> all = CompletableFuture.allOf(result.toArray(new CompletableFuture[0]));
 
-        for (CompletableFuture<LeaderWithTerm> fut : futs) {
-            LeaderWithTerm leaderWithTerm = fut.join();
-            ClusterNode primaryNode = clusterNodeResolver.apply(leaderWithTerm.leader().consistentId());
-
-            primaryReplicas.add(new PrimaryReplica(primaryNode, leaderWithTerm.term()));
-        }
-
-        return primaryReplicas;
+        return all.thenApply(v -> result.stream()
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList())
+        );
     }
 
     @Override

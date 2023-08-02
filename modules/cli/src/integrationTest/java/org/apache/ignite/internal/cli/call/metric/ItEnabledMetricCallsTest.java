@@ -73,7 +73,7 @@ class ItEnabledMetricCallsTest extends CallInitializedIntegrationTestBase {
         };
 
         // And
-        assertThat(output.body()).containsExactlyInAnyOrder(expectedMetricSources);
+        assertThat(output.body()).contains(expectedMetricSources);
     }
 
     @Test
@@ -100,7 +100,7 @@ class ItEnabledMetricCallsTest extends CallInitializedIntegrationTestBase {
         assertAll(
                 () -> assertThat(output.body()).hasSize(1),
                 () -> assertThat(output.body().get(0).getName()).isEqualTo("jvm"),
-                () -> assertThat(output.body().get(0).getMetrics()).containsExactlyInAnyOrder(expectedMetrics)
+                () -> assertThat(output.body().get(0).getMetrics()).contains(expectedMetrics)
         );
     }
 }

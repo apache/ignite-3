@@ -420,8 +420,8 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public List<PrimaryReplica> primaryReplicas() {
-        throw new IgniteInternalException(new OperationNotSupportedException());
+    public CompletableFuture<List<PrimaryReplica>> primaryReplicas() {
+        return CompletableFuture.failedFuture(new IgniteInternalException(new OperationNotSupportedException()));
     }
 
     /** {@inheritDoc} */

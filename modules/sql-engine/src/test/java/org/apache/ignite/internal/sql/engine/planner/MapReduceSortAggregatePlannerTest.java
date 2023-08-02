@@ -176,7 +176,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                 .and(not(hasAggregate()))
                                 .and(hasGroups())
-                                .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                         ))
                 ),
                 disableRules
@@ -190,7 +190,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(not(hasAggregate()))
                                         .and(hasGroups())
-                                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                                 ))
                         ))
                 ),
@@ -226,7 +226,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_16,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                .and(input(isIndexScan("TEST", "val0")))
+                                .and(input(isIndexScan("TEST", "idx_val0")))
                         ))
                 ),
                 ArrayUtils.concat(disableRules, additionalRulesToDisable)
@@ -236,7 +236,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                        .and(input(isIndexScan("TEST", "val0")))
+                                        .and(input(isIndexScan("TEST", "idx_val0")))
                                 ))
                         ))
                 ),
@@ -570,7 +570,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                 .and(hasAggregate())
-                                .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                         ))
                 ),
                 disableRules
@@ -583,7 +583,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(hasAggregate())
-                                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                                 ))
                         ))
                 ),

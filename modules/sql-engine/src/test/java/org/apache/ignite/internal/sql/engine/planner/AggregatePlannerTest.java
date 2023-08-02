@@ -175,7 +175,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(not(hasAggregate()))
                         .and(hasGroups())
-                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                 ));
 
         assertPlan(TestCase.CASE_13A,
@@ -186,7 +186,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(not(hasAggregate()))
                                         .and(hasGroups())
-                                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                                 ))
                         ))
                 ));
@@ -228,7 +228,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         assertPlan(TestCase.CASE_16,
                 not(nodeOrAnyChild(isInstanceOf(IgniteSort.class)))
                         .and(nodeOrAnyChild(input(1, isInstanceOf(IgniteColocatedSortAggregate.class))
-                                .and(input(isIndexScan("TEST", "val0")))
+                                .and(input(isIndexScan("TEST", "idx_val0")))
                         )),
                 additionalRulesToDisable);
 
@@ -236,7 +236,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                        .and(input(isIndexScan("TEST", "val0")))
+                                        .and(input(isIndexScan("TEST", "idx_val0")))
                                 ))
                         ))
                 ),
@@ -516,7 +516,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(hasAggregate())
-                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                 )
         );
     }
@@ -527,7 +527,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(hasAggregate())
-                                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                                 ))
                         ))
                 )
