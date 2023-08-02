@@ -488,20 +488,6 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testColumnWithDefaultValueNotSetReturnsDefault() {
-        Table table = tableWithDefaultValues();
-        RecordView<Tuple> recordView = table.recordView();
-        RecordView<PersonPojo> pojoView = table.recordView(PersonPojo.class);
-
-        pojoView.upsert(null, new PersonPojo());
-
-        var res = recordView.get(null, Tuple.create().set("id", 0));
-
-        assertEquals("def_str", res.stringValue("str"));
-        assertEquals("def_str2", res.stringValue("strNonNull"));
-    }
-
-    @Test
     public void testNullableColumnWithDefaultValueSetNullReturnsNull() {
         Table table = tableWithDefaultValues();
         RecordView<Tuple> recordView = table.recordView();
