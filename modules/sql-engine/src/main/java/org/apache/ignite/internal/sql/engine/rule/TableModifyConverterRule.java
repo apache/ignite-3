@@ -30,6 +30,7 @@ import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
+import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.logical.LogicalTableModify;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
@@ -75,8 +76,10 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
 
         IgniteDistribution distribution = igniteTable.distribution();
 
-        distribution = distribution.apply(
-                Mappings.target(distribution.getKeys(), igniteTable.getRowType(cluster.getTypeFactory()).getFieldCount()));
+        if (rel.getOperation() == Operation.DELETE) {
+            distribution = distribution.apply(
+                    Mappings.target(distribution.getKeys(), igniteTable.getRowType(cluster.getTypeFactory()).getFieldCount()));
+        }
 
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
                 .replace(distribution)

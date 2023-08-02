@@ -146,11 +146,36 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         );
     }
 
+    @ParameterizedTest
+    @MethodSource("nonSingleDistributions")
+    public void testDelete(IgniteDistribution distribution) throws Exception {
+        // TODO
+        IgniteTable test1 = TestBuilders.table()
+                .name("TEST1")
+                .addKeyColumn("A", NativeTypes.INT32)
+                .addColumn("B", NativeTypes.INT32)
+                .addKeyColumn("C", NativeTypes.INT32)
+                .addColumn("D", NativeTypes.INT32)
+                .distribution(distribution)
+                .build();
+
+        IgniteSchema schema = createSchema(test1);
+
+        assertPlan("DELETE FROM TEST1 WHERE A = 1", schema,
+                nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(e -> e.distribution().equals(IgniteDistributions.single())))
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class))
+                                .and(hasChildThat(isInstanceOf(IgniteTableScan.class))))
+        );
+    }
+
     private static Stream<IgniteDistribution> distributions() {
         return Stream.of(
                 IgniteDistributions.single(),
                 IgniteDistributions.hash(List.of(0, 1)),
-                IgniteDistributions.affinity(0, 2, "0")
+                IgniteDistributions.affinity(0, 2, "0"),
+                IgniteDistributions.affinity(List.of(0, 2), 2, "0"),
+                IgniteDistributions.affinity(List.of(1, 3), 2, "0")
         );
     }
 
