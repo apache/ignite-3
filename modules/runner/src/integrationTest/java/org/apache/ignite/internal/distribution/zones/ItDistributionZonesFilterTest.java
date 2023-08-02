@@ -96,8 +96,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19955 also blocks this.
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
     @Test
     void testFilteredDataNodesPropagatedToStable() throws Exception {
         String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
@@ -130,18 +129,15 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
-        @Language("JSON") String secondNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have only 1 node,
-        // which pass the filter, when dataNodes from DistributionZoneManager will be used
         assertValueInStorage(
                 metaStorageManager,
                 stablePartAssignmentsKey(partId),
-                (v) -> ((Set<Assignment>) fromBytes(v))
-                        .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
-                Set.of(node(0).name(), node(1).name()),
-                TIMEOUT_MILLIS * 2
+                (v) -> ((Set<Assignment>) fromBytes(v)).size(),
+                1,
+                TIMEOUT_MILLIS
         );
+
+        @Language("JSON") String secondNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
         // This node pass the filter
         startNode(2, createStartConfig(secondNodeAttributes));
@@ -175,8 +171,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19955 also blocks this.
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
     @Test
     void testAlteringFiltersPropagatedDataNodesToStableImmediately() throws Exception {
         String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";
@@ -245,8 +240,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
      *
      * @throws Exception If failed.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19955 also blocks this.
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19955")
     @Test
     void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter() throws Exception {
         String filter = "'$[?(@.region == \"US\" && @.storage == \"SSD\")]'";

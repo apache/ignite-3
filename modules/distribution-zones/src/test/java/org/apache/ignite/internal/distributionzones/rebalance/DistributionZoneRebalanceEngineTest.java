@@ -36,6 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -81,6 +83,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -386,7 +389,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     ) throws Exception {
         completeTablesConfigs(tablesConfiguration);
 
-        when(distributionZoneManager.dataNodes(anyInt())).thenReturn(Set.of("node0"));
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
         keyValueStorage.put(stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(), toBytes(Set.of("node0")), someTimestamp());
 
@@ -423,7 +426,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     ) throws Exception {
         completeTablesConfigs(tablesConfiguration);
 
-        when(distributionZoneManager.dataNodes(anyInt())).thenReturn(Set.of("node0"));
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
         for (int i = 0; i < 25; i++) {
             keyValueStorage.put(stablePartAssignmentsKey(new TablePartitionId(1, i)).bytes(), toBytes(Set.of("node0")), someTimestamp());
@@ -461,6 +464,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                             }));
 
                             tableChange.changePrimaryKey(primaryKeyChange -> primaryKeyChange.changeColumns("k1"));
+
+                            ((ExtendedTableChange) tableChange).changeSchemaId(1);
                         }));
             });
         });

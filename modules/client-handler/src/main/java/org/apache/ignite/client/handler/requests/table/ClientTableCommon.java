@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
@@ -24,8 +25,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -39,13 +42,13 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -132,13 +135,27 @@ public class ClientTableCommon {
 
         assert tuple instanceof BinaryTupleContainer : "Tuple must be a BinaryTupleContainer: " + tuple.getClass();
         BinaryTupleReader binaryTuple = ((BinaryTupleContainer) tuple).binaryTuple();
-        assert binaryTuple != null : "Binary tuple must not be null: " + tuple.getClass();
 
         int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : schema.length();
-        assert elementCount == binaryTuple.elementCount() :
-                "Tuple element count mismatch: " + elementCount + " != " + binaryTuple.elementCount();
 
-        packer.packBinaryTuple(binaryTuple);
+        if (binaryTuple != null) {
+            assert elementCount == binaryTuple.elementCount() :
+                    "Tuple element count mismatch: " + elementCount + " != " + binaryTuple.elementCount() + " (" + tuple.getClass() + ")";
+
+            packer.packBinaryTuple(binaryTuple);
+        } else {
+            // Underlying binary tuple is not available or can't be used as is, pack columns one by one.
+            var builder = new BinaryTupleBuilder(elementCount);
+
+            for (var i = 0; i < elementCount; i++) {
+                var col = schema.column(i);
+                Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
+
+                ClientBinaryTupleUtils.appendValue(builder, getColumnType(col.type().spec()), col.name(), getDecimalScale(col.type()), v);
+            }
+
+            packer.packBinaryTuple(builder);
+        }
     }
 
     /**
@@ -350,16 +367,26 @@ public class ClientTableCommon {
      * Reads transaction.
      *
      * @param in Unpacker.
+     * @param out Packer.
      * @param resources Resource registry.
      * @return Transaction, if present, or null.
      */
-    public static @Nullable Transaction readTx(ClientMessageUnpacker in, ClientResourceRegistry resources) {
+    public static @Nullable InternalTransaction readTx(
+            ClientMessageUnpacker in, ClientMessagePacker out, ClientResourceRegistry resources) {
         if (in.tryUnpackNil()) {
             return null;
         }
 
         try {
-            return resources.get(in.unpackLong()).get(Transaction.class);
+            var tx = resources.get(in.unpackLong()).get(InternalTransaction.class);
+
+            if (tx != null && tx.isReadOnly()) {
+                // For read-only tx, override observable timestamp that we send to the client:
+                // use readTimestamp() instead of now().
+                out.meta(tx.readTimestamp());
+            }
+
+            return tx;
         } catch (IgniteInternalCheckedException e) {
             throw new IgniteException(e.traceId(), e.code(), e.getMessage(), e);
         }

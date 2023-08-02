@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -59,6 +60,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -208,6 +211,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @InjectConfiguration
     private RocksDbStorageEngineConfiguration rocksDbEngineConfig;
 
+    @InjectConfiguration
+    private MetricConfiguration metricConfiguration;
+
     @Mock
     private ConfigurationRegistry configRegistry;
 
@@ -218,6 +224,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     private SchemaManager schemaManager;
 
     private CatalogManager catalogManager;
+
+    private MetricManager metricManager;
 
     /** Returns current method name. */
     private static String getCurrentMethodName() {
@@ -295,11 +303,18 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(distributionZoneManager.getZoneId(ZONE_NAME)).thenReturn(ZONE_ID);
         when(distributionZoneManager.zoneIdAsyncInternal(ZONE_NAME)).thenReturn(completedFuture(ZONE_ID));
 
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(completedFuture(emptySet()));
+
         tblManager = mockManagers();
 
         idxManager = new IndexManager(tblsCfg, schemaManager, tblManager);
 
         idxManager.start();
+
+        metricManager = new MetricManager();
+        metricManager.configure(metricConfiguration);
+
+        metricManager.start();
 
         queryProc = new SqlQueryProcessor(
                 revisionUpdater,
@@ -318,7 +333,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ),
                 mock(ReplicaService.class),
                 clock,
-                catalogManager
+                catalogManager,
+                metricManager
         );
 
         queryProc.start();
