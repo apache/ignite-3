@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -32,7 +33,6 @@ import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.schema.NativeType;
@@ -46,6 +46,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Description;
@@ -198,7 +199,7 @@ public class StatementChecker {
             String col3, NativeType type3) {
 
         testTables.put(tableName, table -> {
-            return table.name(tableName.toUpperCase(Locale.US))
+            return table.name(tableName)
                     .addColumn(col1.toUpperCase(Locale.US), type1)
                     .addColumn(col2.toUpperCase(Locale.US), type2)
                     .addColumn(col3.toUpperCase(Locale.US), type3)
@@ -351,17 +352,17 @@ public class StatementChecker {
     }
 
     private IgniteSchema createSchema() {
-        Map<String, Table> tableMap = new HashMap<>();
+        List<IgniteTable> tables = new ArrayList<>();
         for (Map.Entry<String, Function<TestBuilders.TableBuilder, TestTable>> entry : testTables.entrySet()) {
             String tableName = entry.getKey();
             Function<TableBuilder, TestTable> addTable = entry.getValue();
 
             TestTable table = addTable.apply(TestBuilders.table().name(tableName));
 
-            tableMap.put(tableName, table);
+            tables.add(table);
         }
 
-        return new IgniteSchema("PUBLIC", 0, tableMap);
+        return new IgniteSchema("PUBLIC", 0, tables);
     }
 
     private DynamicTest shouldPass(String name, Throwable exception, Consumer<IgniteRel> check) {

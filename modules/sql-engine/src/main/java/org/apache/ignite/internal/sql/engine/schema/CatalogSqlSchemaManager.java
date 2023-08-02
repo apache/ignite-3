@@ -20,9 +20,10 @@ package org.apache.ignite.internal.sql.engine.schema;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -33,7 +34,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -99,7 +99,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         String schemaName = descriptor.name();
 
         int numTables = descriptor.tables().length;
-        Map<String, Table> schemaTables = new HashMap<>(numTables);
+        List<IgniteTable> schemaTables = new ArrayList<>(numTables);
         Map<Integer, TableDescriptorImpl> tableDescriptorMap = new LinkedHashMap<>(numTables);
 
         // Assemble sql-engine.TableDescriptors as they are required by indexes.
@@ -108,7 +108,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             tableDescriptorMap.put(tableDescriptor.id(), descriptorImpl);
         }
 
-        Map<Integer, Map<String, IgniteSchemaIndex>> schemaTableIndexes = new HashMap<>(descriptor.indexes().length);
+        Int2ObjectMap<List<IgniteSchemaIndex>> schemaTableIndexes = new Int2ObjectArrayMap<>(descriptor.indexes().length);
 
         // Assemble indexes as they are required by tables.
         for (CatalogIndexDescriptor indexDescriptor : descriptor.indexes()) {
@@ -116,11 +116,11 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             TableDescriptorImpl tableDescriptorImpl = tableDescriptorMap.get(tableId);
             assert tableDescriptorImpl != null : "Table is not found in schema: " + tableId;
 
-            Map<String, IgniteSchemaIndex> tableIndexes = schemaTableIndexes.computeIfAbsent(tableId, id -> new LinkedHashMap<>());
+            List<IgniteSchemaIndex> tableIndexes = schemaTableIndexes.computeIfAbsent(tableId, id -> new ArrayList<>());
 
             IgniteSchemaIndex schemaIndex = createSchemaIndex(indexDescriptor, tableDescriptorImpl);
 
-            tableIndexes.put(schemaIndex.name(), schemaIndex);
+            tableIndexes.add(schemaIndex);
 
             schemaTableIndexes.put(tableId, tableIndexes);
         }
@@ -133,11 +133,11 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             assert descriptorImpl != null;
 
             IgniteStatistic statistic = new IgniteStatistic(() -> 0.0d, descriptorImpl.distribution());
-            Map<String, IgniteSchemaIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyMap());
+            List<IgniteSchemaIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyList());
 
             IgniteSchemaTable schemaTable = new IgniteSchemaTable(tableName, tableId, version, descriptorImpl, statistic, tableIndexMap);
 
-            schemaTables.put(tableName, schemaTable);
+            schemaTables.add(schemaTable);
         }
 
         // create root schema

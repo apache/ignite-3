@@ -44,6 +44,11 @@ public final class TestExecutableTableRegistry implements ExecutableTableRegistr
         return CompletableFuture.completedFuture(new TestExecutableTable(tableId, colocationGroupProvider));
     }
 
+    @Override
+    public CompletableFuture<ExecutableTable> getTable(int tableId, String tableName, TableDescriptor tableDescriptor) {
+        return CompletableFuture.completedFuture(new TestExecutableTable(tableId, colocationGroupProvider));
+    }
+
     private static final class TestExecutableTable implements ExecutableTable {
 
         private final int tableId;

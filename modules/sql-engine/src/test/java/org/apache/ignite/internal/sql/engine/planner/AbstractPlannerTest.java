@@ -37,7 +37,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -69,7 +68,6 @@ import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlNode;
@@ -630,9 +628,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * @return Schema with given name.
      */
     protected static IgniteSchema createSchema(String schemaName, IgniteTable... tbls) {
-        Map<String, Table> tableMap = Arrays.stream(tbls).collect(Collectors.toMap(IgniteTable::name, Function.identity()));
-
-        return new IgniteSchema(schemaName, 0, tableMap);
+        return new IgniteSchema(schemaName, 0, Arrays.asList(tbls));
     }
 
     protected void checkSplitAndSerialization(IgniteRel rel, IgniteSchema publicSchema) {

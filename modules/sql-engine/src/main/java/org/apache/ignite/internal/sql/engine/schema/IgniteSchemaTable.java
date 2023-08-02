@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -59,14 +61,14 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
 
     /** Constructor. */
     public IgniteSchemaTable(String name, int tableId, int version, TableDescriptor desc,
-            IgniteStatistic statistic, Map<String, IgniteSchemaIndex> indexMap) {
+            IgniteStatistic statistic, List<IgniteSchemaIndex> indexes) {
 
         this.id = tableId;
         this.name = name;
         this.desc = desc;
         this.version = version;
         this.statistic = statistic;
-        this.indexMap = indexMap;
+        this.indexMap = indexes.stream().collect(Collectors.toUnmodifiableMap(t -> t.name().toUpperCase(), Function.identity()));
     }
 
     /** {@inheritDoc} */

@@ -71,6 +71,12 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         return tableCache.computeIfAbsent(tableId, (k) -> loadTable(k, tableDescriptor));
     }
 
+    @Override
+    public CompletableFuture<ExecutableTable> getTable(int tableId, String tableName, TableDescriptor tableDescriptor) {
+        return tableManager.tableAsyncInternal(tableName.toUpperCase())
+                .thenCompose(tbl -> loadTable(tbl.tableId(), tableDescriptor));
+    }
+
     /** {@inheritDoc} */
     @Override
     public void onSchemaUpdated() {

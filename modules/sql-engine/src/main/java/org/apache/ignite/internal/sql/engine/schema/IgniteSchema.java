@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.jetbrains.annotations.TestOnly;
@@ -32,19 +36,19 @@ public class IgniteSchema extends AbstractSchema {
 
     private final int version;
 
-    private final Map<String, Table> tableMap;
+    private final Map<String, IgniteTable> tableMap;
 
     /** Constructor. */
-    public IgniteSchema(String name, int version, Map<String, Table> tableMap) {
+    public IgniteSchema(String name, int version, Collection<IgniteTable> tables) {
         this.name = name;
         this.version = version;
-        this.tableMap = tableMap;
+        this.tableMap = tables.stream().collect(Collectors.toMap(t -> t.name().toUpperCase(), Function.identity()));
     }
 
     /** Constructor. */
     @TestOnly
     public IgniteSchema(String name) {
-        this(name, 0, Map.of());
+        this(name, 0, List.of());
     }
 
 
@@ -68,7 +72,6 @@ public class IgniteSchema extends AbstractSchema {
     public IgniteTable getTable(int tableId) {
         //TODO: optimize this
         return tableMap.values().stream()
-                .map(IgniteTable.class::cast)
                 .filter(t -> t.id() == tableId)
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("No table found: tableId=" + tableId));

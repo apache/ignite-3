@@ -139,7 +139,7 @@ public class ExecutionServiceImplTest {
     private final TestTable table = createTable("TEST_TBL", 1_000_000, IgniteDistributions.random(),
             "ID", NativeTypes.INT32, "VAL", NativeTypes.INT32);
 
-    private final IgniteSchema schema = new IgniteSchema("PUBLIC", SCHEMA_VERSION, Map.of(table.name(), table));
+    private final IgniteSchema schema = new IgniteSchema("PUBLIC", SCHEMA_VERSION, List.of(table));
 
     private final List<CapturingMailboxRegistry> mailboxes = new ArrayList<>();
 
@@ -878,7 +878,7 @@ public class ExecutionServiceImplTest {
                 new TableDescriptorImpl(columns, distr),
                 name,
                 size,
-                Map.of()
+                List.of()
         ) {
 
         };

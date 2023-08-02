@@ -81,8 +81,10 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             private void resolveTable(IgniteTable igniteTable) {
                 int tableId = igniteTable.id();
                 TableDescriptor tableDescriptor = igniteTable.descriptor();
+                //TODO IGNITE-19499 Use id instead of name.
+                String tableName = igniteTable.name();
 
-                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable(tableId, tableDescriptor));
+                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable(tableId, tableName, tableDescriptor));
             }
         };
 

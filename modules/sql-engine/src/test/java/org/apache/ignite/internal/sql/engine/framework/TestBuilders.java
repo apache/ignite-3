@@ -34,7 +34,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -353,11 +352,11 @@ public class TestBuilders {
                 }
             }
 
-            Map<String, Table> tableMap = tableBuilders.stream()
+            Map<String, IgniteTable> tableMap = tableBuilders.stream()
                     .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
-            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", SCHEMA_VERSION, tableMap));
+            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", SCHEMA_VERSION, tableMap.values()));
             var colocationGroupProvider = new TestColocationGroupProvider(tableBuilders, tableMap, nodeNames);
 
             Map<String, TestNode> nodes = nodeNames.stream()
@@ -429,9 +428,9 @@ public class TestBuilders {
 
             TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
 
-            Map<String, IgniteSchemaIndex> indexMap = indexBuilders.stream()
+            List<IgniteSchemaIndex> indexMap = indexBuilders.stream()
                     .map(idx -> idx.build(tableDescriptor))
-                    .collect(Collectors.toMap(TestIndex::name, Function.identity()));
+                    .collect(Collectors.toList());
 
             return new TestTable(
                     tableDescriptor,
@@ -484,11 +483,11 @@ public class TestBuilders {
         private TestTable build() {
             TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
 
-            Map<String, IgniteSchemaIndex> indexMap = indexBuilders.stream()
+            List<IgniteSchemaIndex> indexes = indexBuilders.stream()
                     .map(idx -> idx.build(tableDescriptor))
-                    .collect(Collectors.toMap(TestIndex::name, Function.identity()));
+                    .collect(Collectors.toList());
 
-            return new TestTable(tableDescriptor, name, size, indexMap, dataProviders);
+            return new TestTable(tableDescriptor, name, size, indexes, dataProviders);
         }
     }
 
@@ -877,11 +876,11 @@ public class TestBuilders {
 
         private final Map<Integer, CompletableFuture<ColocationGroup>> groups = new HashMap<>();
 
-        TestColocationGroupProvider(List<ClusterTableBuilderImpl> tableBuilders, Map<String, Table> tableMap, List<String> nodeNames) {
+        TestColocationGroupProvider(List<ClusterTableBuilderImpl> tableBuilders, Map<String, IgniteTable> tableMap,
+                List<String> nodeNames) {
 
             for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
-                Table table = tableMap.get(tableBuilder.name);
-                IgniteTable igniteTable = (IgniteTable) table;
+                IgniteTable table = tableMap.get(tableBuilder.name);
                 CompletableFuture<ColocationGroup> f;
 
                 if (!tableBuilder.dataProviders.isEmpty()) {
@@ -893,7 +892,7 @@ public class TestBuilders {
                     f = CompletableFuture.completedFuture(ColocationGroup.forNodes(nodeNames));
                 }
 
-                groups.put(igniteTable.id(), f);
+                groups.put(table.id(), f);
             }
         }
 

@@ -22,6 +22,8 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -68,9 +70,9 @@ public class TestTable implements IgniteTable {
             TableDescriptor descriptor,
             String name,
             double rowCnt,
-            Map<String, IgniteSchemaIndex> indexMap
+            List<IgniteSchemaIndex> indexes
     ) {
-        this(descriptor, name, rowCnt, indexMap, Map.of());
+        this(descriptor, name, rowCnt, indexes, Map.of());
     }
 
     /** Constructor. */
@@ -78,14 +80,14 @@ public class TestTable implements IgniteTable {
             TableDescriptor descriptor,
             String name,
             double rowCnt,
-            Map<String, IgniteSchemaIndex> indexMap,
+            List<IgniteSchemaIndex> indexList,
             Map<String, DataProvider<?>> dataProviders
     ) {
         this.descriptor = descriptor;
         this.name = name;
         this.rowCnt = rowCnt;
         this.dataProviders = dataProviders;
-        indexes = indexMap;
+        indexes = indexList.stream().collect(Collectors.toUnmodifiableMap(IgniteIndex::name, Function.identity()));
     }
 
     /**
