@@ -199,6 +199,12 @@ public class AbstractClientTableTest extends AbstractClientTest {
     }
 
     /** Partial column set. */
+    protected static class IncompleteKeyPojo {
+        public String id;
+        public int gid;
+    }
+
+    /** Partial column set. */
     protected static class IncompletePojoNullable {
         public int gid;
         public String id;
