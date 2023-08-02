@@ -24,6 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Collections;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -71,7 +74,14 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
     }
 
     private void checkCachePlanStatistics(String qry, PrepareService prepareService, MetricSet metricSet, int hits, int misses) {
-        IgniteSchema schema = createSchema(createTable("T", 10, IgniteDistributions.single(), "A", Integer.class, "B", Integer.class));
+        TestTable table = TestBuilders.table()
+                .name("T")
+                .addColumn("A", NativeTypes.INT32, false)
+                .addColumn("B", NativeTypes.INT32, false)
+                .distribution(IgniteDistributions.single())
+                .build();
+
+        IgniteSchema schema = createSchema(table);
         BaseQueryContext ctx = baseQueryContext(Collections.singletonList(schema), null);
 
         ParserService parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
@@ -83,5 +93,4 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
         assertEquals(String.valueOf(hits), metricSet.get("Hits").getValueAsString());
         assertEquals(String.valueOf(misses), metricSet.get("Misses").getValueAsString());
     }
-
 }
