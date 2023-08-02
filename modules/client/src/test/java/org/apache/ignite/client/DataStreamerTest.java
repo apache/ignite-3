@@ -119,14 +119,14 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
     @Test
     public void testBasicStreamingKvPojoView() {
-        KeyValueView<Long, PersonPojo> view = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(PersonPojo.class));
+        KeyValueView<Long, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(PersonValPojo.class));
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Map.Entry<Long, PersonPojo>>()) {
+        try (var publisher = new SubmissionPublisher<Map.Entry<Long, PersonValPojo>>()) {
             streamerFut = view.streamData(publisher, null);
 
-            publisher.submit(Map.entry(1L, new PersonPojo(1L, "foo")));
-            publisher.submit(Map.entry(2L, new PersonPojo(2L, "bar")));
+            publisher.submit(Map.entry(1L, new PersonValPojo("foo")));
+            publisher.submit(Map.entry(2L, new PersonValPojo("bar")));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();

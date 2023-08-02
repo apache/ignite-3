@@ -171,6 +171,18 @@ public class AbstractClientTableTest extends AbstractClientTest {
         }
     }
 
+    protected static class PersonValPojo {
+        public String name;
+
+        public PersonValPojo() {
+            // No-op.
+        }
+
+        public PersonValPojo(String name) {
+            this.name = name;
+        }
+    }
+
     /** Name column. */
     protected static class NamePojo {
         public String name;
