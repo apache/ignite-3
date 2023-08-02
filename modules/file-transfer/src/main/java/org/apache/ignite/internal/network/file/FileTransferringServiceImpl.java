@@ -28,9 +28,13 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.configuration.FileTransferringConfiguration;
 import org.apache.ignite.internal.network.file.messages.FileChunk;
 import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
 import org.apache.ignite.internal.network.file.messages.FileDownloadResponse;
@@ -40,6 +44,7 @@ import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
 import org.apache.ignite.internal.network.file.messages.FileTransferringMessageType;
 import org.apache.ignite.internal.network.file.messages.FileUploadRequest;
 import org.apache.ignite.internal.network.file.messages.TransferMetadata;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.FilesUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ChannelType;
@@ -52,8 +57,6 @@ import org.apache.ignite.network.annotations.Transferable;
 public class FileTransferringServiceImpl implements FileTransferringService {
     private static final IgniteLogger LOG = Loggers.forClass(FileTransferringServiceImpl.class);
 
-    private static final int CHUNK_SIZE = 1024 * 1024;
-    private static final int CONCURRENT_REQUESTS = 10;
     private static final ChannelType FILE_TRANSFERRING_CHANNEL = ChannelType.register((short) 1, "FileTransferring");
 
     /**
@@ -61,7 +64,7 @@ public class FileTransferringServiceImpl implements FileTransferringService {
      */
     private final MessagingService messagingService;
 
-    private final Path tempDirectory;
+    private final ExecutorService executorService;
 
     private final FileSender fileSender;
 
@@ -79,13 +82,24 @@ public class FileTransferringServiceImpl implements FileTransferringService {
      * @param messagingService Messaging service.
      * @param tempDirectory Temporary directory.
      */
-    public FileTransferringServiceImpl(String nodeName, MessagingService messagingService, Path tempDirectory) {
+    public FileTransferringServiceImpl(
+            String nodeName,
+            MessagingService messagingService,
+            FileTransferringConfiguration configuration,
+            Path tempDirectory
+    ) {
         this.messagingService = messagingService;
-        this.tempDirectory = tempDirectory;
-        this.fileSender = new FileSender(nodeName, CHUNK_SIZE, new RateLimiter(CONCURRENT_REQUESTS), (recipientConsistentId, message) -> {
-            return messagingService.send(recipientConsistentId, FILE_TRANSFERRING_CHANNEL, message);
-        });
-        this.fileReceiver = new FileReceiver(tempDirectory, nodeName);
+        this.executorService = Executors.newFixedThreadPool(
+                configuration.value().threadPoolSize(),
+                NamedThreadFactory.create(nodeName, "file-transfer", LOG)
+        );
+        this.fileSender = new FileSender(
+                configuration.value().chunkSize(),
+                new RateLimiter(configuration.value().maxConcurrentRequests()),
+                (recipientConsistentId, message) -> messagingService.send(recipientConsistentId, FILE_TRANSFERRING_CHANNEL, message),
+                executorService
+        );
+        this.fileReceiver = new FileReceiver(tempDirectory, executorService);
     }
 
     @Override
@@ -132,14 +146,7 @@ public class FileTransferringServiceImpl implements FileTransferringService {
                         return completedFuture(null);
                     }
 
-                    if (files.isEmpty()) {
-                        LOG.error("No files found for download. Metadata: {}", message.metadata());
-                        // todo send error response
-                        return completedFuture(null);
-                    }
-
                     FileDownloadResponse response = factory.fileDownloadResponse().build();
-
                     return messagingService.respond(senderConsistentId, FILE_TRANSFERRING_CHANNEL, response, correlationId)
                             .thenCompose(v -> sendFiles(senderConsistentId, message.transferId(), files));
                 })
@@ -170,6 +177,7 @@ public class FileTransferringServiceImpl implements FileTransferringService {
 
     @Override
     public void stop() throws Exception {
+        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
         IgniteUtils.closeAllManually(Stream.of(fileSender, fileReceiver));
     }
 
@@ -225,8 +233,12 @@ public class FileTransferringServiceImpl implements FileTransferringService {
                             .metadata(transferMetadata)
                             .build();
 
-                    return messagingService.send(nodeConsistentId, FILE_TRANSFERRING_CHANNEL, message)
-                            .thenCompose(v -> sendFiles(nodeConsistentId, transferId, files));
+                    if (files.isEmpty()) {
+                        return failedFuture(new FileTransferException("No files to upload"));
+                    } else {
+                        return messagingService.send(nodeConsistentId, FILE_TRANSFERRING_CHANNEL, message)
+                                .thenCompose(v -> sendFiles(nodeConsistentId, transferId, files));
+                    }
                 });
     }
 

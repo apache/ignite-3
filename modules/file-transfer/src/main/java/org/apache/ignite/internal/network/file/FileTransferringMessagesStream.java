@@ -64,10 +64,6 @@ public class FileTransferringMessagesStream implements ManuallyCloseable {
             List<File> filesToSend,
             int chunkSize
     ) {
-        if (filesToSend.isEmpty()) {
-            throw new IllegalArgumentException("Files to send cannot be empty.");
-        }
-
         if (chunkSize <= 0) {
             throw new IllegalArgumentException("Chunk size must be positive.");
         }

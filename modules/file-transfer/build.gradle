@@ -26,6 +26,7 @@ dependencies {
 
     implementation project(':ignite-core')
     implementation project(':ignite-network')
+    implementation project(':ignite-configuration-api')
     implementation libs.jetbrains.annotations
 
     testImplementation(testFixtures(project))
@@ -35,6 +36,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))
+    integrationTestImplementation(testFixtures(project(':ignite-configuration')))
     integrationTestImplementation libs.hamcrest.core
     integrationTestImplementation libs.awaitility
 

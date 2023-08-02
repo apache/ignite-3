@@ -58,7 +58,21 @@ class FileTransferringMessagesStreamTest {
         List<File> filesToSend = List.of();
         int chunkSize = 1024 * 1024; // 1 MB
 
-        assertThrows(IllegalArgumentException.class, () -> new FileTransferringMessagesStream(transferId, filesToSend, chunkSize));
+
+        FileTransferringMessagesStream stream = new FileTransferringMessagesStream(transferId, filesToSend, chunkSize);
+
+        try {
+            // check transfer FileTransferInfo
+            assertTrue(stream.hasNextMessage());
+            FileTransferInfo info = (FileTransferInfo) stream.nextMessage();
+            assertEquals(transferId, info.transferId());
+            assertEquals(0, info.filesCount());
+
+            // check the stream is empty
+            assertFalse(stream.hasNextMessage());
+        } finally {
+            stream.close();
+        }
     }
 
     @Test

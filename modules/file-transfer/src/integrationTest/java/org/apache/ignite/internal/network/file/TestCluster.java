@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.configuration.FileTransferringConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -52,24 +53,27 @@ public class TestCluster {
     /** Node finder. */
     private final NodeFinder nodeFinder;
 
+    private final FileTransferringConfiguration configuration;
+
     /**
      * Creates a test cluster with the given amount of members.
      *
      * @param numOfNodes Amount of cluster members.
      * @param testInfo Test info.
      */
-    TestCluster(int numOfNodes, Path workDir, TestInfo testInfo) {
-        startupLatch = new CountDownLatch(numOfNodes - 1);
+    TestCluster(int numOfNodes, FileTransferringConfiguration configuration, Path workDir, TestInfo testInfo) {
+        this.startupLatch = new CountDownLatch(numOfNodes - 1);
 
         int initialPort = 3344;
 
         List<NetworkAddress> addresses = findLocalAddresses(initialPort, initialPort + numOfNodes);
 
         this.nodeFinder = new StaticNodeFinder(addresses);
+        this.configuration = configuration;
 
         var isInitial = new AtomicBoolean(true);
 
-        members = addresses.stream()
+        this.members = addresses.stream()
                 .map(addr -> startNode(workDir, testInfo, addr, isInitial.getAndSet(false)))
                 .collect(toUnmodifiableList());
     }
@@ -102,6 +106,7 @@ public class TestCluster {
             FileTransferringServiceImpl fileTransferringService = new FileTransferringServiceImpl(
                     clusterSvc.nodeName(),
                     clusterSvc.messagingService(),
+                    configuration,
                     nodeDir
             );
             return new Node(nodeDir, clusterSvc, fileTransferringService);

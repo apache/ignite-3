@@ -48,7 +48,14 @@ class FileTransferringMessagesHandler implements ManuallyCloseable {
         if (result.isDone()) {
             throw new IllegalStateException("Received file transfer info after result is already done.");
         }
-        filesCount.set(info.filesCount());
+
+        if (filesCount.get() != -1) {
+            throw new IllegalStateException("Received file transfer info twice.");
+        } else if (info.filesCount() == 0) {
+            result.complete(dir);
+        } else {
+            filesCount.set(info.filesCount());
+        }
     }
 
     void receiveFileHeader(FileHeader header) {

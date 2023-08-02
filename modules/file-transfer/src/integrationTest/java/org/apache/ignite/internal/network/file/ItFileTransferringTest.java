@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.network.file.FileGenerator.randomFile;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.collection.IsArrayWithSize.emptyArray;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,11 +31,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.network.configuration.FileTransferringConfiguration;
 import org.apache.ignite.internal.network.file.TestCluster.Node;
 import org.apache.ignite.internal.network.file.messages.TransferMetadata;
 import org.apache.ignite.internal.network.file.messages.TransferMetadataImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,17 +49,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Integration tests for file transferring.
  */
+@ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItFileTransferringTest {
 
     @WorkDirectory
     private Path workDir;
 
+    @InjectConfiguration
+    private FileTransferringConfiguration configuration;
+
     private TestCluster cluster;
 
     @BeforeEach
     void setUp(TestInfo testInfo) throws InterruptedException {
-        cluster = new TestCluster(2, workDir, testInfo);
+        cluster = new TestCluster(2, configuration, workDir, testInfo);
         cluster.startAwait();
     }
 
@@ -72,9 +81,10 @@ public class ItFileTransferringTest {
         Path unitPath = node0.workDir().resolve(unit).resolve(version);
         Files.createDirectories(unitPath);
 
-        File file1 = randomFile(unitPath, 1024 * 1024 * 10).toFile();
-        File file2 = randomFile(unitPath, 1024 * 1024 * 10 + 1).toFile();
-        File file3 = randomFile(unitPath, 1024 * 1024 * 10 - 1).toFile();
+        int chunkSize = configuration.value().chunkSize();
+        File file1 = randomFile(unitPath, chunkSize - 1).toFile();
+        File file2 = randomFile(unitPath, chunkSize + 1).toFile();
+        File file3 = randomFile(unitPath, chunkSize * 2).toFile();
 
         node0.fileTransferringService().addFileProvider(
                 TransferMetadata.class,
@@ -90,6 +100,23 @@ public class ItFileTransferringTest {
     }
 
     @Test
+    void downloadEmptyFileList() {
+        Node node0 = cluster.members.get(0);
+
+        node0.fileTransferringService().addFileProvider(
+                TransferMetadata.class,
+                req -> completedFuture(List.of())
+        );
+
+        Node node1 = cluster.members.get(1);
+        CompletableFuture<Path> download = node1.fileTransferringService().download(
+                node0.nodeName(),
+                TransferMetadataImpl.builder().build()
+        );
+        assertThat(download.thenAccept(path -> assertThat(path.toFile().listFiles(), emptyArray())), willCompleteSuccessfully());
+    }
+
+    @Test
     void upload() throws IOException {
         Node node0 = cluster.members.get(0);
 
@@ -98,9 +125,10 @@ public class ItFileTransferringTest {
         Path unitPath = node0.workDir().resolve(unit).resolve(version);
         Files.createDirectories(unitPath);
 
-        File file1 = randomFile(unitPath, 1024 * 1024 * 10).toFile();
-        File file2 = randomFile(unitPath, 1024 * 1024 * 10 + 1).toFile();
-        File file3 = randomFile(unitPath, 1024 * 1024 * 10 - 1).toFile();
+        int chunkSize = configuration.value().chunkSize();
+        File file1 = randomFile(unitPath, chunkSize - 1).toFile();
+        File file2 = randomFile(unitPath, chunkSize + 1).toFile();
+        File file3 = randomFile(unitPath, chunkSize * 2).toFile();
 
         node0.fileTransferringService().addFileProvider(
                 TransferMetadata.class,
@@ -122,5 +150,23 @@ public class ItFileTransferringTest {
                 willCompleteSuccessfully()
         );
         await().until(() -> !Files.exists(uploadedFilesDirFuture.get()));
+    }
+
+    @Test
+    void uploadEmptyFileList() {
+        Node node0 = cluster.members.get(0);
+
+        node0.fileTransferringService().addFileProvider(
+                TransferMetadata.class,
+                req -> completedFuture(List.of())
+        );
+
+        Node node1 = cluster.members.get(1);
+
+        assertThat(
+                node0.fileTransferringService().upload(node1.nodeName(), TransferMetadataImpl.builder().build()),
+                CompletableFutureExceptionMatcher.willThrow(FileTransferException.class, "No files to upload")
+        );
+
     }
 }

@@ -19,8 +19,6 @@ package org.apache.ignite.internal.network.file;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.Executors.newSingleThreadExecutor;
-import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -30,14 +28,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.file.messages.FileChunk;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.FilesUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 
@@ -53,11 +49,9 @@ class FileReceiver implements ManuallyCloseable {
 
     private final Map<UUID, FileTransferringMessagesHandler> transferIdToHandler = new ConcurrentHashMap<>();
 
-    FileReceiver(Path tempDirectory, String nodeName) {
+    FileReceiver(Path tempDirectory, ExecutorService executorService) {
         this.tempDirectory = tempDirectory;
-        this.executorService = newSingleThreadExecutor(
-                NamedThreadFactory.create(nodeName, "FileReceiverExecutor", LOG)
-        );
+        this.executorService = executorService;
     }
 
     private CompletableFuture<FileTransferringMessagesHandler> createHandler(UUID transferId) {
@@ -155,7 +149,6 @@ class FileReceiver implements ManuallyCloseable {
 
     @Override
     public void close() throws Exception {
-        shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
         IgniteUtils.closeAllManually(transferIdToHandler.values());
     }
 }
