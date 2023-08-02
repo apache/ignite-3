@@ -71,10 +71,22 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         return tableCache.computeIfAbsent(tableId, (k) -> loadTable(k, tableDescriptor));
     }
 
+    // TODO IGNITE-19499: Drop this temporal method to get table by name.
     @Override
     public CompletableFuture<ExecutableTable> getTable(int tableId, String tableName, TableDescriptor tableDescriptor) {
         return tableManager.tableAsyncInternal(tableName.toUpperCase())
-                .thenCompose(tbl -> loadTable(tbl.tableId(), tableDescriptor));
+                .thenApply(table -> {
+                    InternalTable internalTable = table.internalTable();
+                    SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(table.tableId());
+                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
+                    TableRowConverter rowConverter = new TableRowConverterImpl(schemaRegistry, schemaDescriptor, tableDescriptor);
+                    ScannableTable scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
+
+                    UpdatableTableImpl updatableTable = new UpdatableTableImpl(table.tableId(), tableDescriptor, internalTable.partitions(),
+                            replicaService, clock, rowConverter, schemaDescriptor);
+
+                    return new ExecutableTableImpl(internalTable, scannableTable, updatableTable);
+                });
     }
 
     /** {@inheritDoc} */
@@ -117,6 +129,13 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
             this.internalTable = internalTable;
             this.scannableTable = scannableTable;
             this.updatableTable = updatableTable;
+        }
+
+        // TODO IGNITE-19499: Drop this.
+        @Deprecated(forRemoval = true)
+        @Override
+        public InternalTable internalTable() {
+            return internalTable;
         }
 
         /** {@inheritDoc} */

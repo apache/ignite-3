@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.table.InternalTable;
 
 /**
  * Provides access to resolved dependencies.
@@ -58,6 +59,10 @@ public class ResolvedDependencies {
         return executableTable.fetchColocationGroup();
     }
 
+    /** TODO IGNITE-19499: Drop temporal method. */
+    public InternalTable internalTable(int tableId) {
+        return getTable(tableId).internalTable();
+    }
     public Set<Integer> tableIds() {
         return tableMap.keySet();
     }

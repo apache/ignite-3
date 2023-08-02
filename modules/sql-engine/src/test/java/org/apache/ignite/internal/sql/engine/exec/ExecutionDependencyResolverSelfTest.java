@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.times;
@@ -101,8 +102,8 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         tester.checkDependencies(deps, t1Id);
         tester.checkDependencies(deps, t2Id);
 
-        verify(registry, times(1)).getTable(eq(t1Id), same(td1));
-        verify(registry, times(1)).getTable(eq(t2Id), same(td2));
+        verify(registry, times(1)).getTable(eq(t1Id), anyString(), same(td1));
+        verify(registry, times(1)).getTable(eq(t2Id), anyString(), same(td2));
     }
 
     /**
@@ -121,7 +122,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT * FROM test1 WHERE id=1");
         tester.checkDependencies(f.join(), t1Id);
 
-        verify(registry, times(1)).getTable(eq(t1Id), same(td1));
+        verify(registry, times(1)).getTable(eq(t1Id), anyString(), same(td1));
     }
 
     /**
@@ -149,8 +150,8 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         tester.checkDependencies(deps, t1Id);
         tester.checkDependencies(deps, t2Id);
 
-        verify(registry, times(1)).getTable(eq(t1Id), same(td1));
-        verify(registry, times(1)).getTable(eq(t2Id), same(td2));
+        verify(registry, times(1)).getTable(eq(t1Id), anyString(), same(td1));
+        verify(registry, times(1)).getTable(eq(t2Id), anyString(), same(td2));
     }
 
     /**
@@ -171,7 +172,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         ResolvedDependencies deps = f.join();
         tester.checkDependencies(deps, t1Id);
 
-        verify(registry, times(1)).getTable(anyInt(), any(TableDescriptor.class));
+        verify(registry, times(1)).getTable(anyInt(), anyString(), any(TableDescriptor.class));
     }
 
     /**
@@ -259,14 +260,14 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
             CompletableFuture<ExecutableTable> f = CompletableFuture.completedFuture(executableTable);
 
-            when(registry.getTable(eq(tableId), any(TableDescriptor.class))).thenReturn(f);
+            when(registry.getTable(eq(tableId), anyString(), any(TableDescriptor.class))).thenReturn(f);
         }
 
         void setError(int tableId, Throwable err) {
             CompletableFuture<ExecutableTable> f = new CompletableFuture<>();
             f.completeExceptionally(err);
 
-            when(registry.getTable(eq(tableId), any(TableDescriptor.class))).thenReturn(f);
+            when(registry.getTable(eq(tableId), anyString(), any(TableDescriptor.class))).thenReturn(f);
         }
 
         void setColocationGroup(int tableId, CompletableFuture<ColocationGroup> group) {

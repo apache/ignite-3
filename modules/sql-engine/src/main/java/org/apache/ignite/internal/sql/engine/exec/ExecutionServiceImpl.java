@@ -104,7 +104,7 @@ import org.jetbrains.annotations.Nullable;
  * ExecutionServiceImpl. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEventHandler {
-    private static final int CACHE_SIZE = 1024;
+    private static final int CACHE_SIZE = 0;
 
     private final ConcurrentMap<String, IgniteRel> physNodesCache = Caffeine.newBuilder()
             .maximumSize(CACHE_SIZE)
@@ -641,7 +641,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private AsyncCursor<List<Object>> execute(InternalTransaction tx, MultiStepPlan notMappedPlan) {
-            CompletableFuture<MultiStepPlan> f = mapFragments(notMappedPlan);
+            Iterable<IgniteRel> fragmentRoots = TransformingIterator.newIterable(notMappedPlan.fragments(), (f) -> f.root());
+
+            CompletableFuture<ResolvedDependencies> depsFut = dependencyResolver.resolveDependencies(fragmentRoots, ctx.schemaVersion());
+
+            CompletableFuture<MultiStepPlan> f = depsFut.thenCompose(deps -> mapFragments(notMappedPlan, deps));
 
             f.whenCompleteAsync((plan, mappingErr) -> {
                 if (mappingErr != null) {
@@ -661,7 +665,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     // first let's enlist all tables to the transaction.
                     if (!tx.isReadOnly()) {
                         for (Fragment fragment : fragments) {
-                            enlistPartitions(fragment, tx);
+                            //TODO IGNITE-19499: Remove depsFut. Join is legal as future is already done.
+                            enlistPartitions(fragment, tx, depsFut.join());
                         }
                     }
 
@@ -778,7 +783,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             };
         }
 
-        private void enlistPartitions(Fragment fragment, InternalTransaction tx) {
+        private void enlistPartitions(Fragment fragment, InternalTransaction tx, ResolvedDependencies deps) {
             new IgniteRelShuttle() {
                 @Override
                 public IgniteRel visit(IgniteIndexScan rel) {
@@ -797,6 +802,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 @Override
                 public IgniteRel visit(IgniteTableModify rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
+
+                    // TODO IGNITE-19499 Remove rewriting tableId.
+                    tableId = deps.internalTable(tableId).tableId();
                     List<NodeWithTerm> assignments = fragment.mapping().updatingTableAssignments();
 
                     enlist(tableId, assignments);
@@ -823,6 +831,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 private void enlist(SourceAwareIgniteRel rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
+
+                    // TODO IGNITE-19499 Remove rewriting tableId.
+                    tableId = deps.internalTable(tableId).tableId();
+
                     List<NodeWithTerm> assignments = fragment.mapping().findGroup(rel.sourceId()).assignments().stream()
                             .map(l -> l.get(0))
                             .collect(Collectors.toList());
@@ -832,19 +844,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }.visit(fragment.root());
         }
 
-        private CompletableFuture<MultiStepPlan> mapFragments(MultiStepPlan plan) {
-            Iterable<IgniteRel> fragments = TransformingIterator.newIterable(plan.fragments(), (f) -> f.root());
+        private CompletableFuture<MultiStepPlan> mapFragments(MultiStepPlan plan, ResolvedDependencies deps) {
+            return fetchColocationGroups(deps).thenApply(colocationGroups -> {
+                MappingQueryContext mappingCtx = new MappingQueryContext(localNode.name(), mappingSrvc);
+                List<Fragment> mappedFragments = FragmentMapping.mapFragments(mappingCtx, plan.fragments(), colocationGroups);
 
-            CompletableFuture<ResolvedDependencies> fut = dependencyResolver.resolveDependencies(fragments,
-                    ctx.schemaVersion());
-
-            return fut.thenCompose(deps -> {
-                return fetchColocationGroups(deps).thenApply(colocationGroups -> {
-                    MappingQueryContext mappingCtx = new MappingQueryContext(localNode.name(), mappingSrvc);
-                    List<Fragment> mappedFragments = FragmentMapping.mapFragments(mappingCtx, plan.fragments(), colocationGroups);
-
-                    return plan.replaceFragments(mappedFragments);
-                });
+                return plan.replaceFragments(mappedFragments);
             });
         }
 
