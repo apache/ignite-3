@@ -106,9 +106,9 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     @Test
     public void testAllColumnsBinaryPutPojoGet() {
         Table table = fullTable();
-        KeyValueView<IncompletePojo, AllColumnsPojo> pojoView = table.keyValueView(
+        KeyValueView<IncompletePojo, AllColumnsValPojo> pojoView = table.keyValueView(
                 Mapper.of(IncompletePojo.class),
-                Mapper.of(AllColumnsPojo.class));
+                Mapper.of(AllColumnsValPojo.class));
 
         table.recordView().upsert(null, allColumnsTableVal("foo"));
 
@@ -116,7 +116,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         key.gid = (int) (long) DEFAULT_ID;
         key.id = String.valueOf(DEFAULT_ID);
 
-        AllColumnsPojo res = pojoView.get(null, key);
+        AllColumnsValPojo res = pojoView.get(null, key);
         assertTrue(res.zboolean);
         assertEquals(11, res.zbyte);
         assertEquals(12, res.zshort);
