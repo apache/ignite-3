@@ -37,7 +37,6 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     @Test
     public void testUnmappedPojoFieldsAreRejected() {
-        // TODO: KV view tests for Pojo and tuples.
         Table table = ignite().tables().table(TABLE_NAME);
         var pojoView = table.recordView(TestPojo2.class);
 
