@@ -234,7 +234,7 @@ public class StatementChecker {
 
     /** Expect that validation succeeds. */
     public DynamicTest ok() {
-        return ok((node) -> {} ,true);
+        return ok((node) -> {}, true);
     }
 
     /** Expect that validation succeeds. */

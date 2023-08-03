@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import java.time.LocalDate;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -32,6 +31,7 @@ import org.junit.jupiter.api.TestFactory;
  * Test cases for dynamic parameters.
  */
 public class DynamicParametersTest extends AbstractPlannerTest {
+
     /**
      * This test case triggers "Conversion to relational algebra failed to preserve datatypes" assertion,
      * if {@link IgniteSqlValidator} do not set nullability for inferred dynamic parameter type.
@@ -52,8 +52,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 sql("SELECT NULL + ?", 1).project("null:INTEGER"),
                 sql("SELECT ? + NULL", 1).project("null:INTEGER"),
 
-                sql("SELECT 1 + ?", "1").ok(),
-                sql("SELECT ? + 1", "1").ok(),
+                sql("SELECT 1 + ?", "1").fails("Values passed to + operator must have compatible types."),
+                sql("SELECT ? + 1", "1").fails("Values passed to + operator must have compatible types."),
 
                 // NULL is allowed in arithmetic expressions
                 sql("SELECT ? * 2", new Object[]{null}).ok()
@@ -67,8 +67,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 // comparison
                 sql("SELECT ? > 1", 1).ok(),
 
-                sql("SELECT ? > 1", Boolean.TRUE).fails("Values passed to > operator must have compatible types."),
-                sql("SELECT 1 > ?", Boolean.TRUE).fails("Values passed to > operator must have compatible types."),
+                sql("SELECT ? > 1", "1").fails("Values passed to > operator must have compatible types."),
+                sql("SELECT 1 > ?", "1").fails("Values passed to > operator must have compatible types."),
 
                 sql("SELECT ? > NULL", 1).project("null:BOOLEAN"),
                 sql("SELECT NULL = ?", 1).project("null:BOOLEAN"),
@@ -85,18 +85,17 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     @TestFactory
     public Stream<DynamicTest> testInExpression() {
         String error =
-                "Values passed to IN operator must have compatible types";
+                "Values passed to IN operator must have compatible types. Dynamic parameter requires adding explicit type cast.";
         return Stream.of(
                 sql("SELECT ? IN ('1', '2')", 1).project("OR(=(?0, 1), =(?0, 2))"),
-                sql("SELECT ? IN (1, 2)", Boolean.TRUE).fails(error),
-                sql("SELECT ? IN (1, 2)", "1").ok(false),
+                sql("SELECT ? IN (1, 2)", "1").fails(error),
                 sql("SELECT ? IN ('1', 2)", 2).project("OR(=(?0, 1), =(?0, 2))"),
 
-                sql("SELECT (?, ?) IN ((1, 2))", 1, 2).project("AND(=(?0, 1), =(?1, 2))"),
+                sql("SELECT (?,?) IN ((1,2))", 1, 2).project("AND(=(?0, 1), =(?1, 2))"),
 
-                sql("SELECT (?, ?) IN ((1, 2))", "1", "2").ok(),
-                sql("SELECT (?, ?) IN (('1', 2))", 1, "2").ok(),
-                sql("SELECT (?, ?) IN ((1, '2'))", "1", "2").ok()
+                sql("SELECT (?,?) IN ((1,2))", "1", "2").fails(error),
+                sql("SELECT (?,?) IN (('1', 2))", 1, "2").fails(error),
+                sql("SELECT (?,?) IN ((1, '2'))", "1", "2").fails(error)
         );
     }
 
@@ -110,7 +109,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .project("CASE(=(?0, _UTF-8'1'), CAST(?1):DOUBLE, ?2)"),
 
                 sql("SELECT CASE ? = ? WHEN true THEN 1 ELSE 2 END", 1, "1")
-                        .ok(),
+                        .fails("Values passed to = operator must have compatible types"),
 
                 sql("SELECT CASE WHEN ? = '1' THEN ? ELSE ? END", "1", "2", 2.5)
                         .fails("Illegal mixing of types in CASE or COALESCE statement"),
@@ -128,11 +127,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
         return Stream.of(
                 checkStatement()
                         .table("t1", "int_col", NativeTypes.INT32)
-                        .sql("SELECT * FROM t1 WHERE int_col = ?", "1").ok(),
+                        .sql("SELECT * FROM t1 WHERE int_col = ?", "1").fails("Values passed to = operator must have compatible types"),
 
                 checkStatement()
                         .table("t1", "str_col", NativeTypes.STRING)
-                        .sql("SELECT * FROM t1 WHERE str_col = ?", 1).ok()
+                        .sql("SELECT * FROM t1 WHERE str_col = ?", 1).fails("Values passed to = operator must have compatible types")
         );
     }
 
@@ -295,15 +294,10 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .sql("SELECT SUBSTRING(SUBSTRING(?, 1), 2)", "123456")
                         .project("SUBSTRING(SUBSTRING(?0, 1), 2)"),
 
-                // nested function call - implicit cast
+                // nested function call - invalid dynamic parameter
                 checkStatement()
                         .sql("SELECT SUBSTRING(SUBSTRING(?, 1), 2)", 123456)
-                        .ok(),
-
-                // function call - invalid dynamic parameter
-                checkStatement()
-                        .sql("SELECT DAYNAME(?)", Boolean.TRUE)
-                        .fails("Cannot apply 'DAYNAME' to arguments of type 'DAYNAME(<BOOLEAN>)'")
+                        .fails("Values passed to SUBSTRING operator must have compatible types")
         );
     }
 
@@ -322,11 +316,11 @@ public class DynamicParametersTest extends AbstractPlannerTest {
         return Stream.of(
                 checkStatement(setup)
                         .sql("SELECT uuid_col = ? FROM t1", "uuid_str")
-                        .ok(),
+                        .fails("Values passed to = operator must have compatible types"),
 
                 checkStatement(setup)
                         .sql("SELECT ? = uuid_col FROM t1", "uuid_str")
-                        .ok(),
+                        .fails("Values passed to = operator must have compatible types"),
 
                 // IN
 

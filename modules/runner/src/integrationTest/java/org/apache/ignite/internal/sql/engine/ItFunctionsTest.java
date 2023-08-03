@@ -32,7 +32,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
-import org.apache.calcite.runtime.Resources;
 import org.apache.calcite.runtime.Resources.ExInst;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.validate.SqlValidatorException;

@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.calcite.avatica.SqlType;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
@@ -56,7 +55,6 @@ import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
-import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
@@ -425,7 +423,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 firstType = super.deriveType(scope, first);
             }
 
-
             boolean nullType = isNull(returnType) || isNull(firstType);
 
             // propagate null type validation
@@ -457,15 +454,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 } else {
                     SqlBasicCall call = (SqlBasicCall) expr;
                     SqlOperator operator = call.getOperator();
-                    boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, returnType, firstType);
 
-                    if (!compatible && (first instanceof SqlDynamicParam || ret instanceof SqlDynamicParam)) {
-                        var ex = IgniteResource.INSTANCE.operationRequiresExplicitCast(operator.getName());
-                        throw SqlUtil.newContextException(expr.getParserPosition(), ex);
-                    } else {
-                        var ex = RESOURCE.incompatibleValueType(operator.getName());
-                        throw SqlUtil.newContextException(expr.getParserPosition(), ex);
-                    }
+                    var ex = RESOURCE.incompatibleValueType(operator.getName());
+                    throw SqlUtil.newContextException(expr.getParserPosition(), ex);
                 }
             }
         }
