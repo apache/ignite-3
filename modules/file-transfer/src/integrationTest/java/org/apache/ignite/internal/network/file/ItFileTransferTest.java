@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
@@ -155,6 +156,42 @@ public class ItFileTransferTest {
                 MetadataImpl.builder().build()
         );
         assertThat(download, willThrowWithCauseOrSuppressed(FileTransferException.class));
+    }
+
+    @Test
+    void downloadFilesWhenDoNotHaveAccessToWrite() throws IOException {
+        Node node0 = cluster.members.get(0);
+
+        String unit = "unit";
+        String version = "1.0.0";
+        Path unitPath = node0.workDir().resolve(unit).resolve(version);
+        Files.createDirectories(unitPath);
+
+        int chunkSize = configuration.value().chunkSize();
+        File file1 = randomFile(unitPath, 0);
+        File file2 = randomFile(unitPath, chunkSize + 1);
+        File file3 = randomFile(unitPath, chunkSize * 2);
+        File file4 = randomFile(unitPath, chunkSize * 2);
+
+        node0.fileTransferringService().addFileProvider(
+                Metadata.class,
+                req -> completedFuture(List.of(file1, file2, file3, file4))
+        );
+
+        Node node1 = cluster.members.get(1);
+        assertTrue(node1.workDir().toFile().setWritable(false));
+
+        CompletableFuture<List<File>> downloadedFilesFuture = node1.fileTransferringService().download(
+                node0.nodeName(),
+                MetadataImpl.builder().build()
+        );
+
+        assertThat(
+                downloadedFilesFuture.thenAccept(files -> {
+                    assertContentEquals(Set.of(file1, file2, file3, file4), new HashSet<>(files));
+                }),
+                willThrowWithCauseOrSuppressed(AccessDeniedException.class)
+        );
     }
 
     @Test

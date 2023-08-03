@@ -128,6 +128,5 @@ class FileReceiver {
         } else {
             handler.handleFileTransferError(new FileTransferException(errorMessage.error().message()));
         }
-
     }
 }

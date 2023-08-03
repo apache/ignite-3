@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -142,15 +141,17 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     private void processUploadRequest(FileUploadRequest message) {
-        Path directory = createTransferDirectory(message.transferId());
-        FileTransferMessagesHandler handler = fileReceiver.registerTransfer(message.transferId(), directory);
-        handler.result().thenCompose(files -> handleUploadedFiles(message.metadata(), files))
-                .whenComplete((v, e) -> {
-                    if (e != null) {
-                        LOG.error("Failed to handle uploaded files. Transfer ID: {}", message.transferId(), e);
-                    }
-                    fileReceiver.deregisterTransfer(message.transferId());
-                    deleteDirectoryIfExists(directory);
+        createTransferDirectory(message.transferId())
+                .whenComplete((directory, throwable) -> {
+                    FileTransferMessagesHandler handler = fileReceiver.registerTransfer(message.transferId(), directory);
+                    handler.result().thenCompose(files -> handleUploadedFiles(message.metadata(), files))
+                            .whenComplete((v, e) -> {
+                                if (e != null) {
+                                    LOG.error("Failed to handle uploaded files. Transfer ID: {}", message.transferId(), e);
+                                }
+                                fileReceiver.deregisterTransfer(message.transferId());
+                                deleteDirectoryIfExists(directory);
+                            });
                 });
     }
 
@@ -248,7 +249,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                 .metadata(metadata)
                 .build();
 
-        return completedFuture(createTransferDirectory(transferId))
+        return createTransferDirectory(transferId)
                 .thenApply(directory -> fileReceiver.registerTransfer(transferId, directory))
                 .thenCompose(
                         handler -> messagingService.invoke(nodeConsistentId, FILE_TRANSFERRING_CHANNEL, message, DOWNLOAD_RESPONSE_TIMEOUT)
@@ -280,11 +281,11 @@ public class FileTransferServiceImpl implements FileTransferService {
                 });
     }
 
-    private Path createTransferDirectory(UUID transferId) {
+    private CompletableFuture<Path> createTransferDirectory(UUID transferId) {
         try {
-            return Files.createDirectories(tempDirectory.resolve(transferId.toString()));
+            return completedFuture(Files.createDirectories(tempDirectory.resolve(transferId.toString())));
         } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            return failedFuture(e);
         }
     }
 
