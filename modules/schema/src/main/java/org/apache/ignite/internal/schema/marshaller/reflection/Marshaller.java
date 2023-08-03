@@ -119,7 +119,8 @@ public abstract class Marshaller {
             }
         }
 
-        if (!allowUnmappedFields) {
+        // Skip validation for Void type, which is used when value part of KV view is null.
+        if (!allowUnmappedFields && !mapper.targetType().equals(Void.class)) {
             var fields = mapper.fields();
             if (fields.size() > cols.length) {
                 Set<String> fieldSet = new TreeSet<>(fields);
