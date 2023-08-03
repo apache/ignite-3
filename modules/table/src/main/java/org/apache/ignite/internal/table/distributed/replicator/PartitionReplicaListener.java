@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
+import static it.unimi.dsi.fastutil.objects.ObjectSortedSets.EMPTY_SET;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -42,6 +43,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -241,6 +244,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final TablesConfiguration tablesConfig;
 
+    /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
+    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new HashMap<>();
+
     /**
      * The constructor.
      *
@@ -311,6 +317,17 @@ public class PartitionReplicaListener implements ReplicaListener {
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
         schemaCompatValidator = new SchemaCompatValidator(schemas);
+
+        // TODO: IGNITE-18502 Implement a pending update storage
+        try (PartitionTimestampCursor cursor = mvDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
+            while (cursor.hasNext()) {
+                ReadResult readResult = cursor.next();
+
+                if (readResult.isWriteIntent()) {
+                    txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new TreeSet<>()).add(readResult.rowId());
+                }
+            }
+        }
     }
 
     @Override
@@ -1229,6 +1246,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     .safeTimeLong(hybridClock.nowLong())
                     .build();
 
+            cleanupLocally(request.txId(), request.commit(), request.commitTimestamp());
+
             return raftClient
                     .run(txCleanupCmd)
                     .thenCompose(ignored -> allOffFuturesExceptionIgnored(txReadFutures, request)
@@ -1740,7 +1759,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 cmd.rowUuid(),
                 cmd.tablePartitionId().asTablePartitionId(),
                 cmd.rowBuffer(),
-                null
+                rowId -> txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId)
         );
 
         return applyCmdWithExceptionHandling(cmd);
@@ -1753,7 +1772,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
     private CompletableFuture<Object> applyUpdateAllCommand(UpdateAllCommand cmd) {
-        storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), null);
+        storageUpdateHandler.handleUpdateAll(
+                cmd.txId(),
+                cmd.rowsToUpdate(),
+                cmd.tablePartitionId().asTablePartitionId(),
+                rowIds -> {
+                    for (RowId rowId : rowIds) {
+                        txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new TreeSet<>()).add(rowId);
+                    }
+                });
 
         return applyCmdWithExceptionHandling(cmd);
     }
@@ -2559,5 +2586,26 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         indexBuilder.stopBuildIndexes(tableId(), partId());
+    }
+
+    private void cleanupLocally(UUID txId, boolean commit, HybridTimestamp commitTimestamp) {
+        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
+
+        if (commit) {
+            mvDataStorage.runConsistently(locker -> {
+                pendingRowIds.forEach(locker::lock);
+
+                pendingRowIds.forEach(rowId -> mvDataStorage.commitWrite(rowId, commitTimestamp));
+
+                txsPendingRowIds.remove(txId);
+
+                return null;
+            });
+        } else {
+            storageUpdateHandler.handleTransactionAbortion(pendingRowIds, () -> {
+                // on application callback
+                txsPendingRowIds.remove(txId);
+            });
+        }
     }
 }
