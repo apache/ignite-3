@@ -119,7 +119,8 @@ public abstract class Marshaller {
                     fieldSet.remove(fieldName);
                 }
 
-                throw new IllegalArgumentException("Fields " + fieldSet + " are not mapped to columns.");
+                throw new IllegalArgumentException(
+                        "Fields " + fieldSet + " of type " + mapper.targetType().getName() + " are not mapped to columns.");
             }
         }
 
