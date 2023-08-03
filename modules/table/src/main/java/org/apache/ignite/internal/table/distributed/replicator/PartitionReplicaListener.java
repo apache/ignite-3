@@ -245,7 +245,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final TablesConfiguration tablesConfig;
 
     /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
-    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new HashMap<>();
+    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
