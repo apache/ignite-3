@@ -32,6 +32,8 @@ import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -303,14 +305,11 @@ public class KvMarshallerTest {
         KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
                 factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
 
-        final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
 
-        assertThrows(
-                MarshallerException.class,
-                () -> marshaller.marshal(key, val),
-                "Failed to write field [name=shortCol]"
-        );
+        MarshallerException ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(key, val));
+        assertThat(ex.getMessage(), startsWith("Failed to set column (INT16 was passed, but column is of different type)"));
     }
 
     /**
