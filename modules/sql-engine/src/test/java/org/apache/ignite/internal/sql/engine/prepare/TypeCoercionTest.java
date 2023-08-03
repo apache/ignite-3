@@ -27,14 +27,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.avatica.util.TimeUnit;
+import org.apache.calcite.config.CalciteConnectionConfig;
+import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rel.type.RelDataTypeImpl;
+import org.apache.calcite.rel.type.RelProtoDataType;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.calcite.schema.Schema;
+import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlNode;
@@ -45,8 +55,16 @@ import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlValidator;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.framework.TestStatistic;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
@@ -70,7 +88,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
     private static final RelDataType VARCHAR = TYPE_FACTORY.createSqlType(SqlTypeName.VARCHAR, 20);
 
-    private static final List<RelDataType> NUMERIC_TYPES =  SqlTypeName.NUMERIC_TYPES.stream().map(t -> {
+    private static final List<RelDataType> NUMERIC_TYPES = SqlTypeName.NUMERIC_TYPES.stream().map(t -> {
         if (t == SqlTypeName.DECIMAL) {
             return TYPE_FACTORY.createSqlType(t, 10, 2);
         } else {
@@ -370,24 +388,18 @@ public class TypeCoercionTest extends AbstractPlannerTest {
                 .add("C2", rule.rhs)
                 .build();
 
+        TestTable testTable = new TestTable("A", tableType, IgniteDistributions.single());
+
         String dummyQuery = String.format("SELECT c1 %s c2 FROM A", rule.operator.getName());
-        runTest(dummyQuery, testCase, tableType);
+        runTest(dummyQuery, testCase, createSchema(testTable));
     }
 
     private void runTest(String query, BiConsumer<IgnitePlanner, SqlNode> testCase) {
-        runTest(query, testCase, null);
+        runTest(query, testCase, createSchema());
     }
 
-    private void runTest(String query, BiConsumer<IgnitePlanner, SqlNode> testCase, @Nullable RelDataType tableType) {
-        IgniteSchema igniteSchema;
-        if (tableType != null) {
-            TestTable testTable = createTable("A", tableType, DEFAULT_TBL_SIZE, IgniteDistributions.single());
-            igniteSchema = createSchema(testTable);
-        } else {
-            igniteSchema = createSchema();
-        }
-
-        PlanningContext planningCtx = plannerCtx(query, igniteSchema);
+    private void runTest(String query, BiConsumer<IgnitePlanner, SqlNode> testCase, IgniteSchema schema) {
+        PlanningContext planningCtx = plannerCtx(query, schema);
 
         try (IgnitePlanner planner = planningCtx.planner()) {
             SqlNode node;
@@ -568,5 +580,131 @@ public class TypeCoercionTest extends AbstractPlannerTest {
 
     private static RelDataType nullable(RelDataType relDataType) {
         return TYPE_FACTORY.createTypeWithNullability(relDataType, true);
+    }
+
+    //TODO https://issues.apache.org/jira/browse/IGNITE-15200 Replace with TestTable from test framework.
+    // This class allows to verify some negative type-coercion tests, and can be dropped when INTERVAL type will be supported natively.
+
+    /** Test table. */
+    @Deprecated
+    private static class TestTable implements IgniteTable {
+        private final String name;
+
+        private final RelProtoDataType protoType;
+
+        private final int id = nextTableId();
+        private final IgniteDistribution distribution;
+
+        /** Constructor. */
+        private TestTable(String name, RelDataType type, IgniteDistribution distribution) {
+            protoType = RelDataTypeImpl.proto(type);
+            this.name = name;
+            this.distribution = distribution;
+        }
+
+        @Override
+        public int id() {
+            return id;
+        }
+
+        @Override
+        public int version() {
+            return 0;
+        }
+
+        @Override
+        public IgniteLogicalTableScan toRel(
+                RelOptCluster cluster,
+                RelOptTable relOptTbl,
+                List<RelHint> hints,
+                @Nullable List<RexNode> proj,
+                @Nullable RexNode cond,
+                @Nullable ImmutableBitSet requiredColumns
+        ) {
+            return IgniteLogicalTableScan.create(cluster, cluster.traitSet(), hints, relOptTbl, proj, cond, requiredColumns);
+        }
+
+        @Override
+        public IgniteLogicalIndexScan toRel(
+                RelOptCluster cluster,
+                RelOptTable relOptTbl,
+                String idxName,
+                @Nullable List<RexNode> proj,
+                @Nullable RexNode cond,
+                @Nullable ImmutableBitSet requiredColumns
+        ) {
+            return IgniteLogicalIndexScan.create(cluster, cluster.traitSet(), relOptTbl, idxName, proj, cond, requiredColumns);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet bitSet) {
+            RelDataType rowType = protoType.apply(typeFactory);
+
+            if (bitSet != null) {
+                RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
+                for (int i = bitSet.nextSetBit(0); i != -1; i = bitSet.nextSetBit(i + 1)) {
+                    b.add(rowType.getFieldList().get(i));
+                }
+                rowType = b.build();
+            }
+
+            return rowType;
+        }
+
+        @Override
+        public Statistic getStatistic() {
+            return new TestStatistic(100.0);
+        }
+
+        @Override
+        public Schema.TableType getJdbcTableType() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public boolean isRolledUp(String col) {
+            return false;
+        }
+
+        @Override
+        public boolean rolledUpColumnValidInsideAgg(String column, SqlCall call, SqlNode parent, CalciteConnectionConfig config) {
+            throw new AssertionError();
+        }
+
+        @Override
+        public IgniteDistribution distribution() {
+            return distribution;
+        }
+
+        @Override
+        public TableDescriptor descriptor() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public Map<String, IgniteIndex> indexes() {
+            return Map.of();
+        }
+
+        @Override
+        public void addIndex(IgniteIndex idxTbl) {
+            throw new AssertionError();
+        }
+
+        @Override
+        public IgniteIndex getIndex(String idxName) {
+            throw new AssertionError();
+        }
+
+        @Override
+        public void removeIndex(String idxName) {
+            throw new AssertionError();
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
     }
 }

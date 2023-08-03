@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import java.util.function.Function;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.internal.sql.engine.util.cache.StatsCounter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,9 +42,20 @@ public class EmptyCacheFactory implements CacheFactory {
         return new EmptyCache<>();
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public <K, V> Cache<K, V> create(int size, StatsCounter statCounter) {
+        return create(size);
+    }
+
     private static class EmptyCache<K, V> implements Cache<K, V> {
         @Override
         public @Nullable V get(K key) {
+            return null;
+        }
+
+        @Override
+        public V get(K key, Function<? super K, ? extends V> mappingFunction) {
             return null;
         }
 
