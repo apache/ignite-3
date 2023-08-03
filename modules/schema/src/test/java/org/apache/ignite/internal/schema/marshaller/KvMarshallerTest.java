@@ -71,6 +71,7 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.asm.AsmMarshallerGenerator;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
@@ -79,6 +80,9 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithNoDefaultConstructor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithPrivateConstructor;
+import org.apache.ignite.internal.schema.testobjects.TestSimpleObject;
+import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectKey;
+import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectVal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
@@ -291,25 +295,29 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithWrongFieldType(MarshallerFactory factory) {
-        Column[] keyCols = new Column[]{
-                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), false),
-                new Column("shortCol".toUpperCase(), UUID, false)
-        };
-        Column[] valCols = new Column[]{
-                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
-                new Column("shortCol".toUpperCase(), UUID, true)
-        };
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{
+                        new Column("longCol".toUpperCase(), NativeTypes.bitmaskOf(42), false),
+                        new Column("intCol".toUpperCase(), UUID, false)
+                },
+                new Column[]{
+                        new Column("bytesCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
+                        new Column("stringCol".toUpperCase(), UUID, true)
+                }
+        );
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
+        KvMarshaller<TestSimpleObjectKey, TestSimpleObjectVal> marshaller =
+                factory.create(schema, TestSimpleObjectKey.class, TestSimpleObjectVal.class);
 
-        KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
-                factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
+        TestSimpleObjectKey key = TestSimpleObjectKey.randomObject(rnd);
+        TestSimpleObjectVal val = TestSimpleObjectVal.randomObject(rnd);
 
-        TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
-        TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
-
-        MarshallerException ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(key, val));
-        assertThat(ex.getMessage(), startsWith("Failed to set column (INT16 was passed, but column is of different type)"));
+        Throwable ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(key, val)).getCause();
+        assertThat(
+                ex.getMessage(),
+                startsWith("Failed to set column (INT64 was passed, but column is of different type): "
+                        + "Column [schemaIndex=0, columnOrder=-1, name=LONGCOL, type=BitmaskNativeType"));
     }
 
     /**
