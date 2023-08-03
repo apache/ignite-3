@@ -221,8 +221,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(tupleKey(1));
             waitForKey(view, tupleKey(1));
 
-            ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
-            publisher.submit(tuple(2, "bar"));
+            ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'bar'");
+            publisher.submit(tupleKey(2));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
@@ -262,6 +262,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     private static class PersonPojo {
         int id;
         String name;
+        Integer salary;
 
         @SuppressWarnings("unused") // Required by serializer.
         private PersonPojo() {
@@ -280,6 +281,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     private static class PersonValPojo {
         String name;
+        Integer salary;
 
         @SuppressWarnings("unused") // Required by serializer.
         private PersonValPojo() {
