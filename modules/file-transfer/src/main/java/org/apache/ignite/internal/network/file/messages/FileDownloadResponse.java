@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * File download response.
  */
-@Transferable(FileTransferringMessageType.FILE_DOWNLOAD_RESPONSE)
+@Transferable(FileTransferMessageType.FILE_DOWNLOAD_RESPONSE)
 public interface FileDownloadResponse extends NetworkMessage {
     /**
      * Returns the error that occurred during the handling file download request.

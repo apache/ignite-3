@@ -24,7 +24,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * File transfer info.
  */
-@Transferable(FileTransferringMessageType.FILE_TRANSFER_INFO)
+@Transferable(FileTransferMessageType.FILE_TRANSFER_INFO)
 public interface FileTransferInfo extends NetworkMessage {
     /**
      * Returns the id of the stream.

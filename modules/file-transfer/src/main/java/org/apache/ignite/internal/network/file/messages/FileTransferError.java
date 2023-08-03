@@ -23,7 +23,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * File transfer error.
  */
-@Transferable(FileTransferringMessageType.FILE_TRANSFER_ERROR)
+@Transferable(FileTransferMessageType.FILE_TRANSFER_ERROR)
 public interface FileTransferError extends NetworkMessage {
     /**
      * Returns the error message.

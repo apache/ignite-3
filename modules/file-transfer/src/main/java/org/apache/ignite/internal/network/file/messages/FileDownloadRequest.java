@@ -24,7 +24,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * File download request.
  */
-@Transferable(FileTransferringMessageType.FILE_DOWNLOAD_REQUEST)
+@Transferable(FileTransferMessageType.FILE_DOWNLOAD_REQUEST)
 public interface FileDownloadRequest extends NetworkMessage {
     /**
      * Returns the ID of the transfer.

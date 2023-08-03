@@ -24,7 +24,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * File header.
  */
-@Transferable(FileTransferringMessageType.FILE_HEADER)
+@Transferable(FileTransferMessageType.FILE_HEADER)
 public interface FileHeader extends NetworkMessage {
     /**
      * Returns the ID of the transfer.

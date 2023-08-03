@@ -24,7 +24,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * File upload request.
  */
-@Transferable(FileTransferringMessageType.FILE_UPLOAD_REQUEST)
+@Transferable(FileTransferMessageType.FILE_UPLOAD_REQUEST)
 public interface FileUploadRequest extends NetworkMessage {
     /**
      * Returns the ID of the transfer.

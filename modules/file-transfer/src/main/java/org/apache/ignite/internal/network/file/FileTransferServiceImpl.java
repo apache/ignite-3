@@ -44,7 +44,7 @@ import org.apache.ignite.internal.network.file.messages.FileTransferError;
 import org.apache.ignite.internal.network.file.messages.FileTransferErrorMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
-import org.apache.ignite.internal.network.file.messages.FileTransferringMessageType;
+import org.apache.ignite.internal.network.file.messages.FileTransferMessageType;
 import org.apache.ignite.internal.network.file.messages.FileUploadRequest;
 import org.apache.ignite.internal.network.file.messages.Metadata;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -116,7 +116,7 @@ public class FileTransferServiceImpl implements FileTransferService {
 
     @Override
     public void start() {
-        messagingService.addMessageHandler(FileTransferringMessageType.class,
+        messagingService.addMessageHandler(FileTransferMessageType.class,
                 (message, senderConsistentId, correlationId) -> {
                     if (message instanceof FileDownloadRequest) {
                         processDownloadRequest((FileDownloadRequest) message, senderConsistentId, correlationId);

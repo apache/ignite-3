@@ -26,6 +26,6 @@ import org.apache.ignite.network.annotations.Transferable;
  * Metadata. This interface is used to mark all metadata messages. Metadata messages are used to retrieve files from {@link FileProvider}
  * and handle them on the receiving side by {@link FileHandler}.
  */
-@Transferable(FileTransferringMessageType.FILES_METADATA)
+@Transferable(FileTransferMessageType.FILES_METADATA)
 public interface Metadata extends NetworkMessage {
 }

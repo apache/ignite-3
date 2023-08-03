@@ -23,7 +23,7 @@ import org.apache.ignite.network.annotations.MessageGroup;
  * File transferring message types.
  */
 @MessageGroup(groupType = 200, groupName = "FileTransfer")
-public final class FileTransferringMessageType {
+public final class FileTransferMessageType {
     public static final short FILE_TRANSFER_INFO = 0;
     public static final short FILE_HEADER = 1;
     public static final short FILE_CHUNK = 2;
@@ -34,18 +34,9 @@ public final class FileTransferringMessageType {
     public static final short FILE_TRANSFER_ERROR = 7;
     public static final short FILES_METADATA = 8;
 
-    private FileTransferringMessageType() {
-        // No-op.
-    }
-
     /**
      * File transferring metadata.
      */
     public static final class Metadata {
-        public static final short DEPLOYMENT_UNIT = 50;
-
-        private Metadata() {
-            // No-op.
-        }
     }
 }
