@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
+import org.apache.ignite.internal.network.file.FileHandler;
+import org.apache.ignite.internal.network.file.FileProvider;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * File transfer metadata.
+ * Metadata. This interface is used to mark all metadata messages. Metadata messages are used to retrieve files from {@link FileProvider}
+ * and handle them on the receiving side by {@link FileHandler}.
  */
 @Transferable(FileTransferringMessageType.METADATA)
-public interface TransferMetadata extends NetworkMessage {
+public interface Metadata extends NetworkMessage {
 }

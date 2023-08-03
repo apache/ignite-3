@@ -47,7 +47,7 @@ import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
 import org.apache.ignite.internal.network.file.messages.FileTransferringMessageType;
 import org.apache.ignite.internal.network.file.messages.FileUploadRequest;
-import org.apache.ignite.internal.network.file.messages.TransferMetadata;
+import org.apache.ignite.internal.network.file.messages.Metadata;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.FilesUtils;
@@ -79,9 +79,9 @@ public class FileTransferServiceImpl implements FileTransferService {
 
     private final FileReceiver fileReceiver;
 
-    private final Map<Short, FileProvider<TransferMetadata>> metadataToProvider = new ConcurrentHashMap<>();
+    private final Map<Short, FileProvider<Metadata>> metadataToProvider = new ConcurrentHashMap<>();
 
-    private final Map<Short, FileHandler<TransferMetadata>> metadataToHandler = new ConcurrentHashMap<>();
+    private final Map<Short, FileHandler<Metadata>> metadataToHandler = new ConcurrentHashMap<>();
 
     private final FileTransferFactory factory = new FileTransferFactory();
 
@@ -154,7 +154,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                 });
     }
 
-    private CompletableFuture<Void> handleUploadedFiles(TransferMetadata metadata, List<File> files) {
+    private CompletableFuture<Void> handleUploadedFiles(Metadata metadata, List<File> files) {
         return metadataToHandler.get(metadata.messageType()).handleUpload(metadata, files)
                 .whenComplete((v, e) -> {
                     if (e != null) {
@@ -215,33 +215,33 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public <M extends TransferMetadata> void addFileProvider(
+    public <M extends Metadata> void addFileProvider(
             Class<M> metadata,
             FileProvider<M> provider
     ) {
         metadataToProvider.put(
                 metadata.getAnnotation(Transferable.class).value(),
-                (FileProvider<TransferMetadata>) provider
+                (FileProvider<Metadata>) provider
         );
     }
 
     @Override
-    public <M extends TransferMetadata> void addFileHandler(
+    public <M extends Metadata> void addFileHandler(
             Class<M> metadata,
             FileHandler<M> handler
     ) {
         metadataToHandler.put(
                 metadata.getAnnotation(Transferable.class).value(),
-                (FileHandler<TransferMetadata>) handler
+                (FileHandler<Metadata>) handler
         );
     }
 
     @Override
-    public CompletableFuture<List<File>> download(String nodeConsistentId, TransferMetadata transferMetadata) {
+    public CompletableFuture<List<File>> download(String nodeConsistentId, Metadata metadata) {
         UUID transferId = UUID.randomUUID();
         FileDownloadRequest message = factory.fileDownloadRequest()
                 .transferId(transferId)
-                .metadata(transferMetadata)
+                .metadata(metadata)
                 .build();
 
         return completedFuture(createTransferDirectory(transferId))
@@ -258,13 +258,13 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public CompletableFuture<Void> upload(String nodeConsistentId, TransferMetadata transferMetadata) {
-        return metadataToProvider.get(transferMetadata.messageType()).files(transferMetadata)
+    public CompletableFuture<Void> upload(String nodeConsistentId, Metadata metadata) {
+        return metadataToProvider.get(metadata.messageType()).files(metadata)
                 .thenCompose(files -> {
                     UUID transferId = UUID.randomUUID();
                     FileUploadRequest message = factory.fileUploadRequest()
                             .transferId(transferId)
-                            .metadata(transferMetadata)
+                            .metadata(metadata)
                             .build();
 
                     if (files.isEmpty()) {

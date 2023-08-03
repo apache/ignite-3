@@ -42,8 +42,8 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.configuration.FileTransferringConfiguration;
 import org.apache.ignite.internal.network.file.TestCluster.Node;
-import org.apache.ignite.internal.network.file.messages.TransferMetadata;
-import org.apache.ignite.internal.network.file.messages.TransferMetadataImpl;
+import org.apache.ignite.internal.network.file.messages.Metadata;
+import org.apache.ignite.internal.network.file.messages.MetadataImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -93,14 +93,14 @@ public class ItFileTransferTest {
         File file3 = randomFile(unitPath, chunkSize * 2).toFile();
 
         node0.fileTransferringService().addFileProvider(
-                TransferMetadata.class,
+                Metadata.class,
                 req -> completedFuture(List.of(file1, file2, file3))
         );
 
         Node node1 = cluster.members.get(1);
         CompletableFuture<List<File>> downloadedFilesFuture = node1.fileTransferringService().download(
                 node0.nodeName(),
-                TransferMetadataImpl.builder().build()
+                MetadataImpl.builder().build()
         );
 
         assertThat(
@@ -128,14 +128,14 @@ public class ItFileTransferTest {
         assertTrue(file2.setReadable(false));
 
         node0.fileTransferringService().addFileProvider(
-                TransferMetadata.class,
+                Metadata.class,
                 req -> completedFuture(List.of(file1, file2, file3))
         );
 
         Node node1 = cluster.members.get(1);
         CompletableFuture<List<File>> download = node1.fileTransferringService().download(
                 node0.nodeName(),
-                TransferMetadataImpl.builder().build()
+                MetadataImpl.builder().build()
         );
         assertThat(download, willThrow(FileTransferException.class, "Permission denied"));
     }
@@ -145,14 +145,14 @@ public class ItFileTransferTest {
         Node node0 = cluster.members.get(0);
 
         node0.fileTransferringService().addFileProvider(
-                TransferMetadata.class,
+                Metadata.class,
                 req -> failedFuture(new RuntimeException("Test exception"))
         );
 
         Node node1 = cluster.members.get(1);
         CompletableFuture<List<File>> download = node1.fileTransferringService().download(
                 node0.nodeName(),
-                TransferMetadataImpl.builder().build()
+                MetadataImpl.builder().build()
         );
         assertThat(download, willThrowWithCauseOrSuppressed(FileTransferException.class));
     }
@@ -162,14 +162,14 @@ public class ItFileTransferTest {
         Node node0 = cluster.members.get(0);
 
         node0.fileTransferringService().addFileProvider(
-                TransferMetadata.class,
+                Metadata.class,
                 req -> completedFuture(List.of())
         );
 
         Node node1 = cluster.members.get(1);
         CompletableFuture<List<File>> downloadedFiles = node1.fileTransferringService().download(
                 node0.nodeName(),
-                TransferMetadataImpl.builder().build()
+                MetadataImpl.builder().build()
         );
         assertThat(downloadedFiles.thenAccept(files -> assertThat(files, hasSize(0))), willCompleteSuccessfully());
     }
@@ -189,19 +189,19 @@ public class ItFileTransferTest {
         File file3 = randomFile(unitPath, chunkSize * 2).toFile();
 
         node0.fileTransferringService().addFileProvider(
-                TransferMetadata.class,
+                Metadata.class,
                 req -> completedFuture(List.of(file1, file2, file3))
         );
 
         Node node1 = cluster.members.get(1);
 
         CompletableFuture<List<File>> uploadedFilesFuture = new CompletableFuture<>();
-        node1.fileTransferringService().addFileHandler(TransferMetadata.class, ((metadata, uploadedFilesDir) -> {
+        node1.fileTransferringService().addFileHandler(Metadata.class, ((metadata, uploadedFilesDir) -> {
             uploadedFilesFuture.complete(uploadedFilesDir);
             return completedFuture(null);
         }));
 
-        node0.fileTransferringService().upload(node1.nodeName(), TransferMetadataImpl.builder().build());
+        node0.fileTransferringService().upload(node1.nodeName(), MetadataImpl.builder().build());
 
         assertThat(
                 uploadedFilesFuture.thenAccept(files -> {
@@ -216,14 +216,14 @@ public class ItFileTransferTest {
         Node node0 = cluster.members.get(0);
 
         node0.fileTransferringService().addFileProvider(
-                TransferMetadata.class,
+                Metadata.class,
                 req -> completedFuture(List.of())
         );
 
         Node node1 = cluster.members.get(1);
 
         assertThat(
-                node0.fileTransferringService().upload(node1.nodeName(), TransferMetadataImpl.builder().build()),
+                node0.fileTransferringService().upload(node1.nodeName(), MetadataImpl.builder().build()),
                 willThrow(FileTransferException.class, "No files to upload")
         );
     }
@@ -245,20 +245,20 @@ public class ItFileTransferTest {
         assertTrue(file2.setReadable(false));
 
         node0.fileTransferringService().addFileProvider(
-                TransferMetadata.class,
+                Metadata.class,
                 req -> completedFuture(List.of(file1, file2, file3))
         );
 
         Node node1 = cluster.members.get(1);
 
         CompletableFuture<List<File>> uploadedFilesFuture = new CompletableFuture<>();
-        node1.fileTransferringService().addFileHandler(TransferMetadata.class, ((metadata, uploadedFilesDir) -> {
+        node1.fileTransferringService().addFileHandler(Metadata.class, ((metadata, uploadedFilesDir) -> {
             uploadedFilesFuture.complete(uploadedFilesDir);
             return completedFuture(null);
         }));
 
         assertThat(
-                node0.fileTransferringService().upload(node1.nodeName(), TransferMetadataImpl.builder().build()),
+                node0.fileTransferringService().upload(node1.nodeName(), MetadataImpl.builder().build()),
                 willThrow(FileTransferException.class, "Failed to send files to node: ")
         );
 
@@ -273,20 +273,20 @@ public class ItFileTransferTest {
         Node node0 = cluster.members.get(0);
 
         node0.fileTransferringService().addFileProvider(
-                TransferMetadata.class,
+                Metadata.class,
                 req -> failedFuture(new RuntimeException("Test exception"))
         );
 
         Node node1 = cluster.members.get(1);
 
         CompletableFuture<List<File>> uploadedFilesFuture = new CompletableFuture<>();
-        node1.fileTransferringService().addFileHandler(TransferMetadata.class, ((metadata, uploadedFiles) -> {
+        node1.fileTransferringService().addFileHandler(Metadata.class, ((metadata, uploadedFiles) -> {
             uploadedFilesFuture.complete(uploadedFiles);
             return completedFuture(null);
         }));
 
         assertThat(
-                node0.fileTransferringService().upload(node1.nodeName(), TransferMetadataImpl.builder().build()),
+                node0.fileTransferringService().upload(node1.nodeName(), MetadataImpl.builder().build()),
                 willThrow(RuntimeException.class, "Test exception")
         );
 
