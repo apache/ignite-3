@@ -281,6 +281,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public int id;
         public String str;
         public String strNonNull;
+        public BigDecimal num;
     }
 
     /** Columns with default values. */
