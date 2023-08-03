@@ -31,9 +31,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.network.file.messages.FileChunk;
-import org.apache.ignite.internal.network.file.messages.FileHeader;
-import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
+import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
+import org.apache.ignite.internal.network.file.messages.FileHeaderMessage;
+import org.apache.ignite.internal.network.file.messages.FileTransferInfoMessage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.NetworkMessage;
@@ -132,12 +132,12 @@ class FileTransferMessagesHandlerTest {
     }
 
     private static void sendToHandler(FileTransferMessagesHandler handler, NetworkMessage message) {
-        if (message instanceof FileHeader) {
-            handler.handleFileHeader((FileHeader) message);
-        } else if (message instanceof FileChunk) {
-            handler.handleFileChunk((FileChunk) message);
-        } else if (message instanceof FileTransferInfo) {
-            handler.handleFileTransferInfo((FileTransferInfo) message);
+        if (message instanceof FileHeaderMessage) {
+            handler.handleFileHeader((FileHeaderMessage) message);
+        } else if (message instanceof FileChunkMessage) {
+            handler.handleFileChunk((FileChunkMessage) message);
+        } else if (message instanceof FileTransferInfoMessage) {
+            handler.handleFileTransferInfo((FileTransferInfoMessage) message);
         } else {
             throw new IllegalArgumentException("Unknown message type: " + message.getClass());
         }

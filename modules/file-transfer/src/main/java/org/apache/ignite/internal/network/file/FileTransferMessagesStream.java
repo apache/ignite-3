@@ -27,10 +27,10 @@ import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.network.file.messages.FileChunk;
-import org.apache.ignite.internal.network.file.messages.FileHeader;
+import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
+import org.apache.ignite.internal.network.file.messages.FileHeaderMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
-import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
+import org.apache.ignite.internal.network.file.messages.FileTransferInfoMessage;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -49,7 +49,7 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
     private ChunkedFileReader currFile;
 
     @Nullable
-    private FileTransferInfo fileTransferInfo;
+    private FileTransferInfoMessage fileTransferInfoMessage;
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
@@ -78,7 +78,7 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
         this.transferId = transferId;
         this.filesToSend = new LinkedList<>(filesToSend);
         this.chunkSize = chunkSize;
-        this.fileTransferInfo = fileTransferInfo();
+        this.fileTransferInfoMessage = fileTransferInfo();
     }
 
     /**
@@ -95,7 +95,7 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
             // 1. there is a file transfer info message to send.
             // 2. there are files to send.
             // 3. there is a current file to send.
-            return fileTransferInfo != null || !filesToSend.isEmpty() || (currFile != null && !currFile.isFinished());
+            return fileTransferInfoMessage != null || !filesToSend.isEmpty() || (currFile != null && !currFile.isFinished());
         }
     }
 
@@ -111,9 +111,9 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
             throw new IllegalStateException("There are no more messages to send.");
         }
 
-        if (fileTransferInfo != null) {
-            FileTransferInfo info = fileTransferInfo;
-            fileTransferInfo = null;
+        if (fileTransferInfoMessage != null) {
+            FileTransferInfoMessage info = fileTransferInfoMessage;
+            fileTransferInfoMessage = null;
             return info;
         } else {
             if (currFile == null || currFile.isFinished()) {
@@ -125,8 +125,8 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
         }
     }
 
-    private FileTransferInfo fileTransferInfo() {
-        return factory.fileTransferInfo()
+    private FileTransferInfoMessage fileTransferInfo() {
+        return factory.fileTransferInfoMessage()
                 .transferId(transferId)
                 .filesCount(filesToSend.size())
                 .build();
@@ -135,10 +135,10 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
     /**
      * Returns the header of the current file to send.
      */
-    private FileHeader header() throws IOException {
+    private FileHeaderMessage header() throws IOException {
         assert currFile != null : "Current file is null.";
 
-        return factory.fileHeader()
+        return factory.fileHeaderMessage()
                 .transferId(transferId)
                 .fileName(currFile.fileName())
                 .fileSize(currFile.length())
@@ -152,11 +152,11 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
      * @throws IOException if an I/O error occurs.
      * @throws IllegalStateException if the current file is finished.
      */
-    private FileChunk nextChunk() throws IOException {
+    private FileChunkMessage nextChunk() throws IOException {
         assert currFile != null : "Current file is null.";
         assert !currFile.isFinished() : "Current file is finished.";
 
-        return factory.fileChunk()
+        return factory.fileChunkMessage()
                 .transferId(transferId)
                 .fileName(currFile.fileName())
                 .offset(currFile.offset())

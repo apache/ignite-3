@@ -38,5 +38,5 @@ public interface FileDownloadRequest extends NetworkMessage {
      *
      * @return The metadata of the file transfer to download.
      */
-    Metadata metadata();
+    MetadataMessage metadata();
 }

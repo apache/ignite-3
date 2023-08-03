@@ -32,5 +32,5 @@ public interface FileDownloadResponse extends NetworkMessage {
      * @return The error. {@code null} if the request was handled successfully and the files are going to be transferred.
      */
     @Nullable
-    FileTransferError error();
+    String error();
 }

@@ -30,9 +30,9 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.network.file.messages.FileChunk;
-import org.apache.ignite.internal.network.file.messages.FileHeader;
-import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
+import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
+import org.apache.ignite.internal.network.file.messages.FileHeaderMessage;
+import org.apache.ignite.internal.network.file.messages.FileTransferInfoMessage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 
@@ -48,7 +48,7 @@ class FileTransferMessagesHandler {
         this.dir = dir;
     }
 
-    void handleFileTransferInfo(FileTransferInfo info) {
+    void handleFileTransferInfo(FileTransferInfoMessage info) {
         if (result.isDone()) {
             throw new IllegalStateException("Received file transfer info after result is already done.");
         }
@@ -62,14 +62,14 @@ class FileTransferMessagesHandler {
         }
     }
 
-    void handleFileHeader(FileHeader header) {
+    void handleFileHeader(FileHeaderMessage header) {
         if (result.isDone()) {
             throw new IllegalStateException("Received file header after result is already done.");
         }
         doInLock(header.fileName(), () -> handleFileHeader0(header));
     }
 
-    private void handleFileHeader0(FileHeader header) {
+    private void handleFileHeader0(FileHeaderMessage header) {
         ChunkedFileWriter writer = fileNameToWriter.compute(header.fileName(), (k, v) -> {
             if (v == null) {
                 return writer(header.fileName(), header.fileSize());
@@ -90,14 +90,14 @@ class FileTransferMessagesHandler {
         }
     }
 
-    void handleFileChunk(FileChunk fileChunk) {
+    void handleFileChunk(FileChunkMessage fileChunk) {
         if (result.isDone()) {
             throw new IllegalStateException("Received chunked file after result is already done.");
         }
         doInLock(fileChunk.fileName(), () -> handleFileChunk0(fileChunk));
     }
 
-    private void handleFileChunk0(FileChunk fileChunk) {
+    private void handleFileChunk0(FileChunkMessage fileChunk) {
         try {
             ChunkedFileWriter writer = fileNameToWriter.computeIfAbsent(fileChunk.fileName(), this::writer);
 

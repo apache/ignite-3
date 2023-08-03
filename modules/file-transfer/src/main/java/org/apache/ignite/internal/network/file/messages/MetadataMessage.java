@@ -27,5 +27,5 @@ import org.apache.ignite.network.annotations.Transferable;
  * and handle them on the receiving side by {@link FileHandler}.
  */
 @Transferable(FileTransferMessageType.FILES_METADATA)
-public interface Metadata extends NetworkMessage {
+public interface MetadataMessage extends NetworkMessage {
 }

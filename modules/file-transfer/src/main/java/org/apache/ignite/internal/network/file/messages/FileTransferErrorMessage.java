@@ -38,5 +38,5 @@ public interface FileTransferErrorMessage extends NetworkMessage {
      *
      * @return Error message.
      */
-    FileTransferError error();
+    String error();
 }

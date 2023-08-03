@@ -25,10 +25,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.file.messages.FileChunk;
-import org.apache.ignite.internal.network.file.messages.FileHeader;
+import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
+import org.apache.ignite.internal.network.file.messages.FileHeaderMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferErrorMessage;
-import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
+import org.apache.ignite.internal.network.file.messages.FileTransferInfoMessage;
 
 /**
  * File receiver.
@@ -55,7 +55,7 @@ class FileReceiver {
     }
 
 
-    CompletableFuture<Void> receiveFileTransferInfo(FileTransferInfo info) {
+    CompletableFuture<Void> receiveFileTransferInfo(FileTransferInfoMessage info) {
         return CompletableFuture.runAsync(() -> receiveFileTransferInfo0(info), executorService)
                 .whenComplete((v, throwable) -> {
                     if (throwable != null) {
@@ -64,7 +64,7 @@ class FileReceiver {
                 });
     }
 
-    private void receiveFileTransferInfo0(FileTransferInfo info) {
+    private void receiveFileTransferInfo0(FileTransferInfoMessage info) {
         FileTransferMessagesHandler handler = transferIdToHandler.get(info.transferId());
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + info.transferId());
@@ -73,7 +73,7 @@ class FileReceiver {
         }
     }
 
-    CompletableFuture<Void> receiveFileHeader(FileHeader header) {
+    CompletableFuture<Void> receiveFileHeader(FileHeaderMessage header) {
         return CompletableFuture.runAsync(() -> receiveFileHeader0(header), executorService)
                 .whenComplete((v, throwable) -> {
                     if (throwable != null) {
@@ -82,7 +82,7 @@ class FileReceiver {
                 });
     }
 
-    private void receiveFileHeader0(FileHeader header) {
+    private void receiveFileHeader0(FileHeaderMessage header) {
         FileTransferMessagesHandler handler = transferIdToHandler.get(header.transferId());
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + header.transferId());
@@ -91,7 +91,7 @@ class FileReceiver {
         }
     }
 
-    CompletableFuture<Void> receiveFileChunk(FileChunk chunk) {
+    CompletableFuture<Void> receiveFileChunk(FileChunkMessage chunk) {
         return CompletableFuture.runAsync(() -> receiveFileChunk0(chunk), executorService)
                 .whenComplete((v, throwable) -> {
                     if (throwable != null) {
@@ -100,7 +100,7 @@ class FileReceiver {
                 });
     }
 
-    private void receiveFileChunk0(FileChunk chunk) {
+    private void receiveFileChunk0(FileChunkMessage chunk) {
         FileTransferMessagesHandler handler = transferIdToHandler.get(chunk.transferId());
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + chunk.transferId());
@@ -126,7 +126,7 @@ class FileReceiver {
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + errorMessage.transferId());
         } else {
-            handler.handleFileTransferError(new FileTransferException(errorMessage.error().message()));
+            handler.handleFileTransferError(new FileTransferException(errorMessage.error()));
         }
     }
 }

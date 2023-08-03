@@ -20,7 +20,7 @@ package org.apache.ignite.internal.network.file.messages;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
- * File transferring message types.
+ * File transfer message types.
  */
 @MessageGroup(groupType = 200, groupName = "FileTransfer")
 public final class FileTransferMessageType {
@@ -31,8 +31,7 @@ public final class FileTransferMessageType {
     public static final short FILE_DOWNLOAD_RESPONSE = 4;
     public static final short FILE_UPLOAD_REQUEST = 5;
     public static final short FILE_TRANSFER_ERROR_MESSAGE = 6;
-    public static final short FILE_TRANSFER_ERROR = 7;
-    public static final short FILES_METADATA = 8;
+    public static final short FILES_METADATA = 7;
 
     /**
      * File transferring metadata.

@@ -24,14 +24,14 @@ import java.nio.file.Path;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.network.file.messages.FileChunk;
+import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 
 class ChunkedFileWriter implements ManuallyCloseable {
     private final RandomAccessFile raf;
 
     private long fileSize;
 
-    private final Queue<FileChunk> chunks = new PriorityQueue<>(FileChunk.COMPARATOR);
+    private final Queue<FileChunkMessage> chunks = new PriorityQueue<>(FileChunkMessage.COMPARATOR);
 
     private ChunkedFileWriter(RandomAccessFile raf, long fileSize) {
         this.raf = raf;
@@ -42,7 +42,7 @@ class ChunkedFileWriter implements ManuallyCloseable {
         return new ChunkedFileWriter(new RandomAccessFile(path.toFile(), "rw"), fileSize);
     }
 
-    void write(FileChunk chunk) throws IOException {
+    void write(FileChunkMessage chunk) throws IOException {
         chunks.add(chunk);
 
         while (!chunks.isEmpty() && chunks.peek().offset() == raf.getFilePointer()) {
