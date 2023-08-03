@@ -33,9 +33,12 @@ import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -65,6 +68,16 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
 
         Map<String, Field> flds = Arrays.stream(targetClass.getDeclaredFields())
                 .collect(Collectors.toMap(f -> f.getName().toUpperCase(), Function.identity()));
+
+        if (flds.size() > columns.length()) {
+            for (Column col : columns.columns()) {
+                flds.remove(col.name());
+            }
+
+            var fldNames = flds.values().stream().map(Field::getName).collect(Collectors.toSet());
+
+            throw new IllegalArgumentException("Fields " + fldNames + " are not mapped to columns.");
+        }
 
         for (int i = 0; i < columns.length(); i++) {
             final Field field = flds.get(columns.column(i).name());
