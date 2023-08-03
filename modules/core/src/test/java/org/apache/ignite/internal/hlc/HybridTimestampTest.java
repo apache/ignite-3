@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.hlc;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.PHYSICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.max;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
@@ -63,5 +66,63 @@ class HybridTimestampTest {
     @Test
     void hashCodeSameWhenComponentsAreSame() {
         assertEquals(new HybridTimestamp(1, 2).hashCode(), new HybridTimestamp(1, 2).hashCode());
+    }
+
+    @Test
+    void addPhysicalTimeIncrementsPhysicalComponent() {
+        HybridTimestamp before = new HybridTimestamp(1, 2);
+
+        HybridTimestamp after = before.addPhysicalTime(1000);
+
+        assertThat(after.getPhysical(), is(1001L));
+    }
+
+    @Test
+    void addPhysicalTimeLeavesLogicalComponentIntact() {
+        HybridTimestamp before = new HybridTimestamp(1, 2);
+
+        HybridTimestamp after = before.addPhysicalTime(1000);
+
+        assertThat(after.getLogical(), is(2));
+    }
+
+    @Test
+    void addPhysicalTimeThrowsIfIncrementIsTooBig() {
+        HybridTimestamp before = new HybridTimestamp(1, 2);
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> before.addPhysicalTime(1L << PHYSICAL_TIME_BITS_SIZE)
+        );
+        assertThat(ex.getMessage(), is("Physical time is out of bounds: 281474976710656"));
+    }
+
+    @Test
+    void subtractPhysicalTimeDecrementsPhysicalComponent() {
+        HybridTimestamp before = new HybridTimestamp(2001, 2);
+
+        HybridTimestamp after = before.subtractPhysicalTime(1000);
+
+        assertThat(after.getPhysical(), is(1001L));
+    }
+
+    @Test
+    void subtractPhysicalTimeLeavesLogicalComponentIntact() {
+        HybridTimestamp before = new HybridTimestamp(2001, 2);
+
+        HybridTimestamp after = before.subtractPhysicalTime(1000);
+
+        assertThat(after.getLogical(), is(2));
+    }
+
+    @Test
+    void subtractPhysicalTimeThrowsIfDecrementIsTooBig() {
+        HybridTimestamp before = new HybridTimestamp(2001, 2);
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> before.addPhysicalTime(1L << PHYSICAL_TIME_BITS_SIZE)
+        );
+        assertThat(ex.getMessage(), is("Physical time is out of bounds: 281474976710656"));
     }
 }
