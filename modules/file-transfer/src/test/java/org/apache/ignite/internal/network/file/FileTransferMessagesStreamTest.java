@@ -45,7 +45,7 @@ class FileTransferMessagesStreamTest {
     @Test
     void negativeChunkSize() {
         UUID transferId = UUID.randomUUID();
-        File file = randomFile(workDir, 1024).toFile();
+        File file = randomFile(workDir, 1024);
         List<File> filesToSend = List.of(file);
         int chunkSize = -1;
 
@@ -53,33 +53,19 @@ class FileTransferMessagesStreamTest {
     }
 
     @Test
-    void emptyFileList() throws IOException {
+    void emptyFileList() {
         UUID transferId = UUID.randomUUID();
         List<File> filesToSend = List.of();
         int chunkSize = 1024 * 1024; // 1 MB
 
-
-        FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, chunkSize);
-
-        try {
-            // check transfer FileTransferInfo
-            assertTrue(stream.hasNextMessage());
-            FileTransferInfo info = (FileTransferInfo) stream.nextMessage();
-            assertEquals(transferId, info.transferId());
-            assertEquals(0, info.filesCount());
-
-            // check the stream is empty
-            assertFalse(stream.hasNextMessage());
-        } finally {
-            stream.close();
-        }
+        assertThrows(IllegalArgumentException.class, () -> new FileTransferMessagesStream(transferId, filesToSend, chunkSize));
     }
 
     @Test
     void listOfEmptyFiles() throws IOException {
         UUID transferId = UUID.randomUUID();
-        File file1 = randomFile(workDir, 0).toFile();
-        File file2 = randomFile(workDir, 0).toFile();
+        File file1 = randomFile(workDir, 0);
+        File file2 = randomFile(workDir, 0);
         List<File> filesToSend = List.of(file1, file2);
         int chunkSize = 1024 * 1024; // 1 MB
 
@@ -116,8 +102,8 @@ class FileTransferMessagesStreamTest {
     @Test
     void listOfSmallFiles() throws IOException {
         UUID transferId = UUID.randomUUID();
-        File file1 = randomFile(workDir, 1024).toFile();
-        File file2 = randomFile(workDir, 1024).toFile();
+        File file1 = randomFile(workDir, 1024);
+        File file2 = randomFile(workDir, 1024);
         List<File> filesToSend = List.of(file1, file2);
         int chunkSize = 1024 * 1024; // 1 MB
 
@@ -170,8 +156,8 @@ class FileTransferMessagesStreamTest {
     @Test
     void listOfBigFiles() throws IOException {
         UUID transferId = UUID.randomUUID();
-        File file1 = randomFile(workDir, 1948).toFile();
-        File file2 = randomFile(workDir, 1724).toFile();
+        File file1 = randomFile(workDir, 1948);
+        File file2 = randomFile(workDir, 1724);
         List<File> filesToSend = List.of(file1, file2);
         int chunkSize = 1024; // 1 KB
 
@@ -241,9 +227,9 @@ class FileTransferMessagesStreamTest {
     void listOfDifferentFiles() throws IOException {
         UUID transferId = UUID.randomUUID();
         int chunkSize = 1024 * 1024; // 1 MB
-        File file1 = randomFile(workDir, chunkSize * 2).toFile();
-        File file2 = randomFile(workDir, 0).toFile();
-        File file3 = randomFile(workDir, chunkSize).toFile();
+        File file1 = randomFile(workDir, chunkSize * 2);
+        File file2 = randomFile(workDir, 0);
+        File file3 = randomFile(workDir, chunkSize);
         List<File> filesToSend = List.of(file1, file2, file3);
 
         FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, chunkSize);

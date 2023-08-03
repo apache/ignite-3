@@ -72,7 +72,11 @@ class FileTransferMessagesHandler {
     private void handleFileHeader0(FileHeader header) {
         try {
             Path path = Files.createFile(dir.resolve(header.fileName()));
-            fileNameToWriter.put(header.fileName(), ChunkedFileWriter.open(path, header.fileSize()));
+            if (header.fileSize() == 0) {
+                filesFinished.incrementAndGet();
+            } else {
+                fileNameToWriter.put(header.fileName(), ChunkedFileWriter.open(path, header.fileSize()));
+            }
         } catch (IOException e) {
             handleFileTransferError(e);
         }

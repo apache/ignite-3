@@ -28,7 +28,7 @@ import org.apache.ignite.internal.network.file.messages.Metadata;
 public interface FileProvider<M extends Metadata> {
 
     /**
-     * Returns files for the given metadata.
+     * Returns files for the given metadata. The provider must return non empty list of files.
      *
      * @param metadata Metadata.
      * @return Files.

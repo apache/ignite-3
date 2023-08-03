@@ -67,6 +67,10 @@ public class FileTransferMessagesStream implements AutoCloseable {
             throw new IllegalArgumentException("Chunk size must be positive.");
         }
 
+        if (filesToSend.isEmpty()) {
+            throw new IllegalArgumentException("Files to send must not be empty.");
+        }
+
         this.transferId = transferId;
         this.filesToSend = new LinkedList<>(filesToSend);
         this.chunkSize = chunkSize;

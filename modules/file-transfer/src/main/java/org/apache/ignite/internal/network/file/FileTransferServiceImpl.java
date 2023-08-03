@@ -166,17 +166,21 @@ public class FileTransferServiceImpl implements FileTransferService {
     private void processDownloadRequest(FileDownloadRequest message, String senderConsistentId, Long correlationId) {
         metadataToProvider.get(message.metadata().messageType()).files(message.metadata())
                 .whenComplete((files, e) -> {
+                    FileDownloadResponse response;
                     if (e != null) {
                         LOG.error("Failed to get files for download. Metadata: {}", message.metadata(), e);
-                        FileDownloadResponse errorResponse = factory.fileDownloadResponse()
-                                .error(toError(e))
+                        response = factory.fileDownloadResponse().error(toError(e)).build();
+                    } else if (files.isEmpty()) {
+                        LOG.warn("No files to download. Metadata: {}", message.metadata());
+                        response = factory.fileDownloadResponse()
+                                .error(toError(new FileTransferException("No files to download")))
                                 .build();
-                        messagingService.respond(senderConsistentId, FILE_TRANSFERRING_CHANNEL, errorResponse, correlationId);
                     } else {
-                        FileDownloadResponse response = factory.fileDownloadResponse().build();
-                        messagingService.respond(senderConsistentId, FILE_TRANSFERRING_CHANNEL, response, correlationId)
-                                .thenCompose(v -> sendFiles(senderConsistentId, message.transferId(), files));
+                        response = factory.fileDownloadResponse().build();
                     }
+                    messagingService.respond(senderConsistentId, FILE_TRANSFERRING_CHANNEL, response, correlationId)
+                            .thenCompose(v -> sendFiles(senderConsistentId, message.transferId(), files));
+
                 });
     }
 
@@ -301,7 +305,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     private Throwable unwrapFileTransferException(Throwable throwable) {
         Throwable unwrapped = ExceptionUtils.unwrapCause(throwable);
         if (unwrapped instanceof FileTransferException) {
-            return unwrapped.getCause();
+            return unwrapped.getCause() == null ? unwrapped : unwrapped.getCause();
         } else {
             return unwrapped;
         }

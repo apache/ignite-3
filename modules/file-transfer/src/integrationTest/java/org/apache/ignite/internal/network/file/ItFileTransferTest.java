@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -88,13 +87,14 @@ public class ItFileTransferTest {
         Files.createDirectories(unitPath);
 
         int chunkSize = configuration.value().chunkSize();
-        File file1 = randomFile(unitPath, chunkSize - 1).toFile();
-        File file2 = randomFile(unitPath, chunkSize + 1).toFile();
-        File file3 = randomFile(unitPath, chunkSize * 2).toFile();
+        File file1 = randomFile(unitPath, 0);
+        File file2 = randomFile(unitPath, chunkSize + 1);
+        File file3 = randomFile(unitPath, chunkSize * 2);
+        File file4 = randomFile(unitPath, chunkSize * 2);
 
         node0.fileTransferringService().addFileProvider(
                 Metadata.class,
-                req -> completedFuture(List.of(file1, file2, file3))
+                req -> completedFuture(List.of(file1, file2, file3, file4))
         );
 
         Node node1 = cluster.members.get(1);
@@ -105,7 +105,7 @@ public class ItFileTransferTest {
 
         assertThat(
                 downloadedFilesFuture.thenAccept(files -> {
-                    assertContentEquals(Set.of(file1, file2, file3), new HashSet<>(files));
+                    assertContentEquals(Set.of(file1, file2, file3, file4), new HashSet<>(files));
                 }),
                 willCompleteSuccessfully()
         );
@@ -121,9 +121,9 @@ public class ItFileTransferTest {
         Files.createDirectories(unitPath);
 
         int chunkSize = configuration.value().chunkSize();
-        File file1 = randomFile(unitPath, chunkSize - 1).toFile();
-        File file2 = randomFile(unitPath, chunkSize + 1).toFile();
-        File file3 = randomFile(unitPath, chunkSize * 2).toFile();
+        File file1 = randomFile(unitPath, chunkSize - 1);
+        File file2 = randomFile(unitPath, chunkSize + 1);
+        File file3 = randomFile(unitPath, chunkSize * 2);
 
         assertTrue(file2.setReadable(false));
 
@@ -171,7 +171,7 @@ public class ItFileTransferTest {
                 node0.nodeName(),
                 MetadataImpl.builder().build()
         );
-        assertThat(downloadedFiles.thenAccept(files -> assertThat(files, hasSize(0))), willCompleteSuccessfully());
+        assertThat(downloadedFiles, willThrow(FileTransferException.class, "No files to download"));
     }
 
     @Test
@@ -184,13 +184,14 @@ public class ItFileTransferTest {
         Files.createDirectories(unitPath);
 
         int chunkSize = configuration.value().chunkSize();
-        File file1 = randomFile(unitPath, chunkSize - 1).toFile();
-        File file2 = randomFile(unitPath, chunkSize + 1).toFile();
-        File file3 = randomFile(unitPath, chunkSize * 2).toFile();
+        File file1 = randomFile(unitPath, 0);
+        File file2 = randomFile(unitPath, chunkSize - 1);
+        File file3 = randomFile(unitPath, chunkSize + 1);
+        File file4 = randomFile(unitPath, chunkSize * 2);
 
         node0.fileTransferringService().addFileProvider(
                 Metadata.class,
-                req -> completedFuture(List.of(file1, file2, file3))
+                req -> completedFuture(List.of(file1, file2, file3, file4))
         );
 
         Node node1 = cluster.members.get(1);
@@ -205,7 +206,7 @@ public class ItFileTransferTest {
 
         assertThat(
                 uploadedFilesFuture.thenAccept(files -> {
-                    assertContentEquals(Set.of(file1, file2, file3), new HashSet<>(files));
+                    assertContentEquals(Set.of(file1, file2, file3, file4), new HashSet<>(files));
                 }),
                 willCompleteSuccessfully()
         );
@@ -238,9 +239,9 @@ public class ItFileTransferTest {
         Files.createDirectories(unitPath);
 
         int chunkSize = configuration.value().chunkSize();
-        File file1 = randomFile(unitPath, chunkSize - 1).toFile();
-        File file2 = randomFile(unitPath, chunkSize + 1).toFile();
-        File file3 = randomFile(unitPath, chunkSize * 2).toFile();
+        File file1 = randomFile(unitPath, chunkSize - 1);
+        File file2 = randomFile(unitPath, chunkSize + 1);
+        File file3 = randomFile(unitPath, chunkSize * 2);
 
         assertTrue(file2.setReadable(false));
 

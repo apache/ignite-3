@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.file;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,13 +34,13 @@ public class FileGenerator {
      * @param contentSize Size of the file content.
      * @return Generated file.
      */
-    public static Path randomFile(Path dir, int contentSize) {
+    public static File randomFile(Path dir, int contentSize) {
         try {
             Path tempFile = Files.createTempFile(dir, null, null);
             byte[] bytes = new byte[contentSize];
             new Random().nextBytes(bytes);
             tempFile.toFile().deleteOnExit();
-            return Files.write(tempFile, bytes);
+            return Files.write(tempFile, bytes).toFile();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
