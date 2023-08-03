@@ -172,7 +172,7 @@ public class ClientSchema {
             cols[i] = new MarshallerColumn(col.name(), mode(col.type()), null, col.scale());
         }
 
-        return Marshaller.createMarshaller(cols, mapper, part == TuplePart.KEY, allowUnmappedFields);
+        return Marshaller.createMarshaller(cols, mapper, true, allowUnmappedFields);
     }
 
     private static BinaryMode mode(ColumnType dataType) {

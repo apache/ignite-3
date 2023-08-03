@@ -47,7 +47,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
         Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, pojo), IllegalArgumentException.class);
         assertEquals(
-                "Fields [unmapped2, unmapped] of type "
+                "Fields [unmapped, unmapped2] of type "
                         + "org.apache.ignite.internal.runner.app.client.ItThinClientMarshallingTest$TestPojo2 are not mapped to columns.",
                 ex.getMessage());
     }
