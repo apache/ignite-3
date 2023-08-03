@@ -33,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -48,12 +47,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -164,9 +160,8 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         String indexName = indexDescriptor.name();
         IgniteDistribution distribution = tableDescriptor.distribution();
         RelCollation indexCollation = IgniteIndex.createIndexCollation(indexDescriptor, tableDescriptor);
-        RelDataType indexRowType = IgniteIndex.createRowType(Commons.typeFactory(), tableDescriptor, indexCollation);
 
-        return new IgniteIndex(indexId, indexName, type, distribution, indexCollation, indexRowType);
+        return new IgniteIndex(indexId, indexName, type, distribution, indexCollation);
     }
 
     private static TableDescriptor createTableDescriptor(CatalogTableDescriptor descriptor) {

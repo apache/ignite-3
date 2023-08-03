@@ -346,7 +346,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 searchRowComparator = expressionFactory.comparator(idx.collation());
             }
 
-            ranges = expressionFactory.ranges(searchBounds, idx.rowType(), searchRowComparator);
+            ranges = expressionFactory.ranges(searchBounds, idx.rowType(typeFactory, tbl.descriptor()), searchRowComparator);
         }
 
         RelCollation outputCollation = rel.collation();

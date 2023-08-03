@@ -126,9 +126,8 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     ) {
         RelCollation collation = TraitUtils.createCollation(columns, null, tableDescriptor);
         IgniteDistribution distribution = tableDescriptor.distribution();
-        RelDataType indexRowType = IgniteIndex.createRowType(Commons.typeFactory(), tableDescriptor, collation);
 
-        return new IgniteIndex(1, "IDX", IgniteIndex.Type.HASH, distribution, collation, indexRowType);
+        return new IgniteIndex(1, "IDX", IgniteIndex.Type.HASH, distribution, collation);
     }
 
     private static IgniteIndex createSortedIndexDescriptor(
@@ -138,9 +137,8 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     ) {
         RelCollation collation = TraitUtils.createCollation(columns, collations, tableDescriptor);
         IgniteDistribution distribution = tableDescriptor.distribution();
-        RelDataType indexRowType = IgniteIndex.createRowType(Commons.typeFactory(), tableDescriptor, collation);
 
-        return new IgniteIndex(1, "IDX", IgniteIndex.Type.HASH, distribution, collation, indexRowType);
+        return new IgniteIndex(1, "IDX", IgniteIndex.Type.HASH, distribution, collation);
     }
 
     private static class Tester {
@@ -192,7 +190,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
     private static IndexScanNode<Object[]> createIndexNode(ExecutionContext<Object[]> ctx, IgniteIndex indexDescriptor,
             TableDescriptor tableDescriptor, TestScannableTable<?> scannableTable, @Nullable Comparator<Object[]> comparator) {
 
-        RelDataType rowType = indexDescriptor.rowType();
+        RelDataType rowType = indexDescriptor.rowType(ctx.getTypeFactory(), tableDescriptor);
 
         RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
         SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);

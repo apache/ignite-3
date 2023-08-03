@@ -88,17 +88,15 @@ public class IgniteIndex {
 
     private final Type type;
 
-    private final RelDataType rowType;
+    private RelDataType rowType;
 
     /** Constructor. */
-    public IgniteIndex(int indexId, String name, Type type, IgniteDistribution tableDistribution, RelCollation collation,
-            RelDataType rowType) {
+    public IgniteIndex(int indexId, String name, Type type, IgniteDistribution tableDistribution, RelCollation collation) {
         this.id = indexId;
         this.name = name;
         this.type = type;
         this.tableDistribution = tableDistribution;
         this.collation = collation;
-        this.rowType = rowType;
     }
 
     /** Returns an id of the index. */
@@ -122,7 +120,10 @@ public class IgniteIndex {
     }
 
     /** Returns index row type. */
-    public RelDataType rowType() {
+    public RelDataType rowType(IgniteTypeFactory factory, TableDescriptor tableDescriptor) {
+        if (rowType == null) {
+            rowType = createRowType(factory, tableDescriptor, collation);
+        }
         return rowType;
     }
 
@@ -210,8 +211,8 @@ public class IgniteIndex {
     public static RelDataType createRowType(IgniteTypeFactory typeFactory, TableDescriptor tableDescriptor, RelCollation collation) {
         RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(typeFactory);
 
-        for (RelFieldCollation fieldCollation : collation.getFieldCollations()) {
-            ColumnDescriptor colDesc = tableDescriptor.columnDescriptor(fieldCollation.getFieldIndex());
+        for (RelFieldCollation field : collation.getFieldCollations()) {
+            ColumnDescriptor colDesc = tableDescriptor.columnDescriptor(field.getFieldIndex());
             b.add(colDesc.name(), native2relationalType(typeFactory, colDesc.physicalType(), colDesc.nullable()));
         }
 
