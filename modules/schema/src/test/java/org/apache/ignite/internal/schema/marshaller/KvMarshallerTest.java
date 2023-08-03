@@ -86,6 +86,7 @@ import org.apache.ignite.internal.schema.testobjects.TestSimpleObject;
 import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectKey;
 import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectVal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Assumptions;
@@ -356,7 +357,11 @@ public class KvMarshallerTest {
 
         Throwable ex = assertThrows(
                 MarshallerException.class,
-                () -> marshaller.marshal(1, IgniteTestUtils.randomBitSet(rnd, 42))).getCause().getCause();
+                () -> marshaller.marshal(1, IgniteTestUtils.randomBitSet(rnd, 42)));
+
+        while (ex.getCause() != null) {
+            ex = ex.getCause();
+        }
 
         assertThat(ex.getMessage(), startsWith("Failed to set bitmask for column 'BITMASKCOL' (mask size exceeds allocated size)"));
     }
