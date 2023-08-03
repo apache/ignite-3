@@ -46,7 +46,7 @@ import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
 import org.apache.ignite.internal.network.file.messages.FileTransferringMessageType;
 import org.apache.ignite.internal.network.file.messages.FileUploadRequest;
-import org.apache.ignite.internal.network.file.messages.Metadata;
+import org.apache.ignite.internal.network.file.messages.FilesMetadata;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.FilesUtils;
@@ -78,9 +78,9 @@ public class FileTransferServiceImpl implements FileTransferService {
 
     private final FileReceiver fileReceiver;
 
-    private final Map<Short, FileProvider<Metadata>> metadataToProvider = new ConcurrentHashMap<>();
+    private final Map<Short, FileProvider<FilesMetadata>> metadataToProvider = new ConcurrentHashMap<>();
 
-    private final Map<Short, FileHandler<Metadata>> metadataToHandler = new ConcurrentHashMap<>();
+    private final Map<Short, FileHandler<FilesMetadata>> metadataToHandler = new ConcurrentHashMap<>();
 
     private final FileTransferFactory factory = new FileTransferFactory();
 
@@ -155,7 +155,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                 });
     }
 
-    private CompletableFuture<Void> handleUploadedFiles(Metadata metadata, List<File> files) {
+    private CompletableFuture<Void> handleUploadedFiles(FilesMetadata metadata, List<File> files) {
         return metadataToHandler.get(metadata.messageType()).handleUpload(metadata, files)
                 .whenComplete((v, e) -> {
                     if (e != null) {
@@ -189,7 +189,11 @@ public class FileTransferServiceImpl implements FileTransferService {
         return fileSender.send(recipientConsistentId, transferId, files)
                 .<CompletableFuture<Void>>handle((v, e) -> {
                     if (e != null) {
-                        LOG.error("Failed to send files to node: {}. Exception: {}", recipientConsistentId, e);
+                        LOG.error("Failed to send files to node: {}, transfer id: {}. Exception: {}",
+                                recipientConsistentId,
+                                transferId,
+                                e
+                        );
                         FileTransferErrorMessage message = factory.fileTransferErrorMessage()
                                 .transferId(transferId)
                                 .error(toError(e))
@@ -220,29 +224,29 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public <M extends Metadata> void addFileProvider(
+    public <M extends FilesMetadata> void addFileProvider(
             Class<M> metadata,
             FileProvider<M> provider
     ) {
         metadataToProvider.put(
                 metadata.getAnnotation(Transferable.class).value(),
-                (FileProvider<Metadata>) provider
+                (FileProvider<FilesMetadata>) provider
         );
     }
 
     @Override
-    public <M extends Metadata> void addFileHandler(
+    public <M extends FilesMetadata> void addFileHandler(
             Class<M> metadata,
             FileHandler<M> handler
     ) {
         metadataToHandler.put(
                 metadata.getAnnotation(Transferable.class).value(),
-                (FileHandler<Metadata>) handler
+                (FileHandler<FilesMetadata>) handler
         );
     }
 
     @Override
-    public CompletableFuture<List<File>> download(String nodeConsistentId, Metadata metadata) {
+    public CompletableFuture<List<File>> download(String nodeConsistentId, FilesMetadata metadata) {
         UUID transferId = UUID.randomUUID();
         FileDownloadRequest message = factory.fileDownloadRequest()
                 .transferId(transferId)
@@ -263,7 +267,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public CompletableFuture<Void> upload(String nodeConsistentId, Metadata metadata) {
+    public CompletableFuture<Void> upload(String nodeConsistentId, FilesMetadata metadata) {
         return metadataToProvider.get(metadata.messageType()).files(metadata)
                 .thenCompose(files -> {
                     UUID transferId = UUID.randomUUID();
@@ -303,7 +307,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                 .build();
     }
 
-    private Throwable unwrapFileTransferException(Throwable throwable) {
+    private static Throwable unwrapFileTransferException(Throwable throwable) {
         Throwable unwrapped = ExceptionUtils.unwrapCause(throwable);
         if (unwrapped instanceof FileTransferException) {
             return unwrapped.getCause() == null ? unwrapped : unwrapped.getCause();

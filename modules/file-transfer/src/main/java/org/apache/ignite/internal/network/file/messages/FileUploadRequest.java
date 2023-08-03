@@ -38,5 +38,5 @@ public interface FileUploadRequest extends NetworkMessage {
      *
      * @return File transfer metadata.
      */
-    Metadata metadata();
+    FilesMetadata metadata();
 }

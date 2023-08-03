@@ -20,12 +20,12 @@ package org.apache.ignite.internal.network.file;
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.network.file.messages.Metadata;
+import org.apache.ignite.internal.network.file.messages.FilesMetadata;
 
 /**
  * Handler for the uploaded file.
  */
-public interface FileHandler<M extends Metadata> {
+public interface FileHandler<M extends FilesMetadata> {
     /**
      * Handles the uploaded files.
      *

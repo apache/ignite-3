@@ -66,7 +66,7 @@ class FileSender {
                     send.apply(receiverConsistentId, stream.nextMessage())
                             .whenComplete((res, e) -> {
                                 if (e != null) {
-                                    LOG.error("Failed to send files to node: {}, transfer id: {}. Exception: {}",
+                                    LOG.error("Failed to send message to node: {}, transfer id: {}. Exception: {}",
                                             receiverConsistentId,
                                             id,
                                             e

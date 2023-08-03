@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.file;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -201,7 +202,7 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
                 try {
                     return hasNextMessage();
                 } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    throw new UncheckedIOException(e);
                 }
             }
 
@@ -210,7 +211,7 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
                 try {
                     return nextMessage();
                 } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    throw new UncheckedIOException(e);
                 }
             }
         };
