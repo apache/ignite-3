@@ -620,13 +620,15 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 + "(0, 2, 0, '3'),"
                 + "(0, 2, 0, '4')");
 
-        sql("DELETE FROM test WHERE d = '3'");
+        // Use PK index.
+        sql("DELETE FROM test WHERE d = '3' and b = 2");
+        assertQuery("SELECT b FROM test").returns(1).returns(2).check();
 
-        assertQuery("SELECT d FROM test WHERE b = 2 or b = 1").returns("4").check();
+        sql("DELETE FROM test WHERE d = '3'");
+        assertQuery("SELECT d FROM test").returns("4").check();
 
         sql("DELETE FROM test WHERE a = 0");
-
-        assertQuery("SELECT d FROM test WHERE b = 2 or b = 1").returnNothing();
+        assertQuery("SELECT d FROM test").returnNothing();
     }
 
     private static void checkDuplicatePk(IgniteException ex) {
