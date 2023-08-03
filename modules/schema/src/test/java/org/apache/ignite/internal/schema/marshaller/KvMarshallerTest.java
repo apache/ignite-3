@@ -262,7 +262,6 @@ public class KvMarshallerTest {
                 new Column[]{new Column("key".toUpperCase(), INT64, false)},
                 new Column[]{
                         new Column("col1".toUpperCase(), INT64, false),
-                        new Column("col2".toUpperCase(), INT64, true),
                         new Column("col3".toUpperCase(), STRING, false)
                 });
 
