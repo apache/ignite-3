@@ -50,12 +50,19 @@ public class CatalogUtils {
      */
     public static final String DEFAULT_FILTER = "$.+";
 
+    /** Default distribution zone storage engine. */
+    // TODO: IGNITE-19719 Should be defined differently
+    public static final String DEFAULT_STORAGE_ENGINE = "aipersist";
+
+    /** Default distribution zone storage engine data region. */
+    // TODO: IGNITE-19719 Must be storage engine specific
+    public static final String DEFAULT_DATA_REGION = "default";
+
     /** Infinite value for the distribution zone timers. */
     public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
 
     /** Value for the distribution zone timers which means that data nodes changing will be started without waiting. */
     public static final int IMMEDIATE_TIMER_VALUE = 0;
-
 
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 

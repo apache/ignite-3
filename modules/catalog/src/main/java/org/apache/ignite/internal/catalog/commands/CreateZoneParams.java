@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 
 import java.util.Objects;
@@ -50,7 +52,13 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
     private int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;
 
     /** Nodes' filter. */
-    protected String filter = DEFAULT_FILTER;
+    private String filter = DEFAULT_FILTER;
+
+    /** Data storage. */
+    private DataStorageParams dataStorage = DataStorageParams.builder()
+            .engine(DEFAULT_STORAGE_ENGINE)
+            .dataRegion(DEFAULT_DATA_REGION)
+            .build();
 
     /**
      * Returns amount of zone partitions.
@@ -60,7 +68,7 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
     }
 
     /**
-     * Return amount of zone replicas.
+     * Returns amount of zone replicas.
      */
     public int replicas() {
         return replicas;
@@ -100,6 +108,11 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
      */
     public String filter() {
         return filter;
+    }
+
+    /** Returns the data storage. */
+    public DataStorageParams dataStorage() {
+        return dataStorage;
     }
 
     /**
@@ -177,6 +190,21 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
          */
         public Builder filter(@Nullable String filter) {
             params.filter = Objects.requireNonNullElse(filter, DEFAULT_FILTER);
+
+            return this;
+        }
+
+        /**
+         * Sets the data storage.
+         *
+         * @param dataStorage Data storage.
+         * @return This instance.
+         */
+        public Builder dataStorage(@Nullable DataStorageParams dataStorage) {
+            params.dataStorage = Objects.requireNonNullElse(
+                    dataStorage,
+                    DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build()
+            );
 
             return this;
         }
