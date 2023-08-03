@@ -15,19 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util;
+package org.apache.ignite.internal.cli.commands.cluster.unit;
+
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Factory that creates a cache.
+ * Nodes alias. Presentation of {@link org.apache.ignite.rest.client.model.DeployMode}.
  */
-public interface CacheFactory {
+public enum NodesAlias {
+    ALL, MAJORITY;
+
     /**
-     * Creates a cache with a desired size.
+     * Parses alias.
      *
-     * @param size Desired size of the cache.
-     * @return An instance of the cache.
-     * @param <K> Type of the key object.
-     * @param <V> Type of the value object.
+     * @param alias Alias.
      */
-    <K, V> Cache<K, V> create(int size);
+    @Nullable
+    public static NodesAlias parse(String alias) {
+        for (NodesAlias nodesAlias : values()) {
+            if (nodesAlias.name().equalsIgnoreCase(alias)) {
+                return nodesAlias;
+            }
+        }
+        return null;
+    }
 }

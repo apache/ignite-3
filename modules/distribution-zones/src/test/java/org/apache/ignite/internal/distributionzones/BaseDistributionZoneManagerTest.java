@@ -26,6 +26,9 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.function.LongFunction;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -123,7 +126,11 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
         zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
+        Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
+                metaStorageManager.registerRevisionUpdateListener(function::apply);
+
         distributionZoneManager = new DistributionZoneManager(
+                revisionUpdater,
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageManager,
