@@ -234,7 +234,12 @@ public class StatementChecker {
 
     /** Expect that validation succeeds. */
     public DynamicTest ok() {
-        return ok((node) -> {});
+        return ok((node) -> {} ,true);
+    }
+
+    /** Expect that validation succeeds. */
+    public DynamicTest ok(boolean relCheck) {
+        return ok((node) -> {}, relCheck);
     }
 
     /**
@@ -245,7 +250,18 @@ public class StatementChecker {
         // Capture current stacktrace to show error location.
         AssertionError exception = new AssertionError("Statement check failed");
 
-        return shouldPass(name, exception, check);
+        return shouldPass(name, exception, check, true);
+    }
+
+    /**
+     * Expects that the provided validation function won't throw an exception.
+     */
+    public DynamicTest ok(Consumer<IgniteRel> check, boolean relCheck) {
+        String name = testName(true);
+        // Capture current stacktrace to show error location.
+        AssertionError exception = new AssertionError("Statement check failed");
+
+        return shouldPass(name, exception, check, relCheck);
     }
 
     /** Validation is expected to fail with an error that contains a the given message. */
@@ -371,14 +387,16 @@ public class StatementChecker {
         return schema;
     }
 
-    private DynamicTest shouldPass(String name, Throwable exception, Consumer<IgniteRel> check) {
+    private DynamicTest shouldPass(String name, Throwable exception, Consumer<IgniteRel> check, boolean relCheck) {
         return DynamicTest.dynamicTest(name, () -> {
             IgniteSchema schema = initSchema(exception);
             IgniteRel root;
 
             try {
                 root = (IgniteRel) sqlPrepare.prepare(schema, sqlStatement, dynamicParams);
-                checkRel(root, schema);
+                if (relCheck) {
+                    checkRel(root, schema);
+                }
             } catch (Throwable e) {
                 String message = format("Failed to validate:\n{}\n", formatSqlStatementForErrorMessage());
                 RuntimeException error = new RuntimeException(message, e);

@@ -54,6 +54,7 @@ import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
@@ -448,12 +449,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                     SqlOperator operator = call.getOperator();
                     boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, returnType, firstType);
 
-                    if (!compatible && (fromCustomType != null || returnCustomType != null)) {
+                    if (!compatible && (first instanceof SqlDynamicParam || ret instanceof SqlDynamicParam)) {
                         var ex = IgniteResource.INSTANCE.operationRequiresExplicitCast(operator.getName());
                         throw SqlUtil.newContextException(expr.getParserPosition(), ex);
                     } else {
-                        SqlCallBinding callBinding = new SqlCallBinding(this, scope, (SqlCall) expr);
-                        throw callBinding.newValidationSignatureError();
+/*                        SqlCallBinding callBinding = new SqlCallBinding(this, scope, (SqlCall) expr);
+                        throw callBinding.newValidationSignatureError();*/
+                        var ex = RESOURCE.incompatibleValueType(operator.getName());
+                        throw SqlUtil.newContextException(expr.getParserPosition(), ex);
                     }
                 }
             }

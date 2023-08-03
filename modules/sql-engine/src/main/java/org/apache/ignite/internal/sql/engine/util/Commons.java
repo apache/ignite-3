@@ -198,6 +198,7 @@ public final class Commons {
         for (SqlTypeName type : APPROX_TYPES) {
             fromTypes = EnumSet.copyOf(mappings.get(type));
             fromTypes.remove(SqlTypeName.BOOLEAN);
+
             fromTypes.remove(SqlTypeName.TIMESTAMP);
             fromTypes.addAll(EXACT_TYPES);
             mappings.put(type, ImmutableSet.<SqlTypeName>builder().addAll(fromTypes).build());

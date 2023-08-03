@@ -109,7 +109,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         // SELECT * FROM t WHERE int(str_col) = ?:int
         //
         // Which is a perfectly valid plan, but it is not what one might expect.
-        validateBinaryComparisonCoercion(binding, leftType, rightType, (IgniteSqlValidator) validator);
 
         if (leftType.equals(rightType)) {
             // If types are the same fallback to default rules.
@@ -522,24 +521,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     }
 
     /**
-     * Validates dynamic parameters in binary comparison operation.
-     */
-    private void validateBinaryComparisonCoercion(SqlCallBinding binding, RelDataType leftType,
-            RelDataType rightType, IgniteSqlValidator validator) {
-
-        SqlNode lhs = binding.operand(0);
-        SqlNode rhs = binding.operand(1);
-
-        if (lhs instanceof SqlDynamicParam) {
-            validateOperand((SqlDynamicParam) lhs, rightType, binding.getOperator(), validator);
-        }
-
-        if (rhs instanceof SqlDynamicParam) {
-            validateOperand((SqlDynamicParam) rhs, leftType, binding.getOperator(), validator);
-        }
-    }
-
-    /**
      * Validates dynamic parameter as a call operand or in assignment.
      */
     private void validateCoerceOperand(SqlCall call, SqlDynamicParam dynamicParam, RelDataType targetType,
@@ -548,11 +529,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         if (ctxType == ContextType.INSERT || ctxType == ContextType.MODIFY) {
             // Treat ROW operator as the same way as assignment.
             validateAssignment(dynamicParam, targetType, ctxType, validator);
-        } else if (ctxType == ContextType.IN) {
-            // Use IN operation instead of ROW operator for errors.
-            validateOperand(dynamicParam, targetType, SqlStdOperatorTable.IN, validator);
-        } else {
-            validateOperand(dynamicParam, targetType, call.getOperator(), validator);
         }
     }
 
@@ -606,19 +582,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             var ex = IgniteResource.INSTANCE.assignmentRequiresExplicitCast(paramTypeString, targetTypeString);
             throw SqlUtil.newContextException(node.getParserPosition(), ex);
         }
-    }
-
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19721 - move this check to SqlValidator (if possible).
-    private void validateOperand(SqlDynamicParam node, RelDataType targetType, SqlOperator operator, IgniteSqlValidator validator) {
-
-        RelDataType paramType = validator.getDynamicParamType(node);
-        boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, targetType, paramType);
-        if (compatible) {
-            return;
-        }
-
-        var ex = IgniteResource.INSTANCE.operationRequiresExplicitCast(operator.getName());
-        throw SqlUtil.newContextException(node.getParserPosition(), ex);
     }
 
     /**

@@ -115,6 +115,7 @@ import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -675,10 +676,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             clearHints(expected);
 
             if (!expected.deepEquals(deserialized)) {
+                IgniteStringBuilder sb = new IgniteStringBuilder();
                 fail(
-                        "Invalid serialization / deserialization.\n"
-                                + "Expected:\n" + RelOptUtil.toString(expected)
-                                + "Deserialized:\n" + RelOptUtil.toString(deserialized)
+                        sb.app("Invalid serialization / deserialization.").nl()
+                                .app("Expected:").nl().app(expected).nl()
+                                .app("Deserialized:").nl().app(deserialized).toString()
                 );
             }
         }

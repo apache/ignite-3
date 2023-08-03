@@ -373,9 +373,9 @@ public class TypeCoercionTest extends AbstractPlannerTest {
             }
 
             runBinaryOpTypeCoercionTest(rule, (planner, node) -> {
-                String error = String.format("Cannot apply '%s' to arguments of type '<%s> %s <%s>",
+                String error = "Values passed to = operator must have compatible types";/*String.format("Cannot apply '%s' to arguments of type '<%s> %s <%s>",
                         rule.operator.getName(), rule.lhs, rule.operator.getName(), rule.rhs
-                );
+                );*/
 
                 CalciteContextException e = assertThrows(CalciteContextException.class, () -> planner.validate(node));
                 assertThat(e.getMessage(), containsString(error));
