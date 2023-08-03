@@ -46,7 +46,10 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         pojo.unmapped = "unmapped";
 
         Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, pojo), IllegalArgumentException.class);
-        assertEquals("Fields [unmapped2, unmapped] are not mapped to columns.", ex.getMessage());
+        assertEquals(
+                "Fields [unmapped2, unmapped] of type "
+                        + "org.apache.ignite.internal.runner.app.client.ItThinClientMarshallingTest$TestPojo2 are not mapped to columns.",
+                ex.getMessage());
     }
 
     @Test
@@ -57,7 +60,10 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         var pojo = new TestPojo();
 
         Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, pojo, pojo), IllegalArgumentException.class);
-        assertEquals("Fields [val] are not mapped to columns.", ex.getMessage());
+        assertEquals(
+                "Fields [val] of type org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest$TestPojo "
+                        + "are not mapped to columns.",
+                ex.getMessage());
     }
 
     @Test
@@ -68,7 +74,10 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         var pojo = new TestPojo();
 
         Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, 1, pojo), IllegalArgumentException.class);
-        assertEquals("Fields [key] are not mapped to columns.", ex.getMessage());
+        assertEquals(
+                "Fields [key] of type org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest$TestPojo "
+                        + "are not mapped to columns.",
+                ex.getMessage());
     }
 
     @Test

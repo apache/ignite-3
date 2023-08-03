@@ -431,7 +431,10 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
                 IgniteException.class,
                 () -> client().sql().createSession().execute(null, Mapper.of(Pojo.class), query));
 
-        assertEquals("Failed to deserialize server response: Fields [str, num] are not mapped to columns.", e.getMessage());
+        assertEquals(
+                "Failed to deserialize server response: Fields [str, num] "
+                        + "of type org.apache.ignite.internal.runner.app.client.ItThinClientSqlTest$Pojo are not mapped to columns.",
+                e.getMessage());
     }
 
     @Test
