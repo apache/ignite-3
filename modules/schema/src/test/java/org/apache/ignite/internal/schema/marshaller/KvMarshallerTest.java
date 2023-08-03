@@ -178,7 +178,7 @@ public class KvMarshallerTest {
 
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
-    public void narrowType(MarshallerFactory factory) throws MarshallerException {
+    public void narrowType(MarshallerFactory factory) {
         Assumptions.assumeFalse(factory instanceof AsmMarshallerGenerator, "Generated marshaller doesn't support truncated values, yet.");
 
         Column[] cols = new Column[]{
@@ -191,22 +191,12 @@ public class KvMarshallerTest {
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, columnsAllTypes(true));
-        KvMarshaller<TestTruncatedObject, TestTruncatedObject> marshaller =
-                factory.create(schema, TestTruncatedObject.class, TestTruncatedObject.class);
 
-        final TestTruncatedObject key = TestTruncatedObject.randomObject(rnd);
-        final TestTruncatedObject val = TestTruncatedObject.randomObject(rnd);
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> factory.create(schema, TestTruncatedObject.class, TestTruncatedObject.class));
 
-        BinaryRow row = marshaller.marshal(key, val);
-
-        Object restoredVal = marshaller.unmarshalValue(new Row(schema, row));
-        Object restoredKey = marshaller.unmarshalKey(new Row(schema, row));
-
-        assertTrue(key.getClass().isInstance(restoredKey));
-        assertTrue(val.getClass().isInstance(restoredVal));
-
-        assertEquals(key, restoredKey);
-        assertEquals(val, restoredVal);
+        assertEquals("No field found for column BOOLEANCOL", ex.getMessage());
     }
 
     @ParameterizedTest
