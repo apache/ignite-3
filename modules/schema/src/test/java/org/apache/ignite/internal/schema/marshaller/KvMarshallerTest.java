@@ -56,6 +56,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -77,6 +78,7 @@ import org.apache.ignite.internal.schema.marshaller.asm.AsmMarshallerGenerator;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.reflection.SerializingConverter;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.testobjects.TestBitmaskObject;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithNoDefaultConstructor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithPrivateConstructor;
@@ -344,24 +346,20 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
-        Column[] cols = new Column[]{
-                new Column("primitiveLongCol".toUpperCase(), INT64, false),
-                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), false),
-        };
-
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
-
-        KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
-                factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
-
-        final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
-
-        assertThrows(
-                MarshallerException.class,
-                () -> marshaller.marshal(key, val),
-                "Failed to write field [name=bitmaskCol]"
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{ new Column("key".toUpperCase(), INT32, false) },
+                new Column[]{ new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true) }
         );
+
+        KvMarshaller<Integer, BitSet> marshaller =
+                factory.create(schema, Integer.class, BitSet.class);
+
+        Throwable ex = assertThrows(
+                MarshallerException.class,
+                () -> marshaller.marshal(1, IgniteTestUtils.randomBitSet(rnd, 42))).getCause().getCause();
+
+        assertThat(ex.getMessage(), startsWith("Failed to set bitmask for column 'BITMASKCOL' (mask size exceeds allocated size)"));
     }
 
     @ParameterizedTest
