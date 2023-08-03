@@ -616,6 +616,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return The zone id.
      * @throws DistributionZoneNotFoundException If the zone is not exist..
      */
+    // TODO: IGNITE-20114 вернуть к нему
     public int getZoneId(String name) {
         if (DEFAULT_ZONE_NAME.equals(name)) {
             return DEFAULT_ZONE_ID;

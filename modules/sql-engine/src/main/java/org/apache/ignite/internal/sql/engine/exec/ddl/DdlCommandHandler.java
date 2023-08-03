@@ -39,8 +39,6 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
@@ -74,7 +72,6 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
@@ -92,26 +89,15 @@ import org.apache.ignite.sql.SqlException;
 
 /** DDL commands handler. */
 public class DdlCommandHandler {
-    private final DistributionZoneManager distributionZoneManager;
-
     private final TableManager tableManager;
-
-    private final DataStorageManager dataStorageManager;
 
     protected final CatalogManager catalogManager;
 
     /**
      * Constructor.
      */
-    public DdlCommandHandler(
-            DistributionZoneManager distributionZoneManager,
-            TableManager tableManager,
-            DataStorageManager dataStorageManager,
-            CatalogManager catalogManager
-    ) {
-        this.distributionZoneManager = distributionZoneManager;
+    public DdlCommandHandler(TableManager tableManager, CatalogManager catalogManager) {
         this.tableManager = tableManager;
-        this.dataStorageManager = dataStorageManager;
         this.catalogManager = catalogManager;
     }
 
@@ -149,7 +135,7 @@ public class DdlCommandHandler {
     }
 
     /** Validate command. */
-    private void validateCommand(DdlCommand cmd) {
+    private static void validateCommand(DdlCommand cmd) {
         if (cmd instanceof AbstractTableDdlCommand) {
             AbstractTableDdlCommand cmd0 = (AbstractTableDdlCommand) cmd;
 
@@ -161,88 +147,25 @@ public class DdlCommandHandler {
 
     /** Handles create distribution zone command. */
     private CompletableFuture<Boolean> handleCreateZone(CreateZoneCommand cmd) {
-        DistributionZoneConfigurationParameters.Builder zoneCfgBuilder =
-                new DistributionZoneConfigurationParameters.Builder(cmd.zoneName());
-
-        if (cmd.dataNodesAutoAdjust() != null) {
-            zoneCfgBuilder.dataNodesAutoAdjust(cmd.dataNodesAutoAdjust());
-        }
-
-        if (cmd.dataNodesAutoAdjustScaleUp() != null) {
-            zoneCfgBuilder.dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp());
-        }
-
-        if (cmd.dataNodesAutoAdjustScaleDown() != null) {
-            zoneCfgBuilder.dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown());
-        }
-
-        if (cmd.replicas() != null) {
-            zoneCfgBuilder.replicas(cmd.replicas());
-        }
-
-        if (cmd.partitions() != null) {
-            zoneCfgBuilder.partitions(cmd.partitions());
-        }
-
-        if (cmd.nodeFilter() != null) {
-            zoneCfgBuilder.filter(cmd.nodeFilter());
-        }
-
-        zoneCfgBuilder.dataStorageChangeConsumer(
-                dataStorageManager.zoneDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
-
-        return distributionZoneManager.createZone(zoneCfgBuilder.build())
+        return catalogManager.createDistributionZone(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneAlreadyExistsException.class));
     }
 
-
     /** Handles rename zone command. */
     private CompletableFuture<Boolean> handleRenameZone(AlterZoneRenameCommand cmd) {
-        DistributionZoneConfigurationParameters.Builder zoneCfgBuilder =
-                new DistributionZoneConfigurationParameters.Builder(cmd.newZoneName());
-
-        boolean ifExists = cmd.ifExists();
-
-        return distributionZoneManager.alterZone(cmd.zoneName(), zoneCfgBuilder.build())
-                .handle(handleModificationResult(ifExists, DistributionZoneNotFoundException.class));
+        return catalogManager.renameDistributionZone(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
     }
 
     /** Handles alter zone command. */
     private CompletableFuture<Boolean> handleAlterZone(AlterZoneSetCommand cmd) {
-        DistributionZoneConfigurationParameters.Builder zoneCfgBuilder =
-                new DistributionZoneConfigurationParameters.Builder(cmd.zoneName());
-
-        if (cmd.dataNodesAutoAdjustScaleDown() != null) {
-            zoneCfgBuilder.dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown());
-        }
-
-        if (cmd.dataNodesAutoAdjust() != null) {
-            zoneCfgBuilder.dataNodesAutoAdjust(cmd.dataNodesAutoAdjust());
-        }
-
-        if (cmd.dataNodesAutoAdjustScaleUp() != null) {
-            zoneCfgBuilder.dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp());
-        }
-
-        if (cmd.replicas() != null) {
-            zoneCfgBuilder.replicas(cmd.replicas());
-        }
-
-        if (cmd.partitions() != null) {
-            zoneCfgBuilder.partitions(cmd.partitions());
-        }
-
-        if (cmd.nodeFilter() != null) {
-            zoneCfgBuilder.filter(cmd.nodeFilter());
-        }
-
-        return distributionZoneManager.alterZone(cmd.zoneName(), zoneCfgBuilder.build())
+        return catalogManager.alterDistributionZone(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
     }
 
     /** Handles drop distribution zone command. */
     private CompletableFuture<Boolean> handleDropZone(DropZoneCommand cmd) {
-        return distributionZoneManager.dropZone(cmd.zoneName())
+        return catalogManager.dropDistributionZone(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
     }
 

@@ -28,8 +28,11 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,12 +49,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -67,7 +72,6 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
-import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
@@ -90,6 +94,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -284,12 +289,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         partialNode.logicalTopology().putNode(B);
         partialNode.logicalTopology().putNode(C);
 
-        distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        CatalogManager catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
+
+        createZone(catalogManager, ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
         assertDataNodesFromManager(distributionZoneManager, 1, Set.of(A, B, C), TIMEOUT_MILLIS);
@@ -368,8 +370,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         PartialNode partialNode = startPartialNode(0);
 
         DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        CatalogManager catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
 
-        createZoneOrAlterDefaultZone(distributionZoneManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneOrAlterDefaultZone(distributionZoneManager, catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         partialNode.logicalTopology().putNode(A);
         partialNode.logicalTopology().putNode(B);
@@ -392,8 +395,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         PartialNode partialNode = startPartialNode(0);
 
         DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        CatalogManager catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
 
-        createZoneOrAlterDefaultZone(distributionZoneManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneOrAlterDefaultZone(distributionZoneManager, catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         partialNode.logicalTopology().putNode(A);
         partialNode.logicalTopology().putNode(B);
@@ -435,19 +439,15 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         PartialNode partialNode = startPartialNode(0);
 
         DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        CatalogManager catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
 
-        createZoneOrAlterDefaultZone(distributionZoneManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneOrAlterDefaultZone(distributionZoneManager, catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         partialNode.logicalTopology().putNode(A);
 
         assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A), TIMEOUT_MILLIS);
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(catalogManager, zoneName, INFINITE_TIMER_VALUE, null, null);
 
         partialNode.logicalTopology().putNode(B);
 
@@ -460,12 +460,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Only Node B passes the filter
         String filter = "$[?(@.dataRegionSize > 10)]";
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .filter(filter)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(catalogManager, zoneName, null, null, filter);
 
         assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A), TIMEOUT_MILLIS);
 
@@ -484,8 +479,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         PartialNode partialNode = startPartialNode(0);
 
         DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        CatalogManager catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
 
-        createZoneOrAlterDefaultZone(distributionZoneManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneOrAlterDefaultZone(distributionZoneManager, catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         partialNode.logicalTopology().putNode(A);
 
@@ -495,12 +491,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         blockUpdate(metaStorageManager, zoneScaleUpChangeTriggerKey(zoneId));
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .dataNodesAutoAdjustScaleUp(100)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(catalogManager, zoneName, 100, null, null);
 
         partialNode.logicalTopology().putNode(B);
 
@@ -509,12 +500,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Only Node B and C passes the filter
         String filter = "$[?(@.dataRegionSize > 10)]";
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .filter(filter)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(catalogManager, zoneName, null, null, filter);
 
         partialNode.logicalTopology().putNode(C);
 
@@ -536,12 +522,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Timer scheduled after join of the node C
         assertNotNull(zoneState.scaleUpTask());
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
+
+        alterZone(catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
 
         assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(B, C), TIMEOUT_MILLIS);
     }
@@ -552,8 +535,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         PartialNode partialNode = startPartialNode(0);
 
         DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        CatalogManager catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
 
-        createZoneOrAlterDefaultZone(distributionZoneManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneOrAlterDefaultZone(distributionZoneManager, catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         MetaStorageManager metaStorageManager = findComponent(partialNode.startedComponents(), MetaStorageManager.class);
 
@@ -592,18 +576,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     private static void createZoneOrAlterDefaultZone(
             DistributionZoneManager distributionZoneManager,
+            CatalogManager catalogManager,
             String zoneName,
             int scaleUp,
             int scaleDown
     ) throws Exception {
         if (zoneName.equals(DEFAULT_ZONE_NAME)) {
-            distributionZoneManager.alterZone(
-                    DEFAULT_ZONE_NAME,
-                    new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
-                            .dataNodesAutoAdjustScaleUp(scaleUp)
-                            .dataNodesAutoAdjustScaleDown(scaleDown)
-                            .build()
-            ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            alterZone(catalogManager, DEFAULT_ZONE_NAME, scaleUp, scaleDown, null);
 
             ZoneState zoneState = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID);
 
@@ -616,12 +595,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 assertTrue(waitForCondition(() -> zoneState.scaleDownTask().isDone(), TIMEOUT_MILLIS));
             }
         } else {
-            distributionZoneManager.createZone(
-                    new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                            .dataNodesAutoAdjustScaleUp(scaleUp)
-                            .dataNodesAutoAdjustScaleDown(scaleDown)
-                            .build()
-            ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            createZone(catalogManager, ZONE_NAME, scaleUp, scaleDown);
         }
     }
 
@@ -633,5 +607,44 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
             return iif1.andThen().update().operations().stream().anyMatch(op -> Arrays.equals(keyScaleUp, op.key()));
         }))).thenThrow(new RuntimeException("Expected"));
+    }
+
+    private static void createZone(
+            CatalogManager catalogManager,
+            String zoneNme,
+            int dataNodesAutoAdjustScaleUp,
+            int dataNodesAutoAdjustScaleDown
+    ) {
+        CreateZoneParams.Builder builder = CreateZoneParams.builder()
+                .zoneName(zoneNme)
+                .dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp)
+                .dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
+
+        assertThat(catalogManager.createDistributionZone(builder.build()), willBe(nullValue()));
+    }
+
+    private static void alterZone(
+            CatalogManager catalogManager,
+            String zoneNme,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        AlterZoneParams.Builder builder = AlterZoneParams.builder()
+                .zoneName(zoneNme);
+
+        if (dataNodesAutoAdjustScaleUp != null) {
+            builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
+        }
+
+        if (dataNodesAutoAdjustScaleDown != null) {
+            builder.dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
+        }
+
+        if (filter != null) {
+            builder.filter(filter);
+        }
+
+        assertThat(catalogManager.alterDistributionZone(builder.build()), willBe(nullValue()));
     }
 }

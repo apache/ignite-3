@@ -35,7 +35,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.metastorage.server.If;
@@ -48,14 +47,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Test scenarios when filter of a zone is altered and immediate scale up is triggered.
  */
-public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZoneManagerTest {
-    private static final String ZONE_NAME = "zone1";
-
-    private static final int ZONE_ID = 1;
-
+public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZoneManagerTest {
     private static final String FILTER = "$[?(@.storage == 'SSD' || @.region == 'US')]";
-
-    private static final long TIMEOUT_MILLIS = 10_000L;
 
     private static final int TIMER_SECONDS = 10_000;
 
@@ -91,26 +84,14 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
         preparePrerequisites(zoneId);
 
         // Change timers to infinite, add new node, alter filter and check that data nodes was changed.
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                        .filter(FILTER)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, FILTER);
 
         topology.putNode(D);
 
         // Nodes C and D match the filter.
         String newFilter = "$[?(@.region == 'CN')]";
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .filter(newFilter)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(zoneName, null, null, newFilter);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
         assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(C, D), TIMEOUT_MILLIS);
@@ -127,26 +108,14 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
         preparePrerequisites(zoneId);
 
         // Change timers to infinite, add new node, alter filter and check that data nodes was changed.
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                        .filter(FILTER)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, FILTER);
 
         topology.putNode(D);
 
         // No nodes are matching the filter
         String newFilter = "$[?(@.region == 'JP')]";
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .filter(newFilter)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(zoneName, null, null, newFilter);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
         assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(), TIMEOUT_MILLIS);
@@ -181,12 +150,7 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
         // Nodes C and D match the filter.
         String newFilter = "$[?(@.region == 'CN')]";
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .filter(newFilter)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(zoneName, null, null, newFilter);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
         // Node C is still in data nodes because altering a filter triggers only immediate scale up.
@@ -196,14 +160,7 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
         assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
 
         // Alter zone so we could check that node C is removed from data nodes.
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .filter(newFilter)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, newFilter);
 
         assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(D), TIMEOUT_MILLIS);
     }
@@ -236,11 +193,7 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
         // Nodes C and D and E match the filter.
         String newFilter = "$[?(@.region == 'CN')]";
 
-        distributionZoneManager.alterZone(zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .filter(newFilter)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(zoneName, null, null, newFilter);
 
         LogicalNode e = new LogicalNode(
                 new ClusterNode("5", "E", new NetworkAddress("localhost", 123)),
@@ -268,14 +221,7 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
         // Assert that scheduled timer was not canceled because of immediate scale up after filter altering.
         assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .filter(newFilter)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, newFilter);
 
         // Check that node E, that was added after filter's altering, was added only after altering immediate scale up.
         assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(C, D, e), TIMEOUT_MILLIS);
@@ -305,22 +251,9 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
         topology.putNode(C);
 
         if (zoneId == DEFAULT_ZONE_ID) {
-            distributionZoneManager.alterZone(
-                    DEFAULT_ZONE_NAME,
-                    new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
-                            .dataNodesAutoAdjustScaleUp(scaleUpTimer)
-                            .dataNodesAutoAdjustScaleDown(scaleDownTimer)
-                            .filter(FILTER)
-                            .build()
-            ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            alterZone(DEFAULT_ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER);
         } else {
-            distributionZoneManager.createZone(
-                    new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                            .dataNodesAutoAdjustScaleUp(scaleUpTimer)
-                            .dataNodesAutoAdjustScaleDown(scaleDownTimer)
-                            .filter(FILTER)
-                            .build()
-            ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            createZone(ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER);
         }
 
         assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A, C), TIMEOUT_MILLIS);

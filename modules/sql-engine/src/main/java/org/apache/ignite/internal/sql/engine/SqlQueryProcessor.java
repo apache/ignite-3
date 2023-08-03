@@ -249,13 +249,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.prepareSvc = prepareSvc;
 
-        var ddlCommandHandler = new DdlCommandHandlerWrapper(
-                distributionZoneManager,
-                tableManager,
-                indexManager,
-                dataStorageManager,
-                catalogManager
-        );
+        var ddlCommandHandler = new DdlCommandHandlerWrapper(tableManager, catalogManager);
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, TABLE_CACHE_SIZE);
 

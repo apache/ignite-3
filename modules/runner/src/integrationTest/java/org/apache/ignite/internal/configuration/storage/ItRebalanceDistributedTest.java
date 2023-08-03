@@ -1011,9 +1011,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 nodes.get(0).tableManager.createTableAsync(
                         tableName,
                         zoneName,
-                        tableChange -> {
-                            SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange);
-                        }
+                        tableChange -> SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange)
                 ),
                 willCompleteSuccessfully()
         );
