@@ -20,12 +20,12 @@ package org.apache.ignite.internal.network.file;
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.network.file.messages.FilesMetadata;
+import org.apache.ignite.internal.network.file.messages.Metadata;
 
 /**
  * Files provider.
  */
-public interface FileProvider<M extends FilesMetadata> {
+public interface FileProvider<M extends Metadata> {
     /**
      * Returns files for the given metadata. The provider must return non empty list of files.
      *

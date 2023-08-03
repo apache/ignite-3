@@ -25,7 +25,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * Chunked file.
  */
-@Transferable(FileTransferringMessageType.CHUNKED_FILE)
+@Transferable(FileTransferringMessageType.FILE_CHUNK)
 public interface FileChunk extends NetworkMessage {
     Comparator<FileChunk> COMPARATOR = Comparator.comparingLong(FileChunk::offset);
 

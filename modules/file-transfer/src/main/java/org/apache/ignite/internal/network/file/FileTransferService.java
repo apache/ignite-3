@@ -21,7 +21,7 @@ import java.io.File;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.network.file.messages.FilesMetadata;
+import org.apache.ignite.internal.network.file.messages.Metadata;
 
 /**
  * File transferring service.
@@ -33,7 +33,7 @@ public interface FileTransferService extends IgniteComponent {
      * @param metadata Metadata.
      * @param provider Provider.
      */
-    <M extends FilesMetadata> void addFileProvider(
+    <M extends Metadata> void addFileProvider(
             Class<M> metadata,
             FileProvider<M> provider
     );
@@ -44,7 +44,7 @@ public interface FileTransferService extends IgniteComponent {
      * @param metadata Metadata.
      * @param handler Handler.
      */
-    <M extends FilesMetadata> void addFileHandler(Class<M> metadata, FileHandler<M> handler);
+    <M extends Metadata> void addFileHandler(Class<M> metadata, FileHandler<M> handler);
 
     /**
      * Downloads files for the given metadata from the given node.
@@ -53,7 +53,7 @@ public interface FileTransferService extends IgniteComponent {
      * @param metadata Metadata.
      * @return Temporary path to the downloaded files. The caller is responsible for deleting the files.
      */
-    CompletableFuture<List<File>> download(String nodeConsistentId, FilesMetadata metadata);
+    CompletableFuture<List<File>> download(String nodeConsistentId, Metadata metadata);
 
     /**
      * Uploads files for the given metadata to the given node.
@@ -62,5 +62,5 @@ public interface FileTransferService extends IgniteComponent {
      * @param metadata Metadata.
      * @return Future that will be completed when the upload is finished.
      */
-    CompletableFuture<Void> upload(String nodeConsistentId, FilesMetadata metadata);
+    CompletableFuture<Void> upload(String nodeConsistentId, Metadata metadata);
 }
