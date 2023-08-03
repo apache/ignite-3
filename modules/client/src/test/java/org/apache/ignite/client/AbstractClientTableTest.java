@@ -287,5 +287,6 @@ public class AbstractClientTableTest extends AbstractClientTest {
     protected static class DefaultValuesValPojo {
         public String str;
         public String strNonNull;
+        public BigDecimal num;
     }
 }
