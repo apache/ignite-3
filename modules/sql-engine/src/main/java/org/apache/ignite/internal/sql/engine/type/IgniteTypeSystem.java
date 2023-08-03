@@ -35,13 +35,13 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
     /** {@inheritDoc} */
     @Override
     public int getMaxNumericScale() {
-        return Short.MAX_VALUE;
+        return CatalogUtils.MAX_DECIMAL_SCALE;
     }
 
     /** {@inheritDoc} */
     @Override
     public int getMaxNumericPrecision() {
-        return Short.MAX_VALUE;
+        return CatalogUtils.MAX_DECIMAL_PRECISION;
     }
 
 
@@ -66,8 +66,6 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
             case TIMESTAMP: // DATETIME
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE: // TIMESTAMP
                 return CatalogUtils.DEFAULT_TIMESTAMP_PRECISION;
-            case DECIMAL:
-                return CatalogUtils.DEFAULT_DECIMAL_PRECISION;
             case FLOAT:
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-18556
                 // Fixes leastRestrictive(FLOAT, DOUBLE) != leastRestrictive(DOUBLE, FLOAT).

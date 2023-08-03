@@ -55,16 +55,9 @@ public class CatalogUtils {
     /**
      * Default DECIMAL precision is implementation-defined.
      *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 25
+     * <p>SQL`16 part 2 section 6.1 syntax rule 20
      */
     public static final int DEFAULT_DECIMAL_PRECISION = 19;
-
-    /**
-     * Default DECIMAL scale is implementation-defined.
-     *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 25
-     */
-    public static final int DEFAULT_DECIMAL_SCALE = 3;
 
     /**
      * Maximum TIME and TIMESTAMP precision is implementation-defined.
@@ -72,6 +65,20 @@ public class CatalogUtils {
      * <p>SQL`16 part 2 section 6.1 syntax rule 38
      */
     public static final int MAX_TIME_PRECISION = 9;
+
+    /**
+     * Max DECIMAL precision is implementation-defined.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 25
+     */
+    public static final int MAX_DECIMAL_PRECISION = Short.MAX_VALUE;
+
+    /**
+     * Max DECIMAL scale is implementation-defined.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 25
+     */
+    public static final int MAX_DECIMAL_SCALE = Short.MAX_VALUE;
 
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
@@ -162,7 +169,8 @@ public class CatalogUtils {
      */
     public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
         int precision = params.precision() != null ? params.precision() : defaultPrecision(params.type());
-        int scale = params.scale() != null ? params.scale() : defaultScale(params.type());
+        /* Default scale is 0. SQL`16 part 2 section 6.1 syntax rule 22 */
+        int scale = params.scale() != null ? params.scale() : 0;
         int length = params.length() != null ? params.length() : defaultLength(params.type());
 
         DefaultValue defaultValue = params.defaultValueDefinition();
@@ -200,19 +208,6 @@ public class CatalogUtils {
         }
     }
 
-    private static int defaultScale(ColumnType columnType) {
-        //TODO IGNITE-19938: Add REAL,FLOAT and DOUBLE precision. See SQL`16 part 2 section 6.1 syntax rule 29-31
-        if (columnType == ColumnType.DECIMAL) {
-            return DEFAULT_DECIMAL_SCALE;
-        }
-
-        /*
-         * Default scale is 0.
-         * SQL`16 part 2 section 6.1 syntax rule 22
-         */
-        return 0;
-    }
-
     private static int defaultLength(ColumnType columnType) {
         //TODO IGNITE-19938: Return length for other types. See SQL`16 part 2 section 6.1 syntax rule 39
         switch (columnType) {
@@ -222,10 +217,10 @@ public class CatalogUtils {
                 return Integer.MAX_VALUE;
             default:
                 /*
-                 * Default length is 1.
+                 * Default length is 1 if implicit.
                  * SQL`16 part 2 section 6.1 syntax rule 5
                  */
-                return 1;
+                return Math.max(1, defaultPrecision(columnType));
         }
     }
 }
