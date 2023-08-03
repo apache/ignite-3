@@ -92,7 +92,6 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -530,7 +529,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private void onNodeLeft(String nodeName) {
             remoteFragmentInitCompletion.entrySet().stream()
                     .filter(e -> nodeName.equals(e.getKey().nodeName()))
-                    .forEach(e -> e.getValue().completeExceptionally(new NodeLeftException("Node left the cluster. Node: " + nodeName)));
+                    .forEach(e -> e.getValue().completeExceptionally(new NodeLeftException(nodeName)));
         }
 
         private CompletableFuture<Void> executeFragment(IgniteRel treeRoot, ResolvedDependencies deps, ExecutionContext<RowT> ectx) {
@@ -707,25 +706,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                             completionFuture.complete(null);
                                         }
 
-                                        String newMsg = format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
-                                                nodeName, fragment.fragmentId(), t.getMessage());
-                                        Throwable cause = unwrapCause(t);
-
-                                        if (cause instanceof IgniteException) {
-                                            throw new IgniteException(
-                                                    ((IgniteException) cause).traceId(),
-                                                    ((IgniteException) cause).code(),
-                                                    newMsg,
-                                                    t
-                                            );
-                                        } else {
-                                            throw ExceptionUtils.withCauseAndCode(
-                                                    IgniteInternalException::new,
-                                                    INTERNAL_ERR,
-                                                    newMsg,
-                                                    t
-                                            );
-                                        }
+                                        throw ExceptionUtils.withCauseAndCode(
+                                                IgniteInternalException::new,
+                                                INTERNAL_ERR,
+                                                format("Unable to send fragment [targetNode={}, fragmentId={}, cause={}]",
+                                                        nodeName, fragment.fragmentId(), t.getMessage()), t
+                                        );
                                     })
                             );
                         }

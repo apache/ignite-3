@@ -89,7 +89,7 @@ public class MessageServiceImpl implements MessageService {
                 ClusterNode node = topSrvc.getByConsistentId(nodeName);
 
                 if (node == null) {
-                    return CompletableFuture.failedFuture(new NodeLeftException("Node left the cluster. Node: " + nodeName));
+                    return CompletableFuture.failedFuture(new NodeLeftException(nodeName));
                 }
 
                 return messagingSrvc.send(node, msg);

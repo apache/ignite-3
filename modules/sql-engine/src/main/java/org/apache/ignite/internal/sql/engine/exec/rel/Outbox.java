@@ -37,7 +37,6 @@ import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -239,25 +238,12 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
                         return;
                     }
 
-                    String newErrorMessage = "Unable to send batch: " + ex.getMessage();
-                    Throwable cause = ExceptionUtils.unwrapCause(ex);
-                    Throwable wrapperEx;
-
-                    if (cause instanceof IgniteException) {
-                        wrapperEx = new IgniteException(
-                                ((IgniteException) cause).traceId(),
-                                ((IgniteException) cause).code(),
-                                newErrorMessage,
-                                ex
-                        );
-                    } else {
-                        wrapperEx = ExceptionUtils.withCauseAndCode(
-                                IgniteInternalException::new,
-                                Common.INTERNAL_ERR,
-                                newErrorMessage,
-                                ex
-                        );
-                    }
+                    IgniteInternalException wrapperEx = ExceptionUtils.withCauseAndCode(
+                            IgniteInternalException::new,
+                            Common.INTERNAL_ERR,
+                            "Unable to send batch: " + ex.getMessage(),
+                            ex
+                    );
 
                     context().execute(() -> onError(wrapperEx), this::onError);
                 });
