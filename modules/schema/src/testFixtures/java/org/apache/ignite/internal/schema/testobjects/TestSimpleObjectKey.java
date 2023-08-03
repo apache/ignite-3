@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.schema.testobjects;
 
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Random;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 
 /**
  * Test object.
