@@ -613,7 +613,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    public void testDeleteUsingCompositePkWithGap() {
+    public void testDeleteUsingCompositePk() {
         sql("CREATE TABLE test (a int, b INT NOT NULL, c INT NOT NULL, d VARCHAR NOT NULL, PRIMARY KEY(d, b))");
         sql("INSERT INTO test VALUES "
                 + "(0, 1, 0, '3'),"

@@ -64,7 +64,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(test1);
 
-        assertPlan("INSERT INTO TEST1 (C1, C2) VALUES(1, 2)", schema,
+        assertPlan("INSERT INTO TEST1 (C0, C2) VALUES(1, 2)", schema,
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                         .and(e -> e.distribution().equals(IgniteDistributions.single())))
                         .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class))
@@ -89,7 +89,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(test1, test2);
 
-        assertPlan("INSERT INTO TEST1 (C1, C2) SELECT C1, C2 FROM TEST2", schema,
+        assertPlan("INSERT INTO TEST1 (C0, C3) SELECT C0, C3 FROM TEST2", schema,
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                         .and(e -> e.distribution().equals(IgniteDistributions.single())))
                         .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class))
@@ -164,8 +164,8 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     private static Stream<IgniteDistribution> distributions() {
         return Stream.of(
                 IgniteDistributions.single(),
-                IgniteDistributions.hash(List.of(0, 1)),
-                IgniteDistributions.affinity(0, 2, "0"),
+                IgniteDistributions.hash(List.of(1, 3)),
+                IgniteDistributions.affinity(1, 2, "0"),
                 IgniteDistributions.affinity(List.of(1, 3), 2, "0"),
                 IgniteDistributions.affinity(List.of(3, 1), 2, "0")
         );

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import static org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule.createMapping;
-
 import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +28,6 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.plan.volcano.RelSubset;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
@@ -44,11 +43,11 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.mapping.IntPair;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
-import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -81,23 +80,7 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
         IgniteDistribution distribution = igniteTable.distribution();
 
         if (rel.getOperation() == Operation.DELETE) {
-            assert rel.getInput() instanceof RelSubset;
-
-            for (RelNode relInput : ((RelSubset) rel.getInput()).getRels()) {
-                if (relInput instanceof ProjectableFilterableTableScan) {
-                    ProjectableFilterableTableScan scan = (ProjectableFilterableTableScan) relInput;
-
-                    Mappings.TargetMapping mapping = createMapping(
-                            scan.projects(),
-                            scan.requiredColumns(),
-                            igniteTable.getRowType(cluster.getTypeFactory()).getFieldCount()
-                    );
-
-                    distribution = distribution.apply(mapping);
-
-                    break;
-                }
-            }
+            distribution = adjustDistributionKeysForDelete(distribution);
         }
 
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
@@ -154,5 +137,34 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
         List<RexNode> projections = Collections.singletonList(rexNode);
 
         return new IgniteProject(cluster, outTrait.replace(IgniteDistributions.single()), sumAgg, projections, convertedRowType);
+    }
+
+    /**
+     * To perform delete we need row with key fields only.
+     * But input distribution contains the indexes of the key columns according to the schema (i.e. for the full row).
+     * This method aligns the keys to their indexes so that a row containing only the key fields can be read.
+     *
+     * <pre>
+     * For example:
+     *  [1] -> [0]
+     *  [1, 3] -> [0, 1]
+     *  [7, 3, 5] -> [2, 0, 1]
+     * </pre>
+     *
+     * @param distribution Distribution specification.
+     * @return Distribution with adjusted keys.
+     */
+    private IgniteDistribution adjustDistributionKeysForDelete(IgniteDistribution distribution) {
+        int[] keys = distribution.getKeys().toIntArray();
+
+        Arrays.sort(keys);
+
+        List<IntPair> pairs = new ArrayList<>(keys.length);
+
+        for (int i = 0; i < keys.length; i++) {
+            pairs.add(new IntPair(keys[i], i));
+        }
+
+        return distribution.apply(Mappings.target(pairs, keys[keys.length - 1] + 1, keys.length));
     }
 }
