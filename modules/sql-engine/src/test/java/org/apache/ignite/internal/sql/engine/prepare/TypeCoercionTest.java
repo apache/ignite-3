@@ -71,7 +71,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -189,26 +188,6 @@ public class TypeCoercionTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("numericToDate")
     public void testNumericToDate(TypeCoercionRule rule) {
-        RelDataType lhs = rule.lhs;
-        RelDataType rhs = rule.rhs;
-        List<SqlTypeName> types = Arrays.asList(lhs.getSqlTypeName(), rhs.getSqlTypeName());
-
-        boolean tinyIntDate = types.contains(SqlTypeName.TINYINT);
-        boolean smallIntDate = types.contains(SqlTypeName.SMALLINT);
-        boolean intDate = types.contains(SqlTypeName.INTEGER);
-        boolean bigIntDate = types.contains(SqlTypeName.BIGINT);
-        boolean decimalDateLhsIsDecimal = types.contains(SqlTypeName.DECIMAL);
-
-        //TODO: https://issues.apache.org/jira/browse/IGNITE-18557
-        // Use assumptions otherwise we got an AssertionError:
-        /*
-        at org.apache.calcite.sql.validate.implicit.AbstractTypeCoercion.needToCast(AbstractTypeCoercion.java:274)
-        // Should keep sync with rules in SqlTypeCoercionRule.
-        assert SqlTypeUtil.canCastFrom(toType, fromType, true);
-         */
-        Assumptions.assumeFalse(tinyIntDate || smallIntDate || bigIntDate || intDate);
-        Assumptions.assumeFalse(decimalDateLhsIsDecimal);
-
         var tester = new BinaryOpTypeCoercionTester(rule);
         tester.execute();
     }
@@ -373,9 +352,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
             }
 
             runBinaryOpTypeCoercionTest(rule, (planner, node) -> {
-                String error = "Values passed to = operator must have compatible types";/*String.format("Cannot apply '%s' to arguments of type '<%s> %s <%s>",
-                        rule.operator.getName(), rule.lhs, rule.operator.getName(), rule.rhs
-                );*/
+                String error = String.format("Values passed to %s operator must have compatible types", rule.operator.getName());
 
                 CalciteContextException e = assertThrows(CalciteContextException.class, () -> planner.validate(node));
                 assertThat(e.getMessage(), containsString(error));

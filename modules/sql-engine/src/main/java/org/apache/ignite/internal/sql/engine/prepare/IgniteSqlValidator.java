@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.calcite.sql.type.SqlTypeUtil.isNull;
 import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.calcite.avatica.SqlType;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.Prepare;
@@ -423,6 +425,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                 firstType = super.deriveType(scope, first);
             }
 
+
+            boolean nullType = isNull(returnType) || isNull(firstType);
+
+            // propagate null type validation
+            if (nullType) {
+                return;
+            }
+
             RelDataType returnCustomType = returnType instanceof IgniteCustomType ? returnType : null;
             RelDataType fromCustomType = firstType instanceof IgniteCustomType ? firstType : null;
 
@@ -453,8 +463,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                         var ex = IgniteResource.INSTANCE.operationRequiresExplicitCast(operator.getName());
                         throw SqlUtil.newContextException(expr.getParserPosition(), ex);
                     } else {
-/*                        SqlCallBinding callBinding = new SqlCallBinding(this, scope, (SqlCall) expr);
-                        throw callBinding.newValidationSignatureError();*/
                         var ex = RESOURCE.incompatibleValueType(operator.getName());
                         throw SqlUtil.newContextException(expr.getParserPosition(), ex);
                     }

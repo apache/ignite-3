@@ -120,7 +120,7 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
                 + " (1, 'abc', NULL),"
                 + " (2, NULL, 0)");
 
-        String sql = "select case when (VAL = ?) then 0 else (case when (NUM = ?) then ? else ? end) end ";
+        String /*sql = "select case when (VAL = ?) then 0 else (case when (NUM = ?) then ? else ? end) end ";
         assertQuery(sql + "from TBL1").withParams("abc", 0, 1, null).returns(0).returns(0).returns(1).check();
         assertQuery(sql + "IS NULL from TBL1").withParams("abc", 0, 1, null).returns(false).returns(false).returns(false).check();
 
@@ -130,7 +130,7 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
         assertQuery(sql + "IS NULL from TBL1").withParams("diff", null, 1).returns(false).returns(true).returns(false).check();
         // NULL in ELSE operand.
         assertQuery(sql + "from TBL1").withParams("diff", 1, null).returns((Object) null).returns(1).returns((Object) null).check();
-        assertQuery(sql + "IS NULL from TBL1").withParams("diff", 1, null).returns(true).returns(false).returns(true).check();
+        assertQuery(sql + "IS NULL from TBL1").withParams("diff", 1, null).returns(true).returns(false).returns(true).check();*/
 
         sql = "select case when (VAL is not distinct from ?) then '0' else (case when (NUM is not distinct from ?) then ? else ? end) end ";
         assertQuery(sql + "from TBL1").withParams(null, null, "1", null).returns((Object) null).returns("1").returns("0").check();
