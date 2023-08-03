@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
@@ -27,7 +28,6 @@ import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -95,17 +95,12 @@ class CatalogParamsValidationUtils {
     }
 
     private static void validateZoneName(String zoneName) {
-        if (StringUtils.nullOrBlank(zoneName)) {
-            throw new IgniteInternalException(
-                    DistributionZones.ZONE_DEFINITION_ERR,
-                    "Missing zone name"
-            );
-        }
+        validateZoneName(zoneName, "Missing zone name");
     }
 
     private static void validateZoneName(String zoneName, String errorMessage) {
         if (StringUtils.nullOrBlank(zoneName)) {
-            throw new IgniteInternalException(
+            throw new CatalogValidationException(
                     DistributionZones.ZONE_DEFINITION_ERR,
                     errorMessage
             );
@@ -113,7 +108,7 @@ class CatalogParamsValidationUtils {
     }
 
     private static void validateZonePartitions(@Nullable Integer partitions) {
-        validateZoneField(partitions, 1, 65_000, "Invalid number of partitions");
+        validateZoneField(partitions, 1, MAX_PARTITION_COUNT, "Invalid number of partitions");
     }
 
     private static void validateZoneReplicas(@Nullable Integer replicas) {
@@ -143,7 +138,7 @@ class CatalogParamsValidationUtils {
 
         if ((dataNodesAutoAdjustScaleUp != null && dataNodesAutoAdjustScaleUp != INFINITE_TIMER_VALUE)
                 || (dataNodesAutoAdjustScaleDown != null && dataNodesAutoAdjustScaleDown != INFINITE_TIMER_VALUE)) {
-            throw new IgniteInternalException(
+            throw new CatalogValidationException(
                     DistributionZones.ZONE_DEFINITION_ERR,
                     "Not compatible parameters [dataNodesAutoAdjust={}, dataNodesAutoAdjustScaleUp={}, dataNodesAutoAdjustScaleDown={}]",
                     dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown
@@ -161,7 +156,7 @@ class CatalogParamsValidationUtils {
         } catch (InvalidPathException e) {
             String error = e.getMessage() == null ? "Unknown JsonPath compilation error." : e.getMessage();
 
-            throw new IgniteInternalException(
+            throw new CatalogValidationException(
                     DistributionZones.ZONE_DEFINITION_ERR,
                     "Invalid filter: [value={}, error={}]",
                     e,
@@ -176,7 +171,7 @@ class CatalogParamsValidationUtils {
         }
 
         if (value < min || (max != null && value > max)) {
-            throw new IgniteInternalException(
+            throw new CatalogValidationException(
                     DistributionZones.ZONE_DEFINITION_ERR,
                     "{}: [value={}, min={}" + (max == null ? ']' : ", max={}]"),
                     errorPrefix, value, min, max

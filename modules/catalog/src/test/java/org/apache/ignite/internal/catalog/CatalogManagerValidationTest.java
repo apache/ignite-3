@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -31,7 +32,6 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -44,7 +44,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     void testValidateZoneNameOnCreateZone() {
         assertThat(
                 manager.createZone(CreateZoneParams.builder().build()),
-                willThrowFast(IgniteInternalException.class, "Missing zone name")
+                willThrowFast(CatalogValidationException.class, "Missing zone name")
         );
 
         assertThat(manager.createZone(createZoneBuilder(ZONE_NAME).build()), willBe(nullValue()));
@@ -56,7 +56,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.alterZone(AlterZoneParams.builder().build()),
-                willThrowFast(IgniteInternalException.class, "Missing zone name")
+                willThrowFast(CatalogValidationException.class, "Missing zone name")
         );
 
         assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).build()), willBe(nullValue()));
@@ -66,22 +66,22 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     void testValidateZonePartitionsOnCreateZone() {
         assertThat(
                 manager.createZone(createZoneBuilder(ZONE_NAME).partitions(-1).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid number of partitions")
+                willThrowFast(CatalogValidationException.class, "Invalid number of partitions")
         );
 
         assertThat(
                 manager.createZone(createZoneBuilder(ZONE_NAME).partitions(0).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid number of partitions")
+                willThrowFast(CatalogValidationException.class, "Invalid number of partitions")
         );
 
         assertThat(
                 manager.createZone(createZoneBuilder(ZONE_NAME).partitions(65_001).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid number of partitions")
+                willThrowFast(CatalogValidationException.class, "Invalid number of partitions")
         );
 
         // Let's check the success cases.
         assertThat(manager.createZone(createZoneBuilder(ZONE_NAME + 0).partitions(1).build()), willBe(nullValue()));
-        assertThat(manager.createZone(createZoneBuilder(ZONE_NAME + 1).partitions(65_000).build()), willBe(nullValue()));
+        assertThat(manager.createZone(createZoneBuilder(ZONE_NAME + 1).partitions(MAX_PARTITION_COUNT).build()), willBe(nullValue()));
         assertThat(manager.createZone(createZoneBuilder(ZONE_NAME + 2).partitions(10).build()), willBe(nullValue()));
         assertThat(manager.createZone(createZoneBuilder(ZONE_NAME + 3).partitions(DEFAULT_PARTITION_COUNT).build()), willBe(nullValue()));
     }
@@ -92,22 +92,22 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).partitions(-1).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid number of partitions")
+                willThrowFast(CatalogValidationException.class, "Invalid number of partitions")
         );
 
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).partitions(0).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid number of partitions")
+                willThrowFast(CatalogValidationException.class, "Invalid number of partitions")
         );
 
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).partitions(65_001).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid number of partitions")
+                willThrowFast(CatalogValidationException.class, "Invalid number of partitions")
         );
 
         // Let's check the success cases.
         assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).partitions(1).build()), willBe(nullValue()));
-        assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).partitions(65_000).build()), willBe(nullValue()));
+        assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).partitions(MAX_PARTITION_COUNT).build()), willBe(nullValue()));
         assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).partitions(10).build()), willBe(nullValue()));
         assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).partitions(DEFAULT_PARTITION_COUNT).build()), willBe(nullValue()));
     }
@@ -116,12 +116,12 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     void testValidateZoneReplicasOnCreateZone() {
         assertThat(
                 manager.createZone(createZoneBuilder(ZONE_NAME).replicas(-1).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid number of replicas")
+                willThrowFast(CatalogValidationException.class, "Invalid number of replicas")
         );
 
         assertThat(
                 manager.createZone(createZoneBuilder(ZONE_NAME).replicas(0).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid number of replicas")
+                willThrowFast(CatalogValidationException.class, "Invalid number of replicas")
         );
 
         // Let's check the success cases.
@@ -136,12 +136,12 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).replicas(-1).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid number of replicas")
+                willThrowFast(CatalogValidationException.class, "Invalid number of replicas")
         );
 
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).replicas(0).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid number of replicas")
+                willThrowFast(CatalogValidationException.class, "Invalid number of replicas")
         );
 
         // Let's check the success cases.
@@ -154,7 +154,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     void testValidateDataNodesAutoAdjustOnCreateZone() {
         assertThat(
                 manager.createZone(createZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(-1).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid data nodes auto adjust")
+                willThrowFast(CatalogValidationException.class, "Invalid data nodes auto adjust")
         );
 
         // Let's check the success cases.
@@ -185,7 +185,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(-1).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid data nodes auto adjust")
+                willThrowFast(CatalogValidationException.class, "Invalid data nodes auto adjust")
         );
 
         // Let's check the success cases.
@@ -199,7 +199,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     void testValidateDataNodesAutoAdjustScaleUpOnCreateZone() {
         assertThat(
                 manager.createZone(createZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(-1).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid data nodes auto adjust scale up")
+                willThrowFast(CatalogValidationException.class, "Invalid data nodes auto adjust scale up")
         );
 
         // Let's check the success cases.
@@ -230,7 +230,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(-1).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid data nodes auto adjust scale up")
+                willThrowFast(CatalogValidationException.class, "Invalid data nodes auto adjust scale up")
         );
 
         // Let's check the success cases.
@@ -259,7 +259,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     void testValidateDataNodesAutoAdjustScaleDownOnCreateZone() {
         assertThat(
                 manager.createZone(createZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleDown(-1).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid data nodes auto adjust scale down")
+                willThrowFast(CatalogValidationException.class, "Invalid data nodes auto adjust scale down")
         );
 
         // Let's check the success cases.
@@ -290,7 +290,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleDown(-1).build()),
-                willThrowFast(IgniteInternalException.class, "Invalid data nodes auto adjust scale down")
+                willThrowFast(CatalogValidationException.class, "Invalid data nodes auto adjust scale down")
         );
 
         // Let's check the success cases.
@@ -319,12 +319,12 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     void testValidateDataNodesAutoAdjustCompatibilityParametersOnCreateZone() {
         assertThat(
                 manager.createZone(createZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(666).dataNodesAutoAdjustScaleUp(666).build()),
-                willThrowFast(IgniteInternalException.class, "Not compatible parameters")
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         assertThat(
                 manager.createZone(createZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(666).dataNodesAutoAdjustScaleDown(666).build()),
-                willThrowFast(IgniteInternalException.class, "Not compatible parameters")
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         assertThat(
@@ -335,7 +335,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
                                 .dataNodesAutoAdjustScaleDown(666)
                                 .build()
                 ),
-                willThrowFast(IgniteInternalException.class, "Not compatible parameters")
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         // Let's check the success cases.
@@ -377,12 +377,12 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(666).dataNodesAutoAdjustScaleUp(666).build()),
-                willThrowFast(IgniteInternalException.class, "Not compatible parameters")
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(666).dataNodesAutoAdjustScaleDown(666).build()),
-                willThrowFast(IgniteInternalException.class, "Not compatible parameters")
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         assertThat(
@@ -393,7 +393,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
                                 .dataNodesAutoAdjustScaleDown(666)
                                 .build()
                 ),
-                willThrowFast(IgniteInternalException.class, "Not compatible parameters")
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         // Let's check the success cases.
@@ -431,30 +431,31 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
         // Let's check the compatibility of the parameters and what is already stored in the catalog.
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(666).build()),
-                willThrowFast(IgniteInternalException.class, "Not compatible parameters")
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleDown(666).build()),
-                willThrowFast(IgniteInternalException.class, "Not compatible parameters")
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(666).dataNodesAutoAdjustScaleDown(666).build()),
-                willThrowFast(IgniteInternalException.class, "Not compatible parameters")
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
     }
 
     @Test
     void testValidateFilterOnCreateZone() {
         assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME).filter("some text").build()),
-                willThrowFast(IgniteInternalException.class, "Invalid filter")
+                manager.createZone(createZoneBuilder(ZONE_NAME).filter("not a JsonPath").build()),
+                willThrowFast(CatalogValidationException.class, "Invalid filter")
         );
 
+        // Missing ']' after 'nodeAttributes'.
         assertThat(
                 manager.createZone(createZoneBuilder(ZONE_NAME).filter("['nodeAttributes'[?(@.['region'] == 'EU')]").build()),
-                willThrowFast(IgniteInternalException.class, "Invalid filter")
+                willThrowFast(CatalogValidationException.class, "Invalid filter")
         );
 
         // Let's check the success cases.
@@ -474,13 +475,14 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
         assertThat(manager.createZone(createZoneBuilder(ZONE_NAME).build()), willBe(nullValue()));
 
         assertThat(
-                manager.alterZone(alterZoneBuilder(ZONE_NAME).filter("some text").build()),
-                willThrowFast(IgniteInternalException.class, "Invalid filter")
+                manager.alterZone(alterZoneBuilder(ZONE_NAME).filter("not a JsonPath").build()),
+                willThrowFast(CatalogValidationException.class, "Invalid filter")
         );
 
+        // Missing ']' after 'nodeAttributes'.
         assertThat(
                 manager.alterZone(alterZoneBuilder(ZONE_NAME).filter("['nodeAttributes'[?(@.['region'] == 'EU')]").build()),
-                willThrowFast(IgniteInternalException.class, "Invalid filter")
+                willThrowFast(CatalogValidationException.class, "Invalid filter")
         );
 
         // Let's check the success cases.
@@ -501,7 +503,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.dropZone(DropZoneParams.builder().build()),
-                willThrowFast(IgniteInternalException.class, "Missing zone name")
+                willThrowFast(CatalogValidationException.class, "Missing zone name")
         );
 
         // Let's check the success cases.
@@ -514,12 +516,12 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.renameZone(RenameZoneParams.builder().build()),
-                willThrowFast(IgniteInternalException.class, "Missing zone name")
+                willThrowFast(CatalogValidationException.class, "Missing zone name")
         );
 
         assertThat(
                 manager.renameZone(RenameZoneParams.builder().zoneName(ZONE_NAME).build()),
-                willThrowFast(IgniteInternalException.class, "Missing new zone name")
+                willThrowFast(CatalogValidationException.class, "Missing new zone name")
         );
 
         // Let's check the success cases.

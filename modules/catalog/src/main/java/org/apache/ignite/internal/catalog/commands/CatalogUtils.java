@@ -64,6 +64,9 @@ public class CatalogUtils {
     /** Value for the distribution zone timers which means that data nodes changing will be started without waiting. */
     public static final int IMMEDIATE_TIMER_VALUE = 0;
 
+    /** Max number of distribution zone partitions. */
+    public static final int MAX_PARTITION_COUNT = 65_000;
+
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
     static {
