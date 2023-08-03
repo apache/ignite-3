@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.network.file;
 
-import java.nio.file.Path;
+import java.io.File;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.file.messages.TransferMetadata;
 
@@ -28,9 +29,9 @@ public interface FileHandler<M extends TransferMetadata> {
     /**
      * Handles the uploaded files.
      *
-     * @param uploadedFileDir The temporary path to the directory with the uploaded files. The directory will be deleted after the
+     * @param uploadedFiles The temporary path to the directory with the uploaded files. The directory will be deleted after the
      *         method returns.
      * @return A future that will be completed when the file is handled.
      */
-    CompletableFuture<Void> handleUpload(M metadata, Path uploadedFileDir);
+    CompletableFuture<Void> handleUpload(M metadata, List<File> uploadedFiles);
 }

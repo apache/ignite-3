@@ -17,74 +17,43 @@
 
 package org.apache.ignite.internal.network.file;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
-
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.file.messages.FileChunk;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
 import org.apache.ignite.internal.network.file.messages.FileTransferErrorMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
-import org.apache.ignite.internal.util.FilesUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * File receiver.
  */
-class FileReceiver implements ManuallyCloseable {
+class FileReceiver {
     private static final IgniteLogger LOG = Loggers.forClass(FileReceiver.class);
-
-    private final Path tempDirectory;
 
     private final ExecutorService executorService;
 
     private final Map<UUID, FileTransferMessagesHandler> transferIdToHandler = new ConcurrentHashMap<>();
 
-    FileReceiver(Path tempDirectory, ExecutorService executorService) {
-        this.tempDirectory = tempDirectory;
+    FileReceiver(ExecutorService executorService) {
         this.executorService = executorService;
     }
 
-    private CompletableFuture<FileTransferMessagesHandler> createHandler(UUID transferId) {
-        try {
-            Path directory = Files.createDirectory(tempDirectory.resolve(transferId.toString()));
-            FileTransferMessagesHandler receiver = new FileTransferMessagesHandler(directory);
-            return completedFuture(receiver);
-        } catch (IOException e) {
-            return failedFuture(e);
-        }
+    FileTransferMessagesHandler registerTransfer(UUID transferId, Path handlerDir) {
+        FileTransferMessagesHandler handler = new FileTransferMessagesHandler(handlerDir);
+        transferIdToHandler.put(transferId, handler);
+        return handler;
     }
 
-    CompletableFuture<FileTransferMessagesHandler> registerTransfer(UUID transferId) {
-        return createHandler(transferId)
-                .thenApply(handler -> {
-                    transferIdToHandler.put(transferId, handler);
-                    handler.result()
-                            .whenComplete((path, throwable) -> {
-                                transferIdToHandler.remove(transferId);
-                                try {
-                                    handler.close();
-                                } catch (Exception ex) {
-                                    LOG.error("Failed to close handler. Exception: {}", ex);
-                                }
-                                if (throwable != null) {
-                                    LOG.error("Failed to receive file. Id: {}. Exception: {}", transferId, throwable);
-                                    deleteDirectoryIfExists(handler.dir());
-                                }
-                            });
-                    return handler;
-                });
+    void deregisterTransfer(UUID transferId) {
+        transferIdToHandler.remove(transferId);
     }
+
 
     CompletableFuture<Void> receiveFileTransferInfo(FileTransferInfo info) {
         return CompletableFuture.runAsync(() -> receiveFileTransferInfo0(info), executorService)
@@ -100,7 +69,7 @@ class FileReceiver implements ManuallyCloseable {
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + info.transferId());
         } else {
-            handler.receiveFileTransferInfo(info);
+            handler.handleFileTransferInfo(info);
         }
     }
 
@@ -118,7 +87,7 @@ class FileReceiver implements ManuallyCloseable {
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + header.transferId());
         } else {
-            handler.receiveFileHeader(header);
+            handler.handleFileHeader(header);
         }
     }
 
@@ -136,7 +105,7 @@ class FileReceiver implements ManuallyCloseable {
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + chunk.transferId());
         } else {
-            handler.receiveFileChunk(chunk);
+            handler.handleFileChunk(chunk);
         }
     }
 
@@ -157,21 +126,8 @@ class FileReceiver implements ManuallyCloseable {
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + errorMessage.transferId());
         } else {
-            handler.receiveFileTransferError(new FileTransferException(errorMessage.error().message()));
+            handler.handleFileTransferError(new FileTransferException(errorMessage.error().message()));
         }
 
-    }
-
-    private static void deleteDirectoryIfExists(Path directory) {
-        try {
-            FilesUtils.deleteDirectoryIfExists(directory);
-        } catch (IOException e) {
-            LOG.error("Failed to delete directory: {}. Exception: {}", directory, e);
-        }
-    }
-
-    @Override
-    public void close() throws Exception {
-        IgniteUtils.closeAllManually(transferIdToHandler.values());
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.testframework.matchers;
 
 import static org.hamcrest.CoreMatchers.is;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,7 +30,7 @@ import org.hamcrest.TypeSafeMatcher;
 /**
  * {@link TypeSafeMatcher} for matching file content.
  */
-public class FileContentMatcher extends TypeSafeMatcher<Path> {
+public class FileContentMatcher extends TypeSafeMatcher<File> {
 
     /** Matcher to forward the result of the completable future. */
     private final Matcher<byte[]> matcher;
@@ -41,12 +42,12 @@ public class FileContentMatcher extends TypeSafeMatcher<Path> {
     /**
      * Creates a matcher for matching file content.
      *
-     * @param path Path to the file.
+     * @param file File to match.
      * @return Matcher for matching file content.
      */
-    public static FileContentMatcher hasContent(Path path) {
+    public static FileContentMatcher hasContent(File file) {
         try {
-            return new FileContentMatcher(is(Files.readAllBytes(path)));
+            return new FileContentMatcher(is(Files.readAllBytes(file.toPath())));
         } catch (IOException e) {
             throw new RuntimeException("Could not read file content", e);
         }
@@ -63,9 +64,9 @@ public class FileContentMatcher extends TypeSafeMatcher<Path> {
     }
 
     @Override
-    protected boolean matchesSafely(Path path) {
+    protected boolean matchesSafely(File file) {
         try {
-            return matcher.matches(Files.readAllBytes(path));
+            return matcher.matches(Files.readAllBytes(file.toPath()));
         } catch (IOException e) {
             throw new RuntimeException("Could not read file content", e);
         }
@@ -77,9 +78,9 @@ public class FileContentMatcher extends TypeSafeMatcher<Path> {
     }
 
     @Override
-    protected void describeMismatchSafely(Path item, Description mismatchDescription) {
+    protected void describeMismatchSafely(File item, Description mismatchDescription) {
         try {
-            mismatchDescription.appendText("was ").appendValue(Files.readAllBytes(item));
+            mismatchDescription.appendText("was ").appendValue(Files.readAllBytes(item.toPath()));
         } catch (IOException e) {
             throw new RuntimeException("Could not read file content", e);
         }

@@ -62,7 +62,7 @@ class FileSender {
         AtomicBoolean interrupted = new AtomicBoolean(false);
         try (FileTransferMessagesStream stream = new FileTransferMessagesStream(id, files, chunkSize)) {
             while (stream.hasNextMessage() && !interrupted.get()) {
-                while (rateLimiter.tryAcquire()) {
+                if (rateLimiter.tryAcquire()) {
                     send.apply(receiverConsistentId, stream.nextMessage())
                             .whenComplete((res, e) -> {
                                 if (e != null) {

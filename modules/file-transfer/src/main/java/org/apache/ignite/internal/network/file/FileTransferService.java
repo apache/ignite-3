@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.network.file;
 
-import java.nio.file.Path;
+import java.io.File;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.file.messages.TransferMetadata;
@@ -52,7 +53,7 @@ public interface FileTransferService extends IgniteComponent {
      * @param transferMetadata Metadata.
      * @return Temporary path to the downloaded files. The caller is responsible for deleting the files.
      */
-    CompletableFuture<Path> download(String nodeConsistentId, TransferMetadata transferMetadata);
+    CompletableFuture<List<File>> download(String nodeConsistentId, TransferMetadata transferMetadata);
 
     /**
      * Uploads files for the given metadata to the given node.

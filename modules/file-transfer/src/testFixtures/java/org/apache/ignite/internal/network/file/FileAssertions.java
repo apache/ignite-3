@@ -22,67 +22,28 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * File assertions.
  */
 public class FileAssertions {
-
     /**
-     * Asserts that the content of the two directories is the same.
+     * Asserts that the content of two sets of files is the same.
      *
-     * @param expected Expected directory.
-     * @param actual Actual directory.
+     * @param files1 First set of files.
+     * @param files2 Second set of files.
      */
-    public static void assertContentEquals(Path expected, Path actual) {
-        try {
-            Files.walkFileTree(expected, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                    Path otherDir = actual.resolve(expected.relativize(dir));
-                    if (!Files.exists(otherDir)) {
-                        throw new AssertionError("Directory " + dir + " does not exist in " + actual);
-                    }
+    public static void assertContentEquals(Set<File> files1, Set<File> files2) {
+        assertThat(files1.size(), is(files2.size()));
 
-                    try (Stream<Path> expectedFilesStream = Files.list(dir);
-                            Stream<Path> actualFilesStream = Files.list(otherDir)) {
-                        List<String> expectedFiles = expectedFilesStream
-                                .map(Path::toFile)
-                                .map(File::getName)
-                                .collect(Collectors.toList());
+        Map<String, File> map = files1.stream()
+                .collect(Collectors.toMap(File::getName, file -> file));
 
-                        List<String> actualFiles = actualFilesStream
-                                .map(Path::toFile)
-                                .map(File::getName)
-                                .collect(Collectors.toList());
-
-                        assertThat(expectedFiles, is(actualFiles));
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    Path otherFile = actual.resolve(expected.relativize(file));
-                    if (Files.exists(otherFile)) {
-                        assertThat(file, hasContent(otherFile));
-                    } else {
-                        throw new AssertionError("File " + file + " does not exist in " + actual);
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException e) {
-            throw new AssertionError("Failed to compare directories", e);
+        for (File file : files2) {
+            assertThat(file, hasContent(map.get(file.getName())));
         }
     }
 }

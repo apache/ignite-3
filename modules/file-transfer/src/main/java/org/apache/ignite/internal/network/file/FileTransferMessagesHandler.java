@@ -17,26 +17,30 @@
 
 package org.apache.ignite.internal.network.file;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.ignite.internal.close.ManuallyCloseable;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.network.file.messages.FileChunk;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteInternalException;
 
-class FileTransferMessagesHandler implements ManuallyCloseable {
+class FileTransferMessagesHandler {
     private final Path dir;
     private final AtomicInteger filesCount = new AtomicInteger(-1);
     private final AtomicInteger filesFinished = new AtomicInteger(0);
-    private final CompletableFuture<Path> result = new CompletableFuture<>();
+    private final CompletableFuture<List<File>> result = new CompletableFuture<>();
     private final Map<String, ChunkedFileWriter> fileNameToWriter = new ConcurrentHashMap<>();
     private final Map<String, Lock> fileNameToLock = new ConcurrentHashMap<>();
 
@@ -44,7 +48,7 @@ class FileTransferMessagesHandler implements ManuallyCloseable {
         this.dir = dir;
     }
 
-    void receiveFileTransferInfo(FileTransferInfo info) {
+    void handleFileTransferInfo(FileTransferInfo info) {
         if (result.isDone()) {
             throw new IllegalStateException("Received file transfer info after result is already done.");
         }
@@ -52,36 +56,36 @@ class FileTransferMessagesHandler implements ManuallyCloseable {
         if (filesCount.get() != -1) {
             throw new IllegalStateException("Received file transfer info twice.");
         } else if (info.filesCount() == 0) {
-            result.complete(dir);
+            result.complete(List.of());
         } else {
             filesCount.set(info.filesCount());
         }
     }
 
-    void receiveFileHeader(FileHeader header) {
+    void handleFileHeader(FileHeader header) {
         if (result.isDone()) {
             throw new IllegalStateException("Received file header after result is already done.");
         }
-        doInLock(header.fileName(), () -> receiveFileHeader0(header));
+        doInLock(header.fileName(), () -> handleFileHeader0(header));
     }
 
-    private void receiveFileHeader0(FileHeader header) {
+    private void handleFileHeader0(FileHeader header) {
         try {
             Path path = Files.createFile(dir.resolve(header.fileName()));
             fileNameToWriter.put(header.fileName(), ChunkedFileWriter.open(path, header.fileSize()));
         } catch (IOException e) {
-            result.completeExceptionally(e);
+            handleFileTransferError(e);
         }
     }
 
-    void receiveFileChunk(FileChunk fileChunk) {
+    void handleFileChunk(FileChunk fileChunk) {
         if (result.isDone()) {
             throw new IllegalStateException("Received chunked file after result is already done.");
         }
-        doInLock(fileChunk.fileName(), () -> receiveFileChunk0(fileChunk));
+        doInLock(fileChunk.fileName(), () -> handleFileChunk0(fileChunk));
     }
 
-    private void receiveFileChunk0(FileChunk fileChunk) {
+    private void handleFileChunk0(FileChunk fileChunk) {
         try {
             ChunkedFileWriter writer = fileNameToWriter.get(fileChunk.fileName());
             writer.write(fileChunk);
@@ -93,19 +97,23 @@ class FileTransferMessagesHandler implements ManuallyCloseable {
             }
 
             if (filesFinished.get() == filesCount.get()) {
-                result.complete(dir);
+                try (Stream<Path> stream = Files.list(dir)) {
+                    List<File> files = stream.map(Path::toFile).collect(Collectors.toList());
+                    result.complete(files);
+                }
             }
 
         } catch (IOException e) {
-            result.completeExceptionally(e);
+            handleFileTransferError(e);
         }
     }
 
-    void receiveFileTransferError(Throwable error) {
+    void handleFileTransferError(Throwable error) {
         if (result.isDone()) {
             throw new IllegalStateException("Received file transfer error after result is already done.");
         }
         result.completeExceptionally(error);
+        closeAllWriters();
     }
 
     private void doInLock(String fileName, Runnable runnable) {
@@ -118,16 +126,15 @@ class FileTransferMessagesHandler implements ManuallyCloseable {
         }
     }
 
-    CompletableFuture<Path> result() {
+    CompletableFuture<List<File>> result() {
         return result;
     }
 
-    Path dir() {
-        return dir;
-    }
-
-    @Override
-    public void close() throws Exception {
-        IgniteUtils.closeAllManually(fileNameToWriter.values().stream());
+    private void closeAllWriters() {
+        try {
+            IgniteUtils.closeAllManually(fileNameToWriter.values().stream());
+        } catch (Exception e) {
+            throw new IgniteInternalException(e);
+        }
     }
 }

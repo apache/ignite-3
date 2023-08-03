@@ -25,16 +25,17 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.collection.IsArrayWithSize.emptyArray;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -97,11 +98,17 @@ public class ItFileTransferTest {
         );
 
         Node node1 = cluster.members.get(1);
-        CompletableFuture<Path> download = node1.fileTransferringService().download(
+        CompletableFuture<List<File>> downloadedFilesFuture = node1.fileTransferringService().download(
                 node0.nodeName(),
                 TransferMetadataImpl.builder().build()
         );
-        assertThat(download.thenAccept(path -> assertContentEquals(unitPath, path)), willCompleteSuccessfully());
+
+        assertThat(
+                downloadedFilesFuture.thenAccept(files -> {
+                    assertContentEquals(Set.of(file1, file2, file3), new HashSet<>(files));
+                }),
+                willCompleteSuccessfully()
+        );
     }
 
     @Test
@@ -126,7 +133,7 @@ public class ItFileTransferTest {
         );
 
         Node node1 = cluster.members.get(1);
-        CompletableFuture<Path> download = node1.fileTransferringService().download(
+        CompletableFuture<List<File>> download = node1.fileTransferringService().download(
                 node0.nodeName(),
                 TransferMetadataImpl.builder().build()
         );
@@ -143,7 +150,7 @@ public class ItFileTransferTest {
         );
 
         Node node1 = cluster.members.get(1);
-        CompletableFuture<Path> download = node1.fileTransferringService().download(
+        CompletableFuture<List<File>> download = node1.fileTransferringService().download(
                 node0.nodeName(),
                 TransferMetadataImpl.builder().build()
         );
@@ -160,11 +167,11 @@ public class ItFileTransferTest {
         );
 
         Node node1 = cluster.members.get(1);
-        CompletableFuture<Path> download = node1.fileTransferringService().download(
+        CompletableFuture<List<File>> downloadedFiles = node1.fileTransferringService().download(
                 node0.nodeName(),
                 TransferMetadataImpl.builder().build()
         );
-        assertThat(download.thenAccept(path -> assertThat(path.toFile().listFiles(), emptyArray())), willCompleteSuccessfully());
+        assertThat(downloadedFiles.thenAccept(files -> assertThat(files, hasSize(0))), willCompleteSuccessfully());
     }
 
     @Test
@@ -188,19 +195,20 @@ public class ItFileTransferTest {
 
         Node node1 = cluster.members.get(1);
 
-        CompletableFuture<Path> uploadedFilesDirFuture = new CompletableFuture<>();
+        CompletableFuture<List<File>> uploadedFilesFuture = new CompletableFuture<>();
         node1.fileTransferringService().addFileHandler(TransferMetadata.class, ((metadata, uploadedFilesDir) -> {
-            uploadedFilesDirFuture.complete(uploadedFilesDir);
+            uploadedFilesFuture.complete(uploadedFilesDir);
             return completedFuture(null);
         }));
 
         node0.fileTransferringService().upload(node1.nodeName(), TransferMetadataImpl.builder().build());
 
         assertThat(
-                uploadedFilesDirFuture.thenAccept(path -> assertContentEquals(unitPath, path)),
+                uploadedFilesFuture.thenAccept(files -> {
+                    assertContentEquals(Set.of(file1, file2, file3), new HashSet<>(files));
+                }),
                 willCompleteSuccessfully()
         );
-        await().until(() -> !Files.exists(uploadedFilesDirFuture.get()));
     }
 
     @Test
@@ -243,9 +251,9 @@ public class ItFileTransferTest {
 
         Node node1 = cluster.members.get(1);
 
-        CompletableFuture<Path> uploadedFilesDirFuture = new CompletableFuture<>();
+        CompletableFuture<List<File>> uploadedFilesFuture = new CompletableFuture<>();
         node1.fileTransferringService().addFileHandler(TransferMetadata.class, ((metadata, uploadedFilesDir) -> {
-            uploadedFilesDirFuture.complete(uploadedFilesDir);
+            uploadedFilesFuture.complete(uploadedFilesDir);
             return completedFuture(null);
         }));
 
@@ -255,7 +263,7 @@ public class ItFileTransferTest {
         );
 
         assertThat(
-                uploadedFilesDirFuture,
+                uploadedFilesFuture,
                 willTimeoutIn(1, TimeUnit.SECONDS)
         );
     }
@@ -271,9 +279,9 @@ public class ItFileTransferTest {
 
         Node node1 = cluster.members.get(1);
 
-        CompletableFuture<Path> uploadedFilesDirFuture = new CompletableFuture<>();
-        node1.fileTransferringService().addFileHandler(TransferMetadata.class, ((metadata, uploadedFilesDir) -> {
-            uploadedFilesDirFuture.complete(uploadedFilesDir);
+        CompletableFuture<List<File>> uploadedFilesFuture = new CompletableFuture<>();
+        node1.fileTransferringService().addFileHandler(TransferMetadata.class, ((metadata, uploadedFiles) -> {
+            uploadedFilesFuture.complete(uploadedFiles);
             return completedFuture(null);
         }));
 
@@ -283,7 +291,7 @@ public class ItFileTransferTest {
         );
 
         assertThat(
-                uploadedFilesDirFuture,
+                uploadedFilesFuture,
                 willTimeoutIn(1, TimeUnit.SECONDS)
         );
     }
