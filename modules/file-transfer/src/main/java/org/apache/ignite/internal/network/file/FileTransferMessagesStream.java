@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.network.file.messages.FileChunk;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
@@ -35,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Stream of messages to send files.
  */
-public class FileTransferringMessagesStream implements ManuallyCloseable {
+public class FileTransferMessagesStream implements AutoCloseable {
     private final UUID transferId;
 
     private final Queue<File> filesToSend;
@@ -59,7 +58,7 @@ public class FileTransferringMessagesStream implements ManuallyCloseable {
      * @param filesToSend the files to send. Must not be empty.
      * @param chunkSize the size of the chunks to send. Must be positive.
      */
-    FileTransferringMessagesStream(
+    FileTransferMessagesStream(
             UUID transferId,
             List<File> filesToSend,
             int chunkSize

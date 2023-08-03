@@ -56,7 +56,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItFileTransferringTest {
+public class ItFileTransferTest {
 
     @WorkDirectory
     private Path workDir;

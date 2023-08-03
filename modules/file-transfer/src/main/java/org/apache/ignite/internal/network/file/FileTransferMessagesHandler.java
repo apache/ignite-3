@@ -32,7 +32,7 @@ import org.apache.ignite.internal.network.file.messages.FileHeader;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
 import org.apache.ignite.internal.util.IgniteUtils;
 
-class FileTransferringMessagesHandler implements ManuallyCloseable {
+class FileTransferMessagesHandler implements ManuallyCloseable {
     private final Path dir;
     private final AtomicInteger filesCount = new AtomicInteger(-1);
     private final AtomicInteger filesFinished = new AtomicInteger(0);
@@ -40,7 +40,7 @@ class FileTransferringMessagesHandler implements ManuallyCloseable {
     private final Map<String, ChunkedFileWriter> fileNameToWriter = new ConcurrentHashMap<>();
     private final Map<String, Lock> fileNameToLock = new ConcurrentHashMap<>();
 
-    FileTransferringMessagesHandler(Path dir) {
+    FileTransferMessagesHandler(Path dir) {
         this.dir = dir;
     }
 

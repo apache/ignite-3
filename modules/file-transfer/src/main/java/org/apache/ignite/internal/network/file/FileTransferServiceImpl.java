@@ -32,7 +32,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.configuration.FileTransferringConfiguration;
@@ -48,6 +47,7 @@ import org.apache.ignite.internal.network.file.messages.FileTransferringMessageT
 import org.apache.ignite.internal.network.file.messages.FileUploadRequest;
 import org.apache.ignite.internal.network.file.messages.TransferMetadata;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.FilesUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ChannelType;
@@ -55,10 +55,10 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Implementation of {@link FileTransferringService}.
+ * Implementation of {@link FileTransferService}.
  */
-public class FileTransferringServiceImpl implements FileTransferringService {
-    private static final IgniteLogger LOG = Loggers.forClass(FileTransferringServiceImpl.class);
+public class FileTransferServiceImpl implements FileTransferService {
+    private static final IgniteLogger LOG = Loggers.forClass(FileTransferServiceImpl.class);
 
     private static final ChannelType FILE_TRANSFERRING_CHANNEL = ChannelType.register((short) 1, "FileTransferring");
 
@@ -87,7 +87,7 @@ public class FileTransferringServiceImpl implements FileTransferringService {
      * @param messagingService Messaging service.
      * @param tempDirectory Temporary directory.
      */
-    public FileTransferringServiceImpl(
+    public FileTransferServiceImpl(
             String nodeName,
             MessagingService messagingService,
             FileTransferringConfiguration configuration,
@@ -138,7 +138,7 @@ public class FileTransferringServiceImpl implements FileTransferringService {
 
     private void processUploadRequest(FileUploadRequest message) {
         fileReceiver.registerTransfer(message.transferId())
-                .thenCompose(FileTransferringMessagesHandler::result)
+                .thenCompose(FileTransferMessagesHandler::result)
                 .thenCompose(path -> {
                     return metadataToHandler.get(message.metadata().messageType()).handleUpload(message.metadata(), path)
                             .whenComplete((v, e) -> {
@@ -200,7 +200,7 @@ public class FileTransferringServiceImpl implements FileTransferringService {
     @Override
     public void stop() throws Exception {
         IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
-        IgniteUtils.closeAllManually(Stream.of(fileSender, fileReceiver));
+        IgniteUtils.closeAllManually(fileReceiver);
     }
 
     @Override
@@ -274,7 +274,16 @@ public class FileTransferringServiceImpl implements FileTransferringService {
 
     private FileTransferError toError(Throwable throwable) {
         return factory.fileTransferError()
-                .message(throwable.getMessage())
+                .message(unwrapFileTransferException(throwable).getMessage())
                 .build();
+    }
+
+    private Throwable unwrapFileTransferException(Throwable throwable) {
+        Throwable unwrapped = ExceptionUtils.unwrapCause(throwable);
+        if (unwrapped instanceof FileTransferException) {
+            return unwrapped.getCause();
+        } else {
+            return unwrapped;
+        }
     }
 }

@@ -25,7 +25,7 @@ import org.apache.ignite.internal.network.file.messages.TransferMetadata;
 /**
  * File transferring service.
  */
-public interface FileTransferringService extends IgniteComponent {
+public interface FileTransferService extends IgniteComponent {
     /**
      * Adds a file provider for the given metadata.
      *

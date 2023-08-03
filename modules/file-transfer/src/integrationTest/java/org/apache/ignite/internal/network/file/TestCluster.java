@@ -103,7 +103,7 @@ public class TestCluster {
 
         try {
             Path nodeDir = Files.createDirectory(workDir.resolve("node-" + clusterSvc.nodeName()));
-            FileTransferringServiceImpl fileTransferringService = new FileTransferringServiceImpl(
+            FileTransferServiceImpl fileTransferringService = new FileTransferServiceImpl(
                     clusterSvc.nodeName(),
                     clusterSvc.messagingService(),
                     configuration,
@@ -144,7 +144,7 @@ public class TestCluster {
     public static class Node {
         private final Path workDir;
         private final ClusterService clusterService;
-        private final FileTransferringService fileTransferringService;
+        private final FileTransferService fileTransferService;
         private final List<IgniteComponent> components;
 
         /**
@@ -152,13 +152,13 @@ public class TestCluster {
          *
          * @param workDir Work directory.
          * @param clusterService Cluster service.
-         * @param fileTransferringService File transferring service.
+         * @param fileTransferService File transferring service.
          */
-        public Node(Path workDir, ClusterService clusterService, FileTransferringService fileTransferringService) {
+        public Node(Path workDir, ClusterService clusterService, FileTransferService fileTransferService) {
             this.workDir = workDir;
             this.clusterService = clusterService;
-            this.fileTransferringService = fileTransferringService;
-            this.components = List.of(clusterService, fileTransferringService);
+            this.fileTransferService = fileTransferService;
+            this.components = List.of(clusterService, fileTransferService);
         }
 
         public String nodeName() {
@@ -173,8 +173,8 @@ public class TestCluster {
             return clusterService;
         }
 
-        public FileTransferringService fileTransferringService() {
-            return fileTransferringService;
+        public FileTransferService fileTransferringService() {
+            return fileTransferService;
         }
 
         void start() {

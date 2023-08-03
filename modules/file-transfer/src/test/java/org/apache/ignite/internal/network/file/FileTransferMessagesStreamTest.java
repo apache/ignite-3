@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
-class FileTransferringMessagesStreamTest {
+class FileTransferMessagesStreamTest {
 
     @WorkDirectory
     private Path workDir;
@@ -49,7 +49,7 @@ class FileTransferringMessagesStreamTest {
         List<File> filesToSend = List.of(file);
         int chunkSize = -1;
 
-        assertThrows(IllegalArgumentException.class, () -> new FileTransferringMessagesStream(transferId, filesToSend, chunkSize));
+        assertThrows(IllegalArgumentException.class, () -> new FileTransferMessagesStream(transferId, filesToSend, chunkSize));
     }
 
     @Test
@@ -59,7 +59,7 @@ class FileTransferringMessagesStreamTest {
         int chunkSize = 1024 * 1024; // 1 MB
 
 
-        FileTransferringMessagesStream stream = new FileTransferringMessagesStream(transferId, filesToSend, chunkSize);
+        FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, chunkSize);
 
         try {
             // check transfer FileTransferInfo
@@ -83,7 +83,7 @@ class FileTransferringMessagesStreamTest {
         List<File> filesToSend = List.of(file1, file2);
         int chunkSize = 1024 * 1024; // 1 MB
 
-        FileTransferringMessagesStream stream = new FileTransferringMessagesStream(transferId, filesToSend, chunkSize);
+        FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, chunkSize);
 
         try {
             // check transfer FileTransferInfo
@@ -121,7 +121,7 @@ class FileTransferringMessagesStreamTest {
         List<File> filesToSend = List.of(file1, file2);
         int chunkSize = 1024 * 1024; // 1 MB
 
-        FileTransferringMessagesStream stream = new FileTransferringMessagesStream(transferId, filesToSend, chunkSize);
+        FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, chunkSize);
 
         try {
             // check transfer FileTransferInfo
@@ -175,7 +175,7 @@ class FileTransferringMessagesStreamTest {
         List<File> filesToSend = List.of(file1, file2);
         int chunkSize = 1024; // 1 KB
 
-        FileTransferringMessagesStream stream = new FileTransferringMessagesStream(transferId, filesToSend, chunkSize);
+        FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, chunkSize);
 
         try {
             // check transfer FileTransferInfo
@@ -246,7 +246,7 @@ class FileTransferringMessagesStreamTest {
         File file3 = randomFile(workDir, chunkSize).toFile();
         List<File> filesToSend = List.of(file1, file2, file3);
 
-        FileTransferringMessagesStream stream = new FileTransferringMessagesStream(transferId, filesToSend, chunkSize);
+        FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, chunkSize);
 
         try {
             // check transfer FileTransferInfo

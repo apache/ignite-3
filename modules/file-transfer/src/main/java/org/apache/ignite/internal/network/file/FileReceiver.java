@@ -48,24 +48,24 @@ class FileReceiver implements ManuallyCloseable {
 
     private final ExecutorService executorService;
 
-    private final Map<UUID, FileTransferringMessagesHandler> transferIdToHandler = new ConcurrentHashMap<>();
+    private final Map<UUID, FileTransferMessagesHandler> transferIdToHandler = new ConcurrentHashMap<>();
 
     FileReceiver(Path tempDirectory, ExecutorService executorService) {
         this.tempDirectory = tempDirectory;
         this.executorService = executorService;
     }
 
-    private CompletableFuture<FileTransferringMessagesHandler> createHandler(UUID transferId) {
+    private CompletableFuture<FileTransferMessagesHandler> createHandler(UUID transferId) {
         try {
             Path directory = Files.createDirectory(tempDirectory.resolve(transferId.toString()));
-            FileTransferringMessagesHandler receiver = new FileTransferringMessagesHandler(directory);
+            FileTransferMessagesHandler receiver = new FileTransferMessagesHandler(directory);
             return completedFuture(receiver);
         } catch (IOException e) {
             return failedFuture(e);
         }
     }
 
-    CompletableFuture<FileTransferringMessagesHandler> registerTransfer(UUID transferId) {
+    CompletableFuture<FileTransferMessagesHandler> registerTransfer(UUID transferId) {
         return createHandler(transferId)
                 .thenApply(handler -> {
                     transferIdToHandler.put(transferId, handler);
@@ -96,7 +96,7 @@ class FileReceiver implements ManuallyCloseable {
     }
 
     private void receiveFileTransferInfo0(FileTransferInfo info) {
-        FileTransferringMessagesHandler handler = transferIdToHandler.get(info.transferId());
+        FileTransferMessagesHandler handler = transferIdToHandler.get(info.transferId());
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + info.transferId());
         } else {
@@ -114,7 +114,7 @@ class FileReceiver implements ManuallyCloseable {
     }
 
     private void receiveFileHeader0(FileHeader header) {
-        FileTransferringMessagesHandler handler = transferIdToHandler.get(header.transferId());
+        FileTransferMessagesHandler handler = transferIdToHandler.get(header.transferId());
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + header.transferId());
         } else {
@@ -132,7 +132,7 @@ class FileReceiver implements ManuallyCloseable {
     }
 
     private void receiveFileChunk0(FileChunk chunk) {
-        FileTransferringMessagesHandler handler = transferIdToHandler.get(chunk.transferId());
+        FileTransferMessagesHandler handler = transferIdToHandler.get(chunk.transferId());
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + chunk.transferId());
         } else {
@@ -153,7 +153,7 @@ class FileReceiver implements ManuallyCloseable {
     }
 
     private void receiveFileTransferErrorMessage0(FileTransferErrorMessage errorMessage) {
-        FileTransferringMessagesHandler handler = transferIdToHandler.get(errorMessage.transferId());
+        FileTransferMessagesHandler handler = transferIdToHandler.get(errorMessage.transferId());
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + errorMessage.transferId());
         } else {

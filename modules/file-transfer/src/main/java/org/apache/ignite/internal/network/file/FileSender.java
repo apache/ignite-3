@@ -20,19 +20,16 @@ package org.apache.ignite.internal.network.file;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.NetworkMessage;
 
-class FileSender implements ManuallyCloseable {
+class FileSender {
     private static final IgniteLogger LOG = Loggers.forClass(FileSender.class);
 
     private final int chunkSize;
@@ -42,8 +39,6 @@ class FileSender implements ManuallyCloseable {
     private final BiFunction<String, NetworkMessage, CompletableFuture<Void>> send;
 
     private final ExecutorService executorService;
-
-    private final Queue<FileTransferringRequest> filesToSend = new ConcurrentLinkedQueue<>();
 
     FileSender(
             int chunkSize,
@@ -60,85 +55,30 @@ class FileSender implements ManuallyCloseable {
      * Adds files to the queue to be sent to the receiver.
      */
     CompletableFuture<Void> send(String receiverConsistentId, UUID id, List<File> files) {
-        FileTransferringRequest request = new FileTransferringRequest(receiverConsistentId, id, files, chunkSize);
-        filesToSend.add(request);
-        executorService.submit(this::processQueue);
-        return request.result();
+        return CompletableFuture.runAsync(() -> send0(receiverConsistentId, id, files), executorService);
     }
 
-    /**
-     * Processes the queue of files to be sent.
-     */
-    private void processQueue() {
-        while (!filesToSend.isEmpty()) {
-            FileTransferringRequest request = filesToSend.peek();
-            try {
-                FileTransferringMessagesStream stream = request.messagesStream;
-                while (stream.hasNextMessage() && rateLimiter.tryAcquire()) {
-                    send.apply(request.receiverConsistentId, stream.nextMessage())
+    private void send0(String receiverConsistentId, UUID id, List<File> files) {
+        AtomicBoolean interrupted = new AtomicBoolean(false);
+        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(id, files, chunkSize)) {
+            while (stream.hasNextMessage() && !interrupted.get()) {
+                while (rateLimiter.tryAcquire()) {
+                    send.apply(receiverConsistentId, stream.nextMessage())
                             .whenComplete((res, e) -> {
                                 if (e != null) {
-                                    request.complete(e);
+                                    LOG.error("Failed to send files to node: {}, transfer id: {}. Exception: {}",
+                                            receiverConsistentId,
+                                            id,
+                                            e
+                                    );
+                                    interrupted.set(true);
                                 }
                                 rateLimiter.release();
                             });
                 }
-                if (!stream.hasNextMessage()) {
-                    request.complete();
-                    filesToSend.remove();
-                }
-            } catch (IOException e) {
-                request.complete(e);
             }
-        }
-    }
-
-    @Override
-    public void close() {
-        filesToSend.forEach(it -> it.complete(new NodeStoppingException()));
-    }
-
-    private static class FileTransferringRequest {
-        /**
-         * Receiver consistent id.
-         */
-        private final String receiverConsistentId;
-
-        /**
-         * Messages stream.
-         */
-        private final FileTransferringMessagesStream messagesStream;
-
-        /**
-         * Result future. Will be completed when all messages are sent.
-         */
-        private final CompletableFuture<Void> result = new CompletableFuture<>();
-
-        private FileTransferringRequest(String receiverConsistentId, UUID id, List<File> files, int chunkSize) {
-            this.receiverConsistentId = receiverConsistentId;
-            this.messagesStream = new FileTransferringMessagesStream(id, files, chunkSize);
-        }
-
-        CompletableFuture<Void> result() {
-            return result;
-        }
-
-        void complete() {
-            result.complete(null);
-            try {
-                messagesStream.close();
-            } catch (IOException e) {
-                LOG.error("Failed to close file messages stream", e);
-            }
-        }
-
-        void complete(Throwable e) {
-            result.completeExceptionally(e);
-            try {
-                messagesStream.close();
-            } catch (IOException ex) {
-                LOG.error("Failed to close file messages stream", ex);
-            }
+        } catch (IOException e) {
+            throw new FileTransferException("Failed to send files to node: " + receiverConsistentId + ", transfer id: " + id, e);
         }
     }
 }
