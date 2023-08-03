@@ -154,10 +154,10 @@ public class RecordMarshallerTest {
                 () -> factory.create(schema, TestObjectWithAllTypes.class));
 
         assertEquals(
-                "Fields [booleanCol, primitiveFloatCol, floatCol, dateTimeCol, bitmaskCol, timestampCol, uuidCol, decimalCol, "
-                        + "primitiveBooleanCol, timeCol, doubleCol, primitiveByteCol, numberCol, primitiveIntCol, nullLongCol, longCol, "
-                        + "primitiveShortCol, bytesCol, shortCol, dateCol, byteCol, nullBytesCol] "
-                        + "of type org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes are not mapped to columns.",
+                "Fields [bitmaskCol, booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
+                        + "longCol, nullBytesCol, nullLongCol, numberCol, primitiveBooleanCol, primitiveByteCol, primitiveFloatCol, "
+                        + "primitiveIntCol, primitiveShortCol, shortCol, timeCol, timestampCol, uuidCol] of type "
+                        + "org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes are not mapped to columns.",
                 ex.getMessage());
     }
 
