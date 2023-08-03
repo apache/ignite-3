@@ -127,12 +127,6 @@ public final class CatalogColumnDescriptor implements ColumnDescriptor {
 
     /** {@inheritDoc} */
     @Override
-    public int physicalIndex() {
-        return index;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public NativeType physicalType() {
         if (nativeType == null) {
             nativeType = TypeUtils.columnType2NativeType(columnType, precision, scale);

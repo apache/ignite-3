@@ -192,27 +192,5 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      *
      * @return Indexes for the current table.
      */
-    Map<String, IgniteSchemaIndex> indexes();
-
-    /**
-     * Adds index to table.
-     *
-     * @param idxTbl Index table.
-     */
-    void addIndex(IgniteIndex idxTbl);
-
-    /**
-     * Returns index by its name.
-     *
-     * @param idxName Index name.
-     * @return Index.
-     */
-    IgniteIndex getIndex(String idxName);
-
-    /**
-     * Returns index name.
-     *
-     * @param idxName Index name.
-     */
-    void removeIndex(String idxName);
+    Map<String, IgniteIndex> indexes();
 }

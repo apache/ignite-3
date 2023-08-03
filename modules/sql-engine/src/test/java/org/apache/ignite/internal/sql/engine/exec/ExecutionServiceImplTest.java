@@ -868,7 +868,7 @@ public class ExecutionServiceImplTest {
         for (int i = 0; i < fields.length; i += 2) {
             columns.add(
                     new ColumnDescriptorImpl(
-                            (String) fields[i], false, true, i, i,
+                            (String) fields[i], false, true, i,
                             (NativeType) fields[i + 1], DefaultValueStrategy.DEFAULT_NULL, null
                     )
             );

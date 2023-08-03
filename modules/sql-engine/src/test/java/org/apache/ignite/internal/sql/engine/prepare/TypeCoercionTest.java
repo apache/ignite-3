@@ -62,7 +62,6 @@ import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -684,23 +683,8 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         }
 
         @Override
-        public Map<String, IgniteSchemaIndex> indexes() {
+        public Map<String, IgniteIndex> indexes() {
             return Map.of();
-        }
-
-        @Override
-        public void addIndex(IgniteIndex idxTbl) {
-            throw new AssertionError();
-        }
-
-        @Override
-        public IgniteIndex getIndex(String idxName) {
-            throw new AssertionError();
-        }
-
-        @Override
-        public void removeIndex(String idxName) {
-            throw new AssertionError();
         }
 
         @Override

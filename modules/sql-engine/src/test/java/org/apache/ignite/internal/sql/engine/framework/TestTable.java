@@ -39,7 +39,6 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -57,7 +56,7 @@ public class TestTable implements IgniteTable {
     private static final AtomicInteger ID = new AtomicInteger();
 
     private final int id = ID.incrementAndGet();
-    private final Map<String, IgniteSchemaIndex> indexes;
+    private final Map<String, IgniteIndex> indexes;
 
     private final String name;
     private final double rowCnt;
@@ -70,7 +69,7 @@ public class TestTable implements IgniteTable {
             TableDescriptor descriptor,
             String name,
             double rowCnt,
-            List<IgniteSchemaIndex> indexes
+            List<IgniteIndex> indexes
     ) {
         this(descriptor, name, rowCnt, indexes, Map.of());
     }
@@ -80,7 +79,7 @@ public class TestTable implements IgniteTable {
             TableDescriptor descriptor,
             String name,
             double rowCnt,
-            List<IgniteSchemaIndex> indexList,
+            List<IgniteIndex> indexList,
             Map<String, DataProvider<?>> dataProviders
     ) {
         this.descriptor = descriptor;
@@ -193,26 +192,8 @@ public class TestTable implements IgniteTable {
 
     /** {@inheritDoc} */
     @Override
-    public Map<String, IgniteSchemaIndex> indexes() {
+    public Map<String, IgniteIndex> indexes() {
         return indexes;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addIndex(IgniteIndex idxTbl) {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteIndex getIndex(String idxName) {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void removeIndex(String idxName) {
-        throw new AssertionError();
     }
 
     /** {@inheritDoc} */

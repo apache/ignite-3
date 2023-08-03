@@ -63,6 +63,7 @@ public class ResolvedDependencies {
     public InternalTable internalTable(int tableId) {
         return getTable(tableId).internalTable();
     }
+
     public Set<Integer> tableIds() {
         return tableMap.keySet();
     }

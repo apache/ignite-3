@@ -103,8 +103,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -329,7 +328,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
         ScannableTable scannableTable = resolvedDependencies.scannableTable(tbl.id());
 
-        IgniteSchemaIndex idx = tbl.indexes().get(rel.indexName());
+        IgniteIndex idx = tbl.indexes().get(rel.indexName());
 
         List<SearchBounds> searchBounds = rel.searchBounds();
         RexNode condition = rel.condition();
@@ -343,11 +342,11 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         if (searchBounds != null) {
             Comparator<RowT> searchRowComparator = null;
 
-            if (idx.type() != Type.SORTED) {
+            if (idx.type() != IgniteIndex.Type.SORTED) {
                 searchRowComparator = expressionFactory.comparator(idx.collation());
             }
 
-            ranges = expressionFactory.ranges(searchBounds, idx.getRowType(typeFactory, tbl.descriptor()), searchRowComparator);
+            ranges = expressionFactory.ranges(searchBounds, idx.rowType(), searchRowComparator);
         }
 
         RelCollation outputCollation = rel.collation();
@@ -361,7 +360,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         }
 
         ColocationGroup group = ctx.group(rel.sourceId());
-        Comparator<RowT> comp = idx.type() == Type.SORTED ? ctx.expressionFactory().comparator(outputCollation) : null;
+        Comparator<RowT> comp = idx.type() == IgniteIndex.Type.SORTED ? ctx.expressionFactory().comparator(outputCollation) : null;
 
         if (!group.nodeNames().contains(ctx.localNode().name())) {
             return new ScanNode<>(ctx, Collections.emptyList());

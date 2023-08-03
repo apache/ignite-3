@@ -106,7 +106,6 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
                 desc.key(),
                 desc.nullable(),
                 desc.logicalIndex(),
-                desc.physicalIndex(),
                 desc.physicalType(),
                 DefaultValueStrategy.DEFAULT_COMPUTED,
                 () -> {

@@ -33,7 +33,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.calcite.rel.RelCollation;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -45,14 +44,13 @@ import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -428,7 +426,7 @@ public class TestBuilders {
 
             TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
 
-            List<IgniteSchemaIndex> indexMap = indexBuilders.stream()
+            List<IgniteIndex> indexMap = indexBuilders.stream()
                     .map(idx -> idx.build(tableDescriptor))
                     .collect(Collectors.toList());
 
@@ -483,7 +481,7 @@ public class TestBuilders {
         private TestTable build() {
             TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
 
-            List<IgniteSchemaIndex> indexes = indexBuilders.stream()
+            List<IgniteIndex> indexes = indexBuilders.stream()
                     .map(idx -> idx.build(tableDescriptor))
                     .collect(Collectors.toList());
 
@@ -528,9 +526,7 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Collation must be specified for each of columns.");
             }
 
-            RelCollation collation = TraitUtils.createCollation(columns, collations, desc);
-
-            return TestIndex.createSorted(name, desc.distribution(), collation, dataProviders);
+            return TestIndex.createSorted(name, columns, collations, desc, dataProviders);
         }
     }
 
@@ -568,9 +564,8 @@ public class TestBuilders {
 
             assert collations == null : "Collation is not supported.";
 
-            RelCollation collation = TraitUtils.createCollation(columns, collations, desc);
 
-            return TestIndex.createHash(name, desc.distribution(), collation, dataProviders);
+            return TestIndex.createHash(name, columns, desc, dataProviders);
         }
     }
 
@@ -600,9 +595,7 @@ public class TestBuilders {
         TestIndex build(TableDescriptor desc) {
             assert collations.size() == columns.size();
 
-            RelCollation collation = TraitUtils.createCollation(columns, collations, desc);
-
-            return TestIndex.createSorted(name, desc.distribution(), collation, dataProviders);
+            return TestIndex.createSorted(name, columns, collations, desc, dataProviders);
         }
     }
 
@@ -632,9 +625,7 @@ public class TestBuilders {
         TestIndex build(TableDescriptor desc) {
             assert collations == null;
 
-            RelCollation collation = TraitUtils.createCollation(columns, collations, desc);
-
-            return TestIndex.createHash(name, desc.distribution(), collation, dataProviders);
+            return TestIndex.createHash(name, columns, desc, dataProviders);
         }
     }
 
@@ -688,7 +679,7 @@ public class TestBuilders {
         @Override
         public ChildT addColumn(String name, NativeType type, boolean nullable) {
             columns.add(new ColumnDescriptorImpl(
-                    name, false, nullable, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, false, nullable, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return self();
@@ -701,7 +692,7 @@ public class TestBuilders {
                 return addColumn(name, type);
             } else {
                 ColumnDescriptorImpl desc = new ColumnDescriptorImpl(
-                        name, false, true, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_CONSTANT, () -> defaultValue
+                        name, false, true, columns.size(), type, DefaultValueStrategy.DEFAULT_CONSTANT, () -> defaultValue
                 );
                 columns.add(desc);
             }

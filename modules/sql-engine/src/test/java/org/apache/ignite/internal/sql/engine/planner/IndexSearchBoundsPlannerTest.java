@@ -43,7 +43,7 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -177,13 +177,8 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         publicSchema = createSchemaFrom(tableA("TEST")
                 .andThen(t -> t.sortedIndex()
                         .name("C4")
-                        .addColumn("C4", Collation.DESC_NULLS_LAST)
-                        .addColumn("C3", Collation.ASC_NULLS_FIRST)
-                        .end())
-                .andThen(t -> t.sortedIndex()
-                        .name("C4_IDX")
-                        .addColumn("C4", Collation.ASC_NULLS_FIRST)
-                        .addColumn("C3", Collation.ASC_NULLS_FIRST)
+                        .addColumn("C4", IgniteIndex.Collation.DESC_NULLS_LAST)
+                        .addColumn("C3", IgniteIndex.Collation.ASC_NULLS_FIRST)
                         .end())
         );
 
@@ -388,8 +383,8 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
         IgniteSchema publicSchema = createSchemaFrom(tableA("TEST")
                 .andThen(t -> t.sortedIndex()
                         .name("C4")
-                        .addColumn("C4", Collation.DESC_NULLS_LAST)
-                        .addColumn("C3", Collation.ASC_NULLS_FIRST)
+                        .addColumn("C4", IgniteIndex.Collation.DESC_NULLS_LAST)
+                        .addColumn("C3", IgniteIndex.Collation.ASC_NULLS_FIRST)
                         .end()
                 ));
 
@@ -609,9 +604,9 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
                 .size(100)
                 .sortedIndex()
                 .name("C1C2C3")
-                .addColumn("C1", Collation.ASC_NULLS_LAST)
-                .addColumn("C2", Collation.ASC_NULLS_LAST)
-                .addColumn("C3", Collation.ASC_NULLS_LAST)
+                .addColumn("C1", IgniteIndex.Collation.ASC_NULLS_LAST)
+                .addColumn("C2", IgniteIndex.Collation.ASC_NULLS_LAST)
+                .addColumn("C3", IgniteIndex.Collation.ASC_NULLS_LAST)
                 .end();
     }
 

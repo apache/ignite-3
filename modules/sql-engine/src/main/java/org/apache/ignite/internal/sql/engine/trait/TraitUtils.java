@@ -470,21 +470,6 @@ public class TraitUtils {
         return new RelFieldCollation(fieldIdx, Direction.ASCENDING, NullDirection.LAST);
     }
 
-    /**
-     * Creates field collation.
-     */
-    public static RelFieldCollation createFieldCollation(int fieldIdx, ColumnCollation collation) {
-        RelFieldCollation.Direction direction = collation.asc()
-                ? RelFieldCollation.Direction.ASCENDING
-                : RelFieldCollation.Direction.DESCENDING;
-
-        RelFieldCollation.NullDirection nullDirection = collation.nullsFirst()
-                ? RelFieldCollation.NullDirection.FIRST
-                : RelFieldCollation.NullDirection.LAST;
-
-        return new RelFieldCollation(fieldIdx, direction, nullDirection);
-    }
-
     /** Creates field collation. */
     public static RelFieldCollation createFieldCollation(int fieldIdx, IgniteIndex.Collation collation) {
         switch (collation) {

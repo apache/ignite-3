@@ -34,15 +34,8 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.index.ColumnCollation;
-import org.apache.ignite.internal.index.HashIndex;
-import org.apache.ignite.internal.index.Index;
-import org.apache.ignite.internal.index.IndexDescriptor;
-import org.apache.ignite.internal.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.index.SortedIndexImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
@@ -50,16 +43,14 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchemaIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 /**
  * Test {@link IndexScanNode} execution.
@@ -71,7 +62,11 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
      */
     @Test
     public void testSortedIndex() {
-        Index<?> index = newSortedIndex();
+        List<String> columns = List.of("C1");
+        List<Collation> collations = List.of(IgniteIndex.Collation.ASC_NULLS_LAST);
+
+        TableDescriptor tableDescriptor = createTableDescriptor(columns);
+        IgniteIndex indexDescriptor = createSortedIndexDescriptor(columns, collations, tableDescriptor);
 
         ExecutionContext<Object[]> ctx = executionContext();
 
@@ -83,7 +78,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         Comparator<Object[]> cmp = Comparator.comparing(row -> (Comparable<Object>) row[0]);
 
-        IndexScanNode<Object[]> node = tester.createSortedIndex(index, scannableTable, cmp);
+        IndexScanNode<Object[]> node = tester.createSortedIndex(indexDescriptor, tableDescriptor, scannableTable, cmp);
         List<Object[]> result = tester.execute(node);
 
         validateResult(result, List.of(new Object[]{1}, new Object[]{2}, new Object[]{4}, new Object[]{5}));
@@ -94,7 +89,10 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
      */
     @Test
     public void testHashIndex() {
-        Index<?> index = newHashIndex();
+        List<String> columns = List.of("C1");
+
+        TableDescriptor tableDescriptor = createTableDescriptor(columns);
+        IgniteIndex indexDescriptor = createHashIndexDescriptor(columns, tableDescriptor);
 
         ExecutionContext<Object[]> ctx = executionContext();
 
@@ -104,13 +102,48 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         scannableTable.setPartitionData(0, new Object[]{2}, new Object[]{1});
         scannableTable.setPartitionData(2, new Object[]{0});
 
-        IndexScanNode<Object[]> node = tester.createHashIndex(index, scannableTable);
+        IndexScanNode<Object[]> node = tester.createHashIndex(indexDescriptor, tableDescriptor, scannableTable);
         List<Object[]> result = tester.execute(node);
 
         validateResult(result, List.of(new Object[]{2}, new Object[]{1}, new Object[]{0}));
     }
 
-    private class Tester {
+    private static TableDescriptor createTableDescriptor(List<String> columns) {
+        Builder rowTypeBuilder = new Builder(Commons.typeFactory());
+
+        for (String column : columns) {
+            rowTypeBuilder = rowTypeBuilder.add(column, SqlTypeName.INTEGER);
+        }
+
+        RelDataType rowType =  rowTypeBuilder.build();
+
+        return new TestTableDescriptor(IgniteDistributions::single, rowType);
+    }
+
+    private static IgniteIndex createHashIndexDescriptor(
+            List<String> columns,
+            TableDescriptor tableDescriptor
+    ) {
+        RelCollation collation = TraitUtils.createCollation(columns, null, tableDescriptor);
+        IgniteDistribution distribution = tableDescriptor.distribution();
+        RelDataType indexRowType = IgniteIndex.createRowType(Commons.typeFactory(), tableDescriptor, collation);
+
+        return new IgniteIndex(1, "IDX", IgniteIndex.Type.HASH, distribution, collation, indexRowType);
+    }
+
+    private static IgniteIndex createSortedIndexDescriptor(
+            List<String> columns,
+            List<Collation> collations,
+            TableDescriptor tableDescriptor
+    ) {
+        RelCollation collation = TraitUtils.createCollation(columns, collations, tableDescriptor);
+        IgniteDistribution distribution = tableDescriptor.distribution();
+        RelDataType indexRowType = IgniteIndex.createRowType(Commons.typeFactory(), tableDescriptor, collation);
+
+        return new IgniteIndex(1, "IDX", IgniteIndex.Type.HASH, distribution, collation, indexRowType);
+    }
+
+    private static class Tester {
 
         private final ExecutionContext<Object[]> ctx;
 
@@ -118,12 +151,14 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             this.ctx = ctx;
         }
 
-        IndexScanNode<Object[]> createSortedIndex(Index<?> index, TestScannableTable<?> scannableTable, Comparator<Object[]> cmp) {
-            return createIndexNode(ctx, index, scannableTable, cmp);
+        IndexScanNode<Object[]> createSortedIndex(IgniteIndex indexDescriptor, TableDescriptor tableDescriptor,
+                TestScannableTable<?> scannableTable, Comparator<Object[]> cmp) {
+            return createIndexNode(ctx, indexDescriptor, tableDescriptor, scannableTable, cmp);
         }
 
-        IndexScanNode<Object[]> createHashIndex(Index<?> index, TestScannableTable<?> scannableTable) {
-            return createIndexNode(ctx, index, scannableTable, null);
+        IndexScanNode<Object[]> createHashIndex(IgniteIndex desc, TableDescriptor tableDescriptor,
+                TestScannableTable<?> scannableTable) {
+            return createIndexNode(ctx, desc, tableDescriptor, scannableTable, null);
         }
 
         List<Object[]> execute(IndexScanNode<Object[]> indexNode) {
@@ -154,44 +189,16 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
         }
     }
 
-    private Index<?> newHashIndex() {
-        IndexDescriptor descriptor = new IndexDescriptor("IDX", List.of("C1"));
+    private static IndexScanNode<Object[]> createIndexNode(ExecutionContext<Object[]> ctx, IgniteIndex indexDescriptor,
+            TableDescriptor tableDescriptor, TestScannableTable<?> scannableTable, @Nullable Comparator<Object[]> comparator) {
 
-        return new HashIndex(1, Mockito.mock(InternalTable.class), descriptor);
-    }
+        RelDataType rowType = indexDescriptor.rowType();
 
-    private Index<?> newSortedIndex() {
-        List<String> columnNames = List.of("C1");
-        List<ColumnCollation> columnCollations = List.of(ColumnCollation.ASC_NULLS_LAST);
-        SortedIndexDescriptor descriptor = new SortedIndexDescriptor("IDX", columnNames, columnCollations);
-
-        return new SortedIndexImpl(1, Mockito.mock(InternalTable.class), descriptor);
-    }
-
-    private IndexScanNode<Object[]> createIndexNode(ExecutionContext<Object[]> ctx, Index<?> index,
-            TestScannableTable<?> scannableTable, @Nullable Comparator<Object[]> comparator) {
-
-        RelDataTypeFactory.Builder rowTypeBuilder = new Builder(Commons.typeFactory());
-
-        for (String column : index.descriptor().columns()) {
-            rowTypeBuilder = rowTypeBuilder.add(column, SqlTypeName.INTEGER);
-        }
-
-        RelDataType rowType = rowTypeBuilder.build();
-
-        TableDescriptor tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
-
-        //TODO: avoid IgniteIndex creation.
-        IgniteIndex idx = new IgniteIndex(index);
-        RelCollation collations = TraitUtils.createCollation(idx.columns(), idx.collations(), tableDescriptor);
-        IgniteDistribution distribution = tableDescriptor.distribution();
-
-        IgniteSchemaIndex schemaIndex = new IgniteSchemaIndex(index.id(), index.name(), idx.type(), distribution, collations);
         RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
         SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
         List<PartitionWithTerm> partitions = scannableTable.getPartitions();
 
-        return new IndexScanNode<>(ctx, rowFactory, schemaIndex, scannableTable, tableDescriptor, partitions,
+        return new IndexScanNode<>(ctx, rowFactory, indexDescriptor, scannableTable, tableDescriptor, partitions,
                 comparator, conditions, null, null, null);
     }
 

@@ -706,7 +706,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                         return false;
                     }
 
-                    if (!idxName.equals(n.indexName())) {
+                    if (!idxName.equalsIgnoreCase(n.indexName())) {
                         lastErrorMsg = "Unexpected index name [exp=" + idxName + ", act=" + n.indexName() + ']';
 
                         return false;
@@ -863,12 +863,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public int logicalIndex() {
-            return idx;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int physicalIndex() {
             return idx;
         }
 
