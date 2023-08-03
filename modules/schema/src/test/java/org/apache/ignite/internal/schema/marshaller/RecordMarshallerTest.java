@@ -32,8 +32,9 @@ import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -48,7 +49,6 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
 import java.lang.reflect.Field;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
@@ -212,8 +212,11 @@ public class RecordMarshallerTest {
 
         TestSimpleObject rec = TestSimpleObject.randomObject(rnd);
 
-        MarshallerException ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec));
-        assertEquals("Failed to write field [id=0]", ex.getMessage());
+        Throwable ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec)).getCause();
+        assertThat(
+                ex.getMessage(),
+                startsWith("Failed to set column (INT64 was passed, but column is of different type): "
+                        + "Column [schemaIndex=0, columnOrder=-1, name=LONGCOL, type=BitmaskNativeType"));
     }
 
     @ParameterizedTest
@@ -229,8 +232,8 @@ public class RecordMarshallerTest {
 
         TestBitmaskObject rec = new TestBitmaskObject(1, IgniteTestUtils.randomBitSet(rnd, 42));
 
-        MarshallerException ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec));
-        assertEquals("Failed to write field [id=1]", ex.getMessage());
+        Throwable ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec)).getCause();
+        assertThat(ex.getMessage(), startsWith("Failed to set bitmask for column 'BITMASKCOL' (mask size exceeds allocated size)"));
     }
 
     @ParameterizedTest
