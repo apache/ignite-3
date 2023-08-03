@@ -38,6 +38,25 @@ import org.apache.ignite.sql.ColumnType;
  * Catalog utils.
  */
 public class CatalogUtils {
+    /** Default number of distribution zone partitions. */
+    public static final int DEFAULT_PARTITION_COUNT = 25;
+
+    /** Default number of distribution zone replicas. */
+    public static final int DEFAULT_REPLICA_COUNT = 1;
+
+    /**
+     * Default filter of distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of
+     * nodes.
+     */
+    public static final String DEFAULT_FILTER = "$.+";
+
+    /** Infinite value for the distribution zone timers. */
+    public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
+
+    /** Value for the distribution zone timers which means that data nodes changing will be started without waiting. */
+    public static final int IMMEDIATE_TIMER_VALUE = 0;
+
+
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
     static {

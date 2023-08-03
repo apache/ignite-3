@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+
 import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,13 +33,6 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
     public static Builder builder() {
         return new Builder();
     }
-
-    /** Default number of zone partitions. */
-    public static final int DEFAULT_PARTITION_COUNT = 25;
-    /** Default number of zone replicas. */
-    public static final int DEFAULT_REPLICA_COUNT = 1;
-    /** Default infinite value for the distribution zones' timers. */
-    public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
 
     /** Amount of zone partitions. */
     private int partitions = DEFAULT_PARTITION_COUNT;
@@ -51,11 +49,6 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
     /** Data nodes auto adjust scale down timeout. */
     private int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;
 
-    /**
-     * Default filter value for a distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes
-     * of nodes.
-     */
-    public static final String DEFAULT_FILTER = "$.+";
     /** Nodes' filter. */
     protected String filter = DEFAULT_FILTER;
 
