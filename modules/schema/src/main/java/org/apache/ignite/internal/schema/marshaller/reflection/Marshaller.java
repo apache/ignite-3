@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
@@ -121,7 +122,7 @@ public abstract class Marshaller {
         if (!allowUnmappedFields) {
             var fields = mapper.fields();
             if (fields.size() > cols.length) {
-                Set<String> fieldSet = new HashSet<>(fields);
+                Set<String> fieldSet = new TreeSet<>(fields);
                 for (Column col : cols) {
                     String fieldName = mapper.fieldForColumn(col.name());
                     fieldSet.remove(fieldName);

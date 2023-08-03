@@ -211,8 +211,8 @@ public class KvMarshallerTest {
 
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
-    public void wideType(MarshallerFactory factory) throws MarshallerException {
-        Column[] cols = new Column[]{
+    public void wideType(MarshallerFactory factory) {
+        Column[] cols = {
                 new Column("primitiveLongCol".toUpperCase(), INT64, false),
                 new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
                 new Column("stringCol".toUpperCase(), STRING, false),
@@ -220,38 +220,20 @@ public class KvMarshallerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
 
-        KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
-                factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class));
 
-        final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
+        while (ex.getCause() != null) {
+            ex = (IllegalArgumentException)ex.getCause();
+        }
 
-        BinaryRow row = marshaller.marshal(key, val);
-
-        TestObjectWithAllTypes restoredVal = marshaller.unmarshalValue(new Row(schema, row));
-        TestObjectWithAllTypes restoredKey = marshaller.unmarshalKey(new Row(schema, row));
-
-        assertTrue(key.getClass().isInstance(restoredKey));
-        assertTrue(val.getClass().isInstance(restoredVal));
-
-        TestObjectWithAllTypes expectedKey = new TestObjectWithAllTypes();
-        expectedKey.setPrimitiveLongCol(key.getPrimitiveLongCol());
-        expectedKey.setPrimitiveDoubleCol(key.getPrimitiveDoubleCol());
-        expectedKey.setStringCol(key.getStringCol());
-
-        TestObjectWithAllTypes expectedVal = new TestObjectWithAllTypes();
-        expectedVal.setPrimitiveLongCol(val.getPrimitiveLongCol());
-        expectedVal.setPrimitiveDoubleCol(val.getPrimitiveDoubleCol());
-        expectedVal.setStringCol(val.getStringCol());
-
-        assertEquals(expectedKey, restoredKey);
-        assertEquals(expectedVal, restoredVal);
-
-        // Check non-mapped fields has default values.
-        assertNull(restoredKey.getUuidCol());
-        assertNull(restoredVal.getUuidCol());
-        assertEquals(0, restoredKey.getPrimitiveIntCol());
-        assertEquals(0, restoredVal.getPrimitiveIntCol());
+        assertEquals(
+                "Fields [bitmaskCol, booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
+                        + "intCol, longCol, nullBytesCol, nullLongCol, numberCol, primitiveBooleanCol, primitiveByteCol, "
+                        + "primitiveFloatCol, primitiveIntCol, primitiveShortCol, shortCol, timeCol, timestampCol, uuidCol] "
+                        + "of type org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes are not mapped to columns.",
+                ex.getMessage());
     }
 
     @ParameterizedTest

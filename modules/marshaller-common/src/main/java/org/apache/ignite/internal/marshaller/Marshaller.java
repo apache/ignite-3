@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.marshaller;
 
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import org.apache.ignite.internal.util.Factory;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
@@ -113,7 +115,7 @@ public abstract class Marshaller {
         if (!allowUnmappedFields) {
             var fields = mapper.fields();
             if (fields.size() > usedFields) {
-                Set<String> fieldSet = new HashSet<>(fields);
+                Set<String> fieldSet = new TreeSet<>(fields);
                 for (MarshallerColumn col : cols) {
                     String fieldName = mapper.fieldForColumn(col.name());
                     fieldSet.remove(fieldName);

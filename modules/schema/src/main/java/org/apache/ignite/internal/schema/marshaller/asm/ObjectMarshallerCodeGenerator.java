@@ -74,7 +74,7 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
                 flds.remove(col.name());
             }
 
-            var fldNames = flds.values().stream().map(Field::getName).collect(Collectors.toSet());
+            var fldNames = flds.values().stream().map(Field::getName).sorted().collect(Collectors.toList());
 
             throw new IllegalArgumentException(
                     "Fields " + fldNames + " of type " + targetClass.getName() + " are not mapped to columns.");
