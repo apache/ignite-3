@@ -37,6 +37,8 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -57,6 +59,9 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager {
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(TxManagerImpl.class);
+
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -126,6 +131,8 @@ public class TxManagerImpl implements TxManager {
         }
 
         HybridTimestamp readTimestamp = beginTimestamp;
+
+        LOG.info("Begin RO tx {}", readTimestamp);
 
         lowWatermarkReadWriteLock.readLock().lock();
 

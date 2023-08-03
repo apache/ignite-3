@@ -336,7 +336,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /**
      * A process to update safe time periodically.
      */
-    private static class SafeTimeUpdater implements Runnable {
+    private class SafeTimeUpdater implements Runnable {
         PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
         public SafeTimeUpdater(PendingComparableValuesTracker<HybridTimestamp, Void> safeTime) {
@@ -353,6 +353,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 }
 
                 safeTime.update(CLOCK.now(), null);
+                LOG.info("Safe time updated {} {}", tableId(), safeTime.current());
             }
         }
     }
@@ -382,12 +383,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      */
     public TxManager txManager() {
         return txManager;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @NotNull String name() {
-        return null;
     }
 
     /** {@inheritDoc} */
