@@ -257,6 +257,28 @@ public class AbstractClientTableTest extends AbstractClientTest {
     }
 
     /** Columns of all types. */
+    protected static class AllColumnsPojoNullable {
+        public Integer gid;
+        public String id;
+        public Boolean zboolean;
+        public Byte zbyte;
+        public Short zshort;
+        public Integer zint;
+        public Long zlong;
+        public Float zfloat;
+        public Double zdouble;
+        public LocalDate zdate;
+        public LocalTime ztime;
+        public Instant ztimestamp;
+        public String zstring;
+        public byte[] zbytes;
+        public UUID zuuid;
+        public BitSet zbitmask;
+        public BigDecimal zdecimal;
+        public BigInteger znumber;
+    }
+
+    /** Columns of all types. */
     protected static class AllColumnsValPojo {
         public boolean zboolean;
         public byte zbyte;
