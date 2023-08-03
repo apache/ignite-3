@@ -317,17 +317,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
         schemaCompatValidator = new SchemaCompatValidator(schemas);
-
-        // TODO: IGNITE-18502 Implement a pending update storage
-        try (PartitionTimestampCursor cursor = mvDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
-            while (cursor.hasNext()) {
-                ReadResult readResult = cursor.next();
-
-                if (readResult.isWriteIntent()) {
-                    txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new TreeSet<>()).add(readResult.rowId());
-                }
-            }
-        }
     }
 
     @Override

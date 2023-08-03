@@ -239,6 +239,7 @@ public class StorageUpdateHandler {
 
                     ReadResult item = cursor.next();
 
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Prevent double storage updates within primary
                     if (item.isWriteIntent()) {
                         BinaryRow rowToRemove = item.binaryRow();
 
