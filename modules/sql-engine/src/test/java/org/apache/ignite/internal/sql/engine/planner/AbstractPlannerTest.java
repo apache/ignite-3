@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -676,8 +675,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             clearHints(expected);
 
             if (!expected.deepEquals(deserialized)) {
-                assertTrue(
-                        expected.deepEquals(deserialized),
+                fail(
                         "Invalid serialization / deserialization.\n"
                                 + "Expected:\n" + RelOptUtil.toString(expected)
                                 + "Deserialized:\n" + RelOptUtil.toString(deserialized)

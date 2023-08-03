@@ -48,6 +48,7 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
@@ -405,7 +406,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     /** Check appropriate type cast availability. */
     private void checkCastCorrectness(SqlValidatorScope scope, SqlNode expr) {
-        if (expr.getKind() == SqlKind.CAST) {
+        boolean castOp = expr.getKind() == SqlKind.CAST;
+
+        if (castOp || SqlKind.BINARY_COMPARISON.contains(expr.getKind())) {
             SqlBasicCall expr0 = (SqlBasicCall) expr;
             SqlNode first = expr0.getOperandList().get(0);
             SqlNode ret = expr0.getOperandList().get(1);
@@ -437,8 +440,22 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             }
 
             if (!check) {
-                throw newValidationError(expr,
-                        RESOURCE.cannotCastValue(firstType.toString(), returnType.toString()));
+                if (castOp) {
+                    throw newValidationError(expr,
+                            RESOURCE.cannotCastValue(firstType.toString(), returnType.toString()));
+                } else {
+                    SqlBasicCall call = (SqlBasicCall) expr;
+                    SqlOperator operator = call.getOperator();
+                    boolean compatible = TypeUtils.typeFamiliesAreCompatible(typeFactory, returnType, firstType);
+
+                    if (!compatible && (fromCustomType != null || returnCustomType != null)) {
+                        var ex = IgniteResource.INSTANCE.operationRequiresExplicitCast(operator.getName());
+                        throw SqlUtil.newContextException(expr.getParserPosition(), ex);
+                    } else {
+                        SqlCallBinding callBinding = new SqlCallBinding(this, scope, (SqlCall) expr);
+                        throw callBinding.newValidationSignatureError();
+                    }
+                }
             }
         }
     }

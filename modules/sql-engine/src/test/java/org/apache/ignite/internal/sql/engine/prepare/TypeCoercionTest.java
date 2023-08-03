@@ -108,8 +108,8 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         RelDataType booleanType = TYPE_FACTORY.createSqlType(SqlTypeName.BOOLEAN);
 
         for (RelDataType type : NUMERIC_TYPES) {
-            numericRules.add(typeCoercionRule(type, booleanType, new ToSpecificType(type)));
-            numericRules.add(typeCoercionRule(booleanType, type, new ToSpecificType(type)));
+            numericRules.add(typeCoercionIsNotSupported(type, booleanType));
+            numericRules.add(typeCoercionIsNotSupported(booleanType, type));
         }
 
         return numericRules.stream();
@@ -376,6 +376,7 @@ public class TypeCoercionTest extends AbstractPlannerTest {
                 String error = String.format("Cannot apply '%s' to arguments of type '<%s> %s <%s>",
                         rule.operator.getName(), rule.lhs, rule.operator.getName(), rule.rhs
                 );
+
                 CalciteContextException e = assertThrows(CalciteContextException.class, () -> planner.validate(node));
                 assertThat(e.getMessage(), containsString(error));
             });
