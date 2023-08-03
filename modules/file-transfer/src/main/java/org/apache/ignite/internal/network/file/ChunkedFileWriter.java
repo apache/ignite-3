@@ -29,7 +29,7 @@ import org.apache.ignite.internal.network.file.messages.FileChunk;
 class ChunkedFileWriter implements ManuallyCloseable {
     private final RandomAccessFile raf;
 
-    private final long fileSize;
+    private long fileSize;
 
     private final Queue<FileChunk> chunks = new PriorityQueue<>(FileChunk.COMPARATOR);
 
@@ -49,13 +49,17 @@ class ChunkedFileWriter implements ManuallyCloseable {
             raf.write(chunks.poll().data());
         }
 
-        if (raf.getFilePointer() > fileSize) {
+        if (fileSize > -1 && raf.getFilePointer() > fileSize) {
             throw new IOException("File size exceeded");
         }
     }
 
     boolean isFinished() throws IOException {
         return raf.getFilePointer() == fileSize;
+    }
+
+    public void fileSize(long fileSize) {
+        this.fileSize = fileSize;
     }
 
     @Override

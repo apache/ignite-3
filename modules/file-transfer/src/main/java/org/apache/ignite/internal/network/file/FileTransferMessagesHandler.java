@@ -53,12 +53,12 @@ class FileTransferMessagesHandler {
             throw new IllegalStateException("Received file transfer info after result is already done.");
         }
 
-        if (filesCount.get() != -1) {
-            throw new IllegalStateException("Received file transfer info twice.");
-        } else if (info.filesCount() == 0) {
-            result.complete(List.of());
-        } else {
-            filesCount.set(info.filesCount());
+        filesCount.set(info.filesCount());
+
+        try {
+            completeIfAllFilesFinished();
+        } catch (IOException e) {
+            handleFileTransferError(e);
         }
     }
 
@@ -70,12 +70,20 @@ class FileTransferMessagesHandler {
     }
 
     private void handleFileHeader0(FileHeader header) {
-        try {
-            Path path = Files.createFile(dir.resolve(header.fileName()));
-            if (header.fileSize() == 0) {
-                filesFinished.incrementAndGet();
+        ChunkedFileWriter writer = fileNameToWriter.compute(header.fileName(), (k, v) -> {
+            if (v == null) {
+                return writer(header.fileName(), header.fileSize());
             } else {
-                fileNameToWriter.put(header.fileName(), ChunkedFileWriter.open(path, header.fileSize()));
+                v.fileSize(header.fileSize());
+                return v;
+            }
+        });
+
+        try {
+            if (writer.isFinished()) {
+                writer.close();
+                filesFinished.incrementAndGet();
+                completeIfAllFilesFinished();
             }
         } catch (IOException e) {
             handleFileTransferError(e);
@@ -91,22 +99,17 @@ class FileTransferMessagesHandler {
 
     private void handleFileChunk0(FileChunk fileChunk) {
         try {
-            ChunkedFileWriter writer = fileNameToWriter.get(fileChunk.fileName());
+            ChunkedFileWriter writer = fileNameToWriter.computeIfAbsent(fileChunk.fileName(), this::writer);
+
             writer.write(fileChunk);
 
             if (writer.isFinished()) {
                 writer.close();
                 fileNameToWriter.remove(fileChunk.fileName());
                 filesFinished.incrementAndGet();
-            }
 
-            if (filesFinished.get() == filesCount.get()) {
-                try (Stream<Path> stream = Files.list(dir)) {
-                    List<File> files = stream.map(Path::toFile).collect(Collectors.toList());
-                    result.complete(files);
-                }
+                completeIfAllFilesFinished();
             }
-
         } catch (IOException e) {
             handleFileTransferError(e);
         }
@@ -130,6 +133,15 @@ class FileTransferMessagesHandler {
         }
     }
 
+    private void completeIfAllFilesFinished() throws IOException {
+        if (filesFinished.get() == filesCount.get()) {
+            try (Stream<Path> stream = Files.list(dir)) {
+                List<File> files = stream.map(Path::toFile).collect(Collectors.toList());
+                result.complete(files);
+            }
+        }
+    }
+
     CompletableFuture<List<File>> result() {
         return result;
     }
@@ -138,6 +150,21 @@ class FileTransferMessagesHandler {
         try {
             IgniteUtils.closeAllManually(fileNameToWriter.values().stream());
         } catch (Exception e) {
+            throw new IgniteInternalException(e);
+        }
+    }
+
+    private ChunkedFileWriter writer(String fileName) {
+        // set -1 as file size to indicate that file size is unknown and will be set later
+        return writer(fileName, -1);
+    }
+
+    private ChunkedFileWriter writer(String fileName, long fileSize) {
+        try {
+            Path path = Files.createFile(dir.resolve(fileName));
+            return ChunkedFileWriter.open(path, fileSize);
+        } catch (IOException e) {
+            handleFileTransferError(e);
             throw new IgniteInternalException(e);
         }
     }

@@ -19,22 +19,25 @@ package org.apache.ignite.internal.network.file;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.network.file.messages.FileChunk;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfo;
 import org.apache.ignite.network.NetworkMessage;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Stream of messages to send files.
  */
-public class FileTransferMessagesStream implements AutoCloseable {
+public class FileTransferMessagesStream implements Iterable<NetworkMessage>, AutoCloseable {
     private final UUID transferId;
 
     private final Queue<File> filesToSend;
@@ -187,5 +190,36 @@ public class FileTransferMessagesStream implements AutoCloseable {
         }
 
         closeCurrFile();
+    }
+
+    @NotNull
+    @Override
+    public Iterator<NetworkMessage> iterator() {
+        return new Iterator<>() {
+            @Override
+            public boolean hasNext() {
+                try {
+                    return hasNextMessage();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            @Override
+            public NetworkMessage next() {
+                try {
+                    return nextMessage();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
+    }
+
+    @Override
+    public void forEach(Consumer<? super NetworkMessage> action) {
+        for (NetworkMessage message : this) {
+            action.accept(message);
+        }
     }
 }
