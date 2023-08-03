@@ -401,11 +401,14 @@ public class ErrorGroups {
         public static final int CLASS_LOADER_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 2);
     }
 
+    /**
+     * File transfer error group.
+     */
     public static class FileTransfer {
         /** File transfer error group. */
         public static final ErrorGroup FILE_TRANSFER_ERR_GROUP = ErrorGroup.newGroup("FILE_TRANSFER", (short) 17);
 
-        /** File transfer error. */
-        public static final int FILE_TRANSFER_ERR = FILE_TRANSFER_ERR_GROUP.registerErrorCode((short) 1);
+        /** Generic error. */
+        public static final int GENERIC_ERR = FILE_TRANSFER_ERR_GROUP.registerErrorCode((short) 1);
     }
 }

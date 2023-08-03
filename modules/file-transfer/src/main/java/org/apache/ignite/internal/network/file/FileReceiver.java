@@ -47,11 +47,12 @@ class FileReceiver {
     FileTransferMessagesHandler registerTransfer(UUID transferId, Path handlerDir) {
         FileTransferMessagesHandler handler = new FileTransferMessagesHandler(handlerDir);
         transferIdToHandler.put(transferId, handler);
+        handler.result().whenComplete((files, throwable) -> transferIdToHandler.remove(transferId));
         return handler;
     }
 
-    void deregisterTransfer(UUID transferId) {
-        transferIdToHandler.remove(transferId);
+    void cancelTransfer(UUID transferId) {
+        transferIdToHandler.remove(transferId).handleFileTransferError(new FileTransferException("Transfer was cancelled"));
     }
 
 

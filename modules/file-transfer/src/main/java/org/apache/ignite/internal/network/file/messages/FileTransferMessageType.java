@@ -30,8 +30,8 @@ public final class FileTransferMessageType {
     public static final short FILE_DOWNLOAD_REQUEST = 3;
     public static final short FILE_DOWNLOAD_RESPONSE = 4;
     public static final short FILE_UPLOAD_REQUEST = 5;
-    public static final short FILE_TRANSFER_ERROR_MESSAGE = 6;
-    public static final short FILES_METADATA = 7;
+    public static final short FILE_TRANSFER_ERROR = 6;
+    public static final short METADATA = 7;
 
     /**
      * File transferring metadata.

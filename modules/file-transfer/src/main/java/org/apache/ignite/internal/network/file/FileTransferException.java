@@ -31,7 +31,7 @@ public class FileTransferException extends IgniteException {
      * @param message Message.
      */
     public FileTransferException(String message) {
-        super(FileTransfer.FILE_TRANSFER_ERR, message);
+        super(FileTransfer.GENERIC_ERR, message);
     }
 
     /**
@@ -41,6 +41,6 @@ public class FileTransferException extends IgniteException {
      * @param cause Cause.
      */
     public FileTransferException(String message, Throwable cause) {
-        super(FileTransfer.FILE_TRANSFER_ERR, message, cause);
+        super(FileTransfer.GENERIC_ERR, message, cause);
     }
 }

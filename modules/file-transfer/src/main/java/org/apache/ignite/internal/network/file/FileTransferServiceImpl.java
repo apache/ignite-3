@@ -45,7 +45,7 @@ import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfoMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferMessageType;
 import org.apache.ignite.internal.network.file.messages.FileUploadRequest;
-import org.apache.ignite.internal.network.file.messages.MetadataMessage;
+import org.apache.ignite.internal.network.file.messages.Metadata;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.FilesUtils;
@@ -77,9 +77,9 @@ public class FileTransferServiceImpl implements FileTransferService {
 
     private final FileReceiver fileReceiver;
 
-    private final Map<Short, FileProvider<MetadataMessage>> metadataToProvider = new ConcurrentHashMap<>();
+    private final Map<Short, FileProvider<Metadata>> metadataToProvider = new ConcurrentHashMap<>();
 
-    private final Map<Short, FileHandler<MetadataMessage>> metadataToHandler = new ConcurrentHashMap<>();
+    private final Map<Short, FileHandler<Metadata>> metadataToHandler = new ConcurrentHashMap<>();
 
     private final FileTransferFactory factory = new FileTransferFactory();
 
@@ -148,13 +148,12 @@ public class FileTransferServiceImpl implements FileTransferService {
                                 if (e != null) {
                                     LOG.error("Failed to handle uploaded files. Transfer ID: {}", message.transferId(), e);
                                 }
-                                fileReceiver.deregisterTransfer(message.transferId());
                                 deleteDirectoryIfExists(directory);
                             });
                 });
     }
 
-    private CompletableFuture<Void> handleUploadedFiles(MetadataMessage metadata, List<File> files) {
+    private CompletableFuture<Void> handleUploadedFiles(Metadata metadata, List<File> files) {
         return metadataToHandler.get(metadata.messageType()).handleUpload(metadata, files)
                 .whenComplete((v, e) -> {
                     if (e != null) {
@@ -225,29 +224,29 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public <M extends MetadataMessage> void addFileProvider(
+    public <M extends Metadata> void addFileProvider(
             Class<M> metadata,
             FileProvider<M> provider
     ) {
         metadataToProvider.put(
                 metadata.getAnnotation(Transferable.class).value(),
-                (FileProvider<MetadataMessage>) provider
+                (FileProvider<Metadata>) provider
         );
     }
 
     @Override
-    public <M extends MetadataMessage> void addFileHandler(
+    public <M extends Metadata> void addFileHandler(
             Class<M> metadata,
             FileHandler<M> handler
     ) {
         metadataToHandler.put(
                 metadata.getAnnotation(Transferable.class).value(),
-                (FileHandler<MetadataMessage>) handler
+                (FileHandler<Metadata>) handler
         );
     }
 
     @Override
-    public CompletableFuture<List<File>> download(String nodeConsistentId, MetadataMessage metadata) {
+    public CompletableFuture<List<File>> download(String nodeConsistentId, Metadata metadata) {
         UUID transferId = UUID.randomUUID();
         FileDownloadRequest message = factory.fileDownloadRequest()
                 .transferId(transferId)
@@ -268,7 +267,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public CompletableFuture<Void> upload(String nodeConsistentId, MetadataMessage metadata) {
+    public CompletableFuture<Void> upload(String nodeConsistentId, Metadata metadata) {
         return metadataToProvider.get(metadata.messageType()).files(metadata)
                 .thenCompose(files -> {
                     UUID transferId = UUID.randomUUID();
