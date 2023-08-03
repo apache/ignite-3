@@ -623,6 +623,10 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         sql("DELETE FROM test WHERE d = '3'");
 
         assertQuery("SELECT d FROM test WHERE b = 2 or b = 1").returns("4").check();
+
+        sql("DELETE FROM test WHERE a = 0");
+
+        assertQuery("SELECT d FROM test WHERE b = 2 or b = 1").returnNothing();
     }
 
     private static void checkDuplicatePk(IgniteException ex) {

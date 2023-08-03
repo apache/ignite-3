@@ -153,7 +153,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(test1);
 
-        assertPlan("DELETE FROM TEST1 WHERE C0 = 1", schema,
+        assertPlan("DELETE FROM TEST1 WHERE C1 = 1 and C3 = 2", schema,
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                         .and(e -> e.distribution().equals(IgniteDistributions.single())))
                         .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class)
@@ -166,8 +166,8 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                 IgniteDistributions.single(),
                 IgniteDistributions.hash(List.of(0, 1)),
                 IgniteDistributions.affinity(0, 2, "0"),
-                IgniteDistributions.affinity(List.of(0, 2), 2, "0"),
-                IgniteDistributions.affinity(List.of(1, 3), 2, "0")
+                IgniteDistributions.affinity(List.of(1, 3), 2, "0"),
+                IgniteDistributions.affinity(List.of(3, 1), 2, "0")
         );
     }
 
@@ -204,10 +204,10 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     private static TestTable newTestTable(String tableName, IgniteDistribution distribution) {
         return TestBuilders.table()
                 .name(tableName)
-                .addKeyColumn("C0", NativeTypes.INT32)
-                .addColumn("C1", NativeTypes.INT32)
-                .addKeyColumn("C2", NativeTypes.INT32)
-                .addColumn("C3", NativeTypes.INT32)
+                .addColumn("C0", NativeTypes.INT32)
+                .addKeyColumn("C1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.INT32)
+                .addKeyColumn("C3", NativeTypes.INT32)
                 .distribution(distribution)
                 .build();
     }

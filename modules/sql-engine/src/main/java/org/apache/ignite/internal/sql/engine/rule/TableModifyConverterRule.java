@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
+import static org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule.createMapping;
+
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
@@ -83,10 +85,15 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
 
             for (RelNode relInput : ((RelSubset) rel.getInput()).getRels()) {
                 if (relInput instanceof ProjectableFilterableTableScan) {
-                    ImmutableBitSet requiredColumns = ((ProjectableFilterableTableScan) relInput).requiredColumns();
+                    ProjectableFilterableTableScan scan = (ProjectableFilterableTableScan) relInput;
 
-                    distribution = distribution.apply(
-                            Mappings.target(requiredColumns.toList(), igniteTable.getRowType(cluster.getTypeFactory()).getFieldCount()));
+                    Mappings.TargetMapping mapping = createMapping(
+                            scan.projects(),
+                            scan.requiredColumns(),
+                            igniteTable.getRowType(cluster.getTypeFactory()).getFieldCount()
+                    );
+
+                    distribution = distribution.apply(mapping);
 
                     break;
                 }
