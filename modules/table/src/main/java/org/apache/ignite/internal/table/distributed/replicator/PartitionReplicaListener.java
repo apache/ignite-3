@@ -1748,7 +1748,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                 cmd.rowUuid(),
                 cmd.tablePartitionId().asTablePartitionId(),
                 cmd.rowBuffer(),
-                rowId -> txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId)
+                rowId -> txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
+                    if (v == null) {
+                        v = new TreeSet<>();
+                    }
+
+                    v.add(rowId);
+
+                    return v;
+                })
         );
 
         return applyCmdWithExceptionHandling(cmd);
@@ -1765,11 +1773,15 @@ public class PartitionReplicaListener implements ReplicaListener {
                 cmd.txId(),
                 cmd.rowsToUpdate(),
                 cmd.tablePartitionId().asTablePartitionId(),
-                rowIds -> {
-                    for (RowId rowId : rowIds) {
-                        txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new TreeSet<>()).add(rowId);
+                rowIds -> txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
+                    if (v == null) {
+                        v = new TreeSet<>();
                     }
-                });
+
+                    v.addAll(rowIds);
+
+                    return v;
+                }));
 
         return applyCmdWithExceptionHandling(cmd);
     }
