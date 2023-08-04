@@ -23,6 +23,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -98,6 +99,15 @@ class HybridTimestampTest {
     }
 
     @Test
+    void addPhysicalTimeThrowsIfOverflowHappens() {
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> HybridTimestamp.MAX_VALUE.addPhysicalTime(1)
+        );
+        assertThat(ex.getMessage(), startsWith("Time is out of bounds: "));
+    }
+
+    @Test
     void subtractPhysicalTimeDecrementsPhysicalComponent() {
         HybridTimestamp before = new HybridTimestamp(2001, 2);
 
@@ -124,5 +134,14 @@ class HybridTimestampTest {
                 () -> before.addPhysicalTime(1L << PHYSICAL_TIME_BITS_SIZE)
         );
         assertThat(ex.getMessage(), is("Physical time is out of bounds: 281474976710656"));
+    }
+
+    @Test
+    void subtractPhysicalTimeThrowsIfUnderflowHappens() {
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> HybridTimestamp.MIN_VALUE.subtractPhysicalTime(1_000_000)
+        );
+        assertThat(ex.getMessage(), startsWith("Time is out of bounds: "));
     }
 }
