@@ -89,7 +89,8 @@ public class DistributionZonesTestUtil {
             String zoneName,
             int partitions,
             int replicas,
-            Consumer<DataStorageChange> dataStorageChangeConsumer) {
+            Consumer<DataStorageChange> dataStorageChangeConsumer
+    ) {
         var distributionZoneCfgBuilder = new Builder(zoneName)
                 .replicas(replicas)
                 .partitions(partitions)
@@ -97,8 +98,7 @@ public class DistributionZonesTestUtil {
                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
 
         if (dataStorageChangeConsumer != null) {
-            distributionZoneCfgBuilder
-                    .dataStorageChangeConsumer(dataStorageChangeConsumer);
+            distributionZoneCfgBuilder.dataStorageChangeConsumer(dataStorageChangeConsumer);
         }
 
         return zoneManager.createZone(distributionZoneCfgBuilder.build());
@@ -114,8 +114,11 @@ public class DistributionZonesTestUtil {
      * @return A future, which will be completed, when create operation finished.
      */
     public static CompletableFuture<Integer> createZone(
-            DistributionZoneManager zoneManager, String zoneName,
-            int partitions, int replicas) {
+            DistributionZoneManager zoneManager,
+            String zoneName,
+            int partitions,
+            int replicas
+    ) {
         return createZone(zoneManager, zoneName, partitions, replicas, null);
     }
 
