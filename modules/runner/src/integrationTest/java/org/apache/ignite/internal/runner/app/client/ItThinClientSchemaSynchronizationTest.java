@@ -27,6 +27,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -102,7 +103,6 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
     @Test
     void testClientReloadsTupleSchemaOnUnmappedColumnException() throws InterruptedException {
-        // TODO: Test with POJO
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
@@ -123,5 +123,55 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         recordView.insert(null, rec);
 
         assertEquals("name", recordView.get(null, rec).stringValue(1));
+    }
+
+    @Test
+    void testClientReloadsKvTupleSchemaOnUnmappedColumnException() throws InterruptedException {
+        assert false : "TODO";
+    }
+
+    @Test
+    void testClientReloadsPojoSchemaOnUnmappedColumnException() throws InterruptedException {
+        IgniteClient client = client();
+        Session ses = client.sql().createSession();
+
+        String tableName = "testClientReloadsTupleSchemaOnUnmappedColumnException";
+        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+
+        waitForTableOnAllNodes(tableName);
+        RecordView<Pojo> recordView = client.tables().table(tableName).recordView(Mapper.of(Pojo.class));
+
+        // Insert fails, because there is no NAME column.
+        Pojo rec = new Pojo(1, "name");
+        var ex = assertThrows(IgniteException.class, () -> recordView.insert(null, rec));
+        assertEquals(
+                "Fields [name] of type org.apache.ignite.internal.runner.app.client.ItThinClientSchemaSynchronizationTest$Pojo "
+                        + "are not mapped to columns.",
+                ex.getMessage());
+
+        // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
+        // reload schema, retry with new schema and succeed.
+        ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        recordView.insert(null, rec);
+
+        assertEquals("name", recordView.get(null, rec).name);
+    }
+
+    @Test
+    void testClientReloadsKvPojoSchemaOnUnmappedColumnException() throws InterruptedException {
+        assert false : "TODO";
+    }
+
+    private static class Pojo {
+        public int id;
+        public String name;
+
+        public Pojo() {
+        }
+
+        public Pojo(int id, String name) {
+            this.id = id;
+            this.name = name;
+        }
     }
 }
