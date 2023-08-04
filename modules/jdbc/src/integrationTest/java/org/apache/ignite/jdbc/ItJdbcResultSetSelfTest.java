@@ -53,8 +53,8 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
     private static final String STATIC_SQL =
             "SELECT 1::INTEGER as id, true as boolVal, 1::TINYINT as byteVal, 1::SMALLINT as shortVal, 1::INTEGER as intVal, 1::BIGINT "
                     + "as longVal, 1.0::FLOAT as floatVal, 1.0::DOUBLE as doubleVal, 1.0::DECIMAL as bigVal, "
-                    + "'1' as strVal, '1', '1901-02-01'::DATE as dateVal, '01:01:01'::TIME as timeVal, TIMESTAMP '1970-01-01 00:00:00' as tsVal,"
-                    + "'fd10556e-fc27-4a99-b5e4-89b8344cb3ce'::UUID as uuidVal";
+                    + "'1' as strVal, '1', '1901-02-01'::DATE as dateVal, '01:01:01'::TIME as timeVal, "
+                    + "TIMESTAMP '1970-01-01 00:00:00' as tsVal, 'fd10556e-fc27-4a99-b5e4-89b8344cb3ce'::UUID as uuidVal";
 
     /** SQL query. */
     private static final String SQL_SINGLE_RES = "select id, boolVal, byteVal, shortVal, intVal, longVal, floatVal, "
