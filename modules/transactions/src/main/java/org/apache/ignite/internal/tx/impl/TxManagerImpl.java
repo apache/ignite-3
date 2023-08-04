@@ -37,8 +37,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -59,9 +57,6 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(TxManagerImpl.class);
-
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -130,30 +125,26 @@ public class TxManagerImpl implements TxManager {
             return new ReadWriteTransactionImpl(this, txId);
         }
 
-        HybridTimestamp readTimestamp = beginTimestamp;
-
-        LOG.info("Begin RO tx {}", readTimestamp);
-
         lowWatermarkReadWriteLock.readLock().lock();
 
         try {
             HybridTimestamp lowWatermark = this.lowWatermark.get();
 
-            readOnlyTxFutureById.compute(new TxIdAndTimestamp(readTimestamp, txId), (txIdAndTimestamp, readOnlyTxFuture) -> {
+            readOnlyTxFutureById.compute(new TxIdAndTimestamp(beginTimestamp, txId), (txIdAndTimestamp, readOnlyTxFuture) -> {
                 assert readOnlyTxFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
 
-                if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
+                if (lowWatermark != null && beginTimestamp.compareTo(lowWatermark) <= 0) {
                     throw new IgniteInternalException(
                             TX_READ_ONLY_TOO_OLD_ERR,
                             "Timestamp read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
-                            readTimestamp, lowWatermark
+                            beginTimestamp, lowWatermark
                     );
                 }
 
                 return new CompletableFuture<>();
             });
 
-            return new ReadOnlyTransactionImpl(this, txId, readTimestamp);
+            return new ReadOnlyTransactionImpl(this, txId, beginTimestamp);
         } finally {
             lowWatermarkReadWriteLock.readLock().unlock();
         }

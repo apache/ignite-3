@@ -30,8 +30,6 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -48,9 +46,6 @@ import org.jetbrains.annotations.Nullable;
  * Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests.
  */
 public class StorageUpdateHandler {
-    /** The logger. */
-    private static final IgniteLogger LOGGER = Loggers.forClass(StorageUpdateHandler.class);
-
     /** Partition id. */
     private final int partitionId;
 
@@ -130,7 +125,6 @@ public class StorageUpdateHandler {
             locker.lock(rowId);
 
             if (commitTs != null) {
-                LOGGER.info("addWriteCommitted {}", commitTs);
                 storage.addWriteCommitted(rowId, row, commitTs);
             } else {
                 BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
