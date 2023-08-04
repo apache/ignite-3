@@ -47,7 +47,8 @@ class SessionDefaultValueProviderTest {
         assertEquals(JDBC_URL_CONFIG, provider.defaultValue(spec));
 
         // When session is connected
-        session.onEvent(EventType.SESSION_ON_CONNECT, new SessionConnectEvent(new SessionInfo("nodeUrl", "nodeName", JDBC_URL_SESSION, null)));
+        session.onEvent(EventType.SESSION_ON_CONNECT,
+                new SessionConnectEvent(new SessionInfo("nodeUrl", "nodeName", JDBC_URL_SESSION, null)));
 
         // Then default value is taken from the session
         assertEquals(JDBC_URL_SESSION, provider.defaultValue(spec));

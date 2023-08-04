@@ -55,8 +55,6 @@ public class Repl {
 
     private final Runnable onStart;
 
-    private final EventSubscriber eventSubscriber;
-
     /**
      * Constructor.
      *
@@ -95,7 +93,6 @@ public class Repl {
         this.tailTipWidgetsEnabled = tailTipWidgetsEnabled;
         this.autosuggestionsWidgetsEnabled = autosuggestionsWidgetsEnabled;
         this.onStart = onStart;
-        this.eventSubscriber = eventSubscriber;
     }
 
     /**
