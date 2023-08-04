@@ -22,9 +22,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.emptyArray;
 
-import java.util.Collections;
 import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionConnectEvent;
+import org.apache.ignite.internal.cli.core.repl.SessionDisconnectEvent;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
+import org.apache.ignite.internal.cli.event.EventType;
 import org.junit.jupiter.api.Test;
 
 class DynamicCompleterFilterTest {
@@ -46,14 +48,14 @@ class DynamicCompleterFilterTest {
     }
 
     private static Session notConnected() {
-        Session session = new Session(Collections.emptyList());
-        session.disconnect();
+        Session session = new Session();
+        session.onEvent(EventType.SESSION_ON_DISCONNECT, new SessionDisconnectEvent());
         return session;
     }
 
     private static Session connected() {
-        Session session = new Session(Collections.emptyList());
-        session.connect(new SessionInfo("nodeUrl", "nodeName", "jdbcUrl", null));
+        Session session = new Session();
+        session.onEvent(EventType.SESSION_ON_CONNECT, new SessionConnectEvent(new SessionInfo("nodeUrl", "nodeName", "jdbcUrl", null)));
         return session;
     }
 
