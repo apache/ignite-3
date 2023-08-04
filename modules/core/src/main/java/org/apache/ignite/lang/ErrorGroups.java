@@ -110,9 +110,6 @@ public class ErrorGroups {
 
         /** Client handshake header error. */
         public static final int HANDSHAKE_HEADER_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 10);
-
-        /** Client schema mismatch. */
-        public static final int SCHEMA_MISMATCH = CLIENT_ERR_GROUP.registerErrorCode((short) 11);
     }
 
     /** SQL error group. */

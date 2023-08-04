@@ -135,7 +135,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
-        String tableName = "testClientReloadsTupleSchemaOnUnmappedColumnException";
+        String tableName = "testClientReloadsPojoSchemaOnUnmappedColumnException";
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         waitForTableOnAllNodes(tableName);
@@ -157,6 +157,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         assertEquals("name", recordView.get(null, rec).name);
     }
 
+    // TODO: Add tests for the other case: missing columns in POJO or Tuple (new column added).
     @Test
     void testClientReloadsKvPojoSchemaOnUnmappedColumnException() throws InterruptedException {
         assert false : "TODO";

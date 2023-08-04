@@ -24,14 +24,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryPolicy;
-import org.apache.ignite.internal.client.ClientSchemaMismatchException;
 import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -41,6 +39,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -442,7 +441,7 @@ public class ClientTable implements Table {
                                         fut.complete(res0);
                                     }
                                 });
-                    } else if (schemaVersionOverride == null && cause instanceof ClientSchemaMismatchException) {
+                    } else if (schemaVersionOverride == null && cause instanceof UnmappedColumnsException) {
                         // Force load latest schema and retry.
                         // When schemaVersionOverride is not null, we already tried to load the schema.
                         schemas.remove(UNKNOWN_SCHEMA_VERSION);

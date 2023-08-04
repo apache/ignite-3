@@ -31,12 +31,12 @@ import java.util.Map.Entry;
 import java.util.Set;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.client.ClientSchemaMismatchException;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.table.Tuple;
@@ -441,9 +441,7 @@ public class ClientTupleSerializer {
             prefix = "Value tuple";
         }
 
-        var cause = new ClientSchemaMismatchException(schema.version());
-
         throw new IllegalArgumentException(String.format("%s doesn't match schema: schemaVersion=%s, extraColumns=%s",
-                prefix, schema.version(), extraColumns), cause);
+                prefix, schema.version(), extraColumns), new UnmappedColumnsException());
     }
 }
