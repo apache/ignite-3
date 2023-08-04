@@ -37,7 +37,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TraceableException;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -112,7 +111,7 @@ public class ExchangeServiceImpl implements ExchangeService {
         Throwable traceableErr = ExceptionUtils.unwrapCause(error);
 
         if (!(traceableErr instanceof TraceableException)) {
-            traceableErr = error = new SqlException(INTERNAL_ERR, error);
+            traceableErr = error = new IgniteInternalException(INTERNAL_ERR, error);
         }
 
         if (!(traceableErr instanceof ExecutionCancelledException)) {
