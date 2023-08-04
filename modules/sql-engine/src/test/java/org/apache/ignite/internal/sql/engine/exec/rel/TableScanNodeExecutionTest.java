@@ -38,7 +38,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
@@ -133,7 +132,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
 
         private final int dataAmount;
 
-        private final ByteBufferRow bbRow = new ByteBufferRow(new byte[1]);
+        private final BinaryRow bbRow = mock(BinaryRow.class);
 
         private final CopyOnWriteArraySet<Integer> partitions = new CopyOnWriteArraySet<>();
 
