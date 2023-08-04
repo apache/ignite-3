@@ -19,6 +19,10 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -29,6 +33,11 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -44,6 +53,8 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -54,6 +65,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,7 +74,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Base class for {@link DistributionZoneManager} unit tests.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
+public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
+    protected static final String ZONE_NAME = "zone1";
+
+    protected static final int ZONE_ID = 1;
+
+    protected static final long TIMEOUT_MILLIS = 10_000L;
+
+    protected static final int TIMER_SECONDS = 10_000;
+
     @InjectConfiguration
     private TablesConfiguration tablesConfiguration;
 
@@ -72,7 +92,7 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
     protected DistributionZoneManager distributionZoneManager;
 
-    protected SimpleInMemoryKeyValueStorage keyValueStorage;
+    SimpleInMemoryKeyValueStorage keyValueStorage;
 
     protected LogicalTopology topology;
 
@@ -80,17 +100,21 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
     protected MetaStorageManager metaStorageManager;
 
-    protected VaultManager vaultMgr;
+    VaultManager vaultMgr;
+
+    protected CatalogManager catalogManager;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
+        String nodeName = "test";
+
         vaultMgr = new VaultManager(new InMemoryVaultService());
 
         components.add(vaultMgr);
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
 
         metaStorageManager = StandaloneMetaStorageManager.create(vaultMgr, keyValueStorage);
 
@@ -129,6 +153,14 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
 
+        HybridClock clock = new HybridClockImpl();
+
+        ClockWaiter waiter = new ClockWaiter(nodeName, clock);
+        components.add(waiter);
+
+        catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageManager), waiter);
+        components.add(catalogManager);
+
         distributionZoneManager = new DistributionZoneManager(
                 revisionUpdater,
                 zonesConfiguration,
@@ -136,7 +168,7 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 vaultMgr,
-                "test"
+                nodeName
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
@@ -161,5 +193,57 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
         deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
 
         distributionZoneManager.start();
+    }
+
+    protected void createZone(
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        DistributionZonesTestUtil.createZone(
+                distributionZoneManager,
+                zoneName,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter
+        );
+
+        DistributionZonesTestUtil.createZone(
+                catalogManager,
+                zoneName,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter
+        );
+    }
+
+    protected void alterZone(
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        DistributionZonesTestUtil.alterZone(
+                distributionZoneManager,
+                zoneName,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter
+        );
+
+        DistributionZonesTestUtil.alterZone(
+                catalogManager,
+                zoneName,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter
+        );
+    }
+
+    protected void dropZone(String zoneName) {
+        assertThat(distributionZoneManager.dropZone(zoneName), willCompleteSuccessfully());
+
+        assertThat(catalogManager.dropDistributionZone(DropZoneParams.builder().zoneName(zoneName).build()), willBe(nullValue()));
     }
 }
