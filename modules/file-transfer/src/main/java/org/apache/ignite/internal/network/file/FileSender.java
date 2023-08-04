@@ -23,10 +23,15 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkMessage;
 
 class FileSender {
@@ -41,14 +46,21 @@ class FileSender {
     private final ExecutorService executorService;
 
     FileSender(
+            String nodeName,
             int chunkSize,
+            int threadPoolSize,
             RateLimiter rateLimiter,
-            BiFunction<String, NetworkMessage, CompletableFuture<Void>> send,
-            ExecutorService executorService) {
+            BiFunction<String, NetworkMessage, CompletableFuture<Void>> send) {
         this.send = send;
         this.chunkSize = chunkSize;
         this.rateLimiter = rateLimiter;
-        this.executorService = executorService;
+        this.executorService = new ThreadPoolExecutor(
+                0,
+                threadPoolSize,
+                0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<Runnable>(),
+                NamedThreadFactory.create(nodeName, "file-sender", LOG)
+        );
     }
 
     /**
@@ -59,9 +71,9 @@ class FileSender {
     }
 
     private void send0(String receiverConsistentId, UUID id, List<File> files) {
-        AtomicBoolean interrupted = new AtomicBoolean(false);
+        AtomicReference<Throwable> error = new AtomicReference();
         try (FileTransferMessagesStream stream = new FileTransferMessagesStream(id, files, chunkSize)) {
-            while (stream.hasNextMessage() && !interrupted.get()) {
+            while (stream.hasNextMessage() && error.get() == null && !Thread.currentThread().isInterrupted()) {
                 if (rateLimiter.tryAcquire()) {
                     send.apply(receiverConsistentId, stream.nextMessage())
                             .whenComplete((res, e) -> {
@@ -71,14 +83,28 @@ class FileSender {
                                             id,
                                             e
                                     );
-                                    interrupted.set(true);
+                                    error.compareAndSet(null, e);
                                 }
                                 rateLimiter.release();
                             });
                 }
             }
+
+            if (error.get() != null) {
+                throw new FileTransferException(
+                        "Failed to send files to node: " + receiverConsistentId + ", transfer id: " + id,
+                        error.get()
+                );
+            } else if (Thread.currentThread().isInterrupted()) {
+                throw new FileTransferException(
+                        "Failed to send files to node: " + receiverConsistentId + ", transfer id: " + id + ", thread was interrupted");
+            }
         } catch (IOException e) {
             throw new FileTransferException("Failed to send files to node: " + receiverConsistentId + ", transfer id: " + id, e);
         }
+    }
+
+    void stop() {
+        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
     }
 }

@@ -40,7 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.network.configuration.FileTransferringConfiguration;
+import org.apache.ignite.internal.network.configuration.FileTransferConfiguration;
 import org.apache.ignite.internal.network.file.TestCluster.Node;
 import org.apache.ignite.internal.network.file.messages.Metadata;
 import org.apache.ignite.internal.network.file.messages.MetadataImpl;
@@ -62,8 +62,8 @@ public class ItFileTransferTest {
     @WorkDirectory
     private Path workDir;
 
-    @InjectConfiguration
-    private FileTransferringConfiguration configuration;
+    @InjectConfiguration("mock.chunkSize=1024")
+    private FileTransferConfiguration configuration;
 
     private TestCluster cluster;
 

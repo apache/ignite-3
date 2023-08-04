@@ -18,17 +18,26 @@
 package org.apache.ignite.internal.network.file;
 
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.network.file.messages.FileHeaderMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferErrorMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfoMessage;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.RefCountedObjectPool;
 
 /**
  * File receiver.
@@ -40,21 +49,68 @@ class FileReceiver {
 
     private final Map<UUID, FileTransferMessagesHandler> transferIdToHandler = new ConcurrentHashMap<>();
 
-    FileReceiver(ExecutorService executorService) {
-        this.executorService = executorService;
+    private final Map<String, Set<UUID>> senderConsistentIdToTransferIds = new ConcurrentHashMap<>();
+
+    private final RefCountedObjectPool<String, ReentrantLock> senderConsistentIdToLock = new RefCountedObjectPool<>();
+
+    FileReceiver(String nodeName, int threadPoolSize) {
+        this.executorService = new ThreadPoolExecutor(
+                0,
+                threadPoolSize,
+                0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<Runnable>(),
+                NamedThreadFactory.create(nodeName, "file-receiver", LOG)
+        );
     }
 
-    FileTransferMessagesHandler registerTransfer(UUID transferId, Path handlerDir) {
-        FileTransferMessagesHandler handler = new FileTransferMessagesHandler(handlerDir);
-        transferIdToHandler.put(transferId, handler);
-        handler.result().whenComplete((files, throwable) -> transferIdToHandler.remove(transferId));
-        return handler;
+    FileTransferMessagesHandler registerTransfer(String senderConsistentId, UUID transferId, Path handlerDir) {
+        ReentrantLock lock = senderConsistentIdToLock.acquire(senderConsistentId, ignored -> new ReentrantLock());
+        lock.lock();
+        try {
+            FileTransferMessagesHandler handler = new FileTransferMessagesHandler(handlerDir);
+            transferIdToHandler.put(transferId, handler);
+            senderConsistentIdToTransferIds.compute(senderConsistentId, (k, v) -> {
+                if (v == null) {
+                    v = new HashSet<>();
+                }
+                v.add(transferId);
+                return v;
+            });
+            handler.result().whenComplete((files, throwable) -> deregisterTransfer(senderConsistentId, transferId));
+            return handler;
+        } finally {
+            lock.unlock();
+        }
     }
 
-    void cancelTransfer(UUID transferId) {
-        transferIdToHandler.remove(transferId).handleFileTransferError(new FileTransferException("Transfer was cancelled"));
+    private void deregisterTransfer(String senderConsistentId, UUID transferId) {
+        ReentrantLock lock = senderConsistentIdToLock.acquire(senderConsistentId, ignored -> new ReentrantLock());
+        lock.lock();
+        try {
+            transferIdToHandler.remove(transferId);
+            Set<UUID> uuids = senderConsistentIdToTransferIds.get(senderConsistentId);
+            uuids.remove(transferId);
+            if (uuids.isEmpty()) {
+                senderConsistentIdToTransferIds.remove(senderConsistentId);
+            }
+        } finally {
+            lock.unlock();
+        }
     }
 
+    void cancelTransfersFromSender(String senderConsistentId) {
+        ReentrantLock lock = senderConsistentIdToLock.acquire(senderConsistentId, ignored -> new ReentrantLock());
+        lock.lock();
+        try {
+            new HashSet<>(senderConsistentIdToTransferIds.get(senderConsistentId))
+                    .stream()
+                    .forEach(uuid -> {
+                        transferIdToHandler.get(uuid).handleFileTransferError(new FileTransferException("Transfer was cancelled"));
+                    });
+        } finally {
+            lock.unlock();
+        }
+    }
 
     CompletableFuture<Void> receiveFileTransferInfo(FileTransferInfoMessage info) {
         return CompletableFuture.runAsync(() -> receiveFileTransferInfo0(info), executorService)
@@ -63,6 +119,10 @@ class FileReceiver {
                         LOG.error("Failed to receive file transfer info. Id: {}. Exception: {}", info.transferId(), throwable);
                     }
                 });
+    }
+
+    void stop() {
+        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
     }
 
     private void receiveFileTransferInfo0(FileTransferInfoMessage info) {

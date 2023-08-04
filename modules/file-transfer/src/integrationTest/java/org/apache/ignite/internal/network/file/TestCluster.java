@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.network.configuration.FileTransferringConfiguration;
+import org.apache.ignite.internal.network.configuration.FileTransferConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -53,7 +53,7 @@ public class TestCluster {
     /** Node finder. */
     private final NodeFinder nodeFinder;
 
-    private final FileTransferringConfiguration configuration;
+    private final FileTransferConfiguration configuration;
 
     /**
      * Creates a test cluster with the given amount of members.
@@ -61,7 +61,7 @@ public class TestCluster {
      * @param numOfNodes Amount of cluster members.
      * @param testInfo Test info.
      */
-    TestCluster(int numOfNodes, FileTransferringConfiguration configuration, Path workDir, TestInfo testInfo) {
+    TestCluster(int numOfNodes, FileTransferConfiguration configuration, Path workDir, TestInfo testInfo) {
         this.startupLatch = new CountDownLatch(numOfNodes - 1);
 
         int initialPort = 3344;
@@ -105,6 +105,7 @@ public class TestCluster {
             Path nodeDir = Files.createDirectory(workDir.resolve("node-" + clusterSvc.nodeName()));
             FileTransferServiceImpl fileTransferringService = new FileTransferServiceImpl(
                     clusterSvc.nodeName(),
+                    clusterSvc.topologyService(),
                     clusterSvc.messagingService(),
                     configuration,
                     nodeDir

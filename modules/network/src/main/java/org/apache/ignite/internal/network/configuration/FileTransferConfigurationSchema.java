@@ -19,23 +19,27 @@ package org.apache.ignite.internal.network.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * File transferring configuration.
  */
 @Config
-public class FileTransferringConfigurationSchema {
+public class FileTransferConfigurationSchema {
     /** Chunk size in bytes. */
+    @Range(min = 1)
     @Value(hasDefault = true)
     public final int chunkSize = 1024 * 1024;
 
-    /** File transfer timeout. */
+    /** File sender thread pool size. */
+    @Range(min = 1)
     @Value(hasDefault = true)
-    public final int transferTimeout = 30_000;
+    public final int senderThreadPoolSize = 1;
 
-    /** File transfer thread pool size. */
+    /** File receiver thread pool size. */
+    @Range(min = 1)
     @Value(hasDefault = true)
-    public final int threadPoolSize = 4;
+    public final int receiverThreadPoolSize = 4;
 
     /** Max concurrent requests. */
     @Value(hasDefault = true)

@@ -29,13 +29,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.configuration.FileTransferringConfiguration;
+import org.apache.ignite.internal.network.configuration.FileTransferConfiguration;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
 import org.apache.ignite.internal.network.file.messages.FileDownloadResponse;
@@ -46,13 +42,15 @@ import org.apache.ignite.internal.network.file.messages.FileTransferInfoMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferMessageType;
 import org.apache.ignite.internal.network.file.messages.FileUploadRequest;
 import org.apache.ignite.internal.network.file.messages.Metadata;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.FilesUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ChannelType;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link FileTransferService}.
@@ -64,12 +62,11 @@ public class FileTransferServiceImpl implements FileTransferService {
 
     private static final long DOWNLOAD_RESPONSE_TIMEOUT = 10_000;
 
+    private final TopologyService topologyService;
     /**
      * Cluster service.
      */
     private final MessagingService messagingService;
-
-    private final ExecutorService executorService;
 
     private final Path tempDirectory;
 
@@ -91,36 +88,57 @@ public class FileTransferServiceImpl implements FileTransferService {
      */
     public FileTransferServiceImpl(
             String nodeName,
+            TopologyService topologyService,
             MessagingService messagingService,
-            FileTransferringConfiguration configuration,
+            FileTransferConfiguration configuration,
             Path tempDirectory
     ) {
-        this.tempDirectory = tempDirectory;
+        this(
+                topologyService,
+                messagingService,
+                tempDirectory,
+                new FileSender(
+                        nodeName,
+                        configuration.value().senderThreadPoolSize(),
+                        configuration.value().chunkSize(),
+                        new RateLimiter(configuration.value().maxConcurrentRequests()),
+                        (recipientConsistentId, message) -> messagingService.send(recipientConsistentId, FILE_TRANSFERRING_CHANNEL,
+                                message)
+                ),
+                new FileReceiver(nodeName, configuration.value().receiverThreadPoolSize())
+        );
+    }
+
+    @TestOnly
+    FileTransferServiceImpl(
+            TopologyService topologyService,
+            MessagingService messagingService,
+            Path tempDirectory,
+            FileSender fileSender,
+            FileReceiver fileReceiver
+    ) {
+        this.topologyService = topologyService;
         this.messagingService = messagingService;
-        this.executorService = new ThreadPoolExecutor(
-                0,
-                configuration.value().threadPoolSize(),
-                0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<Runnable>(),
-                NamedThreadFactory.create(nodeName, "file-transfer", LOG)
-        );
-        this.fileSender = new FileSender(
-                configuration.value().chunkSize(),
-                new RateLimiter(configuration.value().maxConcurrentRequests()),
-                (recipientConsistentId, message) -> messagingService.send(recipientConsistentId, FILE_TRANSFERRING_CHANNEL, message),
-                executorService
-        );
-        this.fileReceiver = new FileReceiver(executorService);
+        this.tempDirectory = tempDirectory;
+        this.fileSender = fileSender;
+        this.fileReceiver = fileReceiver;
     }
 
     @Override
     public void start() {
+        topologyService.addEventHandler(new TopologyEventHandler() {
+            @Override
+            public void onDisappeared(ClusterNode member) {
+                fileReceiver.cancelTransfersFromSender(member.id());
+            }
+        });
+
         messagingService.addMessageHandler(FileTransferMessageType.class,
                 (message, senderConsistentId, correlationId) -> {
                     if (message instanceof FileDownloadRequest) {
                         processDownloadRequest((FileDownloadRequest) message, senderConsistentId, correlationId);
                     } else if (message instanceof FileUploadRequest) {
-                        processUploadRequest((FileUploadRequest) message);
+                        processUploadRequest(senderConsistentId, (FileUploadRequest) message);
                     } else if (message instanceof FileTransferErrorMessage) {
                         processFileTransferErrorMessage((FileTransferErrorMessage) message);
                     } else if (message instanceof FileTransferInfoMessage) {
@@ -139,10 +157,14 @@ public class FileTransferServiceImpl implements FileTransferService {
         fileReceiver.receiveFileTransferErrorMessage(message);
     }
 
-    private void processUploadRequest(FileUploadRequest message) {
+    private void processUploadRequest(String senderConsistentId, FileUploadRequest message) {
         createTransferDirectory(message.transferId())
                 .whenComplete((directory, throwable) -> {
-                    FileTransferMessagesHandler handler = fileReceiver.registerTransfer(message.transferId(), directory);
+                    FileTransferMessagesHandler handler = fileReceiver.registerTransfer(
+                            senderConsistentId,
+                            message.transferId(),
+                            directory
+                    );
                     handler.result().thenCompose(files -> handleUploadedFiles(message.metadata(), files))
                             .whenComplete((v, e) -> {
                                 if (e != null) {
@@ -220,7 +242,8 @@ public class FileTransferServiceImpl implements FileTransferService {
 
     @Override
     public void stop() {
-        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
+        fileSender.stop();
+        fileReceiver.stop();
     }
 
     @Override
@@ -228,9 +251,14 @@ public class FileTransferServiceImpl implements FileTransferService {
             Class<M> metadata,
             FileProvider<M> provider
     ) {
-        metadataToProvider.put(
-                metadata.getAnnotation(Transferable.class).value(),
-                (FileProvider<Metadata>) provider
+        metadataToProvider.compute(
+                getMessageType(metadata),
+                (k, v) -> {
+                    if (v != null) {
+                        throw new IllegalArgumentException("File provider for metadata " + metadata.getName() + " already exists");
+                    }
+                    return (FileProvider<Metadata>) provider;
+                }
         );
     }
 
@@ -239,10 +267,23 @@ public class FileTransferServiceImpl implements FileTransferService {
             Class<M> metadata,
             FileHandler<M> handler
     ) {
-        metadataToHandler.put(
-                metadata.getAnnotation(Transferable.class).value(),
-                (FileHandler<Metadata>) handler
+        metadataToHandler.compute(
+                getMessageType(metadata),
+                (k, v) -> {
+                    if (v != null) {
+                        throw new IllegalArgumentException("File handler for metadata " + metadata.getName() + " already exists");
+                    }
+                    return (FileHandler<Metadata>) handler;
+                }
         );
+    }
+
+    private short getMessageType(Class<?> metadata) {
+        Transferable annotation = metadata.getAnnotation(Transferable.class);
+        if (annotation == null) {
+            throw new IllegalArgumentException("Class " + metadata.getName() + " is not annotated with @Transferable");
+        }
+        return annotation.value();
     }
 
     @Override
@@ -254,7 +295,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                 .build();
 
         return createTransferDirectory(transferId)
-                .thenApply(directory -> fileReceiver.registerTransfer(transferId, directory))
+                .thenApply(directory -> fileReceiver.registerTransfer(nodeConsistentId, transferId, directory))
                 .thenCompose(
                         handler -> messagingService.invoke(nodeConsistentId, FILE_TRANSFERRING_CHANNEL, message, DOWNLOAD_RESPONSE_TIMEOUT)
                                 .thenApply(FileDownloadResponse.class::cast)
