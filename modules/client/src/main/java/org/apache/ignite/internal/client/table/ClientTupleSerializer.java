@@ -213,7 +213,7 @@ public class ClientTupleSerializer {
         }
 
         if (val != null && val.columnCount() > usedValCols) {
-            throwSchemaMismatchException(key, schema, TuplePart.VAL);
+            throwSchemaMismatchException(val, schema, TuplePart.VAL);
         }
 
         out.out().packBinaryTuple(builder, noValueSet);
