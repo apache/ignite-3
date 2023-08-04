@@ -346,8 +346,10 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @return True if binary tuple rebuild is required; false if the tuple can be written to storage as is.
      */
     private static boolean binaryTupleRebuildRequired(SchemaDescriptor schema) {
+        // TODO IGNITE-20155 Java client connector skips NOT NULL and other column checks
         // Temporal columns require normalization according to the specified precision.
-        return schema.hasTemporalColumns();
+        // return schema.hasTemporalColumns();
+        return true;
     }
 
     /**
