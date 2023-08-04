@@ -428,11 +428,7 @@ public class ClientTable implements Table {
                         return;
                     }
 
-                    var cause = err;
-
-                    while (cause.getCause() != null) {
-                        cause = cause.getCause();
-                    }
+                    Throwable cause = ExceptionUtils.unwrapRootCause(err);
 
                     if (cause instanceof ClientSchemaVersionMismatchException) {
                         // Retry with specific schema version.
