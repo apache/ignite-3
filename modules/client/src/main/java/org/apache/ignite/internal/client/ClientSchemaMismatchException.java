@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.table;
+package org.apache.ignite.internal.client;
 
 import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups;
