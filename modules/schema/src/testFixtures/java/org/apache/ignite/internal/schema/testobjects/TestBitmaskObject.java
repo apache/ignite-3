@@ -15,23 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.schema.testobjects;
+
+import java.util.BitSet;
 
 /**
- * DROP ZONE statement.
+ * Test object.
  */
-public class DropZoneParams extends AbstractZoneCommandParams {
-    /** Creates parameters builder. */
-    public static Builder builder() {
-        return new Builder();
+public class TestBitmaskObject {
+    private final int key;
+
+    private final BitSet bitmaskCol;
+
+    public TestBitmaskObject() {
+        this(0, new BitSet(0));
     }
 
-    /**
-     * Parameters builder.
-     */
-    public static class Builder extends AbstractBuilder<DropZoneParams, Builder> {
-        Builder() {
-            super(new DropZoneParams());
-        }
+    public TestBitmaskObject(int key, BitSet bitmaskCol) {
+        this.key = key;
+        this.bitmaskCol = bitmaskCol;
+    }
+
+    public int key() {
+        return key;
+    }
+
+    public BitSet bitmaskCol() {
+        return bitmaskCol;
     }
 }

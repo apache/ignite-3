@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.runner.app.client;
+
+import org.apache.ignite.Ignite;
 
 /**
- * DROP ZONE statement.
+ * Runs {@link ItThinClientMarshallingTest} against embedded API.
  */
-public class DropZoneParams extends AbstractZoneCommandParams {
-    /** Creates parameters builder. */
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    /**
-     * Parameters builder.
-     */
-    public static class Builder extends AbstractBuilder<DropZoneParams, Builder> {
-        Builder() {
-            super(new DropZoneParams());
-        }
+public class ItThinClientMarshallingEmbeddedTest extends ItThinClientMarshallingTest {
+    @Override
+    protected Ignite ignite() {
+        return server();
     }
 }
