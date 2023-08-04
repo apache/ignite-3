@@ -19,10 +19,8 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -33,11 +31,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.ClockWaiter;
-import org.apache.ignite.internal.catalog.commands.DropZoneParams;
-import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -53,8 +46,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -101,8 +92,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     protected MetaStorageManager metaStorageManager;
 
     VaultManager vaultMgr;
-
-    protected CatalogManager catalogManager;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -153,14 +142,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
 
-        HybridClock clock = new HybridClockImpl();
-
-        ClockWaiter waiter = new ClockWaiter(nodeName, clock);
-        components.add(waiter);
-
-        catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageManager), waiter);
-        components.add(catalogManager);
-
         distributionZoneManager = new DistributionZoneManager(
                 revisionUpdater,
                 zonesConfiguration,
@@ -208,14 +189,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
                 dataNodesAutoAdjustScaleDown,
                 filter
         );
-
-        DistributionZonesTestUtil.createZone(
-                catalogManager,
-                zoneName,
-                dataNodesAutoAdjustScaleUp,
-                dataNodesAutoAdjustScaleDown,
-                filter
-        );
     }
 
     protected void alterZone(
@@ -231,19 +204,9 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
                 dataNodesAutoAdjustScaleDown,
                 filter
         );
-
-        DistributionZonesTestUtil.alterZone(
-                catalogManager,
-                zoneName,
-                dataNodesAutoAdjustScaleUp,
-                dataNodesAutoAdjustScaleDown,
-                filter
-        );
     }
 
     protected void dropZone(String zoneName) {
         assertThat(distributionZoneManager.dropZone(zoneName), willCompleteSuccessfully());
-
-        assertThat(catalogManager.dropDistributionZone(DropZoneParams.builder().zoneName(zoneName).build()), willBe(nullValue()));
     }
 }

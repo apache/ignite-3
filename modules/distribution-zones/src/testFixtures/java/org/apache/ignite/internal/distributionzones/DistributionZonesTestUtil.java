@@ -39,7 +39,6 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -55,9 +54,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -147,41 +143,6 @@ public class DistributionZonesTestUtil {
                 ),
                 willCompleteSuccessfully()
         );
-    }
-
-    /**
-     * Creates a distribution zone in the catalog.
-     *
-     * @param catalogManager Catalog manager.
-     * @param zoneName Zone name.
-     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
-     *         {@code null} if not set.
-     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
-     *         {@code null} if not set.
-     * @param filter Nodes filter, {@code null} if not set.
-     */
-    public static void createZone(
-            CatalogManager catalogManager,
-            String zoneName,
-            @Nullable Integer dataNodesAutoAdjustScaleUp,
-            @Nullable Integer dataNodesAutoAdjustScaleDown,
-            @Nullable String filter
-    ) {
-        CreateZoneParams.Builder builder = CreateZoneParams.builder().zoneName(zoneName);
-
-        if (dataNodesAutoAdjustScaleUp != null) {
-            builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
-        }
-
-        if (dataNodesAutoAdjustScaleDown != null) {
-            builder.dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
-        }
-
-        if (filter != null) {
-            builder.filter(filter);
-        }
-
-        assertThat(catalogManager.createDistributionZone(builder.build()), willBe(nullValue()));
     }
 
     /**
@@ -587,38 +548,16 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Alters a distribution zone in the catalog.
+     * Drops a distribution zone in the configuration.
      *
-     * @param catalogManager Catalog manager.
+     * @param distributionZoneManager Distributed zone manager.
      * @param zoneName Zone name.
-     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
-     *         {@code null} if not set.
-     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
-     *         {@code null} if not set.
-     * @param filter Nodes filter, {@code null} if not set.
      */
-    public static void alterZone(
-            CatalogManager catalogManager,
-            String zoneName,
-            @Nullable Integer dataNodesAutoAdjustScaleUp,
-            @Nullable Integer dataNodesAutoAdjustScaleDown,
-            @Nullable String filter
+    public static void dropZone(
+            DistributionZoneManager distributionZoneManager,
+            String zoneName
     ) {
-        AlterZoneParams.Builder builder = AlterZoneParams.builder().zoneName(zoneName);
-
-        if (dataNodesAutoAdjustScaleUp != null) {
-            builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
-        }
-
-        if (dataNodesAutoAdjustScaleDown != null) {
-            builder.dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
-        }
-
-        if (filter != null) {
-            builder.filter(filter);
-        }
-
-        assertThat(catalogManager.alterDistributionZone(builder.build()), willBe(nullValue()));
+        assertThat(distributionZoneManager.dropZone(zoneName), willCompleteSuccessfully());
     }
 
     private static DistributionZoneConfigurationParameters createParameters(
