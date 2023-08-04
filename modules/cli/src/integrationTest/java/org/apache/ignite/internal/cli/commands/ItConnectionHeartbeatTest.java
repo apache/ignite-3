@@ -62,6 +62,11 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
         eventFactory.listen(EventType.CONNECTION_RESTORED, eventListener);
     }
 
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
+    }
+
     @Test
     @DisplayName("Should send event CONNECTION_RESTORED on connection start")
     void connectionEstablished() {
