@@ -447,11 +447,8 @@ public class ClientTable implements Table {
                                     }
                                 });
                     } else if (schemaVersionOverride == null && cause instanceof ClientSchemaMismatchException) {
-                        // TODO: Force load latest schema.
-                        // How do we avoid multiple forced reload with many parallel requests?
-                        // Add a way to "load schema later than current"?
-                        // Use ObservableTimestamp?
-                        int oldSchemaVersion = ((ClientSchemaMismatchException) cause).schemaVersion();
+                        // Force load latest schema and retry.
+                        // When schemaVersionOverride is not null, we already tried to load the schema.
                         schemas.remove(UNKNOWN_SCHEMA_VERSION);
 
                         doSchemaOutOpAsync(opCode, writer, reader, provider, retryPolicyOverride, UNKNOWN_SCHEMA_VERSION)
