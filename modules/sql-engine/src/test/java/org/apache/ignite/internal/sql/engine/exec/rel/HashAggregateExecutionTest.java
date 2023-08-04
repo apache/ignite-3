@@ -55,15 +55,13 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
             ScanNode<Object[]> scan
     ) {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
-        Mapping mapping = PlanUtils.computeAggFieldMapping(grpSets, SINGLE);
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
                 ctx,
                 SINGLE,
                 grpSets,
                 accFactory(ctx, call, SINGLE, inRowType),
-                rowFactory,
-                mapping
+                rowFactory
         );
 
         agg.register(scan);
@@ -108,19 +106,17 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
     ) {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
 
-        Mapping mapMapping = PlanUtils.computeAggFieldMapping(grpSets, MAP);
         HashAggregateNode<Object[]> aggMap = new HashAggregateNode<>(
                 ctx,
                 MAP,
                 grpSets,
                 accFactory(ctx, call, MAP, inRowType),
-                rowFactory,
-                mapMapping
+                rowFactory
         );
 
         aggMap.register(scan);
 
-        Mapping reduceMapping = PlanUtils.computeAggFieldMapping(grpSets, REDUCE);
+        Mapping reduceMapping = PlanUtils.computeAggFieldMapping(grpSets);
         MapReduceAgg mapReduceAgg = MapReduceAggregates.createMapReduceAggCall(call, reduceMapping.getTargetCount());
 
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(
@@ -128,8 +124,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
                 REDUCE,
                 grpSets,
                 accFactory(ctx, mapReduceAgg.getReduceCall(), REDUCE, aggRowType),
-                rowFactory,
-                reduceMapping
+                rowFactory
         );
 
         aggRdc.register(aggMap);

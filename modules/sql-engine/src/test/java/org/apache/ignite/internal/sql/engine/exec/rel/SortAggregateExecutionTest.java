@@ -137,7 +137,7 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             rdcCmp = (k1, k2) -> 0;
         }
 
-        Mapping reduceMapping = PlanUtils.computeAggFieldMapping(grpSets, REDUCE);
+        Mapping reduceMapping = PlanUtils.computeAggFieldMapping(grpSets);
         MapReduceAgg mapReduceAgg = MapReduceAggregates.createMapReduceAggCall(call, reduceMapping.getTargetCount());
 
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(

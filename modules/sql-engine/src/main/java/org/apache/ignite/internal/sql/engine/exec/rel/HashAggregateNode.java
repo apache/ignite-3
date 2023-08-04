@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -38,7 +37,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
-import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 
 /**
  * HashAggregateNode.
@@ -57,14 +55,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
     private final List<Grouping> groupings;
 
-    /**
-     * Mapping between group columns and their positions inside an input row.
-     * This mapping is required to assemble group keys defined for grouping sets,
-     * because key value positions vary depending on aggregation phase.
-     * See {@link PlanUtils#computeAggFieldMapping(List, AggregateType)}.
-     */
-    private final Mapping mapping;
-
     private int requested;
 
     private int waiting;
@@ -78,9 +68,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
      */
     public HashAggregateNode(
             ExecutionContext<RowT> ctx, AggregateType type, List<ImmutableBitSet> grpSets,
-            Supplier<List<AccumulatorWrapper<RowT>>> accFactory, RowFactory<RowT> rowFactory,
-            Mapping fieldMapping) {
-
+            Supplier<List<AccumulatorWrapper<RowT>>> accFactory, RowFactory<RowT> rowFactory) {
         super(ctx);
 
         this.type = type;
@@ -103,7 +91,6 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         allFields = b.build();
-        this.mapping = fieldMapping;
     }
 
     /** {@inheritDoc} */
@@ -265,8 +252,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             GroupKey.Builder b = GroupKey.builder(grpFields.cardinality());
 
             for (int field : grpFields) {
-                int target = mapping.getTarget(field);
-                b.add(handler.get(target, row));
+                b.add(handler.get(field, row));
             }
 
             GroupKey grpKey = b.build();

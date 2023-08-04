@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.
 import static org.apache.ignite.internal.sql.engine.util.PlanUtils.complexDistinctAgg;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
@@ -32,6 +33,7 @@ import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
@@ -40,7 +42,9 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.AggregateRelBuilder;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
+import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 
 /**
  * Planner rule that recognizes a {@link org.apache.calcite.rel.core.Aggregate}
@@ -121,12 +125,19 @@ public class HashAggregateConverterRule {
                 public IgniteRel makeReduceAgg(RelOptCluster cluster, RelNode map, ImmutableBitSet groupSet,
                         List<ImmutableBitSet> groupSets, List<AggregateCall> aggregateCalls, RelDataType outputType) {
 
+                    Mapping mapping = PlanUtils.computeAggFieldMapping(groupSets);
+
+                    ImmutableBitSet groupSet1 = Commons.mapBitSet(groupSet, mapping);
+                    List<ImmutableBitSet> groupSets1 = groupSets.stream()
+                            .map(g -> Commons.mapBitSet(g, mapping))
+                            .collect(Collectors.toList());
+
                     return new IgniteReduceHashAggregate(
                             cluster,
                             outTrait.replace(IgniteDistributions.single()),
                             convert(map, inTrait.replace(IgniteDistributions.single())),
-                            agg.getGroupSet(),
-                            agg.getGroupSets(),
+                            groupSet1,
+                            groupSets1,
                             aggregateCalls,
                             outputType
                     );

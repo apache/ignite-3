@@ -195,15 +195,14 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
         HashAggregateNode<Object[]> map = new HashAggregateNode<>(ctx, MAP, grpSets,
-                accFactory(ctx, mapCall, MAP, rowType), rowFactory(), PlanUtils.computeAggFieldMapping(grpSets, MAP));
+                accFactory(ctx, mapCall, MAP, rowType), rowFactory());
         map.register(scan);
 
         RelDataType hashRowType = PlanUtils.createHashAggRowType(grpSets, tf, rowType, List.of(mapCall));
         MapReduceAgg reduceAggCall = MapReduceAggregates.createMapReduceAggCall(mapCall, 0);
 
         HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, REDUCE, grpSets,
-                accFactory(ctx, reduceAggCall.getReduceCall(), REDUCE, hashRowType), rowFactory(),
-                PlanUtils.computeAggFieldMapping(grpSets, REDUCE));
+                accFactory(ctx, reduceAggCall.getReduceCall(), REDUCE, hashRowType), rowFactory());
         reduce.register(map);
 
         RootNode<Object[]> root = new RootNode<>(ctx);
@@ -409,10 +408,9 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
     private HashAggregateNode<Object[]> newHashAggNode(ExecutionContext<Object[]> ctx,
             AggregateType type, List<ImmutableBitSet> grpSets, RelDataType rowType, AggregateCall call) {
 
-        Mapping mapping = PlanUtils.computeAggFieldMapping(grpSets, type);
         Supplier<List<AccumulatorWrapper<Object[]>>> accFactory = accFactory(ctx, call, type, rowType);
 
-        return new HashAggregateNode<>(ctx, type, grpSets, accFactory, rowFactory(), mapping);
+        return new HashAggregateNode<>(ctx, type, grpSets, accFactory, rowFactory());
     }
 
     private HashAggregateNode<Object[]> newMapHashAggNode(ExecutionContext<Object[]> ctx,

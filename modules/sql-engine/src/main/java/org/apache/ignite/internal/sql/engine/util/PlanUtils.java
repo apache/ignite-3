@@ -35,7 +35,6 @@ import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 
 /**
@@ -108,7 +107,7 @@ public class PlanUtils {
     public static RelDataType createHashAggRowType(List<ImmutableBitSet> groupSets,
             IgniteTypeFactory typeFactory, RelDataType inputType, List<AggregateCall> aggregateCalls) {
 
-        Mapping mapping = computeAggFieldMapping(groupSets, AggregateType.REDUCE);
+        Mapping mapping = computeAggFieldMapping(groupSets);
 
         RelDataTypeFactory.Builder builder = typeFactory.builder();
 
@@ -126,10 +125,7 @@ public class PlanUtils {
     }
 
     /**
-     * Field mapping for hash execution nodes. See {@link #createHashAggRowType(List, IgniteTypeFactory, RelDataType, List)}.
-     *
-     * <p>For REDUCE phase it produces the following mapping:
-     *
+     * Creates grouping set keys mapping for REDUCE phase of MAP/REDUCE aggregates.
      * <pre>
      * group sets:
      *   [0], [2, 0], [3]
@@ -138,11 +134,8 @@ public class PlanUtils {
      *   2 -> 1
      *   3 -> 2
      * </pre>
-     *
-     * <p>Generates identity mapping for other phases, because colocated aggregates and map phase aggregate
-     * build keys directly from input rows.
      */
-    public static Mapping computeAggFieldMapping(List<ImmutableBitSet> groupingSets, AggregateType aggregateType) {
+    public static Mapping computeAggFieldMapping(List<ImmutableBitSet> groupingSets) {
         BitSet fieldIndices = new BitSet();
 
         for (ImmutableBitSet groupingSet : groupingSets) {
@@ -151,23 +144,18 @@ public class PlanUtils {
             }
         }
 
-        if (aggregateType == AggregateType.REDUCE) {
-            Mapping mapping = Mappings.create(MappingType.INVERSE_SURJECTION, fieldIndices.length(), fieldIndices.cardinality());
+        Mapping mapping = Mappings.create(MappingType.INVERSE_SURJECTION, fieldIndices.length(), fieldIndices.cardinality());
 
-            int i = 0;
-            int bitPos = fieldIndices.nextSetBit(0);
+        int i = 0;
+        int bitPos = fieldIndices.nextSetBit(0);
 
-            while (bitPos != -1) {
-                mapping.set(bitPos, i);
-                bitPos = fieldIndices.nextSetBit(bitPos + 1);
-                i++;
-            }
-
-            return mapping;
-        } else {
-            return Mappings.createIdentity(fieldIndices.length());
+        while (bitPos != -1) {
+            mapping.set(bitPos, i);
+            bitPos = fieldIndices.nextSetBit(bitPos + 1);
+            i++;
         }
 
+        return mapping;
     }
 
     private static void addAccumulatorFields(IgniteTypeFactory typeFactory, List<AggregateCall> aggregateCalls, Builder builder) {
