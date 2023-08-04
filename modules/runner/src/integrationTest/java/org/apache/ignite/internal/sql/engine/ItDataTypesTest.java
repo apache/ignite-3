@@ -231,14 +231,6 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
                 .returns("2021-11-07 01:30:00").check();
     }
 
-    @Test
-    public void test() {
-        assertQuery("SELECT CAST(? AS DECIMAL(5, 1))")
-                .withParams(LocalDateTime.now())
-                .returns(1)
-                .check();
-    }
-
     /** Test decimal scale for dynamic parameters. */
     @Test
     public void testDecimalScale() {
