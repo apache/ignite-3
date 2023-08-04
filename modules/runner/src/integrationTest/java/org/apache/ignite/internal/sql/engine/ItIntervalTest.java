@@ -70,16 +70,20 @@ public class ItIntervalTest extends ClusterPerClassIntegrationTest {
      */
     @Test
     public void testIntervalIntCast() {
-        assertNull(eval("CAST(NULL::INTERVAL SECONDS AS INT)"));
-        assertNull(eval("CAST(NULL::INTERVAL MONTHS AS INT)"));
-        assertEquals(1, eval("CAST(INTERVAL 1 SECONDS AS INT)"));
-        assertEquals(2, eval("CAST(INTERVAL 2 MINUTES AS INT)"));
-        assertEquals(3, eval("CAST(INTERVAL 3 HOURS AS INT)"));
-        assertEquals(4, eval("CAST(INTERVAL 4 DAYS AS INT)"));
-        assertEquals(-4, eval("CAST(INTERVAL -4 DAYS AS INT)"));
-        assertEquals(5, eval("CAST(INTERVAL 5 MONTHS AS INT)"));
-        assertEquals(6, eval("CAST(INTERVAL 6 YEARS AS INT)"));
-        assertEquals(-6, eval("CAST(INTERVAL -6 YEARS AS INT)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(NULL::INTERVAL SECONDS AS INT)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(NULL::INTERVAL MONTHS AS INT)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(INTERVAL 1 SECONDS AS INT)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(INTERVAL 2 MINUTES AS INT)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(INTERVAL 3 HOURS AS INT)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(INTERVAL 4 DAYS AS INT)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(INTERVAL -4 DAYS AS INT)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(INTERVAL 5 MONTHS AS INT)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(INTERVAL 6 YEARS AS INT)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(INTERVAL -6 YEARS AS INT)"));
+
+        assertEquals("+6", eval("CAST(INTERVAL 6 YEARS AS VARCHAR)"));
+        assertEquals("+1", eval("CAST(INTERVAL 1 HOUR AS VARCHAR)"));
+        assertEquals("+7.000000", eval("CAST(INTERVAL 7 SECONDS AS VARCHAR)"));
 
         assertNull(eval("CAST(NULL::INT AS INTERVAL SECONDS)"));
         assertNull(eval("CAST(NULL::INT AS INTERVAL MONTHS)"));

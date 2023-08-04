@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.calcite.sql.type.SqlTypeName.APPROX_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeName.DAY_INTERVAL_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.EXACT_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.NUMERIC_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeName.YEAR_INTERVAL_TYPES;
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -192,6 +194,8 @@ public final class Commons {
             fromTypes = EnumSet.copyOf(mappings.get(type));
             fromTypes.remove(SqlTypeName.BOOLEAN);
             fromTypes.remove(SqlTypeName.TIMESTAMP);
+            fromTypes.removeAll(YEAR_INTERVAL_TYPES);
+            fromTypes.removeAll(DAY_INTERVAL_TYPES);
             mappings.put(type, ImmutableSet.<SqlTypeName>builder().addAll(fromTypes).build());
         }
 
@@ -213,6 +217,18 @@ public final class Commons {
         fromTypes = EnumSet.copyOf(mappings.get(SqlTypeName.TIMESTAMP));
         fromTypes.removeAll(NUMERIC_TYPES);
         mappings.put(SqlTypeName.TIMESTAMP, ImmutableSet.<SqlTypeName>builder().addAll(fromTypes).build());
+
+        for (SqlTypeName type : YEAR_INTERVAL_TYPES) {
+            fromTypes = EnumSet.copyOf(mappings.get(type));
+            fromTypes.removeAll(NUMERIC_TYPES);
+            mappings.put(type, ImmutableSet.<SqlTypeName>builder().addAll(fromTypes).build());
+        }
+
+        for (SqlTypeName type : DAY_INTERVAL_TYPES) {
+            fromTypes = EnumSet.copyOf(mappings.get(type));
+            fromTypes.removeAll(NUMERIC_TYPES);
+            mappings.put(type, ImmutableSet.<SqlTypeName>builder().addAll(fromTypes).build());
+        }
 
         return SqlTypeCoercionRule.instance(mappings);
     }

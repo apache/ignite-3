@@ -360,7 +360,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public RelDataType deriveType(SqlValidatorScope scope, SqlNode expr) {
-        checkCastCorrectness(scope, expr);
+        checkTypesInteroperability(scope, expr);
 
         RelDataType dataType = super.deriveType(scope, expr);
 
@@ -406,7 +406,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     /** Check appropriate type cast availability. */
-    private void checkCastCorrectness(SqlValidatorScope scope, SqlNode expr) {
+    private void checkTypesInteroperability(SqlValidatorScope scope, SqlNode expr) {
         boolean castOp = expr.getKind() == SqlKind.CAST;
 
         if (castOp || SqlKind.BINARY_COMPARISON.contains(expr.getKind())) {

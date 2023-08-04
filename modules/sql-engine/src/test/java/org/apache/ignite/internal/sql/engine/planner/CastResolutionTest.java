@@ -20,9 +20,12 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static org.apache.calcite.sql.type.SqlTypeName.BINARY_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.DATETIME_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_HOUR;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_MINUTE;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_MONTH;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_YEAR;
 import static org.apache.calcite.sql.type.SqlTypeName.NUMERIC_TYPES;
 
-import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -59,6 +62,14 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
     private static final Set<String> charAndDt = new HashSet<>();
 
+    private static final Set<String> charAndYInterval = new HashSet<>();
+
+    private static final Set<String> charAndDInterval = new HashSet<>();
+
+    private static final String commonTemplate = "SELECT CAST('1'::%s AS %s)";
+
+    private static final String intervalTemplate = "SELECT CAST(INTERVAL 1 %s AS %s)";
+
     static {
         numericNames.add("NUMERIC");
 
@@ -73,6 +84,12 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
         charAndDt.addAll(dtNames);
         charAndDt.addAll(charNames);
+
+        charAndYInterval.addAll(List.of(INTERVAL_YEAR.getName(), INTERVAL_MONTH.getName()));
+        charAndYInterval.addAll(charNames);
+
+        charAndDInterval.addAll(List.of(INTERVAL_HOUR.getName(), INTERVAL_MINUTE.getName()));
+        charAndDInterval.addAll(charNames);
     }
 
     /** Test CAST possibility for different supported types. */
@@ -87,12 +104,20 @@ public class CastResolutionTest extends AbstractPlannerTest {
             Set<String> toTypes = types.toTypes;
             boolean allCastsPossible = false;
 
+            boolean interval = from.toLowerCase().contains("interval");
+            String template = interval ? intervalTemplate : commonTemplate;
+            from = interval ? from.substring("interval_".length()) : from;
+
             for (String toType : toTypes) {
+                toType = interval || toType.toLowerCase().contains("interval") ? toType.replace("_", " ") : toType;
+
                 if (toType.equals("ALL")) {
                     allCastsPossible = true;
 
                     for (String type : allTypes) {
-                        testItems.add(checkStatement().sql(String.format("SELECT CAST('1'::%s AS %s)", from, type)).ok());
+                        type = interval || type.toLowerCase().contains("interval") ? type.replace("_", " ") : type;
+
+                        testItems.add(checkStatement().sql(String.format(template, from, type)).ok());
                     }
 
                     break;
@@ -103,22 +128,29 @@ public class CastResolutionTest extends AbstractPlannerTest {
                     continue;
                 }
 
-                testItems.add(checkStatement().sql(String.format("SELECT CAST('1'::%s AS %s)", from, toType)).ok());
+                testItems.add(checkStatement().sql(String.format(template, from, toType)).ok());
             }
 
-            testItems.add(checkStatement().sql(String.format("SELECT '1'::%s", from)).ok());
+            if (!interval) {
+                testItems.add(checkStatement().sql(String.format("SELECT '1'::%s", from)).ok());
+            }
 
             if (allCastsPossible) {
                 continue;
             }
 
-            testItems.add(checkStatement().sql(String.format("SELECT CAST('1'::%s AS %s)", from, from)).ok());
+            if (!interval) {
+                testItems.add(checkStatement().sql(String.format(template, from, from)).ok());
+            }
 
-            Set<String> deprecatedCastTypes = allTypes.stream().filter(t -> !toTypes.contains(t) && !t.equals(from))
+            String finalFrom = from;
+            Set<String> deprecatedCastTypes = allTypes.stream().filter(t -> !toTypes.contains(t) && !t.equals(finalFrom))
                     .collect(Collectors.toSet());
 
             for (String toType : deprecatedCastTypes) {
-                testItems.add(checkStatement().sql(String.format("SELECT CAST('1'::%s AS %s)", from, toType)).fails(castErrorMessage));
+                toType = toType.toLowerCase().contains("interval") ? toType.replace("_", " ") : toType;
+
+                testItems.add(checkStatement().sql(String.format(template, from, toType)).fails(castErrorMessage));
             }
         }
 
@@ -165,7 +197,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
         NUMERIC("NUMERIC", charAndNumericNames),
 
-        UUID(UuidType.NAME, ImmutableSet.copyOf(charNames)),
+        UUID(UuidType.NAME, new HashSet<>(charNames)),
 
         VARCHAR(SqlTypeName.VARCHAR.getName(), Set.of("ALL")),
 
@@ -177,7 +209,11 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
         TIME(SqlTypeName.TIME.getName(), charAndTs),
 
-        TIMESTAMP(SqlTypeName.TIMESTAMP.getName(), charAndDt);
+        TIMESTAMP(SqlTypeName.TIMESTAMP.getName(), charAndDt),
+
+        INTERVAL_YEAR(SqlTypeName.INTERVAL_YEAR.getName(), charAndYInterval),
+
+        INTERVAL_HOUR(SqlTypeName.INTERVAL_HOUR.getName(), charAndDInterval);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19274
         //TIMESTAMP_TS(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), charAndDt);
