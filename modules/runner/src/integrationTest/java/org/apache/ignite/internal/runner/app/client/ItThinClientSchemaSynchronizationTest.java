@@ -131,7 +131,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
-        String tableName = "testClientReloadsTupleSchemaOnUnmappedColumnException";
+        String tableName = "testClientReloadsKvTupleSchemaOnUnmappedColumnException";
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         waitForTableOnAllNodes(tableName);
@@ -180,7 +180,32 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
     @Test
     void testClientReloadsKvPojoSchemaOnUnmappedColumnException() throws InterruptedException {
-        assert false : "TODO";
+        IgniteClient client = client();
+        Session ses = client.sql().createSession();
+
+        String tableName = "testClientReloadsKvPojoSchemaOnUnmappedColumnException";
+        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+
+        waitForTableOnAllNodes(tableName);
+        KeyValueView<Integer, ValPojo> kvView = client.tables().table(tableName)
+                .keyValueView(Mapper.of(Integer.class), Mapper.of(ValPojo.class));
+
+        // Insert fails, because there is no NAME column.
+        Integer key = 1;
+        ValPojo val = new ValPojo("name");
+        var ex = assertThrows(IgniteException.class, () -> kvView.put(null, key, val));
+        assertEquals(
+                "Fields [name] of type "
+                        + "org.apache.ignite.internal.runner.app.client.ItThinClientSchemaSynchronizationTest$ValPojo "
+                        + "are not mapped to columns.",
+                ex.getMessage());
+
+        // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
+        // reload schema, retry with new schema and succeed.
+        ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        kvView.put(null, key, val);
+
+        assertEquals("name", kvView.get(null, key).name);
     }
 
     private static class Pojo {
@@ -192,6 +217,17 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         public Pojo(int id, String name) {
             this.id = id;
+            this.name = name;
+        }
+    }
+
+    private static class ValPojo {
+        public String name;
+
+        public ValPojo() {
+        }
+
+        public ValPojo(String name) {
             this.name = name;
         }
     }
