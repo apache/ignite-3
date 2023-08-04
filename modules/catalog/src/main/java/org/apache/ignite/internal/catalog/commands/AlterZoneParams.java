@@ -46,6 +46,9 @@ public class AlterZoneParams extends AbstractZoneCommandParams {
     /* Nodes' filter. */
     private @Nullable String filter;
 
+    /** Data storage. */
+    private @Nullable DataStorageParams dataStorage;
+
     /**
      * Gets number of zone replicas.
      *
@@ -98,6 +101,11 @@ public class AlterZoneParams extends AbstractZoneCommandParams {
      */
     public @Nullable Integer dataNodesAutoAdjustScaleDown() {
         return dataNodesAutoAdjustScaleDown;
+    }
+
+    /** Returns the data storage, {@code null} if not set. */
+    public @Nullable DataStorageParams dataStorage() {
+        return dataStorage;
     }
 
     /**
@@ -176,6 +184,18 @@ public class AlterZoneParams extends AbstractZoneCommandParams {
          */
         public Builder filter(@Nullable String filter) {
             params.filter = filter;
+
+            return this;
+        }
+
+        /**
+         * Sets the data storage.
+         *
+         * @param dataStorage Data storage.
+         * @return This instance.
+         */
+        public Builder dataStorage(@Nullable DataStorageParams dataStorage) {
+            params.dataStorage = dataStorage;
 
             return this;
         }
