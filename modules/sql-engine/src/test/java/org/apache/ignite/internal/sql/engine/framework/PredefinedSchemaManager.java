@@ -29,7 +29,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Dummy wrapper for predefined collection of schemas.
