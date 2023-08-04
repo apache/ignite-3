@@ -51,17 +51,37 @@ In CLI you need to initialize simple cluster via the following command:
 cluster init -n=sampleCluster -m=defaultNode
 ```
 
+Now CLI can be switched into SQL interactive mode with command:
+
+```
+sql
+```
+
+In SQL interactive mode user can simply type SQL commands in CLI:
+
+```sql
+CREATE TABLE IF NOT EXISTS Person (id int primary key,  city varchar,  name varchar,  age int,  company varchar);
+INSERT INTO Person (id, city, name, age, company) VALUES ('1', 'London', 'John Doe', '42', 'Apache');
+INSERT INTO Person (id, city, name, age, company) VALUES ('2', 'New York', 'Jane Doe', '36', 'Apache');
+SELECT * FROM Person;
+```
+
 ## Build from source
 
-Ignite can be built with [Gradle](https://gradle.org/):
+Ignite distributive zip archive can be built with [Gradle](https://gradle.org/):
 
 ```
-./gradlew clean build -x test -x integrationTest
+./gradlew clean distZip
 ```
 
-And can be started with the help of Docker:
+Build artifacts can be found in packaging/db and packaging/cli directories.
+
+## Run from source using Docker
+
+Ignite can be started with the help of Docker:
 
 ```
+./gradlew docker
 cd packaging/docker
 docker compose up -d
 ```
