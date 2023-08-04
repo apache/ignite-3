@@ -22,12 +22,14 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+import java.util.function.Function;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.util.Cache;
-import org.apache.ignite.internal.sql.engine.util.CacheFactory;
-import org.apache.ignite.internal.sql.engine.util.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
+import org.apache.ignite.internal.sql.engine.util.cache.StatsCounter;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -157,6 +159,11 @@ public class ParserServiceImplTest {
                 }
 
                 @Override
+                public V get(K key, Function<? super K, ? extends V> mappingFunction) {
+                    return (V) object;
+                }
+
+                @Override
                 public void put(K key, V value) {
                     // NO-OP
                 }
@@ -166,6 +173,11 @@ public class ParserServiceImplTest {
                     // NO-OP
                 }
             };
+        }
+
+        @Override
+        public <K, V> Cache<K, V> create(int size, StatsCounter statCounter) {
+            return create(size);
         }
     }
 }

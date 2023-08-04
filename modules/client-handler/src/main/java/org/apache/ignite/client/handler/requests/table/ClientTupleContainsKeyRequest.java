@@ -47,7 +47,7 @@ public class ClientTupleContainsKeyRequest {
             ClientResourceRegistry resources
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, resources);
+            var tx = readTx(in, out, resources);
             var keyTuple = readTuple(in, table, true);
 
             return table.recordView().getAsync(tx, keyTuple)

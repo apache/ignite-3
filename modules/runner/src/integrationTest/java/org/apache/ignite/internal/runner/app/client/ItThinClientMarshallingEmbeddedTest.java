@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util;
+package org.apache.ignite.internal.runner.app.client;
+
+import org.apache.ignite.Ignite;
 
 /**
- * Factory that creates a cache.
+ * Runs {@link ItThinClientMarshallingTest} against embedded API.
  */
-public interface CacheFactory {
-    /**
-     * Creates a cache with a desired size.
-     *
-     * @param size Desired size of the cache.
-     * @return An instance of the cache.
-     * @param <K> Type of the key object.
-     * @param <V> Type of the value object.
-     */
-    <K, V> Cache<K, V> create(int size);
+public class ItThinClientMarshallingEmbeddedTest extends ItThinClientMarshallingTest {
+    @Override
+    protected Ignite ignite() {
+        return server();
+    }
 }

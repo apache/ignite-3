@@ -71,7 +71,7 @@ public class TxManagerImpl implements TxManager {
     /** Generates transaction IDs. */
     private final TransactionIdGenerator transactionIdGenerator;
 
-    // TODO: IGNITE-17638 Consider using Txn state map instead of states.
+    // TODO: IGNITE-20033 Consider using Txn state map instead of states.
     /** The storage for tx states. */
     @TestOnly
     private final ConcurrentHashMap<UUID, TxState> states = new ConcurrentHashMap<>();
@@ -116,7 +116,7 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public InternalTransaction begin(boolean readOnly, HybridTimestamp observableTimestamp) {
+    public InternalTransaction begin(boolean readOnly, @Nullable HybridTimestamp observableTimestamp) {
         assert readOnly || observableTimestamp == null : "Observable timestamp is applicable just for read-only transactions.";
 
         HybridTimestamp beginTimestamp = clock.now();
@@ -214,7 +214,7 @@ public class TxManagerImpl implements TxManager {
                 .build();
 
         return replicaService.invoke(recipientNode, req)
-                // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+                // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
                 .thenRun(() -> changeState(txId, PENDING, commit ? COMMITED : ABORTED));
     }
 

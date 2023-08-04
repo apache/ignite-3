@@ -51,12 +51,14 @@ import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteExceptionUtils;
@@ -99,6 +101,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Topology change listeners. */
     private final Collection<Consumer<ClientChannel>> assignmentChangeListeners = new CopyOnWriteArrayList<>();
+
+    /** Observable timestamp listeners. */
+    private final Collection<Consumer<Long>> observableTimestampListeners = new CopyOnWriteArrayList<>();
 
     /** Closed flag. */
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -351,7 +356,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             } catch (Exception e) {
                 log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
 
-                throw new IgniteClientConnectionException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
+                throw new IgniteException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
             }
         }, asyncContinuationExecutor);
     }
@@ -400,6 +405,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
         }
 
+        long observableTimestamp = unpacker.unpackLong();
+
+        for (Consumer<Long> listener : observableTimestampListeners) {
+            listener.accept(observableTimestamp);
+        }
+
         if (unpacker.tryUnpackNil()) {
             boolean completed = pendingReq.complete(unpacker);
 
@@ -427,13 +438,34 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private static <T extends Throwable> T readError(ClientMessageUnpacker unpacker) {
         var traceId = unpacker.unpackUuid();
         var code = unpacker.unpackInt();
+
         var errClassName = unpacker.unpackString();
         var errMsg = unpacker.tryUnpackNil() ? null : unpacker.unpackString();
 
         IgniteException causeWithStackTrace = unpacker.tryUnpackNil() ? null : new IgniteException(traceId, code, unpacker.unpackString());
 
-        // TODO IGNITE-19837 Retry outdated schema error
-        unpacker.skipValues(1); // Error extensions.
+        if (code == Table.SCHEMA_VERSION_MISMATCH_ERR) {
+            int extSize = unpacker.tryUnpackNil() ? 0 : unpacker.unpackMapHeader();
+            int expectedSchemaVersion = -1;
+
+            for (int i = 0; i < extSize; i++) {
+                String key = unpacker.unpackString();
+
+                if (key.equals(ErrorExtensions.EXPECTED_SCHEMA_VERSION)) {
+                    expectedSchemaVersion = unpacker.unpackInt();
+                } else {
+                    // Unknown extension - ignore.
+                    unpacker.skipValues(1);
+                }
+            }
+
+            if (expectedSchemaVersion == -1) {
+                return (T) new IgniteException(
+                        traceId, PROTOCOL_ERR, "Expected schema version is not specified in error extension map.", causeWithStackTrace);
+            }
+
+            return (T) new ClientSchemaVersionMismatchException(traceId, code, errMsg, expectedSchemaVersion, causeWithStackTrace);
+        }
 
         try {
             // TODO https://issues.apache.org/jira/browse/IGNITE-19539
@@ -464,6 +496,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener) {
         assignmentChangeListeners.add(listener);
+    }
+
+    @Override
+    public void addObservableTimestampListener(Consumer<Long> listener) {
+        observableTimestampListeners.add(listener);
     }
 
     private static void validateConfiguration(ClientChannelConfiguration cfg) {

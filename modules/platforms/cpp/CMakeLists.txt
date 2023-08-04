@@ -41,8 +41,13 @@ get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
 set(conan_packages
     msgpack-c/4.0.0
-    gtest/1.12.1
 )
+
+if (${ENABLE_TESTS})
+    list(APPEND conan_packages
+        gtest/1.12.1
+    )
+endif()
 
 # Install required libraries.
 if (${ENABLE_CONAN})
