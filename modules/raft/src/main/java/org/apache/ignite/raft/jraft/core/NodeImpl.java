@@ -3185,7 +3185,6 @@ public class NodeImpl implements Node, RaftServerService {
         }
         if (opts.getStripedExecutor() != null && !opts.isSharedPools()) {
             opts.getStripedExecutor().shutdownGracefully();
-            opts.setStripedExecutor(null);
         }
         if (opts.getClientExecutor() != null && !opts.isSharedPools()) {
             ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getClientExecutor());
