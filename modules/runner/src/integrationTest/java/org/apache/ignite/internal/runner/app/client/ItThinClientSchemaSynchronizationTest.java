@@ -103,7 +103,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
     }
 
     @Test
-    void testClientReloadsTupleSchemaOnUnmappedColumnException() throws InterruptedException {
+    void testClientReloadsTupleSchemaOnWriteOnUnmappedColumnException() throws InterruptedException {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
@@ -122,6 +122,31 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         // reload schema, retry with new schema and succeed.
         ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
         recordView.insert(null, rec);
+
+        assertEquals("name", recordView.get(null, rec).stringValue(1));
+    }
+
+    @Test
+    void testClientReloadsTupleSchemaOnReadOnUnmappedColumnException() throws InterruptedException {
+        IgniteClient client = client();
+        Session ses = client.sql().createSession();
+
+        String tableName = "testClientReloadsTupleSchemaOnUnmappedColumnException";
+        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+        ses.execute(null, "INSERT INTO " + tableName + " VALUES(1)");
+
+        waitForTableOnAllNodes(tableName);
+        RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
+
+        // Insert fails, because there is no NAME column.
+        Tuple rec = Tuple.create().set("ID", 1).set("NAME", "name");
+        var ex = assertThrows(IgniteException.class, () -> recordView.getAndUpsert(null, rec));
+        assertEquals("Tuple doesn't match schema: schemaVersion=1, extraColumns=[NAME]", ex.getMessage());
+
+        // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
+        // reload schema, retry with new schema and succeed.
+        ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        recordView.getAndUpsert(null, rec);
 
         assertEquals("name", recordView.get(null, rec).stringValue(1));
     }
