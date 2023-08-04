@@ -208,6 +208,8 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         assertEquals("name", kvView.get(null, key).name);
     }
 
+    // TODO: Fix doSchemaOutInOpAsync, and add tests for "read after alter table".
+
     private static class Pojo {
         public int id;
         public String name;
