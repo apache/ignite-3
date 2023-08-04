@@ -17,15 +17,7 @@
 
 package org.apache.ignite.internal.cli.core.repl;
 
+import org.apache.ignite.internal.cli.event.Event;
 
-/**
- * Connection event listener. Notified if connection lost or established.
- */
-public interface AsyncConnectionEventListener {
-
-    /** Invoked when connection to the node unstable or lost. Implementation must be async. */
-    void onConnectionLost();
-
-    /** Invoked when connection to the node successfully established. Implementation must be async. */
-    void onConnection();
+class ConnectionStatusEvent implements Event {
 }

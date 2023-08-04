@@ -55,6 +55,8 @@ public class Repl {
 
     private final Runnable onStart;
 
+    private final EventSubscriber eventSubscriber;
+
     /**
      * Constructor.
      *
@@ -79,7 +81,8 @@ public class Repl {
             String historyFileName,
             boolean tailTipWidgetsEnabled,
             boolean autosuggestionsWidgetsEnabled,
-            Runnable onStart
+            Runnable onStart,
+            EventSubscriber eventSubscriber
     ) {
         this.promptProvider = promptProvider;
         this.commandClass = commandClass;
@@ -92,6 +95,7 @@ public class Repl {
         this.tailTipWidgetsEnabled = tailTipWidgetsEnabled;
         this.autosuggestionsWidgetsEnabled = autosuggestionsWidgetsEnabled;
         this.onStart = onStart;
+        this.eventSubscriber = eventSubscriber;
     }
 
     /**

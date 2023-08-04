@@ -25,15 +25,18 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
+import org.apache.ignite.internal.cli.core.repl.SessionConnectEvent;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
+import org.apache.ignite.internal.cli.event.Event;
+import org.apache.ignite.internal.cli.event.EventListener;
+import org.apache.ignite.internal.cli.event.EventType;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link MetricRegistry}. */
 @Singleton
-public class MetricRegistryImpl implements MetricRegistry, AsyncSessionEventListener {
+public class MetricRegistryImpl implements MetricRegistry, EventListener {
 
     @Inject
     private NodeMetricSourceListCall metricSourceListCall;
@@ -47,14 +50,14 @@ public class MetricRegistryImpl implements MetricRegistry, AsyncSessionEventList
                 : metricSourcesRef.get();
     }
 
-    /**
-     * Gets list of metric sources from the node.
-     *
-     * @param sessionInfo sessionInfo.
-     */
     @Override
-    public void onConnect(SessionInfo sessionInfo) {
-        metricSourcesRef = new LazyObjectRef<>(() -> fetchMetricSources(sessionInfo));
+    public void onEvent(EventType eventType, Event event) {
+        if (EventType.SESSION_ON_CONNECT == eventType) {
+            SessionConnectEvent sessionConnectEvent = (SessionConnectEvent) event;
+            metricSourcesRef = new LazyObjectRef<>(() -> fetchMetricSources(sessionConnectEvent.getSessionInfo()));
+        } else if (EventType.SESSION_ON_DISCONNECT == eventType) {
+            metricSourcesRef = null;
+        }
     }
 
     @Nullable
@@ -66,10 +69,5 @@ public class MetricRegistryImpl implements MetricRegistry, AsyncSessionEventList
         return output.body().stream()
                 .map(MetricSource::getName)
                 .collect(Collectors.toSet());
-    }
-
-    @Override
-    public void onDisconnect() {
-        metricSourcesRef = null;
     }
 }

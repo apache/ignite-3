@@ -44,6 +44,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionConnectEvent;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.completer.DynamicCompleterRegistry;
@@ -51,6 +52,8 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter
 import org.apache.ignite.internal.cli.core.repl.completer.filter.DynamicCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOptionsFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
+import org.apache.ignite.internal.cli.event.EventFactory;
+import org.apache.ignite.internal.cli.event.EventType;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.assertj.core.util.Files;
 import org.jline.reader.Candidate;
@@ -101,6 +104,9 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
 
     @Inject
     Session session;
+
+    @Inject
+    EventFactory eventFactory;
 
     SystemCompleter completer;
 
@@ -245,7 +251,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     }
 
     private void connected() {
-        session.connect(new SessionInfo(DEFAULT_REST_URL, null, null, null));
+        eventFactory.fireEvent(EventType.SESSION_ON_CONNECT, new SessionConnectEvent(new SessionInfo(DEFAULT_REST_URL, null, null, null)));
     }
 
     private Stream<Arguments> nodeConfigUpdateSuggestedSource() {

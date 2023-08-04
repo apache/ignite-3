@@ -33,10 +33,14 @@ import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.exception.handler.IgniteCliApiExceptionHandler;
 import org.apache.ignite.internal.cli.core.repl.ConnectionHeartBeat;
 import org.apache.ignite.internal.cli.core.repl.Session;
+import org.apache.ignite.internal.cli.core.repl.SessionConnectEvent;
+import org.apache.ignite.internal.cli.core.repl.SessionDisconnectEvent;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
+import org.apache.ignite.internal.cli.event.EventFactory;
+import org.apache.ignite.internal.cli.event.EventType;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -57,18 +61,18 @@ public class ConnectCall implements Call<UrlCallInput, String> {
 
     private final JdbcUrlFactory jdbcUrlFactory;
 
-    private final ConnectionHeartBeat connectionHeartBeat;
+    private final EventFactory eventFactory;
 
     /**
      * Constructor.
      */
     public ConnectCall(Session session, StateConfigProvider stateConfigProvider, ApiClientFactory clientFactory,
-            JdbcUrlFactory jdbcUrlFactory, ConnectionHeartBeat connectionHeartBeat) {
+            JdbcUrlFactory jdbcUrlFactory, ConnectionHeartBeat connectionHeartBeat, EventFactory eventFactory) {
         this.session = session;
         this.stateConfigProvider = stateConfigProvider;
         this.clientFactory = clientFactory;
         this.jdbcUrlFactory = jdbcUrlFactory;
-        this.connectionHeartBeat = connectionHeartBeat;
+        this.eventFactory = eventFactory;
     }
 
     @Override
@@ -86,11 +90,13 @@ public class ConnectCall implements Call<UrlCallInput, String> {
 
             String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(configuration, nodeUrl);
             sessionInfo = new SessionInfo(nodeUrl, fetchNodeName(nodeUrl), jdbcUrl, username);
-            session.connect(sessionInfo);
-            connectionHeartBeat.start(sessionInfo);
+            eventFactory.fireEvent(EventType.SESSION_ON_CONNECT, new SessionConnectEvent(sessionInfo));
+
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
         } catch (Exception e) {
-            session.disconnect();
+            if (session.info() != null) {
+                eventFactory.fireEvent(EventType.SESSION_ON_DISCONNECT, new SessionDisconnectEvent());
+            }
             return DefaultCallOutput.failure(handleException(e, nodeUrl));
         }
     }

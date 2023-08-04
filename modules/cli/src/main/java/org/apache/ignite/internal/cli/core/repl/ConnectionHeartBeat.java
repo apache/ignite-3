@@ -18,13 +18,16 @@
 package org.apache.ignite.internal.cli.core.repl;
 
 import jakarta.inject.Singleton;
-import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.cli.event.Event;
+import org.apache.ignite.internal.cli.event.EventFactory;
+import org.apache.ignite.internal.cli.event.EventListener;
+import org.apache.ignite.internal.cli.event.EventType;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -35,12 +38,12 @@ import org.apache.ignite.rest.client.invoker.ApiException;
  * Connection to node heart beat.
  */
 @Singleton
-public class ConnectionHeartBeat {
+public class ConnectionHeartBeat implements EventListener {
 
     private static final IgniteLogger log = CliLoggers.forClass(ConnectionHeartBeat.class);
 
     /** CLI check connection period period. */
-    public static long CLI_CHECK_CONNECTION_PERIOD_SECONDS = 5;
+    private final long cliCheckConnectionPeriodSecond;
 
     /** Scheduled executor for connection heartbeat. */
     @Nullable
@@ -48,13 +51,20 @@ public class ConnectionHeartBeat {
 
     private final ApiClientFactory clientFactory;
 
-    private final List<? extends AsyncConnectionEventListener> listeners;
+    private final EventFactory eventFactory;
 
     private final AtomicBoolean connected = new AtomicBoolean(false);
 
-    public ConnectionHeartBeat(ApiClientFactory clientFactory, List<? extends AsyncConnectionEventListener> listeners) {
+    /**
+     * Created instance of connection heartbeat.
+     *
+     * @param clientFactory api client factory.
+     * @param eventFactory event factory.
+     */
+    public ConnectionHeartBeat(ApiClientFactory clientFactory, EventFactory eventFactory) {
         this.clientFactory = clientFactory;
-        this.listeners = listeners;
+        this.eventFactory = eventFactory;
+        this.cliCheckConnectionPeriodSecond = 5; //ToDo: use micronaut config params
     }
 
     /**
@@ -62,8 +72,8 @@ public class ConnectionHeartBeat {
      *
      * @param sessionInfo session info with node url
      */
-    public void start(SessionInfo sessionInfo) {
-        connectionEstablished();
+    private void onConnect(SessionInfo sessionInfo) {
+        //eventFactory.fireEvent(EventType.CONNECTION_RESTORED, new ConnectionStatusEvent());
 
         if (scheduledConnectionHeartbeatExecutor == null) {
             scheduledConnectionHeartbeatExecutor =
@@ -73,7 +83,7 @@ public class ConnectionHeartBeat {
             scheduledConnectionHeartbeatExecutor.scheduleAtFixedRate(
                     () -> pingConnection(sessionInfo.nodeUrl()),
                     0,
-                    CLI_CHECK_CONNECTION_PERIOD_SECONDS,
+                    cliCheckConnectionPeriodSecond,
                     TimeUnit.SECONDS
             );
         }
@@ -82,31 +92,11 @@ public class ConnectionHeartBeat {
     /**
      * Stops connection heartbeat.
      */
-    public void stop() {
+    private void onDisconnect() {
         if (scheduledConnectionHeartbeatExecutor != null) {
             scheduledConnectionHeartbeatExecutor.shutdownNow();
             scheduledConnectionHeartbeatExecutor = null;
         }
-    }
-
-    private void connectionLost() {
-        listeners.forEach(it -> {
-            try {
-                it.onConnectionLost();
-            } catch (Exception e) {
-                log.warn("Got an exception: ", e);
-            }
-        });
-    }
-
-    private void connectionEstablished() {
-        listeners.forEach(it -> {
-            try {
-                it.onConnection();
-            } catch (Exception e) {
-                log.warn("Got an exception: ", e);
-            }
-        });
     }
 
     private void pingConnection(String nodeUrl) {
@@ -114,13 +104,23 @@ public class ConnectionHeartBeat {
             new NodeManagementApi(clientFactory.getClient(nodeUrl)).nodeState();
             if (!connected.get()) {
                 connected.compareAndSet(false, true);
-                connectionEstablished();
+                eventFactory.fireEvent(EventType.CONNECTION_RESTORED, new ConnectionStatusEvent());
             }
         } catch (ApiException exception) {
             if (connected.get()) {
                 connected.compareAndSet(true, false);
-                connectionLost();
+                eventFactory.fireEvent(EventType.CONNECTION_LOST, new ConnectionStatusEvent());
             }
+        }
+    }
+
+    @Override
+    public void onEvent(EventType eventType, Event event) {
+        if (EventType.SESSION_ON_CONNECT == eventType) {
+            SessionConnectEvent sessionConnectEvent = (SessionConnectEvent) event;
+            onConnect(sessionConnectEvent.getSessionInfo());
+        } else if (EventType.SESSION_ON_DISCONNECT == eventType) {
+            onDisconnect();
         }
     }
 }

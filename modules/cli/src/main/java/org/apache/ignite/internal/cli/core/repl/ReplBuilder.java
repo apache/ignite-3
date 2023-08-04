@@ -53,6 +53,8 @@ public class ReplBuilder {
 
     private Runnable onStart = () -> {};
 
+    private EventSubscriber eventSubscriber;
+
     /**
      * Build methods.
      *
@@ -70,7 +72,8 @@ public class ReplBuilder {
                 historyFileName,
                 tailTipWidgetsEnabled,
                 autosuggestionsWidgetsEnabled,
-                onStart
+                onStart,
+                eventSubscriber
         );
     }
 
@@ -150,6 +153,17 @@ public class ReplBuilder {
 
     public ReplBuilder withAutosuggestionsWidgets() {
         this.autosuggestionsWidgetsEnabled = true;
+        return this;
+    }
+
+    /**
+     * Builder setter of {@code aliases} field.
+     *
+     * @param eventSubscriber ???? map of aliases for commands.
+     * @return invoked builder instance {@link ReplBuilder}.
+     */
+    public ReplBuilder withEventSubscriber(EventSubscriber eventSubscriber) {
+        this.eventSubscriber = eventSubscriber;
         return this;
     }
 }

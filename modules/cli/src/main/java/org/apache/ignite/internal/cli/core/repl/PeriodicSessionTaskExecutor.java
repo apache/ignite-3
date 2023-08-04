@@ -24,6 +24,9 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.cli.event.Event;
+import org.apache.ignite.internal.cli.event.EventListener;
+import org.apache.ignite.internal.cli.event.EventType;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -31,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Executes tasks periodically while the session is connected. */
 @Singleton
-public class PeriodicSessionTaskExecutor implements AsyncSessionEventListener {
+public class PeriodicSessionTaskExecutor implements EventListener {
     private static final IgniteLogger LOG = CliLoggers.forClass(PeriodicSessionTaskExecutor.class);
 
     @Nullable
@@ -39,20 +42,30 @@ public class PeriodicSessionTaskExecutor implements AsyncSessionEventListener {
 
     private final List<? extends PeriodicSessionTask> tasks;
 
+    //private final EventFactory eventFactory;
+
     public PeriodicSessionTaskExecutor(List<? extends PeriodicSessionTask> tasks) {
         this.tasks = tasks;
     }
 
     @Override
-    public synchronized void onConnect(SessionInfo sessionInfo) {
+    public void onEvent(EventType eventType, Event event) {
+        if (EventType.SESSION_ON_CONNECT == eventType) {
+            SessionConnectEvent sessionConnectEvent = (SessionConnectEvent) event;
+            onConnect(sessionConnectEvent.getSessionInfo());
+        } else if (EventType.SESSION_ON_DISCONNECT == eventType) {
+            onDisconnect();
+        }
+    }
+
+    private synchronized void onConnect(SessionInfo sessionInfo) {
         if (executor == null) {
             executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("SessionTaskExecutor", LOG));
             executor.scheduleWithFixedDelay(() -> runTasks(sessionInfo), 0, 5, TimeUnit.SECONDS);
         }
     }
 
-    @Override
-    public synchronized void onDisconnect() {
+    private synchronized void onDisconnect() {
         if (executor != null) {
             shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
             tasks.forEach(PeriodicSessionTask::onDisconnect);

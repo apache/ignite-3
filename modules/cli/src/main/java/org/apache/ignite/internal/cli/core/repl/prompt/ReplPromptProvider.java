@@ -22,19 +22,21 @@ import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 
 import jakarta.inject.Singleton;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.cli.core.repl.AsyncConnectionEventListener;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
+import org.apache.ignite.internal.cli.event.Event;
+import org.apache.ignite.internal.cli.event.EventListener;
+import org.apache.ignite.internal.cli.event.EventType;
 
 /**
  * Provider for prompt in REPL.
  */
 @Singleton
-public class ReplPromptProvider implements PromptProvider, AsyncConnectionEventListener {
+public class ReplPromptProvider implements PromptProvider, EventListener {
     private final Session session;
 
-    private final AtomicBoolean connected = new AtomicBoolean(false);
+    private final AtomicBoolean connected = new AtomicBoolean(true);
 
     public ReplPromptProvider(Session session) {
         this.session = session;
@@ -61,12 +63,11 @@ public class ReplPromptProvider implements PromptProvider, AsyncConnectionEventL
     }
 
     @Override
-    public void onConnectionLost() {
-        connected.compareAndSet(true, false);
-    }
-
-    @Override
-    public void onConnection() {
-        connected.compareAndSet(false, true);
+    public void onEvent(EventType eventType, Event event) {
+        if (EventType.CONNECTION_RESTORED == eventType) {
+            connected.compareAndSet(false, true);
+        } else if (EventType.CONNECTION_LOST == eventType) {
+            connected.compareAndSet(true, false);
+        }
     }
 }

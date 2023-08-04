@@ -17,53 +17,53 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.Mockito.after;
-import static org.mockito.Mockito.verify;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.cli.core.repl.ConnectionHeartBeat;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.cli.core.repl.Session;
-import org.apache.ignite.internal.cli.core.repl.prompt.ReplPromptProvider;
-import org.junit.jupiter.api.AfterEach;
+import org.apache.ignite.internal.cli.event.EventFactory;
+import org.apache.ignite.internal.cli.event.EventListener;
+import org.apache.ignite.internal.cli.event.EventType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Spy;
-import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(MockitoExtension.class)
 class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase {
 
     @Inject
     Session session;
 
-    @Spy
     @Inject
-    private ReplPromptProvider replPromptProvider;
+    EventFactory eventFactory;
+
+    private final AtomicInteger connectionLost = new AtomicInteger(0);
+    private final AtomicInteger connectionRestored = new AtomicInteger(0);
 
     @BeforeEach
     void setUp() {
-        //Set connection check timeout to 1 sec to make test fast
-        ConnectionHeartBeat.CLI_CHECK_CONNECTION_PERIOD_SECONDS = 1L;
-    }
+        //ToDo: Set connection check timeout to 1 sec to make test fast
+        connectionLost.set(0);
+        connectionRestored.set(0);
+        EventListener eventListener = (eventType, event) -> {
+            if (EventType.CONNECTION_LOST == eventType) {
+                connectionLost.incrementAndGet();
+            } else if (EventType.CONNECTION_RESTORED == eventType) {
+                connectionRestored.incrementAndGet();
+            }
+        };
 
-    @AfterEach
-    void teardown() {
-        // Start all nodes
-        allNodeNames().forEach(this::startNode);
-    }
-
-    @Override
-    protected Class<?> getCommandClass() {
-        return TopLevelCliReplCommand.class;
+        //Register listeners
+        eventFactory.listen(EventType.CONNECTION_LOST, eventListener);
+        eventFactory.listen(EventType.CONNECTION_RESTORED, eventListener);
     }
 
     @Test
-    @DisplayName("Should invoke onConnection() on connection established")
+    @DisplayName("Should send event CONNECTION_RESTORED on connection start")
     void connectionEstablished() {
         // Given null session info before connect
         assertNull(session.info());
@@ -77,12 +77,13 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
                 () -> assertOutputContains("Connected to http://localhost:10300")
         );
 
-        verify(replPromptProvider, after(ConnectionHeartBeat.CLI_CHECK_CONNECTION_PERIOD_SECONDS * 2L).times(1)).onConnection();
-        verify(replPromptProvider, after(ConnectionHeartBeat.CLI_CHECK_CONNECTION_PERIOD_SECONDS * 2L).never()).onConnectionLost();
+        //Listener was invoked
+        await().timeout(10, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 1);
+        assertEquals(0, connectionLost.get());
     }
 
     @Test
-    @DisplayName("Should invoke onConnectionLost()")
+    @DisplayName("Should send event CONNECTION_LOST on cluster stop")
     void onConnectionLost() {
         // Given connected cli
         execute("connect");
@@ -93,10 +94,43 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
                 () -> assertOutputContains("Connected to http://localhost:10300")
         );
 
-        // When stop all nodes
-        allNodeNames().forEach(IgnitionManager::stop);
+        // When stop node
+        String nodeName = session.info().nodeName();
+        this.stopNode(nodeName);
 
-        verify(replPromptProvider, after(ConnectionHeartBeat.CLI_CHECK_CONNECTION_PERIOD_SECONDS * 2L).times(1)).onConnectionLost();
-        verify(replPromptProvider, after(ConnectionHeartBeat.CLI_CHECK_CONNECTION_PERIOD_SECONDS * 2L).times(1)).onConnection();
+        //Listener was invoked
+        await().timeout(10, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 1);
+        await().timeout(10, TimeUnit.SECONDS).until(() -> connectionLost.get() == 1);
+
+        //Tear down
+        this.startNode(nodeName);
+    }
+
+    @Test
+    @DisplayName("Should send event CONNECTION_LOST on cluster stop")
+    void restoreConnectionAfterConnectionLost() {
+        // Given connected cli
+        execute("connect");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to http://localhost:10300")
+        );
+
+        // When stop node
+        String nodeName = session.info().nodeName();
+        this.stopNode(nodeName);
+
+        //Then
+        await().timeout(10, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 1);
+        await().timeout(10, TimeUnit.SECONDS).until(() -> connectionLost.get() == 1);
+
+        // When
+        this.startNode(nodeName);
+
+        //Then
+        await().timeout(10, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 2);
+        await().timeout(10, TimeUnit.SECONDS).until(() -> connectionLost.get() == 1);
     }
 }

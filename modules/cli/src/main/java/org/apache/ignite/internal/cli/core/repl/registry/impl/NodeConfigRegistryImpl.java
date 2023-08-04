@@ -22,13 +22,16 @@ import com.typesafe.config.ConfigFactory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
-import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
+import org.apache.ignite.internal.cli.core.repl.SessionConnectEvent;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeConfigRegistry;
+import org.apache.ignite.internal.cli.event.Event;
+import org.apache.ignite.internal.cli.event.EventListener;
+import org.apache.ignite.internal.cli.event.EventType;
 
 /** Implementation of {@link NodeConfigRegistry}. */
 @Singleton
-public class NodeConfigRegistryImpl implements NodeConfigRegistry, AsyncSessionEventListener {
+public class NodeConfigRegistryImpl implements NodeConfigRegistry, EventListener {
 
     private final NodeConfigShowCall nodeConfigShowCall;
 
@@ -38,9 +41,15 @@ public class NodeConfigRegistryImpl implements NodeConfigRegistry, AsyncSessionE
         this.nodeConfigShowCall = nodeConfigShowCall;
     }
 
+
     @Override
-    public void onConnect(SessionInfo sessionInfo) {
-        configRef = new LazyObjectRef<>(() -> fetchConfig(sessionInfo));
+    public void onEvent(EventType eventType, Event event) {
+        if (EventType.SESSION_ON_CONNECT == eventType) {
+            SessionConnectEvent sessionConnectEvent = (SessionConnectEvent) event;
+            configRef = new LazyObjectRef<>(() -> fetchConfig(sessionConnectEvent.getSessionInfo()));
+        } else if (EventType.SESSION_ON_DISCONNECT == eventType) {
+            configRef = null;
+        }
     }
 
     private Config fetchConfig(SessionInfo sessionInfo) {
@@ -49,11 +58,6 @@ public class NodeConfigRegistryImpl implements NodeConfigRegistry, AsyncSessionE
                         // todo https://issues.apache.org/jira/browse/IGNITE-17416
                         NodeConfigShowCallInput.builder().nodeUrl(sessionInfo.nodeUrl()).build()
                 ).body().getValue());
-    }
-
-    @Override
-    public void onDisconnect() {
-        configRef = null;
     }
 
     /** {@inheritDoc} */

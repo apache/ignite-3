@@ -17,12 +17,20 @@
 
 package org.apache.ignite.internal.cli.core.repl;
 
-/** Session event listener. */
-public interface AsyncSessionEventListener {
+import org.apache.ignite.internal.cli.event.Event;
 
-    /** Implementation must be async. */
-    void onConnect(SessionInfo sessionInfo);
+/**
+ * User session connected event.
+ */
+public class SessionConnectEvent implements Event {
 
-    /** Implementation must be async. */
-    void onDisconnect();
+    private final SessionInfo sessionInfo;
+
+    public SessionConnectEvent(SessionInfo sessionInfo) {
+        this.sessionInfo = sessionInfo;
+    }
+
+    public SessionInfo getSessionInfo() {
+        return sessionInfo;
+    }
 }
