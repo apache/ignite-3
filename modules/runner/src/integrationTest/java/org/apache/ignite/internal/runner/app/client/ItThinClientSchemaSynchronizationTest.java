@@ -107,7 +107,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void testClientReloadsTupleSchemaOnWriteOnUnmappedColumnException(boolean useGetAndUpsert) throws InterruptedException {
+    void testClientReloadsTupleSchemaOnUnmappedColumnException(boolean useGetAndUpsert) throws InterruptedException {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
@@ -134,12 +134,13 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         assertEquals("name", recordView.get(null, rec).stringValue(1));
     }
 
-    @Test
-    void testClientReloadsKvTupleSchemaOnUnmappedColumnException() throws InterruptedException {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testClientReloadsKvTupleSchemaOnUnmappedColumnException(boolean useGetAndPut) throws InterruptedException {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
-        String tableName = "testClientReloadsKvTupleSchemaOnUnmappedColumnException";
+        String tableName = "testClientReloadsKvTupleSchemaOnUnmappedColumnException_" + useGetAndPut;
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         waitForTableOnAllNodes(tableName);
@@ -148,13 +149,18 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         // Insert fails, because there is no NAME column.
         Tuple key = Tuple.create().set("ID", 1);
         Tuple val = Tuple.create().set("NAME", "name");
-        var ex = assertThrows(IgniteException.class, () -> kvView.put(null, key, val));
+
+        Runnable action = useGetAndPut ?
+                () -> kvView.getAndPut(null, key, val) :
+                () -> kvView.put(null, key, val);
+
+        var ex = assertThrows(IgniteException.class, action::run);
         assertEquals("Value tuple doesn't match schema: schemaVersion=1, extraColumns=[NAME]", ex.getMessage());
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
         ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
-        kvView.put(null, key, val);
+        action.run();
 
         assertEquals("name", kvView.get(null, key).stringValue(0));
     }
