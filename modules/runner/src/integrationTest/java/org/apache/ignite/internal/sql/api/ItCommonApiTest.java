@@ -30,6 +30,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
+import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -53,19 +58,6 @@ import org.junit.jupiter.api.Test;
 
 /** Test common SQL API. */
 public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
-    protected SqlQueryProcessor queryProcessor() {
-        return (SqlQueryProcessor) ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
-    }
-
-    /**
-     * Gets the SQL API.
-     *
-     * @return SQL API.
-     */
-    protected IgniteSql igniteSql() {
-        return CLUSTER_NODES.get(0).sql();
-    }
-
     @Override
     protected int nodes() {
         return 1;
@@ -162,19 +154,17 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    /** Check transaction change status with erroneous statements.  */
+    /** Check transaction change status with erroneous statements. */
     @Test
     public void testTxStateChangedOnErroneousOp() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19916 need to be refactored
-        TxManager txManagerInternal =
-                (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+        TxManager txManager = txManager();
 
         SqlSchemaManager oldManager =
                 (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProcessor(), SqlQueryProcessor.class, "sqlSchemaManager");
 
-        int txPrevCnt = txManagerInternal.finished();
+        int txPrevCnt = txManager.finished();
 
         Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
 
@@ -185,18 +175,18 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             // No op.
         }
 
-        assertEquals(0, txManagerInternal.finished() - txPrevCnt);
-        assertEquals(1, txManagerInternal.pending());
+        assertEquals(0, txManager.finished() - txPrevCnt);
+        assertEquals(1, txManager.pending());
         InternalTransaction tx0 = (InternalTransaction) tx;
         assertEquals(TxState.PENDING, tx0.state());
 
         tx.rollback();
-        assertEquals(1, txManagerInternal.finished() - txPrevCnt);
-        assertEquals(0, txManagerInternal.pending());
+        assertEquals(1, txManager.finished() - txPrevCnt);
+        assertEquals(0, txManager.pending());
 
         sql("INSERT INTO TEST VALUES(1, 1)");
-        assertEquals(2, txManagerInternal.finished() - txPrevCnt);
-        assertEquals(0, txManagerInternal.pending());
+        assertEquals(2, txManager.finished() - txPrevCnt);
+        assertEquals(0, txManager.pending());
 
         var schemaManager = new ErroneousSchemaManager();
 
@@ -215,8 +205,8 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             // No op.
         }
 
-        assertEquals(4, txManagerInternal.finished() - txPrevCnt);
-        assertEquals(0, txManagerInternal.pending());
+        assertEquals(4, txManager.finished() - txPrevCnt);
+        assertEquals(0, txManager.pending());
 
         IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", oldManager);
     }

@@ -122,14 +122,14 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     @Test
     public void testBasicStreamingKvPojoView() {
-        KeyValueView<Integer, PersonPojo> view = defaultTable().keyValueView(Mapper.of(Integer.class), Mapper.of(PersonPojo.class));
+        KeyValueView<Integer, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Integer.class), Mapper.of(PersonValPojo.class));
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Map.Entry<Integer, PersonPojo>>()) {
+        try (var publisher = new SubmissionPublisher<Map.Entry<Integer, PersonValPojo>>()) {
             streamerFut = view.streamData(publisher, null);
 
-            publisher.submit(Map.entry(1, new PersonPojo(1, "foo")));
-            publisher.submit(Map.entry(2, new PersonPojo(2, "bar")));
+            publisher.submit(Map.entry(1, new PersonValPojo("foo")));
+            publisher.submit(Map.entry(2, new PersonValPojo("bar")));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
@@ -172,9 +172,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             var options = DataStreamerOptions.builder().build();
             streamerFut = view.streamData(publisher, options);
 
-            var tuple = Tuple.create()
-                    .set("id1", 1)
-                    .set("name1", "x");
+            var tuple = Tuple.create();
 
             publisher.submit(tuple);
         }
@@ -223,8 +221,8 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(tupleKey(1));
             waitForKey(view, tupleKey(1));
 
-            ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
-            publisher.submit(tuple(2, "bar"));
+            ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'bar'");
+            publisher.submit(tupleKey(2));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
@@ -264,6 +262,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     private static class PersonPojo {
         int id;
         String name;
+        Integer salary;
 
         @SuppressWarnings("unused") // Required by serializer.
         private PersonPojo() {
@@ -276,6 +275,20 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         PersonPojo(int id, String name) {
             this.id = id;
+            this.name = name;
+        }
+    }
+
+    private static class PersonValPojo {
+        String name;
+        Integer salary;
+
+        @SuppressWarnings("unused") // Required by serializer.
+        private PersonValPojo() {
+            // No-op.
+        }
+
+        PersonValPojo(String name) {
             this.name = name;
         }
     }

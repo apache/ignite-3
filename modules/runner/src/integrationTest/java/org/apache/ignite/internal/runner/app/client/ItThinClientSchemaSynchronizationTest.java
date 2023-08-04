@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -38,22 +39,21 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Create table, insert data.
         String tableName = "testClientUsesLatestSchemaOnWrite";
-        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY, NAME VARCHAR NOT NULL)");
 
         waitForTableOnAllNodes(tableName);
         RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
 
-        Tuple rec = Tuple.create().set("ID", 1);
+        Tuple rec = Tuple.create().set("ID", 1).set("NAME", "name");
         recordView.insert(null, rec);
 
-        // Modify table, insert data - client will use old schema, receive error, retry with new schema.
+        // Modify table, insert data - client will use old schema, receive error, retry with new schema, fail due to an extra column.
         // The process is transparent for the user: updated schema is in effect immediately.
-        ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        ses.execute(null, "ALTER TABLE " + tableName + " DROP COLUMN NAME");
 
-        Tuple rec2 = Tuple.create().set("ID", 1).set("NAME", "name");
-        recordView.upsert(null, rec2);
-
-        assertEquals("name", recordView.get(null, rec).stringValue(1));
+        Tuple rec2 = Tuple.create().set("ID", 2).set("NAME", "name2");
+        Throwable ex = assertThrowsWithCause(() -> recordView.upsert(null, rec2), IllegalArgumentException.class);
+        assertEquals("Tuple doesn't match schema: schemaVersion=2, extraColumns=[NAME]", ex.getMessage());
     }
 
     @Test

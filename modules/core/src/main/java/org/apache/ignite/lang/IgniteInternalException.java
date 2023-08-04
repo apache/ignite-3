@@ -202,6 +202,19 @@ public class IgniteInternalException extends RuntimeException implements Traceab
     }
 
     /**
+     * Creates a new exception with the given error code and detail message.
+     *
+     * @param code Full error code.
+     * @param messagePattern Error message pattern.
+     * @param cause Non-null throwable cause.
+     * @param params Error message params.
+     * @see IgniteStringFormatter#format(String, Object...)
+     */
+    public IgniteInternalException(int code, String messagePattern, Throwable cause, Object... params) {
+        this(code, IgniteStringFormatter.format(messagePattern, params), cause);
+    }
+
+    /**
      * Returns a group name of this error.
      *
      * @see #groupCode()
