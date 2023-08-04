@@ -35,7 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@Property(name="cli.check.connection.period.second", value="1")
+@Property(name = "cli.check.connection.period.second", value = "1")
 class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase {
 
     @Inject
@@ -45,7 +45,7 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
     EventFactory eventFactory;
 
     @Value("${cli.check.connection.period.second}")
-    private long CLI_CHECK_CONNECTION_PERIOD_SECONDS;
+    private long cliCheckConnectionPeriodSecond;
 
     private final AtomicInteger connectionLost = new AtomicInteger(0);
     private final AtomicInteger connectionRestored = new AtomicInteger(0);
@@ -89,7 +89,7 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
         );
 
         //Listener was invoked
-        await().timeout(CLI_CHECK_CONNECTION_PERIOD_SECONDS * 2, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 1);
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 1);
         assertEquals(0, connectionLost.get());
     }
 
@@ -110,8 +110,8 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
         this.stopNode(nodeName);
 
         //Listener was invoked
-        await().timeout(CLI_CHECK_CONNECTION_PERIOD_SECONDS * 2, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 1);
-        await().timeout(CLI_CHECK_CONNECTION_PERIOD_SECONDS * 2, TimeUnit.SECONDS).until(() -> connectionLost.get() == 1);
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 1);
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionLost.get() == 1);
 
         //Tear down
         this.startNode(nodeName);
@@ -134,14 +134,14 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
         this.stopNode(nodeName);
 
         //Then
-        await().timeout(CLI_CHECK_CONNECTION_PERIOD_SECONDS * 2, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 1);
-        await().timeout(CLI_CHECK_CONNECTION_PERIOD_SECONDS * 2, TimeUnit.SECONDS).until(() -> connectionLost.get() == 1);
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 1);
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionLost.get() == 1);
 
         // When
         this.startNode(nodeName);
 
         //Then
-        await().timeout(CLI_CHECK_CONNECTION_PERIOD_SECONDS * 2, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 2);
-        await().timeout(CLI_CHECK_CONNECTION_PERIOD_SECONDS * 2, TimeUnit.SECONDS).until(() -> connectionLost.get() == 1);
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 2);
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionLost.get() == 1);
     }
 }
