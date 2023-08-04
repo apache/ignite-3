@@ -440,7 +440,9 @@ public class ClientTupleSerializer {
             prefix = "Value tuple";
         }
 
+        var cause = new ClientSchemaMismatchException(schema.version());
+
         throw new IllegalArgumentException(String.format("%s doesn't match schema: schemaVersion=%s, extraColumns=%s",
-                prefix, schema.version(), extraColumns));
+                prefix, schema.version(), extraColumns), cause);
     }
 }
