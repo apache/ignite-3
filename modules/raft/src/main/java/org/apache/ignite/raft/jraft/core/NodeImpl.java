@@ -3176,6 +3176,7 @@ public class NodeImpl implements Node, RaftServerService {
         }
         if (opts.getCommonExecutor() != null && !opts.isSharedPools()) {
             ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getCommonExecutor());
+            opts.setCommonExecutor(null);
         }
         if (opts.getStripedExecutor() != null && !opts.isSharedPools()) {
             opts.getStripedExecutor().shutdownGracefully();
@@ -3185,15 +3186,20 @@ public class NodeImpl implements Node, RaftServerService {
         }
         if (opts.getfSMCallerExecutorDisruptor() != null && (!opts.isSharedPools() || ownFsmCallerExecutorDisruptorConfig != null)) {
             opts.getfSMCallerExecutorDisruptor().shutdown();
+            opts.setfSMCallerExecutorDisruptor(null);
         }
         if (opts.getNodeApplyDisruptor() != null && !opts.isSharedPools()) {
             opts.getNodeApplyDisruptor().shutdown();
+            opts.setNodeApplyDisruptor(null);
         }
         if (opts.getReadOnlyServiceDisruptor() != null && !opts.isSharedPools()) {
             opts.getReadOnlyServiceDisruptor().shutdown();
+            opts.setReadOnlyServiceDisruptor(null);
         }
         if (opts.getLogManagerDisruptor() != null && !opts.isSharedPools()) {
             opts.getLogManagerDisruptor().shutdown();
+            opts.setLogManagerDisruptor(null);
+            opts.setLogStripes(null);
         }
     }
 
