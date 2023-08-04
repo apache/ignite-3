@@ -24,12 +24,6 @@ import org.apache.ignite.internal.tostring.S;
  * Decimal column type.
  */
 public class DecimalNativeType extends NativeType {
-    /** Default precision. */
-    public static final int DEFAULT_PRECISION = 19;
-
-    /** Default scale. */
-    public static final int DEFAULT_SCALE = 3;
-
     /** Precision. */
     private final int precision;
 

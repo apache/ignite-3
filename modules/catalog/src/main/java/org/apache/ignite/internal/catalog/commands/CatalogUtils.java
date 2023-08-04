@@ -60,6 +60,13 @@ public class CatalogUtils {
     public static final int DEFAULT_DECIMAL_PRECISION = 19;
 
     /**
+     * Default scale is 0.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 22
+     */
+    public static final int DEFAULT_SCALE = 0;
+
+    /**
      * Maximum TIME and TIMESTAMP precision is implementation-defined.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 38
@@ -169,8 +176,7 @@ public class CatalogUtils {
      */
     public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
         int precision = params.precision() != null ? params.precision() : defaultPrecision(params.type());
-        /* Default scale is 0. SQL`16 part 2 section 6.1 syntax rule 22 */
-        int scale = params.scale() != null ? params.scale() : 0;
+        int scale = params.scale() != null ? params.scale() : DEFAULT_SCALE;
         int length = params.length() != null ? params.length() : defaultLength(params.type());
 
         DefaultValue defaultValue = params.defaultValueDefinition();
