@@ -33,18 +33,14 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
-import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
 /** Test CAST type to type possibilities. */
 public class CastResolutionTest extends AbstractPlannerTest {
-    private final String castErrorMessage = "Cast function cannot convert value of type";
+    private static final String castErrorMessage = "Cast function cannot convert value of type";
 
     private static final Set<String> numericNames = NUMERIC_TYPES.stream().map(SqlTypeName::getName).collect(Collectors.toSet());
 
@@ -104,20 +100,20 @@ public class CastResolutionTest extends AbstractPlannerTest {
             Set<String> toTypes = types.toTypes;
             boolean allCastsPossible = false;
 
-            boolean interval = from.toLowerCase().contains("interval");
+            boolean interval = isInterval(from);
             String template = interval ? intervalTemplate : commonTemplate;
             from = interval ? from.substring("interval_".length()) : from;
 
             for (String toType : toTypes) {
-                toType = interval || toType.toLowerCase().contains("interval") ? toType.replace("_", " ") : toType;
+                toType = isInterval(toType) ? makeUsableIntervalType(toType) : toType;
 
                 if (toType.equals("ALL")) {
                     allCastsPossible = true;
 
                     for (String type : allTypes) {
-                        type = interval || type.toLowerCase().contains("interval") ? type.replace("_", " ") : type;
+                        type = isInterval(type) ? makeUsableIntervalType(type) : type;
 
-                        testItems.add(checkStatement().sql(String.format(template, from, type)).ok());
+                        testItems.add(checkStatement().sql(String.format(template, from, type)).ok(false));
                     }
 
                     break;
@@ -128,13 +124,14 @@ public class CastResolutionTest extends AbstractPlannerTest {
                     continue;
                 }
 
-                testItems.add(checkStatement().sql(String.format(template, from, toType)).ok());
+                testItems.add(checkStatement().sql(String.format(template, from, toType)).ok(false));
             }
 
             if (!interval) {
-                testItems.add(checkStatement().sql(String.format("SELECT '1'::%s", from)).ok());
+                testItems.add(checkStatement().sql(String.format("SELECT '1'::%s", from)).ok(false));
             }
 
+            // all types are allowed.
             if (allCastsPossible) {
                 continue;
             }
@@ -148,7 +145,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
                     .collect(Collectors.toSet());
 
             for (String toType : deprecatedCastTypes) {
-                toType = toType.toLowerCase().contains("interval") ? toType.replace("_", " ") : toType;
+                toType = isInterval(toType) ? makeUsableIntervalType(toType) : toType;
 
                 testItems.add(checkStatement().sql(String.format(template, from, toType)).fails(castErrorMessage));
             }
@@ -157,23 +154,12 @@ public class CastResolutionTest extends AbstractPlannerTest {
         return testItems.stream();
     }
 
-    @Override public StatementChecker checkStatement() {
-        return new PlanChecker();
+    private static boolean isInterval(String typeName) {
+        return typeName.toLowerCase().contains("interval");
     }
 
-    /**
-     * An implementation of {@link AbstractPlannerTest.PlanChecker} with initialized {@link SqlPrepare} to test plans.
-     */
-    public class PlanChecker extends StatementChecker {
-        PlanChecker() {
-            super((schema, sql, params) -> physicalPlan(sql, List.of(schema), HintStrategyTable.EMPTY,
-                    params, new NoopRelOptListener()));
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        protected void checkRel(IgniteRel igniteRel, IgniteSchema schema) {
-        }
+    private static String makeUsableIntervalType(String typeName) {
+        return typeName.replace("_", " ");
     }
 
     private enum CastMatrix {
