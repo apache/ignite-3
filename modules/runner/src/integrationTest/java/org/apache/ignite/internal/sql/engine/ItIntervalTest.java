@@ -85,14 +85,14 @@ public class ItIntervalTest extends ClusterPerClassIntegrationTest {
         assertEquals("+1", eval("CAST(INTERVAL 1 HOUR AS VARCHAR)"));
         assertEquals("+7.000000", eval("CAST(INTERVAL 7 SECONDS AS VARCHAR)"));
 
-        assertNull(eval("CAST(NULL::INT AS INTERVAL SECONDS)"));
-        assertNull(eval("CAST(NULL::INT AS INTERVAL MONTHS)"));
-        assertEquals(Duration.ofSeconds(1), eval("CAST(1 AS INTERVAL SECONDS)"));
-        assertEquals(Duration.ofMinutes(2), eval("CAST(2 AS INTERVAL MINUTES)"));
-        assertEquals(Duration.ofHours(3), eval("CAST(3 AS INTERVAL HOURS)"));
-        assertEquals(Duration.ofDays(4), eval("CAST(4 AS INTERVAL DAYS)"));
-        assertEquals(Period.ofMonths(5), eval("CAST(5 AS INTERVAL MONTHS)"));
-        assertEquals(Period.ofYears(6), eval("CAST(6 AS INTERVAL YEARS)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(NULL::INT AS INTERVAL SECONDS)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(NULL::INT AS INTERVAL MONTHS)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(1 AS INTERVAL SECONDS)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(2 AS INTERVAL MINUTES)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(3 AS INTERVAL HOURS)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(4 AS INTERVAL DAYS)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(5 AS INTERVAL MONTHS)"));
+        assertThrows(IgniteException.class, () -> eval("CAST(6 AS INTERVAL YEARS)"));
 
         // Compound interval types cannot be cast.
         assertThrowsEx("SELECT CAST(INTERVAL '1-2' YEAR TO MONTH AS INT)", IgniteException.class, "cannot convert");
