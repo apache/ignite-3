@@ -128,6 +128,8 @@ public class ReplExecutor {
 
             setupWidgets(repl, registry, reader);
 
+            repl.getEventListeningActivationPoint().subscribe();
+
             repl.onStart();
 
             while (!interrupted.get()) {

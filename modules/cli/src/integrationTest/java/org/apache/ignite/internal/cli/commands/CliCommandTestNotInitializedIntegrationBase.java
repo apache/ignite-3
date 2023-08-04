@@ -30,13 +30,12 @@ import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerProvid
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.config.ConfigDefaultValueProvider;
 import org.apache.ignite.internal.cli.core.converters.NodeNameOrUrlConverter;
-import org.apache.ignite.internal.cli.core.repl.EventSubscriber;
-import org.apache.ignite.internal.cli.core.repl.SessionDisconnectEvent;
+import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvider;
 import org.apache.ignite.internal.cli.core.repl.registry.JdbcUrlRegistry;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeNameRegistry;
-import org.apache.ignite.internal.cli.event.EventFactory;
-import org.apache.ignite.internal.cli.event.EventType;
+import org.apache.ignite.internal.cli.event.EventPublisher;
+import org.apache.ignite.internal.cli.event.Events;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -76,10 +75,10 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
     private int exitCode = Integer.MIN_VALUE;
 
     @Inject
-    private EventFactory eventFactory;
+    private EventPublisher eventPublisher;
 
     @Inject
-    private EventSubscriber eventSubscriber;
+    private EventListeningActivationPoint eventListeningActivationPoint;
 
     /**
      * Invokes before the test will start.
@@ -95,13 +94,14 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
         cmd = new CommandLine(getCommandClass(), new MicronautFactory(context))
                 .registerConverter(NodeNameOrUrl.class, new NodeNameOrUrlConverter(nodeNameRegistry));
         cmd.setDefaultValueProvider(configDefaultValueProvider);
+        eventListeningActivationPoint.subscribe();
         resetOutput();
         CommandLineContextProvider.setCmd(cmd);
     }
 
     @AfterEach
     public void tearDown() {
-        eventFactory.fireEvent(EventType.SESSION_ON_DISCONNECT, new SessionDisconnectEvent());
+        eventPublisher.fireEvent(Events.disconnect());
     }
 
     protected void resetOutput() {

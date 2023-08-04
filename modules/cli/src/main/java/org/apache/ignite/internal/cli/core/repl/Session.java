@@ -35,11 +35,11 @@ public class Session implements EventListener {
     }
 
     @Override
-    public void onEvent(EventType eventType, Event event) {
-        if (EventType.SESSION_ON_CONNECT == eventType) {
-            SessionConnectEvent sessionConnectEvent = (SessionConnectEvent) event;
-            info.compareAndSet(null, sessionConnectEvent.getSessionInfo());
-        } else if (EventType.SESSION_ON_DISCONNECT == eventType) {
+    public void onEvent(Event event) {
+        if (EventType.CONNECT == event.eventType()) {
+            ConnectEvent connectEvent = (ConnectEvent) event;
+            info.compareAndSet(null, connectEvent.sessionInfo());
+        } else if (EventType.DISCONNECT == event.eventType()) {
             info.getAndSet(null);
         }
     }

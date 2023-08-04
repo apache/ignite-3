@@ -21,4 +21,5 @@ package org.apache.ignite.internal.cli.event;
  * The event cas which is produced by event producer component.
  */
 public interface Event {
+    EventType eventType();
 }

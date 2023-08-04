@@ -23,5 +23,5 @@ package org.apache.ignite.internal.cli.event;
 @FunctionalInterface
 public interface EventListener {
 
-    void onEvent(EventType eventType, Event event);
+    void onEvent(Event event);
 }

@@ -63,10 +63,10 @@ public class ReplPromptProvider implements PromptProvider, EventListener {
     }
 
     @Override
-    public void onEvent(EventType eventType, Event event) {
-        if (EventType.CONNECTION_RESTORED == eventType) {
+    public void onEvent(Event event) {
+        if (EventType.CONNECTION_RESTORED == event.eventType()) {
             connected.compareAndSet(false, true);
-        } else if (EventType.CONNECTION_LOST == eventType) {
+        } else if (EventType.CONNECTION_LOST == event.eventType()) {
             connected.compareAndSet(true, false);
         }
     }

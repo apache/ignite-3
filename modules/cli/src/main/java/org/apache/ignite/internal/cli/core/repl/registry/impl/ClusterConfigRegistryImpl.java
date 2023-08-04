@@ -24,7 +24,7 @@ import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.call.configuration.JsonString;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.internal.cli.core.repl.SessionConnectEvent;
+import org.apache.ignite.internal.cli.core.repl.ConnectEvent;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.ClusterConfigRegistry;
 import org.apache.ignite.internal.cli.event.Event;
@@ -46,11 +46,11 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, EventLi
     }
 
     @Override
-    public void onEvent(EventType eventType, Event event) {
-        if (EventType.SESSION_ON_CONNECT == eventType) {
-            SessionConnectEvent sessionConnectEvent = (SessionConnectEvent) event;
-            configRef = new LazyObjectRef<>(() -> fetchConfig(sessionConnectEvent.getSessionInfo()));
-        } else if (EventType.SESSION_ON_DISCONNECT == eventType) {
+    public void onEvent(Event event) {
+        if (EventType.CONNECT == event.eventType()) {
+            ConnectEvent connectEvent = (ConnectEvent) event;
+            configRef = new LazyObjectRef<>(() -> fetchConfig(connectEvent.sessionInfo()));
+        } else if (EventType.DISCONNECT == event.eventType()) {
             configRef = null;
         }
     }

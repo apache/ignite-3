@@ -28,8 +28,8 @@ import jakarta.inject.Inject;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.cli.core.repl.Session;
-import org.apache.ignite.internal.cli.event.EventFactory;
 import org.apache.ignite.internal.cli.event.EventListener;
+import org.apache.ignite.internal.cli.event.EventSubscriber;
 import org.apache.ignite.internal.cli.event.EventType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -42,30 +42,30 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
     Session session;
 
     @Inject
-    EventFactory eventFactory;
+    EventSubscriber eventSubscriber;
 
     @Value("${cli.check.connection.period.second}")
     private long cliCheckConnectionPeriodSecond;
 
-    private final AtomicInteger connectionLost = new AtomicInteger(0);
-    private final AtomicInteger connectionRestored = new AtomicInteger(0);
+    private final AtomicInteger connectionLostCount = new AtomicInteger(0);
+    private final AtomicInteger connectionRestoredCount = new AtomicInteger(0);
 
     @BeforeEach
     void setUp() {
         //ToDo: Set connection check timeout to 1 sec to make test fast
-        connectionLost.set(0);
-        connectionRestored.set(0);
-        EventListener eventListener = (eventType, event) -> {
-            if (EventType.CONNECTION_LOST == eventType) {
-                connectionLost.incrementAndGet();
-            } else if (EventType.CONNECTION_RESTORED == eventType) {
-                connectionRestored.incrementAndGet();
-            }
+        connectionLostCount.set(0);
+        connectionRestoredCount.set(0);
+        EventListener connectionRestoredEventListener = (event) -> {
+            connectionRestoredCount.incrementAndGet();
         };
 
-        //Register listeners
-        eventFactory.listen(EventType.CONNECTION_LOST, eventListener);
-        eventFactory.listen(EventType.CONNECTION_RESTORED, eventListener);
+        EventListener connectionLostEventListener = (event) -> {
+            connectionLostCount.incrementAndGet();
+        };
+
+        // Register listeners
+        eventSubscriber.listen(EventType.CONNECTION_LOST, connectionLostEventListener);
+        eventSubscriber.listen(EventType.CONNECTION_RESTORED, connectionRestoredEventListener);
     }
 
     @Override
@@ -88,9 +88,9 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
                 () -> assertOutputContains("Connected to http://localhost:10300")
         );
 
-        //Listener was invoked
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 1);
-        assertEquals(0, connectionLost.get());
+        // Listener was invoked
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestoredCount.get() == 1);
+        assertEquals(0, connectionLostCount.get());
     }
 
     @Test
@@ -109,11 +109,11 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
         String nodeName = session.info().nodeName();
         this.stopNode(nodeName);
 
-        //Listener was invoked
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 1);
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionLost.get() == 1);
+        // Listener was invoked
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestoredCount.get() == 1);
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionLostCount.get() == 1);
 
-        //Tear down
+        // Tear down
         this.startNode(nodeName);
     }
 
@@ -133,15 +133,15 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
         String nodeName = session.info().nodeName();
         this.stopNode(nodeName);
 
-        //Then
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 1);
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionLost.get() == 1);
+        // Then connection lost event obtained
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestoredCount.get() == 1);
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionLostCount.get() == 1);
 
         // When
         this.startNode(nodeName);
 
-        //Then
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestored.get() == 2);
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionLost.get() == 1);
+        // Then one more connection restore event obtained
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestoredCount.get() == 2);
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionLostCount.get() == 1);
     }
 }

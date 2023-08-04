@@ -26,9 +26,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.event.Event;
-import org.apache.ignite.internal.cli.event.EventFactory;
 import org.apache.ignite.internal.cli.event.EventListener;
+import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.EventType;
+import org.apache.ignite.internal.cli.event.Events;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -52,21 +53,21 @@ public class ConnectionHeartBeat implements EventListener {
 
     private final ApiClientFactory clientFactory;
 
-    private final EventFactory eventFactory;
+    private final EventPublisher eventPublisher;
 
     private final AtomicBoolean connected = new AtomicBoolean(false);
 
     /**
-     * Created instance of connection heartbeat.
+     * Creates the instance of connection heartbeat.
      *
      * @param clientFactory api client factory.
-     * @param eventFactory event factory.
+     * @param eventPublisher event publisher.
      */
     public ConnectionHeartBeat(@Value("${cli.check.connection.period.second:5}") long cliCheckConnectionPeriodSecond,
             ApiClientFactory clientFactory,
-            EventFactory eventFactory) {
+            EventPublisher eventPublisher) {
         this.clientFactory = clientFactory;
-        this.eventFactory = eventFactory;
+        this.eventPublisher = eventPublisher;
         this.cliCheckConnectionPeriodSecond = cliCheckConnectionPeriodSecond;
     }
 
@@ -76,13 +77,15 @@ public class ConnectionHeartBeat implements EventListener {
      * @param sessionInfo session info with node url
      */
     private void onConnect(SessionInfo sessionInfo) {
-        //eventFactory.fireEvent(EventType.CONNECTION_RESTORED, new ConnectionStatusEvent());
+        if (connected.compareAndSet(false, true)) {
+            eventPublisher.fireEvent(Events.connectionRestored());
+        }
 
         if (scheduledConnectionHeartbeatExecutor == null) {
             scheduledConnectionHeartbeatExecutor =
                     Executors.newScheduledThreadPool(1, new NamedThreadFactory("cli-check-connection-thread", log));
 
-            //Start connection heart beat
+            // Start connection heart beat
             scheduledConnectionHeartbeatExecutor.scheduleAtFixedRate(
                     () -> pingConnection(sessionInfo.nodeUrl()),
                     0,
@@ -105,24 +108,22 @@ public class ConnectionHeartBeat implements EventListener {
     private void pingConnection(String nodeUrl) {
         try {
             new NodeManagementApi(clientFactory.getClient(nodeUrl)).nodeState();
-            if (!connected.get()) {
-                connected.compareAndSet(false, true);
-                eventFactory.fireEvent(EventType.CONNECTION_RESTORED, new ConnectionStatusEvent());
+            if (connected.compareAndSet(false, true)) {
+                eventPublisher.fireEvent(Events.connectionRestored());
             }
         } catch (ApiException exception) {
-            if (connected.get()) {
-                connected.compareAndSet(true, false);
-                eventFactory.fireEvent(EventType.CONNECTION_LOST, new ConnectionStatusEvent());
+            if (connected.compareAndSet(true, false)) {
+                eventPublisher.fireEvent(Events.connectionLost());
             }
         }
     }
 
     @Override
-    public void onEvent(EventType eventType, Event event) {
-        if (EventType.SESSION_ON_CONNECT == eventType) {
-            SessionConnectEvent sessionConnectEvent = (SessionConnectEvent) event;
-            onConnect(sessionConnectEvent.getSessionInfo());
-        } else if (EventType.SESSION_ON_DISCONNECT == eventType) {
+    public void onEvent(Event event) {
+        if (EventType.CONNECT == event.eventType()) {
+            ConnectEvent connectEvent = (ConnectEvent) event;
+            onConnect(connectEvent.sessionInfo());
+        } else if (EventType.DISCONNECT == event.eventType()) {
             onDisconnect();
         }
     }

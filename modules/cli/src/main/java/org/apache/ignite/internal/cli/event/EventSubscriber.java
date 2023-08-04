@@ -15,22 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl;
-
-import org.apache.ignite.internal.cli.event.Event;
+package org.apache.ignite.internal.cli.event;
 
 /**
- * User session connected event.
+ * Subscribes event listeners.
  */
-public class SessionConnectEvent implements Event {
+public interface EventSubscriber {
 
-    private final SessionInfo sessionInfo;
+    void listen(EventType eventType, EventListener eventListener);
 
-    public SessionConnectEvent(SessionInfo sessionInfo) {
-        this.sessionInfo = sessionInfo;
-    }
-
-    public SessionInfo getSessionInfo() {
-        return sessionInfo;
-    }
+    void removeListener(EventType eventType, EventListener eventListener);
 }

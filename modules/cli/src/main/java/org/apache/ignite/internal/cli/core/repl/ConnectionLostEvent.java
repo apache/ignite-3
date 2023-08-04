@@ -18,9 +18,14 @@
 package org.apache.ignite.internal.cli.core.repl;
 
 import org.apache.ignite.internal.cli.event.Event;
+import org.apache.ignite.internal.cli.event.EventType;
 
 /**
- * User session disconnected event.
+ * Connection lost event.
  */
-public class SessionDisconnectEvent implements Event {
+public class ConnectionLostEvent implements Event {
+    @Override
+    public EventType eventType() {
+        return EventType.CONNECTION_LOST;
+    }
 }

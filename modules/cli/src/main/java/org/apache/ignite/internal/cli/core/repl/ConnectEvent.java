@@ -18,6 +18,25 @@
 package org.apache.ignite.internal.cli.core.repl;
 
 import org.apache.ignite.internal.cli.event.Event;
+import org.apache.ignite.internal.cli.event.EventType;
 
-class ConnectionStatusEvent implements Event {
+/**
+ * User session connected event.
+ */
+public class ConnectEvent implements Event {
+
+    private final SessionInfo sessionInfo;
+
+    public ConnectEvent(SessionInfo sessionInfo) {
+        this.sessionInfo = sessionInfo;
+    }
+
+    public SessionInfo sessionInfo() {
+        return sessionInfo;
+    }
+
+    @Override
+    public EventType eventType() {
+        return EventType.CONNECT;
+    }
 }

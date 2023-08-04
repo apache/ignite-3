@@ -15,14 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.event;
+package org.apache.ignite.internal.cli.core.repl;
+
+import org.apache.ignite.internal.cli.event.Event;
+import org.apache.ignite.internal.cli.event.EventType;
 
 /**
- * Types of cli events.
+ * User session disconnected event.
  */
-public enum EventType {
-    CONNECTION_RESTORED,
-    CONNECTION_LOST,
-    CONNECT,
-    DISCONNECT
+public class DisconnectEvent implements Event {
+    @Override
+    public EventType eventType() {
+        return EventType.DISCONNECT;
+    }
 }

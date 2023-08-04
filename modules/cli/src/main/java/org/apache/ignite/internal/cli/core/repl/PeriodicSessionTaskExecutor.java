@@ -42,18 +42,16 @@ public class PeriodicSessionTaskExecutor implements EventListener {
 
     private final List<? extends PeriodicSessionTask> tasks;
 
-    //private final EventFactory eventFactory;
-
     public PeriodicSessionTaskExecutor(List<? extends PeriodicSessionTask> tasks) {
         this.tasks = tasks;
     }
 
     @Override
-    public void onEvent(EventType eventType, Event event) {
-        if (EventType.SESSION_ON_CONNECT == eventType) {
-            SessionConnectEvent sessionConnectEvent = (SessionConnectEvent) event;
-            onConnect(sessionConnectEvent.getSessionInfo());
-        } else if (EventType.SESSION_ON_DISCONNECT == eventType) {
+    public void onEvent(Event event) {
+        if (EventType.CONNECT == event.eventType()) {
+            ConnectEvent connectEvent = (ConnectEvent) event;
+            onConnect(connectEvent.sessionInfo());
+        } else if (EventType.DISCONNECT == event.eventType()) {
             onDisconnect();
         }
     }

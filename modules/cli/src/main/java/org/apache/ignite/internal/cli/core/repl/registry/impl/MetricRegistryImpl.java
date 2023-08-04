@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.core.repl.SessionConnectEvent;
+import org.apache.ignite.internal.cli.core.repl.ConnectEvent;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
 import org.apache.ignite.internal.cli.event.Event;
@@ -51,11 +51,11 @@ public class MetricRegistryImpl implements MetricRegistry, EventListener {
     }
 
     @Override
-    public void onEvent(EventType eventType, Event event) {
-        if (EventType.SESSION_ON_CONNECT == eventType) {
-            SessionConnectEvent sessionConnectEvent = (SessionConnectEvent) event;
-            metricSourcesRef = new LazyObjectRef<>(() -> fetchMetricSources(sessionConnectEvent.getSessionInfo()));
-        } else if (EventType.SESSION_ON_DISCONNECT == eventType) {
+    public void onEvent(Event event) {
+        if (EventType.CONNECT == event.eventType()) {
+            ConnectEvent connectEvent = (ConnectEvent) event;
+            metricSourcesRef = new LazyObjectRef<>(() -> fetchMetricSources(connectEvent.sessionInfo()));
+        } else if (EventType.DISCONNECT == event.eventType()) {
             metricSourcesRef = null;
         }
     }

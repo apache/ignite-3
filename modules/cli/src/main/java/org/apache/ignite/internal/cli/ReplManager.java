@@ -24,7 +24,7 @@ import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestio
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
 import org.apache.ignite.internal.cli.core.exception.handler.DefaultExceptionHandlers;
-import org.apache.ignite.internal.cli.core.repl.EventSubscriber;
+import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.SessionDefaultValueProvider;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
@@ -48,7 +48,7 @@ public class ReplManager {
     private ConnectToClusterQuestion question;
 
     @Inject
-    private EventSubscriber eventSubscriber;
+    private EventListeningActivationPoint eventListeningActivationPoint;
 
     /**
      * Enters REPL mode.
@@ -69,7 +69,7 @@ public class ReplManager {
                 .withOnStart(question::askQuestionOnReplStart)
                 .withHistoryFileName("history")
                 .withAutosuggestionsWidgets()
-                .withEventSubscriber(eventSubscriber)
+                .withEventSubscriber(eventListeningActivationPoint)
                 .build());
     }
 }

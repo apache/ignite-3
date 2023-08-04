@@ -31,16 +31,13 @@ import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.exception.handler.IgniteCliApiExceptionHandler;
-import org.apache.ignite.internal.cli.core.repl.ConnectionHeartBeat;
 import org.apache.ignite.internal.cli.core.repl.Session;
-import org.apache.ignite.internal.cli.core.repl.SessionConnectEvent;
-import org.apache.ignite.internal.cli.core.repl.SessionDisconnectEvent;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
-import org.apache.ignite.internal.cli.event.EventFactory;
-import org.apache.ignite.internal.cli.event.EventType;
+import org.apache.ignite.internal.cli.event.EventPublisher;
+import org.apache.ignite.internal.cli.event.Events;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -61,18 +58,18 @@ public class ConnectCall implements Call<UrlCallInput, String> {
 
     private final JdbcUrlFactory jdbcUrlFactory;
 
-    private final EventFactory eventFactory;
+    private final EventPublisher eventPublisher;
 
     /**
      * Constructor.
      */
     public ConnectCall(Session session, StateConfigProvider stateConfigProvider, ApiClientFactory clientFactory,
-            JdbcUrlFactory jdbcUrlFactory, ConnectionHeartBeat connectionHeartBeat, EventFactory eventFactory) {
+            JdbcUrlFactory jdbcUrlFactory, EventPublisher eventPublisher) {
         this.session = session;
         this.stateConfigProvider = stateConfigProvider;
         this.clientFactory = clientFactory;
         this.jdbcUrlFactory = jdbcUrlFactory;
-        this.eventFactory = eventFactory;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -89,13 +86,18 @@ public class ConnectCall implements Call<UrlCallInput, String> {
             stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), nodeUrl);
 
             String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(configuration, nodeUrl);
-            sessionInfo = new SessionInfo(nodeUrl, fetchNodeName(nodeUrl), jdbcUrl, username);
-            eventFactory.fireEvent(EventType.SESSION_ON_CONNECT, new SessionConnectEvent(sessionInfo));
+            sessionInfo = SessionInfo.builder()
+                    .nodeUrl(nodeUrl)
+                    .nodeName(fetchNodeName(nodeUrl))
+                    .jdbcUrl(jdbcUrl)
+                    .username(username)
+                    .build();
+            eventPublisher.fireEvent(Events.connect(sessionInfo));
 
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
         } catch (Exception e) {
             if (session.info() != null) {
-                eventFactory.fireEvent(EventType.SESSION_ON_DISCONNECT, new SessionDisconnectEvent());
+                eventPublisher.fireEvent(Events.disconnect());
             }
             return DefaultCallOutput.failure(handleException(e, nodeUrl));
         }

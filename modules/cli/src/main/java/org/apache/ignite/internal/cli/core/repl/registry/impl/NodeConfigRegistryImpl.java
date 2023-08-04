@@ -22,7 +22,7 @@ import com.typesafe.config.ConfigFactory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
-import org.apache.ignite.internal.cli.core.repl.SessionConnectEvent;
+import org.apache.ignite.internal.cli.core.repl.ConnectEvent;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeConfigRegistry;
 import org.apache.ignite.internal.cli.event.Event;
@@ -43,11 +43,11 @@ public class NodeConfigRegistryImpl implements NodeConfigRegistry, EventListener
 
 
     @Override
-    public void onEvent(EventType eventType, Event event) {
-        if (EventType.SESSION_ON_CONNECT == eventType) {
-            SessionConnectEvent sessionConnectEvent = (SessionConnectEvent) event;
-            configRef = new LazyObjectRef<>(() -> fetchConfig(sessionConnectEvent.getSessionInfo()));
-        } else if (EventType.SESSION_ON_DISCONNECT == eventType) {
+    public void onEvent(Event event) {
+        if (EventType.CONNECT == event.eventType()) {
+            ConnectEvent connectEvent = (ConnectEvent) event;
+            configRef = new LazyObjectRef<>(() -> fetchConfig(connectEvent.sessionInfo()));
+        } else if (EventType.DISCONNECT == event.eventType()) {
             configRef = null;
         }
     }

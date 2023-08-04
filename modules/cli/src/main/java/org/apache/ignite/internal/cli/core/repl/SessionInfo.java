@@ -50,4 +50,49 @@ public class SessionInfo {
     public String username() {
         return username;
     }
+
+    public static SessionInfoBuilder builder() {
+        return new SessionInfoBuilder();
+    }
+
+    /**
+     * Session info builder.
+     */
+    public static final class SessionInfoBuilder {
+        private String nodeUrl;
+        private String nodeName;
+        private String jdbcUrl;
+        private String username;
+
+        private SessionInfoBuilder() {
+        }
+
+        public static SessionInfoBuilder builder() {
+            return new SessionInfoBuilder();
+        }
+
+        public SessionInfoBuilder nodeUrl(String nodeUrl) {
+            this.nodeUrl = nodeUrl;
+            return this;
+        }
+
+        public SessionInfoBuilder nodeName(String nodeName) {
+            this.nodeName = nodeName;
+            return this;
+        }
+
+        public SessionInfoBuilder jdbcUrl(String jdbcUrl) {
+            this.jdbcUrl = jdbcUrl;
+            return this;
+        }
+
+        public SessionInfoBuilder username(String username) {
+            this.username = username;
+            return this;
+        }
+
+        public SessionInfo build() {
+            return new SessionInfo(nodeUrl, nodeName, jdbcUrl, username);
+        }
+    }
 }

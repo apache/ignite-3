@@ -28,7 +28,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
  * Register listeners and produces events.
  */
 @Singleton
-public class EventFactory {
+public class EventFactory implements EventPublisher, EventSubscriber {
 
     private static final IgniteLogger log = CliLoggers.forClass(EventFactory.class);
 
@@ -44,6 +44,7 @@ public class EventFactory {
      * @param eventType     type of event to listen.
      * @param eventListener event listener.
      */
+    @Override
     public void listen(EventType eventType, EventListener eventListener) {
         listeners.computeIfAbsent(eventType, evtKey -> new CopyOnWriteArrayList<>()).add(eventListener);
     }
@@ -54,18 +55,22 @@ public class EventFactory {
      * @param eventType     type of event to listen.
      * @param eventListener event listener.
      */
+    @Override
     public void removeListener(EventType eventType, EventListener eventListener) {
-        listeners.computeIfAbsent(eventType, eventT -> new CopyOnWriteArrayList<>()).remove(eventListener);
+        listeners.computeIfPresent(eventType, (eventType1, eventListeners) -> {
+            eventListeners.remove(eventListener);
+            return eventListeners;
+        });
     }
 
     /**
      * Notifies every listener that subscribed before.
      *
-     * @param eventType event type
      * @param event event itself.
      */
-    public void fireEvent(EventType eventType, Event event) {
-        List<EventListener> eventListeners = listeners.get(eventType);
+    @Override
+    public void fireEvent(Event event) {
+        List<EventListener> eventListeners = listeners.get(event.eventType());
 
         if (eventListeners == null) {
             return;
@@ -73,7 +78,7 @@ public class EventFactory {
 
         eventListeners.forEach(listener -> {
             try {
-                listener.onEvent(eventType, event);
+                listener.onEvent(event);
             } catch (Exception exception) {
                 log.warn("Got an exception: ", exception);
             }

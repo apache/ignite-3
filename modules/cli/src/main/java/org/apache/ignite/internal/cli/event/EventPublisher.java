@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.cli.event;
 
 /**
- * Types of cli events.
+ * Publish events.
  */
-public enum EventType {
-    CONNECTION_RESTORED,
-    CONNECTION_LOST,
-    CONNECT,
-    DISCONNECT
+public interface EventPublisher {
+
+    /**
+     * Fires event to the registered event listeners.
+     *
+     * @param event event to fire
+     */
+    void fireEvent(Event event);
 }
