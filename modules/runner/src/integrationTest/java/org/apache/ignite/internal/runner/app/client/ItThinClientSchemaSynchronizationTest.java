@@ -20,8 +20,10 @@ package org.apache.ignite.internal.runner.app.client;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -99,8 +101,27 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
     }
 
     @Test
-    void testClientReloadsSchemaOnUnmappedColumnException() {
-        // TODO: Make sure we only reload and revalidate once.
-        // We can check previous error in RetryPolicy.
+    void testClientReloadsTupleSchemaOnUnmappedColumnException() throws InterruptedException {
+        // TODO: Test with POJO
+        IgniteClient client = client();
+        Session ses = client.sql().createSession();
+
+        String tableName = "testClientReloadsTupleSchemaOnUnmappedColumnException";
+        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+
+        waitForTableOnAllNodes(tableName);
+        RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
+
+        // Insert fails, because there is no NAME column.
+        Tuple rec = Tuple.create().set("ID", 1).set("NAME", "name");
+        var ex = assertThrows(IgniteException.class, () -> recordView.insert(null, rec));
+        assertEquals("Tuple doesn't match schema: schemaVersion=1, extraColumns=[NAME]", ex.getMessage());
+
+        // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
+        // reload schema, retry with new schema and succeed.
+        ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        recordView.insert(null, rec);
+
+        assertEquals("name", recordView.get(null, rec).stringValue(1));
     }
 }
