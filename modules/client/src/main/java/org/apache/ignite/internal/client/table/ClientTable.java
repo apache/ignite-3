@@ -319,6 +319,7 @@ public class ClientTable implements Table {
                 })
                 .thenCompose(t -> loadSchemaAndReadData(t, reader))
                 .whenComplete((res, err) -> {
+                    // TODO: Retry ClientSchemaMismatchException.
                     if (err != null) {
                         if (err.getCause() instanceof ClientSchemaVersionMismatchException) {
                             // Retry with specific schema version.
@@ -422,44 +423,45 @@ public class ClientTable implements Table {
                             retryPolicyOverride);
                 })
                 .whenComplete((res, err) -> {
-                    if (err != null) {
-                        var cause = err;
-
-                        while (cause.getCause() != null) {
-                            cause = cause.getCause();
-                        }
-
-                        if (cause instanceof ClientSchemaVersionMismatchException) {
-                            // Retry with specific schema version.
-                            int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
-
-                            doSchemaOutOpAsync(opCode, writer, reader, provider, retryPolicyOverride, expectedVersion)
-                                    .whenComplete((res0, err0) -> {
-                                        if (err0 != null) {
-                                            fut.completeExceptionally(err0);
-                                        } else {
-                                            fut.complete(res0);
-                                        }
-                                    });
-                        } else if (schemaVersionOverride == null && cause instanceof ClientSchemaMismatchException) {
-                            // TODO: Force load latest schema.
-                            // How do we avoid multiple forced reload with many parallel requests?
-                            // Add a way to "load schema later than current"?
-                            int expectedVersion = ((ClientSchemaMismatchException) cause).schemaVersion() + 1;
-
-                            doSchemaOutOpAsync(opCode, writer, reader, provider, retryPolicyOverride, expectedVersion)
-                                    .whenComplete((res0, err0) -> {
-                                        if (err0 != null) {
-                                            fut.completeExceptionally(err0);
-                                        } else {
-                                            fut.complete(res0);
-                                        }
-                                    });
-                        } else {
-                            fut.completeExceptionally(err);
-                        }
-                    } else {
+                    if (err == null) {
                         fut.complete(res);
+                        return;
+                    }
+
+                    var cause = err;
+
+                    while (cause.getCause() != null) {
+                        cause = cause.getCause();
+                    }
+
+                    if (cause instanceof ClientSchemaVersionMismatchException) {
+                        // Retry with specific schema version.
+                        int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
+
+                        doSchemaOutOpAsync(opCode, writer, reader, provider, retryPolicyOverride, expectedVersion)
+                                .whenComplete((res0, err0) -> {
+                                    if (err0 != null) {
+                                        fut.completeExceptionally(err0);
+                                    } else {
+                                        fut.complete(res0);
+                                    }
+                                });
+                    } else if (schemaVersionOverride == null && cause instanceof ClientSchemaMismatchException) {
+                        // TODO: Force load latest schema.
+                        // How do we avoid multiple forced reload with many parallel requests?
+                        // Add a way to "load schema later than current"?
+                        int expectedVersion = ((ClientSchemaMismatchException) cause).schemaVersion() + 1;
+
+                        doSchemaOutOpAsync(opCode, writer, reader, provider, retryPolicyOverride, expectedVersion)
+                                .whenComplete((res0, err0) -> {
+                                    if (err0 != null) {
+                                        fut.completeExceptionally(err0);
+                                    } else {
+                                        fut.complete(res0);
+                                    }
+                                });
+                    } else {
+                        fut.completeExceptionally(err);
                     }
                 });
 
