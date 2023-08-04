@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.marshaller;
 
+/**
+ * Unmapped columns exception.
+ */
 public class UnmappedColumnsException extends RuntimeException {
     private static final long serialVersionUID = 6756761904316593515L;
 }
