@@ -124,7 +124,7 @@ public class TestNode implements LifecycleAware {
 
         executionService = registerService(new ExecutionServiceImpl<>(
                 messageService,
-                topologyService,
+                topologyService.localMember(),
                 new MappingServiceImpl(topologyService),
                 schemaManager,
                 mock(DdlCommandHandler.class),
