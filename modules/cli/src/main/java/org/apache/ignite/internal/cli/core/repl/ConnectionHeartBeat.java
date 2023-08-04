@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.core.repl;
 
+import io.micronaut.context.annotation.Value;
 import jakarta.inject.Singleton;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -61,10 +62,12 @@ public class ConnectionHeartBeat implements EventListener {
      * @param clientFactory api client factory.
      * @param eventFactory event factory.
      */
-    public ConnectionHeartBeat(ApiClientFactory clientFactory, EventFactory eventFactory) {
+    public ConnectionHeartBeat(@Value("${cli.check.connection.period.second:5}") long cliCheckConnectionPeriodSecond,
+            ApiClientFactory clientFactory,
+            EventFactory eventFactory) {
         this.clientFactory = clientFactory;
         this.eventFactory = eventFactory;
-        this.cliCheckConnectionPeriodSecond = 5; //ToDo: use micronaut config params
+        this.cliCheckConnectionPeriodSecond = cliCheckConnectionPeriodSecond;
     }
 
     /**
