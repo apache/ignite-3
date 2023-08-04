@@ -97,4 +97,10 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
         assertNull(recordView.get(null, rec).stringValue(1));
     }
+
+    @Test
+    void testClientReloadsSchemaOnUnmappedColumnException() {
+        // TODO: Make sure we only reload and revalidate once.
+        // We can check previous error in RetryPolicy.
+    }
 }
