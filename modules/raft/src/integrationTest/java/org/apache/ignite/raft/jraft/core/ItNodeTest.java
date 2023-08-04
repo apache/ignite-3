@@ -2836,12 +2836,10 @@ public class ItNodeTest {
         opts.setGroupConf(JRaftUtils.getConfiguration(peer.getPeerId().toString()));
         opts.setFsm(fsm);
 
-        NodeOptions nodeOpts = new NodeOptions();
-        opts.setNodeOptions(nodeOpts);
-
         assertTrue(JRaftUtils.bootstrap(opts));
         logStorageProvider.close();
 
+        NodeOptions nodeOpts = new NodeOptions();
         nodeOpts.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOpts.setLogUri("test");
@@ -2883,12 +2881,11 @@ public class ItNodeTest {
         opts.setLogUri("test");
         opts.setGroupConf(JRaftUtils.getConfiguration(peer.getPeerId().toString()));
         opts.setFsm(fsm);
-        NodeOptions nodeOpts = new NodeOptions();
-        opts.setNodeOptions(nodeOpts);
 
         assertTrue(JRaftUtils.bootstrap(opts));
         logStorageProvider.close();
 
+        NodeOptions nodeOpts = new NodeOptions();
         nodeOpts.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOpts.setLogUri("test");

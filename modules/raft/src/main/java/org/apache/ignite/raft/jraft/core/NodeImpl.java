@@ -889,11 +889,11 @@ public class NodeImpl implements Node, RaftServerService {
         }
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         this.serviceFactory = opts.getServiceFactory();
-        this.clock = opts.getNodeOptions().getClock();
         // Term is not an option since changing it is very dangerous
         final long bootstrapLogTerm = opts.getLastLogIndex() > 0 ? 1 : 0;
         final LogId bootstrapId = new LogId(opts.getLastLogIndex(), bootstrapLogTerm);
         this.options = opts.getNodeOptions() == null ? new NodeOptions() : opts.getNodeOptions();
+        this.clock = options.getClock();
         this.raftOptions = this.options.getRaftOptions();
         this.metrics = new NodeMetrics(opts.isEnableMetrics());
         this.options.setFsm(opts.getFsm());
@@ -905,7 +905,7 @@ public class NodeImpl implements Node, RaftServerService {
         // Create fsmCaller at first as logManager needs it to report error
         this.fsmCaller = new FSMCallerImpl();
 
-        initPools(opts.getNodeOptions());
+        initPools(options);
 
         if (!initLogStorage()) {
             LOG.error("Fail to init log storage.");
@@ -3176,7 +3176,6 @@ public class NodeImpl implements Node, RaftServerService {
         }
         if (opts.getCommonExecutor() != null && !opts.isSharedPools()) {
             ExecutorServiceHelper.shutdownAndAwaitTermination(opts.getCommonExecutor());
-            opts.setCommonExecutor(null);
         }
         if (opts.getStripedExecutor() != null && !opts.isSharedPools()) {
             opts.getStripedExecutor().shutdownGracefully();
@@ -3186,20 +3185,15 @@ public class NodeImpl implements Node, RaftServerService {
         }
         if (opts.getfSMCallerExecutorDisruptor() != null && (!opts.isSharedPools() || ownFsmCallerExecutorDisruptorConfig != null)) {
             opts.getfSMCallerExecutorDisruptor().shutdown();
-            opts.setfSMCallerExecutorDisruptor(null);
         }
         if (opts.getNodeApplyDisruptor() != null && !opts.isSharedPools()) {
             opts.getNodeApplyDisruptor().shutdown();
-            opts.setNodeApplyDisruptor(null);
         }
         if (opts.getReadOnlyServiceDisruptor() != null && !opts.isSharedPools()) {
             opts.getReadOnlyServiceDisruptor().shutdown();
-            opts.setReadOnlyServiceDisruptor(null);
         }
         if (opts.getLogManagerDisruptor() != null && !opts.isSharedPools()) {
             opts.getLogManagerDisruptor().shutdown();
-            opts.setLogManagerDisruptor(null);
-            opts.setLogStripes(null);
         }
     }
 
