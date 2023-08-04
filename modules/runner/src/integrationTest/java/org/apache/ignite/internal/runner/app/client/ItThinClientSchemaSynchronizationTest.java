@@ -30,6 +30,9 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for client schema synchronization.
@@ -102,51 +105,31 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         assertNull(recordView.get(null, rec).stringValue(1));
     }
 
-    @Test
-    void testClientReloadsTupleSchemaOnWriteOnUnmappedColumnException() throws InterruptedException {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testClientReloadsTupleSchemaOnWriteOnUnmappedColumnException(boolean useGetAndUpsert) throws InterruptedException {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
-        String tableName = "testClientReloadsTupleSchemaOnUnmappedColumnException";
+        String tableName = "testClientReloadsTupleSchemaOnUnmappedColumnException_" + useGetAndUpsert;
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         waitForTableOnAllNodes(tableName);
         RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
 
-        // Insert fails, because there is no NAME column.
         Tuple rec = Tuple.create().set("ID", 1).set("NAME", "name");
-        var ex = assertThrows(IgniteException.class, () -> recordView.insert(null, rec));
+        Runnable action = useGetAndUpsert ?
+                () -> recordView.getAndUpsert(null, rec) :
+                () -> recordView.insert(null, rec);
+
+        // Insert fails, because there is no NAME column.
+        var ex = assertThrows(IgniteException.class, action::run);
         assertEquals("Tuple doesn't match schema: schemaVersion=1, extraColumns=[NAME]", ex.getMessage());
 
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
         ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
-        recordView.insert(null, rec);
-
-        assertEquals("name", recordView.get(null, rec).stringValue(1));
-    }
-
-    @Test
-    void testClientReloadsTupleSchemaOnReadOnUnmappedColumnException() throws InterruptedException {
-        IgniteClient client = client();
-        Session ses = client.sql().createSession();
-
-        String tableName = "testClientReloadsTupleSchemaOnUnmappedColumnException";
-        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
-        ses.execute(null, "INSERT INTO " + tableName + " VALUES(1)");
-
-        waitForTableOnAllNodes(tableName);
-        RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
-
-        // Insert fails, because there is no NAME column.
-        Tuple rec = Tuple.create().set("ID", 1).set("NAME", "name");
-        var ex = assertThrows(IgniteException.class, () -> recordView.getAndUpsert(null, rec));
-        assertEquals("Tuple doesn't match schema: schemaVersion=1, extraColumns=[NAME]", ex.getMessage());
-
-        // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
-        // reload schema, retry with new schema and succeed.
-        ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
-        recordView.getAndUpsert(null, rec);
+        action.run();
 
         assertEquals("name", recordView.get(null, rec).stringValue(1));
     }
