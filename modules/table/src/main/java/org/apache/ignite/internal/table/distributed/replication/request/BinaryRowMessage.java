@@ -17,27 +17,23 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
-import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Dual row replica request.
+ * Message for transferring a {@link BinaryRow}.
  */
-public interface SwapRowReplicaRequest extends ReplicaRequest {
-    BinaryRowMessage binaryRowMessage();
+@Transferable(TableMessageGroup.BINARY_ROW_MESSAGE)
+public interface BinaryRowMessage extends NetworkMessage {
+    ByteBuffer binaryTuple();
 
-    default BinaryRow binaryRow() {
-        return binaryRowMessage().asBinaryRow();
+    int schemaVersion();
+
+    default BinaryRow asBinaryRow() {
+        return new BinaryRowImpl(schemaVersion(), binaryTuple());
     }
-
-    BinaryRowMessage oldBinaryRowMessage();
-
-    default BinaryRow oldBinaryRow() {
-        return oldBinaryRowMessage().asBinaryRow();
-    }
-
-    @Marshallable
-    RequestType requestType();
 }

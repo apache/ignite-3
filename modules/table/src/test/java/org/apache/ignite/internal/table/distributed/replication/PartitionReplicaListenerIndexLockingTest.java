@@ -75,6 +75,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
@@ -253,7 +254,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 .term(1L)
                 .commitPartitionId(PARTITION_ID)
                 .transactionId(TRANSACTION_ID)
-                .binaryRowBytes(testBinaryRow.byteBuffer())
+                .binaryRowMessage(binaryRowMessage(testBinaryRow))
                 .requestType(arg.type)
                 .build());
 
@@ -299,7 +300,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 .term(1L)
                 .commitPartitionId(PARTITION_ID)
                 .transactionId(TRANSACTION_ID)
-                .binaryRowsBytes(rows.stream().map(BinaryRow::byteBuffer).collect(toList()))
+                .binaryRowMessages(rows.stream().map(PartitionReplicaListenerIndexLockingTest::binaryRowMessage).collect(toList()))
                 .requestType(arg.type)
                 .build());
 
@@ -395,6 +396,13 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 return actual instanceof Lock && checker.apply((Lock) actual) == Boolean.TRUE;
             }
         };
+    }
+
+    private static BinaryRowMessage binaryRowMessage(BinaryRow binaryRow) {
+        return TABLE_MESSAGES_FACTORY.binaryRowMessage()
+                .binaryTuple(binaryRow.tupleSlice())
+                .schemaVersion(binaryRow.schemaVersion())
+                .build();
     }
 
     static class ReadWriteTestArg {
