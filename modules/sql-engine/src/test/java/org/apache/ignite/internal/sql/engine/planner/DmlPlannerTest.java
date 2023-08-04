@@ -50,7 +50,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         IgniteSchema schema = createSchema(test1);
 
         // There should be no exchanges and other operations.
-        assertPlan("INSERT INTO TEST1 (C0, C1, C2, C3) VALUES(0, 1, 2, 3)", schema,
+        assertPlan("INSERT INTO TEST1 (C1, C2) VALUES(1, 2)", schema,
                 isInstanceOf(IgniteTableModify.class).and(input(isInstanceOf(IgniteValues.class))));
     }
 
@@ -64,7 +64,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(test1);
 
-        assertPlan("INSERT INTO TEST1 (C0, C2) VALUES(1, 2)", schema,
+        assertPlan("INSERT INTO TEST1 (C1, C2) VALUES(1, 2)", schema,
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                         .and(e -> e.distribution().equals(IgniteDistributions.single())))
                         .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class))
@@ -89,7 +89,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(test1, test2);
 
-        assertPlan("INSERT INTO TEST1 (C0, C3) SELECT C0, C3 FROM TEST2", schema,
+        assertPlan("INSERT INTO TEST1 (C1, C2) SELECT C1, C2 FROM TEST2", schema,
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                         .and(e -> e.distribution().equals(IgniteDistributions.single())))
                         .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class))
@@ -147,13 +147,20 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     }
 
     @ParameterizedTest
-    @MethodSource("nonSingleDistributions")
+    @MethodSource("distributionsForDelete")
     public void testDelete(IgniteDistribution distribution) throws Exception {
-        IgniteTable test1 = newTestTable("TEST1", distribution);
+        IgniteTable test1 = TestBuilders.table()
+                .name("TEST1")
+                .addColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("KEY1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.INT32)
+                .addKeyColumn("KEY2", NativeTypes.INT32)
+                .distribution(distribution)
+                .build();
 
         IgniteSchema schema = createSchema(test1);
 
-        assertPlan("DELETE FROM TEST1 WHERE C1 = 1 and C3 = 2", schema,
+        assertPlan("DELETE FROM TEST1 WHERE KEY1 = 1 and KEY2 = 2", schema,
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                         .and(e -> e.distribution().equals(IgniteDistributions.single())))
                         .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class)
@@ -164,6 +171,18 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     private static Stream<IgniteDistribution> distributions() {
         return Stream.of(
                 IgniteDistributions.single(),
+                IgniteDistributions.hash(List.of(0, 1)),
+                IgniteDistributions.affinity(0, 2, "0")
+        );
+    }
+
+    /**
+     * Creates a list of non-single distributions with keys corresponding to the indexes of the key columns of the table.
+     *
+     * @return Distributions to test DELETE operation.
+     */
+    private static Stream<IgniteDistribution> distributionsForDelete() {
+        return Stream.of(
                 IgniteDistributions.hash(List.of(1, 3)),
                 IgniteDistributions.affinity(1, 2, "0"),
                 IgniteDistributions.affinity(List.of(1, 3), 2, "0"),
@@ -204,10 +223,8 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     private static TestTable newTestTable(String tableName, IgniteDistribution distribution) {
         return TestBuilders.table()
                 .name(tableName)
-                .addColumn("C0", NativeTypes.INT32)
-                .addKeyColumn("C1", NativeTypes.INT32)
+                .addColumn("C1", NativeTypes.INT32)
                 .addColumn("C2", NativeTypes.INT32)
-                .addKeyColumn("C3", NativeTypes.INT32)
                 .distribution(distribution)
                 .build();
     }

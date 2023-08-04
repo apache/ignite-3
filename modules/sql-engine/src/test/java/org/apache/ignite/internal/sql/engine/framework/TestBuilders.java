@@ -673,7 +673,7 @@ public class TestBuilders {
         @Override
         public ChildT addKeyColumn(String name, NativeType type) {
             columns.add(new ColumnDescriptorImpl(
-                    name, true, true, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, true, false, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return self();

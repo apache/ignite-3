@@ -146,6 +146,7 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
      *
      * <pre>
      * For example:
+     *  [0] -> [0]
      *  [1] -> [0]
      *  [1, 3] -> [0, 1]
      *  [7, 3, 5] -> [2, 0, 1]
