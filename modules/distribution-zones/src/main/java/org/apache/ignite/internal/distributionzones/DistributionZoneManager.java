@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.Collections.emptySet;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -28,9 +29,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.isZoneExist;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerKeyConditionForZonesChanges;
@@ -43,7 +41,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneTopologyAugmentationVault;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesFilterUpdateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
@@ -61,7 +58,6 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.Serializable;
@@ -81,6 +77,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.LongFunction;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
 import org.apache.ignite.configuration.ConfigurationNodeDoesNotExistException;
@@ -97,11 +95,11 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.distributionzones.causalitydatanodes.CausalityDataNodesEngine;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.distributionzones.exception.DistributionZoneWasRemovedException;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -247,11 +245,11 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Watch listener for logical topology keys. */
     private final WatchListener topologyWatchListener;
 
-    /** Watch listener for data nodes keys. */
-    private final WatchListener dataNodesWatchListener;
-
-    /** Watch listener for data nodes keys. */
+    /** Rebalance engine. */
     private final DistributionZoneRebalanceEngine rebalanceEngine;
+
+    /** Causality data nodes engine. */
+    private final CausalityDataNodesEngine causalityDataNodesEngine;
 
     /** Catalog manager. */
     private final CatalogManager catalogManager;
@@ -260,6 +258,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * Creates a new distribution zone manager.
      *
      * @param nodeName Node name.
+     * @param registry Registry for versioned values.
      * @param zonesConfiguration Distribution zones configuration.
      * @param tablesConfiguration Tables configuration.
      * @param metaStorageManager Meta Storage manager.
@@ -269,6 +268,7 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     public DistributionZoneManager(
             String nodeName,
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
             DistributionZonesConfiguration zonesConfiguration,
             TablesConfiguration tablesConfiguration,
             MetaStorageManager metaStorageManager,
@@ -285,7 +285,11 @@ public class DistributionZoneManager implements IgniteComponent {
 
         this.topologyWatchListener = createMetastorageTopologyListener();
 
-        this.dataNodesWatchListener = createMetastorageDataNodesListener();
+        zonesState = new ConcurrentHashMap<>();
+
+        logicalTopology = emptySet();
+
+        nodesAttributes = new ConcurrentHashMap<>();
 
         executor = createZoneManagerExecutor(NamedThreadFactory.create(nodeName, "dst-zones-scheduler", LOG));
 
@@ -298,6 +302,16 @@ public class DistributionZoneManager implements IgniteComponent {
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageManager,
+                this
+        );
+
+        //noinspection ThisEscapedInObjectConstruction
+        causalityDataNodesEngine = new CausalityDataNodesEngine(
+                busyLock,
+                registry,
+                metaStorageManager,
+                vaultMgr,
+                zonesState,
                 this
         );
     }
@@ -327,7 +341,6 @@ public class DistributionZoneManager implements IgniteComponent {
             logicalTopologyService.addEventListener(topologyEventListener);
 
             metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), topologyWatchListener);
-            metaStorageManager.registerPrefixWatch(zonesDataNodesPrefix(), dataNodesWatchListener);
 
             restoreGlobalStateFromVault();
 
@@ -354,7 +367,6 @@ public class DistributionZoneManager implements IgniteComponent {
         logicalTopologyService.removeEventListener(topologyEventListener);
 
         metaStorageManager.unregisterWatch(topologyWatchListener);
-        metaStorageManager.unregisterWatch(dataNodesWatchListener);
 
         shutdownAndAwaitTermination(executor, 10, SECONDS);
     }
@@ -633,36 +645,14 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /**
      * Returns the data nodes of the specified zone.
-     *
-     * @param zoneId Zone id.
-     * @return The latest data nodes.
-     */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 Proper causality token based implementation is expected.
-    public Set<String> dataNodes(int zoneId) {
-        return inBusyLock(busyLock, () -> {
-            ZoneState zoneState = zonesState.get(zoneId);
-
-            if (zoneState != null) {
-                return zonesState.get(zoneId).nodes();
-            } else {
-                throw new DistributionZoneWasRemovedException(zoneId);
-            }
-        });
-    }
-
-    /**
-     * Asynchronously gets data nodes of the zone using causality token.
-     *
-     * <p>The returned future can be completed with {@link DistributionZoneNotFoundException} if the zone with the provided {@code zoneId}
-     * does not exist.
+     * See {@link CausalityDataNodesEngine#dataNodes(long, int)}.
      *
      * @param causalityToken Causality token.
      * @param zoneId Zone id.
      * @return The future which will be completed with data nodes for the zoneId or with exception.
      */
-    // TODO: Will be implemented in IGNITE-19506.
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
-        return null;
+        return causalityDataNodesEngine.dataNodes(causalityToken, zoneId);
     }
 
     /**
@@ -677,9 +667,13 @@ public class DistributionZoneManager implements IgniteComponent {
                 return completedFuture(null);
             }
 
-            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
+            DistributionZoneView zoneView = ctx.newValue(DistributionZoneView.class);
+
+            int zoneId = zoneView.zoneId();
 
             int newScaleUp = ctx.newValue().intValue();
+
+            long revision = ctx.storageRevision();
 
             // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
             // and this map will be initialized on a manager start or with onCreate configuration notification
@@ -688,16 +682,18 @@ public class DistributionZoneManager implements IgniteComponent {
             if (newScaleUp != INFINITE_TIMER_VALUE) {
                 Optional<Long> highestRevision = zoneState.highestRevision(true);
 
-                assert highestRevision.isEmpty() || ctx.storageRevision() >= highestRevision.get() : "Expected revision that "
+                assert highestRevision.isEmpty() || revision >= highestRevision.get() : "Expected revision that "
                         + "is greater or equal to already seen meta storage events.";
 
                 zoneState.rescheduleScaleUp(
                         newScaleUp,
-                        () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, ctx.storageRevision())
+                        () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, revision)
                 );
             } else {
                 zoneState.stopScaleUp();
             }
+
+            causalityDataNodesEngine.causalityOnUpdateScaleUp(revision, zoneId, newScaleUp);
 
             return completedFuture(null);
         };
@@ -719,6 +715,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
             int newScaleDown = ctx.newValue().intValue();
 
+            long revision = ctx.storageRevision();
+
             // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
             // and this map will be initialized on a manager start or with onCreate configuration notification
             ZoneState zoneState = zonesState.get(zoneId);
@@ -737,6 +735,8 @@ public class DistributionZoneManager implements IgniteComponent {
                 zoneState.stopScaleDown();
             }
 
+            causalityDataNodesEngine.causalityOnUpdateScaleDown(revision, zoneId, newScaleDown);
+
             return completedFuture(null);
         };
     }
@@ -753,7 +753,13 @@ public class DistributionZoneManager implements IgniteComponent {
                 return completedFuture(null);
             }
 
-            int zoneId = ctx.newValue(DistributionZoneView.class).zoneId();
+            DistributionZoneView zoneView = ctx.newValue(DistributionZoneView.class);
+
+            int zoneId = zoneView.zoneId();
+
+            String filter = zoneView.filter();
+
+            long revision = ctx.storageRevision();
 
             VaultEntry filterUpdateRevision = vaultMgr.get(zonesFilterUpdateRevision()).join();
 
@@ -771,6 +777,8 @@ public class DistributionZoneManager implements IgniteComponent {
             vaultMgr.put(zonesFilterUpdateRevision(), longToBytes(eventRevision)).join();
 
             saveDataNodesToMetaStorageOnScaleUp(zoneId, eventRevision);
+
+            causalityDataNodesEngine.onUpdateFilter(revision, zoneId, filter);
 
             return completedFuture(null);
         };
@@ -790,9 +798,15 @@ public class DistributionZoneManager implements IgniteComponent {
         public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<DistributionZoneView> ctx) {
             int zoneId = ctx.oldValue().zoneId();
 
-            zonesState.get(zoneId).stopTimers();
+            long revision = ctx.storageRevision();
+
+            ZoneState zoneState = zonesState.get(zoneId);
+
+            zoneState.stopTimers();
 
             removeTriggerKeysAndDataNodes(zoneId, ctx.storageRevision());
+
+            causalityDataNodesEngine.onDelete(revision, zoneId);
 
             zonesState.remove(zoneId);
 
@@ -829,14 +843,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
             ZoneState zoneState = new ZoneState(executor, topologyAugmentationMap);
 
-            Entry dataNodes = metaStorageManager.getLocally(zoneDataNodesKey(zoneId), revision);
-
-            if (dataNodes != null) {
-                String filter = zone.filter();
-
-                zoneState.nodes(filterDataNodes(DistributionZonesUtil.dataNodes(fromBytes(dataNodes.value())), filter, nodesAttributes()));
-            }
-
             ZoneState prevZoneState = zonesState.putIfAbsent(zoneId, zoneState);
 
             assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + ']';
@@ -849,6 +855,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
             restoreTimers(zone, zoneState, maxScaleUpRevision, maxScaleDownRevision, filterUpdateRevision);
         }
+
+        causalityDataNodesEngine.onCreateOrRestoreZoneState(revision, zone);
     }
 
     /**
@@ -884,9 +892,6 @@ public class DistributionZoneManager implements IgniteComponent {
                         if (maxScaleUpRevision < filterUpdateRevision) {
                             // Don't need to trigger additional scale up for the scenario, when filter update event happened after the last
                             // node join event.
-
-                            // TODO: IGNITE-19506 Think carefully for the scenario when scale up timer was immediate before restart and
-                            // causality data nodes is implemented.
                             return;
                         }
                     }
@@ -948,7 +953,8 @@ public class DistributionZoneManager implements IgniteComponent {
                             revision
                     );
                 } else if (res.getAsBoolean()) {
-                    LOG.debug("Update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]", zoneId, dataNodes, revision);
+                    LOG.info("Update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
+                            zoneId, dataNodes, revision);
                 } else {
                     LOG.debug(
                             "Failed to update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
@@ -990,7 +996,7 @@ public class DistributionZoneManager implements IgniteComponent {
                             revision
                     );
                 } else if (res.getAsBoolean()) {
-                    LOG.debug("Delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
+                    LOG.info("Delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
                 } else {
                     LOG.debug("Failed to delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
                 }
@@ -1260,66 +1266,6 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     /**
-     * Creates watch listener which listens data nodes, scale up revision and scale down revision.
-     *
-     * @return Watch listener.
-     */
-    private WatchListener createMetastorageDataNodesListener() {
-        return new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    return failedFuture(new NodeStoppingException());
-                }
-
-                try {
-                    int zoneId = 0;
-
-                    Set<Node> newDataNodes = null;
-
-                    for (EntryEvent event : evt.entryEvents()) {
-                        Entry e = event.newEntry();
-
-                        if (startsWith(e.key(), zoneDataNodesKey().bytes())) {
-                            zoneId = extractZoneId(e.key());
-
-                            byte[] dataNodesBytes = e.value();
-
-                            if (dataNodesBytes != null) {
-                                newDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesBytes));
-                            } else {
-                                newDataNodes = emptySet();
-                            }
-                        }
-                    }
-
-                    ZoneState zoneState = zonesState.get(zoneId);
-
-                    if (zoneState == null) {
-                        //The zone has been dropped so no need to update zoneState.
-                        return completedFuture(null);
-                    }
-
-                    assert newDataNodes != null : "Data nodes was not initialized.";
-
-                    String filter = getZoneById(zonesConfiguration, zoneId).filter().value();
-
-                    zoneState.nodes(filterDataNodes(newDataNodes, filter, nodesAttributes()));
-                } finally {
-                    busyLock.leaveBusy();
-                }
-
-                return completedFuture(null);
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process data nodes event", e);
-            }
-        };
-    }
-
-    /**
      * Schedules scale up and scale down timers.
      *
      * @param zoneCfg Zone's configuration.
@@ -1500,13 +1446,14 @@ public class DistributionZoneManager implements IgniteComponent {
                             if (invokeResult) {
                                 // TODO: https://issues.apache.org/jira/browse/IGNITE-19491 Properly utilise this map
                                 // Currently we call clean up only on a node that successfully writes data nodes.
-                                LOG.debug(
+                                LOG.info(
                                         "Updating data nodes for a zone after scale up has succeeded "
                                                 + "[zoneId = {}, dataNodes = {}, revision = {}]",
                                         zoneId,
                                         newDataNodes,
                                         revision
                                 );
+
                                 zoneState.cleanUp(Math.min(scaleDownTriggerRevision, revision));
                             } else {
                                 LOG.debug("Updating data nodes for a zone after scale up has not succeeded "
@@ -1523,7 +1470,8 @@ public class DistributionZoneManager implements IgniteComponent {
                         }));
             })).whenComplete((v, e) -> {
                 if (e != null) {
-                    LOG.warn("Failed to update zones' dataNodes value after scale up [zoneId = {}, revision = {}]", e, zoneId, revision);
+                    LOG.warn("Failed to update zones' dataNodes value after scale up [zoneId = {}, revision = {}]",
+                            e, zoneId, revision);
                 }
             });
         } finally {
@@ -1603,7 +1551,7 @@ public class DistributionZoneManager implements IgniteComponent {
                         .thenApply(StatementResult::getAsBoolean)
                         .thenCompose(invokeResult -> inBusyLock(busyLock, () -> {
                             if (invokeResult) {
-                                LOG.debug(
+                                LOG.info(
                                         "Updating data nodes for a zone after scale down has succeeded "
                                                 + "[zoneId = {}, dataNodes = {}, revision = {}]",
                                         zoneId,
@@ -1782,9 +1730,6 @@ public class DistributionZoneManager implements IgniteComponent {
         /** Executor for scheduling tasks for scale up and scale down processes. */
         private final ScheduledExecutorService executor;
 
-        /** Data nodes. */
-        private volatile Set<String> nodes;
-
         /**
          * Constructor.
          *
@@ -1793,7 +1738,6 @@ public class DistributionZoneManager implements IgniteComponent {
         ZoneState(ScheduledExecutorService executor) {
             this.executor = executor;
             topologyAugmentationMap = new ConcurrentSkipListMap<>();
-            nodes = emptySet();
         }
 
         /**
@@ -1808,7 +1752,6 @@ public class DistributionZoneManager implements IgniteComponent {
         ZoneState(ScheduledExecutorService executor, ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap) {
             this.executor = executor;
             this.topologyAugmentationMap = topologyAugmentationMap;
-            nodes = emptySet();
         }
 
         /**
@@ -1816,7 +1759,7 @@ public class DistributionZoneManager implements IgniteComponent {
          * should be added or removed in the processes of scale up or scale down. Revision helps to track visibility of the events
          * of adding or removing nodes because any process of scale up or scale down has a revision that triggered this process.
          */
-        ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap() {
+        public ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap() {
             return topologyAugmentationMap;
         }
 
@@ -1827,7 +1770,7 @@ public class DistributionZoneManager implements IgniteComponent {
          * @param delay Delay to start runnable in seconds.
          * @param runnable Custom logic to run.
          */
-        synchronized void rescheduleScaleUp(long delay, Runnable runnable) {
+        public synchronized void rescheduleScaleUp(long delay, Runnable runnable) {
             stopScaleUp();
 
             scaleUpTask = executor.schedule(runnable, delay, SECONDS);
@@ -1842,7 +1785,7 @@ public class DistributionZoneManager implements IgniteComponent {
          * @param delay Delay to start runnable in seconds.
          * @param runnable Custom logic to run.
          */
-        synchronized void rescheduleScaleDown(long delay, Runnable runnable) {
+        public synchronized void rescheduleScaleDown(long delay, Runnable runnable) {
             stopScaleDown();
 
             scaleDownTask = executor.schedule(runnable, delay, SECONDS);
@@ -1973,24 +1916,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     .map(Map.Entry::getKey);
         }
 
-        /**
-         * Get data nodes.
-         *
-         * @return Data nodes.
-         */
-        private Set<String> nodes() {
-            return nodes;
-        }
-
-        /**
-         * Set data nodes.
-         *
-         * @param nodes Data nodes.
-         */
-        private void nodes(Set<String> nodes) {
-            this.nodes = nodes;
-        }
-
         @TestOnly
         public synchronized ScheduledFuture<?> scaleUpTask() {
             return scaleUpTask;
@@ -2006,18 +1931,26 @@ public class DistributionZoneManager implements IgniteComponent {
      * Class stores the info about nodes that should be added or removed from the data nodes of a zone.
      * With flag {@code addition} we can track whether {@code nodeNames} should be added or removed.
      */
-    private static class Augmentation implements Serializable {
+    public static class Augmentation implements Serializable {
         private static final long serialVersionUID = -7957428671075739621L;
 
         /** Names of the node. */
-        Set<Node> nodes;
+        private final Set<Node> nodes;
 
         /** Flag that indicates whether {@code nodeNames} should be added or removed. */
-        boolean addition;
+        private final boolean addition;
 
         Augmentation(Set<Node> nodes, boolean addition) {
-            this.nodes = nodes;
+            this.nodes = unmodifiableSet(nodes);
             this.addition = addition;
+        }
+
+        public boolean addition() {
+            return addition;
+        }
+
+        public Set<Node> nodes() {
+            return nodes;
         }
     }
 

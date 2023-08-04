@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Event;
 import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
@@ -80,8 +82,9 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
+import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -97,6 +100,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  *  SqlQueryProcessor.
@@ -178,6 +182,12 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
 
+    /** Metric manager. */
+    private final MetricManager metricManager;
+
+    /** Counter to keep track of the current number of live SQL cursors. */
+    private final AtomicInteger numberOfOpenCursors = new AtomicInteger();
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
@@ -191,7 +201,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
             HybridClock clock,
-            CatalogManager catalogManager
+            CatalogManager catalogManager,
+            MetricManager metricManager
     ) {
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
@@ -204,6 +215,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.replicaService = replicaService;
         this.clock = clock;
         this.catalogManager = catalogManager;
+        this.metricManager = metricManager;
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 tableManager,
@@ -226,11 +238,15 @@ public class SqlQueryProcessor implements QueryProcessor {
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
+        SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(numberOfOpenCursors::get);
+        metricManager.registerSource(sqlClientMetricSource);
+
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
                 PLAN_CACHE_SIZE,
                 dataStorageManager,
-                dataStorageFieldsSupplier.get()
+                dataStorageFieldsSupplier.get(),
+                metricManager
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
@@ -315,6 +331,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     @Override
     public synchronized void stop() throws Exception {
         busyLock.block();
+
+        metricManager.unregisterSource(SqlClientMetricSource.NAME);
 
         List<LifecycleAware> services = new ArrayList<>(this.services);
 
@@ -441,6 +459,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 SqlQueryType queryType = plan.type();
                                 assert queryType != null : "Expected a full plan but got a fragment: " + plan;
 
+                                numberOfOpenCursors.incrementAndGet();
+
                                 return new AsyncSqlCursorImpl<>(
                                         queryType,
                                         plan.metadata(),
@@ -456,6 +476,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                             @Override
                                             public CompletableFuture<Void> closeAsync() {
                                                 session.touch();
+                                                numberOfOpenCursors.decrementAndGet();
 
                                                 return dataCursor.closeAsync();
                                             }
@@ -480,6 +501,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         start.completeAsync(() -> null, taskExecutor);
 
         return stage;
+    }
+
+    @TestOnly
+    public MetricManager metricManager() {
+        return metricManager;
     }
 
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {

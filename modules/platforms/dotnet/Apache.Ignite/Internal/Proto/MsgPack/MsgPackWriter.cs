@@ -419,6 +419,11 @@ internal readonly ref struct MsgPackWriter
 
         Write(col.Count);
 
+        if (col.Count == 0)
+        {
+            return;
+        }
+
         using var builder = new BinaryTupleBuilder(col.Count * 3);
 
         foreach (var obj in col)

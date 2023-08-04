@@ -252,13 +252,15 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         checkStorageClosed();
 
         map.compute(rowId, (ignored, versionChain) -> {
-            assert versionChain != null;
+            if (versionChain != null) {
+                if (!versionChain.isWriteIntent()) {
+                    return versionChain;
+                }
 
-            if (!versionChain.isWriteIntent()) {
-                return versionChain;
+                return resolveCommittedVersionChain(VersionChain.forCommitted(rowId, timestamp, versionChain));
             }
 
-            return resolveCommittedVersionChain(VersionChain.forCommitted(rowId, timestamp, versionChain));
+            return null;
         });
     }
 

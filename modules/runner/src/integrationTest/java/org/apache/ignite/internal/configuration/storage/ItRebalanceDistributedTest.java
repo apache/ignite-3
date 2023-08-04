@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -182,7 +183,7 @@ import org.mockito.Mockito;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-20053")
 public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
@@ -252,6 +253,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         );
 
         nodes.stream().forEach(Node::waitWatches);
+
+        assertTrue(waitForCondition(() -> nodes.get(0).cmgManager.logicalTopology().join().nodes().size() == 3, 10_000));
     }
 
     @AfterEach
@@ -315,7 +318,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testThreeQueuedRebalances() {
+    void testThreeQueuedRebalances() throws InterruptedException {
         await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -328,7 +331,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 ZONE_1_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
 
-        assertEquals(1, getPartitionClusterNodes(0, 0).size());
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(0, 0).size() == 1, 10_000));
 
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 3));
@@ -488,7 +491,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         checkInvokeDestroyedPartitionStorages(evictedNode, TABLE_1_NAME, 0);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
     @Test
     @UseTestTxStateStorage
     @UseRocksMetaStorage
@@ -795,14 +797,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
             distributionZoneManager = new DistributionZoneManager(
-                    name,
+                    registry,
                     zonesCfg,
                     tablesCfg,
                     metaStorageManager,
                     logicalTopologyService,
                     vaultManager,
-                    catalogManager
+                    name
             );
+
 
             tableManager = new TableManager(
                     name,
@@ -1011,7 +1014,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 nodes.get(0).tableManager.createTableAsync(
                         tableName,
                         zoneName,
-                        tableChange -> SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange)
+                        tableChange -> {
+                            SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange);
+                        }
                 ),
                 willCompleteSuccessfully()
         );

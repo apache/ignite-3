@@ -102,6 +102,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Topology change listeners. */
     private final Collection<Consumer<ClientChannel>> assignmentChangeListeners = new CopyOnWriteArrayList<>();
 
+    /** Observable timestamp listeners. */
+    private final Collection<Consumer<Long>> observableTimestampListeners = new CopyOnWriteArrayList<>();
+
     /** Closed flag. */
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -353,7 +356,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             } catch (Exception e) {
                 log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
 
-                throw new IgniteClientConnectionException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
+                throw new IgniteException(PROTOCOL_ERR, "Failed to deserialize server response: " + e.getMessage(), e);
             }
         }, asyncContinuationExecutor);
     }
@@ -400,6 +403,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             for (Consumer<ClientChannel> listener : assignmentChangeListeners) {
                 listener.accept(this);
             }
+        }
+
+        long observableTimestamp = unpacker.unpackLong();
+
+        for (Consumer<Long> listener : observableTimestampListeners) {
+            listener.accept(observableTimestamp);
         }
 
         if (unpacker.tryUnpackNil()) {
@@ -487,6 +496,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public void addTopologyAssignmentChangeListener(Consumer<ClientChannel> listener) {
         assignmentChangeListeners.add(listener);
+    }
+
+    @Override
+    public void addObservableTimestampListener(Consumer<Long> listener) {
+        observableTimestampListeners.add(listener);
     }
 
     private static void validateConfiguration(ClientChannelConfiguration cfg) {

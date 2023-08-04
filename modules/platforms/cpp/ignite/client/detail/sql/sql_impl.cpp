@@ -65,27 +65,29 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
 
         if (args.empty()) {
             writer.write_nil();
-            return;
+        } else {
+            auto args_num = std::int32_t(args.size());
+
+            writer.write(args_num);
+
+            binary_tuple_builder args_builder{args_num * 3};
+
+            args_builder.start();
+            for (const auto &arg : args) {
+                protocol::claim_primitive_with_type(args_builder, arg);
+            }
+
+            args_builder.layout();
+            for (const auto &arg : args) {
+                protocol::append_primitive_with_type(args_builder, arg);
+            }
+
+            auto args_data = args_builder.build();
+            writer.write_binary(args_data);
         }
 
-        auto args_num = std::int32_t(args.size());
-
-        writer.write(args_num);
-
-        binary_tuple_builder args_builder{args_num * 3};
-
-        args_builder.start();
-        for (const auto &arg : args) {
-            protocol::claim_primitive_with_type(args_builder, arg);
-        }
-
-        args_builder.layout();
-        for (const auto &arg : args) {
-            protocol::append_primitive_with_type(args_builder, arg);
-        }
-
-        auto args_data = args_builder.build();
-        writer.write_binary(args_data);
+        // TODO IGNITE-20057 C++ client: Track observable timestamp
+        writer.write(0); // observableTimestamp.
     };
 
     auto reader_func = [](std::shared_ptr<node_connection> channel, bytes_view msg) -> result_set {
