@@ -450,9 +450,11 @@ public class ClientTable implements Table {
                         // TODO: Force load latest schema.
                         // How do we avoid multiple forced reload with many parallel requests?
                         // Add a way to "load schema later than current"?
-                        int expectedVersion = ((ClientSchemaMismatchException) cause).schemaVersion() + 1;
+                        // Use ObservableTimestamp?
+                        int oldSchemaVersion = ((ClientSchemaMismatchException) cause).schemaVersion();
+                        schemas.remove(UNKNOWN_SCHEMA_VERSION);
 
-                        doSchemaOutOpAsync(opCode, writer, reader, provider, retryPolicyOverride, expectedVersion)
+                        doSchemaOutOpAsync(opCode, writer, reader, provider, retryPolicyOverride, UNKNOWN_SCHEMA_VERSION)
                                 .whenComplete((res0, err0) -> {
                                     if (err0 != null) {
                                         fut.completeExceptionally(err0);
