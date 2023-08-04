@@ -56,6 +56,8 @@ testing {
 
                         // Enable auto-detection of JUnit 5 extensions to automatically apply DumpThreadsOnTimeout extension.
                         systemProperty 'junit.jupiter.extensions.autodetection.enabled', true
+
+                        systemProperty 'jraft.available_processors', 4
                     }
                 }
             }
