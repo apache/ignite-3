@@ -64,6 +64,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Holds actual schema and mutates it on schema change, requested by Ignite.
@@ -139,9 +140,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         });
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public SchemaPlus schema(@Nullable String schema) {
+    /** Returns latest schema. */
+    @TestOnly
+    public SchemaPlus latestSchema(@Nullable String schema) {
         // stub for waiting pk indexes, more clear place is IgniteSchema
         CompletableFuture.allOf(pkIdxReady.values().toArray(CompletableFuture[]::new)).join();
 
@@ -153,24 +154,24 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus schema(String name, int version) {
-        throw new UnsupportedOperationException();
+        return latestSchema(name);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> actualSchemaAsync(long ver) {
+    public CompletableFuture<?> schemaReadyFuture(long version) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
         try {
-            if (ver == IgniteSchema.INITIAL_VERSION) {
+            if (version == IgniteSchema.INITIAL_VERSION) {
                 return completedFuture(calciteSchemaVv.latest());
             }
 
             CompletableFuture<SchemaPlus> lastSchemaFut;
 
             try {
-                lastSchemaFut = calciteSchemaVv.get(ver);
+                lastSchemaFut = calciteSchemaVv.get(version);
             } catch (OutdatedTokenException e) {
                 return completedFuture(null);
             }
@@ -179,12 +180,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
-        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

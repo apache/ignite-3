@@ -26,11 +26,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface SqlSchemaManager {
     /**
-     * Returns a required schema if specified, or default schema otherwise.
-     */
-    SchemaPlus schema(@Nullable String schema);
-
-    /**
      * Returns schema with given name and by the given version, if name is not specified, returns default schema of the given version.
      */
     SchemaPlus schema(@Nullable String name, int version);
@@ -39,18 +34,15 @@ public interface SqlSchemaManager {
      * Returns a table by given id.
      *
      * @param id An id of required table.
-     *
      * @return The table.
      */
     IgniteTable tableById(int id);
 
     /**
-     * Wait for {@code ver} schema version, just a stub, need to be removed after IGNITE-18733.
+     * Returns a future to wait for given SQL schema version readiness.
+     *
+     * @param version SQL schema version to wait.
+     * @return Operation future.
      */
-    CompletableFuture<?> actualSchemaAsync(long ver);
-
-    /**
-     * Returns a required schema if specified, or default schema otherwise.
-     */
-    SchemaPlus activeSchema(@Nullable String name, long timestamp);
+    CompletableFuture<?> schemaReadyFuture(long version);
 }

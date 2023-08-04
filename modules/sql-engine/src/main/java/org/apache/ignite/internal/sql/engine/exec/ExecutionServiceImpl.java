@@ -239,13 +239,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return queryManager.execute(tx, plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, @Nullable String schema, Object[] params) {
+    private BaseQueryContext createQueryContext(UUID queryId, long version, @Nullable String schema, Object[] params) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
                 .parameters(params)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(sqlSchemaManager.schema(schema))
+                                .defaultSchema(sqlSchemaManager.schema(schema, (int) version))
                                 .build()
                 )
                 .logger(LOG)
@@ -330,7 +330,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private void onMessage(String nodeName, QueryStartRequest msg) {
         assert nodeName != null && msg != null;
 
-        CompletableFuture<?> fut = sqlSchemaManager.actualSchemaAsync(msg.schemaVersion());
+        //TODO IGNITE-18733: We should use txTimestamp from message tx attributes to wait for metadata ready,
+        // then get actual version for txTimestamp and wait for catalog version ready.
+        // As optimization, we can lookup for latest available schema and go sync way if it's version >= desirable.
+        CompletableFuture<?> fut = sqlSchemaManager.schemaReadyFuture(msg.schemaVersion());
 
         if (fut.isDone()) {
             submitFragment(nodeName, msg);
@@ -427,7 +430,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private DistributedQueryManager getOrCreateQueryManager(QueryStartRequest msg) {
         return queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
+            BaseQueryContext ctx = createQueryContext(key, msg.schemaVersion(), msg.schema(), msg.parameters());
 
             return new DistributedQueryManager(ctx);
         });

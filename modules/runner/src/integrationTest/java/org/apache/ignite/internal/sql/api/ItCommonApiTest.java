@@ -222,11 +222,6 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
     }
 
     private static class ErroneousSchemaManager implements SqlSchemaManager {
-        /** {@inheritDoc} */
-        @Override
-        public SchemaPlus schema(@Nullable String schema) {
-            return null;
-        }
 
         /** {@inheritDoc} */
         @Override
@@ -242,13 +237,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<SchemaPlus> actualSchemaAsync(long ver) {
-            throw new UnsupportedOperationException();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
+        public CompletableFuture<SchemaPlus> schemaReadyFuture(long version) {
             throw new UnsupportedOperationException();
         }
     }

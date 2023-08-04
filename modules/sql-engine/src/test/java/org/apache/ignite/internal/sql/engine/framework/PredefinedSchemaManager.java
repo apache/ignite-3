@@ -17,18 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class PredefinedSchemaManager implements SqlSchemaManager {
     private final SchemaPlus root;
-    private final Map<Integer, IgniteTable> tableById;
+    private final Int2ObjectMap<IgniteTable> tableById;
 
     /** Constructs schema manager from a single schema. */
     PredefinedSchemaManager(IgniteSchema schema) {
@@ -52,7 +52,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
     /** Constructs schema manager from a collection of schemas. */
     PredefinedSchemaManager(Collection<IgniteSchema> schemas) {
         this.root = Frameworks.createRootSchema(false);
-        this.tableById = new HashMap<>();
+        this.tableById = new Int2ObjectOpenHashMap<>();
 
         for (IgniteSchema schema : schemas) {
             root.add(schema.getName(), schema);
@@ -61,33 +61,21 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
                     schema.getTableNames().stream()
                             .map(schema::getTable)
                             .map(IgniteTable.class::cast)
-                            .collect(Collectors.toMap(IgniteTable::id, Function.identity()))
+                            .collect(CollectionUtils.toIntMapCollector(IgniteTable::id, Function.identity()))
             );
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(@Nullable String schema) {
-        return schema == null ? root : root.getSubSchema(schema);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public SchemaPlus schema(String name, int version) {
-        return schema(name);
+        return name == null ? root : root.getSubSchema(name);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> actualSchemaAsync(long ver) {
+    public CompletableFuture<?> schemaReadyFuture(long version) {
         return CompletableFuture.completedFuture(root);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
-        return schema(name);
     }
 
     /** {@inheritDoc} */

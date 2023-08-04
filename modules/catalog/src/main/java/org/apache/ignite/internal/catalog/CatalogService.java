@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -77,6 +78,14 @@ public interface CatalogService {
      * <p>NOTE: This method should only be used at the start of components that may be removed or moved in the future.
      */
     int latestCatalogVersion();
+
+    /**
+     * Returns a future, which completes, when catalog of given version will be available.
+     *
+     * @param version Catalog version to wait for.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> catalogReadyFuture(int version);
 
     void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
 }
