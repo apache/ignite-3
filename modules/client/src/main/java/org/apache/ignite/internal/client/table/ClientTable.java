@@ -24,12 +24,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryPolicy;
+import org.apache.ignite.internal.client.ClientSchemaMismatchException;
 import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
@@ -40,6 +42,7 @@ import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -420,9 +423,29 @@ public class ClientTable implements Table {
                 })
                 .whenComplete((res, err) -> {
                     if (err != null) {
-                        if (err.getCause() instanceof ClientSchemaVersionMismatchException) {
+                        var cause = err;
+
+                        while (cause.getCause() != null) {
+                            cause = cause.getCause();
+                        }
+
+                        if (cause instanceof ClientSchemaVersionMismatchException) {
                             // Retry with specific schema version.
-                            int expectedVersion = ((ClientSchemaVersionMismatchException) err.getCause()).expectedVersion();
+                            int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
+
+                            doSchemaOutOpAsync(opCode, writer, reader, provider, retryPolicyOverride, expectedVersion)
+                                    .whenComplete((res0, err0) -> {
+                                        if (err0 != null) {
+                                            fut.completeExceptionally(err0);
+                                        } else {
+                                            fut.complete(res0);
+                                        }
+                                    });
+                        } else if (schemaVersionOverride == null && cause instanceof ClientSchemaMismatchException) {
+                            // TODO: Force load latest schema.
+                            // How do we avoid multiple forced reload with many parallel requests?
+                            // Add a way to "load schema later than current"?
+                            int expectedVersion = ((ClientSchemaMismatchException) cause).schemaVersion() + 1;
 
                             doSchemaOutOpAsync(opCode, writer, reader, provider, retryPolicyOverride, expectedVersion)
                                     .whenComplete((res0, err0) -> {
