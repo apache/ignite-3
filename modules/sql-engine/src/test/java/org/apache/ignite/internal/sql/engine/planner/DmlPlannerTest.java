@@ -160,6 +160,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
 
         IgniteSchema schema = createSchema(test1);
 
+        // There should be no exchange node between the modify node and the scan node.
         assertPlan("DELETE FROM TEST1 WHERE KEY1 = 1 and KEY2 = 2", schema,
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                         .and(e -> e.distribution().equals(IgniteDistributions.single())))
