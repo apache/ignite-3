@@ -119,8 +119,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final MessageService messageService;
 
-    private final TopologyService topSrvc;
-
     private final ClusterNode localNode;
 
     private final SqlSchemaManager sqlSchemaManager;
@@ -166,7 +164,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     ) {
         return new ExecutionServiceImpl<>(
                 msgSrvc,
-                topSrvc,
+                topSrvc.localMember(),
                 new MappingServiceImpl(topSrvc),
                 sqlSchemaManager,
                 ddlCommandHandler,
@@ -196,7 +194,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      */
     public ExecutionServiceImpl(
             MessageService messageService,
-            TopologyService topSrvc,
+            ClusterNode localNode,
             MappingService mappingSrvc,
             SqlSchemaManager sqlSchemaManager,
             DdlCommandHandler ddlCmdHnd,
@@ -205,11 +203,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExecutionDependencyResolver dependencyResolver,
             ImplementorFactory<RowT> implementorFactory
     ) {
-        this.localNode = topSrvc.localMember();
+        this.localNode = localNode;
         this.handler = handler;
         this.messageService = messageService;
         this.mappingSrvc = mappingSrvc;
-        this.topSrvc = topSrvc;
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
         this.ddlCmdHnd = ddlCmdHnd;

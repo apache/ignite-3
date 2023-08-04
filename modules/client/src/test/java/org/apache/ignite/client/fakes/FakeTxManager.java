@@ -29,7 +29,6 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -76,7 +75,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public IgniteBiTuple<ClusterNode, Long> enlistedNodeAndTerm(TablePartitionId tablePartitionId) {
+            public ReplicaMeta enlistedReplica(TablePartitionId tablePartitionId) {
                 return null;
             }
 
@@ -96,9 +95,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public IgniteBiTuple<ClusterNode, Long> enlist(
-                    TablePartitionId tablePartitionId,
-                    IgniteBiTuple<ClusterNode, Long> nodeAndTerm) {
+            public ReplicaMeta enlist(TablePartitionId tablePartitionId, ReplicaMeta replica) {
                 return null;
             }
 
@@ -159,14 +156,25 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> finish(TablePartitionId commitPartition, ClusterNode recipientNode, Long term, boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups, UUID txId) {
+    public CompletableFuture<Void> finish(
+            TablePartitionId commitPartition,
+            String recipientNode,
+            Long enlistmentConsistencyToken,
+            boolean commit,
+            Map<String, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+            UUID txId
+    ) {
         return null;
     }
 
     @Override
-    public CompletableFuture<Void> cleanup(ClusterNode recipientNode, List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
-            UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+    public CompletableFuture<Void> cleanup(
+            String recipientNode,
+            List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
+            UUID txId,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp
+    ) {
         return null;
     }
 

@@ -615,7 +615,7 @@ public class ExecutionServiceImplTest {
 
         var executionService = new ExecutionServiceImpl<>(
                 messageService,
-                topologyService,
+                topologyService.localMember(),
                 (single, filter) -> single ? List.of(nodeNames.get(ThreadLocalRandom.current().nextInt(nodeNames.size()))) : nodeNames,
                 schemaManagerMock,
                 mock(DdlCommandHandler.class),
