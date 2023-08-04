@@ -15,19 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.util;
+package org.apache.ignite.internal.catalog.events;
 
 /**
- * Factory that creates a cache.
+ * Event that is related to a table.
  */
-public interface CacheFactory {
+public abstract class TableEventParameters extends CatalogEventParameters {
+    private final int tableId;
+
     /**
-     * Creates a cache with a desired size.
+     * Constructor.
      *
-     * @param size Desired size of the cache.
-     * @return An instance of the cache.
-     * @param <K> Type of the key object.
-     * @param <V> Type of the value object.
+     * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version.
+     * @param tableId ID of the table to which the event relates.
      */
-    <K, V> Cache<K, V> create(int size);
+    public TableEventParameters(long causalityToken, int catalogVersion, int tableId) {
+        super(causalityToken, catalogVersion);
+        this.tableId = tableId;
+    }
+
+    /** Returns an id of a modified table. */
+    public int tableId() {
+        return tableId;
+    }
 }

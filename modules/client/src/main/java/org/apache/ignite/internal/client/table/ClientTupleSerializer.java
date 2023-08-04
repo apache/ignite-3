@@ -19,14 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
-import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -34,16 +27,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
+import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -316,93 +308,13 @@ public class ClientTupleSerializer {
     }
 
     private static void appendValue(BinaryTupleBuilder builder, BitSet noValueSet, ClientColumn col, Object v) {
-        if (v == null) {
-            builder.appendNull();
-            return;
-        }
-
         if (v == NO_VALUE) {
             noValueSet.set(col.schemaIndex());
             builder.appendNull();
             return;
         }
 
-        try {
-            switch (col.type()) {
-                case BOOLEAN:
-                    builder.appendBoolean((boolean) v);
-                    return;
-
-                case INT8:
-                    builder.appendByte((byte) v);
-                    return;
-
-                case INT16:
-                    builder.appendShort((short) v);
-                    return;
-
-                case INT32:
-                    builder.appendInt((int) v);
-                    return;
-
-                case INT64:
-                    builder.appendLong((long) v);
-                    return;
-
-                case FLOAT:
-                    builder.appendFloat((float) v);
-                    return;
-
-                case DOUBLE:
-                    builder.appendDouble((double) v);
-                    return;
-
-                case DECIMAL:
-                    builder.appendDecimalNotNull((BigDecimal) v, col.scale());
-                    return;
-
-                case UUID:
-                    builder.appendUuidNotNull((UUID) v);
-                    return;
-
-                case STRING:
-                    builder.appendStringNotNull((String) v);
-                    return;
-
-                case BYTE_ARRAY:
-                    builder.appendBytesNotNull((byte[]) v);
-                    return;
-
-                case BITMASK:
-                    builder.appendBitmaskNotNull((BitSet) v);
-                    return;
-
-                case DATE:
-                    builder.appendDateNotNull((LocalDate) v);
-                    return;
-
-                case TIME:
-                    builder.appendTimeNotNull((LocalTime) v);
-                    return;
-
-                case DATETIME:
-                    builder.appendDateTimeNotNull((LocalDateTime) v);
-                    return;
-
-                case TIMESTAMP:
-                    builder.appendTimestampNotNull((Instant) v);
-                    return;
-
-                case NUMBER:
-                    builder.appendNumberNotNull((BigInteger) v);
-                    return;
-
-                default:
-                    throw new IllegalArgumentException("Unsupported type: " + col.type());
-            }
-        } catch (ClassCastException e) {
-            throw new IgniteException(PROTOCOL_ERR, "Incorrect value type for column '" + col.name() + "': " + e.getMessage(), e);
-        }
+        ClientBinaryTupleUtils.appendValue(builder, col.type(), col.name(), col.scale(), v);
     }
 
     /**

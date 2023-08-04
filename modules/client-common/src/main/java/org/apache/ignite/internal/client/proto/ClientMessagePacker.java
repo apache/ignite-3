@@ -47,6 +47,11 @@ public class ClientMessagePacker implements AutoCloseable {
     private boolean closed;
 
     /**
+     * Metadata.
+     */
+    private @Nullable Object meta;
+
+    /**
      * Constructor.
      *
      * @param buf Buffer.
@@ -177,6 +182,29 @@ public class ClientMessagePacker implements AutoCloseable {
         } else {
             packInt(i);
         }
+    }
+
+    /**
+     * Reserve space for long value.
+     *
+     * @return Index of reserved space.
+     */
+    public int reserveLong() {
+        buf.writeByte(Code.INT64);
+        var index = buf.writerIndex();
+
+        buf.writeLong(0);
+        return index;
+    }
+
+    /**
+     * Set long value at reserved index (see {@link #reserveLong()}).
+     *
+     * @param index Index.
+     * @param v Value.
+     */
+    public void setLong(int index, long v) {
+        buf.setLong(index, v);
     }
 
     /**
@@ -559,6 +587,10 @@ public class ClientMessagePacker implements AutoCloseable {
 
         packInt(vals.length);
 
+        if (vals.length == 0) {
+            return;
+        }
+
         // Builder with inline schema.
         // Every element in vals is represented by 3 tuple elements: type, scale, value.
         var builder = new BinaryTupleBuilder(vals.length * 3);
@@ -629,6 +661,24 @@ public class ClientMessagePacker implements AutoCloseable {
         ByteBuffer buf = builder.build();
         packBinaryHeader(buf.limit() - buf.position());
         writePayload(buf);
+    }
+
+    /**
+     * Gets metadata.
+     *
+     * @return Metadata.
+     */
+    public @Nullable Object meta() {
+        return meta;
+    }
+
+    /**
+     * Sets metadata.
+     *
+     * @param meta Metadata.
+     */
+    public void meta(@Nullable Object meta) {
+        this.meta = meta;
     }
 
     /**

@@ -1873,6 +1873,85 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
         assertThat(manager.indexes(2), hasItems(index(2, createPkIndexName(TABLE_NAME)), index(2, INDEX_NAME)));
     }
 
+    @Test
+    public void createTableProducesTableVersion1() {
+        createSomeTable(TABLE_NAME);
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        assertThat(table.tableVersion(), is(1));
+    }
+
+    @Test
+    public void addColumnIncrementsTableVersion() {
+        createSomeTable(TABLE_NAME);
+
+        CompletableFuture<Void> future = manager.addColumn(
+                AlterTableAddColumnParams.builder()
+                        .schemaName(SCHEMA_NAME)
+                        .tableName(TABLE_NAME)
+                        .columns(List.of(ColumnParams.builder().name("val2").type(ColumnType.INT32).build()))
+                        .build()
+        );
+        assertThat(future, willCompleteSuccessfully());
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        assertThat(table.tableVersion(), is(2));
+    }
+
+    @Test
+    public void dropColumnIncrementsTableVersion() {
+        createSomeTable(TABLE_NAME);
+
+        CompletableFuture<Void> future = manager.dropColumn(
+                AlterTableDropColumnParams.builder()
+                        .schemaName(SCHEMA_NAME)
+                        .tableName(TABLE_NAME)
+                        .columns(Set.of("val1"))
+                        .build()
+        );
+        assertThat(future, willCompleteSuccessfully());
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        assertThat(table.tableVersion(), is(2));
+    }
+
+    @Test
+    public void alterColumnIncrementsTableVersion() {
+        createSomeTable(TABLE_NAME);
+
+        CompletableFuture<Void> future = manager.alterColumn(
+                AlterColumnParams.builder()
+                        .schemaName(SCHEMA_NAME)
+                        .tableName(TABLE_NAME)
+                        .columnName("val1")
+                        .type(ColumnType.INT64)
+                        .build()
+        );
+        assertThat(future, willCompleteSuccessfully());
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        assertThat(table.tableVersion(), is(2));
+    }
+
+    private void createSomeTable(String tableName) {
+        CreateTableParams params = CreateTableParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .zone(ZONE_NAME)
+                .columns(List.of(
+                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
+                        ColumnParams.builder().name("val1").type(ColumnType.INT32).build()
+                ))
+                .primaryKeyColumns(List.of("key1"))
+                .build();
+
+        assertThat(manager.createTable(params), willCompleteSuccessfully());
+    }
+
     private CompletableFuture<Void> changeColumn(
             String tab,
             String col,

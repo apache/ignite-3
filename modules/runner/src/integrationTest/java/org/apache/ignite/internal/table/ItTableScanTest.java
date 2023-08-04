@@ -124,7 +124,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testInsertWaitScanComplete() throws Exception {
-        IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
+        IgniteTransactions transactions = igniteTx();
 
         InternalTransaction tx0 = (InternalTransaction) transactions.begin();
         InternalTransaction tx1 = startTxWithEnlistedPartition(PART_ID, false);

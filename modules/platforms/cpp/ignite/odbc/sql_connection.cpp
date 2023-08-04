@@ -325,6 +325,9 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
         auto flags = reader.read_int32();
         UNUSED_VALUE flags; // Flags are unused for now.
 
+        auto observable_timestamp = reader.read_int64();
+        UNUSED_VALUE observable_timestamp; // // TODO IGNITE-20057 C++ client: Track observable timestamp
+
         auto err = protocol::read_error(reader);
         if (err) {
             throw odbc_error(sql_state::SHY000_GENERAL_ERROR, err.value().what_str());
