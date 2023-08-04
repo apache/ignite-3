@@ -22,7 +22,6 @@ import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionException;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -34,7 +33,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.ConnectionClosedEventListener;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
+import org.apache.ignite.raft.jraft.util.concurrent.SingleThreadExecutor;
 
 /**
  * Append entries request processor.
@@ -216,7 +215,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         private final PeerPair pair;
 
         // Executor to run the requests
-        private Executor executor;
+        private SingleThreadExecutor executor;
 
         // The request sequence;
         private int sequence;
@@ -349,17 +348,7 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
                     assert (node != null);
                     peerCtx = new PeerRequestContext(groupId, pair, node.getRaftOptions().getMaxReplicatorInflightMsgs());
 
-                    Executor executor;
-
-                    FixedThreadsExecutorGroup stripedExecutor = node.getOptions().getStripedExecutor();
-                    if (stripedExecutor != null) {
-                        executor = stripedExecutor.next();
-                    } else {
-                        // The node is being stopped; we'll just return a reject-anything Executor to avoid throwing an exception.
-                        executor = rejectAnythingDueToNodeStop();
-                    }
-
-                    peerCtx.executor = executor;
+                    peerCtx.executor = node.getOptions().getStripedExecutor().next();
 
                     groupContexts.put(pair, peerCtx);
                 }
@@ -367,12 +356,6 @@ public class AppendEntriesRequestProcessor extends NodeRequestProcessor<AppendEn
         }
 
         return peerCtx;
-    }
-
-    private static Executor rejectAnythingDueToNodeStop() {
-        return command-> {
-            throw new RejectedExecutionException("Rejecting as the node has been stopped");
-        };
     }
 
     void removePeerRequestContext(final String groupId, final PeerPair pair) {
