@@ -106,7 +106,7 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @param params Parameters.
      * @return Operation future.
      */
-    CompletableFuture<Void> createDistributionZone(CreateZoneParams params);
+    CompletableFuture<Void> createZone(CreateZoneParams params);
 
     /**
      * Drops distribution zone.
@@ -114,7 +114,7 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @param params Parameters.
      * @return Operation future.
      */
-    CompletableFuture<Void> dropDistributionZone(DropZoneParams params);
+    CompletableFuture<Void> dropZone(DropZoneParams params);
 
     /**
      * Alter distribution zone.
@@ -122,7 +122,7 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @param params Parameters.
      * @return Operation future.
      */
-    CompletableFuture<Void> alterDistributionZone(AlterZoneParams params);
+    CompletableFuture<Void> alterZone(AlterZoneParams params);
 
     /**
      * Rename distribution zone.
@@ -130,5 +130,5 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @param params Parameters.
      * @return Operation future.
      */
-    CompletableFuture<Void> renameDistributionZone(RenameZoneParams params);
+    CompletableFuture<Void> renameZone(RenameZoneParams params);
 }
