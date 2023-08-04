@@ -279,7 +279,7 @@ public class PlatformTestNodeRunner {
                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
                 .build();
 
-        assertThat(ignite.catalogManager().createDistributionZone(createZoneParams), willBe(nullValue()));
+        assertThat(ignite.catalogManager().createZone(createZoneParams), willBe(nullValue()));
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
