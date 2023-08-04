@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -127,7 +128,27 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
     @Test
     void testClientReloadsKvTupleSchemaOnUnmappedColumnException() throws InterruptedException {
-        assert false : "TODO";
+        IgniteClient client = client();
+        Session ses = client.sql().createSession();
+
+        String tableName = "testClientReloadsTupleSchemaOnUnmappedColumnException";
+        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+
+        waitForTableOnAllNodes(tableName);
+        KeyValueView<Tuple, Tuple> kvView = client.tables().table(tableName).keyValueView();
+
+        // Insert fails, because there is no NAME column.
+        Tuple key = Tuple.create().set("ID", 1);
+        Tuple val = Tuple.create().set("NAME", "name");
+        var ex = assertThrows(IgniteException.class, () -> kvView.put(null, key, val));
+        assertEquals("Value tuple doesn't match schema: schemaVersion=1, extraColumns=[NAME]", ex.getMessage());
+
+        // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
+        // reload schema, retry with new schema and succeed.
+        ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
+        kvView.put(null, key, val);
+
+        assertEquals("name", kvView.get(null, key).stringValue(0));
     }
 
     @Test
@@ -157,7 +178,6 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         assertEquals("name", recordView.get(null, rec).name);
     }
 
-    // TODO: Add tests for the other case: missing columns in POJO or Tuple (new column added).
     @Test
     void testClientReloadsKvPojoSchemaOnUnmappedColumnException() throws InterruptedException {
         assert false : "TODO";
