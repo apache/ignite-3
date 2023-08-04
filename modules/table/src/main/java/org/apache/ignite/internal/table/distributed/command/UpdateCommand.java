@@ -36,7 +36,7 @@ public interface UpdateCommand extends PartitionCommand {
     @Nullable
     BinaryRowMessage rowMessage();
 
-    /** Returns the row to update. */
+    /** Returns the row to update or {@code null} if the row should be removed. */
     @Nullable
     default BinaryRow row() {
         BinaryRowMessage message = rowMessage();
