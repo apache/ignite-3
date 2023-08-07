@@ -284,7 +284,6 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             case INT32:
                 return "integer";
             case INT64:
-            case NUMBER:
                 return "bigint";
             case FLOAT:
                 return "real";
@@ -300,6 +299,8 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
                 return "varbinary";
             case BITMASK:
                 return "bitmap";
+            case NUMBER:
+                return "number";
             case DATE:
                 return "date";
             case TIME:
