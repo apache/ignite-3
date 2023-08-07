@@ -45,6 +45,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -52,6 +53,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -889,27 +892,34 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testZoneStateAddRemoveNodesPreservesDuplicationsOfNodes() {
-        ZoneState zoneState = new ZoneState(
-                createZoneManagerExecutor(1, new NamedThreadFactory("test-dst-zones-scheduler", LOG))
+        StripedScheduledThreadPoolExecutor executor = createZoneManagerExecutor(
+                1,
+                new NamedThreadFactory("test-dst-zones-scheduler", LOG)
         );
 
-        zoneState.nodesToAddToDataNodes(Set.of(A, B), 1);
-        zoneState.nodesToAddToDataNodes(Set.of(A, B), 2);
+        try {
+            ZoneState zoneState = new ZoneState(executor);
 
-        List<Node> nodes = zoneState.nodesToBeAddedToDataNodes(0, 2);
+            zoneState.nodesToAddToDataNodes(Set.of(A, B), 1);
+            zoneState.nodesToAddToDataNodes(Set.of(A, B), 2);
 
-        nodes.sort(Comparator.comparing(Node::nodeName));
+            List<Node> nodes = zoneState.nodesToBeAddedToDataNodes(0, 2);
 
-        assertEquals(List.of(A, A, B, B), nodes);
+            nodes.sort(Comparator.comparing(Node::nodeName));
 
-        zoneState.nodesToRemoveFromDataNodes(Set.of(C, D), 3);
-        zoneState.nodesToRemoveFromDataNodes(Set.of(C, D), 4);
+            assertEquals(List.of(A, A, B, B), nodes);
 
-        nodes = zoneState.nodesToBeRemovedFromDataNodes(2, 4);
+            zoneState.nodesToRemoveFromDataNodes(Set.of(C, D), 3);
+            zoneState.nodesToRemoveFromDataNodes(Set.of(C, D), 4);
 
-        nodes.sort(Comparator.comparing(Node::nodeName));
+            nodes = zoneState.nodesToBeRemovedFromDataNodes(2, 4);
 
-        assertEquals(List.of(C, C, D, D), nodes);
+            nodes.sort(Comparator.comparing(Node::nodeName));
+
+            assertEquals(List.of(C, C, D, D), nodes);
+        } finally {
+            IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        }
     }
 
     /**
