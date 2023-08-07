@@ -54,6 +54,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.distributionzones.BaseDistributionZoneManagerTest;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
@@ -63,7 +64,6 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -956,10 +956,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             }
         };
 
-        distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask);
-        distributionZoneManager.zonesState().get(ZONE_ID_1).rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask);
-        distributionZoneManager.zonesState().get(ZONE_ID_2).rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask);
-        distributionZoneManager.zonesState().get(ZONE_ID_3).rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask);
+        distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, DEFAULT_ZONE_ID);
+        distributionZoneManager.zonesState().get(ZONE_ID_1)
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, ZONE_ID_1);
+        distributionZoneManager.zonesState().get(ZONE_ID_2)
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, ZONE_ID_2);
+        distributionZoneManager.zonesState().get(ZONE_ID_3)
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, ZONE_ID_3);
 
         return scaleUpLatch;
     }
@@ -980,10 +984,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             }
         };
 
-        distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask);
-        distributionZoneManager.zonesState().get(ZONE_ID_1).rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask);
-        distributionZoneManager.zonesState().get(ZONE_ID_2).rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask);
-        distributionZoneManager.zonesState().get(ZONE_ID_3).rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask);
+        distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, DEFAULT_ZONE_ID);
+        distributionZoneManager.zonesState().get(ZONE_ID_1)
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, ZONE_ID_1);
+        distributionZoneManager.zonesState().get(ZONE_ID_2)
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, ZONE_ID_2);
+        distributionZoneManager.zonesState().get(ZONE_ID_3)
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, ZONE_ID_3);
 
         return scaleDownLatch;
     }

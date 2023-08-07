@@ -23,6 +23,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Data storage descriptor.
  */
+// TODO: IGNITE-19719 Must be storage engine specific
 public class CatalogDataStorageDescriptor implements Serializable {
     private static final long serialVersionUID = -5268530663660582126L;
     private final String engine;

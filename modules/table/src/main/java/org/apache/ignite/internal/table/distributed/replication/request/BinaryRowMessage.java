@@ -15,34 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import org.jetbrains.annotations.Nullable;
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Class containing useful methods for working with strings.
+ * Message for transferring a {@link BinaryRow}.
  */
-public final class StringUtils {
-    private StringUtils() {
-    }
+@Transferable(TableMessageGroup.BINARY_ROW_MESSAGE)
+public interface BinaryRowMessage extends NetworkMessage {
+    ByteBuffer binaryTuple();
 
-    /**
-     * Tests if given string is {@code null} or empty.
-     *
-     * @param s String to test.
-     * @return Whether or not the given string is {@code null} or empty.
-     */
-    public static boolean nullOrEmpty(@Nullable String s) {
-        return s == null || s.isEmpty();
-    }
+    int schemaVersion();
 
-    /**
-     * Tests if given string is {@code null} or {@link String#isBlank}.
-     *
-     * @param s String to test.
-     * @return Whether or not the given string is {@code null} or blank.
-     */
-    public static boolean nullOrBlank(@Nullable String s) {
-        return s == null || s.isBlank();
+    default BinaryRow asBinaryRow() {
+        return new BinaryRowImpl(schemaVersion(), binaryTuple());
     }
 }

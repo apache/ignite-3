@@ -90,7 +90,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
@@ -107,17 +107,17 @@ import org.junit.jupiter.params.provider.MethodSource;
 @ExtendWith(ConfigurationExtension.class)
 public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRestartTest {
     private static final LogicalNode A = new LogicalNode(
-            new ClusterNode("1", "A", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10")
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new ClusterNode("2", "B", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
             Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30")
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new ClusterNode("3", "C", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20")
     );
 

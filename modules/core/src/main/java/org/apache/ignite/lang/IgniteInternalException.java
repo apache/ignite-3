@@ -17,13 +17,13 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.internal.util.ExceptionUtils.getOrCreateTraceId;
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.util.TraceIdUtils.getOrCreateTraceId;
 
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
@@ -199,6 +199,19 @@ public class IgniteInternalException extends RuntimeException implements Traceab
      */
     public IgniteInternalException(int code, String messagePattern, Object... params) {
         this(code, IgniteStringFormatter.format(messagePattern, params));
+    }
+
+    /**
+     * Creates a new exception with the given error code and detail message.
+     *
+     * @param code Full error code.
+     * @param messagePattern Error message pattern.
+     * @param cause Non-null throwable cause.
+     * @param params Error message params.
+     * @see IgniteStringFormatter#format(String, Object...)
+     */
+    public IgniteInternalException(int code, String messagePattern, Throwable cause, Object... params) {
+        this(code, IgniteStringFormatter.format(messagePattern, params), cause);
     }
 
     /**
