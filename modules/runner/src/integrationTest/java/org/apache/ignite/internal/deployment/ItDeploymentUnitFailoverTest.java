@@ -30,6 +30,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -44,6 +45,7 @@ public class ItDeploymentUnitFailoverTest extends ClusterPerTestIntegrationTest 
     }
 
     @Test
+    @Disabled("IGNITE-19009")
     public void testDeployWithNodeStop() {
         int nodeIndex = 1;
         IgniteImpl node = node(nodeIndex);

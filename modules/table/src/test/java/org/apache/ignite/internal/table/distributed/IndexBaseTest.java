@@ -47,6 +47,7 @@ import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -55,12 +56,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Base test for indexes. Sets up a table with (int, string) key and (int, string) value and
- * three indexes: primary key, hash index over value columns and sorted index over value columns.
+ * Base test for indexes. Sets up a table with (int, string) key and (int, string) value and three indexes: primary key, hash index over
+ * value columns and sorted index over value columns.
  */
 @ExtendWith(ConfigurationExtension.class)
 public abstract class IndexBaseTest extends BaseMvStoragesTest {
     protected static final int PARTITION_ID = 0;
+
+    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
 
     private static final BinaryTupleSchema TUPLE_SCHEMA = BinaryTupleSchema.createRowSchema(schemaDescriptor);
 
@@ -160,13 +163,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
-        handler.handleUpdate(
-                TX_ID,
-                rowUuid,
-                partitionId,
-                row == null ? null : row.byteBuffer(),
-                (unused) -> {}
-        );
+        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, (unused) -> {});
     }
 
     static BinaryRow defaultRow() {
@@ -226,22 +223,23 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         USE_UPDATE {
             @Override
             void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
-                handler.handleUpdate(
-                        TX_ID,
-                        rowUuid,
-                        partitionId,
-                        row == null ? null : row.byteBuffer(),
-                        (unused) -> {}
-                );
+                handler.handleUpdate(TX_ID, rowUuid, partitionId, row, (unused) -> {});
             }
         },
         /** Uses updateAll api. */
         USE_UPDATE_ALL {
             @Override
             void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
+                BinaryRowMessage rowMessage = row == null
+                        ? null
+                        : MSG_FACTORY.binaryRowMessage()
+                                .binaryTuple(row.tupleSlice())
+                                .schemaVersion(row.schemaVersion())
+                                .build();
+
                 handler.handleUpdateAll(
                         TX_ID,
-                        singletonMap(rowUuid, row == null ? null : row.byteBuffer()),
+                        singletonMap(rowUuid, rowMessage),
                         partitionId,
                         (unused) -> {}
                 );

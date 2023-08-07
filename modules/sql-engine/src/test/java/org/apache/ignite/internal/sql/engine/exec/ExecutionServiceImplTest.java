@@ -60,6 +60,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
@@ -82,7 +83,6 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartResponseImpl;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteFragmentExecutionException;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -159,7 +159,7 @@ public class ExecutionServiceImplTest {
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
-        prepareService = new PrepareServiceImpl("test", 0, null, PLANNING_TIMEOUT);
+        prepareService = new PrepareServiceImpl("test", 0, null, PLANNING_TIMEOUT, new MetricManager());
         parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
 
         prepareService.start();
@@ -595,7 +595,16 @@ public class ExecutionServiceImplTest {
 
         when(schemaManagerMock.actualSchemaAsync(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
 
-        ExecutableTableRegistry executableTableRegistry = new NoOpExecutableTableRegistry();
+        TestExecutableTableRegistry executableTableRegistry = new TestExecutableTableRegistry();
+        executableTableRegistry.setColocatioGroupProvider((tableId) -> {
+            // Make sure the exception is handled properly if it occurs during the mapping phase.
+            if (mappingException != null) {
+                return CompletableFuture.failedFuture(mappingException);
+            } else {
+                return CompletableFuture.completedFuture(ColocationGroup.forNodes(nodeNames));
+            }
+        });
+
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry);
 
         CalciteSchema rootSch = CalciteSchema.createRootSchema(false);
@@ -871,18 +880,8 @@ public class ExecutionServiceImplTest {
         return new TestTable(
                 new TableDescriptorImpl(columns, distr),
                 name,
-                ColocationGroup.forNodes(nodeNames),
                 size
         ) {
-            @Override
-            public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-                // Make sure the exception is handled properly if it occurs during the mapping phase.
-                if (mappingException != null) {
-                    throw mappingException;
-                }
-
-                return super.colocationGroup(ctx);
-            }
 
         };
     }

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -32,13 +31,13 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -102,20 +101,19 @@ public class StorageUpdateHandler {
      * @param txId Transaction id.
      * @param rowUuid Row UUID.
      * @param commitPartitionId Commit partition id.
-     * @param rowBuffer Row buffer.
-     * @param onReplication Callback on replication.
+     * @param row Row.
+     * @param onApplication Callback on application.
      */
     public void handleUpdate(
             UUID txId,
             UUID rowUuid,
             TablePartitionId commitPartitionId,
-            @Nullable ByteBuffer rowBuffer,
-            @Nullable Consumer<RowId> onReplication
+            @Nullable BinaryRow row,
+            @Nullable Consumer<RowId> onApplication
     ) {
         indexUpdateHandler.waitIndexes();
 
         storage.runConsistently(locker -> {
-            BinaryRow row = rowBuffer != null ? new ByteBufferRow(rowBuffer) : null;
             RowId rowId = new RowId(partitionId, rowUuid);
             int commitTblId = commitPartitionId.tableId();
             int commitPartId = commitPartitionId.partitionId();
@@ -131,8 +129,8 @@ public class StorageUpdateHandler {
 
             indexUpdateHandler.addToIndexes(row, rowId);
 
-            if (onReplication != null) {
-                onReplication.accept(rowId);
+            if (onApplication != null) {
+                onApplication.accept(rowId);
             }
 
             return null;
@@ -151,7 +149,7 @@ public class StorageUpdateHandler {
      */
     public void handleUpdateAll(
             UUID txId,
-            Map<UUID, ByteBuffer> rowsToUpdate,
+            Map<UUID, BinaryRowMessage> rowsToUpdate,
             TablePartitionId commitPartitionId,
             @Nullable Consumer<Collection<RowId>> onReplication
     ) {
@@ -165,11 +163,11 @@ public class StorageUpdateHandler {
                 List<RowId> rowIds = new ArrayList<>();
 
                 // Sort IDs to prevent deadlock. Natural UUID order matches RowId order within the same partition.
-                SortedMap<UUID, ByteBuffer> sortedRowsToUpdateMap = new TreeMap<>(rowsToUpdate);
+                SortedMap<UUID, BinaryRowMessage> sortedRowsToUpdateMap = new TreeMap<>(rowsToUpdate);
 
-                for (Map.Entry<UUID, ByteBuffer> entry : sortedRowsToUpdateMap.entrySet()) {
+                for (Map.Entry<UUID, BinaryRowMessage> entry : sortedRowsToUpdateMap.entrySet()) {
                     RowId rowId = new RowId(partitionId, entry.getKey());
-                    BinaryRow row = entry.getValue() != null ? new ByteBufferRow(entry.getValue()) : null;
+                    BinaryRow row = entry.getValue() == null ? null : entry.getValue().asBinaryRow();
 
                     locker.lock(rowId);
 
@@ -225,9 +223,9 @@ public class StorageUpdateHandler {
      * Handles the abortion of a transaction.
      *
      * @param pendingRowIds Row ids of write-intents to be rolled back.
-     * @param onReplication On replication callback.
+     * @param onApplication On application callback.
      */
-    public void handleTransactionAbortion(Set<RowId> pendingRowIds, Runnable onReplication) {
+    public void handleTransactionAbortion(Set<RowId> pendingRowIds, Runnable onApplication) {
         storage.runConsistently(locker -> {
             for (RowId rowId : pendingRowIds) {
                 locker.lock(rowId);
@@ -239,21 +237,22 @@ public class StorageUpdateHandler {
 
                     ReadResult item = cursor.next();
 
-                    assert item.isWriteIntent();
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Prevent double storage updates within primary
+                    if (item.isWriteIntent()) {
+                        BinaryRow rowToRemove = item.binaryRow();
 
-                    BinaryRow rowToRemove = item.binaryRow();
+                        if (rowToRemove == null) {
+                            continue;
+                        }
 
-                    if (rowToRemove == null) {
-                        continue;
+                        indexUpdateHandler.tryRemoveFromIndexes(rowToRemove, rowId, cursor);
                     }
-
-                    indexUpdateHandler.tryRemoveFromIndexes(rowToRemove, rowId, cursor);
                 }
             }
 
             pendingRowIds.forEach(storage::abortWrite);
 
-            onReplication.run();
+            onApplication.run();
 
             return null;
         });

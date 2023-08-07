@@ -37,7 +37,6 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -47,13 +46,13 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -82,7 +81,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
 
-    /** Versioned store for tables by name. */
+    /** Versioned store for tables by ID. */
     private final IncrementalVersionedValue<Map<Integer, SchemaRegistryImpl>> registriesVv;
 
     /** Meta storage manager. */
@@ -161,10 +160,28 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                     );
                 }
 
-                return registerSchema(registries, tblId, tblCfg.name(), newSchema);
+                return saveSchemaDescriptor(tblId, newSchema)
+                        .thenApply(t -> registerSchema(tblId, newSchema, registries));
             }));
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    private Map<Integer, SchemaRegistryImpl> registerSchema(int tblId, SchemaDescriptor newSchema,
+            Map<Integer, SchemaRegistryImpl> registries) {
+        SchemaRegistryImpl reg = registries.get(tblId);
+
+        if (reg == null) {
+            Map<Integer, SchemaRegistryImpl> copy = new HashMap<>(registries);
+
+            copy.put(tblId, createSchemaRegistry(tblId, newSchema));
+
+            return copy;
+        } else {
+            reg.onSchemaRegistered(newSchema);
+
+            return registries;
         }
     }
 
@@ -187,124 +204,40 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     }
 
     /**
-     * Registers the new schema in a Schema Registry.
+     * Gets a schema descriptor from the configuration storage.
      *
-     * @param registries Map of schema registries.
-     * @param tableId Table id.
-     * @param tableName Table name.
-     * @param schema Schema descriptor.
-     * @return Future that, when complete, will resolve into an updated map of schema registries
-     *     (to be used in {@link IncrementalVersionedValue#update}).
+     * @param tableId Table ID.
+     * @param schemaVer Schema version.
+     * @return Schema descriptor.
      */
-    private CompletableFuture<Map<Integer, SchemaRegistryImpl>> registerSchema(
-            Map<Integer, SchemaRegistryImpl> registries,
-            int tableId,
-            String tableName,
-            SchemaDescriptor schema
-    ) {
+    private CompletableFuture<SchemaDescriptor> loadSchemaDescriptor(int tableId, int schemaVer) {
+        CompletableFuture<Entry> ent = metastorageMgr.get(schemaWithVerHistKey(tableId, schemaVer));
+
+        return ent.thenApply(e -> SchemaSerializerImpl.INSTANCE.deserialize(e.value()));
+    }
+
+    /** Saves a schema descriptor to the configuration storage. */
+    private CompletableFuture<Boolean> saveSchemaDescriptor(int tableId, SchemaDescriptor schema) {
         ByteArray key = schemaWithVerHistKey(tableId, schema.version());
 
         byte[] serializedSchema = SchemaSerializerImpl.INSTANCE.serialize(schema);
 
-        return metastorageMgr.invoke(notExists(key), put(key, serializedSchema), noop())
-                .thenApply(t -> {
-                    SchemaRegistryImpl reg = registries.get(tableId);
-
-                    if (reg == null) {
-                        Map<Integer, SchemaRegistryImpl> copy = new HashMap<>(registries);
-
-                        copy.put(tableId, createSchemaRegistry(tableId, tableName, schema));
-
-                        return copy;
-                    } else {
-                        reg.onSchemaRegistered(schema);
-
-                        return registries;
-                    }
-                });
+        return metastorageMgr.invoke(notExists(key), put(key, serializedSchema), noop());
     }
 
     /**
      * Create schema registry for the table.
      *
      * @param tableId Table id.
-     * @param tableName Table name.
      * @param initialSchema Initial schema for the registry.
      * @return Schema registry.
      */
-    private SchemaRegistryImpl createSchemaRegistry(int tableId, String tableName, SchemaDescriptor initialSchema) {
+    private SchemaRegistryImpl createSchemaRegistry(int tableId, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(
-                ver -> inBusyLock(busyLock, () -> tableSchema(tableId, tableName, ver)),
+                ver -> inBusyLock(busyLock, () -> loadSchemaDescriptor(tableId, ver)),
                 () -> inBusyLock(busyLock, () -> latestSchemaVersion(tableId)),
                 initialSchema
         );
-    }
-
-    /**
-     * Return table schema of certain version from history.
-     *
-     * @param tblId Table id.
-     * @param schemaVer Schema version.
-     * @return Schema descriptor.
-     */
-    private CompletableFuture<SchemaDescriptor> tableSchema(int tblId, String tableName, int schemaVer) {
-        TableConfiguration tblCfg = tablesCfg.tables().get(tableName);
-
-        CompletableFuture<SchemaDescriptor> fut = new CompletableFuture<>();
-
-        SchemaRegistry registry = registriesVv.latest().get(tblId);
-
-        if (registry.lastSchemaVersion() > schemaVer) {
-            return getSchemaDescriptor(schemaVer, tblCfg);
-        }
-
-        CompletionListener<Map<Integer, SchemaRegistryImpl>> schemaListener = (token, regs, e) -> {
-            if (schemaVer <= regs.get(tblId).lastSchemaVersion()) {
-                SchemaRegistry registry0 = registriesVv.latest().get(tblId);
-
-                SchemaDescriptor desc = registry0.schemaCached(schemaVer);
-
-                assert desc != null : "Unexpected empty schema description.";
-
-                fut.complete(desc);
-            }
-        };
-
-        registriesVv.whenComplete(schemaListener);
-
-        // This check is needed for the case when we have registered schemaListener,
-        // but registriesVv has already been completed, so listener would be triggered only for the next versioned value update.
-        if (checkSchemaVersion(tblId, schemaVer)) {
-            registriesVv.removeWhenComplete(schemaListener);
-
-            registry = registriesVv.latest().get(tblId);
-
-            SchemaDescriptor desc = registry.schemaCached(schemaVer);
-
-            assert desc != null : "Unexpected empty schema description.";
-
-            fut.complete(desc);
-        }
-
-        return fut.thenApply(res -> {
-            registriesVv.removeWhenComplete(schemaListener);
-            return res;
-        });
-    }
-
-    /**
-     * Checks that the provided schema version is less or equal than the latest version from the schema registry.
-     *
-     * @param tblId Unique table id.
-     * @param schemaVer Schema version for the table.
-     * @return True, if the schema version is less or equal than the latest version from the schema registry, false otherwise.
-     */
-    private boolean checkSchemaVersion(int tblId, int schemaVer) {
-        SchemaRegistry registry = registriesVv.latest().get(tblId);
-
-        assert registry != null : IgniteStringFormatter.format("Registry for the table not found [tblId={}]", tblId);
-
-        return schemaVer <= registry.lastSchemaVersion();
     }
 
     /**
@@ -322,19 +255,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         } else {
             return null;
         }
-    }
-
-    /**
-     * Gets a schema descriptor from the configuration storage.
-     *
-     * @param schemaVer Schema version.
-     * @param tblCfg Table configuration.
-     * @return Schema descriptor.
-     */
-    private CompletableFuture<SchemaDescriptor> getSchemaDescriptor(int schemaVer, TableConfiguration tblCfg) {
-        CompletableFuture<Entry> ent = metastorageMgr.get(schemaWithVerHistKey(tblCfg.id().value(), schemaVer));
-
-        return ent.thenApply(e -> SchemaSerializerImpl.INSTANCE.deserialize(e.value()));
     }
 
     /**
@@ -398,6 +318,8 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         }
 
         busyLock.block();
+
+        IgniteUtils.closeAllManually(registriesVv.latest().values().stream());
     }
 
     /**

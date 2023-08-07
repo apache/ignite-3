@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -146,6 +147,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.LockManager;
@@ -181,8 +183,8 @@ import org.mockito.Mockito;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
-public class ItRebalanceDistributedTest {
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-20053")
+public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
 
@@ -251,6 +253,8 @@ public class ItRebalanceDistributedTest {
         );
 
         nodes.stream().forEach(Node::waitWatches);
+
+        assertTrue(waitForCondition(() -> nodes.get(0).cmgManager.logicalTopology().join().nodes().size() == 3, 10_000));
     }
 
     @AfterEach
@@ -314,7 +318,7 @@ public class ItRebalanceDistributedTest {
     }
 
     @Test
-    void testThreeQueuedRebalances() {
+    void testThreeQueuedRebalances() throws InterruptedException {
         await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -327,7 +331,7 @@ public class ItRebalanceDistributedTest {
                 ZONE_1_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
 
-        assertEquals(1, getPartitionClusterNodes(0, 0).size());
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(0, 0).size() == 1, 10_000));
 
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 3));
@@ -487,7 +491,6 @@ public class ItRebalanceDistributedTest {
         checkInvokeDestroyedPartitionStorages(evictedNode, TABLE_1_NAME, 0);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
     @Test
     @UseTestTxStateStorage
     @UseRocksMetaStorage
@@ -676,6 +679,7 @@ public class ItRebalanceDistributedTest {
                     new TestConfigurationValidator());
 
             replicaManager = new ReplicaManager(
+                    name,
                     clusterService,
                     cmgManager,
                     hybridClock,
@@ -793,6 +797,7 @@ public class ItRebalanceDistributedTest {
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
             distributionZoneManager = new DistributionZoneManager(
+                    registry,
                     zonesCfg,
                     tablesCfg,
                     metaStorageManager,

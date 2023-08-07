@@ -34,6 +34,7 @@ import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSession;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.SqlException;
@@ -47,7 +48,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests client-side metrics (see also server-side metrics tests in {@link ServerMetricsTest}).
  */
-public class ClientMetricsTest {
+public class ClientMetricsTest extends BaseIgniteAbstractTest {
     private TestServer server;
     private IgniteClient client;
 
@@ -222,7 +223,7 @@ public class ClientMetricsTest {
         client.tables().tables();
 
         assertEquals(21, metrics().bytesSent());
-        assertEquals(55, metrics().bytesReceived());
+        assertEquals(64, metrics().bytesReceived());
     }
 
     @Test

@@ -48,7 +48,7 @@ public class ClientTupleInsertAllRequest {
             ClientResourceRegistry resources
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, resources);
+            var tx = readTx(in, out, resources);
             var tuples = readTuples(in, table, false);
 
             return table.recordView().insertAllAsync(tx, tuples).thenAccept(skippedTuples ->

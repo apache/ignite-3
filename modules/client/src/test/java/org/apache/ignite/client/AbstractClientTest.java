@@ -29,6 +29,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -40,7 +41,7 @@ import org.junit.jupiter.api.BeforeEach;
 /**
  * Base class for client tests.
  */
-public abstract class AbstractClientTest {
+public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
     protected static final String DEFAULT_TABLE = "default_test_table";
 
     protected static TestServer testServer;

@@ -30,7 +30,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -81,6 +81,7 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
@@ -226,8 +227,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     int storageIndex = stoppedNodeIndex == 0 ? 1 : 0;
                     MvPartitionStorage partitionStorage = mvPartitionStorages.get(storageIndex);
 
-                    Map<ByteBuffer, RowId> primaryIndex = rowsToRowIds(partitionStorage);
-                    RowId rowId = primaryIndex.get(req0.binaryRowBytes());
+                    Map<BinaryRow, RowId> primaryIndex = rowsToRowIds(partitionStorage);
+                    RowId rowId = primaryIndex.get(req0.binaryRow());
 
                     BinaryRow row = partitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
@@ -235,13 +236,13 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 }
 
                 // Non-null binary row if UPSERT, otherwise it's implied that request type is DELETE.
-                ByteBuffer binaryRow = req0.requestType() == RequestType.RW_UPSERT ? req0.binaryRowBytes() : null;
+                BinaryRowMessage binaryRow = req0.requestType() == RequestType.RW_UPSERT ? req0.binaryRowMessage() : null;
 
                 UpdateCommand cmd = msgFactory.updateCommand()
                         .txId(req0.transactionId())
                         .tablePartitionId(tablePartitionId(new TablePartitionId(1, 0)))
                         .rowUuid(new RowId(0).uuid())
-                        .rowBuffer(binaryRow)
+                        .rowMessage(binaryRow)
                         .safeTimeLong(hybridClock.nowLong())
                         .build();
 
@@ -303,11 +304,11 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         MvPartitionStorage storage = getListener(restarted, raftGroupId()).getMvStorage();
 
         return () -> {
-            Map<ByteBuffer, RowId> primaryIndex = rowsToRowIds(storage);
+            Map<BinaryRow, RowId> primaryIndex = rowsToRowIds(storage);
 
             Row value = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
 
-            RowId rowId = primaryIndex.get(value.byteBuffer());
+            RowId rowId = primaryIndex.get(new BinaryRowImpl(value.schemaVersion(), value.tupleSlice()));
 
             if (rowId == null) {
                 return false;
@@ -323,8 +324,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         };
     }
 
-    private static Map<ByteBuffer, RowId> rowsToRowIds(MvPartitionStorage storage) {
-        Map<ByteBuffer, RowId> result = new HashMap<>();
+    private static Map<BinaryRow, RowId> rowsToRowIds(MvPartitionStorage storage) {
+        Map<BinaryRow, RowId> result = new HashMap<>();
 
         RowId rowId = storage.closestRowId(RowId.lowestRowId(0));
 
@@ -332,7 +333,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
             BinaryRow binaryRow = storage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
             if (binaryRow != null) {
-                result.put(binaryRow.byteBuffer(), rowId);
+                result.put(binaryRow, rowId);
             }
 
             RowId incremented = rowId.increment();

@@ -47,6 +47,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -64,7 +65,7 @@ import org.mockito.Mockito;
  * 2) Write throw different API's into it (row 1 - with all values, row 2 - with nulls).
  * 3) Read data back through all possible APIs and validate it.
  */
-public class InteropOperationsTest {
+public class InteropOperationsTest extends BaseIgniteAbstractTest {
     /** Test schema. */
     private static final SchemaDescriptor SCHEMA;
 

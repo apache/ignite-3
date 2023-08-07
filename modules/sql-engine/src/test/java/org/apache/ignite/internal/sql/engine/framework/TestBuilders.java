@@ -22,6 +22,7 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -29,6 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.Table;
@@ -36,7 +38,9 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
+import org.apache.ignite.internal.sql.engine.exec.TestExecutableTableRegistry.ColocationGroupProvider;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
@@ -45,6 +49,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -356,9 +361,10 @@ public class TestBuilders {
                     .collect(Collectors.toMap(TestIndex::id, Function.identity()));
 
             var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, indexMap, SCHEMA_VERSION));
+            var colocationGroupProvider = new TestColocationGroupProvider(tableBuilders, tableMap, nodeNames);
 
             Map<String, TestNode> nodes = nodeNames.stream()
-                    .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager))
+                    .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager, colocationGroupProvider))
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
 
             return new TestCluster(nodes);
@@ -427,7 +433,6 @@ public class TestBuilders {
             TestTable testTable = new TestTable(
                     new TableDescriptorImpl(columns, distribution),
                     Objects.requireNonNull(name),
-                    Map.of(),
                     size
             );
 
@@ -518,7 +523,7 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Index must contain at least one column");
             }
 
-            if (collations.size() == columns.size()) {
+            if (collations.size() != columns.size()) {
                 throw new IllegalArgumentException("Collation must be specified for each of columns.");
             }
 
@@ -667,8 +672,14 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         public ChildT addColumn(String name, NativeType type) {
+            return addColumn(name, type, true);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ChildT addColumn(String name, NativeType type, boolean nullable) {
             columns.add(new ColumnDescriptorImpl(
-                    name, false, true, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, false, nullable, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return self();
@@ -772,6 +783,9 @@ public class TestBuilders {
         /** Adds a column to the table. */
         ChildT addColumn(String name, NativeType type);
 
+        /** Adds a column with given nullability to the table. */
+        ChildT addColumn(String name, NativeType type, boolean nullable);
+
         /** Adds a column with the given default value to the table. */
         ChildT addColumn(String name, NativeType type, @Nullable Object defaultValue);
 
@@ -847,5 +861,41 @@ public class TestBuilders {
          * @return An instance of the parent builder.
          */
         ParentT end();
+    }
+
+    static class TestColocationGroupProvider implements ColocationGroupProvider {
+
+        private final Map<Integer, CompletableFuture<ColocationGroup>> groups = new HashMap<>();
+
+        TestColocationGroupProvider(List<ClusterTableBuilderImpl> tableBuilders, Map<String, Table> tableMap, List<String> nodeNames) {
+
+            for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
+                Table table = tableMap.get(tableBuilder.name);
+                IgniteTable igniteTable = (IgniteTable) table;
+                CompletableFuture<ColocationGroup> f;
+
+                if (!tableBuilder.dataProviders.isEmpty()) {
+                    List<String> tableNodes = new ArrayList<>(tableBuilder.dataProviders.keySet());
+                    tableNodes.sort(Comparator.naturalOrder());
+
+                    f = CompletableFuture.completedFuture(ColocationGroup.forNodes(tableNodes));
+                } else {
+                    f = CompletableFuture.completedFuture(ColocationGroup.forNodes(nodeNames));
+                }
+
+                groups.put(igniteTable.id(), f);
+            }
+        }
+
+        @Override
+        public CompletableFuture<ColocationGroup> getGroup(int tableId) {
+            CompletableFuture<ColocationGroup> f = groups.get(tableId);
+            if (f != null) {
+                return f;
+            } else {
+                IllegalStateException err = new IllegalStateException("Colocation group has not been specified. Table#" + tableId);
+                return CompletableFuture.failedFuture(err);
+            }
+        }
     }
 }
