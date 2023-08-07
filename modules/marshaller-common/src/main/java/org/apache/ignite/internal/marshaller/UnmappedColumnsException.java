@@ -15,34 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
-
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.internal.marshaller;
 
 /**
- * Class containing useful methods for working with strings.
+ * Unmapped columns exception.
  */
-public final class StringUtils {
-    private StringUtils() {
-    }
-
-    /**
-     * Tests if given string is {@code null} or empty.
-     *
-     * @param s String to test.
-     * @return Whether or not the given string is {@code null} or empty.
-     */
-    public static boolean nullOrEmpty(@Nullable String s) {
-        return s == null || s.isEmpty();
-    }
-
-    /**
-     * Tests if given string is {@code null} or {@link String#isBlank}.
-     *
-     * @param s String to test.
-     * @return Whether or not the given string is {@code null} or blank.
-     */
-    public static boolean nullOrBlank(@Nullable String s) {
-        return s == null || s.isBlank();
-    }
+public class UnmappedColumnsException extends RuntimeException {
+    private static final long serialVersionUID = 6756761904316593515L;
 }

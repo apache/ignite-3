@@ -40,6 +40,7 @@ import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -284,7 +285,7 @@ public class TestServer implements AutoCloseable {
     }
 
     private ClusterNode getClusterNode(String name) {
-        return new ClusterNode(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
+        return new ClientClusterNode(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
     }
 
     private static String getNodeId(String name) {

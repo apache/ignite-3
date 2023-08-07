@@ -15,41 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.lang.util;
 
-import java.io.Serializable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Representation of a node in a cluster.
+ * Class containing useful methods for working with strings.
  */
-public interface ClusterNode extends Serializable {
-    /**
-     * Returns the node's local ID.
-     *
-     * @return Node's local ID.
-     */
-    String id();
+public final class StringUtils {
+    private StringUtils() {
+    }
 
     /**
-     * Returns the unique name (consistent ID) of the node in the cluster. Does not change between restarts.
+     * Tests if given string is {@code null} or empty.
      *
-     * @return Unique name of a cluster member.
+     * @param s String to test.
+     * @return Whether or not the given string is {@code null} or empty.
      */
-    String name();
+    public static boolean nullOrEmpty(@Nullable String s) {
+        return s == null || s.isEmpty();
+    }
 
     /**
-     * Returns the network address of the node.
+     * Tests if given string is {@code null} or {@link String#isBlank}.
      *
-     * @return Network address of the node.
+     * @param s String to test.
+     * @return Whether or not the given string is {@code null} or blank.
      */
-    NetworkAddress address();
-
-    /**
-     * Returns the metadata of the node.
-     *
-     * @return Metadata of the node.
-     */
-    @Nullable
-    NodeMetadata nodeMetadata();
+    public static boolean nullOrBlank(@Nullable String s) {
+        return s == null || s.isBlank();
+    }
 }

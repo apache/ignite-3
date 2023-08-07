@@ -20,7 +20,7 @@ package org.apache.ignite.internal.schema.testutils.builder;
 
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
-import org.apache.ignite.internal.util.IgniteNameUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 
 /**
  * Schema builder helper.

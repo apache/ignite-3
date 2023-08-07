@@ -15,37 +15,45 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.lang;
+package org.apache.ignite.internal.distributionzones;
 
-import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_DROP_ERR;
+import static org.apache.ignite.lang.ErrorGroups.DistributionZones.ZONE_NOT_FOUND_ERR;
 
 import java.util.UUID;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
+// TODO https://issues.apache.org/jira/browse/IGNITE-20098
 /**
- * Exception is thrown when the distribution zone cannot be dropped because there is a table bound to the distribution zone.
+ * Exception is thrown when appropriate distribution zone can`t be found.
  */
-public class DistributionZoneBindTableException extends IgniteInternalException {
+public class DistributionZoneNotFoundException extends IgniteInternalException {
     /**
      * The constructor.
      *
      * @param zoneName Zone name.
-     * @param tableName Table name.
      */
-    public DistributionZoneBindTableException(String zoneName, String tableName) {
-        this(zoneName, tableName, null);
+    public DistributionZoneNotFoundException(String zoneName) {
+        this(zoneName, null);
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param zoneId Zone id.
+     */
+    public DistributionZoneNotFoundException(int zoneId) {
+        super(ZONE_NOT_FOUND_ERR, "Distribution zone is not found [zoneId=" + zoneId + ']');
     }
 
     /**
      * The constructor.
      *
      * @param zoneName Zone name.
-     * @param tableName Table name.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public DistributionZoneBindTableException(String zoneName, String tableName, @Nullable Throwable cause) {
-        super(ZONE_DROP_ERR, "Distribution zone is assigned to the table [zoneName=" + zoneName + ", tableName=" + tableName + ']',
-                cause);
+    public DistributionZoneNotFoundException(String zoneName, @Nullable Throwable cause) {
+        super(ZONE_NOT_FOUND_ERR, "Distribution zone is not found [zoneName=" + zoneName + ']', cause);
     }
 
     /**
@@ -56,7 +64,7 @@ public class DistributionZoneBindTableException extends IgniteInternalException 
      * @param message Error message.
      * @param cause Cause exception.
      */
-    public DistributionZoneBindTableException(UUID traceId, int code, String message, Throwable cause) {
+    public DistributionZoneNotFoundException(UUID traceId, int code, String message, Throwable cause) {
         super(traceId, code, message, cause);
     }
 }
