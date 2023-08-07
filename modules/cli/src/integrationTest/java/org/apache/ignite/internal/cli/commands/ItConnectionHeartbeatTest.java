@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.event.EventListener;
-import org.apache.ignite.internal.cli.event.EventSubscriber;
+import org.apache.ignite.internal.cli.event.EventSubscriptionManager;
 import org.apache.ignite.internal.cli.event.EventType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -42,7 +42,7 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
     Session session;
 
     @Inject
-    EventSubscriber eventSubscriber;
+    EventSubscriptionManager eventSubscriptionManager;
 
     @Value("${cli.check.connection.period.second}")
     private long cliCheckConnectionPeriodSecond;
@@ -52,7 +52,6 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
 
     @BeforeEach
     void setUp() {
-        //ToDo: Set connection check timeout to 1 sec to make test fast
         connectionLostCount.set(0);
         connectionRestoredCount.set(0);
         EventListener connectionRestoredEventListener = (event) -> {
@@ -64,8 +63,8 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
         };
 
         // Register listeners
-        eventSubscriber.listen(EventType.CONNECTION_LOST, connectionLostEventListener);
-        eventSubscriber.listen(EventType.CONNECTION_RESTORED, connectionRestoredEventListener);
+        eventSubscriptionManager.subscribe(EventType.CONNECTION_LOST, connectionLostEventListener);
+        eventSubscriptionManager.subscribe(EventType.CONNECTION_RESTORED, connectionRestoredEventListener);
     }
 
     @Override

@@ -101,7 +101,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
 
     @AfterEach
     public void tearDown() {
-        eventPublisher.fireEvent(Events.disconnect());
+        eventPublisher.publish(Events.disconnect());
     }
 
     protected void resetOutput() {

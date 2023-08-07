@@ -23,9 +23,9 @@ package org.apache.ignite.internal.cli.event;
 public interface EventPublisher {
 
     /**
-     * Fires event to the registered event listeners.
+     * Publish event to the registered event listeners.
      *
      * @param event event to fire
      */
-    void fireEvent(Event event);
+    void publish(Event event);
 }

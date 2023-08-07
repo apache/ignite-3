@@ -250,7 +250,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     }
 
     private void connected() {
-        eventPublisher.fireEvent(Events.connect(SessionInfo.builder().nodeUrl(DEFAULT_REST_URL).build()));
+        eventPublisher.publish(Events.connect(SessionInfo.builder().nodeUrl(DEFAULT_REST_URL).build()));
     }
 
     private Stream<Arguments> nodeConfigUpdateSuggestedSource() {

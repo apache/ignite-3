@@ -20,9 +20,9 @@ package org.apache.ignite.internal.cli.event;
 /**
  * Subscribes event listeners.
  */
-public interface EventSubscriber {
+public interface EventSubscriptionManager {
 
-    void listen(EventType eventType, EventListener eventListener);
+    void subscribe(EventType eventType, EventListener eventListener);
 
-    void removeListener(EventType eventType, EventListener eventListener);
+    void removeSubscription(EventType eventType, EventListener eventListener);
 }

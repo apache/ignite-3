@@ -24,7 +24,7 @@ import org.apache.ignite.internal.cli.core.repl.registry.impl.ClusterConfigRegis
 import org.apache.ignite.internal.cli.core.repl.registry.impl.MetricRegistryImpl;
 import org.apache.ignite.internal.cli.core.repl.registry.impl.NodeConfigRegistryImpl;
 import org.apache.ignite.internal.cli.core.repl.registry.impl.UnitsRegistryImpl;
-import org.apache.ignite.internal.cli.event.EventSubscriber;
+import org.apache.ignite.internal.cli.event.EventSubscriptionManager;
 import org.apache.ignite.internal.cli.event.EventType;
 
 /**
@@ -34,7 +34,7 @@ import org.apache.ignite.internal.cli.event.EventType;
 public class EventListeningActivationPoint {
 
     @Inject
-    private EventSubscriber eventSubscriber;
+    private EventSubscriptionManager eventSubscriptionManager;
 
     @Inject
     private PeriodicSessionTaskExecutor periodicSessionTaskExecutor;
@@ -64,28 +64,28 @@ public class EventListeningActivationPoint {
      * Subscribes event listeners.
      */
     public void subscribe() {
-        eventSubscriber.listen(EventType.CONNECT, periodicSessionTaskExecutor);
-        eventSubscriber.listen(EventType.DISCONNECT, periodicSessionTaskExecutor);
+        eventSubscriptionManager.subscribe(EventType.CONNECT, periodicSessionTaskExecutor);
+        eventSubscriptionManager.subscribe(EventType.DISCONNECT, periodicSessionTaskExecutor);
 
-        eventSubscriber.listen(EventType.CONNECT, clusterConfigRegistry);
-        eventSubscriber.listen(EventType.DISCONNECT, clusterConfigRegistry);
+        eventSubscriptionManager.subscribe(EventType.CONNECT, clusterConfigRegistry);
+        eventSubscriptionManager.subscribe(EventType.DISCONNECT, clusterConfigRegistry);
 
-        eventSubscriber.listen(EventType.CONNECT, metricRegistry);
-        eventSubscriber.listen(EventType.DISCONNECT, metricRegistry);
+        eventSubscriptionManager.subscribe(EventType.CONNECT, metricRegistry);
+        eventSubscriptionManager.subscribe(EventType.DISCONNECT, metricRegistry);
 
-        eventSubscriber.listen(EventType.CONNECT, nodeConfigRegistry);
-        eventSubscriber.listen(EventType.DISCONNECT, nodeConfigRegistry);
+        eventSubscriptionManager.subscribe(EventType.CONNECT, nodeConfigRegistry);
+        eventSubscriptionManager.subscribe(EventType.DISCONNECT, nodeConfigRegistry);
 
-        eventSubscriber.listen(EventType.CONNECT, unitsRegistry);
-        eventSubscriber.listen(EventType.DISCONNECT, unitsRegistry);
+        eventSubscriptionManager.subscribe(EventType.CONNECT, unitsRegistry);
+        eventSubscriptionManager.subscribe(EventType.DISCONNECT, unitsRegistry);
 
-        eventSubscriber.listen(EventType.CONNECT, connectionHeartBeat);
-        eventSubscriber.listen(EventType.DISCONNECT, connectionHeartBeat);
+        eventSubscriptionManager.subscribe(EventType.CONNECT, connectionHeartBeat);
+        eventSubscriptionManager.subscribe(EventType.DISCONNECT, connectionHeartBeat);
 
-        eventSubscriber.listen(EventType.CONNECT, session);
-        eventSubscriber.listen(EventType.DISCONNECT, session);
+        eventSubscriptionManager.subscribe(EventType.CONNECT, session);
+        eventSubscriptionManager.subscribe(EventType.DISCONNECT, session);
 
-        eventSubscriber.listen(EventType.CONNECTION_LOST, promptProvider);
-        eventSubscriber.listen(EventType.CONNECTION_RESTORED, promptProvider);
+        eventSubscriptionManager.subscribe(EventType.CONNECTION_LOST, promptProvider);
+        eventSubscriptionManager.subscribe(EventType.CONNECTION_RESTORED, promptProvider);
     }
 }

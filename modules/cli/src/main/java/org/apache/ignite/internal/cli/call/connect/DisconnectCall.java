@@ -48,7 +48,7 @@ public class DisconnectCall implements Call<EmptyCallInput, String> {
         SessionInfo sessionInfo = session.info();
         if (sessionInfo != null) {
             String nodeUrl = sessionInfo.nodeUrl();
-            eventPublisher.fireEvent(Events.disconnect());
+            eventPublisher.publish(Events.disconnect());
             return DefaultCallOutput.success(
                     MessageUiComponent.fromMessage("Disconnected from %s", UiElements.url(nodeUrl)).render()
             );

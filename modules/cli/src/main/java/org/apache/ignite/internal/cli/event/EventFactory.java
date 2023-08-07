@@ -28,7 +28,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
  * Register listeners and produces events.
  */
 @Singleton
-public class EventFactory implements EventPublisher, EventSubscriber {
+public class EventFactory implements EventPublisher, EventSubscriptionManager {
 
     private static final IgniteLogger log = CliLoggers.forClass(EventFactory.class);
 
@@ -45,7 +45,7 @@ public class EventFactory implements EventPublisher, EventSubscriber {
      * @param eventListener event listener.
      */
     @Override
-    public void listen(EventType eventType, EventListener eventListener) {
+    public void subscribe(EventType eventType, EventListener eventListener) {
         listeners.computeIfAbsent(eventType, evtKey -> new CopyOnWriteArrayList<>()).add(eventListener);
     }
 
@@ -56,7 +56,7 @@ public class EventFactory implements EventPublisher, EventSubscriber {
      * @param eventListener event listener.
      */
     @Override
-    public void removeListener(EventType eventType, EventListener eventListener) {
+    public void removeSubscription(EventType eventType, EventListener eventListener) {
         listeners.computeIfPresent(eventType, (eventType1, eventListeners) -> {
             eventListeners.remove(eventListener);
             return eventListeners;
@@ -69,7 +69,7 @@ public class EventFactory implements EventPublisher, EventSubscriber {
      * @param event event itself.
      */
     @Override
-    public void fireEvent(Event event) {
+    public void publish(Event event) {
         List<EventListener> eventListeners = listeners.get(event.eventType());
 
         if (eventListeners == null) {

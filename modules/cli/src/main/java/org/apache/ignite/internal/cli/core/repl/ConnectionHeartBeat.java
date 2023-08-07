@@ -23,6 +23,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.Nullable;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.event.Event;
@@ -57,6 +59,8 @@ public class ConnectionHeartBeat implements EventListener {
 
     private final AtomicBoolean connected = new AtomicBoolean(false);
 
+    private final Lock lock = new ReentrantLock();
+
     /**
      * Creates the instance of connection heartbeat.
      *
@@ -78,20 +82,25 @@ public class ConnectionHeartBeat implements EventListener {
      */
     private void onConnect(SessionInfo sessionInfo) {
         if (connected.compareAndSet(false, true)) {
-            eventPublisher.fireEvent(Events.connectionRestored());
+            eventPublisher.publish(Events.connectionRestored());
         }
 
-        if (scheduledConnectionHeartbeatExecutor == null) {
-            scheduledConnectionHeartbeatExecutor =
-                    Executors.newScheduledThreadPool(1, new NamedThreadFactory("cli-check-connection-thread", log));
+        lock.lock();
+        try {
+            if (scheduledConnectionHeartbeatExecutor == null) {
+                scheduledConnectionHeartbeatExecutor =
+                        Executors.newScheduledThreadPool(1, new NamedThreadFactory("cli-check-connection-thread", log));
 
-            // Start connection heart beat
-            scheduledConnectionHeartbeatExecutor.scheduleAtFixedRate(
-                    () -> pingConnection(sessionInfo.nodeUrl()),
-                    0,
-                    cliCheckConnectionPeriodSecond,
-                    TimeUnit.SECONDS
-            );
+                // Start connection heart beat
+                scheduledConnectionHeartbeatExecutor.scheduleAtFixedRate(
+                        () -> pingConnection(sessionInfo.nodeUrl()),
+                        0,
+                        cliCheckConnectionPeriodSecond,
+                        TimeUnit.SECONDS
+                );
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -99,9 +108,14 @@ public class ConnectionHeartBeat implements EventListener {
      * Stops connection heartbeat.
      */
     private void onDisconnect() {
-        if (scheduledConnectionHeartbeatExecutor != null) {
-            scheduledConnectionHeartbeatExecutor.shutdownNow();
-            scheduledConnectionHeartbeatExecutor = null;
+        lock.lock();
+        try {
+            if (scheduledConnectionHeartbeatExecutor != null) {
+                scheduledConnectionHeartbeatExecutor.shutdownNow();
+                scheduledConnectionHeartbeatExecutor = null;
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -109,11 +123,11 @@ public class ConnectionHeartBeat implements EventListener {
         try {
             new NodeManagementApi(clientFactory.getClient(nodeUrl)).nodeState();
             if (connected.compareAndSet(false, true)) {
-                eventPublisher.fireEvent(Events.connectionRestored());
+                eventPublisher.publish(Events.connectionRestored());
             }
         } catch (ApiException exception) {
             if (connected.compareAndSet(true, false)) {
-                eventPublisher.fireEvent(Events.connectionLost());
+                eventPublisher.publish(Events.connectionLost());
             }
         }
     }

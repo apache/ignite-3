@@ -92,12 +92,12 @@ public class ConnectCall implements Call<UrlCallInput, String> {
                     .jdbcUrl(jdbcUrl)
                     .username(username)
                     .build();
-            eventPublisher.fireEvent(Events.connect(sessionInfo));
+            eventPublisher.publish(Events.connect(sessionInfo));
 
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
         } catch (Exception e) {
             if (session.info() != null) {
-                eventPublisher.fireEvent(Events.disconnect());
+                eventPublisher.publish(Events.disconnect());
             }
             return DefaultCallOutput.failure(handleException(e, nodeUrl));
         }
