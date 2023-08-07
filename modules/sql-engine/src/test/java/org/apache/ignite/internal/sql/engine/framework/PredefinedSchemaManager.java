@@ -76,6 +76,12 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
+    public SchemaPlus schema(@Nullable String name, long timestamp) {
+        return name == null ? root : root.getSubSchema(name);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<Void> schemaReadyFuture(long version) {
         return completedFuture(null);
     }

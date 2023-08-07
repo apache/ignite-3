@@ -231,6 +231,12 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         /** {@inheritDoc} */
         @Override
+        public @Nullable SchemaPlus schema(@Nullable String name, long timestamp) {
+            return null;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public IgniteTable tableById(int id) {
             throw new UnsupportedOperationException();
         }

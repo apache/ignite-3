@@ -28,7 +28,12 @@ public interface SqlSchemaManager {
     /**
      * Returns schema with given name and by the given version, if name is not specified, returns default schema of the given version.
      */
-    @Nullable SchemaPlus schema(@Nullable String name, int version);
+    SchemaPlus schema(@Nullable String name, int version);
+
+    /**
+     * Returns schema with given name and by the given timestamp, if name is not specified, returns default schema of the given version.
+     */
+    SchemaPlus schema(@Nullable String name, long timestamp);
 
     /**
      * Returns a table by given id.

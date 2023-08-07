@@ -450,10 +450,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     // TODO IGNITE-18733: wait for actual metadata for TX.
                     HybridTimestamp txTimestamp = currentTx.startTimestamp();
-                    int observableCatalogVersion = catalogManager.activeCatalogVersion(txTimestamp.longValue());
 
-                    // Get SQL schema corresponding to observable catalog version.
-                    SchemaPlus schema = sqlSchemaManager.schema(schemaName, observableCatalogVersion);
+                    SchemaPlus schema = sqlSchemaManager.schema(schemaName, txTimestamp.longValue());
 
                     if (schema == null) {
                         return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
