@@ -58,17 +58,17 @@ public interface CatalogService {
 
     Collection<CatalogIndexDescriptor> indexes(int catalogVersion);
 
-    CatalogSchemaDescriptor schema(int version);
+    @Nullable CatalogSchemaDescriptor schema(int version);
 
-    CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
+    @Nullable CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
 
     CatalogZoneDescriptor zone(String zoneName, long timestamp);
 
     CatalogZoneDescriptor zone(int zoneId, long timestamp);
 
-    CatalogSchemaDescriptor activeSchema(long timestamp);
+    @Nullable CatalogSchemaDescriptor activeSchema(long timestamp);
 
-    CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
+    @Nullable CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
 
     int activeCatalogVersion(long timestamp);
 
