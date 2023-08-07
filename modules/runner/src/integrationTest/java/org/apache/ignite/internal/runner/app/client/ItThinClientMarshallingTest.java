@@ -220,7 +220,15 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     @Test
     public void testIncompatibleTupleElementType() {
-        assert false : "TODO";
+        Table table = ignite().tables().table(TABLE_NAME);
+        var tupleView = table.recordView();
+
+        Tuple rec = Tuple.create().set("KEY", "1").set("VAL", BigDecimal.ONE);
+
+        Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, rec), ClassCastException.class);
+        assertThat(
+                ex.getMessage(),
+                startsWith("Incorrect value type for column 'KEY': class java.lang.String cannot be cast to class java.lang.Integer"));
     }
 
     // TODO: Add schema update tests - add column, drop column.
