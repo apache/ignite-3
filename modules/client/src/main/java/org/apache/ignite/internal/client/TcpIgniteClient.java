@@ -178,7 +178,7 @@ public class TcpIgniteClient implements IgniteClient {
                 int fieldCnt = r.in().unpackArrayHeader();
                 assert fieldCnt == 4;
 
-                res.add(new ClusterNode(
+                res.add(new ClientClusterNode(
                         r.in().unpackString(),
                         r.in().unpackString(),
                         new NetworkAddress(r.in().unpackString(), r.in().unpackInt())));

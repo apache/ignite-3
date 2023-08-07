@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -82,6 +83,9 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.distributionzones.DistributionZoneBindTableException;
+import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -89,9 +93,6 @@ import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
-import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.lang.DistributionZoneBindTableException;
-import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
@@ -692,7 +693,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     private static void throwUnsupportedDdl(String msg, Object... params) {
-        throw new SqlException(STMT_VALIDATION_ERR, msg, params);
+        throw new SqlException(STMT_VALIDATION_ERR, format(msg, params));
     }
 
     @FunctionalInterface
@@ -857,8 +858,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
             if (table.isPrimaryKeyColumn(columnName)) {
                 throw new SqlException(
                         STMT_VALIDATION_ERR,
-                        "Can't drop primary key column: [name={}]",
-                        columnName
+                        "Can't drop primary key column: [name=" + columnName + ']'
                 );
             }
         }
@@ -871,9 +871,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                         .ifPresent(columnName -> {
                             throw new SqlException(
                                     STMT_VALIDATION_ERR,
-                                    "Can't drop indexed column: [columnName={}, indexName={}]",
-                                    columnName, index.name()
-                            );
+                                    format("Can't drop indexed column: [columnName={}, indexName={}]", columnName, index.name()));
                         }));
     }
 

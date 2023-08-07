@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.lang.util;
 
 import org.jetbrains.annotations.Nullable;
 
