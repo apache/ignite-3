@@ -23,6 +23,7 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -211,9 +212,9 @@ public class CatalogUtils {
      * @return Column descriptor.
      */
     public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
-        int precision = params.precision() != null ? params.precision() : defaultPrecision(params.type());
-        int scale = params.scale() != null ? params.scale() : DEFAULT_SCALE;
-        int length = params.length() != null ? params.length() : defaultLength(params.type());
+        int precision = Objects.requireNonNullElse(params.precision(), defaultPrecision(params.type()));
+        int scale = Objects.requireNonNullElse(params.precision(), DEFAULT_SCALE);
+        int length = Objects.requireNonNullElse(params.precision(), defaultLength(params.type()));
 
         DefaultValue defaultValue = params.defaultValueDefinition();
 
