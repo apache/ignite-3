@@ -125,12 +125,20 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     @Test
     public void testKvMissingKeyPojoFields() {
-        assert false : "TODO";
+        Table table = ignite().tables().table(TABLE_NAME);
+        var kvPojoView = table.keyValueView(MissingFieldPojo.class, String.class);
+
+        Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, new MissingFieldPojo(), ""), IllegalArgumentException.class);
+        assertEquals("No field found for column KEY", ex.getMessage());
     }
 
     @Test
     public void testKvMissingValPojoFields() {
-        assert false : "TODO";
+        Table table = ignite().tables().table(TABLE_NAME);
+        var kvPojoView = table.keyValueView(Integer.class, MissingFieldPojo.class);
+
+        Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, 1, new MissingFieldPojo()), IllegalArgumentException.class);
+        assertEquals("No field found for column VAL", ex.getMessage());
     }
 
     @Test
@@ -164,6 +172,8 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         // TODO: Tuple, POJO
         assert false : "TODO";
     }
+
+    // TODO: Add schema update tests - add column, drop column.
 
     private static class TestPojo2 {
         public int key;
