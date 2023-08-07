@@ -39,7 +39,6 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -55,9 +54,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
-import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -78,6 +74,7 @@ import org.jetbrains.annotations.Nullable;
  * Utils to manage distribution zones inside tests.
  */
 public class DistributionZonesTestUtil {
+
     /**
      * Creates distribution zone.
      *
@@ -496,65 +493,5 @@ public class DistributionZonesTestUtil {
 
             assertThat(dataNodes, is(expectedValueNames));
         }
-    }
-
-    /**
-     * Creates a zone in the catalog.
-     *
-     * @param catalogManager Catalog manager.
-     * @param zoneName Zone name.
-     * @param partitions Number of partitions, {@code null} if not set.
-     * @param replicas Number of replicas, {@code null} if not set.
-     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch, {@code null} if
-     *      not set.
-     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch, {@code null} if
-     *      not set.
-     * @param filter Nodes' filter, {@code null} if not set.
-     */
-    public static void createZone(
-            CatalogManager catalogManager,
-            String zoneName,
-            @Nullable Integer partitions,
-            @Nullable Integer replicas,
-            @Nullable Integer dataNodesAutoAdjustScaleUp,
-            @Nullable Integer dataNodesAutoAdjustScaleDown,
-            @Nullable String filter
-    ) {
-        CreateZoneParams.Builder builder = CreateZoneParams.builder().zoneName(zoneName);
-
-        if (partitions != null) {
-            builder.partitions(partitions);
-        }
-
-        if (replicas != null) {
-            builder.replicas(replicas);
-        }
-
-        if (dataNodesAutoAdjustScaleUp != null) {
-            builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
-        }
-
-        if (dataNodesAutoAdjustScaleDown != null) {
-            builder.dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
-        }
-
-        if (filter != null) {
-            builder.filter(filter);
-        }
-
-        assertThat(catalogManager.createDistributionZone(builder.build()), willBe(nullValue()));
-    }
-
-    /**
-     * Drops a zone from the catalog.
-     *
-     * @param catalogManager Catalog manager.
-     * @param zoneName Zone name.
-     */
-    public static void dropZone(CatalogManager catalogManager, String zoneName) {
-        assertThat(
-                catalogManager.dropDistributionZone(DropZoneParams.builder().zoneName(zoneName).build()),
-                willBe(nullValue())
-        );
     }
 }
