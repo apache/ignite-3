@@ -26,7 +26,7 @@ import java.util.Objects;
  * context could be schema name, dynamic parameters, and so on...
  */
 public class CacheKey {
-    public static final Class[] EMPTY_CLASS_ARRAY = {};
+    static final Class<?>[] EMPTY_CLASS_ARRAY = {};
 
     private final int catalogVersion;
 
@@ -36,7 +36,7 @@ public class CacheKey {
 
     private final Object contextKey;
 
-    private final Class[] paramTypes;
+    private final Class<?>[] paramTypes;
 
     /**
      * Constructor.
@@ -48,7 +48,7 @@ public class CacheKey {
      *                   LOCAL flag)
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
-    public CacheKey(int catalogVersion, String schemaName, String query, Object contextKey, Class[] paramTypes) {
+    public CacheKey(int catalogVersion, String schemaName, String query, Object contextKey, Class<?>[] paramTypes) {
         this.catalogVersion = catalogVersion;
         this.schemaName = schemaName;
         this.query = query;

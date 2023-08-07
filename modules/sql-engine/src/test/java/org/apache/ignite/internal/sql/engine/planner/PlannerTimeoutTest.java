@@ -33,6 +33,7 @@ import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.plan.volcano.VolcanoTimeoutException;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelVisitor;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestTable;
@@ -63,7 +64,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
         IgniteSchema schema = createSchema(createTestTable("T1"));
         BaseQueryContext ctx = baseQueryContext(Collections.singletonList(schema), null);
 
-        PrepareService prepareService = new PrepareServiceImpl("test", 0, null, plannerTimeout);
+        PrepareService prepareService = new PrepareServiceImpl("test", 0, null, plannerTimeout, new MetricManager());
         prepareService.start();
         try {
             ParserService parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);

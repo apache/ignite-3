@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.schema;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.schema.SchemaPlus;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Sql schemas operations interface.
@@ -28,22 +27,18 @@ import org.jetbrains.annotations.TestOnly;
 public interface SqlSchemaManager {
     /**
      * Returns schema with given name and by the given version, if name is not specified, returns default schema of the given version.
+     */
+    SchemaPlus schema(@Nullable String name, int version);
+
+    /**
+     * Returns schema with given name and by the given timestamp, if name is not specified, returns default schema of the given version.
+     */
+    SchemaPlus schema(@Nullable String name, long timestamp);
+
+    /**
+     * Returns a future to wait for given SQL schema version readiness.
      *
-     * @param schemaName Schema name. If {@code null}, then default schema name will be used.
-     * @param version Catalog version.
+     * @param version SQL schema version to wait.
      */
-    SchemaPlus schema(@Nullable String schemaName, int version);
-
-    /**
-     * Wait for {@code ver} schema version, just a stub, need to be removed after IGNITE-18733.
-     */
-    @Deprecated
-    CompletableFuture<?> actualSchemaAsync(int ver);
-
-    /**
-     * Returns a schema corresponding to the latest Catalog version, which is available on node locally.
-     * Note: For test purposes only. Method does NOT wait for actual Catalog version in the grid.
-     */
-    @TestOnly
-    SchemaPlus latestSchema(@Nullable String name);
+    CompletableFuture<Void> schemaReadyFuture(int version);
 }

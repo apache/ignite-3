@@ -31,11 +31,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.cluster.unit.DeployUnitCallInput;
-import org.apache.ignite.rest.client.model.DeployMode;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParameterException;
@@ -68,23 +65,32 @@ class UnitDeployOptionsMixin {
     /** Initial set of nodes. */
     private List<String> nodes;
 
-    @Option(names = UNIT_NODES_OPTION, description = UNIT_NODES_OPTION_DESC, split = ",",
-            completionCandidates = UnitNodesCompletionCandidates.class
-    )
+    @Option(names = UNIT_NODES_OPTION, description = UNIT_NODES_OPTION_DESC, split = ",")
     private void setNodes(List<String> values) {
         if (values.size() > 1) {
-            Optional<DeployMode> deployMode = values.stream()
-                    .map(value -> {
-                        try {
-                            return DeployMode.fromValue(value);
-                        } catch (IllegalArgumentException ignored) {
-                            return null;
-                        }
-                    })
-                    .filter(Objects::nonNull)
-                    .findAny();
-            if (deployMode.isPresent()) {
-                throw new ParameterException(spec.commandLine(), "There could be only one deploy mode option");
+            List<NodesAlias> aliases = new ArrayList<>();
+            List<String> nodeNames = new ArrayList<>();
+            values.forEach(it -> {
+                String trimmed = it.trim();
+                NodesAlias alias = NodesAlias.parse(trimmed);
+                if (alias != null) {
+                    aliases.add(alias);
+                } else {
+                    nodeNames.add(trimmed);
+                }
+            });
+            if (aliases.size() > 1) {
+                throw new ParameterException(
+                        spec.commandLine(),
+                        "Aliases " + aliases + " can not be specified together. Provide single alias, please."
+                );
+            } else if (aliases.size() == 1) {
+                throw new ParameterException(
+                        spec.commandLine(),
+                        "Alias " + aliases.get(0) + " couldn't be used with explicit nodes names list "
+                                + nodeNames
+                                + ". Provide either node names list or single alias."
+                );
             }
         }
         nodes = values;
@@ -92,7 +98,7 @@ class UnitDeployOptionsMixin {
 
     static class UnitNodesCompletionCandidates extends ArrayList<String> {
         UnitNodesCompletionCandidates() {
-            super(Arrays.stream(DeployMode.values()).map(DeployMode::getValue).collect(Collectors.toList()));
+            super(Arrays.stream(NodesAlias.values()).map(NodesAlias::name).collect(Collectors.toList()));
         }
     }
 

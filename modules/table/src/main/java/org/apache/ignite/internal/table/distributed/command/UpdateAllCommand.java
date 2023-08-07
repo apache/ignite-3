@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -30,5 +30,5 @@ import org.apache.ignite.network.annotations.Transferable;
 public interface UpdateAllCommand extends PartitionCommand {
     TablePartitionIdMessage tablePartitionId();
 
-    Map<UUID, ByteBuffer> rowsToUpdate();
+    Map<UUID, BinaryRowMessage> rowsToUpdate();
 }

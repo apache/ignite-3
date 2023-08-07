@@ -40,6 +40,7 @@ import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 
 /**
@@ -64,7 +65,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
 
                     RelDistribution distribution = table.distribution();
                     RelCollation collation = index.collation();
-                    RelCollation outputCollation = index.type() == IgniteIndex.Type.HASH ? RelCollations.EMPTY : collation;
+                    RelCollation outputCollation = index.type() == Type.HASH ? RelCollations.EMPTY : collation;
 
                     if (rel.projects() != null || rel.requiredColumns() != null) {
                         Mappings.TargetMapping mapping = createMapping(

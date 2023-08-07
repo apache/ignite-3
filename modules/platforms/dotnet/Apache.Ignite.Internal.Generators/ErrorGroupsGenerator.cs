@@ -38,7 +38,7 @@ namespace Apache.Ignite.Internal.Generators
         {
             var javaErrorGroupsFile = Path.GetFullPath(Path.Combine(
                 context.GetJavaModulesDirectory(),
-                "core",
+                "api",
                 "src",
                 "main",
                 "java",

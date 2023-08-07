@@ -21,8 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -61,18 +59,11 @@ public interface IgniteCompute {
      * @param <R>      Job result type
      * @return Job result.
      */
-    default <R> R execute(
+    <R> R execute(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
-    ) {
-        try {
-            return this.<R>executeAsync(nodes, units, jobClassName, args).join();
-        } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
-        }
-    }
+            Object... args);
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
@@ -128,19 +119,12 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job result.
      */
-    default <R> R executeColocated(
+    <R> R executeColocated(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
-    ) {
-        try {
-            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).join();
-        } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
-        }
-    }
+            Object... args);
 
     /**
      * Executes a job of the given class on the node where the given key is located. The node is a leader
@@ -155,20 +139,13 @@ public interface IgniteCompute {
      * @param <R> Job result type.
      * @return Job result.
      */
-    default <K, R> R executeColocated(
+    <K, R> R executeColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object... args
-    ) {
-        try {
-            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).join();
-        } catch (CompletionException e) {
-            throw IgniteExceptionUtils.wrap(e);
-        }
-    }
+            Object... args);
 
     /**
      * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.

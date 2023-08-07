@@ -39,7 +39,9 @@ class ItNodeMetricCommandTest extends CliCommandTestInitializedIntegrationBase {
                 this::assertErrOutputIsEmpty,
                 () -> assertOutputContains("Set name\tEnabled" + NL),
                 () -> assertOutputContains("jvm\tdisabled" + NL),
-                () -> assertOutputContains("client.handler\tdisabled" + NL)
+                () -> assertOutputContains("client.handler\tdisabled" + NL),
+                () -> assertOutputContains("sql.client\tdisabled" + NL),
+                () -> assertOutputContains("sql.plan.cache\tdisabled" + NL)
         );
     }
 

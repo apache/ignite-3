@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.nio.ByteBuffer;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,5 +34,13 @@ public interface UpdateCommand extends PartitionCommand {
     UUID rowUuid();
 
     @Nullable
-    ByteBuffer rowBuffer();
+    BinaryRowMessage rowMessage();
+
+    /** Returns the row to update or {@code null} if the row should be removed. */
+    @Nullable
+    default BinaryRow row() {
+        BinaryRowMessage message = rowMessage();
+
+        return message == null ? null : message.asBinaryRow();
+    }
 }

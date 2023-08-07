@@ -20,8 +20,8 @@ package org.apache.ignite.internal.sql.engine.schema;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
-import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -69,7 +69,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(String name, int version) {
+    public SchemaPlus schema(@Nullable String name, int version) {
         String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
 
         Entry<String, Integer> entry = Map.entry(schemaName, version);
@@ -78,29 +78,28 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> actualSchemaAsync(int ver) {
-        return catalogManager.catalogReadyFuture(ver);
+    public SchemaPlus schema(@Nullable String name, long timestamp) {
+        String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
+
+        int schemaVersion = catalogManager.activeCatalogVersion(timestamp);
+
+        Entry<String, Integer> entry = Map.entry(schemaName, schemaVersion);
+        return cache.computeIfAbsent(entry, (e) -> createSqlSchema(e.getValue(), catalogManager.schema(e.getKey(), e.getValue())));
     }
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus latestSchema(@Nullable String name) {
-        String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
-
-        int version = catalogManager.activeCatalogVersion(Long.MAX_VALUE);
-
-        CatalogSchemaDescriptor descriptor = catalogManager.schema(schemaName, version);
-
-        Entry<String, Integer> entry = Map.entry(schemaName, version);
-        return cache.computeIfAbsent(entry, (v) -> createSqlSchema(v.getValue(), descriptor));
+    public CompletableFuture<Void> schemaReadyFuture(int version) {
+        // SqlSchemaManager creates SQL schema lazily on-demand, thus waiting for Catalog version is enough.
+        return catalogManager.catalogReadyFuture(version);
     }
 
-    private SchemaPlus createSqlSchema(int version, CatalogSchemaDescriptor schemaDescriptor) {
+    private static SchemaPlus createSqlSchema(int version, CatalogSchemaDescriptor schemaDescriptor) {
         String schemaName = schemaDescriptor.name();
 
         int numTables = schemaDescriptor.tables().length;
         List<IgniteTable> schemaTables = new ArrayList<>(numTables);
-        Map<Integer, TableDescriptor> tableDescriptorMap = new LinkedHashMap<>(numTables);
+        Int2ObjectMap<TableDescriptor> tableDescriptorMap = new Int2ObjectOpenHashMap<>(numTables);
 
         // Assemble sql-engine.TableDescriptors as they are required by indexes.
         for (CatalogTableDescriptor tableDescriptor : schemaDescriptor.tables()) {
@@ -108,7 +107,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             tableDescriptorMap.put(tableDescriptor.id(), descriptor);
         }
 
-        Int2ObjectMap<List<IgniteIndex>> schemaTableIndexes = new Int2ObjectArrayMap<>(schemaDescriptor.indexes().length);
+        Int2ObjectMap<Map<String, IgniteIndex>> schemaTableIndexes = new Int2ObjectOpenHashMap<>(schemaDescriptor.indexes().length);
 
         // Assemble indexes as they are required by tables.
         for (CatalogIndexDescriptor indexDescriptor : schemaDescriptor.indexes()) {
@@ -116,11 +115,11 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             TableDescriptor tableDescriptor = tableDescriptorMap.get(tableId);
             assert tableDescriptor != null : "Table is not found in schema: " + tableId;
 
-            List<IgniteIndex> tableIndexes = schemaTableIndexes.computeIfAbsent(tableId, id -> new ArrayList<>());
+            String indexName = indexDescriptor.name();
+            Map<String, IgniteIndex> tableIndexes = schemaTableIndexes.computeIfAbsent(tableId, id -> new LinkedHashMap<>());
 
             IgniteIndex schemaIndex = createSchemaIndex(indexDescriptor, tableDescriptor);
-
-            tableIndexes.add(schemaIndex);
+            tableIndexes.put(indexName, schemaIndex);
 
             schemaTableIndexes.put(tableId, tableIndexes);
         }
@@ -133,7 +132,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             assert descriptor != null;
 
             IgniteStatistic statistic = new IgniteStatistic(() -> 0.0d, descriptor.distribution());
-            List<IgniteIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyList());
+            Map<String, IgniteIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyMap());
 
             IgniteSchemaTable schemaTable = new IgniteSchemaTable(tableName, tableId, version, descriptor, statistic, tableIndexMap);
 
@@ -149,19 +148,15 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
     private static IgniteIndex createSchemaIndex(CatalogIndexDescriptor indexDescriptor, TableDescriptor tableDescriptor) {
         Type type;
         if (indexDescriptor instanceof CatalogSortedIndexDescriptor) {
-            type = IgniteIndex.Type.SORTED;
+            type = Type.SORTED;
         } else if (indexDescriptor instanceof CatalogHashIndexDescriptor) {
-            type = IgniteIndex.Type.HASH;
+            type = Type.HASH;
         } else {
             throw new IllegalArgumentException("Unexpected index type: " + indexDescriptor);
         }
 
-        int indexId = indexDescriptor.id();
-        String indexName = indexDescriptor.name();
-        IgniteDistribution distribution = tableDescriptor.distribution();
         RelCollation indexCollation = IgniteIndex.createIndexCollation(indexDescriptor, tableDescriptor);
-
-        return new IgniteIndex(indexId, indexName, type, distribution, indexCollation);
+        return new IgniteIndex(indexDescriptor.id(), indexDescriptor.name(), type, tableDescriptor.distribution(), indexCollation);
     }
 
     private static TableDescriptor createTableDescriptor(CatalogTableDescriptor descriptor) {

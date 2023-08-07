@@ -38,7 +38,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -91,6 +90,7 @@ import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -621,14 +621,12 @@ public class PartitionCommandListenerTest {
      * Inserts all rows.
      */
     private void insertAll() {
-        Map<UUID, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
+        Map<UUID, BinaryRowMessage> rows = new HashMap<>(KEY_COUNT);
         UUID txId = TestTransactionIds.newTransactionId();
         var commitPartId = new TablePartitionId(1, PARTITION_ID);
 
         for (int i = 0; i < KEY_COUNT; i++) {
-            Row row = getTestRow(i, i);
-
-            rows.put(TestTransactionIds.newTransactionId(), row.byteBuffer());
+            rows.put(TestTransactionIds.newTransactionId(), getTestRow(i, i));
         }
 
         HybridTimestamp commitTimestamp = hybridClock.now();
@@ -660,12 +658,12 @@ public class PartitionCommandListenerTest {
     private void updateAll(Function<Integer, Integer> keyValueMapper) {
         UUID txId = TestTransactionIds.newTransactionId();
         var commitPartId = new TablePartitionId(1, PARTITION_ID);
-        Map<UUID, ByteBuffer> rows = new HashMap<>(KEY_COUNT);
+        Map<UUID, BinaryRowMessage> rows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
-            Row row = getTestRow(i, keyValueMapper.apply(i));
+            BinaryRowMessage row = getTestRow(i, keyValueMapper.apply(i));
 
-            rows.put(readRow(row).uuid(), row.byteBuffer());
+            rows.put(readRow(row.asBinaryRow()).uuid(), row);
         }
 
         HybridTimestamp commitTimestamp = hybridClock.now();
@@ -695,12 +693,12 @@ public class PartitionCommandListenerTest {
     private void deleteAll() {
         UUID txId = TestTransactionIds.newTransactionId();
         var commitPartId = new TablePartitionId(1, PARTITION_ID);
-        Map<UUID, ByteBuffer> keyRows = new HashMap<>(KEY_COUNT);
+        Map<UUID, BinaryRowMessage> keyRows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
-            Row row = getTestRow(i, i);
+            BinaryRowMessage row = getTestRow(i, i);
 
-            keyRows.put(readRow(row).uuid(), null);
+            keyRows.put(readRow(row.asBinaryRow()).uuid(), null);
         }
 
         HybridTimestamp commitTimestamp = hybridClock.now();
@@ -734,8 +732,8 @@ public class PartitionCommandListenerTest {
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = TestTransactionIds.newTransactionId();
-            Row row = getTestRow(i, keyValueMapper.apply(i));
-            RowId rowId = readRow(row);
+            BinaryRowMessage row = getTestRow(i, keyValueMapper.apply(i));
+            RowId rowId = readRow(row.asBinaryRow());
 
             assertNotNull(rowId);
 
@@ -749,7 +747,7 @@ public class PartitionCommandListenerTest {
                                     .tableId(1)
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(rowId.uuid())
-                            .rowBuffer(row.byteBuffer())
+                            .rowMessage(row)
                             .txId(txId)
                             .safeTimeLong(hybridClock.nowLong())
                             .build());
@@ -779,7 +777,7 @@ public class PartitionCommandListenerTest {
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = TestTransactionIds.newTransactionId();
-            Row row = getTestRow(i, i);
+            BinaryRow row = getTestRow(i, i).asBinaryRow();
             RowId rowId = readRow(row);
 
             assertNotNull(rowId);
@@ -857,7 +855,6 @@ public class PartitionCommandListenerTest {
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = TestTransactionIds.newTransactionId();
-            Row row = getTestRow(i, i);
             txIds.add(txId);
 
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
@@ -868,7 +865,7 @@ public class PartitionCommandListenerTest {
                                     .tableId(1)
                                     .partitionId(PARTITION_ID).build())
                             .rowUuid(UUID.randomUUID())
-                            .rowBuffer(row.byteBuffer())
+                            .rowMessage(getTestRow(i, i))
                             .txId(txId)
                             .safeTimeLong(hybridClock.nowLong())
                             .build());
@@ -909,13 +906,18 @@ public class PartitionCommandListenerTest {
      *
      * @return Row.
      */
-    private Row getTestRow(int key, int val) {
+    private BinaryRowMessage getTestRow(int key, int val) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendInt(key);
         rowBuilder.appendInt(val);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        BinaryRow row = rowBuilder.build();
+
+        return msgFactory.binaryRowMessage()
+                .binaryTuple(row.tupleSlice())
+                .schemaVersion(row.schemaVersion())
+                .build();
     }
 
     private void invokeBatchedCommand(WriteCommand cmd) {

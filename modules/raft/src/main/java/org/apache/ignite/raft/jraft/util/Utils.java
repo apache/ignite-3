@@ -118,6 +118,17 @@ public final class Utils {
     }
 
     /**
+     * Run closure in current thread.
+     * @param done
+     * @param status
+     */
+    public static void runClosure(Closure done, Status status) {
+        if (done != null) {
+            done.run(status);
+        }
+    }
+
+    /**
      * Run closure with OK status in thread pool.
      */
     public static Future<?> runClosureInThread(ExecutorService executor, final Closure done) {

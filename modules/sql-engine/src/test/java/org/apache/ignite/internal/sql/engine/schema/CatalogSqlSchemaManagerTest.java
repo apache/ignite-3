@@ -57,6 +57,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -98,7 +99,7 @@ public class CatalogSqlSchemaManagerTest {
         testSchema.init(catalogManager);
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
-        SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
+        SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
         IgniteSchema schema = unwrapSchema(schemaPlus);
 
         assertEquals(testSchema.name, schema.getName());
@@ -155,7 +156,7 @@ public class CatalogSqlSchemaManagerTest {
         testSchema.init(catalogManager);
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
-        SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
+        SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
         IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteSchemaTable table = getTable(schema, testTable);
@@ -194,7 +195,7 @@ public class CatalogSqlSchemaManagerTest {
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
 
         {
-            SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
+            SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
             IgniteSchema schema = unwrapSchema(schemaPlus);
 
             assertEquals(DEFAULT_SCHEMA_NAME, schema.getName());
@@ -202,7 +203,7 @@ public class CatalogSqlSchemaManagerTest {
         }
 
         {
-            SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(null);
+            SchemaPlus schemaPlus = sqlSchemaManager.schema(null, testSchema.timestamp);
             IgniteSchema schema = unwrapSchema(schemaPlus);
 
             assertEquals(DEFAULT_SCHEMA_NAME, schema.getName());
@@ -231,7 +232,7 @@ public class CatalogSqlSchemaManagerTest {
         testSchema.init(catalogManager);
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
-        SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
+        SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
         IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteTable table = getTable(schema, testTable);
@@ -271,7 +272,7 @@ public class CatalogSqlSchemaManagerTest {
         testSchema.init(catalogManager);
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
-        SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
+        SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
         IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
@@ -299,7 +300,7 @@ public class CatalogSqlSchemaManagerTest {
         testSchema.init(catalogManager);
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
-        SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
+        SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
         IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
@@ -333,7 +334,7 @@ public class CatalogSqlSchemaManagerTest {
         testSchema.init(catalogManager);
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
-        SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
+        SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
         IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
@@ -366,7 +367,7 @@ public class CatalogSqlSchemaManagerTest {
         testSchema.init(catalogManager);
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
-        SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
+        SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
         IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteSchemaTable table = (IgniteSchemaTable) schema.getTable(testTable.name);
@@ -375,7 +376,7 @@ public class CatalogSqlSchemaManagerTest {
         IgniteIndex testIdx = table.indexes().get(testIndex.name);
 
         assertEquals(testIndex.name, testIdx.name());
-        assertEquals(IgniteIndex.Type.HASH, testIdx.type());
+        assertEquals(Type.HASH, testIdx.type());
         assertEquals(RelCollations.of(
                 new RelFieldCollation(0, Direction.CLUSTERED, NullDirection.UNSPECIFIED),
                 new RelFieldCollation(1, Direction.CLUSTERED, NullDirection.UNSPECIFIED)
@@ -410,7 +411,7 @@ public class CatalogSqlSchemaManagerTest {
         testSchema.init(catalogManager);
 
         SqlSchemaManager sqlSchemaManager = newSchemaManager();
-        SchemaPlus schemaPlus = sqlSchemaManager.latestSchema(testSchema.name);
+        SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
         IgniteSchema schema = unwrapSchema(schemaPlus);
 
         IgniteSchemaTable table = (IgniteSchemaTable) schema.getTable(testTable.name);
@@ -419,7 +420,7 @@ public class CatalogSqlSchemaManagerTest {
         IgniteIndex testIdx = table.indexes().get(testIndex.name);
 
         assertEquals(testIndex.name, testIdx.name());
-        assertEquals(IgniteIndex.Type.SORTED, testIdx.type());
+        assertEquals(Type.SORTED, testIdx.type());
         assertEquals(RelCollations.of(
                 new RelFieldCollation(0, Direction.ASCENDING, NullDirection.LAST),
                 new RelFieldCollation(1, Direction.ASCENDING, NullDirection.FIRST),
@@ -466,7 +467,7 @@ public class CatalogSqlSchemaManagerTest {
 
         void init(CatalogManager catalogManager) {
             CatalogSchemaDescriptor schemaDescriptor = newSchemaDescriptor(version);
-            when(catalogManager.activeCatalogVersion(Long.MAX_VALUE)).thenReturn(version);
+            when(catalogManager.activeCatalogVersion(timestamp)).thenReturn(version);
             when(catalogManager.schema(name != null ? name : DEFAULT_SCHEMA_NAME, version)).thenReturn(schemaDescriptor);
         }
 

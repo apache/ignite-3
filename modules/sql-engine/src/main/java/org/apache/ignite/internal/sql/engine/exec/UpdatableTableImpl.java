@@ -23,7 +23,6 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -46,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.SqlException;
@@ -77,7 +77,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
     /**
      * Constructor.
      *
-     * @param desc  Table descriptor.
+     * @param desc Table descriptor.
      */
     public UpdatableTableImpl(
             int tableId,
@@ -137,7 +137,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
                     .commitPartitionId(commitPartitionId)
-                    .binaryRowsBytes(serializeBinaryRows(partToRows.getValue()))
+                    .binaryRowMessages(serializeBinaryRows(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_UPSERT_ALL)
@@ -150,11 +150,16 @@ public final class UpdatableTableImpl implements UpdatableTable {
         return CompletableFuture.allOf(futures);
     }
 
-    private static List<ByteBuffer> serializeBinaryRows(Collection<BinaryRow> rows) {
-        var result = new ArrayList<ByteBuffer>(rows.size());
+    private static List<BinaryRowMessage> serializeBinaryRows(Collection<BinaryRow> rows) {
+        var result = new ArrayList<BinaryRowMessage>(rows.size());
 
         for (BinaryRow row : rows) {
-            result.add(row.byteBuffer());
+            BinaryRowMessage message = MESSAGES_FACTORY.binaryRowMessage()
+                    .binaryTuple(row.tupleSlice())
+                    .schemaVersion(row.schemaVersion())
+                    .build();
+
+            result.add(message);
         }
 
         return result;
@@ -197,7 +202,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
                     .commitPartitionId(commitPartitionId)
-                    .binaryRowsBytes(serializeBinaryRows(partToRows.getValue()))
+                    .binaryRowMessages(serializeBinaryRows(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_INSERT_ALL)
@@ -205,26 +210,26 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .build();
 
             futures[batchNum++] = replicaService.invoke(nodeWithTerm.name(), request)
-                .thenApply(result -> {
-                    Collection<BinaryRow> binaryRows = (Collection<BinaryRow>) result;
+                    .thenApply(result -> {
+                        Collection<BinaryRow> binaryRows = (Collection<BinaryRow>) result;
 
-                    if (binaryRows.isEmpty()) {
-                        return List.of();
-                    }
+                        if (binaryRows.isEmpty()) {
+                            return List.of();
+                        }
 
-                    List<RowT> conflictRows = new ArrayList<>(binaryRows.size());
-                    IgniteTypeFactory typeFactory = ectx.getTypeFactory();
-                    RowHandler.RowFactory<RowT> rowFactory = handler.factory(
-                            ectx.getTypeFactory(),
-                            desc.insertRowType(typeFactory)
-                    );
+                        List<RowT> conflictRows = new ArrayList<>(binaryRows.size());
+                        IgniteTypeFactory typeFactory = ectx.getTypeFactory();
+                        RowHandler.RowFactory<RowT> rowFactory = handler.factory(
+                                ectx.getTypeFactory(),
+                                desc.insertRowType(typeFactory)
+                        );
 
-                    for (BinaryRow row : binaryRows) {
-                        conflictRows.add(rowConverter.toRow(ectx, row, rowFactory, null));
-                    }
+                        for (BinaryRow row : binaryRows) {
+                            conflictRows.add(rowConverter.toRow(ectx, row, rowFactory, null));
+                        }
 
-                    return conflictRows;
-                });
+                        return conflictRows;
+                    });
         }
 
         return handleInsertResults(handler, futures);
@@ -260,7 +265,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
                     .commitPartitionId(commitPartitionId)
-                    .binaryRowsBytes(serializeBinaryRows(partToRows.getValue()))
+                    .binaryRowMessages(serializeBinaryRows(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_DELETE_ALL)
