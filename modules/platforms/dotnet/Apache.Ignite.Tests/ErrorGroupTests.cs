@@ -30,7 +30,7 @@ namespace Apache.Ignite.Tests
     public class ErrorGroupTests
     {
         private static readonly string JavaErrorGroupsFile = Path.Combine(
-            TestUtils.RepoRootDir, "modules", "core", "src", "main", "java", "org", "apache", "ignite", "lang", "ErrorGroups.java");
+            TestUtils.RepoRootDir, "modules", "api", "src", "main", "java", "org", "apache", "ignite", "lang", "ErrorGroups.java");
 
         [Test]
         public void TestErrorGroupCodesAreUnique()

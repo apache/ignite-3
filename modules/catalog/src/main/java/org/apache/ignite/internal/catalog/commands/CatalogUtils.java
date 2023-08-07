@@ -23,6 +23,7 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -66,6 +67,62 @@ public class CatalogUtils {
 
     /** Max number of distribution zone partitions. */
     public static final int MAX_PARTITION_COUNT = 65_000;
+
+    /**
+     * Default TIMESTAMP type precision: microseconds.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 36
+     */
+    public static final int DEFAULT_TIMESTAMP_PRECISION = 6;
+
+    /**
+     * Default TIME type precision: seconds.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 36
+     */
+    public static final int DEFAULT_TIME_PRECISION = 0;
+
+    /**
+     * Default DECIMAL precision is implementation-defined.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 20
+     */
+    public static final int DEFAULT_DECIMAL_PRECISION = 19;
+
+    /**
+     * Default scale is 0.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 22
+     */
+    public static final int DEFAULT_SCALE = 0;
+
+    /**
+     * Maximum TIME and TIMESTAMP precision is implementation-defined.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 38
+     */
+    public static final int MAX_TIME_PRECISION = 9;
+
+    /**
+     * Max DECIMAL precision is implementation-defined.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 25
+     */
+    public static final int MAX_DECIMAL_PRECISION = Short.MAX_VALUE;
+
+    /**
+     * Max DECIMAL scale is implementation-defined.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 25
+     */
+    public static final int MAX_DECIMAL_SCALE = Short.MAX_VALUE;
+
+    /**
+     * Default length is `1` if implicit.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 5
+     */
+    public static final int DEFAULT_LENGTH = 1;
 
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
@@ -155,9 +212,10 @@ public class CatalogUtils {
      * @return Column descriptor.
      */
     public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
-        int precision = params.precision() != null ? params.precision() : 0;
-        int scale = params.scale() != null ? params.scale() : 0;
-        int length = params.length() != null ? params.length() : 0;
+        int precision = Objects.requireNonNullElse(params.precision(), defaultPrecision(params.type()));
+        int scale = Objects.requireNonNullElse(params.scale(), DEFAULT_SCALE);
+        int length = Objects.requireNonNullElse(params.length(), defaultLength(params.type()));
+
         DefaultValue defaultValue = params.defaultValueDefinition();
 
         return new CatalogTableColumnDescriptor(params.name(), params.type(), params.nullable(),
@@ -175,5 +233,33 @@ public class CatalogUtils {
         Set<ColumnType> supportedTransitions = ALTER_COLUMN_TYPE_TRANSITIONS.get(source);
 
         return supportedTransitions != null && supportedTransitions.contains(target);
+    }
+
+    private static int defaultPrecision(ColumnType columnType) {
+        //TODO IGNITE-19938: Add REAL,FLOAT and DOUBLE precision. See SQL`16 part 2 section 6.1 syntax rule 29-31
+        switch (columnType) {
+            case NUMBER:
+            case DECIMAL:
+                return DEFAULT_DECIMAL_PRECISION;
+            case TIME:
+                return DEFAULT_TIME_PRECISION;
+            case TIMESTAMP:
+            case DATETIME:
+                return DEFAULT_TIMESTAMP_PRECISION;
+            default:
+                return 0;
+        }
+    }
+
+    private static int defaultLength(ColumnType columnType) {
+        //TODO IGNITE-19938: Return length for other types. See SQL`16 part 2 section 6.1 syntax rule 39
+        switch (columnType) {
+            case BITMASK:
+            case STRING:
+            case BYTE_ARRAY:
+                return Integer.MAX_VALUE;
+            default:
+                return Math.max(DEFAULT_LENGTH, defaultPrecision(columnType));
+        }
     }
 }

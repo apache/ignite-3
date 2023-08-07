@@ -82,6 +82,7 @@ import org.apache.ignite.internal.schema.testobjects.TestObjectWithPrivateConstr
 import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectKey;
 import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectVal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Assumptions;
@@ -205,13 +206,9 @@ public class KvMarshallerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
 
-        IllegalArgumentException ex = assertThrows(
+        IllegalArgumentException ex = ExceptionUtils.unwrapRootCause(assertThrows(
                 IllegalArgumentException.class,
-                () -> factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class));
-
-        while (ex.getCause() != null) {
-            ex = (IllegalArgumentException) ex.getCause();
-        }
+                () -> factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class)));
 
         assertEquals(
                 "Fields [bitmaskCol, booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
@@ -322,13 +319,9 @@ public class KvMarshallerTest {
         KvMarshaller<Integer, BitSet> marshaller =
                 factory.create(schema, Integer.class, BitSet.class);
 
-        Throwable ex = assertThrows(
+        Throwable ex = ExceptionUtils.unwrapRootCause(assertThrows(
                 MarshallerException.class,
-                () -> marshaller.marshal(1, IgniteTestUtils.randomBitSet(rnd, 42)));
-
-        while (ex.getCause() != null) {
-            ex = ex.getCause();
-        }
+                () -> marshaller.marshal(1, IgniteTestUtils.randomBitSet(rnd, 42))));
 
         assertThat(ex.getMessage(), startsWith("Failed to set bitmask for column 'BITMASKCOL' (mask size exceeds allocated size)"));
     }

@@ -53,7 +53,6 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.jetbrains.annotations.Nullable;
 
 /**

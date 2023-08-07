@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.metastorage.server.If;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -60,22 +60,22 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
     private static final int TIMER_SECONDS = 10_000;
 
     private static final LogicalNode A = new LogicalNode(
-            new ClusterNode("1", "A", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10")
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new ClusterNode("2", "B", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
             Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30")
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new ClusterNode("3", "C", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20")
     );
 
     private static final LogicalNode D = new LogicalNode(
-            new ClusterNode("4", "D", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("4", "D", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20")
     );
 
@@ -242,7 +242,7 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
         ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         LogicalNode e = new LogicalNode(
-                new ClusterNode("5", "E", new NetworkAddress("localhost", 123)),
+                new ClusterNodeImpl("5", "E", new NetworkAddress("localhost", 123)),
                 Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20")
         );
 

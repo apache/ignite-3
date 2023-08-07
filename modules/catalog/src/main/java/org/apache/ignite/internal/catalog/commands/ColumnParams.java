@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /** Defines a particular column within table. */
 public class ColumnParams {
@@ -79,23 +80,23 @@ public class ColumnParams {
     }
 
     /**
-     * Get column's precision.
+     * Get column's precision or {@code null} if not set.
      */
-    public Integer precision() {
+    public @Nullable Integer precision() {
         return precision;
     }
 
     /**
-     * Get column's scale.
+     * Get column's scale or {@code null} if not set.
      */
-    public Integer scale() {
+    public @Nullable Integer scale() {
         return scale;
     }
 
     /**
-     * Get column's length.
+     * Get column's length or {@code null} if not set.
      */
-    public Integer length() {
+    public @Nullable Integer length() {
         return length;
     }
 
@@ -158,7 +159,7 @@ public class ColumnParams {
          *
          * @return {@code this}.
          */
-        public Builder precision(int precision) {
+        public Builder precision(Integer precision) {
             params.precision = precision;
 
             return this;
@@ -169,7 +170,7 @@ public class ColumnParams {
          *
          * @return {@code this}.
          */
-        public Builder scale(int scale) {
+        public Builder scale(Integer scale) {
             params.scale = scale;
 
             return this;
@@ -180,7 +181,7 @@ public class ColumnParams {
          *
          * @return {@code this}.
          */
-        public Builder length(int length) {
+        public Builder length(Integer length) {
             params.length = length;
 
             return this;

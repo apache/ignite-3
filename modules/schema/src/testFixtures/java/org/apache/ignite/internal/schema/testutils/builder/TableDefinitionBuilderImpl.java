@@ -25,7 +25,7 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.PrimaryKeyDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinitionImpl;
-import org.apache.ignite.internal.util.IgniteNameUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 
 /**
  * Table builder.
