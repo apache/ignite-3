@@ -43,6 +43,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -443,9 +444,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     boolean implicitTxRequired = outerTx == null;
 
-                    tx.set(implicitTxRequired ? txManager.begin(!rwOp, null) : outerTx);
+                    InternalTransaction currentTx = implicitTxRequired ? txManager.begin(!rwOp, null) : outerTx;
 
-                    SchemaPlus schema = sqlSchemaManager.schema(schemaName);
+                    tx.set(currentTx);
+
+                    // TODO IGNITE-18733: wait for actual metadata for TX.
+                    HybridTimestamp txTimestamp = currentTx.startTimestamp();
+
+                    SchemaPlus schema = sqlSchemaManager.schema(schemaName, txTimestamp.longValue());
 
                     if (schema == null) {
                         return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
