@@ -631,7 +631,7 @@ public class TypeUtils {
 
         if (type instanceof IgniteCustomType) {
             NativeType nativeType = IgniteTypeFactory.relDataTypeToNative(type);
-            return RowSchemaTypes.nullableNativeType(nativeType, nullable);
+            return RowSchemaTypes.nativeTypeWithNullability(nativeType, nullable);
         } else if (SqlTypeName.ANY == type.getSqlTypeName()) {
             // TODO: After https://issues.apache.org/jira/browse/IGNITE-19096 is fixed
             //  it should be possible to remove branch.
@@ -641,17 +641,17 @@ public class TypeUtils {
             return RowSchemaTypes.NULL;
         } else if (simpleType) {
             NativeType nativeType = IgniteTypeFactory.relDataTypeToNative(type);
-            return RowSchemaTypes.nullableNativeType(nativeType, nullable);
+            return RowSchemaTypes.nativeTypeWithNullability(nativeType, nullable);
         } else if (type instanceof IntervalSqlType) {
             IntervalSqlType intervalType = (IntervalSqlType) type;
             boolean yearMonth = intervalType.getIntervalQualifier().isYearMonth();
 
             if (yearMonth) {
                 // YEAR MONTH interval is stored as number of days in ints.
-                return RowSchemaTypes.nullableNativeType(NativeTypes.INT32, nullable);
+                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.INT32, nullable);
             } else {
                 // DAY interval is stored as time in nanos as long.
-                return RowSchemaTypes.nullableNativeType(NativeTypes.INT64, nullable);
+                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.INT64, nullable);
             }
         } else if (SqlTypeUtil.isRow(type)) {
             List<TypeSpec> fields = new ArrayList<>();

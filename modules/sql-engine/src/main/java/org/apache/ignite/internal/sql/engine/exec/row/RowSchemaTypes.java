@@ -67,13 +67,13 @@ public final class RowSchemaTypes {
 
     }
 
-    /** Returns a {@link BaseTypeSpec} that corresponds to the given native type without nullability. */
+    /** Returns a non-nullable {@link BaseTypeSpec} that corresponds to the given native type without nullability. */
     public static BaseTypeSpec nativeType(NativeType nativeType) {
-        return nullableNativeType(nativeType, false);
+        return nativeTypeWithNullability(nativeType, false);
     }
 
-    /** Returns a {@link BaseTypeSpec} that corresponds to the given native type and nullability. */
-    public static BaseTypeSpec nullableNativeType(NativeType nativeType, boolean nullable) {
+    /** Returns a {@link BaseTypeSpec} that corresponds to the given native type with the specified nullability. */
+    public static BaseTypeSpec nativeTypeWithNullability(NativeType nativeType, boolean nullable) {
         Pair<BaseTypeSpec, BaseTypeSpec> typePair = INTERNED_TYPES.get(nativeType);
 
         if (typePair != null) {

@@ -102,8 +102,8 @@ public class RowSchemaTypesTest {
 
         for (ConversionTest testCase : ConversionTest.values()) {
             NativeType nativeType = testCase.nativeType;
-            Supplier<BaseTypeSpec> fromNotNull = () -> RowSchemaTypes.nullableNativeType(nativeType, false);
-            Supplier<BaseTypeSpec> fromNullable = () -> RowSchemaTypes.nullableNativeType(nativeType, true);
+            Supplier<BaseTypeSpec> fromNotNull = () -> RowSchemaTypes.nativeTypeWithNullability(nativeType, false);
+            Supplier<BaseTypeSpec> fromNullable = () -> RowSchemaTypes.nativeTypeWithNullability(nativeType, true);
 
             if (testCase.interned) {
                 Pair<BaseTypeSpec, BaseTypeSpec> typePair = RowSchemaTypes.INTERNED_TYPES.get(nativeType);
