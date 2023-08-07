@@ -192,7 +192,15 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     @Test
     public void testMissingTupleFieldsWithDefaultValue() {
-        assert false : "TODO";
+        var tableName = "testMissingTupleFieldsWithDefaultValue";
+        ignite().sql().createSession().execute(null,
+                "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL DEFAULT 'def')");
+
+        Table table = ignite().tables().table(tableName);
+        var tupleView = table.recordView();
+
+        tupleView.upsert(null, Tuple.create().set("KEY", 1));
+        assertEquals("def", tupleView.get(null, Tuple.create().set("KEY", 1)).value("VAL"));
     }
 
     @Test
