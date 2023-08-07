@@ -73,7 +73,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
@@ -118,6 +117,7 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -199,7 +199,7 @@ public class DistributionZoneManager implements IgniteComponent {
     private final LogicalTopologyService logicalTopologyService;
 
     /** Executor for scheduling tasks for scale up and scale down processes. */
-    private final ScheduledExecutorService executor;
+    private final StripedScheduledThreadPoolExecutor executor;
 
     /**
      * Map with states for distribution zones. States are needed to track nodes that we want to add or remove from the data nodes,
@@ -284,6 +284,7 @@ public class DistributionZoneManager implements IgniteComponent {
         nodesAttributes = new ConcurrentHashMap<>();
 
         executor = createZoneManagerExecutor(
+                Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG)
         );
 
@@ -680,7 +681,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
                 zoneState.rescheduleScaleUp(
                         newScaleUp,
-                        () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, revision)
+                        () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, revision),
+                        zoneId
                 );
             } else {
                 zoneState.stopScaleUp();
@@ -722,7 +724,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
                 zoneState.rescheduleScaleDown(
                         newScaleDown,
-                        () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, ctx.storageRevision())
+                        () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, ctx.storageRevision()),
+                        zoneId
                 );
             } else {
                 zoneState.stopScaleDown();
@@ -896,7 +899,8 @@ public class DistributionZoneManager implements IgniteComponent {
                     // the highest revision from the topologyAugmentationMap, and current timer won't affect data nodes.
                     zoneState.rescheduleScaleUp(
                             zone.dataNodesAutoAdjustScaleUp(),
-                            () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, maxScaleUpRevision)
+                            () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, maxScaleUpRevision),
+                            zoneId
                     );
                 }
         );
@@ -904,7 +908,8 @@ public class DistributionZoneManager implements IgniteComponent {
         maxScaleDownRevisionOptional.ifPresent(
                 maxScaleDownRevision -> zoneState.rescheduleScaleDown(
                         zone.dataNodesAutoAdjustScaleDown(),
-                        () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, maxScaleDownRevision)
+                        () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, maxScaleDownRevision),
+                        zoneId
                 )
         );
     }
@@ -1015,8 +1020,7 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         if (distributionZoneCfg.dataStorageChangeConsumer() != null) {
-            zoneChange.changeDataStorage(
-                    distributionZoneCfg.dataStorageChangeConsumer());
+            zoneChange.changeDataStorage(distributionZoneCfg.dataStorageChangeConsumer());
         }
 
         if (distributionZoneCfg.filter() != null) {
@@ -1316,7 +1320,8 @@ public class DistributionZoneManager implements IgniteComponent {
                 if (autoAdjustScaleUp != INFINITE_TIMER_VALUE) {
                     zonesState.get(zoneId).rescheduleScaleUp(
                             autoAdjustScaleUp,
-                            () -> saveDataNodesOnScaleUp.apply(zoneId, revision)
+                            () -> saveDataNodesOnScaleUp.apply(zoneId, revision),
+                            zoneId
                     );
                 }
             }
@@ -1327,7 +1332,8 @@ public class DistributionZoneManager implements IgniteComponent {
                 if (autoAdjustScaleDown != INFINITE_TIMER_VALUE) {
                     zonesState.get(zoneId).rescheduleScaleDown(
                             autoAdjustScaleDown,
-                            () -> saveDataNodesOnScaleDown.apply(zoneId, revision)
+                            () -> saveDataNodesOnScaleDown.apply(zoneId, revision),
+                            zoneId
                     );
                 }
             }
@@ -1721,14 +1727,14 @@ public class DistributionZoneManager implements IgniteComponent {
         private final ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap;
 
         /** Executor for scheduling tasks for scale up and scale down processes. */
-        private final ScheduledExecutorService executor;
+        private final StripedScheduledThreadPoolExecutor executor;
 
         /**
          * Constructor.
          *
          * @param executor Executor for scheduling tasks for scale up and scale down processes.
          */
-        ZoneState(ScheduledExecutorService executor) {
+        ZoneState(StripedScheduledThreadPoolExecutor executor) {
             this.executor = executor;
             topologyAugmentationMap = new ConcurrentSkipListMap<>();
         }
@@ -1742,7 +1748,7 @@ public class DistributionZoneManager implements IgniteComponent {
          *         visibility of the events of adding or removing nodes because any process of scale up or scale down has a revision that
          *         triggered this process.
          */
-        ZoneState(ScheduledExecutorService executor, ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap) {
+        ZoneState(StripedScheduledThreadPoolExecutor executor, ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap) {
             this.executor = executor;
             this.topologyAugmentationMap = topologyAugmentationMap;
         }
@@ -1762,11 +1768,12 @@ public class DistributionZoneManager implements IgniteComponent {
          *
          * @param delay Delay to start runnable in seconds.
          * @param runnable Custom logic to run.
+         * @param zoneId Unique id of a zone to determine the executor of the task.
          */
-        public synchronized void rescheduleScaleUp(long delay, Runnable runnable) {
+        public synchronized void rescheduleScaleUp(long delay, Runnable runnable, int zoneId) {
             stopScaleUp();
 
-            scaleUpTask = executor.schedule(runnable, delay, SECONDS);
+            scaleUpTask = executor.schedule(runnable, delay, SECONDS, zoneId);
 
             scaleUpTaskDelay = delay;
         }
@@ -1777,11 +1784,12 @@ public class DistributionZoneManager implements IgniteComponent {
          *
          * @param delay Delay to start runnable in seconds.
          * @param runnable Custom logic to run.
+         * @param zoneId Unique id of a zone to determine the executor of the task.
          */
-        public synchronized void rescheduleScaleDown(long delay, Runnable runnable) {
+        public synchronized void rescheduleScaleDown(long delay, Runnable runnable, int zoneId) {
             stopScaleDown();
 
-            scaleDownTask = executor.schedule(runnable, delay, SECONDS);
+            scaleDownTask = executor.schedule(runnable, delay, SECONDS, zoneId);
 
             scaleDownTaskDelay = delay;
         }
