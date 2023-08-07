@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.Ignite;
@@ -142,8 +144,25 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testMissingTupleFields() {
-        assert false : "TODO";
+    public void testMissingKeyTupleFields() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var tupleView = table.recordView();
+
+        Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, Tuple.create()), IgniteException.class);
+        assertEquals("Missed key column: KEY", ex.getMessage());
+    }
+
+    @Test
+    public void testMissingValTupleFields() {
+        var tableName = "testMissingValTupleFields";
+        ignite().sql().createSession().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+
+        Table table = ignite().tables().table(tableName);
+        var tupleView = table.recordView();
+
+        Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, Tuple.create().set("KEY", 1)), IgniteException.class);
+        assertThat(ex.getMessage(), startsWith(
+                "Failed to set column (null was passed, but column is not nullable): [col=Column [schemaIndex=1, columnOrder=1, name=VAL"));
     }
 
     @Test
