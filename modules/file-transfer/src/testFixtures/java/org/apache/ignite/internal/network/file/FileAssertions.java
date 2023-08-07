@@ -22,8 +22,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -36,7 +36,7 @@ public class FileAssertions {
      * @param files1 First set of files.
      * @param files2 Second set of files.
      */
-    public static void assertContentEquals(Set<File> files1, Set<File> files2) {
+    public static void assertContentEquals(List<File> files1, List<File> files2) {
         assertThat(files1.size(), is(files2.size()));
 
         Map<String, File> map = files1.stream()

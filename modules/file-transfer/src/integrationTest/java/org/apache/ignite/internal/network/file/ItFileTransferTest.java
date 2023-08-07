@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.network.file.FileAssertions.assertContentEquals;
 import static org.apache.ignite.internal.network.file.FileGenerator.randomFile;
+import static org.apache.ignite.internal.network.file.FileUtils.sortByNames;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
@@ -33,9 +34,7 @@ import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -80,11 +79,11 @@ public class ItFileTransferTest {
 
     @Test
     void download() throws IOException {
-        Node node0 = cluster.members.get(0);
+        Node targetNode = cluster.members.get(0);
 
         String unit = "unit";
         String version = "1.0.0";
-        Path unitPath = node0.workDir().resolve(unit).resolve(version);
+        Path unitPath = targetNode.workDir().resolve(unit).resolve(version);
         Files.createDirectories(unitPath);
 
         int chunkSize = configuration.value().chunkSize();
@@ -93,20 +92,20 @@ public class ItFileTransferTest {
         File file3 = randomFile(unitPath, chunkSize * 2);
         File file4 = randomFile(unitPath, chunkSize * 2);
 
-        node0.fileTransferringService().addFileProvider(
+        targetNode.fileTransferringService().addFileProvider(
                 Metadata.class,
                 req -> completedFuture(List.of(file1, file2, file3, file4))
         );
 
-        Node node1 = cluster.members.get(1);
-        CompletableFuture<List<File>> downloadedFilesFuture = node1.fileTransferringService().download(
-                node0.nodeName(),
+        Node sourceNode = cluster.members.get(1);
+        CompletableFuture<List<File>> downloadedFilesFuture = sourceNode.fileTransferringService().download(
+                targetNode.nodeName(),
                 MetadataImpl.builder().build()
         );
 
         assertThat(
                 downloadedFilesFuture.thenAccept(files -> {
-                    assertContentEquals(Set.of(file1, file2, file3, file4), new HashSet<>(files));
+                    assertContentEquals(sortByNames(file1, file2, file3, file4), sortByNames(files));
                 }),
                 willCompleteSuccessfully()
         );
@@ -114,11 +113,11 @@ public class ItFileTransferTest {
 
     @Test
     void downloadNonReadableFiles() throws IOException {
-        Node node0 = cluster.members.get(0);
+        Node targetNode = cluster.members.get(0);
 
         String unit = "unit";
         String version = "1.0.0";
-        Path unitPath = node0.workDir().resolve(unit).resolve(version);
+        Path unitPath = targetNode.workDir().resolve(unit).resolve(version);
         Files.createDirectories(unitPath);
 
         int chunkSize = configuration.value().chunkSize();
@@ -128,14 +127,14 @@ public class ItFileTransferTest {
 
         assertTrue(file2.setReadable(false));
 
-        node0.fileTransferringService().addFileProvider(
+        targetNode.fileTransferringService().addFileProvider(
                 Metadata.class,
                 req -> completedFuture(List.of(file1, file2, file3))
         );
 
-        Node node1 = cluster.members.get(1);
-        CompletableFuture<List<File>> download = node1.fileTransferringService().download(
-                node0.nodeName(),
+        Node sourceNode = cluster.members.get(1);
+        CompletableFuture<List<File>> download = sourceNode.fileTransferringService().download(
+                targetNode.nodeName(),
                 MetadataImpl.builder().build()
         );
         assertThat(download, willThrow(FileTransferException.class, "Permission denied"));
@@ -143,16 +142,16 @@ public class ItFileTransferTest {
 
     @Test
     void downloadFilesWhenProviderThrowsException() {
-        Node node0 = cluster.members.get(0);
+        Node targetNode = cluster.members.get(0);
 
-        node0.fileTransferringService().addFileProvider(
+        targetNode.fileTransferringService().addFileProvider(
                 Metadata.class,
                 req -> failedFuture(new RuntimeException("Test exception"))
         );
 
-        Node node1 = cluster.members.get(1);
-        CompletableFuture<List<File>> download = node1.fileTransferringService().download(
-                node0.nodeName(),
+        Node sourceNode = cluster.members.get(1);
+        CompletableFuture<List<File>> download = sourceNode.fileTransferringService().download(
+                targetNode.nodeName(),
                 MetadataImpl.builder().build()
         );
         assertThat(download, willThrowWithCauseOrSuppressed(FileTransferException.class));
@@ -160,11 +159,11 @@ public class ItFileTransferTest {
 
     @Test
     void downloadFilesWhenDoNotHaveAccessToWrite() throws IOException {
-        Node node0 = cluster.members.get(0);
+        Node targetNode = cluster.members.get(0);
 
         String unit = "unit";
         String version = "1.0.0";
-        Path unitPath = node0.workDir().resolve(unit).resolve(version);
+        Path unitPath = targetNode.workDir().resolve(unit).resolve(version);
         Files.createDirectories(unitPath);
 
         int chunkSize = configuration.value().chunkSize();
@@ -173,22 +172,22 @@ public class ItFileTransferTest {
         File file3 = randomFile(unitPath, chunkSize * 2);
         File file4 = randomFile(unitPath, chunkSize * 2);
 
-        node0.fileTransferringService().addFileProvider(
+        targetNode.fileTransferringService().addFileProvider(
                 Metadata.class,
                 req -> completedFuture(List.of(file1, file2, file3, file4))
         );
 
-        Node node1 = cluster.members.get(1);
-        assertTrue(node1.workDir().toFile().setWritable(false));
+        Node sourceNode = cluster.members.get(1);
+        assertTrue(sourceNode.workDir().toFile().setWritable(false));
 
-        CompletableFuture<List<File>> downloadedFilesFuture = node1.fileTransferringService().download(
-                node0.nodeName(),
+        CompletableFuture<List<File>> downloadedFilesFuture = sourceNode.fileTransferringService().download(
+                targetNode.nodeName(),
                 MetadataImpl.builder().build()
         );
 
         assertThat(
                 downloadedFilesFuture.thenAccept(files -> {
-                    assertContentEquals(Set.of(file1, file2, file3, file4), new HashSet<>(files));
+                    assertContentEquals(sortByNames(file1, file2, file3, file4), sortByNames(files));
                 }),
                 willThrowWithCauseOrSuppressed(AccessDeniedException.class)
         );
@@ -196,16 +195,16 @@ public class ItFileTransferTest {
 
     @Test
     void downloadEmptyFileList() {
-        Node node0 = cluster.members.get(0);
+        Node targetNode = cluster.members.get(0);
 
-        node0.fileTransferringService().addFileProvider(
+        targetNode.fileTransferringService().addFileProvider(
                 Metadata.class,
                 req -> completedFuture(List.of())
         );
 
-        Node node1 = cluster.members.get(1);
-        CompletableFuture<List<File>> downloadedFiles = node1.fileTransferringService().download(
-                node0.nodeName(),
+        Node sourceNode = cluster.members.get(1);
+        CompletableFuture<List<File>> downloadedFiles = sourceNode.fileTransferringService().download(
+                targetNode.nodeName(),
                 MetadataImpl.builder().build()
         );
         assertThat(downloadedFiles, willThrow(FileTransferException.class, "No files to download"));
@@ -213,11 +212,11 @@ public class ItFileTransferTest {
 
     @Test
     void upload() throws IOException {
-        Node node0 = cluster.members.get(0);
+        Node sourceNode = cluster.members.get(0);
 
         String unit = "unit";
         String version = "1.0.0";
-        Path unitPath = node0.workDir().resolve(unit).resolve(version);
+        Path unitPath = sourceNode.workDir().resolve(unit).resolve(version);
         Files.createDirectories(unitPath);
 
         int chunkSize = configuration.value().chunkSize();
@@ -226,24 +225,24 @@ public class ItFileTransferTest {
         File file3 = randomFile(unitPath, chunkSize + 1);
         File file4 = randomFile(unitPath, chunkSize * 2);
 
-        node0.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferringService().addFileProvider(
                 Metadata.class,
                 req -> completedFuture(List.of(file1, file2, file3, file4))
         );
 
-        Node node1 = cluster.members.get(1);
+        Node targetNode = cluster.members.get(1);
 
         CompletableFuture<List<File>> uploadedFilesFuture = new CompletableFuture<>();
-        node1.fileTransferringService().addFileHandler(Metadata.class, ((metadata, uploadedFilesDir) -> {
+        targetNode.fileTransferringService().addFileHandler(Metadata.class, ((metadata, uploadedFilesDir) -> {
             uploadedFilesFuture.complete(uploadedFilesDir);
             return completedFuture(null);
         }));
 
-        node0.fileTransferringService().upload(node1.nodeName(), MetadataImpl.builder().build());
+        sourceNode.fileTransferringService().upload(targetNode.nodeName(), MetadataImpl.builder().build());
 
         assertThat(
                 uploadedFilesFuture.thenAccept(files -> {
-                    assertContentEquals(Set.of(file1, file2, file3, file4), new HashSet<>(files));
+                    assertContentEquals(sortByNames(file1, file2, file3, file4), sortByNames(files));
                 }),
                 willCompleteSuccessfully()
         );
@@ -251,28 +250,28 @@ public class ItFileTransferTest {
 
     @Test
     void uploadEmptyFileList() {
-        Node node0 = cluster.members.get(0);
+        Node sourceNode = cluster.members.get(0);
 
-        node0.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferringService().addFileProvider(
                 Metadata.class,
                 req -> completedFuture(List.of())
         );
 
-        Node node1 = cluster.members.get(1);
+        Node targetNode = cluster.members.get(1);
 
         assertThat(
-                node0.fileTransferringService().upload(node1.nodeName(), MetadataImpl.builder().build()),
+                sourceNode.fileTransferringService().upload(targetNode.nodeName(), MetadataImpl.builder().build()),
                 willThrow(FileTransferException.class, "No files to upload")
         );
     }
 
     @Test
     void uploadNonReadableFiles() throws IOException {
-        Node node0 = cluster.members.get(0);
+        Node sourceNode = cluster.members.get(0);
 
         String unit = "unit";
         String version = "1.0.0";
-        Path unitPath = node0.workDir().resolve(unit).resolve(version);
+        Path unitPath = sourceNode.workDir().resolve(unit).resolve(version);
         Files.createDirectories(unitPath);
 
         int chunkSize = configuration.value().chunkSize();
@@ -282,21 +281,21 @@ public class ItFileTransferTest {
 
         assertTrue(file2.setReadable(false));
 
-        node0.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferringService().addFileProvider(
                 Metadata.class,
                 req -> completedFuture(List.of(file1, file2, file3))
         );
 
-        Node node1 = cluster.members.get(1);
+        Node targetNode = cluster.members.get(1);
 
         CompletableFuture<List<File>> uploadedFilesFuture = new CompletableFuture<>();
-        node1.fileTransferringService().addFileHandler(Metadata.class, ((metadata, uploadedFilesDir) -> {
+        targetNode.fileTransferringService().addFileHandler(Metadata.class, ((metadata, uploadedFilesDir) -> {
             uploadedFilesFuture.complete(uploadedFilesDir);
             return completedFuture(null);
         }));
 
         assertThat(
-                node0.fileTransferringService().upload(node1.nodeName(), MetadataImpl.builder().build()),
+                sourceNode.fileTransferringService().upload(targetNode.nodeName(), MetadataImpl.builder().build()),
                 willThrow(FileTransferException.class, "Failed to send files to node: ")
         );
 
@@ -308,23 +307,23 @@ public class ItFileTransferTest {
 
     @Test
     void uploadFilesWhenProviderThrowsException() {
-        Node node0 = cluster.members.get(0);
+        Node sourceNode = cluster.members.get(0);
 
-        node0.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferringService().addFileProvider(
                 Metadata.class,
                 req -> failedFuture(new RuntimeException("Test exception"))
         );
 
-        Node node1 = cluster.members.get(1);
+        Node targetNode = cluster.members.get(1);
 
         CompletableFuture<List<File>> uploadedFilesFuture = new CompletableFuture<>();
-        node1.fileTransferringService().addFileHandler(Metadata.class, ((metadata, uploadedFiles) -> {
+        targetNode.fileTransferringService().addFileHandler(Metadata.class, ((metadata, uploadedFiles) -> {
             uploadedFilesFuture.complete(uploadedFiles);
             return completedFuture(null);
         }));
 
         assertThat(
-                node0.fileTransferringService().upload(node1.nodeName(), MetadataImpl.builder().build()),
+                sourceNode.fileTransferringService().upload(targetNode.nodeName(), MetadataImpl.builder().build()),
                 willThrow(RuntimeException.class, "Test exception")
         );
 

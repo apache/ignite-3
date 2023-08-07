@@ -46,7 +46,7 @@ public class FileContentMatcher extends TypeSafeMatcher<File> {
      */
     public static FileContentMatcher hasContent(File file) {
         try {
-            return new FileContentMatcher(is(Files.readAllBytes(file.toPath())));
+            return hasContent(is(Files.readAllBytes(file.toPath())));
         } catch (IOException e) {
             throw new RuntimeException("Could not read file content", e);
         }

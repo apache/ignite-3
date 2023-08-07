@@ -17,30 +17,28 @@
 
 package org.apache.ignite.internal.network.file;
 
-class RateLimiter {
-    private final int maxConcurrentRequests;
-    private volatile int counter = 0;
+import java.io.File;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 
-    RateLimiter(int maxConcurrentRequests) {
-        this.maxConcurrentRequests = maxConcurrentRequests;
+/**
+ * File utils.
+ */
+public class FileUtils {
+    public static List<File> sortByNames(File... files) {
+        return sortByNames(List.of(files));
     }
 
-    boolean tryAcquire() {
-        if (counter >= maxConcurrentRequests) {
-            return false;
-        } else {
-            synchronized (this) {
-                if (counter >= maxConcurrentRequests) {
-                    return false;
-                } else {
-                    counter++;
-                    return true;
-                }
-            }
-        }
-    }
-
-    synchronized void release() {
-        counter--;
+    /**
+     * Sorts files by names.
+     *
+     * @param files Files.
+     * @return Sorted files.
+     */
+    public static List<File> sortByNames(List<File> files) {
+        return files.stream()
+                .sorted(Comparator.comparing(File::getName))
+                .collect(Collectors.toList());
     }
 }

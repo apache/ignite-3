@@ -29,6 +29,7 @@ public interface FileHandler<M extends Metadata> {
     /**
      * Handles the uploaded files.
      *
+     * @param metadata The metadata of the uploaded file.
      * @param uploadedFiles The temporary files that were uploaded. These files will be deleted after the method returns.
      * @return A future that will be completed when the file is handled.
      */

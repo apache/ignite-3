@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.file;
 
 import static org.apache.ignite.internal.network.file.FileAssertions.assertContentEquals;
 import static org.apache.ignite.internal.network.file.FileGenerator.randomFile;
+import static org.apache.ignite.internal.network.file.FileUtils.sortByNames;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -27,7 +28,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -74,7 +74,7 @@ class FileTransferMessagesHandlerTest {
 
         assertThat(
                 handler.result().thenAccept(receivedFiles -> {
-                    assertContentEquals(new HashSet<>(files), new HashSet<>(receivedFiles));
+                    assertContentEquals(sortByNames(files), sortByNames(receivedFiles));
                 }),
                 willCompleteSuccessfully()
         );
@@ -96,7 +96,7 @@ class FileTransferMessagesHandlerTest {
 
         assertThat(
                 handler.result().thenAccept(receivedFiles -> {
-                    assertContentEquals(new HashSet<>(files), new HashSet<>(receivedFiles));
+                    assertContentEquals(sortByNames(files), sortByNames(receivedFiles));
                 }),
                 willCompleteSuccessfully()
         );
@@ -119,7 +119,7 @@ class FileTransferMessagesHandlerTest {
 
         assertThat(
                 handler.result().thenAccept(receivedFiles -> {
-                    assertContentEquals(new HashSet<>(files), new HashSet<>(receivedFiles));
+                    assertContentEquals(sortByNames(files), sortByNames(receivedFiles));
                 }),
                 willCompleteSuccessfully()
         );

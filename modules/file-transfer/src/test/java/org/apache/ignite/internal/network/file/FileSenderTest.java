@@ -23,8 +23,12 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
@@ -47,7 +51,7 @@ class FileSenderTest {
     private Path workDir;
 
     @Test
-    void sendSingleFile() {
+    void sendSingleFile() throws IOException {
         // when
         File randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE);
         UUID transferId = UUID.randomUUID();
@@ -71,13 +75,15 @@ class FileSenderTest {
 
         // and - all messages are sent
         Set<NetworkMessage> expectedMessages = new HashSet<>();
-        new FileTransferMessagesStream(transferId, List.of(randomFile), CHUNK_SIZE)
-                .forEach(it -> expectedMessages.add(it));
+        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, List.of(randomFile), CHUNK_SIZE)) {
+            stream.forEach(expectedMessages::add);
+        }
+
         assertEquals(expectedMessages, sentMessages);
     }
 
     @Test
-    void sendMultipleFiles() {
+    void sendMultipleFiles() throws IOException {
         // when
         List<File> randomFiles = List.of(
                 FileGenerator.randomFile(workDir, CHUNK_SIZE),
@@ -105,8 +111,9 @@ class FileSenderTest {
 
         // and - all messages are sent
         Set<NetworkMessage> expectedMessages = new HashSet<>();
-        new FileTransferMessagesStream(transferId, randomFiles, CHUNK_SIZE)
-                .forEach(it -> expectedMessages.add(it));
+        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, randomFiles, CHUNK_SIZE)) {
+            stream.forEach(expectedMessages::add);
+        }
         assertEquals(expectedMessages, sentMessages);
     }
 
@@ -177,5 +184,31 @@ class FileSenderTest {
                 sender.send("node2", transferId, randomFiles),
                 willCompleteSuccessfully()
         );
+    }
+
+    @Test
+    void rateLimiterIsReleasedIfSendThrowsException() {
+        // when
+        File randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE);
+        UUID transferId = UUID.randomUUID();
+        RateLimiter rateLimiter = mock(RateLimiter.class);
+        doReturn(true).when(rateLimiter).tryAcquire();
+        FileSender sender = new FileSender(
+                "node1",
+                CHUNK_SIZE,
+                1,
+                rateLimiter,
+                (fileName, message) -> {
+                    throw new RuntimeException("Test exception");
+                }
+        );
+
+        // then - exception is thrown and rate limiter is released
+        assertThat(
+                sender.send("node2", transferId, List.of(randomFile)),
+                willThrowWithCauseOrSuppressed(RuntimeException.class)
+        );
+
+        verify(rateLimiter).release();
     }
 }

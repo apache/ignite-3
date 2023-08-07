@@ -186,7 +186,11 @@ public class ClusterServiceFactory {
 
         @Override
         public CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg) {
-            throw new AssertionError("Not implemented yet");
+            for (var handler : messagingServicesByNode.get(recipientConsistentId).messageHandlers(msg.groupType())) {
+                handler.onReceived(msg, localNodeName, null);
+            }
+
+            return CompletableFuture.completedFuture(null);
         }
 
         /** {@inheritDoc} */

@@ -71,21 +71,25 @@ class FileSender {
     }
 
     private void send0(String receiverConsistentId, UUID id, List<File> files) {
-        AtomicReference<Throwable> error = new AtomicReference();
+        AtomicReference<Throwable> error = new AtomicReference<>();
         try (FileTransferMessagesStream stream = new FileTransferMessagesStream(id, files, chunkSize)) {
             while (stream.hasNextMessage() && error.get() == null && !Thread.currentThread().isInterrupted()) {
                 if (rateLimiter.tryAcquire()) {
-                    send.apply(receiverConsistentId, stream.nextMessage())
+                    CompletableFuture.completedFuture(stream.nextMessage())
+                            .thenCompose(message -> send.apply(receiverConsistentId, message))
                             .whenComplete((res, e) -> {
-                                if (e != null) {
-                                    LOG.error("Failed to send message to node: {}, transfer id: {}. Exception: {}",
-                                            receiverConsistentId,
-                                            id,
-                                            e
-                                    );
-                                    error.compareAndSet(null, e);
+                                try {
+                                    if (e != null) {
+                                        LOG.error("Failed to send message to node: {}, transfer id: {}. Exception: {}",
+                                                receiverConsistentId,
+                                                id,
+                                                e
+                                        );
+                                        error.compareAndSet(null, e);
+                                    }
+                                } finally {
+                                    rateLimiter.release();
                                 }
-                                rateLimiter.release();
                             });
                 }
             }

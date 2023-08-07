@@ -44,6 +44,9 @@ import org.junit.jupiter.api.TestInfo;
  * Test cluster.
  */
 public class TestCluster {
+    /** Startup timeout in seconds. */
+    private static final int STARTUP_TIMEOUT = 3;
+
     /** Members of the cluster. */
     final List<Node> members;
 
@@ -125,7 +128,7 @@ public class TestCluster {
     void startAwait() throws InterruptedException {
         members.forEach(Node::start);
 
-        if (!startupLatch.await(3, TimeUnit.SECONDS)) {
+        if (!startupLatch.await(STARTUP_TIMEOUT, TimeUnit.SECONDS)) {
             throw new AssertionError();
         }
     }

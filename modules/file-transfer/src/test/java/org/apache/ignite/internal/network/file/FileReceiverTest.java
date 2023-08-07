@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.network.file;
 
+import static org.apache.ignite.internal.network.file.FileAssertions.assertContentEquals;
 import static org.apache.ignite.internal.network.file.FileGenerator.randomFile;
+import static org.apache.ignite.internal.network.file.FileUtils.sortByNames;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -27,7 +29,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -65,7 +66,7 @@ class FileReceiverTest {
         // then the file is received
         assertThat(
                 handler.result().thenAccept(files -> {
-                    FileAssertions.assertContentEquals(new HashSet<>(filesToSend), new HashSet<>(files));
+                    assertContentEquals(sortByNames(filesToSend), sortByNames(files));
                 }),
                 willCompleteSuccessfully()
         );
@@ -92,7 +93,7 @@ class FileReceiverTest {
         // then the files are received
         assertThat(
                 handler.result().thenAccept(files -> {
-                    FileAssertions.assertContentEquals(new HashSet<>(filesToSend), new HashSet<>(files));
+                    assertContentEquals(sortByNames(filesToSend), sortByNames(files));
                 }),
                 willCompleteSuccessfully()
         );
