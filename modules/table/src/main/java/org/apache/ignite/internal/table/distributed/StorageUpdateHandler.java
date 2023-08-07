@@ -103,13 +103,15 @@ public class StorageUpdateHandler {
      * @param commitPartitionId Commit partition id.
      * @param row Row.
      * @param onApplication Callback on application.
+     * @param commitTs Commit timestamp to use on autocommit.
      */
     public void handleUpdate(
             UUID txId,
             UUID rowUuid,
             TablePartitionId commitPartitionId,
             @Nullable BinaryRow row,
-            @Nullable Consumer<RowId> onApplication
+            @Nullable Consumer<RowId> onApplication,
+            @Nullable HybridTimestamp commitTs
     ) {
         indexUpdateHandler.waitIndexes();
 
@@ -120,11 +122,16 @@ public class StorageUpdateHandler {
 
             locker.lock(rowId);
 
-            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+            if (commitTs != null) {
+                storage.addWriteCommitted(rowId, row, commitTs);
+            } else {
+                BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
-            if (oldRow != null) {
-                // Previous uncommitted row should be removed from indexes.
-                tryRemovePreviousWritesIndex(rowId, oldRow);
+                if (oldRow != null) {
+                    assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
+                    // Previous uncommitted row should be removed from indexes.
+                    tryRemovePreviousWritesIndex(rowId, oldRow);
+                }
             }
 
             indexUpdateHandler.addToIndexes(row, rowId);
@@ -145,13 +152,15 @@ public class StorageUpdateHandler {
      * @param txId Transaction id.
      * @param rowsToUpdate Collection of rows to update.
      * @param commitPartitionId Commit partition id.
-     * @param onReplication On replication callback.
+     * @param onApplication Callback on application.
+     * @param commitTs Commit timestamp to use on autocommit.
      */
     public void handleUpdateAll(
             UUID txId,
             Map<UUID, BinaryRowMessage> rowsToUpdate,
             TablePartitionId commitPartitionId,
-            @Nullable Consumer<Collection<RowId>> onReplication
+            @Nullable Consumer<Collection<RowId>> onApplication,
+            @Nullable HybridTimestamp commitTs
     ) {
         indexUpdateHandler.waitIndexes();
 
@@ -171,19 +180,24 @@ public class StorageUpdateHandler {
 
                     locker.lock(rowId);
 
-                    BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
+                    if (commitTs != null) {
+                        storage.addWriteCommitted(rowId, row, commitTs);
+                    } else {
+                        BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitTblId, commitPartId);
 
-                    if (oldRow != null) {
-                        // Previous uncommitted row should be removed from indexes.
-                        tryRemovePreviousWritesIndex(rowId, oldRow);
+                        if (oldRow != null) {
+                            assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
+                            // Previous uncommitted row should be removed from indexes.
+                            tryRemovePreviousWritesIndex(rowId, oldRow);
+                        }
                     }
 
                     rowIds.add(rowId);
                     indexUpdateHandler.addToIndexes(row, rowId);
                 }
 
-                if (onReplication != null) {
-                    onReplication.accept(rowIds);
+                if (onApplication != null) {
+                    onApplication.accept(rowIds);
                 }
             }
 
