@@ -83,7 +83,6 @@ public interface CatalogService {
      * Returns a future, which completes, when catalog of given version will be available.
      *
      * @param version Catalog version to wait for.
-     * @return Operation future.
      */
     CompletableFuture<Void> catalogReadyFuture(int version);
 

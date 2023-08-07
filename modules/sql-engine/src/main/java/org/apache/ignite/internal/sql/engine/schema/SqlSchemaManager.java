@@ -28,7 +28,7 @@ public interface SqlSchemaManager {
     /**
      * Returns schema with given name and by the given version, if name is not specified, returns default schema of the given version.
      */
-    SchemaPlus schema(@Nullable String name, int version);
+    @Nullable SchemaPlus schema(@Nullable String name, int version);
 
     /**
      * Returns a table by given id.
@@ -42,7 +42,6 @@ public interface SqlSchemaManager {
      * Returns a future to wait for given SQL schema version readiness.
      *
      * @param version SQL schema version to wait.
-     * @return Operation future.
      */
-    CompletableFuture<?> schemaReadyFuture(long version);
+    CompletableFuture<Void> schemaReadyFuture(long version);
 }

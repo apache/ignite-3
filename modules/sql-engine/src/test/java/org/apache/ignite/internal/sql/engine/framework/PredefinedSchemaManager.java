@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CollectionUtils.toIntMapCollector;
+
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collection;
@@ -28,7 +31,7 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Dummy wrapper for predefined collection of schemas.
@@ -60,21 +63,21 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
                     schema.getTableNames().stream()
                             .map(schema::getTable)
                             .map(IgniteTable.class::cast)
-                            .collect(CollectionUtils.toIntMapCollector(IgniteTable::id, Function.identity()))
+                            .collect(toIntMapCollector(IgniteTable::id, Function.identity()))
             );
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(String name, int version) {
+    public @Nullable SchemaPlus schema(String name, int version) {
         return name == null ? root : root.getSubSchema(name);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> schemaReadyFuture(long version) {
-        return CompletableFuture.completedFuture(root);
+    public CompletableFuture<Void> schemaReadyFuture(long version) {
+        return completedFuture(null);
     }
 
     /** {@inheritDoc} */

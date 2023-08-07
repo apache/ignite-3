@@ -452,6 +452,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     HybridTimestamp txTimestamp = currentTx.startTimestamp();
                     int observableCatalogVersion = catalogManager.activeCatalogVersion(txTimestamp.longValue());
 
+                    // Get SQL schema corresponding to observable catalog version.
                     SchemaPlus schema = sqlSchemaManager.schema(schemaName, observableCatalogVersion);
 
                     if (schema == null) {

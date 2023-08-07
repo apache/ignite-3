@@ -40,6 +40,7 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -69,6 +70,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class SqlSchemaManagerTest extends BaseIgniteAbstractTest {
+    private static final String SCHEMA_NAME = CatalogService.DEFAULT_SCHEMA_NAME;
+
     private final int tableId = 1;
 
     private final int indexId = 2;
@@ -129,7 +132,7 @@ public class SqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         when(schemaManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(schemaRegistry));
 
-        sqlSchemaManager.onTableCreated("PUBLIC", tableId, testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableCreated(SCHEMA_NAME, tableId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
         TestHashIndex testHashIndex = TestHashIndex.create(List.of("ID"), "pk_idx", tableId);
@@ -143,16 +146,16 @@ public class SqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         testRevisionRegister.moveForward();
 
-        Table schemaTable = sqlSchemaManager.latestSchema("PUBLIC").getTable("T");
+        Table schemaTable = sqlSchemaManager.latestSchema(SCHEMA_NAME).getTable("T");
 
         assertNotNull(schemaTable);
         IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
         assertEquals(tableId, igniteTable.id());
 
-        sqlSchemaManager.onTableDropped("PUBLIC", tableId, testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableDropped(SCHEMA_NAME, tableId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
-        assertNull(sqlSchemaManager.latestSchema("PUBLIC").getTable("T"));
+        assertNull(sqlSchemaManager.latestSchema(SCHEMA_NAME).getTable("T"));
     }
 
     @Test
@@ -167,7 +170,7 @@ public class SqlSchemaManagerTest extends BaseIgniteAbstractTest {
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
         when(schemaManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(schemaRegistry));
 
-        sqlSchemaManager.onTableCreated("PUBLIC", tableId, testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableCreated(SCHEMA_NAME, tableId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
         TestHashIndex testHashIndex = TestHashIndex.create(List.of("ID"), "pk_idx", tableId);
@@ -181,7 +184,7 @@ public class SqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         testRevisionRegister.moveForward();
 
-        assertEquals(1, ((IgniteTableImpl) sqlSchemaManager.latestSchema("PUBLIC").getTable("T")).indexes().size());
+        assertEquals(1, ((IgniteTableImpl) sqlSchemaManager.latestSchema(SCHEMA_NAME).getTable("T")).indexes().size());
 
         IndexDescriptor descMock = mock(IndexDescriptor.class);
         when(descMock.columns()).thenReturn(List.of());
@@ -191,7 +194,7 @@ public class SqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
         testRevisionRegister.moveForward();
 
-        IgniteSchema schema = sqlSchemaManager.latestSchema("PUBLIC").unwrap(IgniteSchema.class);
+        IgniteSchema schema = sqlSchemaManager.latestSchema(SCHEMA_NAME).unwrap(IgniteSchema.class);
         Table schemaTable = schema.getTable("T");
         IgniteIndex igniteIndex = schema.index(indexId);
 
@@ -202,10 +205,10 @@ public class SqlSchemaManagerTest extends BaseIgniteAbstractTest {
         assertEquals(igniteTable.id(), igniteIndex.tableId());
         assertSame(igniteIndex, igniteTable.indexes().get("PUBLIC.I"));
 
-        sqlSchemaManager.onIndexDropped("PUBLIC", igniteTable.id(), indexId, testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onIndexDropped(SCHEMA_NAME, igniteTable.id(), indexId, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
-        assertNull(sqlSchemaManager.latestSchema("PUBLIC").unwrap(IgniteSchema.class).index(indexId));
+        assertNull(sqlSchemaManager.latestSchema(SCHEMA_NAME).unwrap(IgniteSchema.class).index(indexId));
 
         verifyNoMoreInteractions(tableManager);
     }
@@ -223,7 +226,7 @@ public class SqlSchemaManagerTest extends BaseIgniteAbstractTest {
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
         when(schemaManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(schemaRegistry));
 
-        sqlSchemaManager.onTableCreated("PUBLIC", table.tableId(), testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableCreated(SCHEMA_NAME, table.tableId(), testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
         TestHashIndex testHashIndex = TestHashIndex.create(List.of("ID"), "pk_idx", tableId);
@@ -244,12 +247,12 @@ public class SqlSchemaManagerTest extends BaseIgniteAbstractTest {
         when(descMock.name()).thenReturn(idxName);
 
         {
-            SchemaPlus schema1 = sqlSchemaManager.latestSchema("PUBLIC");
+            SchemaPlus schema1 = sqlSchemaManager.latestSchema(SCHEMA_NAME);
 
             sqlSchemaManager.onIndexCreated(tableId, indexId, descMock, testRevisionRegister.actualToken() + 1);
             testRevisionRegister.moveForward();
 
-            SchemaPlus schema2 = sqlSchemaManager.latestSchema("PUBLIC");
+            SchemaPlus schema2 = sqlSchemaManager.latestSchema(SCHEMA_NAME);
 
             // Validate schema snapshot.
             assertNotSame(schema1, schema2);
@@ -262,11 +265,11 @@ public class SqlSchemaManagerTest extends BaseIgniteAbstractTest {
             assertNotNull(((IgniteTable) schema2.getTable("T")).getIndex(idxName));
         }
         {
-            sqlSchemaManager.onIndexDropped("PUBLIC", table.tableId(), indexId, testRevisionRegister.actualToken() + 1);
-            SchemaPlus schema1 = sqlSchemaManager.latestSchema("PUBLIC");
+            sqlSchemaManager.onIndexDropped(SCHEMA_NAME, table.tableId(), indexId, testRevisionRegister.actualToken() + 1);
+            SchemaPlus schema1 = sqlSchemaManager.latestSchema(SCHEMA_NAME);
             testRevisionRegister.moveForward();
 
-            SchemaPlus schema2 = sqlSchemaManager.latestSchema("PUBLIC");
+            SchemaPlus schema2 = sqlSchemaManager.latestSchema(SCHEMA_NAME);
 
             // Validate schema snapshot.
             assertNotSame(schema1, schema2);

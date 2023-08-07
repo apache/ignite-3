@@ -159,19 +159,19 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> schemaReadyFuture(long version) {
+    public CompletableFuture<Void> schemaReadyFuture(long version) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
         try {
             if (version == IgniteSchema.INITIAL_VERSION) {
-                return completedFuture(calciteSchemaVv.latest());
+                return completedFuture(null);
             }
 
-            CompletableFuture<SchemaPlus> lastSchemaFut;
+            CompletableFuture<Void> lastSchemaFut;
 
             try {
-                lastSchemaFut = calciteSchemaVv.get(version);
+                lastSchemaFut = calciteSchemaVv.get(version).thenAccept(ignore -> {});
             } catch (OutdatedTokenException e) {
                 return completedFuture(null);
             }

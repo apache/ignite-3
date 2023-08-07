@@ -52,6 +52,7 @@ import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link SqlSchemaManager} backed by {@link CatalogService}.
@@ -70,7 +71,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(String name, int version) {
+    public @Nullable SchemaPlus schema(String name, int version) {
         String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
 
         Entry<String, Integer> entry = Map.entry(schemaName, version);
@@ -86,7 +87,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> schemaReadyFuture(long version) {
+    public CompletableFuture<Void> schemaReadyFuture(long version) {
         // SqlSchemaManager creates SQL schema lazily on-demand, thus waiting for Catalog version is enough.
         return catalogManager.catalogReadyFuture((int) version);
     }

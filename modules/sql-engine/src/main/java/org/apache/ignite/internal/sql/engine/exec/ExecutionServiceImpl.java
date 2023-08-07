@@ -239,13 +239,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return queryManager.execute(tx, plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, long version, @Nullable String schema, Object[] params) {
+    private BaseQueryContext createQueryContext(UUID queryId, long schemaVersion, @Nullable String schema, Object[] params) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
                 .parameters(params)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(sqlSchemaManager.schema(schema, (int) version))
+                                .defaultSchema(sqlSchemaManager.schema(schema, (int) schemaVersion))
                                 .build()
                 )
                 .logger(LOG)
@@ -333,7 +333,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         //TODO IGNITE-18733: We should use txTimestamp from message tx attributes to wait for metadata ready,
         // then get actual version for txTimestamp and wait for catalog version ready.
         // As optimization, we can lookup for latest available schema and go sync way if it's version >= desirable.
-        CompletableFuture<?> fut = sqlSchemaManager.schemaReadyFuture(msg.schemaVersion());
+        CompletableFuture<Void> fut = sqlSchemaManager.schemaReadyFuture(msg.schemaVersion());
 
         if (fut.isDone()) {
             submitFragment(nodeName, msg);
