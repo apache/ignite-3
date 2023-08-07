@@ -351,7 +351,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req)).handle(
                     (rows, err) -> {
                         if (req.full() && (err != null || rows.size() < req.batchSize())) {
-                            cleanupLocal(req.transactionId());
+                            releaseTxLocks(req.transactionId());
                         }
 
                         if (err != null) {
@@ -1347,28 +1347,19 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Clean up txn locally.
-     *
-     * @param txId Tx ID.
-     */
-    private void cleanupLocal(UUID txId) {
-        releaseTxLocks(txId);
-    }
-
-    /**
      * Appends an operation to prevent the race between commit/rollback and the operation execution.
      *
      * @param txId Transaction id.
      * @param cmdType Command type.
-     * @param cleanup {@code True} to immediate cleanup.
+     * @param full {@code True} if a full transaction and can be immediately committed.
      * @param op Operation closure.
      * @param <T> Type of execution result.
      * @return A future object representing the result of the given operation.
      */
-    private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, boolean cleanup, Supplier<CompletableFuture<T>> op) {
+    private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, boolean full, Supplier<CompletableFuture<T>> op) {
         var fut = new CompletableFuture<T>();
 
-        if (!cleanup) {
+        if (!full) {
             txCleanupReadyFutures.compute(txId, (id, txOps) -> {
                 if (txOps == null) {
                     txOps = new TxCleanupReadyFutureList();
@@ -1387,8 +1378,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         if (!fut.isDone()) {
             op.get().whenComplete((v, th) -> {
-                if (cleanup) { // Cleanup local
-                    cleanupLocal(txId);
+                if (full) { // Fast unlock.
+                    releaseTxLocks(txId);
                 }
 
                 if (th != null) {
@@ -1794,28 +1785,20 @@ public class PartitionReplicaListener implements ReplicaListener {
                         v.add(rowId);
 
                         return v;
-                    },
-                    null)
-            );
+                    }),
+                    null);
         }
 
         return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
+            // Try to avoid double write if an entry is already replicated.
             if (cmd.full() && cmd.safeTime().compareTo(safeTime.current()) > 0) {
                 storageUpdateHandler.handleUpdate(
                         cmd.txId(),
                         cmd.rowUuid(),
                         cmd.tablePartitionId().asTablePartitionId(),
                         cmd.row(),
-                        rowId -> txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
-                                    if (v == null) {
-                                        v = new TreeSet<>();
-                                    }
-
-                                    v.add(rowId);
-
-                                    return v;
-                                },
-                                cmd.safeTime())
+                        null,
+                        cmd.safeTime());
             }
 
             return res;
@@ -1852,15 +1835,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         cmd.txId(),
                         cmd.rowsToUpdate(),
                         cmd.tablePartitionId().asTablePartitionId(),
-                        rowIds -> txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
-                            if (v == null) {
-                                v = new TreeSet<>();
-                            }
-
-                            v.addAll(rowIds);
-
-                            return v;
-                        }),
+                        null,
                         cmd.safeTime());
             }
 

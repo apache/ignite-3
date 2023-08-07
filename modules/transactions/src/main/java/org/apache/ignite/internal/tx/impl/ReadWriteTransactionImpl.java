@@ -46,7 +46,7 @@ import org.jetbrains.annotations.NotNull;
  * The read-write implementation of an internal transaction.
  */
 public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
-    /** Logger */
+    /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(InternalTransaction.class);
 
     /** Commit partition updater. */

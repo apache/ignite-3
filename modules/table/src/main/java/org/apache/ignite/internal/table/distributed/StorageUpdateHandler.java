@@ -152,14 +152,14 @@ public class StorageUpdateHandler {
      * @param txId Transaction id.
      * @param rowsToUpdate Collection of rows to update.
      * @param commitPartitionId Commit partition id.
-     * @param onReplication On replication callback.
+     * @param onApplication Callback on application.
      * @param commitTs Commit timestamp to use on autocommit.
      */
     public void handleUpdateAll(
             UUID txId,
             Map<UUID, BinaryRowMessage> rowsToUpdate,
             TablePartitionId commitPartitionId,
-            @Nullable Consumer<Collection<RowId>> onReplication,
+            @Nullable Consumer<Collection<RowId>> onApplication,
             @Nullable HybridTimestamp commitTs
     ) {
         indexUpdateHandler.waitIndexes();
@@ -196,8 +196,8 @@ public class StorageUpdateHandler {
                     indexUpdateHandler.addToIndexes(row, rowId);
                 }
 
-                if (onReplication != null) {
-                    onReplication.accept(rowIds);
+                if (onApplication != null) {
+                    onApplication.accept(rowIds);
                 }
             }
 
