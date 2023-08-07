@@ -116,6 +116,13 @@ public class CatalogUtils {
      */
     public static final int MAX_DECIMAL_SCALE = Short.MAX_VALUE;
 
+    /**
+     * Default length is `1` if implicit.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 5
+     */
+    public static final int DEFAULT_LENGTH = 1;
+
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
     static {
@@ -251,11 +258,7 @@ public class CatalogUtils {
             case BYTE_ARRAY:
                 return Integer.MAX_VALUE;
             default:
-                /*
-                 * Default length is 1 if implicit.
-                 * SQL`16 part 2 section 6.1 syntax rule 5
-                 */
-                return Math.max(1, defaultPrecision(columnType));
+                return Math.max(DEFAULT_LENGTH, defaultPrecision(columnType));
         }
     }
 }
