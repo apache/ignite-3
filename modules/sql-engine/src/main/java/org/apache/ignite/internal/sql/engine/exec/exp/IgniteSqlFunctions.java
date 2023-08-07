@@ -194,7 +194,10 @@ public class IgniteSqlFunctions {
                 : toBigDecimal(o.toString(), precision, scale);
     }
 
-    /** Convert and validate input. */
+    /**
+     * Converts the given {@code Number} to a decimal with the given {@code precision} and {@code scale}
+     * according to SQL spec for CAST specification: General Rules, 8.
+     */
     public static BigDecimal toBigDecimal(Number value, int precision, int scale) {
         assert precision > 0 : "Invalid precision: " + precision;
 
