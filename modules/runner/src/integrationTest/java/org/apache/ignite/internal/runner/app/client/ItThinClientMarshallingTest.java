@@ -36,7 +36,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testUnmappedPojoFieldsAreRejected() {
+    public void testUnmappedPojoFields() {
         Table table = ignite().tables().table(TABLE_NAME);
         var pojoView = table.recordView(TestPojo2.class);
 
@@ -53,7 +53,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testKvUnmappedKeyPojoFieldsAreRejected() {
+    public void testKvUnmappedKeyPojoFields() {
         Table table = ignite().tables().table(TABLE_NAME);
         var kvPojoView = table.keyValueView(TestPojo.class, TestPojo.class);
 
@@ -67,7 +67,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testKvUnmappedValPojoFieldsAreRejected() {
+    public void testKvUnmappedValPojoFields() {
         Table table = ignite().tables().table(TABLE_NAME);
         var kvPojoView = table.keyValueView(Integer.class, TestPojo.class);
 
@@ -81,7 +81,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testUnmappedTupleFieldsAreRejected() {
+    public void testUnmappedTupleFields() {
         Table table = ignite().tables().table(TABLE_NAME);
         var tupleView = table.recordView();
 
@@ -92,7 +92,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testKvUnmappedKeyTupleFieldsAreRejected() {
+    public void testKvUnmappedKeyTupleFields() {
         Table table = ignite().tables().table(TABLE_NAME);
         var tupleView = table.keyValueView();
 
@@ -103,7 +103,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testKvUnmappedValTupleFieldsAreRejected() {
+    public void testKvUnmappedValTupleFields() {
         Table table = ignite().tables().table(TABLE_NAME);
         var tupleView = table.keyValueView();
 
@@ -112,6 +112,53 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
         Throwable ex = assertThrowsWithCause(() -> tupleView.put(null, key, tuple), IgniteException.class);
         assertEquals("Value tuple doesn't match schema: schemaVersion=1, extraColumns=[KEY]", ex.getMessage());
+    }
+    
+    @Test
+    public void testMissingPojoFields() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testKvMissingKeyPojoFields() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testKvMissingValPojoFields() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testMissingTupleFields() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testKvMissingKeyTupleFields() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testKvMissingValTupleFields() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testMissingTupleFieldsWithDefaultValue() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testIncorrectBitmaskSize() {
+        // TODO: Tuple, POJO
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testIncompatibleFieldType() {
+        // TODO: Tuple, POJO
+        assert false : "TODO";
     }
 
     private static class TestPojo2 {
