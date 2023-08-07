@@ -197,12 +197,13 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         assertEquals("name", recordView.get(null, rec).name);
     }
 
-    @Test
-    void testClientReloadsKvPojoSchemaOnUnmappedColumnException() throws InterruptedException {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testClientReloadsKvPojoSchemaOnUnmappedColumnException(boolean useGetAndPut) throws InterruptedException {
         IgniteClient client = client();
         Session ses = client.sql().createSession();
 
-        String tableName = "testClientReloadsKvPojoSchemaOnUnmappedColumnException";
+        String tableName = "testClientReloadsKvPojoSchemaOnUnmappedColumnException_" + useGetAndPut;
         ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
 
         waitForTableOnAllNodes(tableName);
@@ -212,7 +213,12 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         // Insert fails, because there is no NAME column.
         Integer key = 1;
         ValPojo val = new ValPojo("name");
-        var ex = assertThrows(IgniteException.class, () -> kvView.put(null, key, val));
+
+        Runnable action = useGetAndPut ?
+                () -> kvView.getAndPut(null, key, val) :
+                () -> kvView.put(null, key, val);
+
+        var ex = assertThrows(IgniteException.class, action::run);
         assertEquals(
                 "Fields [name] of type "
                         + "org.apache.ignite.internal.runner.app.client.ItThinClientSchemaSynchronizationTest$ValPojo "
@@ -222,7 +228,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         // Modify table, insert again - client will use old schema, throw ClientSchemaMismatchException,
         // reload schema, retry with new schema and succeed.
         ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL");
-        kvView.put(null, key, val);
+        action.run();
 
         assertEquals("name", kvView.get(null, key).name);
     }
