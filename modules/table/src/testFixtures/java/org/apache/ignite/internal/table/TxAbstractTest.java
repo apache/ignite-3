@@ -1244,6 +1244,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
+     * Do scan in test.
+     *
      * @param tx The transaction.
      */
     private void doTestScan(@Nullable Transaction tx) {

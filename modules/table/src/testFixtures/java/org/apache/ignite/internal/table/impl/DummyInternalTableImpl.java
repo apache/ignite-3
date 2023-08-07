@@ -100,6 +100,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
+    public static final HybridClock CLOCK = new TestHybridClock(new LongSupplier() {
+        @Override
+        public long getAsLong() {
+            return 0;
+        }
+    });
+
     private static final int PART_ID = 0;
 
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
@@ -107,13 +114,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             new Column[]{new Column("key", NativeTypes.INT64, false)},
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
-
-    public static final HybridClock CLOCK = new TestHybridClock(new LongSupplier() {
-        @Override
-        public long getAsLong() {
-            return 0;
-        }
-    });
 
     private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(333, 0);
 
@@ -137,6 +137,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         this(replicaSvc, SCHEMA);
     }
 
+    /**
+     * Creates a new local table.
+     *
+     * @param replicaSvc Replica service.
+     * @param schema Schema.
+     */
     public DummyInternalTableImpl(ReplicaService replicaSvc, SchemaDescriptor schema) {
         this(replicaSvc, new TestMvPartitionStorage(0), schema);
     }
