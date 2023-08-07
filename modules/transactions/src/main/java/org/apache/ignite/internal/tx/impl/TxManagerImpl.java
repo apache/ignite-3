@@ -137,10 +137,10 @@ public class TxManagerImpl implements TxManager {
         try {
             HybridTimestamp lowWatermark = this.lowWatermark.get();
 
-            readOnlyTxFutureById.compute(new TxIdAndTimestamp(beginTimestamp, txId), (txIdAndTimestamp, readOnlyTxFuture) -> {
+            readOnlyTxFutureById.compute(new TxIdAndTimestamp(readTimestamp, txId), (txIdAndTimestamp, readOnlyTxFuture) -> {
                 assert readOnlyTxFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
 
-                if (lowWatermark != null && beginTimestamp.compareTo(lowWatermark) <= 0) {
+                if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
                     throw new IgniteInternalException(
                             TX_READ_ONLY_TOO_OLD_ERR,
                             "Timestamp of read-only transaction must be greater than the low watermark: [txTimestamp={}, lowWatermark={}]",
@@ -151,7 +151,7 @@ public class TxManagerImpl implements TxManager {
                 return new CompletableFuture<>();
             });
 
-            return new ReadOnlyTransactionImpl(this, txId, beginTimestamp);
+            return new ReadOnlyTransactionImpl(this, txId, readTimestamp);
         } finally {
             lowWatermarkReadWriteLock.readLock().unlock();
         }
