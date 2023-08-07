@@ -138,7 +138,7 @@ public class ConfigurationValidatorImplTest {
     /**
      * Child internal extension configuration schema.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class InternalValidatedChildConfigurationSchema extends ValidatedChildConfigurationSchema {
         @LeafValidation
         @Value(hasDefault = true)

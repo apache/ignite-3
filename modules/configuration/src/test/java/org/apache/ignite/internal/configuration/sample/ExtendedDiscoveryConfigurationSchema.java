@@ -24,7 +24,7 @@ import org.apache.ignite.configuration.annotation.InternalId;
 /**
  * Internal extension of {@link DiscoveryConfigurationSchema}.
  */
-@ConfigurationExtension
+@ConfigurationExtension(internal = true)
 public class ExtendedDiscoveryConfigurationSchema extends DiscoveryConfigurationSchema {
     /** ID. */
     @InternalId

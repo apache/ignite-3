@@ -28,8 +28,8 @@ public class RootInnerNode {
     /** Root node. */
     private final InnerNode node;
 
-    /** Internal configuration extensions. */
-    private final boolean privateExtension;
+    /** Internal configuration. */
+    private final boolean internal;
 
     /**
      * Constructor.
@@ -40,7 +40,7 @@ public class RootInnerNode {
     public RootInnerNode(RootKey<?, ?> key, InnerNode node) {
         this.node = node;
 
-        privateExtension = key.privateExtension();
+        internal = key.internal();
     }
 
     /**
@@ -48,7 +48,7 @@ public class RootInnerNode {
      */
     public RootInnerNode(RootInnerNode rootInnerNode) {
         node = rootInnerNode.node.copy();
-        privateExtension = rootInnerNode.privateExtension;
+        internal = rootInnerNode.internal;
     }
 
     /**
@@ -65,8 +65,7 @@ public class RootInnerNode {
      *
      * @return {@code true} if the root configuration is internal.
      */
-    public boolean privateExtension() {
-        return privateExtension;
+    public boolean internal() {
+        return internal;
     }
-
 }

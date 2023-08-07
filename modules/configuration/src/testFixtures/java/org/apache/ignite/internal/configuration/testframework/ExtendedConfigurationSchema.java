@@ -23,7 +23,7 @@ import org.apache.ignite.configuration.annotation.Value;
 /**
  * Configuration schema for {@link ConfigurationExtensionTest#notifications()}.
  */
-@ConfigurationExtension
+@ConfigurationExtension(internal = true)
 public class ExtendedConfigurationSchema extends BasicConfigurationSchema {
     @Value(hasDefault = true)
     public int invisible = 2;

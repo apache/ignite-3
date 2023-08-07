@@ -23,7 +23,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 /**
  * If there are {@link ConfigurationExtension} and {@link ConfigurationRoot}, the class should not have a parent (superclass).
  */
-@ConfigurationExtension
+@ConfigurationExtension(internal = true)
 @ConfigurationRoot(rootName = "errorRoot")
 public class ErrorInternal1ConfigurationSchema extends SimpleRootConfigurationSchema {
 }

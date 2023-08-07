@@ -23,7 +23,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 /**
  * Schema with {@link ConfigurationExtension} cannot have a field with {@link InjectedName}.
  */
-@ConfigurationExtension
+@ConfigurationExtension(internal = true)
 public class ErrorInjectedName4ConfigurationSchema extends SimpleConfigurationSchema {
     @InjectedName
     public String name2;

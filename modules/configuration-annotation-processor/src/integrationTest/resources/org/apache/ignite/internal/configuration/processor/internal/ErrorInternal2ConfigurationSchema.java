@@ -23,6 +23,6 @@ import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 /**
  * If {@link ConfigurationExtension} is present and {@link ConfigurationRoot} is absent, the class must have a parent (superclass).
  */
-@ConfigurationExtension
+@ConfigurationExtension(internal = true)
 public class ErrorInternal2ConfigurationSchema {
 }

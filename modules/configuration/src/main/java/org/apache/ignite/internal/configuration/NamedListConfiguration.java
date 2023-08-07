@@ -196,7 +196,7 @@ public class NamedListConfiguration<T extends ConfigurationProperty<VIEWT>, VIEW
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable Class<?>[] extensionConfigTypes() {
+    public Class<?> @Nullable [] extensionConfigTypes() {
         throw new UnsupportedOperationException("Not supported.");
     }
 

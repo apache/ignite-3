@@ -22,6 +22,6 @@ import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 /**
  * Parent (superclass) must not contain {@link ConfigurationExtension}.
  */
-@ConfigurationExtension
+@ConfigurationExtension(internal = true)
 public class ErrorInternal3ConfigurationSchema extends ExtendedSimpleRootConfigurationSchema {
 }

@@ -101,7 +101,7 @@ public final class SuperRoot extends InnerNode {
     @Override
     public <T> void traverseChildren(ConfigurationVisitor<T> visitor, boolean includeInternal) {
         for (Map.Entry<String, RootInnerNode> e : roots.entrySet()) {
-            if (includeInternal || !e.getValue().privateExtension()) {
+            if (includeInternal || !e.getValue().internal()) {
                 visitor.visitInnerNode(null, e.getKey(), e.getValue().node());
             }
         }
@@ -116,7 +116,7 @@ public final class SuperRoot extends InnerNode {
     ) throws NoSuchElementException {
         RootInnerNode root = roots.get(key);
 
-        if (root == null || (!includeInternal && root.privateExtension())) {
+        if (root == null || (!includeInternal && root.internal())) {
             throw new NoSuchElementException(key);
         } else {
             return visitor.visitInnerNode(null, key, root.node());
@@ -138,7 +138,7 @@ public final class SuperRoot extends InnerNode {
             root = nodeCreator.apply(key);
         }
 
-        if (root == null || !includeInternal && root.privateExtension()) {
+        if (root == null || !includeInternal && root.internal()) {
             throw new NoSuchElementException(key);
         }
 

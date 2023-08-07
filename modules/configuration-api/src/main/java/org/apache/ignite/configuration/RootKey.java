@@ -39,7 +39,7 @@ public class RootKey<T extends ConfigurationTree<VIEWT, ?>, VIEWT> {
     private final Class<?> schemaClass;
 
     /** Marked with {@link ConfigurationExtension} and internal = true. */
-    private final boolean privateExtension;
+    private final boolean internal;
 
     /**
      * Constructor.
@@ -57,7 +57,7 @@ public class RootKey<T extends ConfigurationTree<VIEWT, ?>, VIEWT> {
         this.storageType = rootAnnotation.type();
 
         ConfigurationExtension extension = schemaClass.getAnnotation(ConfigurationExtension.class);
-        privateExtension = extension != null && extension.internal();
+        internal = extension != null && extension.internal();
     }
 
     /**
@@ -92,8 +92,8 @@ public class RootKey<T extends ConfigurationTree<VIEWT, ?>, VIEWT> {
      *
      * @return {@code true} if the root configuration is internal.
      */
-    public boolean privateExtension() {
-        return privateExtension;
+    public boolean internal() {
+        return internal;
     }
 
     /** {@inheritDoc} */

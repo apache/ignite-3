@@ -243,8 +243,8 @@ public class ConfigurationProcessor extends AbstractProcessor {
             // Is root of the configuration.
             boolean isRootConfig = clazz.getAnnotation(ConfigurationRoot.class) != null;
 
-            // Is the internal configuration.
-            boolean isInternalConfig = clazz.getAnnotation(ConfigurationExtension.class) != null;
+            // Is the extending configuration.
+            boolean isExtendingConfig = clazz.getAnnotation(ConfigurationExtension.class) != null;
 
             // Is a polymorphic configuration.
             boolean isPolymorphicConfig = clazz.getAnnotation(PolymorphicConfig.class) != null;
@@ -257,7 +257,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     fields,
                     schemaClassName,
                     configurationInterfaceBuilder,
-                    (isInternalConfig && !isRootConfig) || isPolymorphicInstance,
+                    (isExtendingConfig && !isRootConfig) || isPolymorphicInstance,
                     clazz,
                     isPolymorphicConfig,
                     isPolymorphicInstance
@@ -642,7 +642,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
         }
 
         if (clazz.getAnnotation(ConfigurationExtension.class) != null) {
-            validateInternalConfiguration(clazz, fields);
+            validateExtensionConfiguration(clazz, fields);
         } else if (clazz.getAnnotation(PolymorphicConfig.class) != null) {
             validatePolymorphicConfig(clazz, fields);
         } else if (clazz.getAnnotation(PolymorphicConfigInstance.class) != null) {
@@ -666,7 +666,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
      * @param clazz Type element under validation.
      * @param fields Non-static fields of the class under validation.
      */
-    private void validateInternalConfiguration(TypeElement clazz, List<VariableElement> fields) {
+    private void validateExtensionConfiguration(TypeElement clazz, List<VariableElement> fields) {
         checkIncompatibleClassAnnotations(
                 clazz,
                 ConfigurationExtension.class,

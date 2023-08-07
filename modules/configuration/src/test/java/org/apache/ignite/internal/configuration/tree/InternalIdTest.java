@@ -57,7 +57,7 @@ public class InternalIdTest {
     }
 
     /** Internal extension for the parent configuration. */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class InternalIdInternalConfigurationSchema extends InternalIdParentConfigurationSchema {
         @InternalId
         public UUID id;

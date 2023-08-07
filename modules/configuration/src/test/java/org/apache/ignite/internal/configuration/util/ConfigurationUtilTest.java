@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.configuration.tree.NamedListNode.ORDER_
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.EMPTY_CFG_SRC;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.allSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.compressDeletedEntries;
@@ -33,7 +34,6 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ex
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.find;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.removeLastKey;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaExtensions;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
@@ -549,21 +549,21 @@ public class ConfigurationUtilTest {
 
     @Test
     void testInternalSchemaExtensions() {
-        assertTrue(schemaExtensions(List.of()).isEmpty());
+        assertTrue(allSchemaExtensions(List.of()).isEmpty());
 
-        assertThrows(IllegalArgumentException.class, () -> schemaExtensions(List.of(Object.class)));
+        assertThrows(IllegalArgumentException.class, () -> allSchemaExtensions(List.of(Object.class)));
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> schemaExtensions(List.of(InternalRootConfigurationSchema.class))
+                () -> allSchemaExtensions(List.of(InternalRootConfigurationSchema.class))
         );
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> schemaExtensions(List.of(InternalConfigurationSchema.class))
+                () -> allSchemaExtensions(List.of(InternalConfigurationSchema.class))
         );
 
-        Map<Class<?>, Set<Class<?>>> extensions = schemaExtensions(List.of(
+        Map<Class<?>, Set<Class<?>>> extensions = allSchemaExtensions(List.of(
                 InternalFirstRootConfigurationSchema.class,
                 InternalSecondRootConfigurationSchema.class,
                 InternalFirstConfigurationSchema.class,
@@ -624,7 +624,7 @@ public class ConfigurationUtilTest {
 
     @Test
     void testFindInternalConfigs() {
-        Map<Class<?>, Set<Class<?>>> extensions = schemaExtensions(List.of(
+        Map<Class<?>, Set<Class<?>>> allExtensions = allSchemaExtensions(List.of(
                 InternalFirstRootConfigurationSchema.class,
                 InternalSecondRootConfigurationSchema.class,
                 InternalFirstConfigurationSchema.class,
@@ -632,7 +632,7 @@ public class ConfigurationUtilTest {
         ));
 
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
-        generator.compileRootSchema(InternalRootConfigurationSchema.class, extensions, Map.of());
+        generator.compileRootSchema(InternalRootConfigurationSchema.class, allExtensions, Map.of());
 
         InnerNode innerNode = generator.instantiateNode(InternalRootConfigurationSchema.class);
 
@@ -659,7 +659,7 @@ public class ConfigurationUtilTest {
 
     @Test
     void testGetInternalConfigs() {
-        Map<Class<?>, Set<Class<?>>> extensions = schemaExtensions(List.of(
+        Map<Class<?>, Set<Class<?>>> allExtensions = allSchemaExtensions(List.of(
                 InternalFirstRootConfigurationSchema.class,
                 InternalSecondRootConfigurationSchema.class,
                 InternalFirstConfigurationSchema.class,
@@ -667,7 +667,7 @@ public class ConfigurationUtilTest {
         ));
 
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
-        generator.compileRootSchema(InternalRootConfigurationSchema.class, extensions, Map.of());
+        generator.compileRootSchema(InternalRootConfigurationSchema.class, allExtensions, Map.of());
 
         InnerNode innerNode = generator.instantiateNode(InternalRootConfigurationSchema.class);
 
@@ -1050,7 +1050,7 @@ public class ConfigurationUtilTest {
     /**
      * Internal schema extension without superclass.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     @ConfigurationRoot(rootName = "testRootInternal")
     public static class InternalWithoutSuperclassConfigurationSchema {
     }
@@ -1058,7 +1058,7 @@ public class ConfigurationUtilTest {
     /**
      * First simple internal schema extension.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class InternalFirstConfigurationSchema extends InternalConfigurationSchema {
         /** String value with default. */
         @Value(hasDefault = true)
@@ -1068,7 +1068,7 @@ public class ConfigurationUtilTest {
     /**
      * Second simple internal schema extension.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class InternalSecondConfigurationSchema extends InternalConfigurationSchema {
         /** String value with default. */
         @Value(hasDefault = true)
@@ -1078,7 +1078,7 @@ public class ConfigurationUtilTest {
     /**
      * First root simple internal schema extension.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class InternalFirstRootConfigurationSchema extends InternalRootConfigurationSchema {
         /** Second string value without default. */
         @Value
@@ -1092,7 +1092,7 @@ public class ConfigurationUtilTest {
     /**
      * Second root simple internal schema extension.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class InternalSecondRootConfigurationSchema extends InternalRootConfigurationSchema {
         /** Second sub configuration schema. */
         @ConfigValue
@@ -1102,7 +1102,7 @@ public class ConfigurationUtilTest {
     /**
      * Internal extended simple root configuration schema.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class InternalExtendedRootConfigurationSchema extends InternalRootConfigurationSchema {
         /** String value without default. */
         @Value
@@ -1124,7 +1124,7 @@ public class ConfigurationUtilTest {
     /**
      * Error: Duplicate field.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class ErrorInternalExtendedRootConfigurationSchema extends InternalRootConfigurationSchema {
         /** String value without default. */
         @Value

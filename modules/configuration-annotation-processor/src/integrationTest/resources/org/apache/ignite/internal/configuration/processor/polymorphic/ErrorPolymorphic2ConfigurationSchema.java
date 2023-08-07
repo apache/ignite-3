@@ -24,6 +24,6 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfig;
  * Class cannot have {@link PolymorphicConfig} and {@link ConfigurationExtension}.
  */
 @PolymorphicConfig
-@ConfigurationExtension
+@ConfigurationExtension(internal = true)
 public class ErrorPolymorphic2ConfigurationSchema {
 }

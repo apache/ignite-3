@@ -23,7 +23,7 @@ import org.apache.ignite.configuration.annotation.Value;
 /**
  * Extended table configuration schema class.
  */
-@ConfigurationExtension
+@ConfigurationExtension(internal = true)
 // TODO: IGNITE-15480 Add id's to columns in order to properly process column renaming withing index context.
 public class ExtendedTableConfigurationSchema extends TableConfigurationSchema {
     /** Current schema id. Monotonically increasing number. */

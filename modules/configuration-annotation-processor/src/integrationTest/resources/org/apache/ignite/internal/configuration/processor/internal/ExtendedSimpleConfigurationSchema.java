@@ -23,7 +23,7 @@ import org.apache.ignite.configuration.annotation.Value;
 /**
  * Simple internal configuration schema.
  */
-@ConfigurationExtension
+@ConfigurationExtension(internal = true)
 public class ExtendedSimpleConfigurationSchema extends SimpleConfigurationSchema {
     /** String value. */
     @Value

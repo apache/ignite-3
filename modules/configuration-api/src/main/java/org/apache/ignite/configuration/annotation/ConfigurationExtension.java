@@ -41,11 +41,10 @@ import java.lang.annotation.Target;
 @Retention(RUNTIME)
 @Documented
 public @interface ConfigurationExtension {
-
     /**
      * Controls whether this configuration is part of the public configuration or is hidden from the end user.
-     * An extension is internal by default.
+     * An extension is public by default.
      */
-    boolean internal() default true;
+    boolean internal() default false;
 
 }

@@ -142,7 +142,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         var localConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.local().rootKeys(),
-                modules.local().schemaExtensions(),
+                modules.local().allSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
 
@@ -182,7 +182,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
-                modules.distributed().schemaExtensions(),
+                modules.distributed().allSchemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
 

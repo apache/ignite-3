@@ -112,7 +112,7 @@ public class ConfigurationListenerTest {
     /**
      * Internal extension of {@link ChildConfigurationSchema}.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class InternalChildConfigurationSchema extends ChildConfigurationSchema {
         @Value(hasDefault = true)
         public int intVal = 0;

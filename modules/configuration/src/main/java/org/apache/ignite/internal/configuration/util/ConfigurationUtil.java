@@ -570,6 +570,18 @@ public class ConfigurationUtil {
     }
 
     /**
+     * Get configuration schemas and their validated extensions.
+     *
+     * @param extensions Schema extensions with {@link ConfigurationExtension}.
+     * @return Mapping: original of the scheme -> schema extensions.
+     * @throws IllegalArgumentException If the schema extension is invalid.
+     * @see ConfigurationExtension
+     */
+    public static Map<Class<?>, Set<Class<?>>> allSchemaExtensions(Collection<Class<?>> extensions) {
+        return schemaExtensions(extensions, ConfigurationExtension.class);
+    }
+
+    /**
      * Get polymorphic extensions of configuration schemas.
      *
      * @param extensions Schema extensions with {@link PolymorphicConfigInstance}.
@@ -580,18 +592,6 @@ public class ConfigurationUtil {
      */
     public static Map<Class<?>, Set<Class<?>>> polymorphicSchemaExtensions(Collection<Class<?>> extensions) {
         return schemaExtensions(extensions, PolymorphicConfigInstance.class);
-    }
-
-    /**
-     * Get configuration schemas and their validated extensions.
-     *
-     * @param extensions Schema extensions with {@link ConfigurationExtension}.
-     * @return Mapping: original of the scheme -> schema extensions.
-     * @throws IllegalArgumentException If the schema extension is invalid.
-     * @see ConfigurationExtension
-     */
-    public static Map<Class<?>, Set<Class<?>>> schemaExtensions(Collection<Class<?>> extensions) {
-        return schemaExtensions(extensions, ConfigurationExtension.class);
     }
 
     /**
@@ -677,12 +677,12 @@ public class ConfigurationUtil {
         }
     }
 
-    public static boolean isPrivateExtension(Class<?> schemaClass) {
+    public static boolean isInternalExtension(Class<?> schemaClass) {
         ConfigurationExtension ext = schemaClass.getAnnotation(ConfigurationExtension.class);
         return ext != null && ext.internal();
     }
 
-    public static boolean isPublicExtension(Class<?> schemaClass) {
+    public static boolean isExtension(Class<?> schemaClass) {
         ConfigurationExtension ext = schemaClass.getAnnotation(ConfigurationExtension.class);
         return ext != null && !ext.internal();
     }

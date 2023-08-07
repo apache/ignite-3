@@ -25,6 +25,6 @@ import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 /**
  * Parent (superclass) must contain either {@link Config} or {@link ConfigurationRoot}.
  */
-@ConfigurationExtension
+@ConfigurationExtension(internal = true)
 public class ErrorInternal4ConfigurationSchema extends ArrayList {
 }

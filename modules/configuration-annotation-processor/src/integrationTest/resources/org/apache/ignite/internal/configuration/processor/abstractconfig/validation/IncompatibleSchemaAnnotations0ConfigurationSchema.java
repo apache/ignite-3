@@ -24,6 +24,6 @@ import org.apache.ignite.configuration.annotation.ConfigurationExtension;
  * Checks for incompatibility {@link AbstractConfiguration} and {@link ConfigurationExtension}.
  */
 @AbstractConfiguration
-@ConfigurationExtension
+@ConfigurationExtension(internal = true)
 public class IncompatibleSchemaAnnotations0ConfigurationSchema {
 }

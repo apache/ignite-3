@@ -23,7 +23,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 /**
  * Class cannot have {@link ConfigurationExtension} and {@link Config}.
  */
-@ConfigurationExtension
+@ConfigurationExtension(internal = true)
 @Config
 public class ErrorInternal0ConfigurationSchema {
 }

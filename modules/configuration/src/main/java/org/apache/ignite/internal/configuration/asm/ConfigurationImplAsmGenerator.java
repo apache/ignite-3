@@ -150,22 +150,22 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
     ConfigurationImplAsmGenerator(
             ConfigurationAsmGenerator cgen,
             Class<?> schemaClass,
-            Set<Class<?>> extensions,
+            Set<Class<?>> allConfigurationExtensions,
             Set<Class<?>> polymorphicExtensions,
             List<Field> schemaFields,
-            Collection<Field> privateExtensionFields,
-            Collection<Field> publicExtensionFields,
+            Collection<Field> extensionFields,
+            Collection<Field> internalExtensionFields,
             Collection<Field> polymorphicFields,
             @Nullable Field internalIdField
     ) {
         super(
                 cgen,
                 schemaClass,
-                extensions,
+                allConfigurationExtensions,
                 polymorphicExtensions,
                 schemaFields,
-                privateExtensionFields,
-                publicExtensionFields,
+                extensionFields,
+                internalExtensionFields,
                 polymorphicFields,
                 internalIdField
         );
@@ -204,7 +204,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
                 EnumSet.of(PUBLIC, FINAL),
                 internalName(schemaClassInfo.cfgImplClassName),
                 type(DynamicConfiguration.class),
-                cgen.configClassInterfaces(schemaClass, extensions)
+                cgen.configClassInterfaces(schemaClass, allConfigurationExtensions)
         );
 
         Map<String, FieldDefinition> fieldDefs = new HashMap<>();
@@ -212,7 +212,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
         // To store the id of the polymorphic configuration instance.
         FieldDefinition polymorphicTypeIdFieldDef = null;
 
-        for (Field schemaField : concat(schemaFields, privateExtensionFields, publicExtensionFields, polymorphicFields)) {
+        for (Field schemaField : concat(schemaFields, extensionFields, internalExtensionFields, polymorphicFields)) {
             String fieldName = fieldName(schemaField);
 
             FieldDefinition fieldDef = addConfigurationImplField(schemaField, fieldName);
@@ -235,7 +235,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
 
         FieldDefinition extensionConfigTypesFieldDef = null;
 
-        if (!extensions.isEmpty()) {
+        if (!allConfigurationExtensions.isEmpty()) {
             extensionConfigTypesFieldDef = cfgImplClassDef.declareField(
                     EnumSet.of(PRIVATE, FINAL),
                     EXTENSION_CONFIG_TYPES_FIELD_NAME,
@@ -254,7 +254,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
             addConfigurationImplGetMethod(cfgImplClassDef, internalIdField, fieldDefs.get(internalIdField.getName()));
         }
 
-        for (Field schemaField : concat(schemaFields, privateExtensionFields, publicExtensionFields)) {
+        for (Field schemaField : concat(schemaFields, extensionFields, internalExtensionFields)) {
             addConfigurationImplGetMethod(cfgImplClassDef, schemaField, fieldDefs.get(fieldName(schemaField)));
         }
 
@@ -364,7 +364,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
 
         int newIdx = 0;
         for (Field schemaField :
-                concat(schemaFields, privateExtensionFields, publicExtensionFields, polymorphicFields, internalIdFieldAsList)) {
+                concat(schemaFields, extensionFields, internalExtensionFields, polymorphicFields, internalIdFieldAsList)) {
             String fieldName = schemaField.getName();
 
             BytecodeExpression newValue;
@@ -485,7 +485,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
         }
 
         if (extensionConfigTypesFieldDef != null) {
-            assert !extensions.isEmpty() : cfgImplClassDef;
+            assert !allConfigurationExtensions.isEmpty() : cfgImplClassDef;
 
             // Class[] tmp;
             Variable tmpVar = ctor.getScope().createTempVariable(Class[].class);
@@ -493,11 +493,11 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
             BytecodeBlock initExtensionConfigTypesField = new BytecodeBlock();
 
             // tmp = new Class[size];
-            initExtensionConfigTypesField.append(tmpVar.set(newArray(type(Class[].class), extensions.size())));
+            initExtensionConfigTypesField.append(tmpVar.set(newArray(type(Class[].class), allConfigurationExtensions.size())));
 
             int i = 0;
 
-            for (Class<?> extension : extensions) {
+            for (Class<?> extension : allConfigurationExtensions) {
                 // tmp[i] = InternalTableConfiguration.class;
                 initExtensionConfigTypesField.append(set(
                         tmpVar,

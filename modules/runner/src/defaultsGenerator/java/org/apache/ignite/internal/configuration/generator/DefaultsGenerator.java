@@ -82,7 +82,7 @@ public class DefaultsGenerator {
 
         ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.local().rootKeys(),
-                modules.local().schemaExtensions(),
+                modules.local().allSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
 

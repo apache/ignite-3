@@ -64,8 +64,8 @@ abstract class AbstractAsmGenerator {
     /** Configuration schema class. */
     final Class<?> schemaClass;
 
-    /** Extensions of the configuration schema (both private and public). */
-    final Set<Class<?>> extensions;
+    /** Extensions of the configuration schema (including internal ones). */
+    final Set<Class<?>> allConfigurationExtensions;
 
     /** Polymorphic extensions of the configuration schema. */
     final Set<Class<?>> polymorphicExtensions;
@@ -73,11 +73,11 @@ abstract class AbstractAsmGenerator {
     /** Fields of the schema class. */
     final List<Field> schemaFields;
 
-    /** Fields of private extensions of the configuration schema. */
-    final Collection<Field> privateExtensionFields;
+    /** Fields of extensions of the configuration schema. */
+    final Collection<Field> extensionFields;
 
-    /** Fields of public extensions of the configuration schema. */
-    final Collection<Field> publicExtensionFields;
+    /** Fields of internal extensions of the configuration schema. */
+    final Collection<Field> internalExtensionFields;
 
     /** Fields of polymorphic extensions of the configuration schema. */
     final Collection<Field> polymorphicFields;
@@ -92,21 +92,21 @@ abstract class AbstractAsmGenerator {
     AbstractAsmGenerator(
             ConfigurationAsmGenerator cgen,
             Class<?> schemaClass,
-            Set<Class<?>> extensions,
+            Set<Class<?>> allConfigurationExtensions,
             Set<Class<?>> polymorphicExtensions,
             List<Field> schemaFields,
-            Collection<Field> privateExtensionFields,
-            Collection<Field> publicExtensionFields,
+            Collection<Field> extensionFields,
+            Collection<Field> internalExtensionFields,
             Collection<Field> polymorphicFields,
             @Nullable Field internalIdField
     ) {
         this.cgen = cgen;
         this.schemaClass = schemaClass;
-        this.extensions = extensions;
+        this.allConfigurationExtensions = allConfigurationExtensions;
         this.polymorphicExtensions = polymorphicExtensions;
         this.schemaFields = schemaFields;
-        this.privateExtensionFields = privateExtensionFields;
-        this.publicExtensionFields = publicExtensionFields;
+        this.extensionFields = extensionFields;
+        this.internalExtensionFields = internalExtensionFields;
         this.polymorphicFields = polymorphicFields;
         this.internalIdField = internalIdField;
     }

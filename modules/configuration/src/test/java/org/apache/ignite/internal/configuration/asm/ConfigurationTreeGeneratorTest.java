@@ -743,7 +743,7 @@ public class ConfigurationTreeGeneratorTest {
     /**
      * Extending the {@link TestRootConfigurationSchema}.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class ExtendedTestRootConfigurationSchema extends TestRootConfigurationSchema {
         /** String field. */
         @Value(hasDefault = true)
@@ -753,7 +753,7 @@ public class ConfigurationTreeGeneratorTest {
     /**
      * Extending the {@link TestRootConfigurationSchema}.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class ExtendedSecondTestRootConfigurationSchema extends TestRootConfigurationSchema {
         /** Integer field. */
         @Value(hasDefault = true)
@@ -763,7 +763,7 @@ public class ConfigurationTreeGeneratorTest {
     /**
      * Extending the {@link TestRootConfigurationSchema}  with a public extension.
      */
-    @ConfigurationExtension(internal = false)
+    @ConfigurationExtension
     public static class ExtendedPublicTestRootConfigurationSchema extends TestRootConfigurationSchema {
         /** Integer field. */
         @Value(hasDefault = true)
@@ -791,7 +791,7 @@ public class ConfigurationTreeGeneratorTest {
     /**
      * Extending the {@link TestConfigurationSchema}.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class ExtendedTestConfigurationSchema extends TestConfigurationSchema {
         /** String field. */
         @Value(hasDefault = true)
@@ -801,7 +801,7 @@ public class ConfigurationTreeGeneratorTest {
     /**
      * Extending the {@link TestConfigurationSchema}.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class ExtendedSecondTestConfigurationSchema extends TestConfigurationSchema {
         /** Integer field. */
         @Value(hasDefault = true)
@@ -811,7 +811,7 @@ public class ConfigurationTreeGeneratorTest {
     /**
      * Extending the {@link TestConfigurationSchema} with a public extension.
      */
-    @ConfigurationExtension(internal = false)
+    @ConfigurationExtension
     public static class ExtendedPublicTestConfigurationSchema extends TestConfigurationSchema {
         /** Integer field. */
         @Value(hasDefault = true)

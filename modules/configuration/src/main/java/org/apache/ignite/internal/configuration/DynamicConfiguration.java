@@ -189,8 +189,7 @@ public abstract class DynamicConfiguration<VIEWT, CHANGET extends VIEWT> extends
      *
      * @throws UnsupportedOperationException In the case of a named list.
      */
-    @Nullable
-    public Class<?>[] extensionConfigTypes() {
+    public Class<?> @Nullable [] extensionConfigTypes() {
         return null;
     }
 

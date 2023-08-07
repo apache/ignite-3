@@ -232,22 +232,22 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     InnerNodeAsmGenerator(
             ConfigurationAsmGenerator cgen,
             Class<?> schemaClass,
-            Set<Class<?>> extensions,
+            Set<Class<?>> allConfigurationExtensions,
             Set<Class<?>> polymorphicExtensions,
             List<Field> schemaFields,
-            Collection<Field> privateExtensionFields,
-            Collection<Field> publicExtensionFields,
+            Collection<Field> extensionFields,
+            Collection<Field> internalExtensionFields,
             Collection<Field> polymorphicFields,
             @Nullable Field internalIdField
     ) {
         super(
                 cgen,
                 schemaClass,
-                extensions,
+                allConfigurationExtensions,
                 polymorphicExtensions,
                 schemaFields,
-                privateExtensionFields,
-                publicExtensionFields,
+                extensionFields,
+                internalExtensionFields,
                 polymorphicFields,
                 internalIdField
         );
@@ -287,7 +287,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 EnumSet.of(PUBLIC, FINAL),
                 internalName(schemaClassInfo.nodeClassName),
                 type(InnerNode.class),
-                nodeClassInterfaces(schemaClass, extensions)
+                nodeClassInterfaces(schemaClass, allConfigurationExtensions)
         );
 
         // Spec fields.
@@ -295,7 +295,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         int i = 0;
 
-        for (Class<?> clazz : concat(List.of(schemaClass), extensions, polymorphicExtensions)) {
+        for (Class<?> clazz : concat(List.of(schemaClass), allConfigurationExtensions, polymorphicExtensions)) {
             specFields.put(clazz, innerNodeClassDef.declareField(EnumSet.of(PRIVATE, FINAL), "_spec" + i++, clazz));
         }
 
@@ -308,7 +308,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         // Field with @InjectedName.
         FieldDefinition injectedNameFieldDef = null;
 
-        for (Field schemaField : concat(schemaFields, privateExtensionFields, publicExtensionFields, polymorphicFields)) {
+        for (Field schemaField : concat(schemaFields, extensionFields, internalExtensionFields, polymorphicFields)) {
             FieldDefinition fieldDef = addInnerNodeField(schemaField);
 
             fieldDefs.put(fieldDef.getName(), fieldDef);
@@ -333,7 +333,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         FieldDefinition extensionSchemaTypesFieldDef = null;
 
-        if (!extensions.isEmpty()) {
+        if (!allConfigurationExtensions.isEmpty()) {
             extensionSchemaTypesFieldDef = innerNodeClassDef.declareField(
                     EnumSet.of(PRIVATE, FINAL),
                     "_" + EXTENSION_SCHEMA_TYPES_MTD.getName(),
@@ -354,7 +354,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         }
 
         // VIEW and CHANGE methods.
-        for (Field schemaField : concat(schemaFields, privateExtensionFields, publicExtensionFields)) {
+        for (Field schemaField : concat(schemaFields, extensionFields, internalExtensionFields)) {
             String fieldName = schemaField.getName();
 
             FieldDefinition fieldDef = fieldDefs.get(fieldName);
@@ -576,7 +576,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             ctorBody.append(ctor.getThis().setField(e.getValue(), newInstance(e.getKey())));
         }
 
-        for (Field schemaField : concat(schemaFields, privateExtensionFields, publicExtensionFields, polymorphicFields)) {
+        for (Field schemaField : concat(schemaFields, extensionFields, internalExtensionFields, polymorphicFields)) {
             if (!isNamedConfigValue(schemaField)) {
                 continue;
             }
@@ -587,7 +587,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             ctorBody.append(setThisFieldCode(ctor, cgen.newNamedListNode(schemaField), fieldDef));
         }
 
-        if (!extensions.isEmpty()) {
+        if (!allConfigurationExtensions.isEmpty()) {
             assert extensionSchemaTypesFieldDef != null : innerNodeClassDef;
 
             // Class[] tmp;
@@ -596,11 +596,11 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             BytecodeBlock initExtensionSchemaTypesField = new BytecodeBlock();
 
             // tmp = new Class[size];
-            initExtensionSchemaTypesField.append(tmpVar.set(newArray(type(Class[].class), extensions.size())));
+            initExtensionSchemaTypesField.append(tmpVar.set(newArray(type(Class[].class), allConfigurationExtensions.size())));
 
             int i = 0;
 
-            for (Class<?> extension : extensions) {
+            for (Class<?> extension : allConfigurationExtensions) {
                 // tmp[i] = InternalTableConfigurationSchema.class;
                 initExtensionSchemaTypesField.append(set(
                         tmpVar,
@@ -929,7 +929,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         BytecodeBlock mtdBody = traverseChildrenMtd.getBody();
 
         // invokeVisit for public (common in case polymorphic config) fields.
-        for (Field schemaField : concat(schemaFields, publicExtensionFields)) {
+        for (Field schemaField : concat(schemaFields, extensionFields)) {
             if (isInjectedName(schemaField)) {
                 continue;
             }
@@ -939,10 +939,10 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             );
         }
 
-        if (!privateExtensionFields.isEmpty()) {
+        if (!internalExtensionFields.isEmpty()) {
             BytecodeBlock includeInternalBlock = new BytecodeBlock();
 
-            for (Field internalField : privateExtensionFields) {
+            for (Field internalField : internalExtensionFields) {
                 includeInternalBlock.append(
                         invokeVisit(traverseChildrenMtd, internalField, fieldDefs.get(internalField.getName())).pop()
                 );
@@ -1012,7 +1012,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         // Create switch for public (common in case polymorphic config) fields only.
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(traverseChildMtd.getScope()).expression(keyVar);
 
-        for (Field schemaField : concat(schemaFields, publicExtensionFields)) {
+        for (Field schemaField : concat(schemaFields, extensionFields)) {
             if (isInjectedName(schemaField)) {
                 continue;
             }
@@ -1025,13 +1025,13 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             );
         }
 
-        if (!privateExtensionFields.isEmpty()) {
+        if (!internalExtensionFields.isEmpty()) {
             // Create switch for public + internal fields.
             StringSwitchBuilder switchBuilderAllFields = new StringSwitchBuilder(traverseChildMtd.getScope())
                     .expression(keyVar)
                     .defaultCase(throwException(NoSuchElementException.class, keyVar));
 
-            for (Field schemaField : concat(schemaFields, privateExtensionFields, publicExtensionFields)) {
+            for (Field schemaField : concat(schemaFields, extensionFields, internalExtensionFields)) {
                 if (isInjectedName(schemaField)) {
                     continue;
                 }
@@ -1151,7 +1151,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         // Create switch for public (common in case polymorphic config) fields only.
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(constructMtd.getScope()).expression(keyVar);
 
-        for (Field schemaField : concat(schemaFields, publicExtensionFields)) {
+        for (Field schemaField : concat(schemaFields, extensionFields)) {
             if (isInjectedName(schemaField)) {
                 continue;
             }
@@ -1184,13 +1184,13 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             }
         }
 
-        if (!privateExtensionFields.isEmpty()) {
+        if (!internalExtensionFields.isEmpty()) {
             // Create switch for public + internal fields.
             StringSwitchBuilder switchBuilderAllFields = new StringSwitchBuilder(constructMtd.getScope())
                     .expression(keyVar)
                     .defaultCase(throwException(NoSuchElementException.class, keyVar));
 
-            for (Field schemaField : concat(schemaFields, privateExtensionFields, publicExtensionFields)) {
+            for (Field schemaField : concat(schemaFields, extensionFields, internalExtensionFields)) {
                 if (isInjectedName(schemaField)) {
                     continue;
                 }
@@ -1408,7 +1408,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         // Create switch for public (common in case polymorphic config) + internal fields.
         StringSwitchBuilder switchBuilder = new StringSwitchBuilder(constructDfltMtd.getScope()).expression(keyVar);
 
-        for (Field schemaField : concat(schemaFields, privateExtensionFields, publicExtensionFields)) {
+        for (Field schemaField : concat(schemaFields, extensionFields, internalExtensionFields)) {
             if (isInjectedName(schemaField)) {
                 continue;
             }

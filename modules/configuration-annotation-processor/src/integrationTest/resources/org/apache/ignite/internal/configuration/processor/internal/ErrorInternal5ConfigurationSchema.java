@@ -23,7 +23,7 @@ import org.apache.ignite.configuration.annotation.Value;
 /**
  * Extension and the parent (superclass) must not have the same fields by name.
  */
-@ConfigurationExtension
+@ConfigurationExtension(internal = true)
 public class ErrorInternal5ConfigurationSchema extends SimpleRootConfigurationSchema {
     /** String value. */
     @Value

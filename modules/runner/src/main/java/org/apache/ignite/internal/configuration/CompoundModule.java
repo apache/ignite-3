@@ -69,8 +69,8 @@ public class CompoundModule implements ConfigurationModule {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Class<?>> schemaExtensions() {
-        return unionFromModulesExtractedWith(ConfigurationModule::schemaExtensions);
+    public Collection<Class<?>> allSchemaExtensions() {
+        return unionFromModulesExtractedWith(ConfigurationModule::allSchemaExtensions);
     }
 
     /** {@inheritDoc} */

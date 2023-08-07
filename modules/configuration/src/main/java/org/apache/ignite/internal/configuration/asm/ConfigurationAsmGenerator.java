@@ -161,14 +161,14 @@ public class ConfigurationAsmGenerator {
      * Generates, defines, loads and initializes all dynamic classes required for the given configuration schema.
      *
      * @param rootSchemaClass             Class of the root configuration schema.
-     * @param schemaExtensions            Extensions ({@link ConfigurationExtension}) of configuration schemas ({@link
-     *                                    ConfigurationRoot} and {@link Config}). Mapping: original schema -> extensions.
+     * @param allSchemaExtensions         All extensions (including internal) ({@link ConfigurationExtension}) of configuration schemas
+     *                                    {@link ConfigurationRoot} and {@link Config}). Mapping: original schema -> extensions.
      * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance}) of configuration schemas ({@link
      *                                    PolymorphicConfig}). Mapping: original schema -> extensions.
      */
     public synchronized void compileRootSchema(
             Class<?> rootSchemaClass,
-            Map<Class<?>, Set<Class<?>>> schemaExtensions,
+            Map<Class<?>, Set<Class<?>>> allSchemaExtensions,
             Map<Class<?>, Set<Class<?>>> polymorphicSchemaExtensions
     ) {
         if (schemasInfo.containsKey(rootSchemaClass)) {
@@ -193,11 +193,11 @@ public class ConfigurationAsmGenerator {
 
             assert schemasInfo.containsKey(schemaClass) : schemaClass;
 
-            Set<Class<?>> extensions = schemaExtensions.getOrDefault(schemaClass, Set.of());
+            Set<Class<?>> allExtensions = allSchemaExtensions.getOrDefault(schemaClass, Set.of());
             Set<Class<?>> polymorphicExtensions = polymorphicSchemaExtensions.getOrDefault(schemaClass, Set.of());
 
-            assert extensions.isEmpty() || polymorphicExtensions.isEmpty() :
-                    "Internal and polymorphic extensions are not allowed at the same time: " + schemaClass;
+            assert allExtensions.isEmpty() || polymorphicExtensions.isEmpty() :
+                    "Configuration and polymorphic extensions are not allowed at the same time: " + schemaClass;
 
             if (isPolymorphicConfig(schemaClass) && polymorphicExtensions.isEmpty()) {
                 throw new IllegalArgumentException(schemaClass
@@ -210,21 +210,23 @@ public class ConfigurationAsmGenerator {
                     ? concat(schemaFields(schemaClass), schemaFields(schemaSuperClass))
                     : schemaFields(schemaClass);
 
-            Set<Class<?>> privateExtensions = extensions.stream()
-                    .filter(ConfigurationUtil::isPrivateExtension)
-                    .collect(toSet());
-            Set<Class<?>> publicExtensions = extensions.stream()
-                    .filter(ConfigurationUtil::isPublicExtension)
+            Set<Class<?>> extensions = allExtensions.stream()
+                    .filter(ConfigurationUtil::isExtension)
                     .collect(toSet());
 
-            Collection<Field> privateExtensionFields = extensionsFields(privateExtensions, true);
-            Collection<Field> publicExtensionFields = extensionsFields(publicExtensions, true);
+            Set<Class<?>> internalExtensions = allExtensions.stream()
+                    .filter(ConfigurationUtil::isInternalExtension)
+                    .collect(toSet());
+
+            Collection<Field> extensionFields = extensionsFields(extensions, true);
+
+            Collection<Field> internalExtensionFields = extensionsFields(internalExtensions, true);
 
             Collection<Field> polymorphicExtensionsFields = extensionsFields(polymorphicExtensions, false);
 
-            Field internalIdField = internalIdField(schemaClass, extensions);
+            Field internalIdField = internalIdField(schemaClass, allExtensions);
 
-            for (Field schemaField : concat(schemaFields, privateExtensionFields, publicExtensionFields, polymorphicExtensionsFields)) {
+            for (Field schemaField : concat(schemaFields, extensionFields, internalExtensionFields, polymorphicExtensionsFields)) {
                 if (isConfigValue(schemaField) || isNamedConfigValue(schemaField)) {
                     Class<?> subSchemaClass = schemaField.getType();
 
@@ -245,11 +247,11 @@ public class ConfigurationAsmGenerator {
             classDefs.addAll(new InnerNodeAsmGenerator(
                     this,
                     schemaClass,
-                    extensions,
+                    allExtensions,
                     polymorphicExtensions,
                     schemaFields,
-                    privateExtensionFields,
-                    publicExtensionFields,
+                    extensionFields,
+                    internalExtensionFields,
                     polymorphicExtensionsFields,
                     internalIdField
             ).generate());
@@ -257,11 +259,11 @@ public class ConfigurationAsmGenerator {
             classDefs.addAll(new ConfigurationImplAsmGenerator(
                     this,
                     schemaClass,
-                    extensions,
+                    allExtensions,
                     polymorphicExtensions,
                     schemaFields,
-                    privateExtensionFields,
-                    publicExtensionFields,
+                    extensionFields,
+                    internalExtensionFields,
                     polymorphicExtensionsFields,
                     internalIdField
             ).generate());
@@ -269,10 +271,10 @@ public class ConfigurationAsmGenerator {
             classDefs.addAll(new DirectProxyAsmGenerator(
                     this,
                     schemaClass,
-                    extensions,
+                    allExtensions,
                     schemaFields,
-                    privateExtensionFields,
-                    publicExtensionFields,
+                    extensionFields,
+                    internalExtensionFields,
                     internalIdField
             ).generate());
         }

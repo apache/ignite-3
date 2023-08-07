@@ -100,20 +100,20 @@ class DirectProxyAsmGenerator extends AbstractAsmGenerator {
     DirectProxyAsmGenerator(
             ConfigurationAsmGenerator cgen,
             Class<?> schemaClass,
-            Set<Class<?>> extensions,
+            Set<Class<?>> allConfigurationExtensions,
             List<Field> schemaFields,
-            Collection<Field> privateExtensionFields,
-            Collection<Field> publicExtensionFields,
+            Collection<Field> extensionFields,
+            Collection<Field> internalExtensionFields,
             @Nullable Field internalIdField
     ) {
         super(
                 cgen,
                 schemaClass,
-                extensions,
+                allConfigurationExtensions,
                 null,
                 schemaFields,
-                privateExtensionFields,
-                publicExtensionFields,
+                extensionFields,
+                internalExtensionFields,
                 null,
                 internalIdField
         );
@@ -130,7 +130,7 @@ class DirectProxyAsmGenerator extends AbstractAsmGenerator {
                 EnumSet.of(PUBLIC, FINAL),
                 internalName(schemaClassInfo.directProxyClassName),
                 type(DirectConfigurationProxy.class),
-                cgen.configClassInterfaces(schemaClass, extensions)
+                cgen.configClassInterfaces(schemaClass, allConfigurationExtensions)
         );
 
         addConstructor();
@@ -141,7 +141,7 @@ class DirectProxyAsmGenerator extends AbstractAsmGenerator {
             addGetMethod(internalIdField);
         }
 
-        for (Field schemaField : concat(schemaFields, privateExtensionFields, publicExtensionFields)) {
+        for (Field schemaField : concat(schemaFields, extensionFields, internalExtensionFields)) {
             addGetMethod(schemaField);
         }
 

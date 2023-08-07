@@ -317,7 +317,7 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.local().rootKeys(),
-                modules.local().schemaExtensions(),
+                modules.local().allSchemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
 
@@ -383,7 +383,7 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
-                modules.distributed().schemaExtensions(),
+                modules.distributed().allSchemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
 

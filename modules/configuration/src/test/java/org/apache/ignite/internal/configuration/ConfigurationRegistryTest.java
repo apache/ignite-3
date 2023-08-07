@@ -256,7 +256,7 @@ public class ConfigurationRegistryTest {
     /**
      * First extended root configuration.
      */
-    @ConfigurationExtension
+    @ConfigurationExtension(internal = true)
     public static class ExtendedFirstRootConfigurationSchema extends FirstRootConfigurationSchema {
         @Value(hasDefault = true)
         public String strEx = "str";

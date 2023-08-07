@@ -22,11 +22,11 @@ import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.allSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicInstanceId;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaFields;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
@@ -74,22 +74,22 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * Constructor that takes a collection of root keys and a collection of internal schema extensions.
      *
      * @param rootKeys Root keys.
-     * @param schemaExtensions Schema extensions.
+     * @param allSchemaExtensions Schema extensions.
      * @param polymorphicSchemaExtensions Polymorphic schema extensions.
      */
     public ConfigurationTreeGenerator(
             Collection<RootKey<?, ?>> rootKeys,
-            Collection<Class<?>> schemaExtensions,
+            Collection<Class<?>> allSchemaExtensions,
             Collection<Class<?>> polymorphicSchemaExtensions) {
 
         this.rootKeys = rootKeys.stream().collect(toMap(RootKey::key, identity()));
 
-        Set<Class<?>> allSchemas = collectAllSchemas(rootKeys, schemaExtensions, polymorphicSchemaExtensions);
+        Set<Class<?>> allSchemas = collectAllSchemas(rootKeys, allSchemaExtensions, polymorphicSchemaExtensions);
 
-        Map<Class<?>, Set<Class<?>>> extensions = extensionsWithCheck(allSchemas, schemaExtensions);
+        Map<Class<?>, Set<Class<?>>> allConfigurationExtensions = allConfigurationExtensionsWithCheck(allSchemas, allSchemaExtensions);
         Map<Class<?>, Set<Class<?>>> polymorphicExtensions = polymorphicExtensionsWithCheck(allSchemas, polymorphicSchemaExtensions);
 
-        rootKeys.forEach(key -> generator.compileRootSchema(key.schemaClass(), extensions, polymorphicExtensions));
+        rootKeys.forEach(key -> generator.compileRootSchema(key.schemaClass(), allConfigurationExtensions, polymorphicExtensions));
     }
 
     /**
@@ -182,7 +182,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
      * @return Mapping: original of the schema -> internal schema extensions.
      * @throws IllegalArgumentException If the schema extension is invalid.
      */
-    private Map<Class<?>, Set<Class<?>>> extensionsWithCheck(
+    private Map<Class<?>, Set<Class<?>>> allConfigurationExtensionsWithCheck(
             Set<Class<?>> allSchemas,
             Collection<Class<?>> schemaExtensions
     ) {
@@ -190,7 +190,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
             return Map.of();
         }
 
-        Map<Class<?>, Set<Class<?>>> extensions = schemaExtensions(schemaExtensions);
+        Map<Class<?>, Set<Class<?>>> extensions = allSchemaExtensions(schemaExtensions);
 
         Set<Class<?>> notInAllSchemas = difference(extensions.keySet(), allSchemas);
 
