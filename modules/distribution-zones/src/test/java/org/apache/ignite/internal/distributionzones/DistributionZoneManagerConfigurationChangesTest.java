@@ -144,8 +144,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         assertThat(vaultMgr.put(zonesLogicalTopologyVersionKey(), longToBytes(0)), willCompleteSuccessfully());
 
-        metaStorageManager.put(zonesLogicalTopologyVersionKey(), longToBytes(0));
-
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
 
@@ -162,10 +160,9 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         vaultMgr.start();
         clusterCfgMgr.start();
         metaStorageManager.start();
-
-        DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
-
         distributionZoneManager.start();
+
+        metaStorageManager.deployWatches();
 
         clearInvocations(keyValueStorage);
     }

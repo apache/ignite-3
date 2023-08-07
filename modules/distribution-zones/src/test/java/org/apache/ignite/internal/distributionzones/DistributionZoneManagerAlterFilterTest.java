@@ -41,7 +41,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -86,7 +85,6 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20058")
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
     void testAlterFilter(int zoneId, String zoneName) throws Exception {
@@ -123,7 +121,6 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20058")
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
     void testAlterFilterToEmtpyNodes(int zoneId, String zoneName) throws Exception {
@@ -159,7 +156,6 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20058")
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
     void testAlterFilterDoNotAffectScaleDown(int zoneId, String zoneName) throws Exception {
@@ -217,7 +213,6 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20058")
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
     void testNodeAddedWhileAlteringFilter(int zoneId, String zoneName) throws Exception {
