@@ -19,7 +19,6 @@ package org.apache.ignite.sql;
 
 import java.util.UUID;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
  * SQL exception base class.
@@ -97,17 +96,5 @@ public class SqlException extends IgniteException {
      */
     public SqlException(UUID traceId, int code, String message, Throwable cause) {
         super(traceId, code, message, cause);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param code Full error code.
-     * @param messagePattern Error message pattern.
-     * @param params Error message params.
-     * @see IgniteStringFormatter#format(String, Object...)
-     */
-    public SqlException(int code, String messagePattern, Object... params) {
-        this(code, IgniteStringFormatter.format(messagePattern, params));
     }
 }

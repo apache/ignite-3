@@ -39,7 +39,7 @@ public interface IgniteDeployment extends IgniteComponent {
     default CompletableFuture<Boolean> deployAsync(
             String id,
             Version version,
-            CompletableFuture<DeploymentUnit> deploymentUnit,
+            DeploymentUnit deploymentUnit,
             NodesToDeploy nodesToDeploy
     ) {
         return deployAsync(id, version, false, deploymentUnit, nodesToDeploy);
@@ -60,7 +60,7 @@ public interface IgniteDeployment extends IgniteComponent {
             String id,
             Version version,
             boolean force,
-            CompletableFuture<DeploymentUnit> deploymentUnit,
+            DeploymentUnit deploymentUnit,
             NodesToDeploy nodesToDeploy
     );
 

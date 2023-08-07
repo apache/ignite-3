@@ -52,16 +52,7 @@ public class BinaryRowImpl implements BinaryRow {
 
     @Override
     public ByteBuffer tupleSlice() {
-        return binaryTuple.duplicate().order(ORDER);
-    }
-
-    @Override
-    public ByteBuffer byteBuffer() {
-        return ByteBuffer.allocate(tupleSliceLength() + Short.BYTES)
-                .order(ORDER)
-                .putShort((short) schemaVersion())
-                .put(tupleSlice())
-                .rewind();
+        return binaryTuple.duplicate().order(BinaryTuple.ORDER);
     }
 
     @Override

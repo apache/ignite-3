@@ -244,6 +244,6 @@ public class LowWatermark implements ManuallyCloseable {
 
     private long getMaxClockSkew() {
         // TODO: IGNITE-19287 Add Implementation
-        return 0;
+        return HybridTimestamp.CLOCK_SKEW;
     }
 }

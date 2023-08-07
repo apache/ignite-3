@@ -53,6 +53,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.RecordView;
@@ -64,7 +65,7 @@ import org.mockito.Mockito;
 /**
  * Basic table operations test.
  */
-public class RecordViewOperationsTest {
+public class RecordViewOperationsTest extends BaseIgniteAbstractTest {
 
     private final Random rnd = new Random();
 

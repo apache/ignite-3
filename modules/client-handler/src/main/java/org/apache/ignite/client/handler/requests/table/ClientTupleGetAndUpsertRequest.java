@@ -48,7 +48,7 @@ public class ClientTupleGetAndUpsertRequest {
             ClientResourceRegistry resources
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, resources);
+            var tx = readTx(in, out, resources);
             var tuple = readTuple(in, table, false);
 
             return table.recordView().getAndUpsertAsync(tx, tuple).thenAccept(

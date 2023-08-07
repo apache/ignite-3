@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dep
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneCatalogDescriptorUtils.toZoneDescriptor;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
@@ -45,7 +46,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmen
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -95,7 +95,7 @@ import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
+import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -136,7 +136,6 @@ import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageView;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -178,7 +177,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.IgniteNameUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -186,15 +185,14 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtil;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -600,41 +598,35 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.newValue());
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
 
-            List<Set<Assignment>> assignments;
+            CompletableFuture<List<Set<Assignment>>> assignmentsFuture;
 
             int tableId = tableDescriptor.id();
 
             // Check if the table already has assignments in the vault.
             // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
             if (partitionAssignments(vaultManager, tableId, 0) != null) {
-                assignments = tableAssignments(vaultManager, tableId, zoneDescriptor.partitions());
+                assignmentsFuture = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
             } else {
-                assignments = AffinityUtils.calculateAssignments(
-                        // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 use data nodes from DistributionZoneManager instead.
-                        baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
-                        zoneDescriptor.partitions(),
-                        zoneDescriptor.replicas()
-                );
+                assignmentsFuture = distributionZoneManager.dataNodes(ctx.storageRevision(), tableDescriptor.zoneId())
+                        .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
+                                dataNodes,
+                                zoneDescriptor.partitions(),
+                                zoneDescriptor.replicas()
+                        ));
             }
-
-            assert !assignments.isEmpty() : "Couldn't create the table with empty assignments.";
 
             CompletableFuture<?> createTableFut = createTableLocally(
                     ctx.storageRevision(),
                     tableDescriptor,
                     zoneDescriptor,
-                    assignments
+                    assignmentsFuture
             ).whenComplete((v, e) -> {
                 if (e == null) {
                     for (var listener : assignmentsChangeListeners) {
                         listener.accept(this);
                     }
                 }
-            });
-
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 Probably should be reworked so that
-            // the future is returned along with createTableFut. Right now it will break some tests.
-            writeTableAssignmentsToMetastore(tableId, assignments);
+            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
 
             return createTableFut;
         } finally {
@@ -642,27 +634,32 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    private CompletableFuture<Boolean> writeTableAssignmentsToMetastore(int tableId, List<Set<Assignment>> assignments) {
-        assert !assignments.isEmpty();
+    private CompletableFuture<Boolean> writeTableAssignmentsToMetastore(
+            int tableId,
+            CompletableFuture<List<Set<Assignment>>> assignmentsFuture
+    ) {
+        return assignmentsFuture.thenCompose(newAssignments -> {
+            assert !newAssignments.isEmpty();
 
-        List<Operation> partitionAssignments = new ArrayList<>(assignments.size());
+            List<Operation> partitionAssignments = new ArrayList<>(newAssignments.size());
 
-        for (int i = 0; i < assignments.size(); i++) {
-            partitionAssignments.add(put(
-                    stablePartAssignmentsKey(
-                            new TablePartitionId(tableId, i)),
-                    ByteUtils.toBytes(assignments.get(i))));
-        }
+            for (int i = 0; i < newAssignments.size(); i++) {
+                partitionAssignments.add(put(
+                        stablePartAssignmentsKey(
+                                new TablePartitionId(tableId, i)),
+                        ByteUtils.toBytes(newAssignments.get(i))));
+            }
 
-        Condition condition = Conditions.notExists(new ByteArray(partitionAssignments.get(0).key()));
+            Condition condition = Conditions.notExists(new ByteArray(partitionAssignments.get(0).key()));
 
-        return metaStorageMgr
-                .invoke(condition, partitionAssignments, Collections.emptyList())
-                .exceptionally(e -> {
-                    LOG.error("Couldn't write assignments to metastore", e);
+            return metaStorageMgr
+                    .invoke(condition, partitionAssignments, Collections.emptyList())
+                    .exceptionally(e -> {
+                        LOG.error("Couldn't write assignments to metastore", e);
 
-                    return null;
-                });
+                        return null;
+                    });
+        });
     }
 
     /**
@@ -698,42 +695,40 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Updates or creates partition raft groups and storages.
      *
      * @param causalityToken Causality token.
-     * @param assignments Table assignments.
+     * @param assignmentsFuture Table assignments.
      * @param zoneId Distributed zone ID.
      * @param table Initialized table entity.
      * @return future, which will be completed when the partitions creations done.
      */
     private CompletableFuture<?> createTablePartitionsLocally(
             long causalityToken,
-            List<Set<Assignment>> assignments,
+            CompletableFuture<List<Set<Assignment>>> assignmentsFuture,
             int zoneId,
             TableImpl table
     ) {
         int tableId = table.tableId();
 
-        List<Set<Assignment>> newAssignments = assignments;
-
-        // Empty assignments might be a valid case if tables are created from within cluster init HOCON
-        // configuration, which is not supported now.
-        assert newAssignments != null : IgniteStringFormatter.format("Table [id={}] has empty assignments.", tableId);
-
-        int partitions = newAssignments.size();
-
-        CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for assigned partitions.
-        PartitionSet parts = new BitSetPartitionSet();
-
-        for (int i = 0; i < futures.length; i++) {
-            futures[i] = new CompletableFuture<>();
-
-            parts.set(i);
-        }
-
-        String localMemberName = localNode().name();
-
         // Create new raft nodes according to new assignments.
-        Supplier<CompletableFuture<Void>> updateAssignmentsClosure = () -> {
+        Supplier<CompletableFuture<Void>> updateAssignmentsClosure = () -> assignmentsFuture.thenCompose(newAssignments -> {
+            // Empty assignments might be a valid case if tables are created from within cluster init HOCON
+            // configuration, which is not supported now.
+            assert newAssignments != null : IgniteStringFormatter.format("Table [id={}] has empty assignments.", tableId);
+
+            int partitions = newAssignments.size();
+
+            CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-19713 Process assignments and set partitions only for assigned partitions.
+            PartitionSet parts = new BitSetPartitionSet();
+
+            for (int i = 0; i < futures.length; i++) {
+                futures[i] = new CompletableFuture<>();
+
+                parts.set(i);
+            }
+
+            String localMemberName = localNode().name();
+
             for (int i = 0; i < partitions; i++) {
                 int partId = i;
 
@@ -785,27 +780,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     // <MUTED> See https://issues.apache.org/jira/browse/IGNITE-16668 for details.
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-19046 Restore "|| !hasData"
                     if (internalTbl.storage().isVolatile()) {
-                        shouldStartGroupFut = queryDataNodesCount(tableId, partId, newConfiguration.peers()).thenApply(dataNodesCount -> {
-                            boolean fullPartitionRestart = dataNodesCount == 0;
+                        shouldStartGroupFut = queryDataNodesCount(tableId, partId, newConfiguration.peers())
+                                .thenApply(dataNodesCount -> {
+                                    boolean fullPartitionRestart = dataNodesCount == 0;
 
-                            if (fullPartitionRestart) {
-                                return true;
-                            }
+                                    if (fullPartitionRestart) {
+                                        return true;
+                                    }
 
-                            boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
+                                    boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
 
-                            if (majorityAvailable) {
-                                RebalanceUtil.startPeerRemoval(replicaGrpId, localMemberAssignment, metaStorageMgr);
+                                    if (majorityAvailable) {
+                                        RebalanceUtil.startPeerRemoval(replicaGrpId, localMemberAssignment, metaStorageMgr);
 
-                                return false;
-                            } else {
-                                // No majority and not a full partition restart - need to restart nodes
-                                // with current partition.
-                                String msg = "Unable to start partition " + partId + ". Majority not available.";
+                                        return false;
+                                    } else {
+                                        // No majority and not a full partition restart - need to restart nodes
+                                        // with current partition.
+                                        String msg = "Unable to start partition " + partId + ". Majority not available.";
 
-                                throw new IgniteInternalException(msg);
-                            }
-                        });
+                                        throw new IgniteInternalException(msg);
+                                    }
+                                });
                     } else {
                         shouldStartGroupFut = completedFuture(true);
                     }
@@ -907,11 +903,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
 
             return allOf(futures);
-        };
+        });
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
         CompletableFuture<?> localPartsUpdateFuture = localPartsByTableIdVv.update(causalityToken,
-                (previous, throwable) -> inBusyLock(busyLock, () -> {
+                (previous, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenCompose(newAssignments -> {
+                    PartitionSet parts = new BitSetPartitionSet();
+
+                    for (int i = 0; i < newAssignments.size(); i++) {
+                        parts.set(i);
+                    }
+
                     return getOrCreatePartitionStorages(table, parts).thenApply(u -> {
                         var newValue = new HashMap<>(previous);
 
@@ -919,7 +921,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         return newValue;
                     });
-                }));
+                })));
 
         return assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
             if (e != null) {
@@ -1226,13 +1228,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param causalityToken Causality token.
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
+     * @param assignmentsFuture Future with assignments.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<?> createTableLocally(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
-            List<Set<Assignment>> assignments
+            CompletableFuture<List<Set<Assignment>>> assignmentsFuture
     ) {
         String tableName = tableDescriptor.name();
         int tableId = tableDescriptor.id();
@@ -1271,7 +1274,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
         }));
 
-        CompletableFuture<?> createPartsFut = createTablePartitionsLocally(causalityToken, assignments, zoneDescriptor.id(), table);
+        CompletableFuture<?> createPartsFut = createTablePartitionsLocally(causalityToken, assignmentsFuture, zoneDescriptor.id(), table);
 
         pendingTables.put(tableId, table);
         startedTables.put(tableId, table);
@@ -1723,7 +1726,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19539
-        return (ex instanceof IgniteException) ? (IgniteException) ex : IgniteExceptionUtils.wrap(ex);
+        return (ex instanceof IgniteException) ? (IgniteException) ex : ExceptionUtils.wrap(ex);
     }
 
     /**
@@ -2430,13 +2433,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                     assert tableDescriptor != null : replicaGrpId;
 
-                                    return RebalanceUtil.handleReduceChanged(
-                                            metaStorageMgr,
-                                            baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
-                                            getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
-                                            replicaGrpId,
-                                            evt
-                                    );
+                                    return distributionZoneManager.dataNodes(evt.revision(), tableDescriptor.zoneId())
+                                            .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
+                                                    metaStorageMgr,
+                                                    dataNodes,
+                                                    getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
+                                                    replicaGrpId,
+                                                    evt
+                                            ));
                                 } finally {
                                     busyLock.leaveBusy();
                                 }
@@ -2719,43 +2723,5 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private CatalogZoneDescriptor getZoneDescriptor(int id) {
         return toZoneDescriptor(getZoneById(zonesConfig, id).value());
-    }
-
-    // TODO: IGNITE-19719 Fix it
-    /**
-     * Converts a distribution zone configuration to a Distribution zone descriptor.
-     *
-     * @param config Distribution zone configuration.
-     */
-    @Deprecated(forRemoval = true)
-    public static CatalogZoneDescriptor toZoneDescriptor(DistributionZoneView config) {
-        return new CatalogZoneDescriptor(
-                config.zoneId(),
-                config.name(),
-                config.partitions(),
-                config.replicas(),
-                config.dataNodesAutoAdjust(),
-                config.dataNodesAutoAdjustScaleUp(),
-                config.dataNodesAutoAdjustScaleDown(),
-                config.filter(),
-                toDataStorageDescriptor(config.dataStorage())
-        );
-    }
-
-    @Deprecated(forRemoval = true)
-    private static CatalogDataStorageDescriptor toDataStorageDescriptor(DataStorageView config) {
-        String dataRegion;
-
-        try {
-            Method dataRegionMethod = config.getClass().getMethod("dataRegion");
-
-            dataRegionMethod.setAccessible(true);
-
-            dataRegion = (String) dataRegionMethod.invoke(config);
-        } catch (ReflectiveOperationException e) {
-            dataRegion = e.getMessage();
-        }
-
-        return new CatalogDataStorageDescriptor(config.name(), dataRegion);
     }
 }

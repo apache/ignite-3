@@ -23,6 +23,10 @@ plugins {
 
 import org.gradle.crypto.checksum.Checksum
 
+configurations {
+    odbc
+}
+
 task restoreTool(type: Exec) {
     workingDir "$rootDir/modules/platforms/dotnet"
 
@@ -53,10 +57,36 @@ task copyNativeLibs(type: Copy) {
 cmake {
     workingFolder=file("$buildDir/cpp")
     sourceFolder=file("$projectDir/cpp")
-    generator='Unix Makefiles'
     buildConfig='Release'
     buildTarget='install'
+    getDef().CMAKE_INSTALL_PREFIX="$buildDir/install"
+    getDef().CMAKE_BUILD_TYPE='Release'
+    getDef().CMAKE_CONFIGURATION_TYPES='Release'
 }
+
+task cmakeConfigureClient(type: net.freudasoft.CMakeConfigureTask) {
+    configureFromProject() // uses everything in the cmake { ... } section.
+    getDef().put('ENABLE_CLIENT', 'ON')
+    getDef().put('ENABLE_ODBC', 'OFF')
+}
+
+task cmakeBuildClient(type: net.freudasoft.CMakeBuildTask) {
+    configureFromProject() // uses everything in the cmake { ... } section.
+}
+
+cmakeBuildClient.dependsOn cmakeConfigureClient
+
+task cmakeConfigureOdbc(type: net.freudasoft.CMakeConfigureTask) {
+    configureFromProject() // uses everything in the cmake { ... } section.
+    getDef().put('ENABLE_CLIENT', 'OFF')
+    getDef().put('ENABLE_ODBC', 'ON')
+}
+
+task cmakeBuildOdbc(type: net.freudasoft.CMakeBuildTask) {
+    configureFromProject() // uses everything in the cmake { ... } section.
+}
+
+cmakeBuildOdbc.dependsOn cmakeConfigureOdbc
 
 task buildNuGet(type: Exec) {
     workingDir "$rootDir/modules/platforms/dotnet"
@@ -118,5 +148,11 @@ if (project.hasProperty('prepareRelease')) {
         platformsRelease(file("$buildDir/checksums")) {
             builtBy createChecksums
         }
+    }
+}
+
+artifacts {
+    odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
+        builtBy cmakeBuildOdbc
     }
 }

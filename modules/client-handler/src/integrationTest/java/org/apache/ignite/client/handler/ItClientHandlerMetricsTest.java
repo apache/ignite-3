@@ -147,7 +147,7 @@ public class ItClientHandlerMetricsTest {
         ItClientHandlerTestUtils.connectAndHandshake(serverModule, false, true);
 
         assertTrue(
-                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 158, 1000),
+                IgniteTestUtils.waitForCondition(() -> testServer.metrics().bytesSent() == 159, 1000),
                 () -> "bytesSent: " + testServer.metrics().bytesSent());
 
         assertTrue(

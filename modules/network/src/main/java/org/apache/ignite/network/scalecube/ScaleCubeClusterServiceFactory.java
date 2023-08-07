@@ -177,6 +177,8 @@ public class ScaleCubeClusterServiceFactory {
                     return;
                 }
 
+                connectionMgr.initiateStopping();
+
                 cluster.shutdown();
 
                 try {

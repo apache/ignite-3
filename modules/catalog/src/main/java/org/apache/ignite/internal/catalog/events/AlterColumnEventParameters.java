@@ -22,9 +22,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 /**
  * Create table event parameters contains a column descriptor for the modified column.
  */
-public class AlterColumnEventParameters extends CatalogEventParameters {
-
-    private final int tableId;
+public class AlterColumnEventParameters extends TableEventParameters {
 
     private final CatalogTableColumnDescriptor columnDescriptor;
 
@@ -33,19 +31,13 @@ public class AlterColumnEventParameters extends CatalogEventParameters {
      *
      * @param causalityToken Causality token.
      * @param catalogVersion Catalog version.
-     * @param tableId Returns an id the table to be modified.
+     * @param tableId ID of the table to be modified.
      * @param columnDescriptor Descriptor for the column to be replaced.
      */
     public AlterColumnEventParameters(long causalityToken, int catalogVersion, int tableId, CatalogTableColumnDescriptor columnDescriptor) {
-        super(causalityToken, catalogVersion);
+        super(causalityToken, catalogVersion, tableId);
 
-        this.tableId = tableId;
         this.columnDescriptor = columnDescriptor;
-    }
-
-    /** Returns an id of a modified table. */
-    public int tableId() {
-        return tableId;
     }
 
     /** Returns column descriptor for the column to be replaced. */

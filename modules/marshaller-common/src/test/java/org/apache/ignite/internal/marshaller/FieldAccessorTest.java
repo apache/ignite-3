@@ -48,6 +48,7 @@ import java.util.BitSet;
 import java.util.Random;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.marshaller.testobjects.TestSimpleObject;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,7 +59,7 @@ import org.mockito.stubbing.Answer;
 /**
  * Check field accessor correctness.
  */
-public class FieldAccessorTest {
+public class FieldAccessorTest extends BaseIgniteAbstractTest {
     /** Random. */
     private Random rnd;
 

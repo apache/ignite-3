@@ -316,6 +316,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of()));
 
             ReplicaManager replicaMgr = new ReplicaManager(
+                    node.name(),
                     cluster.get(i),
                     cmgManager,
                     clock,
@@ -633,35 +634,45 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
             client.stop();
         }
 
-        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        if (executor != null) {
+            IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+        }
 
-        for (Entry<String, Loza> entry : raftServers.entrySet()) {
-            Loza rs = entry.getValue();
+        if (raftServers != null) {
+            for (Entry<String, Loza> entry : raftServers.entrySet()) {
+                Loza rs = entry.getValue();
 
-            ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
+                ReplicaManager replicaMgr = replicaManagers.get(entry.getKey());
 
-            for (ReplicationGroupId grp : replicaMgr.startedGroups()) {
-                replicaMgr.stopReplica(grp).join();
+                for (ReplicationGroupId grp : replicaMgr.startedGroups()) {
+                    replicaMgr.stopReplica(grp).join();
+                }
+
+                for (RaftNodeId nodeId : rs.localNodes()) {
+                    rs.stopRaftNode(nodeId);
+                }
+
+                replicaMgr.stop();
+                rs.stop();
             }
+        }
 
-            for (RaftNodeId nodeId : rs.localNodes()) {
-                rs.stopRaftNode(nodeId);
+        if (txManagers != null) {
+            for (TxManager txMgr : txManagers.values()) {
+                txMgr.stop();
             }
-
-            replicaMgr.stop();
-            rs.stop();
         }
 
-        for (TxManager txMgr : txManagers.values()) {
-            txMgr.stop();
+        if (accRaftClients != null) {
+            for (RaftGroupService svc : accRaftClients.values()) {
+                svc.shutdown();
+            }
         }
 
-        for (RaftGroupService svc : accRaftClients.values()) {
-            svc.shutdown();
-        }
-
-        for (RaftGroupService svc : custRaftClients.values()) {
-            svc.shutdown();
+        if (custRaftClients != null) {
+            for (RaftGroupService svc : custRaftClients.values()) {
+                svc.shutdown();
+            }
         }
     }
 

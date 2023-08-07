@@ -28,11 +28,11 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -51,12 +51,14 @@ import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutExcepti
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -118,10 +120,13 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         // This test is run without Meta storage.
         when(cmgManager.metaStorageNodes()).thenReturn(completedFuture(Set.of()));
 
-        replicaManager = new ReplicaManager(clusterService,
+        replicaManager = new ReplicaManager(
+                name,
+                clusterService,
                 cmgManager,
                 clock,
-                Set.of(TableMessageGroup.class, TxMessageGroup.class));
+                Set.of(TableMessageGroup.class, TxMessageGroup.class)
+        );
 
         replicaManager.start();
     }
@@ -146,7 +151,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .transactionId(TestTransactionIds.newTransactionId())
                 .commitPartitionId(tablePartitionId)
                 .timestampLong(clock.nowLong())
-                .binaryRowBytes(createKeyValueRow(1L, 1L))
+                .binaryRowMessage(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
                 .build();
 
@@ -188,7 +193,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .transactionId(TestTransactionIds.newTransactionId())
                 .commitPartitionId(tablePartitionId)
                 .timestampLong(clock.nowLong())
-                .binaryRowBytes(createKeyValueRow(1L, 1L))
+                .binaryRowMessage(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
                 .build();
 
@@ -220,7 +225,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .transactionId(TestTransactionIds.newTransactionId())
                 .commitPartitionId(tablePartitionId)
                 .timestampLong(clock.nowLong())
-                .binaryRowBytes(createKeyValueRow(1L, 1L))
+                .binaryRowMessage(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
                 .build();
 
@@ -239,10 +244,10 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
             e1 = e;
         }
 
-        assertTrue(e0 != null);
+        assertNotNull(e0);
         assertTrue(unwrapCause(e0) instanceof ReplicationException, e0.toString());
 
-        assertTrue(e1 != null);
+        assertNotNull(e1);
         assertTrue(unwrapCause(e1) instanceof ReplicationException, e1.toString());
     }
 
@@ -277,7 +282,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 .transactionId(TestTransactionIds.newTransactionId())
                 .commitPartitionId(tablePartitionId)
                 .timestampLong(clock.nowLong())
-                .binaryRowBytes(createKeyValueRow(1L, 1L))
+                .binaryRowMessage(createKeyValueRow(1L, 1L))
                 .requestType(RequestType.RW_GET)
                 .build();
 
@@ -289,17 +294,22 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
             e0 = e;
         }
 
-        assertTrue(e0 != null);
+        assertNotNull(e0);
         assertTrue(unwrapCause(e0) instanceof ReplicationTimeoutException, e0.toString());
         assertEquals(REPLICA_TIMEOUT_ERR, ((ReplicationTimeoutException) unwrapCause(e0)).code());
     }
 
-    private static ByteBuffer createKeyValueRow(long id, long value) {
+    private BinaryRowMessage createKeyValueRow(long id, long value) {
         RowAssembler rowBuilder = new RowAssembler(SCHEMA);
 
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);
 
-        return rowBuilder.build().byteBuffer();
+        BinaryRow row = rowBuilder.build();
+
+        return tableMessagesFactory.binaryRowMessage()
+                .binaryTuple(row.tupleSlice())
+                .schemaVersion(row.schemaVersion())
+                .build();
     }
 }

@@ -220,6 +220,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
         var nodeOptions = node.raftManager().server().options();
 
+        var notTunedDisruptor = nodeOptions.getfSMCallerExecutorDisruptor();
+
         nodeOptions.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
                 NamedThreadFactory.threadPrefix(node.name() + "-test", "JRaft-FSMCaller-Disruptor"),
                 64,
@@ -249,6 +251,15 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
                     appliedIndex.set(idx);
                 }, exceptionHandler);
+            }
+
+            @Override
+            public void shutdown() {
+                super.shutdown();
+
+                if (notTunedDisruptor != null) {
+                    notTunedDisruptor.shutdown();
+                }
             }
         });
 

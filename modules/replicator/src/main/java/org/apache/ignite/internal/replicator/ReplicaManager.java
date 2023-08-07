@@ -28,8 +28,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -75,7 +78,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class ReplicaManager implements IgniteComponent {
     /** Idle safe time propagation period. */
-    private static final int IDLE_SAFE_TIME_PROPAGATION_PERIOD_SECONDS = 1;
+    public static final int IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS = 1000;
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
@@ -113,21 +116,26 @@ public class ReplicaManager implements IgniteComponent {
     private final HybridClock clock;
 
     /** Scheduled executor for idle safe time sync. */
-    private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor =
-            Executors.newScheduledThreadPool(1, new NamedThreadFactory("scheduled-idle-safe-time-sync-thread", LOG));
+    private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor;
 
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
 
+    /** Executor. */
+    // TODO: IGNITE-20063 Maybe get rid of it
+    private final ExecutorService executor;
+
     /**
      * Constructor for a replica service.
      *
+     * @param nodeName Node name.
      * @param clusterNetSvc Cluster network service.
      * @param cmgMgr Cluster group manager.
      * @param clock A hybrid logical clock.
      * @param messageGroupsToHandle Message handlers.
      */
     public ReplicaManager(
+            String nodeName,
             ClusterService clusterNetSvc,
             ClusterManagementGroupManager cmgMgr,
             HybridClock clock,
@@ -139,6 +147,22 @@ public class ReplicaManager implements IgniteComponent {
         this.messageGroupsToHandle = messageGroupsToHandle;
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
+
+        scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
+                1,
+                NamedThreadFactory.create(nodeName, "scheduled-idle-safe-time-sync-thread", LOG)
+        );
+
+        int threadCount = Runtime.getRuntime().availableProcessors();
+
+        executor = new ThreadPoolExecutor(
+                threadCount,
+                threadCount,
+                30,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(nodeName, "replica", LOG)
+        );
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
@@ -352,7 +376,7 @@ public class ReplicaManager implements IgniteComponent {
     ) {
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
-        Replica newReplica = new Replica(replicaGrpId, whenReplicaReady, listener, storageIndexTracker, raftClient, localNode);
+        Replica newReplica = new Replica(replicaGrpId, whenReplicaReady, listener, storageIndexTracker, raftClient, localNode, executor);
 
         replicas.compute(replicaGrpId, (replicationGroupId, replicaFut) -> {
             if (replicaFut == null) {
@@ -434,8 +458,8 @@ public class ReplicaManager implements IgniteComponent {
         scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
                 this::idleSafeTimeSync,
                 0,
-                IDLE_SAFE_TIME_PROPAGATION_PERIOD_SECONDS,
-                TimeUnit.SECONDS
+                IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                TimeUnit.MILLISECONDS
         );
 
         cmgMgr.metaStorageNodes().whenComplete((nodes, e) -> {
@@ -458,6 +482,7 @@ public class ReplicaManager implements IgniteComponent {
         busyLock.block();
 
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="

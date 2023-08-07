@@ -2927,11 +2927,16 @@ public class ItNodeTest {
         List<TestPeer> peers = new ArrayList<>();
         peers.add(peer0);
 
-        for (int i = 1; i < 10; i++) {
+        int numPeers = 10;
+
+        for (int i = 1; i < numPeers; i++) {
             TestPeer peer = new TestPeer(testInfo, TestUtils.INIT_PORT + i);
             peers.add(peer);
             assertTrue(cluster.start(peer, false, 300));
         }
+
+        waitForTopologyOnEveryNode(numPeers);
+
         for (int i = 0; i < 9; i++) {
             leader = cluster.waitAndGetLeader();
             assertNotNull(leader);
@@ -3022,6 +3027,10 @@ public class ItNodeTest {
         }
 
         verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any());
+
+        // Wait until every node sees every other node, otherwise
+        // changePeersAsync can fail.
+        waitForTopologyOnEveryNode(numPeers);
 
         for (int i = 0; i < 4; i++) {
             leader = cluster.getLeader();
@@ -3648,8 +3657,11 @@ public class ItNodeTest {
             return false;
         });
 
-        assertTrue(waitForCondition(() -> cluster.getLeader() != null &&
-            !leader.getNodeId().equals(cluster.getLeader().getNodeId()), 10_000));
+        assertTrue(waitForCondition(() -> {
+            Node currentLeader = cluster.getLeader();
+
+            return currentLeader != null && !leader.getNodeId().equals(currentLeader.getNodeId());
+        }, 10_000));
 
         CompletableFuture<Status> res = new CompletableFuture<>();
 
@@ -3965,6 +3977,12 @@ public class ItNodeTest {
             RpcClientEx rpcClientEx = sender(follower);
             rpcClientEx.stopBlock();
         }
+    }
+
+    private void waitForTopologyOnEveryNode(int count) {
+        cluster.getAllNodes().forEach(peerId -> {
+            assertTrue(waitForTopology(cluster, peerId, count, TimeUnit.SECONDS.toMillis(10)));
+        });
     }
 
     private static TestPeer findById(Collection<TestPeer> peers, PeerId id) {

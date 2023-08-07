@@ -19,7 +19,8 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.io.PrintWriter;
@@ -85,7 +86,6 @@ import org.apache.ignite.internal.sql.engine.sql.StatementParseResult;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.FastTimestamps;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -185,7 +185,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
                     parameters.length, parseResult.dynamicParamsCount()
             );
 
-            throw new SqlException(QUERY_INVALID_ERR, message);
+            throw new SqlException(STMT_VALIDATION_ERR, message);
         }
 
         return parseResult.statement();
@@ -265,8 +265,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         try {
             sqlNode = parser.parseQuery();
         } catch (SqlParseException e) {
-            //            throw new IgniteSQLException("parse failed", IgniteQueryErrorCode.PARSING, e);
-            throw new IgniteException(QUERY_INVALID_ERR, "parse failed", e);
+            throw new SqlException(STMT_PARSE_ERR, "parse failed", e);
         }
 
         CalciteCatalogReader catalogReader = this.catalogReader.withSchemaPath(schemaPath);

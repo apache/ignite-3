@@ -36,6 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -81,6 +83,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -238,6 +241,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             TablesConfiguration tablesConfiguration
     ) {
         assignTableIds(tablesConfiguration);
+        completeTablesConfigs(tablesConfiguration);
 
         createRebalanceEngine(tablesConfiguration);
 
@@ -273,6 +277,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             @InjectConfiguration ("mock.tables {table0 = { zoneId = 1 }}") TablesConfiguration tablesConfiguration
     ) {
         assignTableIds(tablesConfiguration);
+        completeTablesConfigs(tablesConfiguration);
 
         createRebalanceEngine(tablesConfiguration);
 
@@ -307,6 +312,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             @InjectConfiguration("mock.tables {table0 = { zoneId = 1 }}") TablesConfiguration tablesConfiguration
     ) {
         assignTableIds(tablesConfiguration);
+        completeTablesConfigs(tablesConfiguration);
 
         createRebalanceEngine(tablesConfiguration);
 
@@ -343,6 +349,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             @InjectConfiguration("mock.tables {table0 = { zoneId = 1 }}") TablesConfiguration tablesConfiguration
     ) {
         assignTableIds(tablesConfiguration);
+        completeTablesConfigs(tablesConfiguration);
 
         createRebalanceEngine(tablesConfiguration);
 
@@ -380,7 +387,9 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                             + "table0 = { zoneId = 1, id = 1 }}")
             TablesConfiguration tablesConfiguration
     ) throws Exception {
-        when(distributionZoneManager.dataNodes(anyInt())).thenReturn(Set.of("node0"));
+        completeTablesConfigs(tablesConfiguration);
+
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
         keyValueStorage.put(stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(), toBytes(Set.of("node0")), someTimestamp());
 
@@ -415,7 +424,9 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                             + "table0 = { zoneId = 0, id = 1 }}")
             TablesConfiguration tablesConfiguration
     ) throws Exception {
-        when(distributionZoneManager.dataNodes(anyInt())).thenReturn(Set.of("node0"));
+        completeTablesConfigs(tablesConfiguration);
+
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(completedFuture(Set.of("node0")));
 
         for (int i = 0; i < 25; i++) {
             keyValueStorage.put(stablePartAssignmentsKey(new TablePartitionId(1, i)).bytes(), toBytes(Set.of("node0")), someTimestamp());
@@ -441,6 +452,25 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         } finally {
             realMetaStorageManager.stop();
         }
+    }
+
+    private static void completeTablesConfigs(TablesConfiguration tablesConfiguration) {
+        CompletableFuture<Void> future = tablesConfiguration.change(tablesChange -> {
+            tablesChange.changeTables(tablesListChange -> {
+                tablesListChange.forEach(
+                        tableView -> tablesListChange.update(tableView.name(), tableChange -> {
+                            tableChange.changeColumns(columnsListChange -> columnsListChange.create("k1", columnChange -> {
+                                columnChange.changeType(typeChange -> typeChange.changeType("string"));
+                            }));
+
+                            tableChange.changePrimaryKey(primaryKeyChange -> primaryKeyChange.changeColumns("k1"));
+
+                            ((ExtendedTableChange) tableChange).changeSchemaId(1);
+                        }));
+            });
+        });
+
+        assertThat(future, willCompleteSuccessfully());
     }
 
     private void createRebalanceEngine(TablesConfiguration tablesConfiguration) {

@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.UUID;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.hamcrest.CoreMatchers;
@@ -37,7 +38,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests client behavior with multiple clusters.
  */
-public class MultiClusterTest {
+public class MultiClusterTest extends BaseIgniteAbstractTest {
     private static final UUID clusterId1 = UUID.randomUUID();
 
     private static final UUID clusterId2 = UUID.randomUUID();

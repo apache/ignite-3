@@ -20,6 +20,8 @@ package org.apache.ignite.internal.testframework;
 import static java.lang.Thread.sleep;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -63,6 +65,17 @@ public final class IgniteTestUtils {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteTestUtils.class);
 
     private static final int TIMEOUT_SEC = 30;
+
+    private static final VarHandle MODIFIERS;
+
+    static {
+        try {
+            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(Field.class, MethodHandles.lookup());
+            MODIFIERS = lookup.findVarHandle(Field.class, "modifiers", int.class);
+        } catch (IllegalAccessException | NoSuchFieldException ex) {
+            throw new ExceptionInInitializerError(ex);
+        }
+    }
 
     /**
      * Set object field value via reflection.
@@ -137,11 +150,7 @@ public final class IgniteTestUtils {
             }
 
             if (isFinal) {
-                Field modifiersField = Field.class.getDeclaredField("modifiers");
-
-                modifiersField.setAccessible(true);
-
-                modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
+                MODIFIERS.set(field, field.getModifiers() & ~Modifier.FINAL);
             }
 
             field.set(obj, val);

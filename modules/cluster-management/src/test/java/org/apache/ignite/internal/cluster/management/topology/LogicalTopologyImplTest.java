@@ -51,6 +51,7 @@ import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorag
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
@@ -67,7 +68,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
-class LogicalTopologyImplTest {
+class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     private final ClusterStateStorage storage = spy(new TestClusterStateStorage());
 
     private LogicalTopology topology;
