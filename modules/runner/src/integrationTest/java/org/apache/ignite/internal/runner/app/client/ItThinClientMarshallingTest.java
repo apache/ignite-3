@@ -176,7 +176,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     @Test
     public void testKvMissingValTupleFields() {
-        var tableName = "testMissingValTupleFields";
+        var tableName = "testKvMissingValTupleFields";
         ignite().sql().createSession().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
 
         Table table = ignite().tables().table(tableName);
