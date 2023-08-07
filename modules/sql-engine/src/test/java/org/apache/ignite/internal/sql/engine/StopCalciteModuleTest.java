@@ -53,6 +53,7 @@ import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -147,6 +148,8 @@ public class StopCalciteModuleTest {
     private final TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
 
     private final ClusterNode localNode = new ClusterNodeImpl("mock-node-id", NODE_NAME, null);
+
+    private final MetricManager metricManager = new MetricManager();
 
     private final int tblId = 1;
 
@@ -243,7 +246,8 @@ public class StopCalciteModuleTest {
                 Map::of,
                 mock(ReplicaService.class),
                 clock,
-                catalogManager
+                catalogManager,
+                metricManager
         );
 
         TableImpl tableImpl = new TableImpl(tbl, schemaReg, new HeapLockManager());

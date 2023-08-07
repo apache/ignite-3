@@ -115,6 +115,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         when(value.namedListKeys()).thenReturn(new ArrayList<>());
 
         distributionZoneManager = new DistributionZoneManager(
+                null,
                 zonesConfiguration,
                 null,
                 null,

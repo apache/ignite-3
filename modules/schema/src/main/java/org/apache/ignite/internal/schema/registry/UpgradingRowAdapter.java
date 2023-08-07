@@ -26,6 +26,7 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
@@ -417,5 +418,12 @@ class UpgradingRowAdapter extends Row {
         }
 
         return mappedId < 0 ? (Instant) column.defaultValue() : super.timestampValue(mappedId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BinaryTuple binaryTuple() {
+        // Underlying binary tuple can not be used directly.
+        return null;
     }
 }

@@ -21,6 +21,10 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -46,7 +50,6 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -99,21 +102,11 @@ import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
-import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.EventListener;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -125,8 +118,6 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -134,9 +125,9 @@ import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.mockito.ArgumentCaptor;
 
 /**
- * Catalog service self test.
+ * Catalog manager self test.
  */
-public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
+public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
     private static final String ZONE_NAME = DEFAULT_ZONE_NAME;
     private static final String TABLE_NAME = "myTable";
@@ -144,46 +135,6 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
     private static final String NEW_COLUMN_NAME = "NEWCOL";
     private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
     private static final String INDEX_NAME = "myIndex";
-
-    private MetaStorageManager metastore;
-
-    private VaultManager vault;
-
-    private UpdateLog updateLog;
-
-    private CatalogManagerImpl manager;
-
-    private final HybridClock clock = new HybridClockImpl();
-
-    private ClockWaiter clockWaiter;
-
-    @BeforeEach
-    void setUp() {
-        vault = new VaultManager(new InMemoryVaultService());
-
-        metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage("test"));
-
-        clockWaiter = spy(new ClockWaiter("test", clock));
-        updateLog = spy(new UpdateLogImpl(metastore));
-        manager = new CatalogManagerImpl(updateLog, clockWaiter);
-
-        vault.start();
-        metastore.start();
-        clockWaiter.start();
-        manager.start();
-
-        assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
-    }
-
-    @AfterEach
-    public void tearDown() throws Exception {
-        IgniteUtils.closeAll(
-                manager == null ? null : manager::stop,
-                clockWaiter == null ? null : clockWaiter::stop,
-                metastore == null ? null : metastore::stop,
-                vault == null ? null : vault::stop
-        );
-    }
 
     @Test
     public void testEmptyCatalog() {
@@ -206,12 +157,12 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
         // Default distribution zone must exists.
         CatalogZoneDescriptor zone = manager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
         assertEquals(DEFAULT_ZONE_NAME, zone.name());
-        assertEquals(CreateZoneParams.DEFAULT_PARTITION_COUNT, zone.partitions());
-        assertEquals(CreateZoneParams.DEFAULT_REPLICA_COUNT, zone.replicas());
-        assertEquals(CreateZoneParams.DEFAULT_FILTER, zone.filter());
-        assertEquals(CreateZoneParams.INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
-        assertEquals(CreateZoneParams.INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
-        assertEquals(CreateZoneParams.INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
+        assertEquals(DEFAULT_PARTITION_COUNT, zone.partitions());
+        assertEquals(DEFAULT_REPLICA_COUNT, zone.replicas());
+        assertEquals(DEFAULT_FILTER, zone.filter());
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
     }
 
     @Test
@@ -1311,7 +1262,7 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
                 .filter("expression")
                 .build();
 
-        assertThat(manager.createDistributionZone(params), willCompleteSuccessfully());
+        assertThat(manager.createZone(params), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         assertNull(manager.zone(zoneName, 0));
@@ -1343,7 +1294,7 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
                 .zoneName(zoneName)
                 .build();
 
-        assertThat(manager.createDistributionZone(createZoneParams), willCompleteSuccessfully());
+        assertThat(manager.createZone(createZoneParams), willCompleteSuccessfully());
 
         long beforeDropTimestamp = clock.nowLong();
 
@@ -1351,7 +1302,7 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
                 .zoneName(zoneName)
                 .build();
 
-        CompletableFuture<Void> fut = manager.dropDistributionZone(params);
+        CompletableFuture<Void> fut = manager.dropZone(params);
 
         assertThat(fut, willCompleteSuccessfully());
 
@@ -1368,7 +1319,7 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
         assertNull(manager.zone(zone.id(), clock.nowLong()));
 
         // Try to drop non-existing zone.
-        assertThat(manager.dropDistributionZone(params), willThrow(DistributionZoneNotFoundException.class));
+        assertThat(manager.dropZone(params), willThrow(DistributionZoneNotFoundException.class));
     }
 
     @Test
@@ -1381,7 +1332,7 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
                 .replicas(15)
                 .build();
 
-        assertThat(manager.createDistributionZone(createParams), willCompleteSuccessfully());
+        assertThat(manager.createZone(createParams), willCompleteSuccessfully());
 
         long beforeDropTimestamp = clock.nowLong();
 
@@ -1394,7 +1345,7 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
                 .newZoneName(newZoneName)
                 .build();
 
-        assertThat(manager.renameDistributionZone(renameZoneParams), willCompleteSuccessfully());
+        assertThat(manager.renameZone(renameZoneParams), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         CatalogZoneDescriptor zone = manager.zone(zoneName, beforeDropTimestamp);
@@ -1424,7 +1375,7 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
                 .partitions(42)
                 .replicas(15)
                 .build();
-        assertThat(manager.createDistributionZone(createParams), willThrow(IgniteInternalException.class));
+        assertThat(manager.createZone(createParams), willThrow(IgniteInternalException.class));
 
         // Validate default zone wasn't changed.
         assertSame(defaultZone, manager.zone(DEFAULT_ZONE_NAME, clock.nowLong()));
@@ -1436,7 +1387,7 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
                 .zoneName(DEFAULT_ZONE_NAME)
                 .newZoneName(newDefaultZoneName)
                 .build();
-        assertThat(manager.renameDistributionZone(renameZoneParams), willThrow(IgniteInternalException.class));
+        assertThat(manager.renameZone(renameZoneParams), willThrow(IgniteInternalException.class));
 
         // Validate default zone wasn't changed.
         assertNull(manager.zone(newDefaultZoneName, clock.nowLong()));
@@ -1446,7 +1397,7 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
         DropZoneParams dropZoneParams = DropZoneParams.builder()
                 .zoneName(DEFAULT_ZONE_NAME)
                 .build();
-        assertThat(manager.dropDistributionZone(dropZoneParams), willThrow(IgniteInternalException.class));
+        assertThat(manager.dropZone(dropZoneParams), willThrow(IgniteInternalException.class));
 
         // Validate default zone wasn't changed.
         assertSame(defaultZone, manager.zone(DEFAULT_ZONE_NAME, clock.nowLong()));
@@ -1468,13 +1419,14 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
                 .zoneName(zoneName)
                 .partitions(10)
                 .replicas(2)
+                .dataNodesAutoAdjust(INFINITE_TIMER_VALUE)
                 .dataNodesAutoAdjustScaleUp(3)
                 .dataNodesAutoAdjustScaleDown(4)
                 .filter("newExpression")
                 .build();
 
-        assertThat(manager.createDistributionZone(createParams), willCompleteSuccessfully());
-        assertThat(manager.alterDistributionZone(alterZoneParams), willCompleteSuccessfully());
+        assertThat(manager.createZone(createParams), willCompleteSuccessfully());
+        assertThat(manager.alterZone(alterZoneParams), willCompleteSuccessfully());
 
         // Validate actual catalog
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
@@ -1500,7 +1452,7 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
                 .replicas(15)
                 .build();
 
-        assertThat(manager.createDistributionZone(params), willCompleteSuccessfully());
+        assertThat(manager.createZone(params), willCompleteSuccessfully());
 
         // Try to create zone with same name.
         params = CreateZoneParams.builder()
@@ -1509,7 +1461,7 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
                 .replicas(1)
                 .build();
 
-        assertThat(manager.createDistributionZone(params), willThrowFast(DistributionZoneAlreadyExistsException.class));
+        assertThat(manager.createZone(params), willThrowFast(DistributionZoneAlreadyExistsException.class));
 
         // Validate zone was NOT changed
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
@@ -1541,13 +1493,13 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
         manager.listen(CatalogEvent.ZONE_CREATE, eventListener);
         manager.listen(CatalogEvent.ZONE_DROP, eventListener);
 
-        CompletableFuture<Void> fut = manager.createDistributionZone(createZoneParams);
+        CompletableFuture<Void> fut = manager.createZone(createZoneParams);
 
         assertThat(fut, willCompleteSuccessfully());
 
         verify(eventListener).notify(any(CreateZoneEventParameters.class), isNull());
 
-        fut = manager.dropDistributionZone(dropZoneParams);
+        fut = manager.dropZone(dropZoneParams);
 
         assertThat(fut, willCompleteSuccessfully());
 
@@ -1871,6 +1823,85 @@ public class CatalogManagerSelfTest extends BaseIgniteAbstractTest {
         assertThat(manager.indexes(0), empty());
         assertThat(manager.indexes(1), hasItems(index(1, createPkIndexName(TABLE_NAME))));
         assertThat(manager.indexes(2), hasItems(index(2, createPkIndexName(TABLE_NAME)), index(2, INDEX_NAME)));
+    }
+
+    @Test
+    public void createTableProducesTableVersion1() {
+        createSomeTable(TABLE_NAME);
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        assertThat(table.tableVersion(), is(1));
+    }
+
+    @Test
+    public void addColumnIncrementsTableVersion() {
+        createSomeTable(TABLE_NAME);
+
+        CompletableFuture<Void> future = manager.addColumn(
+                AlterTableAddColumnParams.builder()
+                        .schemaName(SCHEMA_NAME)
+                        .tableName(TABLE_NAME)
+                        .columns(List.of(ColumnParams.builder().name("val2").type(ColumnType.INT32).build()))
+                        .build()
+        );
+        assertThat(future, willCompleteSuccessfully());
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        assertThat(table.tableVersion(), is(2));
+    }
+
+    @Test
+    public void dropColumnIncrementsTableVersion() {
+        createSomeTable(TABLE_NAME);
+
+        CompletableFuture<Void> future = manager.dropColumn(
+                AlterTableDropColumnParams.builder()
+                        .schemaName(SCHEMA_NAME)
+                        .tableName(TABLE_NAME)
+                        .columns(Set.of("val1"))
+                        .build()
+        );
+        assertThat(future, willCompleteSuccessfully());
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        assertThat(table.tableVersion(), is(2));
+    }
+
+    @Test
+    public void alterColumnIncrementsTableVersion() {
+        createSomeTable(TABLE_NAME);
+
+        CompletableFuture<Void> future = manager.alterColumn(
+                AlterColumnParams.builder()
+                        .schemaName(SCHEMA_NAME)
+                        .tableName(TABLE_NAME)
+                        .columnName("val1")
+                        .type(ColumnType.INT64)
+                        .build()
+        );
+        assertThat(future, willCompleteSuccessfully());
+
+        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+
+        assertThat(table.tableVersion(), is(2));
+    }
+
+    private void createSomeTable(String tableName) {
+        CreateTableParams params = CreateTableParams.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .zone(ZONE_NAME)
+                .columns(List.of(
+                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
+                        ColumnParams.builder().name("val1").type(ColumnType.INT32).build()
+                ))
+                .primaryKeyColumns(List.of("key1"))
+                .build();
+
+        assertThat(manager.createTable(params), willCompleteSuccessfully());
     }
 
     private CompletableFuture<Void> changeColumn(

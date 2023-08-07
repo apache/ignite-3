@@ -124,28 +124,28 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
             CreateZoneCommand zoneCommand = (CreateZoneCommand) cmd;
 
             return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.createDistributionZone(DdlToCatalogCommandConverter.convert(zoneCommand))
+                    .thenCompose(res -> catalogManager.createZone(DdlToCatalogCommandConverter.convert(zoneCommand))
                             .handle(handleModificationResult(zoneCommand.ifNotExists(), DistributionZoneAlreadyExistsException.class))
                     );
         } else if (cmd instanceof DropZoneCommand) {
             DropZoneCommand zoneCommand = (DropZoneCommand) cmd;
 
             return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.dropDistributionZone(DdlToCatalogCommandConverter.convert(zoneCommand))
+                    .thenCompose(res -> catalogManager.dropZone(DdlToCatalogCommandConverter.convert(zoneCommand))
                             .handle(handleModificationResult(zoneCommand.ifExists(), DistributionZoneNotFoundException.class))
                     );
         } else if (cmd instanceof AlterZoneRenameCommand) {
             AlterZoneRenameCommand zoneCommand = (AlterZoneRenameCommand) cmd;
 
             return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.renameDistributionZone(DdlToCatalogCommandConverter.convert(zoneCommand))
+                    .thenCompose(res -> catalogManager.renameZone(DdlToCatalogCommandConverter.convert(zoneCommand))
                             .handle(handleModificationResult(zoneCommand.ifExists(), DistributionZoneNotFoundException.class))
                     );
         } else if (cmd instanceof AlterZoneSetCommand) {
             AlterZoneSetCommand zoneCommand = (AlterZoneSetCommand) cmd;
 
             return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.alterDistributionZone(DdlToCatalogCommandConverter.convert(zoneCommand))
+                    .thenCompose(res -> catalogManager.alterZone(DdlToCatalogCommandConverter.convert(zoneCommand))
                             .handle(handleModificationResult(zoneCommand.ifExists(), DistributionZoneNotFoundException.class))
                     );
         }
