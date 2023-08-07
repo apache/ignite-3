@@ -176,7 +176,18 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     @Test
     public void testKvMissingValTupleFields() {
-        assert false : "TODO";
+        var tableName = "testMissingValTupleFields";
+        ignite().sql().createSession().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+
+        Table table = ignite().tables().table(tableName);
+        var tupleView = table.keyValueView();
+
+        Throwable ex = assertThrowsWithCause(
+                () -> tupleView.put(null, Tuple.create().set("KEY", 1), Tuple.create()),
+                IgniteException.class);
+
+        assertThat(ex.getMessage(), startsWith(
+                "Failed to set column (null was passed, but column is not nullable): [col=Column [schemaIndex=1, columnOrder=1, name=VAL"));
     }
 
     @Test
