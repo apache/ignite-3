@@ -330,9 +330,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private void onMessage(String nodeName, QueryStartRequest msg) {
         assert nodeName != null && msg != null;
 
-        //TODO IGNITE-18733: We should use txTimestamp from message tx attributes to wait for metadata ready,
-        // then get actual version for txTimestamp and wait for catalog version ready.
-        // As optimization, we can lookup for latest available schema and go sync way if it's version >= desirable.
         CompletableFuture<Void> fut = sqlSchemaManager.schemaReadyFuture(msg.schemaVersion());
 
         if (fut.isDone()) {
