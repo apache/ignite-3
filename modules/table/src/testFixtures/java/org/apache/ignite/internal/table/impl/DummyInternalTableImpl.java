@@ -124,7 +124,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private final ReplicationGroupId groupId;
 
     /** The thread updates safe time on the dummy replica. */
-    final private PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
 
@@ -341,22 +341,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 safeTime,
                 new PendingComparableValuesTracker<>(0L)
         );
-    }
-
-    /**
-     * Set a safe timestamp.
-     *
-     * @param ts Timestamp.
-     */
-    public void updateSafeTime(HybridTimestamp ts) {
-        safeTime.update(ts, null);
-    }
-
-    /**
-     * @return Current safe time,
-     */
-    public HybridTimestamp getSafeTime() {
-        return safeTime.current();
     }
 
     /**
