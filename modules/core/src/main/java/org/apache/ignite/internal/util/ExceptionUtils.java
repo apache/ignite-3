@@ -347,6 +347,22 @@ public final class ExceptionUtils {
     }
 
     /**
+     * Unwraps the root cause of the provided {@code err}.
+     *
+     * @param e Throwable.
+     * @return Root cause.
+     */
+    public static <T extends Throwable> T unwrapRootCause(Throwable e) {
+        var cause = e;
+
+        while (cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+
+        return (T) cause;
+    }
+
+    /**
      * Creates a new exception, which type is defined by the provided {@code supplier}, with the specified {@code t} as a cause.
      * In the case when the provided cause {@code t} is an instance of {@link IgniteInternalException}
      * or {@link IgniteInternalCheckedException}, the original trace identifier and full error code are preserved.
