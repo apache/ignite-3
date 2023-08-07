@@ -281,16 +281,6 @@ public class ClientTable implements Table {
         }
     }
 
-    <T> CompletableFuture<T> doSchemaOutInOpAsync(
-            int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
-            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
-            @Nullable T defaultValue,
-            @Nullable PartitionAwarenessProvider provider
-    ) {
-        return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null);
-    }
-
     /**
      * Performs a schema-based operation.
      *
@@ -351,6 +341,29 @@ public class ClientTable implements Table {
      * @param opCode Op code.
      * @param writer Writer.
      * @param reader Reader.
+     * @param defaultValue Default value to use when server returns null.
+     * @param provider Partition awareness provider.
+     * @param <T> Result type.
+     * @return Future representing pending completion of the operation.
+     */
+    <T> CompletableFuture<T> doSchemaOutInOpAsync(
+            int opCode,
+            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            BiFunction<ClientSchema, ClientMessageUnpacker, T> reader,
+            @Nullable T defaultValue,
+            @Nullable PartitionAwarenessProvider provider
+    ) {
+        return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null);
+    }
+
+    /**
+     * Performs a schema-based operation.
+     *
+     * @param opCode Op code.
+     * @param writer Writer.
+     * @param reader Reader.
+     * @param defaultValue Default value to use when server returns null.
+     * @param responseSchemaRequired Whether response schema is required to read the result.
      * @param provider Partition awareness provider.
      * @param retryPolicyOverride Retry policy override.
      * @param schemaVersionOverride Schema version override.
@@ -434,7 +447,7 @@ public class ClientTable implements Table {
             BiFunction<ClientSchema, ClientMessageUnpacker, T> fn,
             @Nullable T defaultValue,
             boolean responseSchemaRequired
-            ) {
+    ) {
         int schemaVer = in.unpackInt();
 
         if (!responseSchemaRequired) {
