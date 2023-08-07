@@ -110,8 +110,9 @@ public class ConnectCall implements Call<UrlCallInput, String> {
                 new NodeConfigurationApi(clientFactory.getClientWithoutBasicAuthentication(nodeUrl)).getNodeConfiguration();
                 return null;
             } catch (ApiException e) {
-                if (e.getCause() == null) {
-                    Problem problem = IgniteCliApiExceptionHandler.extractProblem(e);
+                if (e.getCause() == null && e.getResponseBody() != null) {
+                    Problem problem = IgniteCliApiExceptionHandler.extractProblem(e.getResponseBody());
+
                     if (problem.getStatus() == HttpStatus.UNAUTHORIZED.getCode()) {
                         new NodeConfigurationApi(clientFactory.getClient(nodeUrl)).getNodeConfiguration();
                         return username;

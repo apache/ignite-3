@@ -68,8 +68,9 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
                         .verbose(apiCause.getMessage());
             } else if (apiCause != null) {
                 errorComponentBuilder.header(apiCause.getMessage());
-            } else {
-                Problem problem = extractProblem(cause);
+            } else if (cause.getResponseBody() != null) {
+                Problem problem = extractProblem(cause.getResponseBody());
+
                 if (problem.getStatus() == 401) {
                     errorComponentBuilder
                             .header("Authentication error")
@@ -79,6 +80,8 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
                 } else {
                     renderProblem(errorComponentBuilder, problem);
                 }
+            } else {
+                errorComponentBuilder.header(e.getCause() != e ? e.getCause().getMessage() : e.getMessage());
             }
         } else {
             errorComponentBuilder.header(e.getCause() != e ? e.getCause().getMessage() : e.getMessage());
@@ -96,12 +99,12 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
     /**
      * Extracts a @{link Problem} from the API exception.
      *
-     * @param cause Exception returned from the API call.
+     * @param responseBody response body of exception returned from the API call.
      * @return Extracted {@link Problem}
      */
-    public static Problem extractProblem(ApiException cause) {
+    public static Problem extractProblem(String responseBody) {
         try {
-            return objectMapper.readValue(cause.getResponseBody(), Problem.class);
+            return objectMapper.readValue(responseBody, Problem.class);
         } catch (JsonProcessingException ex) {
             throw new RuntimeException(ex);
         }
