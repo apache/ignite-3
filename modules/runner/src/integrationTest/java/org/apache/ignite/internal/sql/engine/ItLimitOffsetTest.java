@@ -26,7 +26,6 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,10 +43,6 @@ public class ItLimitOffsetTest extends ClusterPerClassIntegrationTest {
     @AfterEach
     void afterEach() {
         sql("DROP TABLE IF EXISTS test");
-    }
-
-    protected IgniteSql igniteSql() {
-        return CLUSTER_NODES.get(0).sql();
     }
 
     /** Tests correctness of fetch / offset params. */
