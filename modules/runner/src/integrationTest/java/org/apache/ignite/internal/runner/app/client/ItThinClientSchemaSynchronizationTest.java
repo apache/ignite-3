@@ -117,9 +117,9 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         RecordView<Tuple> recordView = client.tables().table(tableName).recordView();
 
         Tuple rec = Tuple.create().set("ID", 1).set("NAME", "name");
-        Runnable action = useGetAndUpsert ?
-                () -> recordView.getAndUpsert(null, rec) :
-                () -> recordView.insert(null, rec);
+        Runnable action = useGetAndUpsert
+                ? () -> recordView.getAndUpsert(null, rec)
+                : () -> recordView.insert(null, rec);
 
         // Insert fails, because there is no NAME column.
         var ex = assertThrows(IgniteException.class, action::run);
@@ -149,9 +149,9 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         Tuple key = Tuple.create().set("ID", 1);
         Tuple val = Tuple.create().set("NAME", "name");
 
-        Runnable action = useGetAndPut ?
-                () -> kvView.getAndPut(null, key, val) :
-                () -> kvView.put(null, key, val);
+        Runnable action = useGetAndPut
+                ? () -> kvView.getAndPut(null, key, val)
+                : () -> kvView.put(null, key, val);
 
         var ex = assertThrows(IgniteException.class, action::run);
         assertEquals("Value tuple doesn't match schema: schemaVersion=1, extraColumns=[NAME]", ex.getMessage());
@@ -178,9 +178,9 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         // Insert fails, because there is no NAME column.
         Pojo rec = new Pojo(1, "name");
-        Runnable action = useGetAndUpsert ?
-                () -> recordView.getAndUpsert(null, rec) :
-                () -> recordView.insert(null, rec);
+        Runnable action = useGetAndUpsert
+                ? () -> recordView.getAndUpsert(null, rec)
+                : () -> recordView.insert(null, rec);
 
         var ex = assertThrows(IgniteException.class, action::run);
         assertEquals(
@@ -213,9 +213,9 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         Integer key = 1;
         ValPojo val = new ValPojo("name");
 
-        Runnable action = useGetAndPut ?
-                () -> kvView.getAndPut(null, key, val) :
-                () -> kvView.put(null, key, val);
+        Runnable action = useGetAndPut
+                ? () -> kvView.getAndPut(null, key, val)
+                : () -> kvView.put(null, key, val);
 
         var ex = assertThrows(IgniteException.class, action::run);
         assertEquals(
@@ -231,8 +231,6 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
 
         assertEquals("name", kvView.get(null, key).name);
     }
-
-    // TODO: Fix doSchemaOutInOpAsync, and add tests for "read after alter table".
 
     private static class Pojo {
         public int id;
