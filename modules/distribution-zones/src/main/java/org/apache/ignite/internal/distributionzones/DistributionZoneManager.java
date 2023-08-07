@@ -285,12 +285,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
         this.topologyWatchListener = createMetastorageTopologyListener();
 
-        zonesState = new ConcurrentHashMap<>();
-
-        logicalTopology = emptySet();
-
-        nodesAttributes = new ConcurrentHashMap<>();
-
         executor = createZoneManagerExecutor(NamedThreadFactory.create(nodeName, "dst-zones-scheduler", LOG));
 
         // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
@@ -525,7 +519,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     } catch (ConfigurationNodeAlreadyExistException e) {
                         throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
                     } catch (ConfigurationNodeDoesNotExistException | ConfigurationNodeRemovedException e) {
-                        throw new DistributionZoneNotFoundException(name, e);
+                        throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
                     }
 
                     try {
