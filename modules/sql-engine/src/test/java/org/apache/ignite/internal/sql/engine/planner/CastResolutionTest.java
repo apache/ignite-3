@@ -113,7 +113,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
                     for (String type : allTypes) {
                         type = isInterval(type) ? makeUsableIntervalType(type) : type;
 
-                        testItems.add(checkStatement().sql(String.format(template, from, type)).ok(false));
+                        testItems.add(checkStatement().sql(String.format(template, from, type)).ok());
                     }
 
                     break;

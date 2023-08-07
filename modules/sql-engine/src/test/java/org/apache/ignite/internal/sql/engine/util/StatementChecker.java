@@ -238,6 +238,7 @@ public class StatementChecker {
     }
 
     /** Expect that validation succeeds. */
+    // TODO: remote relCheck param after https://issues.apache.org/jira/browse/IGNITE-20170
     public DynamicTest ok(boolean relCheck) {
         return ok((node) -> {}, relCheck);
     }
