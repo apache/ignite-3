@@ -32,7 +32,7 @@ Apache Ignite 3 Beta is not currently available on DockerHub. To use a Docker im
 
 The build will result in a docker image you can use locally.
 
-== Running In-Memory Cluster
+== Running Cluster in Docker
 
 Run Ignite in a docker container using the `docker run` command.
 

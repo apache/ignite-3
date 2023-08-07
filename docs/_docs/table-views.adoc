@@ -14,7 +14,7 @@
 // limitations under the License.
 = Table Views
 
-Apache Ignite 3.0 Alpha introduces the key-value API to access cached data via built-in table views.
+Apache Ignite 3.0 Beta introduces the key-value API to access cached data via built-in table views.
 
 [NOTE]
 ====

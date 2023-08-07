@@ -79,7 +79,7 @@ cluster init -n=sampleCluster -m=defaultNode
 
 This command creates a simple cluster you can interact with. For example, you can perform sql requests from the command line, or use the thin client to perform requests.
 
-NOTE: If you have issues with Ignite 3 Alpha, check the logs in the `ignite3-db-3.0.0-beta1/log` folder.
+NOTE: If you have issues with Ignite 3 Beta, check the logs in the `ignite3-db-3.0.0-beta1/log` folder.
 
 
 * Use the `CREATE TABLE` statement to create a new table:
