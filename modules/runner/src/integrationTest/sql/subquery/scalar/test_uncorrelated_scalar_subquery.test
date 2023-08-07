@@ -40,6 +40,12 @@ SELECT *, (SELECT MAX(i) FROM integers) FROM integers ORDER BY i
 3	3
 NULL	3
 
+# group by on subquery
+query II
+SELECT (SELECT 42) AS k, MAX(i) FROM integers GROUP BY k
+----
+42	3
+
 # subquery as parameter to aggregate
 query II
 SELECT i, MAX((SELECT 42)) FROM integers GROUP BY i ORDER BY i
@@ -116,4 +122,3 @@ SELECT * FROM integers WHERE i > (SELECT i FROM integers WHERE i=1)
 ----
 2
 3
-

@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
@@ -45,10 +46,16 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.server.If;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -57,6 +64,8 @@ import org.junit.jupiter.api.Test;
  * Test scenarios for the distribution zone scale up and scale down.
  */
 public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneManagerTest {
+    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManagerScaleUpTest.class);
+
     private static final LogicalNode NODE_1 = new LogicalNode("1", "node1", new NetworkAddress("localhost", 123));
 
     private static final LogicalNode NODE_2 = new LogicalNode("2", "node2", new NetworkAddress("localhost", 123));
@@ -884,7 +893,9 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
     @Test
     void testZoneStateAddRemoveNodesPreservesDuplicationsOfNodes() {
-        ZoneState zoneState = new ZoneState(new ScheduledThreadPoolExecutor(1));
+        ZoneState zoneState = new ZoneState(
+                createZoneManagerExecutor(1, new NamedThreadFactory("test-dst-zones-scheduler", LOG))
+        );
 
         zoneState.nodesToAddToDataNodes(Set.of(A, B), 1);
         zoneState.nodesToAddToDataNodes(Set.of(A, B), 2);

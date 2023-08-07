@@ -15,32 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import java.util.UUID;
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * State machine command to update a row specified by a row id.
+ * Message for transferring a {@link BinaryRow}.
  */
-@Transferable(TableMessageGroup.Commands.UPDATE)
-public interface UpdateCommand extends PartitionCommand {
-    TablePartitionIdMessage tablePartitionId();
+@Transferable(TableMessageGroup.BINARY_ROW_MESSAGE)
+public interface BinaryRowMessage extends NetworkMessage {
+    ByteBuffer binaryTuple();
 
-    UUID rowUuid();
+    int schemaVersion();
 
-    @Nullable
-    BinaryRowMessage rowMessage();
-
-    /** Returns the row to update or {@code null} if the row should be removed. */
-    @Nullable
-    default BinaryRow row() {
-        BinaryRowMessage message = rowMessage();
-
-        return message == null ? null : message.asBinaryRow();
+    default BinaryRow asBinaryRow() {
+        return new BinaryRowImpl(schemaVersion(), binaryTuple());
     }
 }
