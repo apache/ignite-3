@@ -204,14 +204,12 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testIncorrectBitmaskSize() {
-        // TODO: Tuple, POJO
+    public void testIncompatiblePojoFieldType() {
         assert false : "TODO";
     }
 
     @Test
-    public void testIncompatibleFieldType() {
-        // TODO: Tuple, POJO
+    public void testIncompatibleTupleElementType() {
         assert false : "TODO";
     }
 
