@@ -22,10 +22,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.math.BigDecimal;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -205,7 +207,15 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     @Test
     public void testIncompatiblePojoFieldType() {
-        assert false : "TODO";
+        Table table = ignite().tables().table(TABLE_NAME);
+        var pojoView = table.recordView(Mapper.of(IncompatibleFieldPojo.class));
+
+        IncompatibleFieldPojo rec = new IncompatibleFieldPojo();
+        rec.key = "1";
+        rec.val = BigDecimal.ONE;
+
+        Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, rec), IgniteException.class);
+        assertEquals("TODO", ex.getMessage());
     }
 
     @Test
@@ -227,5 +237,10 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     private static class MissingFieldPojo {
         public int unknown;
+    }
+
+    private static class IncompatibleFieldPojo {
+        public String key;
+        public BigDecimal val;
     }
 }
