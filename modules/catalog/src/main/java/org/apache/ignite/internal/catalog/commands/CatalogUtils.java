@@ -213,8 +213,8 @@ public class CatalogUtils {
      */
     public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
         int precision = Objects.requireNonNullElse(params.precision(), defaultPrecision(params.type()));
-        int scale = Objects.requireNonNullElse(params.precision(), DEFAULT_SCALE);
-        int length = Objects.requireNonNullElse(params.precision(), defaultLength(params.type()));
+        int scale = Objects.requireNonNullElse(params.scale(), DEFAULT_SCALE);
+        int length = Objects.requireNonNullElse(params.length(), defaultLength(params.type()));
 
         DefaultValue defaultValue = params.defaultValueDefinition();
 
