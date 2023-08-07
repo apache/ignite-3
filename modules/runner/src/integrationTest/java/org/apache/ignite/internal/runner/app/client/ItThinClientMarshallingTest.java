@@ -214,8 +214,8 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         rec.key = "1";
         rec.val = BigDecimal.ONE;
 
-        Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, rec), IgniteException.class);
-        assertEquals("TODO", ex.getMessage());
+        Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, rec), ClassCastException.class);
+        assertThat(ex.getMessage(), startsWith("class java.math.BigDecimal cannot be cast to class java.lang.CharSequence"));
     }
 
     @Test
