@@ -116,7 +116,11 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     
     @Test
     public void testMissingPojoFields() {
-        assert false : "TODO";
+        Table table = ignite().tables().table(TABLE_NAME);
+        var pojoView = table.recordView(MissingFieldPojo.class);
+
+        Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, new MissingFieldPojo()), IllegalArgumentException.class);
+        assertEquals("No field found for column KEY", ex.getMessage());
     }
 
     @Test
@@ -169,5 +173,9 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         public String unmapped;
 
         public String unmapped2;
+    }
+
+    private static class MissingFieldPojo {
+        public int unknown;
     }
 }
