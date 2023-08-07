@@ -2440,7 +2440,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param full {@code True} if full transaction.
      * @return Constructed {@link UpdateAllCommand} object.
      */
-    private UpdateAllCommand updateAllCommand(TablePartitionId tablePartId, Map<UUID, BinaryRowMessage> rowsToUpdate, UUID txId, boolean full) {
+    private UpdateAllCommand updateAllCommand(TablePartitionId tablePartId, Map<UUID, BinaryRowMessage> rowsToUpdate, UUID txId,
+            boolean full) {
         return MSG_FACTORY.updateAllCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowsToUpdate(rowsToUpdate)
