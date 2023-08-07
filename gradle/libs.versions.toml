@@ -104,7 +104,6 @@ hamcrest-path = { module = "ca.seinesoftware:hamcrest-path", version.ref = "hamc
 
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 mockito-junit = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
-mockito-subclass = { module = "org.mockito:mockito-subclass", version.ref = "mockito" }
 
 asm-core = { module = "org.ow2.asm:asm", version.ref = "asm" }
 asm-tree = { module = "org.ow2.asm:asm-tree", version.ref = "asm" }

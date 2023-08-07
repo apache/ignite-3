@@ -23,6 +23,7 @@ import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.security.AuthenticationException;
@@ -37,7 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @SuppressWarnings({"resource", "ThrowableNotThrown"})
 @ExtendWith(ConfigurationExtension.class)
-public class ClientAuthenticationTest {
+public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
     @SuppressWarnings("unused")
     @InjectConfiguration
     private AuthenticationConfiguration authenticationConfiguration;

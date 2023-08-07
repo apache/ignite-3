@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -108,7 +109,7 @@ public class TupleMarshallerFixlenOnlyBenchmark {
                         .toArray(Column[]::new)
         );
 
-        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl(v -> null, () -> completedFuture(INITIAL_SCHEMA_VERSION), schema) {
+        SchemaRegistry reg = new SchemaRegistryImpl(v -> completedFuture(null), () -> completedFuture(INITIAL_SCHEMA_VERSION), schema) {
             @Override
             public SchemaDescriptor schema() {
                 return schema;
@@ -123,7 +124,8 @@ public class TupleMarshallerFixlenOnlyBenchmark {
             public int lastSchemaVersion() {
                 return schema.version();
             }
-        });
+        };
+        marshaller = new TupleMarshallerImpl(reg);
 
         vals = new Object[schema.valueColumns().length()];
 

@@ -49,9 +49,6 @@ import org.apache.ignite.internal.distributionzones.configuration.FilterValidato
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.lang.DistributionZoneBindTableException;
-import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -97,6 +94,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         distributionZoneManager = new DistributionZoneManager(
+                null,
                 zonesConfiguration,
                 tablesConfiguration,
                 null,

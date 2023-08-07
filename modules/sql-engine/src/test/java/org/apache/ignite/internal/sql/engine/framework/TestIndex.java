@@ -66,6 +66,7 @@ public class TestIndex extends IgniteIndex {
     }
 
     /** Returns an id of the index. */
+    @Override
     public int id() {
         return id;
     }

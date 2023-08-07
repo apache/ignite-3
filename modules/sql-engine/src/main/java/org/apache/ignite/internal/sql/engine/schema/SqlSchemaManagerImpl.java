@@ -38,7 +38,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
 import java.util.function.LongFunction;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
@@ -56,7 +55,6 @@ import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.table.InternalTable;
@@ -66,6 +64,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Holds actual schema and mutates it on schema change, requested by Ignite.
@@ -141,9 +140,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         });
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public SchemaPlus schema(@Nullable String schema) {
+    /** Returns latest schema. */
+    @TestOnly
+    public SchemaPlus latestSchema(@Nullable String schema) {
         // stub for waiting pk indexes, more clear place is IgniteSchema
         CompletableFuture.allOf(pkIdxReady.values().toArray(CompletableFuture[]::new)).join();
 
@@ -154,25 +153,31 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(String name, int version) {
-        throw new UnsupportedOperationException();
+    public SchemaPlus schema(@Nullable String name, int version) {
+        return latestSchema(name);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> actualSchemaAsync(long ver) {
+    public SchemaPlus schema(@Nullable String name, long timestamp) {
+        return latestSchema(name);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> schemaReadyFuture(long version) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
         try {
-            if (ver == IgniteSchema.INITIAL_VERSION) {
-                return completedFuture(calciteSchemaVv.latest());
+            if (version == IgniteSchema.INITIAL_VERSION) {
+                return completedFuture(null);
             }
 
-            CompletableFuture<SchemaPlus> lastSchemaFut;
+            CompletableFuture<Void> lastSchemaFut;
 
             try {
-                lastSchemaFut = calciteSchemaVv.get(ver);
+                lastSchemaFut = calciteSchemaVv.get(version).thenAccept(ignore -> {});
             } catch (OutdatedTokenException e) {
                 return completedFuture(null);
             }
@@ -181,12 +186,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SchemaPlus activeSchema(@Nullable String name, long timestamp) {
-        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -390,7 +389,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, table.tableId(), table.tableId());
 
         InternalTable internalTable = table.internalTable();
-        Supplier<ColocationGroup> colocationGroup = IgniteTableImpl.partitionedGroup(internalTable);
         DoubleSupplier rowCount = IgniteTableImpl.rowCountStatistic(internalTable);
 
         return new IgniteTableImpl(
@@ -398,7 +396,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 internalTable.tableId(),
                 internalTable.name(),
                 schemaRegistry.lastSchemaVersion(),
-                colocationGroup,
                 rowCount
         );
     }

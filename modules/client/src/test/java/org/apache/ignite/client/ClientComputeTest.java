@@ -35,6 +35,7 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.version.Version;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -46,7 +47,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Compute tests.
  */
-public class ClientComputeTest {
+public class ClientComputeTest extends BaseIgniteAbstractTest {
     private static final String TABLE_NAME = "tbl1";
 
     private FakeIgnite ignite;

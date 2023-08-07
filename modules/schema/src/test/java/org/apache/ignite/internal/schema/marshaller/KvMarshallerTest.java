@@ -32,9 +32,10 @@ import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.DynamicContainer.dynamicContainer;
@@ -54,6 +55,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -77,7 +79,10 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithNoDefaultConstructor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithPrivateConstructor;
+import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectKey;
+import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectVal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Assumptions;
@@ -169,7 +174,7 @@ public class KvMarshallerTest {
 
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
-    public void narrowType(MarshallerFactory factory) throws MarshallerException {
+    public void narrowType(MarshallerFactory factory) {
         Assumptions.assumeFalse(factory instanceof AsmMarshallerGenerator, "Generated marshaller doesn't support truncated values, yet.");
 
         Column[] cols = new Column[]{
@@ -182,28 +187,18 @@ public class KvMarshallerTest {
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, columnsAllTypes(true));
-        KvMarshaller<TestTruncatedObject, TestTruncatedObject> marshaller =
-                factory.create(schema, TestTruncatedObject.class, TestTruncatedObject.class);
 
-        final TestTruncatedObject key = TestTruncatedObject.randomObject(rnd);
-        final TestTruncatedObject val = TestTruncatedObject.randomObject(rnd);
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> factory.create(schema, TestTruncatedObject.class, TestTruncatedObject.class));
 
-        BinaryRow row = marshaller.marshal(key, val);
-
-        Object restoredVal = marshaller.unmarshalValue(new Row(schema, row));
-        Object restoredKey = marshaller.unmarshalKey(new Row(schema, row));
-
-        assertTrue(key.getClass().isInstance(restoredKey));
-        assertTrue(val.getClass().isInstance(restoredVal));
-
-        assertEquals(key, restoredKey);
-        assertEquals(val, restoredVal);
+        assertEquals("No field found for column BOOLEANCOL", ex.getMessage());
     }
 
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
-    public void wideType(MarshallerFactory factory) throws MarshallerException {
-        Column[] cols = new Column[]{
+    public void wideType(MarshallerFactory factory) {
+        Column[] cols = {
                 new Column("primitiveLongCol".toUpperCase(), INT64, false),
                 new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
                 new Column("stringCol".toUpperCase(), STRING, false),
@@ -211,38 +206,16 @@ public class KvMarshallerTest {
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
 
-        KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
-                factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
+        IllegalArgumentException ex = ExceptionUtils.unwrapRootCause(assertThrows(
+                IllegalArgumentException.class,
+                () -> factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class)));
 
-        final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
-
-        BinaryRow row = marshaller.marshal(key, val);
-
-        TestObjectWithAllTypes restoredVal = marshaller.unmarshalValue(new Row(schema, row));
-        TestObjectWithAllTypes restoredKey = marshaller.unmarshalKey(new Row(schema, row));
-
-        assertTrue(key.getClass().isInstance(restoredKey));
-        assertTrue(val.getClass().isInstance(restoredVal));
-
-        TestObjectWithAllTypes expectedKey = new TestObjectWithAllTypes();
-        expectedKey.setPrimitiveLongCol(key.getPrimitiveLongCol());
-        expectedKey.setPrimitiveDoubleCol(key.getPrimitiveDoubleCol());
-        expectedKey.setStringCol(key.getStringCol());
-
-        TestObjectWithAllTypes expectedVal = new TestObjectWithAllTypes();
-        expectedVal.setPrimitiveLongCol(val.getPrimitiveLongCol());
-        expectedVal.setPrimitiveDoubleCol(val.getPrimitiveDoubleCol());
-        expectedVal.setStringCol(val.getStringCol());
-
-        assertEquals(expectedKey, restoredKey);
-        assertEquals(expectedVal, restoredVal);
-
-        // Check non-mapped fields has default values.
-        assertNull(restoredKey.getUuidCol());
-        assertNull(restoredVal.getUuidCol());
-        assertEquals(0, restoredKey.getPrimitiveIntCol());
-        assertEquals(0, restoredVal.getPrimitiveIntCol());
+        assertEquals(
+                "Fields [bitmaskCol, booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
+                        + "intCol, longCol, nullBytesCol, nullLongCol, numberCol, primitiveBooleanCol, primitiveByteCol, "
+                        + "primitiveFloatCol, primitiveIntCol, primitiveShortCol, shortCol, timeCol, timestampCol, uuidCol] "
+                        + "of type org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes are not mapped to columns.",
+                ex.getMessage());
     }
 
     @ParameterizedTest
@@ -254,7 +227,6 @@ public class KvMarshallerTest {
                 new Column[]{new Column("key".toUpperCase(), INT64, false)},
                 new Column[]{
                         new Column("col1".toUpperCase(), INT64, false),
-                        new Column("col2".toUpperCase(), INT64, true),
                         new Column("col3".toUpperCase(), STRING, false)
                 });
 
@@ -289,28 +261,29 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithWrongFieldType(MarshallerFactory factory) {
-        Column[] keyCols = new Column[]{
-                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), false),
-                new Column("shortCol".toUpperCase(), UUID, false)
-        };
-        Column[] valCols = new Column[]{
-                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
-                new Column("shortCol".toUpperCase(), UUID, true)
-        };
-
-        SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
-
-        KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
-                factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
-
-        final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
-
-        assertThrows(
-                MarshallerException.class,
-                () -> marshaller.marshal(key, val),
-                "Failed to write field [name=shortCol]"
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{
+                        new Column("longCol".toUpperCase(), NativeTypes.bitmaskOf(42), false),
+                        new Column("intCol".toUpperCase(), UUID, false)
+                },
+                new Column[]{
+                        new Column("bytesCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
+                        new Column("stringCol".toUpperCase(), UUID, true)
+                }
         );
+
+        KvMarshaller<TestSimpleObjectKey, TestSimpleObjectVal> marshaller =
+                factory.create(schema, TestSimpleObjectKey.class, TestSimpleObjectVal.class);
+
+        TestSimpleObjectKey key = TestSimpleObjectKey.randomObject(rnd);
+        TestSimpleObjectVal val = TestSimpleObjectVal.randomObject(rnd);
+
+        Throwable ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(key, val)).getCause();
+        assertThat(
+                ex.getMessage(),
+                startsWith("Failed to set column (INT64 was passed, but column is of different type): "
+                        + "Column [schemaIndex=0, columnOrder=-1, name=LONGCOL, type=BitmaskNativeType"));
     }
 
     /**
@@ -337,24 +310,20 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
-        Column[] cols = new Column[]{
-                new Column("primitiveLongCol".toUpperCase(), INT64, false),
-                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), false),
-        };
-
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
-
-        KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
-                factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
-
-        final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
-
-        assertThrows(
-                MarshallerException.class,
-                () -> marshaller.marshal(key, val),
-                "Failed to write field [name=bitmaskCol]"
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{ new Column("key".toUpperCase(), INT32, false) },
+                new Column[]{ new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true) }
         );
+
+        KvMarshaller<Integer, BitSet> marshaller =
+                factory.create(schema, Integer.class, BitSet.class);
+
+        Throwable ex = ExceptionUtils.unwrapRootCause(assertThrows(
+                MarshallerException.class,
+                () -> marshaller.marshal(1, IgniteTestUtils.randomBitSet(rnd, 42))));
+
+        assertThat(ex.getMessage(), startsWith("Failed to set bitmask for column 'BITMASKCOL' (mask size exceeds allocated size)"));
     }
 
     @ParameterizedTest

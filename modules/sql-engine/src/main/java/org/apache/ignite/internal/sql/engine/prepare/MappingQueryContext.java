@@ -48,7 +48,7 @@ public class MappingQueryContext {
     }
 
     /** Creates a cluster. */
-    RelOptCluster cluster() {
+    public RelOptCluster cluster() {
         if (cluster == null) {
             cluster = RelOptCluster.create(Commons.cluster().getPlanner(), Commons.cluster().getRexBuilder());
             cluster.setMetadataProvider(new CachingRelMetadataProvider(IgniteMetadata.METADATA_PROVIDER,

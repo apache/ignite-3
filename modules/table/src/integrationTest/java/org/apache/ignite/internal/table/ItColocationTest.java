@@ -35,7 +35,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -64,7 +63,6 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -78,11 +76,13 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -92,6 +92,7 @@ import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
@@ -104,7 +105,7 @@ import org.mockito.Mockito;
 /**
  * Tests for data colocation.
  */
-public class ItColocationTest {
+public class ItColocationTest extends BaseIgniteAbstractTest {
     /** Partitions count. */
     private static final int PARTS = 32;
 
@@ -132,7 +133,7 @@ public class ItColocationTest {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        ClusterNode clusterNode = new ClusterNode(UUID.randomUUID().toString(), "node", new NetworkAddress("", 0));
+        ClusterNode clusterNode = new ClusterNodeImpl(UUID.randomUUID().toString(), "node", new NetworkAddress("", 0));
 
         ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
@@ -196,7 +197,7 @@ public class ItColocationTest {
             RaftGroupService r = groupRafts.get(request.groupId());
 
             if (request instanceof ReadWriteMultiRowReplicaRequest) {
-                Map<UUID, ByteBuffer> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRowsBytes()
+                Map<UUID, BinaryRowMessage> rows = ((ReadWriteMultiRowReplicaRequest) request).binaryRowMessages()
                         .stream()
                         .collect(toMap(row -> TestTransactionIds.newTransactionId(), Function.identity()));
 
@@ -220,7 +221,7 @@ public class ItColocationTest {
                                         .build()
                         )
                         .rowUuid(UUID.randomUUID())
-                        .rowBuffer(((ReadWriteSingleRowReplicaRequest) request).binaryRow().byteBuffer())
+                        .rowMessage(((ReadWriteSingleRowReplicaRequest) request).binaryRowMessage())
                         .txId(TestTransactionIds.newTransactionId())
                         .build());
             }
@@ -393,14 +394,14 @@ public class ItColocationTest {
             partsMap.merge(part, 1, (cnt, ignore) -> ++cnt);
         }
 
-        assertEquals(partsMap.size(), CMDS_MAP.size());
+        assertEquals(CMDS_MAP.size(), partsMap.size());
 
         CMDS_MAP.forEach((p, set) -> {
             UpdateAllCommand cmd = (UpdateAllCommand) CollectionUtils.first(set);
             assertEquals(partsMap.get(p), cmd.rowsToUpdate().size(), () -> "part=" + p + ", set=" + set);
 
-            cmd.rowsToUpdate().values().forEach(byteBuffer -> {
-                Row r = new Row(schema, new ByteBufferRow(byteBuffer));
+            cmd.rowsToUpdate().values().forEach(rowMessage -> {
+                Row r = new Row(schema, rowMessage.asBinaryRow());
 
                 assertEquals(INT_TABLE.partition(r), p);
             });

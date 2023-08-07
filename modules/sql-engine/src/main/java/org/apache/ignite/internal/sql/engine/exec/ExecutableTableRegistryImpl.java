@@ -18,14 +18,19 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
@@ -73,7 +78,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
     }
 
     private CompletableFuture<ExecutableTable> loadTable(int tableId, TableDescriptor tableDescriptor) {
-
         CompletableFuture<Map.Entry<InternalTable, SchemaRegistry>> f = tableManager.tableAsync(tableId)
                 .thenApply(table -> {
                     InternalTable internalTable = table.internalTable();
@@ -91,17 +95,20 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
             UpdatableTableImpl updatableTable = new UpdatableTableImpl(tableId, tableDescriptor, internalTable.partitions(),
                     replicaService, clock, rowConverter, schemaDescriptor);
 
-            return new ExecutableTableImpl(scannableTable, updatableTable);
+            return new ExecutableTableImpl(internalTable, scannableTable, updatableTable);
         });
     }
 
     private static final class ExecutableTableImpl implements ExecutableTable {
 
+        private final InternalTable internalTable;
+
         private final ScannableTable scannableTable;
 
         private final UpdatableTable updatableTable;
 
-        private ExecutableTableImpl(ScannableTable scannableTable, UpdatableTable updatableTable) {
+        private ExecutableTableImpl(InternalTable internalTable, ScannableTable scannableTable, UpdatableTable updatableTable) {
+            this.internalTable = internalTable;
             this.scannableTable = scannableTable;
             this.updatableTable = updatableTable;
         }
@@ -116,6 +123,19 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         @Override
         public UpdatableTable updatableTable() {
             return updatableTable;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public CompletableFuture<ColocationGroup> fetchColocationGroup() {
+            return internalTable.primaryReplicas().thenApply(rs -> {
+                List<List<NodeWithTerm>> assignments = rs.stream()
+                        .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
+                        .map(Collections::singletonList)
+                        .collect(Collectors.toList());
+
+                return ColocationGroup.forAssignments(assignments);
+            });
         }
     }
 }

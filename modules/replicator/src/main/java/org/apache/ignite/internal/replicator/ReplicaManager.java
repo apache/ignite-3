@@ -226,20 +226,27 @@ public class ReplicaManager implements IgniteComponent {
                 return;
             }
 
+            HybridTimestamp sendTimestamp = null;
+
+            if (requestTimestamp != null) {
+                sendTimestamp = clock.update(requestTimestamp);
+            }
+
             // replicaFut is always completed here.
             Replica replica = replicaFut.join();
 
             CompletableFuture<?> result = replica.processRequest(request);
 
+            HybridTimestamp finalSendTimestamp = sendTimestamp;
             result.handle((res, ex) -> {
                 NetworkMessage msg;
 
                 if (ex == null) {
-                    msg = prepareReplicaResponse(requestTimestamp, res);
+                    msg = prepareReplicaResponse(finalSendTimestamp, res);
                 } else {
                     LOG.warn("Failed to process replica request [request={}]", ex, request);
 
-                    msg = prepareReplicaErrorResponse(requestTimestamp, ex);
+                    msg = prepareReplicaErrorResponse(finalSendTimestamp, ex);
                 }
 
                 clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
@@ -361,7 +368,7 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Internal method for starting a replica.
      *
-     * @param replicaGrpId   Replication group id.
+     * @param replicaGrpId Replication group id.
      * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
@@ -558,12 +565,12 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Prepares replica response.
      */
-    private NetworkMessage prepareReplicaResponse(HybridTimestamp requestTimestamp, Object result) {
-        if (requestTimestamp != null) {
+    private NetworkMessage prepareReplicaResponse(@Nullable HybridTimestamp sendTimestamp, Object result) {
+        if (sendTimestamp != null) {
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result)
-                    .timestampLong(clock.update(requestTimestamp).longValue())
+                    .timestampLong(sendTimestamp.longValue())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -576,12 +583,12 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Prepares replica error response.
      */
-    private NetworkMessage prepareReplicaErrorResponse(HybridTimestamp requestTimestamp, Throwable ex) {
-        if (requestTimestamp != null) {
+    private NetworkMessage prepareReplicaErrorResponse(@Nullable HybridTimestamp sendTimestamp, Throwable ex) {
+        if (sendTimestamp != null) {
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
-                    .timestampLong(clock.update(requestTimestamp).longValue())
+                    .timestampLong(sendTimestamp.longValue())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
