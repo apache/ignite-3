@@ -813,7 +813,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
                 .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, DEFAULT_ZONE_ID);
         distributionZoneManager.zonesState().get(ZONE_ID)
-                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, ZONE_ID_1);
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, ZONE_ID);
         distributionZoneManager.zonesState().get(ZONE_ID_2)
                 .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, ZONE_ID_2);
         distributionZoneManager.zonesState().get(ZONE_ID_3)
@@ -841,7 +841,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
                 .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, DEFAULT_ZONE_ID);
         distributionZoneManager.zonesState().get(ZONE_ID)
-                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, ZONE_ID_1);
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, ZONE_ID);
         distributionZoneManager.zonesState().get(ZONE_ID_2)
                 .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, ZONE_ID_2);
         distributionZoneManager.zonesState().get(ZONE_ID_3)
