@@ -1,7 +1,6 @@
 # name: test/sql/insert/test_insert_type.test
 # description: Test insert into from wrong type
 # group: [insert]
-# Ignored: https://issues.apache.org/jira/browse/IGNITE-18365
 
 statement ok
 CREATE TABLE strings(a VARCHAR)

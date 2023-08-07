@@ -20,6 +20,15 @@ NULL	false
 2	false
 3	true
 
+# correlated EXISTS
+query IT
+SELECT i, EXISTS(SELECT i FROM integers WHERE i1.i>i OR i1.i IS NULL) FROM integers i1 ORDER BY i NULLS FIRST;
+----
+NULL	true
+1	false
+2	true
+3	true
+
 query IT
 SELECT i, EXISTS(SELECT i FROM integers WHERE i IS NULL OR i>i1.i*10) FROM integers i1 ORDER BY i NULLS FIRST;
 ----
@@ -51,6 +60,13 @@ SELECT i FROM integers i1 WHERE EXISTS(SELECT i FROM integers WHERE i=i1.i) ORDE
 1
 2
 3
+
+# GROUP BY correlated exists
+query TI
+SELECT EXISTS(SELECT i FROM integers WHERE i=i1.i) AS g, COUNT(*) FROM integers i1 GROUP BY g ORDER BY g;
+----
+false	1
+true	3
 
 # SUM on exists
 query R
