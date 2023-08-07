@@ -225,7 +225,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         /** {@inheritDoc} */
         @Override
-        public SchemaPlus schema(@Nullable String name, int version) {
+        public @Nullable SchemaPlus schema(@Nullable String name, int version) {
             return null;
         }
 

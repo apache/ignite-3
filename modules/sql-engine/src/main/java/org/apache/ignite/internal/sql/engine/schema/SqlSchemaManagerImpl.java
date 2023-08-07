@@ -153,7 +153,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(String name, int version) {
+    public @Nullable SchemaPlus schema(@Nullable String name, int version) {
         return latestSchema(name);
     }
 

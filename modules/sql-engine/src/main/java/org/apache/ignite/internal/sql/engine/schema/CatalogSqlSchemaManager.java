@@ -71,7 +71,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable SchemaPlus schema(String name, int version) {
+    public @Nullable SchemaPlus schema(@Nullable String name, int version) {
         String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
 
         Entry<String, Integer> entry = Map.entry(schemaName, version);

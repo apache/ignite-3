@@ -70,7 +70,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable SchemaPlus schema(String name, int version) {
+    public SchemaPlus schema(@Nullable String name, int version) {
         return name == null ? root : root.getSubSchema(name);
     }
 
