@@ -386,17 +386,21 @@ public class ClientTable implements Table {
                 ? CompletableFuture.completedFuture(null)
                 : getPartitionAssignment();
 
+        // Wait for schema and partition assignment.
         CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
                     String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
+                    // Perform the operation.
                     return ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
                             r -> readSchemaAndReadData(schema, r.in(), reader, defaultValue, responseSchemaRequired),
                             preferredNodeName,
                             retryPolicyOverride);
                 })
+
+                // Read resulting schema and the rest of the response.
                 .thenCompose(t -> loadSchemaAndReadData(t, reader))
                 .whenComplete((res, err) -> {
                     if (err == null) {
@@ -404,8 +408,8 @@ public class ClientTable implements Table {
                         return;
                     }
 
+                    // Retry schema errors.
                     Throwable cause = ExceptionUtils.unwrapRootCause(err);
-
                     if (cause instanceof ClientSchemaVersionMismatchException) {
                         // Retry with specific schema version.
                         int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
@@ -420,7 +424,7 @@ public class ClientTable implements Table {
                                     }
                                 });
                     } else if (schemaVersionOverride == null && cause instanceof UnmappedColumnsException) {
-                        // Force load latest schema and retry.
+                        // Force load latest schema and revalidate user data against it.
                         // When schemaVersionOverride is not null, we already tried to load the schema.
                         schemas.remove(UNKNOWN_SCHEMA_VERSION);
 
