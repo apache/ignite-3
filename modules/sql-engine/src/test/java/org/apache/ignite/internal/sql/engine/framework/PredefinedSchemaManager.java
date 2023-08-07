@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.util.CollectionUtils.toIntMapCollector;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -25,7 +26,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -63,7 +63,7 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
                     schema.getTableNames().stream()
                             .map(schema::getTable)
                             .map(IgniteTable.class::cast)
-                            .collect(toIntMapCollector(IgniteTable::id, Function.identity()))
+                            .collect(toIntMapCollector(IgniteTable::id, identity()))
             );
         }
     }
