@@ -51,6 +51,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.testobjects.TestSimpleObject;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,7 +62,7 @@ import org.mockito.stubbing.Answer;
 /**
  * Check field binding correctness.
  */
-public class ColumnBindingTest {
+public class ColumnBindingTest extends BaseIgniteAbstractTest {
     /** Random. */
     private Random rnd;
 

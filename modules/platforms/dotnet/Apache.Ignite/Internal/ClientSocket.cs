@@ -400,6 +400,9 @@ namespace Apache.Ignite.Internal
             string? message = reader.ReadStringNullable();
             string? javaStackTrace = reader.ReadStringNullable();
 
+            // TODO IGNITE-19838 Retry outdated schema error
+            reader.Skip(); // Error extensions.
+
             return ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
         }
 
@@ -696,6 +699,9 @@ namespace Apache.Ignite.Internal
 
                 _assignmentChangeCallback(this);
             }
+
+            // TODO IGNITE-20056 .NET: Thin 3.0: Track observable timestamp
+            _ = reader.ReadInt64();
 
             var exception = ReadError(ref reader);
 

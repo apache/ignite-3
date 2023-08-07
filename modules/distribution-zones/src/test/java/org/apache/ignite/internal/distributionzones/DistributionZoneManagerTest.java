@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -91,12 +92,12 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         );
 
         registry.start();
-
-        registry.initializeDefaults();
+        assertThat(registry.onDefaultsPersisted(), willCompleteSuccessfully());
 
         DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         distributionZoneManager = new DistributionZoneManager(
+                null,
                 zonesConfiguration,
                 tablesConfiguration,
                 null,

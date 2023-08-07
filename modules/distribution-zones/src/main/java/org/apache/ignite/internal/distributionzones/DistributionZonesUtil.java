@@ -40,8 +40,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
@@ -52,6 +50,7 @@ import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
@@ -61,6 +60,9 @@ import org.jetbrains.annotations.Nullable;
  * Util class for Distribution Zones flow.
  */
 public class DistributionZonesUtil {
+    /** Key prefix for distribution zone's keys. */
+    private static final String DISTRIBUTION_ZONE_PREFIX = "distributionZone.";
+
     /** Key prefix for zone's data nodes and trigger keys. */
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
 
@@ -92,6 +94,10 @@ public class DistributionZonesUtil {
 
     /** Key prefix for zones' logical topology nodes in vault. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VAULT = "vault." + DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY;
+
+    /** Key prefix for zones' configurations in vault. */
+    private static final String DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT = "vault." + DISTRIBUTION_ZONE_PREFIX
+            + "versionedConfiguration.";
 
     /** Key prefix for zones' logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "version";
@@ -155,11 +161,21 @@ public class DistributionZonesUtil {
     }
 
     /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT}.
+     *
+     * @param zoneId Zone id.
+     * @return ByteArray representation.
+     */
+    public static ByteArray zoneVersionedConfigurationKey(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT + zoneId);
+    }
+
+    /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX}.
      *
      * @return ByteArray representation.
      */
-    static ByteArray zonesLogicalTopologyPrefix() {
+    public static ByteArray zonesLogicalTopologyPrefix() {
         return new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX);
     }
 
@@ -218,7 +234,7 @@ public class DistributionZonesUtil {
     /**
      * The key prefix needed for processing an event about zone's data nodes.
      */
-    static ByteArray zonesDataNodesPrefix() {
+    public static ByteArray zonesDataNodesPrefix() {
         return DISTRIBUTION_ZONES_DATA_NODES_KEY;
     }
 
@@ -571,17 +587,17 @@ public class DistributionZonesUtil {
 
     /**
      * Create an executor for the zone manager.
-     * Used a single thread executor to avoid concurrent executing several tasks for the same zone.
+     * Used a striped thread executor to avoid concurrent executing several tasks for the same zone.
      * ScheduledThreadPoolExecutor guarantee that tasks scheduled for exactly the same
      * execution time are enabled in first-in-first-out (FIFO) order of submission.
-     * // TODO: IGNITE-19783 Need to use a striped executor.
      *
+     * @param concurrencyLvl Number of threads.
      * @param namedThreadFactory Named thread factory.
      * @return Executor.
      */
-    static ScheduledExecutorService createZoneManagerExecutor(NamedThreadFactory namedThreadFactory) {
-        return new ScheduledThreadPoolExecutor(
-                1,
+    static StripedScheduledThreadPoolExecutor createZoneManagerExecutor(int concurrencyLvl, NamedThreadFactory namedThreadFactory) {
+        return new StripedScheduledThreadPoolExecutor(
+                concurrencyLvl,
                 namedThreadFactory,
                 new ThreadPoolExecutor.DiscardPolicy()
         );

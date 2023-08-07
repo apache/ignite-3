@@ -21,7 +21,8 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.lang.ErrorGroups.Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -34,9 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
@@ -44,19 +43,15 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -75,7 +70,6 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
@@ -104,19 +98,6 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         }
 
         tearDownBase(testInfo);
-    }
-
-    /**
-     * Gets the SQL API.
-     *
-     * @return SQL API.
-     */
-    protected IgniteSql igniteSql() {
-        return CLUSTER_NODES.get(0).sql();
-    }
-
-    protected IgniteTransactions igniteTx() {
-        return CLUSTER_NODES.get(0).transactions();
     }
 
     @Test
@@ -190,7 +171,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         SqlException ex = IgniteTestUtils.cause(assertThrows(Throwable.class,
                 () -> await(ses.executeAsync(null, "ALTER TABLE TEST DROP COLUMN (val0, val1)"))), SqlException.class);
         assertNotNull(ex);
-        assertEquals(DROP_IDX_COLUMN_CONSTRAINT_ERR, ex.code());
+        assertEquals(STMT_VALIDATION_ERR, ex.code());
 
         String msg = ex.getMessage();
         String explainMsg = "Unexpected error message: " + msg;
@@ -275,9 +256,9 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         Session ses = sql.createSession();
 
-        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+        TxManager txManager = txManager();
 
-        int txPrevCnt = txManagerInternal.finished();
+        int txPrevCnt = txManager.finished();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
             CompletableFuture<AsyncResultSet<SqlRow>> fut = ses.executeAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)", i, i);
@@ -296,7 +277,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         }
 
         // No new transactions through ddl.
-        assertEquals(0, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(0, txManager.finished() - txPrevCnt);
     }
 
     /** Check correctness of explicit transaction rollback. */
@@ -337,7 +318,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         Session ses = sql.createSession();
 
-        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+        TxManager txManagerInternal = txManager();
 
         int txPrevCnt = txManagerInternal.finished();
 
@@ -385,9 +366,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(ROW_COUNT + 1 + 1 + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
 
-        var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
-
-        assertEquals(txManagerInternal.finished(), states.size());
+        assertEquals(0, txManagerInternal.pending());
     }
 
     /** Check correctness of rw and ro transactions for table scan. */
@@ -761,7 +740,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
                 () -> await(ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args))
         );
 
-        assertEquals(Sql.DUPLICATE_KEYS_ERR, ex.code());
+        assertEquals(CONSTRAINT_VIOLATION_ERR, ex.code());
         assertEquals(err, ex.updateCounters().length);
         IntStream.range(0, ex.updateCounters().length).forEach(i -> assertEquals(1, ex.updateCounters()[i]));
     }

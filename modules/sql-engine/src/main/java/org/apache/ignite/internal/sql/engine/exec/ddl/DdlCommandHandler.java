@@ -22,8 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.DROP_IDX_COLUMN_CONSTRAINT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -95,7 +94,6 @@ import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Table;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.TableAlreadyExistsException;
@@ -154,7 +152,7 @@ public class DdlCommandHandler {
         } else if (cmd instanceof DropZoneCommand) {
             return handleDropZone((DropZoneCommand) cmd);
         } else {
-            return failedFuture(new IgniteInternalCheckedException(UNSUPPORTED_DDL_OPERATION_ERR, "Unsupported DDL operation ["
+            return failedFuture(new SqlException(STMT_VALIDATION_ERR, "Unsupported DDL operation ["
                     + "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; "
                     + "cmd=\"" + cmd + "\"]"));
         }
@@ -518,7 +516,7 @@ public class DdlCommandHandler {
                             }
 
                             if (primaryCols.contains(colName)) {
-                                throw new SqlException(DROP_IDX_COLUMN_CONSTRAINT_ERR, IgniteStringFormatter
+                                throw new SqlException(STMT_VALIDATION_ERR, IgniteStringFormatter
                                         .format("Can`t delete column, belongs to primary key: [name={}]", colName));
                             }
                         }
@@ -559,7 +557,7 @@ public class DdlCommandHandler {
             sb.app("Column ").app(e.getKey()).app(" is used by indexes ").app(e.getValue()).app(". ");
         }
 
-        throw new SqlException(DROP_IDX_COLUMN_CONSTRAINT_ERR, sb.toString());
+        throw new SqlException(STMT_VALIDATION_ERR, sb.toString());
     }
 
     private static void convert(NativeType colType, ColumnTypeChange colTypeChg) {

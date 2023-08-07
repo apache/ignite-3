@@ -143,6 +143,98 @@ auto client = ignite_client::start(cfg, std::chrono::seconds(5));
 --
 
 
+== User Object Serialization
+
+Apache Ignite 3 supports mapping user objects to table tuples. This ensures that objects created in any programming language can be used for key-value operations directly.
+
+=== Limitations
+
+There are limitations to user types that can be used for such a mapping. Some limitations are common, and others are platform-specific due to the programming language used.
+
+- Only flat field structure is supported, meaning no nesting user objects. This is because Ignite tables, and therefore tuples have flat structure themselves;
+- Fields should be mapped to Ignite types;
+- All fields in user type should either be mapped to Table column or explicitly excluded;
+- All columns from Table should be mapped to some field in the user type;
+- *Java only*: Users should implement Mapper classes for user types for more flexibility;
+- *.NET only*: Any type (class, struct, record) is supported as long as all fields can be mapped to Ignite types;
+- *C++ only*: User has to provide marshaling functions explicitly as there is no reflection to generate them based on user type structure.
+
+=== Usage Examples
+
+
+[tabs]
+--
+tab:Java[]
+[source, java]
+----
+public static class Account {
+  public long id;
+  public long balance;
+
+  public Account() {}
+
+  public Account(long balance) {
+    this.balance = balance;
+  }
+}
+----
+
+tab:.NET[]
+[source, csharp]
+----
+public class Account
+{
+  public long Id { get; set; }
+  public long Balance { get; set; }
+
+  [NotMapped]
+  public Guid UnmappedId { get; set; }
+}
+----
+
+tab:C++[]
+[source, cpp]
+----
+struct account {
+  account() = default;
+  account(std::int64_t id) : id(id) {}
+  account(std::int64_t id, std::int64_t balance) : id(id), balance(balance) {}
+
+  std::int64_t id{0};
+  std::int64_t balance{0};
+};
+
+namespace ignite {
+
+  template<>
+  ignite_tuple convert_to_tuple(account &&value) {
+    ignite_tuple tuple;
+
+    tuple.set("id", value.id);
+    tuple.set("balance", value.balance);
+
+    return tuple;
+  }
+
+  template<>
+  account convert_from_tuple(ignite_tuple&& value) {
+    account res;
+
+    res.id = value.get<std::int64_t>("id");
+
+    // Sometimes only key columns are returned, i.e. "id",
+    // so we have to check whether there are any other columns.
+    if (value.column_count() > 1)
+      res.balance = value.get<std::int64_t>("balance");
+
+    return res;
+  }
+
+} // namespace ignite
+----
+
+--
+
 == SQL API
 
 Apache Ignite 3 is focused on SQL, and SQL API is the primary way to work with the data. You can read more about supported SQL statements in the link:sql-reference/ddl[SQL Reference] section. Here is how you can send SQL requests:
@@ -193,17 +285,6 @@ Here is how you  can provide a transaction explicitly:
 tab:Java[]
 [source, java]
 ----
-protected static class Account {
-  public long id;
-  public long balance;
-
-  public Account() {}
-
-  public Account(long balance) {
-    this.balance = balance;
-  }
-}
-
 KeyValueView<Long, Account> accounts =
   table.keyValueView(Mapper.of(Long.class), Mapper.of(Account.class));
 
@@ -247,43 +328,6 @@ public record Account(decimal Balance);
 tab:C++[]
 [source, cpp]
 ----
-struct account {
-    account() = default;
-    account(std::int64_t id) : id(id) {}
-    account(std::int64_t id, std::int64_t balance) : id(id), balance(balance) {}
-
-    std::int64_t id{0};
-    std::int64_t balance{0};
-};
-
-namespace ignite {
-
-template<>
-ignite_tuple convert_to_tuple(account &&value) {
-    ignite_tuple tuple;
-
-    tuple.set("id", value.id);
-    tuple.set("balance", value.balance);
-
-    return tuple;
-}
-
-template<>
-account convert_from_tuple(ignite_tuple&& value) {
-    account res;
-
-    res.id = value.get<std::int64_t>("id");
-
-	// Sometimes only key columns are returned, i.e. "id",
-	// so we have to check whether there are any other columns.
-    if (value.column_count() > 1)
-        res.balance = value.get<std::int64_t>("balance");
-
-    return res;
-}
-
-} // namespace ignite
-
 auto accounts = table.get_key_value_view<account, account>();
 
 account init_value(42, 16'000);
@@ -431,22 +475,6 @@ A record view mapped to a user type. It can be used to operate table using user 
 tab:Java[]
 [source, java]
 ----
-protected static class Pojo {
-  public long id;
-  public String name;
-
-  public Pojo() {}
-
-  public Pojo(long id) {
-    this.id = id;
-  }
-
-  public Pojo(long id, String name) {
-    this.id = id;
-    this.name = name;
-  }
-}
-
 RecordView<Pojo> pojoView = table.recordView(Mapper.of(Pojo.class));
 
 pojoView.upsert(null, new Pojo(42, "John Doe"));
@@ -473,44 +501,6 @@ public record Poco(long Id, string? Name = null);
 tab:C++[]
 [source, cpp]
 ----
-struct person {
-    person() = default;
-    person(std::int64_t id) : id(id) {}
-    person(std::int64_t id, std::string name) : id(id), name(std::move(name)) {}
-
-    std::int64_t id{0};
-    std::string name;
-};
-
-namespace ignite {
-
-template<>
-ignite_tuple convert_to_tuple(person &&value) {
-    ignite_tuple tuple;
-
-    tuple.set("id", value.id);
-    tuple.set("name", value.name);
-
-    return tuple;
-}
-
-template<>
-person convert_from_tuple(ignite_tuple&& value) {
-    person res;
-
-    res.id = value.get<std::int64_t>("id");
-
-	// Sometimes only key columns are returned, i.e. "id",
-	// so we have to check whether there are any other columns.
-    if (value.column_count() > 1)
-        res.name = value.get<std::string>("name");
-
-    return res;
-}
-
-} // namespace ignite
-
-
 record_view<person> view = table.get_record_view<person>();
 
 person record(42, "John Doe");
@@ -591,21 +581,6 @@ A key-value view with user objects. It can be used to operate table using key an
 tab:Java[]
 [source, java]
 ----
-protected static class Pojo {
-  public long id;
-  public String name;
-
-  public Pojo() {}
-
-  public Pojo(long id) {
-    this.id = id;
-  }
-
-  public Pojo(String name) {
-    this.name = name;
-  }
-}
-
 KeyValueView<Long, Pojo> pojoView =
   table.keyValueView(Mapper.of(Long.class), Mapper.of(Pojo.class));
 
@@ -632,44 +607,6 @@ public record Poco(long Id, string? Name = null);
 tab:C++[]
 [source, cpp]
 ----
-struct person {
-    person() = default;
-    person(std::int64_t id) : id(id) {}
-    person(std::string name) : name(std::move(name)) {}
-    person(std::int64_t id, std::string name) : id(id), name(std::move(name)) {}
-
-    std::int64_t id{0};
-    std::string name;
-};
-
-namespace ignite {
-
-template<>
-ignite_tuple convert_to_tuple(person &&value) {
-    ignite_tuple tuple;
-
-    tuple.set("id", value.id);
-    tuple.set("name", value.name);
-
-    return tuple;
-}
-
-template<>
-person convert_from_tuple(ignite_tuple&& value) {
-    person res;
-
-    res.id = value.get<std::int64_t>("id");
-
-	// Sometimes only key columns are returned, i.e. "id",
-	// so we have to check whether there are any other columns.
-    if (value.column_count() > 1)
-        res.name = value.get<std::string>("name");
-
-    return res;
-}
-
-} // namespace ignite
-
 key_value_view<person, person> kv_view = table.get_key_value_view<person, person>();
 
 kv_view.put(nullptr, {42}, {"John Doe"});

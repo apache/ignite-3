@@ -39,6 +39,9 @@ public class ErrorGroups {
         /** SSL can not be configured error. */
         public static final int SSL_CONFIGURATION_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 4);
 
+        /** Operation failed because a node has left the cluster. */
+        public static final int NODE_LEFT_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 5);
+
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.
          * In general, this error code should be considered as a non-recoverable error
@@ -68,6 +71,9 @@ public class ErrorGroups {
 
         /** Table definition is incorrect. */
         public static final int TABLE_DEFINITION_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 6);
+
+        /** Schema version mismatch. */
+        public static final int SCHEMA_VERSION_MISMATCH_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 7);
     }
 
     /** Client error group. */
@@ -114,98 +120,53 @@ public class ErrorGroups {
         /** No more pages in the cursor error. */
         public static final int CURSOR_NO_MORE_PAGES_ERR = SQL_ERR_GROUP.registerErrorCode((short) 1);
 
-        /** Session not found error. */
-        public static final int SESSION_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 2);
-
-        /** Invalid query error. */
-        public static final int QUERY_INVALID_ERR = SQL_ERR_GROUP.registerErrorCode((short) 3);
-
         /** Query without a result set error. */
-        public static final int QUERY_NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode((short) 4);
-
-        /** Missing primary key error. */
-        public static final int PRIMARY_KEY_MISSING_ERR = SQL_ERR_GROUP.registerErrorCode((short) 5);
-
-        /** Multiple primary keys error. */
-        public static final int PRIMARY_KEYS_MULTIPLE_ERR = SQL_ERR_GROUP.registerErrorCode((short) 6);
+        public static final int QUERY_NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode((short) 2);
 
         /** Schema not found. */
-        public static final int SCHEMA_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 7);
-
-        /** Storage engine not valid. */
-        public static final int STORAGE_ENGINE_NOT_VALID_ERR = SQL_ERR_GROUP.registerErrorCode((short) 8);
+        public static final int SCHEMA_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 3);
 
         /** Cursor is already closed error. */
-        public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 9);
+        public static final int CURSOR_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 4);
 
-        /** Constraint violation: some keys can't be inserted because they violate unique constraint PK. */
-        public static final int DUPLICATE_KEYS_ERR = SQL_ERR_GROUP.registerErrorCode((short) 10);
+        /** Statement parsing error. This error is returned when an SQL statement string is not valid according to syntax rules. */
+        public static final int STMT_PARSE_ERR = SQL_ERR_GROUP.registerErrorCode((short) 5);
 
-        /** Constraint violation: deleting a column that belongs to the index. */
-        public static final int DROP_IDX_COLUMN_CONSTRAINT_ERR = SQL_ERR_GROUP.registerErrorCode((short) 11);
+        /**
+         * Statement validation error. Although statement is grammatically correct, the semantic is in question.
+         * This error may appear in following cases:
+         * <ul>
+         *     <li>the statement refer to relation that doesn't exists.</li>
+         *     <li>the statement describes action that is prohibited by the system, like changing columns belonging to primary keys.</li>
+         *     <li>the statement contains operation that is not defined for given operands' types, like addition of DATE and DECIMAL.</li>
+         *     <li>etc</li>
+         * </ul>
+         *
+         * <p>See message for details.
+         */
+        public static final int STMT_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 6);
 
-        /**  Too many grouping expressions. */
-        public static final int TOO_MANY_GROUPING_EXPRESSIONS_ERR = SQL_ERR_GROUP.registerErrorCode((short) 12);
+        /** Constraint violation error such as primary key violation. */
+        public static final int CONSTRAINT_VIOLATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 7);
 
-        /** Unsupported sql operation. */
-        public static final int UNSUPPORTED_SQL_OPERATION_KIND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 13);
+        /** Statement canceled error. Statement is canceled due to timeout, admin action, etc. */
+        public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 8);
 
-        /** Unsupported DDL operation. */
-        public static final int UNSUPPORTED_DDL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 14);
+        /**
+         * Runtime error. Errors caused by programming errors in SQL statement itself, such errors happen during statement execution:
+         * <ul>
+         *     <li>Numeric overflow errors.</li>
+         *     <li>Type conversion errors such as {@code SELECT CAST('abc' AS INTEGER)}.</li>
+         *     <li>Function execution errors.</li>
+         * </ul>
+         */
+        public static final int RUNTIME_ERR = SQL_ERR_GROUP.registerErrorCode((short) 9);
 
-        /** Query validation error. */
-        public static final int QUERY_VALIDATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 15);
+        /** Planning timed out without finding any valid plan. */
+        public static final int PLANNING_TIMEOUT_ERR = SQL_ERR_GROUP.registerErrorCode((short) 10);
 
-        /** Object is not found in schema. */
-        public static final int OBJECT_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 16);
-
-        /** Object already exists in schema. */
-        public static final int OBJECT_ALREADY_EXISTS_ERR = SQL_ERR_GROUP.registerErrorCode((short) 17);
-
-        /** Query mapping error. */
-        public static final int QUERY_MAPPING_ERR = SQL_ERR_GROUP.registerErrorCode((short) 19);
-
-        /** DDL execution error. */
-        public static final int DDL_EXEC_ERR = SQL_ERR_GROUP.registerErrorCode((short) 20);
-
-        /** DML result error. */
-        public static final int INVALID_DML_RESULT_ERR = SQL_ERR_GROUP.registerErrorCode((short) 21);
-
-        /** SQL data type to relational conversion error. */
-        public static final int SQL_TO_REL_CONVERSION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 22);
-
-        /** Relational expression serialization error. */
-        public static final int REL_SERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 23);
-
-        /** Relational expression deserialization error. */
-        public static final int REL_DESERIALIZATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 24);
-
-        /** Class not found error. */
-        public static final int CLASS_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 25);
-
-        /** Expression compilation error. */
-        public static final int EXPRESSION_COMPILATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 26);
-
-        /** Node left the cluster. */
-        public static final int NODE_LEFT_ERR = SQL_ERR_GROUP.registerErrorCode((short) 27);
-
-        /** Operation aborted/interrupted error. */
-        public static final int OPERATION_INTERRUPTED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 29);
-
-        /** An error occurred while canceling the operation. */
-        public static final int CANCEL_OPERATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 30);
-
-        /** Session expired error. */
-        public static final int SESSION_EXPIRED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 31);
-
-        /** Schema evaluation error. */
-        public static final int SCHEMA_EVALUATION_ERR = SQL_ERR_GROUP.registerErrorCode((short) 32);
-
-        /** Execution cancelled. */
-        public static final int EXECUTION_CANCELLED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 33);
-
-        /** Planning timeouted without any valid plan. */
-        public static final int PLANNING_TIMEOUTED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 34);
+        /** Session closed error. Operation is rejected because SQL session was closed. */
+        public static final int SESSION_CLOSED_ERR = SQL_ERR_GROUP.registerErrorCode((short) 11);
     }
 
     /** Meta storage error group. */
@@ -239,6 +200,9 @@ public class ErrorGroups {
 
         /** Index not found. */
         public static final int INDEX_NOT_FOUND_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 2);
+
+        /** Index already exists. */
+        public static final int INDEX_ALREADY_EXISTS_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 3);
     }
 
     /** Transactions error group. */

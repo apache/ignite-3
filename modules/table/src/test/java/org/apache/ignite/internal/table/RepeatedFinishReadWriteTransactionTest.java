@@ -236,7 +236,7 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
-        public InternalTransaction begin(boolean readOnly) {
+        public InternalTransaction begin(boolean readOnly, HybridTimestamp observableTimestamp) {
             return null;
         }
 

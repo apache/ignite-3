@@ -36,6 +36,7 @@ dependencies {
     implementation project(':ignite-replicator')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-catalog')
+    implementation project(':ignite-metrics')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
@@ -80,7 +81,6 @@ dependencies {
 
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
-    testImplementation libs.mockito.inline
     testImplementation libs.hamcrest.core
     testImplementation libs.slf4j.jdk14
     testImplementation libs.archunit.core

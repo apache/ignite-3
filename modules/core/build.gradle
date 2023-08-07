@@ -32,7 +32,6 @@ dependencies {
     testImplementation libs.hamcrest.core
     testImplementation libs.junit.testkit
     testImplementation libs.mockito.core
-    testImplementation libs.mockito.inline
     testImplementation libs.mockito.junit
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5

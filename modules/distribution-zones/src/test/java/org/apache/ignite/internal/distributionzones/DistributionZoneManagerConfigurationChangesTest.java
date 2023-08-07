@@ -47,7 +47,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
+import java.util.function.LongFunction;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -141,9 +144,11 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         assertThat(vaultMgr.put(zonesLogicalTopologyVersionKey(), longToBytes(0)), willCompleteSuccessfully());
 
-        metaStorageManager.put(zonesLogicalTopologyVersionKey(), longToBytes(0));
+        Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
+                metaStorageManager.registerRevisionUpdateListener(function::apply);
 
         distributionZoneManager = new DistributionZoneManager(
+                revisionUpdater,
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageManager,
@@ -155,10 +160,9 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         vaultMgr.start();
         clusterCfgMgr.start();
         metaStorageManager.start();
-
-        DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
-
         distributionZoneManager.start();
+
+        metaStorageManager.deployWatches();
 
         clearInvocations(keyValueStorage);
     }
@@ -180,9 +184,9 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         assertDataNodesForZoneWithAttributes(1, nodes.stream().map(NodeWithAttributes::node).collect(toSet()), keyValueStorage);
 
-        assertZoneScaleUpChangeTriggerKey(1L, 1, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(2L, 1, keyValueStorage);
 
-        assertZonesChangeTriggerKey(1, 1, keyValueStorage);
+        assertZonesChangeTriggerKey(2, 1, keyValueStorage);
     }
 
     @Test
@@ -205,10 +209,10 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
         distributionZoneManager.createZone(new DistributionZoneConfigurationParameters.Builder(NEW_ZONE_NAME).build()).get();
 
-        assertZoneScaleUpChangeTriggerKey(1L, 1, keyValueStorage);
-        assertZoneScaleUpChangeTriggerKey(2L, 2, keyValueStorage);
-        assertZonesChangeTriggerKey(1, 1, keyValueStorage);
-        assertZonesChangeTriggerKey(2, 2, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(2L, 1, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(3L, 2, keyValueStorage);
+        assertZonesChangeTriggerKey(2, 1, keyValueStorage);
+        assertZonesChangeTriggerKey(3, 2, keyValueStorage);
     }
 
     @Test

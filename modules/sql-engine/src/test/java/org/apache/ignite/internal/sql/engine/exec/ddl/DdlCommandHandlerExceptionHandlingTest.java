@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
@@ -100,7 +102,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     void before() {
         registry.start();
 
-        registry.initializeDefaults();
+        assertThat(registry.onDefaultsPersisted(), willCompleteSuccessfully());
 
         DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
@@ -113,6 +115,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         when(value.namedListKeys()).thenReturn(new ArrayList<>());
 
         distributionZoneManager = new DistributionZoneManager(
+                null,
                 zonesConfiguration,
                 null,
                 null,

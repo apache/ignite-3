@@ -64,7 +64,10 @@ public class ClientTransactions implements IgniteTransactions {
 
         return ch.serviceAsync(
                 ClientOp.TX_BEGIN,
-                w -> w.out().packBoolean(readOnly),
+                w -> {
+                    w.out().packBoolean(readOnly);
+                    w.out().packLong(ch.observableTimestamp());
+                },
                 r -> readTx(r, readOnly));
     }
 

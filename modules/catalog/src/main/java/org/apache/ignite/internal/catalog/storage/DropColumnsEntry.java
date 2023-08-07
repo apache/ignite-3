@@ -89,6 +89,7 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
                                         table.id(),
                                         table.name(),
                                         table.zoneId(),
+                                        table.tableVersion() + 1,
                                         table.columns().stream()
                                                 .filter(col -> !columns.contains(col.name()))
                                                 .collect(toList()),

@@ -26,15 +26,15 @@ import org.junit.jupiter.api.BeforeAll;
  * Integration test for client-side data streamer API.
  */
 public class ItClientDataStreamerTest extends ItAbstractDataStreamerTest {
-    private IgniteClient client;
+    private static IgniteClient client;
 
     @BeforeAll
-    public void startClient() {
+    public static void startClient() {
         client = IgniteClient.builder().addresses("localhost").build();
     }
 
     @AfterAll
-    public void stopClient() throws Exception {
+    public static void stopClient() throws Exception {
         client.close();
     }
 

@@ -151,7 +151,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                         id()
                                 );
                             } else {
-                                // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+                                // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
                                 txManager.changeState(id(), PENDING, commit ? COMMITED : ABORTED);
 
                                 return completedFuture(null);

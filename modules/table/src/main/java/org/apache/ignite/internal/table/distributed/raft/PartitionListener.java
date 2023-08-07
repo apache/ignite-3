@@ -231,7 +231,7 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.rowBuffer(),
+        storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.row(),
                 rowId -> {
                     // Cleanup is not required for one-phase transactions.
                     if (!cmd.full()) {

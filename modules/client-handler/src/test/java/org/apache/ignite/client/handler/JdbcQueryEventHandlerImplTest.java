@@ -19,7 +19,7 @@ package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.jdbc.proto.event.Response.STATUS_FAILED;
 import static org.apache.ignite.internal.jdbc.proto.event.Response.STATUS_SUCCESS;
-import static org.apache.ignite.internal.sql.api.SessionImpl.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
@@ -50,11 +50,11 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,7 +67,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Test to verify {@link JdbcQueryEventHandlerImpl}.
  */
 @ExtendWith(MockitoExtension.class)
-class JdbcQueryEventHandlerImplTest {
+class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
     @Mock
     private QueryProcessor queryProcessor;
@@ -123,23 +123,18 @@ class JdbcQueryEventHandlerImplTest {
 
         JdbcConnectionContext context = resourceRegistry.get(connectionId).get(JdbcConnectionContext.class);
 
-        when(queryProcessor.createSession(any())).thenAnswer(inv -> new SessionId(UUID.randomUUID()));
+        SessionId sessionId = new SessionId(UUID.randomUUID());
+        AtomicBoolean shouldThrow = new AtomicBoolean(true);
 
-        List<Integer> errorCodes = List.of(Sql.SESSION_EXPIRED_ERR, Sql.SESSION_NOT_FOUND_ERR);
+        await(context.doInSession(id -> {
+            if (shouldThrow.compareAndSet(true, false)) {
+                return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
+            }
 
-        for (int errorCode : errorCodes) {
-            AtomicBoolean shouldThrow = new AtomicBoolean(true);
+            return CompletableFuture.completedFuture(null);
+        }));
 
-            await(context.doInSession(sessionId -> {
-                if (shouldThrow.compareAndSet(true, false)) {
-                    return CompletableFuture.failedFuture(new IgniteInternalException(errorCode));
-                }
-
-                return CompletableFuture.completedFuture(null);
-            }));
-        }
-
-        verify(queryProcessor, times(errorCodes.size() + 1 /* initial session */)).createSession(any());
+        verify(queryProcessor, times(2 /* initial session + 1 not session found error */)).createSession(any());
         verifyNoMoreInteractions(queryProcessor);
     }
 
@@ -152,7 +147,7 @@ class JdbcQueryEventHandlerImplTest {
         when(queryProcessor.createSession(any())).thenAnswer(inv -> new SessionId(UUID.randomUUID()));
 
         CompletableFuture<?> result = context.doInSession(
-                sessionId -> CompletableFuture.failedFuture(new IgniteInternalException(Sql.SESSION_EXPIRED_ERR))
+                sessionId -> CompletableFuture.failedFuture(new SessionNotFoundException(sessionId))
         );
 
         assertThat(result.isDone(), is(true));
@@ -190,7 +185,7 @@ class JdbcQueryEventHandlerImplTest {
         )));
 
         verify(queryProcessor).createSession(any());
-        verify(queryProcessor).querySingleAsync(eq(expectedSessionId), any(), any(), any());
+        verify(queryProcessor).querySingleAsync(eq(expectedSessionId), any(), any(), any(Object[].class));
         verifyNoMoreInteractions(queryProcessor);
     }
 
@@ -278,7 +273,7 @@ class JdbcQueryEventHandlerImplTest {
         verify(tx).commitAsync();
 
         verifyNoMoreInteractions(igniteTransactions);
-        verify(queryProcessor, times(5)).querySingleAsync(any(), any(), any(), any());
+        verify(queryProcessor, times(5)).querySingleAsync(any(), any(), any(), any(Object[].class));
     }
 
     @Test

@@ -346,7 +346,7 @@ public class ItClusterManagerTest extends BaseItClusterManagementTest {
 
         stopNodes(List.of(leaderNode));
 
-        // Issue the JoinReadCommand on the joining node. It is expected that the joining node is still treated as validated.
+        // Issue the JoinReadyCommand on the joining node. It is expected that the joining node is still treated as validated.
         assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
     }
 

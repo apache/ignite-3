@@ -61,7 +61,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
+    public <R> CompletableFuture<R> executeAsync(Set<ClusterNode> nodes, List<DeploymentUnit> units, String jobClassName, Object... args) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(units);
         Objects.requireNonNull(jobClassName);
@@ -103,7 +103,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeColocated(
+    public <R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
@@ -122,7 +122,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <K, R> CompletableFuture<R> executeColocated(
+    public <K, R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             K key,
             Mapper<K> keyMapper,
@@ -172,7 +172,7 @@ public class IgniteComputeImpl implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(
+    public <R> Map<ClusterNode, CompletableFuture<R>> broadcastAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,

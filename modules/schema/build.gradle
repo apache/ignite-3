@@ -31,6 +31,7 @@ dependencies {
     implementation project(':ignite-bytecode')
     implementation project(':ignite-catalog')
     implementation project(':ignite-core')
+    implementation project(':ignite-replicator')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-metastorage-api')
     implementation libs.jetbrains.annotations
@@ -40,11 +41,15 @@ dependencies {
     testAnnotationProcessor libs.jmh.annotation.processor
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-core')
+    testImplementation project(':ignite-vault')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
+    testImplementation(testFixtures(project(':ignite-metastorage')))
+    testImplementation(testFixtures(project(':ignite-vault')))
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
     testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
 

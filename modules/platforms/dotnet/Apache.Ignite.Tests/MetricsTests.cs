@@ -97,7 +97,7 @@ public class MetricsTests
         await client.Tables.GetTablesAsync();
 
         Assert.AreEqual(17, _listener.GetMetric("bytes-sent"));
-        Assert.AreEqual(72, _listener.GetMetric("bytes-received"));
+        Assert.AreEqual(73, _listener.GetMetric("bytes-received"));
     }
 
     [Test]

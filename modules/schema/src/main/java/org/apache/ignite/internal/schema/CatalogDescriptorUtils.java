@@ -33,6 +33,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeView;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.PrimaryKeyView;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.ValueSerializationHelper;
@@ -65,6 +66,7 @@ public class CatalogDescriptorUtils {
                 config.id(),
                 config.name(),
                 config.zoneId(),
+                ((ExtendedTableView) config).schemaId(),
                 config.columns().stream().map(CatalogDescriptorUtils::toTableColumnDescriptor).collect(toList()),
                 List.of(primaryKeyConfig.columns()),
                 List.of(primaryKeyConfig.colocationColumns())

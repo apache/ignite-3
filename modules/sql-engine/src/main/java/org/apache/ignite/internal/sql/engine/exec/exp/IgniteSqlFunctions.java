@@ -21,7 +21,7 @@ import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static org.apache.calcite.runtime.SqlFunctions.charLength;
 import static org.apache.calcite.runtime.SqlFunctions.octetLength;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -53,7 +53,6 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -97,7 +96,7 @@ public class IgniteSqlFunctions {
         try {
             return timestampStringToNumeric0(dtStr);
         } catch (DateTimeException e) {
-            throw new IgniteInternalException(QUERY_INVALID_ERR, e.getMessage());
+            throw new SqlException(RUNTIME_ERR, e.getMessage());
         }
     }
 
@@ -236,13 +235,13 @@ public class IgniteSqlFunctions {
 
         if (nonZero) {
             if (scale > precision) {
-                throw new SqlException(QUERY_INVALID_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+                throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
             } else {
                 int currentSignificantDigits = value.precision() - value.scale();
                 int expectedSignificantDigits = precision - scale;
 
                 if (currentSignificantDigits > expectedSignificantDigits) {
-                    throw new SqlException(QUERY_INVALID_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+                    throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
                 }
             }
         }

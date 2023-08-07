@@ -20,6 +20,7 @@ package org.apache.ignite.internal.testframework;
 import static org.apache.ignite.internal.util.IgniteUtils.monotonicMs;
 import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
 import static org.apache.ignite.lang.IgniteSystemProperties.getString;
+import static org.mockito.Mockito.framework;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -88,6 +90,14 @@ public abstract class BaseIgniteAbstractTest {
                 testInfo.getTestClass().map(Class::getSimpleName).orElse("<null>"),
                 testInfo.getTestMethod().map(Method::getName).orElse("<null>"),
                 testInfo.getDisplayName(), monotonicMs() - testStartMs);
+    }
+
+    /**
+     * Prevents accidental leaks from Mockito.
+     */
+    @AfterAll
+    static void clearInlineMocks() {
+        framework().clearInlineMocks();
     }
 
     /**

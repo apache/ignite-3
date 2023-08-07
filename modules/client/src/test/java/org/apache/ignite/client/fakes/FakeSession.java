@@ -18,7 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
-import static org.apache.ignite.lang.ErrorGroups.Sql.INVALID_DML_RESULT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.Map;
 import java.util.Objects;
@@ -97,7 +97,7 @@ public class FakeSession implements Session {
         Objects.requireNonNull(statement);
 
         if (FAILED_SQL.equals(statement.query())) {
-            return CompletableFuture.failedFuture(new SqlException(INVALID_DML_RESULT_ERR, "Query failed"));
+            return CompletableFuture.failedFuture(new SqlException(STMT_VALIDATION_ERR, "Query failed"));
         }
 
         return CompletableFuture.completedFuture(new FakeAsyncResultSet(this, transaction, statement, arguments));

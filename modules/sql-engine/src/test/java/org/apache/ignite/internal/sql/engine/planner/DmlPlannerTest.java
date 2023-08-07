@@ -22,6 +22,7 @@ import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -183,9 +184,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     }
 
     // Class name is fully-qualified because AbstractPlannerTest defines a class with the same name.
-    private static org.apache.ignite.internal.sql.engine.framework.TestTable newTestTable(
-            String tableName, IgniteDistribution distribution) {
-
+    private static TestTable newTestTable(String tableName, IgniteDistribution distribution) {
         return TestBuilders.table()
                 .name(tableName)
                 .addColumn("C1", NativeTypes.INT32)

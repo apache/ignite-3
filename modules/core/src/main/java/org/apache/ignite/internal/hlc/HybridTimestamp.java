@@ -53,7 +53,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
      * Cluster cLock skew. The constant determines the undefined inclusive interval to compares timestamp from various nodes.
      * TODO: IGNITE-18978 Method to comparison timestamps with clock skew.
      */
-    private static final long CLOCK_SKEW = 7L;
+    public static final long CLOCK_SKEW = 7L;
 
     /** Long time value, that consists of physical time in higher 6 bytes and logical time in lower 2 bytes. */
     private final long time;
@@ -236,12 +236,23 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     /**
      * Returns a new hybrid timestamp with incremented physical component.
      */
-    public HybridTimestamp addPhysicalTime(long mills) {
-        if (mills >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
-            throw new IllegalArgumentException("Physical time is out of bounds: " + mills);
+    public HybridTimestamp addPhysicalTime(long millis) {
+        if (millis >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
+            throw new IllegalArgumentException("Physical time is out of bounds: " + millis);
         }
 
-        return new HybridTimestamp(time + (mills << LOGICAL_TIME_BITS_SIZE));
+        return new HybridTimestamp(time + (millis << LOGICAL_TIME_BITS_SIZE));
+    }
+
+    /**
+     * Returns a new hybrid timestamp with decremented physical component.
+     */
+    public HybridTimestamp subtractPhysicalTime(long millis) {
+        if (millis >= (1L << PHYSICAL_TIME_BITS_SIZE)) {
+            throw new IllegalArgumentException("Physical time is out of bounds: " + millis);
+        }
+
+        return new HybridTimestamp(time - (millis << LOGICAL_TIME_BITS_SIZE));
     }
 
     /**
