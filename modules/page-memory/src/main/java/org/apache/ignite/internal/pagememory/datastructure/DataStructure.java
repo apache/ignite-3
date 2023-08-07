@@ -40,8 +40,8 @@ import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**

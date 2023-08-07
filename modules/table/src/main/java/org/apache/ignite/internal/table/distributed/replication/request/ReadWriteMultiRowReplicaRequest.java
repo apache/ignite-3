@@ -34,4 +34,9 @@ public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaReque
      */
     @Marshallable
     TablePartitionId commitPartitionId();
+
+    /**
+     * Return {@code true} if this is a full transaction.
+     */
+    boolean full();
 }

@@ -19,7 +19,7 @@ package org.apache.ignite;
 
 import java.util.Collection;
 import java.util.List;
-import org.apache.ignite.internal.util.StringUtils;
+import org.apache.ignite.lang.util.StringUtils;
 
 /** Builder of {@link org.apache.ignite.InitParameters}. */
 public class InitParametersBuilder {

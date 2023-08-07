@@ -18,7 +18,6 @@
 package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Sql.SCHEMA_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.UUID;
 
@@ -32,7 +31,7 @@ public class SchemaNotFoundException extends IgniteException {
      * @param schemaName Schema name.
      */
     public SchemaNotFoundException(String schemaName) {
-        super(SCHEMA_NOT_FOUND_ERR, format("Schema not found [schemaName={}]", schemaName));
+        super(SCHEMA_NOT_FOUND_ERR, "Schema not found [schemaName=" + schemaName + ']');
     }
 
     /**

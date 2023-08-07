@@ -35,6 +35,7 @@ import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
 import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
@@ -165,7 +166,8 @@ public class MockStateMachine extends StateMachineAdapter {
 
     @Override
     public boolean onSnapshotLoad(final SnapshotReader reader) {
-        this.lastAppliedIndex.set(0);
+        SnapshotMeta meta = reader.load();
+        this.lastAppliedIndex.set(meta.lastIncludedIndex());
         this.loadSnapshotTimes++;
         final String path = reader.getPath() + File.separator + "data";
         final File file = new File(path);

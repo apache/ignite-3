@@ -24,19 +24,20 @@ import static org.hamcrest.Matchers.isA;
 
 import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests exception util methods.
  */
-public class IgniteExceptionUtilsTest {
+public class ExceptionUtilsTest {
     @ParameterizedTest
     @MethodSource("provideIgniteExceptions")
     public <T extends IgniteException> void testPublicException(T origin) {
         var completionErr = new CompletionException(origin);
 
-        Throwable tcopy = IgniteExceptionUtils.copyExceptionWithCause(completionErr);
+        Throwable tcopy = ExceptionUtils.copyExceptionWithCause(completionErr);
 
         assertThat(tcopy, isA(origin.getClass()));
 
@@ -52,7 +53,7 @@ public class IgniteExceptionUtilsTest {
     public <T extends IgniteCheckedException> void testPublicCheckedException(T origin) {
         var completionErr = new CompletionException(origin);
 
-        Throwable tcopy = IgniteExceptionUtils.copyExceptionWithCause(completionErr);
+        Throwable tcopy = ExceptionUtils.copyExceptionWithCause(completionErr);
 
         assertThat(tcopy, isA(origin.getClass()));
 

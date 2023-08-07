@@ -14,35 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.ignite.internal.util;
-
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.raft.jraft.error;
 
 /**
- * Class containing useful methods for working with strings.
+ * Threw when Node is overloaded.
  */
-public final class StringUtils {
-    private StringUtils() {
-    }
+public class OverloadException extends JRaftException {
 
     /**
-     * Tests if given string is {@code null} or empty.
      *
-     * @param s String to test.
-     * @return Whether or not the given string is {@code null} or empty.
      */
-    public static boolean nullOrEmpty(@Nullable String s) {
-        return s == null || s.isEmpty();
+    private static final long serialVersionUID = -5505054326197103575L;
+
+    public OverloadException() {
+        super();
     }
 
-    /**
-     * Tests if given string is {@code null} or {@link String#isBlank}.
-     *
-     * @param s String to test.
-     * @return Whether or not the given string is {@code null} or blank.
-     */
-    public static boolean nullOrBlank(@Nullable String s) {
-        return s == null || s.isBlank();
+    public OverloadException(final String message, final Throwable cause, final boolean enableSuppression,
+                             final boolean writableStackTrace) {
+        super(message, cause, enableSuppression, writableStackTrace);
+    }
+
+    public OverloadException(final String message, final Throwable cause) {
+        super(message, cause);
+    }
+
+    public OverloadException(final String message) {
+        super(message);
+    }
+
+    public OverloadException(final Throwable cause) {
+        super(cause);
     }
 }

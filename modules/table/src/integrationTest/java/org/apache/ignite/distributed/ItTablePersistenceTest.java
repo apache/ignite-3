@@ -98,6 +98,7 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
@@ -153,7 +154,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     private ReplicaService replicaService;
 
     private final Function<String, ClusterNode> consistentIdToNode = addr
-            -> new ClusterNode("node1", "node1", new NetworkAddress(addr, 3333));
+            -> new ClusterNodeImpl("node1", "node1", new NetworkAddress(addr, 3333));
 
     private final HybridClock hybridClock = new HybridClockImpl();
 
