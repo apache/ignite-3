@@ -167,7 +167,11 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     @Test
     public void testKvMissingKeyTupleFields() {
-        assert false : "TODO";
+        Table table = ignite().tables().table(TABLE_NAME);
+        var tupleView = table.keyValueView();
+
+        Throwable ex = assertThrowsWithCause(() -> tupleView.put(null, Tuple.create(), Tuple.create()), IgniteException.class);
+        assertEquals("Missed key column: KEY", ex.getMessage());
     }
 
     @Test
