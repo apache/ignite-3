@@ -21,5 +21,8 @@ package org.apache.ignite.raft.jraft.option;
  *
  */
 public enum ApplyTaskMode {
-    Blocking, NonBlocking
+    // It is strongly not recommended to use blocking mode because it is forbidden to use blocking code in Ignite worker threads.
+    // This mode is not deleted mostly because of the desire to not differ with the original JRaft.
+    Blocking,
+    NonBlocking
 }
