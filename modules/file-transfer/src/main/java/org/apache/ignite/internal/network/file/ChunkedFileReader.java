@@ -39,7 +39,7 @@ class ChunkedFileReader implements ManuallyCloseable {
     }
 
     byte[] readNextChunk() throws IOException {
-        int toRead = (int) Math.min(chunkSize, raf.length() - raf.getFilePointer());
+        int toRead = (int) Math.min(chunkSize, length() - offset());
         byte[] data = new byte[toRead];
         raf.read(data);
         return data;
