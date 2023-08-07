@@ -112,7 +112,7 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
         await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestoredCount.get() == 1);
         await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionLostCount.get() == 1);
 
-        // Tear down
+        // Tear down. Restore initial state of node to exclude any impact on next test.
         this.startNode(nodeName);
     }
 
