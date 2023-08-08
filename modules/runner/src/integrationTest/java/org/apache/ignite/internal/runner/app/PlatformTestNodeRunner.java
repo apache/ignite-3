@@ -267,7 +267,7 @@ public class PlatformTestNodeRunner {
     private static void createTables(Ignite node) {
         var keyCol = "KEY";
 
-        await(createZone(((IgniteImpl) node).distributionZoneManager(), ZONE_NAME, 10, 1));
+        createZone(((IgniteImpl) node).distributionZoneManager(), ZONE_NAME, 10, 1);
 
         IgniteImpl ignite = ((IgniteImpl) node);
 
