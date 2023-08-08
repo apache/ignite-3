@@ -412,6 +412,40 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         IntStream.range(0, batchEx.updateCounters().length).forEach(i -> assertEquals(1, batchEx.updateCounters()[i]));
     }
 
+    @Test
+    public void resultSetCloseShouldFinishImplicitTransaction() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
+        IgniteSql sql = igniteSql();
+        Session ses = sql.sessionBuilder().defaultPageSize(2).build();
+
+        ResultSet<?> rs = ses.execute(null, "SELECT * FROM TEST");
+        assertEquals(1, txManager().pending());
+        rs.close();
+        assertEquals(0, txManager().pending(), "Expected no pending transactions");
+    }
+
+    @Test
+    public void resultSetFullReadShouldFinishImplicitTransaction() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
+        IgniteSql sql = igniteSql();
+
+        // Fetch all data in one read.
+        Session ses = sql.sessionBuilder().defaultPageSize(100).build();
+        ResultSet<?> rs = ses.execute(null, "SELECT * FROM TEST");
+
+        rs.forEachRemaining(Object::hashCode);
+
+        assertEquals(0, txManager().pending(), "Expected no pending transactions");
+    }
+
     private static void checkDdl(boolean expectedApplied, Session ses, String sql) {
         ResultSet res = ses.execute(
                 null,
