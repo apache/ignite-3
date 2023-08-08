@@ -36,6 +36,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.table.Tuple;
@@ -212,7 +213,7 @@ public class ClientTupleSerializer {
         }
 
         if (val != null && val.columnCount() > usedValCols) {
-            throwSchemaMismatchException(key, schema, TuplePart.VAL);
+            throwSchemaMismatchException(val, schema, TuplePart.VAL);
         }
 
         out.out().packBinaryTuple(builder, noValueSet);
@@ -441,6 +442,6 @@ public class ClientTupleSerializer {
         }
 
         throw new IllegalArgumentException(String.format("%s doesn't match schema: schemaVersion=%s, extraColumns=%s",
-                prefix, schema.version(), extraColumns));
+                prefix, schema.version(), extraColumns), new UnmappedColumnsException());
     }
 }

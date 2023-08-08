@@ -228,6 +228,9 @@ class DdlToCatalogCommandConverter {
                 .name(def.name())
                 .type(TypeUtils.columnType(def.type()))
                 .nullable(def.nullable())
+                .precision(def.precision())
+                .scale(def.scale())
+                .length(def.precision())
                 .defaultValue(convert(def.defaultValueDefinition()))
                 .build();
     }

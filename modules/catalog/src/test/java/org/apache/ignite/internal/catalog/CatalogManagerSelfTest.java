@@ -103,12 +103,12 @@ import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
-import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -363,7 +363,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(DefaultValue.Type.CONSTANT, column.defaultValue().type());
         assertEquals("Ignite!", ((DefaultValue.ConstantValue) column.defaultValue()).value());
 
-        assertEquals(0, column.length());
+        assertEquals(Integer.MAX_VALUE, column.length());
         assertEquals(0, column.precision());
         assertEquals(0, column.scale());
     }

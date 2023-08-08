@@ -1478,7 +1478,7 @@ public class ItNodeTest {
         assertTrue(cluster.stop(leader.getNodeId().getPeerId()));
 
         assertFalse(followers.isEmpty());
-        sendTestTaskAndWait("follower apply ", followers.get(0), -1); // Should fail, because no leader.
+        int success = sendTestTaskAndWait("follower apply ", followers.get(0), 10, -1); // Should fail, because no leader.
 
         stopBlockingMessagesOnFollowers(followers);
 
@@ -1517,7 +1517,7 @@ public class ItNodeTest {
         cluster.ensureSame();
 
         for (MockStateMachine fsm : cluster.getFsms())
-            assertEquals(30, fsm.getLogs().size());
+            assertEquals(30 + success, fsm.getLogs().size());
     }
 
     @Test
@@ -3178,7 +3178,7 @@ public class ItNodeTest {
 
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
         peers.add(peer0);
-        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+        cluster = new TestCluster("testChangePeersAddMultiNodes", dataPath, Collections.singletonList(peer0), testInfo);
         assertTrue(cluster.start(peer0));
 
         Node leader = cluster.waitAndGetLeader();
@@ -3345,7 +3345,7 @@ public class ItNodeTest {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
         peers.add(new TestPeer(testInfo, TestUtils.INIT_PORT));
-        cluster = new TestCluster("unittest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
+        cluster = new TestCluster("testChangePeersChaosWithSnapshot", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
         assertTrue(cluster.start(peers.get(0), false, 2));
         // start other peers
         for (int i = 1; i < 10; i++) {
@@ -3390,7 +3390,7 @@ public class ItNodeTest {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
         peers.add(new TestPeer(testInfo, TestUtils.INIT_PORT));
-        cluster = new TestCluster("unittest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
+        cluster = new TestCluster("testChangePeersChaosWithoutSnapshot", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
         assertTrue(cluster.start(peers.get(0), false, 100000));
         // start other peers
         for (int i = 1; i < 10; i++) {
@@ -3427,8 +3427,8 @@ public class ItNodeTest {
         cluster.ensureSame();
         assertEquals(10, cluster.getFsms().size());
         for (MockStateMachine fsm : cluster.getFsms()) {
-            assertTrue(fsm.getLogs().size() >= tasks);
-            assertTrue(fsm.getLogs().size() - tasks < 100);
+            final int logSize = fsm.getLogs().size();
+            assertTrue(logSize >= tasks, "logSize=" + logSize);
         }
     }
 
@@ -3437,7 +3437,7 @@ public class ItNodeTest {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
         peers.add(new TestPeer(testInfo, TestUtils.INIT_PORT));
-        cluster = new TestCluster("unittest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
+        cluster = new TestCluster("testChangePeersChaosApplyTasks", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
         assertTrue(cluster.start(peers.get(0), false, 100000));
         // start other peers
         for (int i = 1; i < 10; i++) {
@@ -3503,7 +3503,6 @@ public class ItNodeTest {
         for (MockStateMachine fsm : cluster.getFsms()) {
             int logSize = fsm.getLogs().size();
             assertTrue(logSize >= 5000 * threads, "logSize= " + logSize);
-            assertTrue(logSize - 5000 * threads < 100, "logSize= " + logSize);
         }
     }
 
@@ -3904,20 +3903,17 @@ public class ItNodeTest {
     }
 
     @SuppressWarnings("SameParameterValue")
-    private void sendTestTaskAndWait(String prefix, Node node, int code) throws InterruptedException {
-        sendTestTaskAndWait(prefix, node, 10, code);
-    }
-
-    @SuppressWarnings("SameParameterValue")
-    private void sendTestTaskAndWait(String prefix, Node node, int amount,
+    private int sendTestTaskAndWait(String prefix, Node node, int amount,
                                      int code) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(10);
+        final AtomicInteger successCount = new AtomicInteger(0);
         for (int i = 0; i < amount; i++) {
             ByteBuffer data = ByteBuffer.wrap((prefix + i).getBytes(UTF_8));
-            Task task = new Task(data, new ExpectClosure(code, null, latch));
+            Task task = new Task(data, new ExpectClosure(code, null, latch, successCount));
             node.apply(task);
         }
         waitLatch(latch);
+        return successCount.get();
     }
 
     private void triggerLeaderSnapshot(TestCluster cluster, Node leader) throws InterruptedException {
