@@ -80,9 +80,8 @@ public class DistributionZonesTestUtil {
      * @param partitions Zone number of partitions.
      * @param replicas Zone number of replicas.
      * @param dataStorageChangeConsumer Consumer of {@link DataStorageChange}, which sets the right data storage options.
-     * @return A future, which will be completed, when create operation finished.
      */
-    public static CompletableFuture<Integer> createZone(
+    public static void createZone(
             DistributionZoneManager zoneManager,
             String zoneName,
             int partitions,
@@ -99,7 +98,7 @@ public class DistributionZonesTestUtil {
             distributionZoneCfgBuilder.dataStorageChangeConsumer(dataStorageChangeConsumer);
         }
 
-        return zoneManager.createZone(distributionZoneCfgBuilder.build());
+        assertThat(zoneManager.createZone(distributionZoneCfgBuilder.build()), willCompleteSuccessfully());
     }
 
     /**
@@ -109,15 +108,14 @@ public class DistributionZonesTestUtil {
      * @param zoneName Zone name.
      * @param partitions Zone number of partitions.
      * @param replicas Zone number of replicas.
-     * @return A future, which will be completed, when create operation finished.
      */
-    public static CompletableFuture<Integer> createZone(
+    public static void createZone(
             DistributionZoneManager zoneManager,
             String zoneName,
             int partitions,
             int replicas
     ) {
-        return createZone(zoneManager, zoneName, partitions, replicas, null);
+        createZone(zoneManager, zoneName, partitions, replicas, null);
     }
 
     /**

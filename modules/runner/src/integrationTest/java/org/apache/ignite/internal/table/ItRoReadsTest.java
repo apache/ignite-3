@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.runner.app.ItTablesApiTest.SCHEMA;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -523,18 +522,21 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         cols.add(SchemaBuilders.column("valStr", ColumnType.string()).withDefaultValue("default").build());
 
         String zoneName = "zone_" + tableName;
-        int zoneId = await(createZone(((IgniteImpl) node).distributionZoneManager(), zoneName, 1, DEFAULT_REPLICA_COUNT));
+        createZone(((IgniteImpl) node).distributionZoneManager(), zoneName, 1, DEFAULT_REPLICA_COUNT);
 
-        return await(((TableManager) node.tables()).createTableAsync(
+        CompletableFuture<Table> createTableCompletableFuture = ((TableManager) node.tables()).createTableAsync(
                 tableName,
                 zoneName,
-                tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(
-                        cols).withPrimaryKey("key").build(), tblCh)
-        ));
+                tblCh -> convert(SchemaBuilders.tableBuilder(SCHEMA, tableName).columns(cols).withPrimaryKey("key").build(), tblCh)
+        );
+
+        assertThat(createTableCompletableFuture, willCompleteSuccessfully());
+
+        return createTableCompletableFuture.join();
     }
 
     private static void stopTable(Ignite node, String tableName) {
-        await(((TableManager) node.tables()).dropTableAsync(tableName));
+        assertThat(((TableManager) node.tables()).dropTableAsync(tableName), willCompleteSuccessfully());
         DistributionZonesTestUtil.dropZone(((IgniteImpl) node).distributionZoneManager(), "zone_" + tableName);
     }
 
