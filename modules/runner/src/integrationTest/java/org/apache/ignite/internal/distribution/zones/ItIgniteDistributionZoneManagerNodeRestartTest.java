@@ -464,7 +464,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
-        alterZone(distributionZoneManager, zoneName, INFINITE_TIMER_VALUE, null, null);
+        alterZone(catalogManager, zoneName, INFINITE_TIMER_VALUE, null, null);
 
         partialNode.logicalTopology().putNode(B);
 
@@ -477,7 +477,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Only Node B passes the filter
         String filter = "$[?(@.dataRegionSize > 10)]";
 
-        alterZone(distributionZoneManager, zoneName, null, null, filter);
+        alterZone(catalogManager, zoneName, null, null, filter);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
@@ -509,7 +509,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         blockUpdate(metaStorageManager, zoneScaleUpChangeTriggerKey(zoneId));
 
-        alterZone(distributionZoneManager, zoneName, 100, null, null);
+        alterZone(catalogManager, zoneName, 100, null, null);
 
         partialNode.logicalTopology().putNode(B);
 
@@ -518,7 +518,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Only Node B and C passes the filter
         String filter = "$[?(@.dataRegionSize > 10)]";
 
-        alterZone(distributionZoneManager, zoneName, null, null, filter);
+        alterZone(catalogManager, zoneName, null, null, filter);
 
         partialNode.logicalTopology().putNode(C);
 
@@ -531,6 +531,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         partialNode = startPartialNode(0);
 
         distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
 
         // Immediate timer triggered by filter update
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(B), TIMEOUT_MILLIS);
@@ -540,7 +541,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Timer scheduled after join of the node C
         assertNotNull(zoneState.scaleUpTask());
 
-        alterZone(distributionZoneManager, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
+        alterZone(catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(B, C), TIMEOUT_MILLIS);
     }
@@ -600,7 +601,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             int scaleDown
     ) throws Exception {
         if (zoneName.equals(DEFAULT_ZONE_NAME)) {
-            alterZone(distributionZoneManager, DEFAULT_ZONE_NAME, scaleUp, scaleDown, null);
+            alterZone(catalogManager, DEFAULT_ZONE_NAME, scaleUp, scaleDown, null);
 
             ZoneState zoneState = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID);
 

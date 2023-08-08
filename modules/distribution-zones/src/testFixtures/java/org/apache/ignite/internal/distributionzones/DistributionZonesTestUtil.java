@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_FILTER;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
@@ -53,11 +52,11 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -163,23 +162,6 @@ public class DistributionZonesTestUtil {
         }
 
         assertThat(catalogManager.createZone(builder.build()), willCompleteSuccessfully());
-    }
-
-    /**
-     * Alter the number of zone replicas.
-     *
-     * @param zoneManager Zone manager.
-     * @param zoneName Zone name.
-     * @param replicas The new number of zone replicas.
-     * @return A future, which will be completed, when update operation finished.
-     */
-    public static CompletableFuture<Void> alterZoneReplicas(DistributionZoneManager zoneManager, String zoneName, int replicas) {
-        var distributionZoneCfgBuilder = new Builder(zoneName)
-                .replicas(replicas)
-                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
-
-        return zoneManager.alterZone(zoneName, distributionZoneCfgBuilder.build());
     }
 
     /**
@@ -514,9 +496,9 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Alters a distribution zone in the configuration.
+     * Alters a distribution zone in the catalog.
      *
-     * @param distributionZoneManager Distributed zone manager.
+     * @param catalogManager Catalog manager.
      * @param zoneName Zone name.
      * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
      *         {@code null} if not set.
@@ -525,19 +507,53 @@ public class DistributionZonesTestUtil {
      * @param filter Nodes filter, {@code null} if not set.
      */
     public static void alterZone(
-            DistributionZoneManager distributionZoneManager,
+            CatalogManager catalogManager,
             String zoneName,
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter
     ) {
-        assertThat(
-                distributionZoneManager.alterZone(
-                        zoneName,
-                        createParameters(zoneName, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter)
-                ),
-                willCompleteSuccessfully()
-        );
+        alterZone(catalogManager, zoneName, null, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter);
+    }
+
+    /**
+     * Alters a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param replicas New number of zone replicas.
+     */
+    public static void alterZone(CatalogManager catalogManager, String zoneName, int replicas) {
+        alterZone(catalogManager, zoneName, replicas, null, null, null);
+    }
+
+    private static void alterZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer replicas,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        AlterZoneParams.Builder builder = AlterZoneParams.builder().zoneName(zoneName);
+
+        if (replicas != null) {
+            builder.replicas(replicas);
+        }
+
+        if (dataNodesAutoAdjustScaleUp != null) {
+            builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
+        }
+
+        if (dataNodesAutoAdjustScaleDown != null) {
+            builder.dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
+        }
+
+        if (filter != null) {
+            builder.filter(filter);
+        }
+
+        assertThat(catalogManager.alterZone(builder.build()), willCompleteSuccessfully());
     }
 
     /**

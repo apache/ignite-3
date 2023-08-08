@@ -79,16 +79,11 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.configuration.ConfigurationChangeException;
-import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
-import org.apache.ignite.configuration.ConfigurationNodeDoesNotExistException;
-import org.apache.ignite.configuration.ConfigurationNodeRemovedException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.NamedListChange;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -360,95 +355,6 @@ public class DistributionZoneManager implements IgniteComponent {
         metaStorageManager.unregisterWatch(topologyWatchListener);
 
         shutdownAndAwaitTermination(executor, 10, SECONDS);
-    }
-
-    /**
-     * Alters a distribution zone.
-     *
-     * @param name Distribution zone name.
-     * @param distributionZoneCfg Distribution zone configuration.
-     * @return Future representing pending completion of the operation. Future can be completed with:
-     *      {@link DistributionZoneAlreadyExistsException} if a zone with the given name already exists.
-     *      {@link DistributionZoneNotFoundException} if a zone with the given name doesn't exist,
-     *      {@link ConfigurationValidationException} if {@code distributionZoneCfg} is broken,
-     *      {@link IllegalArgumentException} if {@code name} or {@code distributionZoneCfg} is {@code null}
-     *      or it is an attempt to rename default distribution zone,
-     *      {@link NodeStoppingException} if the node is stopping.
-     */
-    public CompletableFuture<Void> alterZone(String name, DistributionZoneConfigurationParameters distributionZoneCfg) {
-        if (name == null || name.isEmpty()) {
-            return failedFuture(new IllegalArgumentException("Distribution zone name is null or empty [name=" + name + ']'));
-        }
-
-        if (distributionZoneCfg == null) {
-            return failedFuture(new IllegalArgumentException("Distribution zone configuration is null"));
-        }
-
-        if (DEFAULT_ZONE_NAME.equals(name) && !DEFAULT_ZONE_NAME.equals(distributionZoneCfg.name())) {
-            return failedFuture(
-                    new IllegalArgumentException("It's not possible to rename default distribution zone")
-            );
-        }
-
-        if (!DEFAULT_ZONE_NAME.equals(name) && DEFAULT_ZONE_NAME.equals(distributionZoneCfg.name())) {
-            return failedFuture(
-                    new IllegalArgumentException("It's not possible to rename distribution zone to [name= " + DEFAULT_ZONE_NAME + ']')
-            );
-        }
-
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            CompletableFuture<Void> fut = new CompletableFuture<>();
-
-            CompletableFuture<Void> change;
-
-            if (DEFAULT_ZONE_NAME.equals(name)) {
-                change = zonesConfiguration.change(
-                        zonesChange -> zonesChange.changeDefaultDistributionZone(
-                                zoneChange -> updateZoneChange(zoneChange, distributionZoneCfg)
-                        )
-                );
-            } else {
-                change = zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                    NamedListChange<DistributionZoneView, DistributionZoneChange> renameChange;
-
-                    try {
-                        renameChange = zonesListChange.rename(name, distributionZoneCfg.name());
-                    } catch (ConfigurationNodeAlreadyExistException e) {
-                        throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
-                    } catch (ConfigurationNodeDoesNotExistException | ConfigurationNodeRemovedException e) {
-                        throw new DistributionZoneNotFoundException(name, e);
-                    }
-
-                    try {
-                        renameChange.update(distributionZoneCfg.name(), zoneChange -> updateZoneChange(zoneChange, distributionZoneCfg));
-                    } catch (ConfigurationNodeDoesNotExistException | ConfigurationNodeRemovedException e) {
-                        throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
-                    }
-                }));
-            }
-
-            change.whenComplete((res, e) -> {
-                if (e != null) {
-                    fut.completeExceptionally(
-                            unwrapDistributionZoneException(
-                                    e,
-                                    DistributionZoneNotFoundException.class,
-                                    DistributionZoneAlreadyExistsException.class,
-                                    ConfigurationValidationException.class)
-                    );
-                } else {
-                    fut.complete(null);
-                }
-            });
-
-            return fut;
-        } finally {
-            busyLock.leaveBusy();
-        }
     }
 
     /**

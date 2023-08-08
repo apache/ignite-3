@@ -212,7 +212,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
             @Nullable String filter
     ) {
         DistributionZonesTestUtil.alterZone(
-                distributionZoneManager,
+                catalogManager,
                 zoneName,
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,

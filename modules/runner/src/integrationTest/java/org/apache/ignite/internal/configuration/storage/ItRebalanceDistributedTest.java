@@ -20,7 +20,7 @@ package org.apache.ignite.internal.configuration.storage;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZoneReplicas;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZoneWithDataStorage;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
@@ -283,7 +283,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
-        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
+        alterZone(nodes.get(0).catalogManager, ZONE_1_NAME, 2);
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -309,8 +309,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
-        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
-        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 3));
+        alterZone(nodes.get(0).catalogManager, ZONE_1_NAME, 2);
+        alterZone(nodes.get(0).catalogManager, ZONE_1_NAME, 3);
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -335,9 +335,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(0, 0).size() == 1, 10_000));
 
-        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
-        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 3));
-        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
+        alterZone(nodes.get(0).catalogManager, ZONE_1_NAME, 2);
+        alterZone(nodes.get(0).catalogManager, ZONE_1_NAME, 3);
+        alterZone(nodes.get(0).catalogManager, ZONE_1_NAME, 2);
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -397,7 +397,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     return false;
                 });
 
-        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, zoneName, 3));
+        alterZone(nodes.get(0).catalogManager, zoneName, 3);
 
         countDownLatch.await();
 
@@ -428,7 +428,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertEquals(1, getPartitionClusterNodes(0, 0).size());
 
-        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1));
+        alterZone(nodes.get(0).catalogManager, ZONE_1_NAME, 1);
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
@@ -454,7 +454,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             return false;
         });
 
-        await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 3));
+        alterZone(nodes.get(0).catalogManager, ZONE_1_NAME, 3);
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -1031,10 +1031,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private void changeTableReplicasForSinglePartition(String zoneName, int replicas) {
-        assertThat(
-                alterZoneReplicas(nodes.get(0).distributionZoneManager, zoneName, replicas),
-                willCompleteSuccessfully()
-        );
+        alterZone(nodes.get(0).catalogManager, zoneName, replicas);
 
         waitPartitionAssignmentsSyncedToExpected(0, replicas);
 
