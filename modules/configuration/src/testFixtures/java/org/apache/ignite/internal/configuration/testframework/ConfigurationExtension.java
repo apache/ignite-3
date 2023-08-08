@@ -21,9 +21,9 @@ import static java.lang.reflect.Modifier.isStatic;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.allSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.findEx;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.touch;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -98,7 +98,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     private static final Object REVISION_LISTENER_PER_TEST_HOLDER_KEY = new Object();
 
     /** All {@link ConfigurationExtension} classes in classpath. */
-    private static final List<Class<?>> ALL_EXTENSIONS;
+    private static final List<Class<?>> EXTENSIONS;
 
     /** All {@link PolymorphicConfigInstance} classes in classpath. */
     private static final List<Class<?>> POLYMORPHIC_EXTENSIONS;
@@ -108,15 +108,15 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         // to avoid configuring extensions manually in every test.
         ServiceLoader<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class);
 
-        List<Class<?>> allExtensions = new ArrayList<>();
+        List<Class<?>> extensions = new ArrayList<>();
         List<Class<?>> polymorphicExtensions = new ArrayList<>();
 
         modules.forEach(configurationModule -> {
-            allExtensions.addAll(configurationModule.allSchemaExtensions());
+            extensions.addAll(configurationModule.schemaExtensions());
             polymorphicExtensions.addAll(configurationModule.polymorphicSchemaExtensions());
         });
 
-        ALL_EXTENSIONS = List.copyOf(allExtensions);
+        EXTENSIONS = List.copyOf(extensions);
         POLYMORPHIC_EXTENSIONS = List.copyOf(polymorphicExtensions);
     }
 
@@ -264,12 +264,12 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         // classes, extension is designed to mock actual configurations from public API to configure Ignite components.
         Class<?> schemaClass = Class.forName(type.getCanonicalName() + "Schema");
 
-        List<Class<?>> allExtensions = ALL_EXTENSIONS;
+        List<Class<?>> extensions = EXTENSIONS;
         List<Class<?>> polymorphicExtensions = POLYMORPHIC_EXTENSIONS;
 
         if (annotation.extensions().length > 0) {
-            allExtensions = new ArrayList<>(allExtensions);
-            allExtensions.addAll(List.of(annotation.extensions()));
+            extensions = new ArrayList<>(extensions);
+            extensions.addAll(List.of(annotation.extensions()));
         }
 
         if (annotation.polymorphicExtensions().length > 0) {
@@ -279,7 +279,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
         cgen.compileRootSchema(
                 schemaClass,
-                allSchemaExtensions(allExtensions),
+                schemaExtensions(extensions),
                 polymorphicSchemaExtensions(polymorphicExtensions)
         );
 

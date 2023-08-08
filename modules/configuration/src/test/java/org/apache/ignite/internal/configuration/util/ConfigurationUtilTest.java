@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.configuration.tree.NamedListNode.ORDER_
 import static org.apache.ignite.internal.configuration.util.ConfigurationFlattener.createFlattenedUpdatesMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.EMPTY_CFG_SRC;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.allSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.checkConfigurationType;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.collectSchemas;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.compressDeletedEntries;
@@ -34,6 +33,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ex
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.find;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.removeLastKey;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaExtensions;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
@@ -44,6 +44,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -548,26 +549,46 @@ public class ConfigurationUtilTest {
     }
 
     @Test
-    void testInternalSchemaExtensions() {
-        assertTrue(allSchemaExtensions(List.of()).isEmpty());
+    void testExtensionsType() {
+        // public extensions
+        assertTrue(ConfigurationUtil.isPublicExtension(PublicConfigurationSchema.class));
 
-        assertThrows(IllegalArgumentException.class, () -> allSchemaExtensions(List.of(Object.class)));
+        assertTrue(ConfigurationUtil.isPublicExtension(PublicRootConfigurationSchema.class));
+
+        //internal extensions
+        assertTrue(ConfigurationUtil.isInternalExtension(InternalSecondConfigurationSchema.class));
+
+        assertTrue(ConfigurationUtil.isInternalExtension(InternalSecondRootConfigurationSchema.class));
+
+        //this one is not an extension at all
+        assertFalse(ConfigurationUtil.isPublicExtension(InternalConfigurationSchema.class));
+
+        assertFalse(ConfigurationUtil.isInternalExtension(InternalConfigurationSchema.class));
+    }
+
+    @Test
+    void testSchemaExtensions() {
+        assertTrue(schemaExtensions(List.of()).isEmpty());
+
+        assertThrows(IllegalArgumentException.class, () -> schemaExtensions(List.of(Object.class)));
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> allSchemaExtensions(List.of(InternalRootConfigurationSchema.class))
+                () -> schemaExtensions(List.of(InternalRootConfigurationSchema.class))
         );
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> allSchemaExtensions(List.of(InternalConfigurationSchema.class))
+                () -> schemaExtensions(List.of(InternalConfigurationSchema.class))
         );
 
-        Map<Class<?>, Set<Class<?>>> extensions = allSchemaExtensions(List.of(
+        Map<Class<?>, Set<Class<?>>> extensions = schemaExtensions(List.of(
                 InternalFirstRootConfigurationSchema.class,
                 InternalSecondRootConfigurationSchema.class,
                 InternalFirstConfigurationSchema.class,
-                InternalSecondConfigurationSchema.class
+                InternalSecondConfigurationSchema.class,
+                PublicRootConfigurationSchema.class,
+                PublicConfigurationSchema.class
         ));
 
         assertEquals(2, extensions.size());
@@ -575,7 +596,8 @@ public class ConfigurationUtilTest {
         assertEquals(
                 Set.of(
                         InternalFirstRootConfigurationSchema.class,
-                        InternalSecondRootConfigurationSchema.class
+                        InternalSecondRootConfigurationSchema.class,
+                        PublicRootConfigurationSchema.class
                 ),
                 extensions.get(InternalRootConfigurationSchema.class)
         );
@@ -583,7 +605,8 @@ public class ConfigurationUtilTest {
         assertEquals(
                 Set.of(
                         InternalFirstConfigurationSchema.class,
-                        InternalSecondConfigurationSchema.class
+                        InternalSecondConfigurationSchema.class,
+                        PublicConfigurationSchema.class
                 ),
                 extensions.get(InternalConfigurationSchema.class)
         );
@@ -624,7 +647,7 @@ public class ConfigurationUtilTest {
 
     @Test
     void testFindInternalConfigs() {
-        Map<Class<?>, Set<Class<?>>> allExtensions = allSchemaExtensions(List.of(
+        Map<Class<?>, Set<Class<?>>> extensions = schemaExtensions(List.of(
                 InternalFirstRootConfigurationSchema.class,
                 InternalSecondRootConfigurationSchema.class,
                 InternalFirstConfigurationSchema.class,
@@ -632,7 +655,7 @@ public class ConfigurationUtilTest {
         ));
 
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
-        generator.compileRootSchema(InternalRootConfigurationSchema.class, allExtensions, Map.of());
+        generator.compileRootSchema(InternalRootConfigurationSchema.class, extensions, Map.of());
 
         InnerNode innerNode = generator.instantiateNode(InternalRootConfigurationSchema.class);
 
@@ -658,8 +681,31 @@ public class ConfigurationUtilTest {
     }
 
     @Test
+    void testFindPublicConfigs() {
+        Map<Class<?>, Set<Class<?>>> extensions = schemaExtensions(List.of(
+                InternalFirstRootConfigurationSchema.class,
+                InternalSecondRootConfigurationSchema.class,
+                PublicRootConfigurationSchema.class,
+                InternalFirstConfigurationSchema.class,
+                InternalSecondConfigurationSchema.class,
+                PublicConfigurationSchema.class
+        ));
+
+        ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
+        generator.compileRootSchema(InternalRootConfigurationSchema.class, extensions, Map.of());
+
+        InnerNode innerNode = generator.instantiateNode(InternalRootConfigurationSchema.class);
+
+        addDefaults(innerNode);
+
+        assertNotNull(find(List.of("publicSubCfg1"), innerNode, false).value());
+
+        assertEquals("bar", find(List.of("subCfg", "publicStr03"), innerNode, false).value());
+    }
+
+    @Test
     void testGetInternalConfigs() {
-        Map<Class<?>, Set<Class<?>>> allExtensions = allSchemaExtensions(List.of(
+        Map<Class<?>, Set<Class<?>>> extensions = schemaExtensions(List.of(
                 InternalFirstRootConfigurationSchema.class,
                 InternalSecondRootConfigurationSchema.class,
                 InternalFirstConfigurationSchema.class,
@@ -667,7 +713,7 @@ public class ConfigurationUtilTest {
         ));
 
         ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
-        generator.compileRootSchema(InternalRootConfigurationSchema.class, allExtensions, Map.of());
+        generator.compileRootSchema(InternalRootConfigurationSchema.class, extensions, Map.of());
 
         InnerNode innerNode = generator.instantiateNode(InternalRootConfigurationSchema.class);
 
@@ -726,6 +772,84 @@ public class ConfigurationUtilTest {
         assertEquals("foo", subConfig.get("str00"));
         assertEquals("foo", subConfig.get("str01"));
         assertEquals("foo", subConfig.get("str02"));
+    }
+
+    @Test
+    void testGetPublicWithInternalConfigs() {
+        Map<Class<?>, Set<Class<?>>> extensions = schemaExtensions(List.of(
+                InternalFirstRootConfigurationSchema.class,
+                InternalSecondRootConfigurationSchema.class,
+                PublicRootConfigurationSchema.class,
+                InternalFirstConfigurationSchema.class,
+                InternalSecondConfigurationSchema.class,
+                PublicConfigurationSchema.class
+        ));
+
+        ConfigurationAsmGenerator generator = new ConfigurationAsmGenerator();
+        generator.compileRootSchema(InternalRootConfigurationSchema.class, extensions, Map.of());
+
+        InnerNode innerNode = generator.instantiateNode(InternalRootConfigurationSchema.class);
+
+        addDefaults(innerNode);
+
+        Map<String, Object> config = (Map<String, Object>) innerNode.accept(
+                null,
+                null,
+                ConverterToMapVisitor.builder()
+                        .includeInternal(false)
+                        .build()
+        );
+
+        // Check that public configuration will still be received.
+
+        assertEquals(5, config.size());
+        assertNull(config.get("str0"));
+        assertEquals("foo", config.get("str1"));
+        assertNotNull(config.get("subCfg"));
+        assertNotNull(config.get("namedCfg"));
+        assertNotNull(config.get("publicSubCfg1"));
+
+        Map<String, Object> subConfig = (Map<String, Object>) config.get("subCfg");
+
+        assertEquals(2, subConfig.size());
+        assertEquals("foo", subConfig.get("str00"));
+        assertEquals("bar", subConfig.get("publicStr03"));
+
+        // Check that public configuration will be received along with the internal one.
+
+        config = (Map<String, Object>) innerNode.accept(
+                null,
+                null,
+                ConverterToMapVisitor.builder()
+                        .includeInternal(true)
+                        .build()
+        );
+
+        assertEquals(8, config.size());
+        assertNull(config.get("str0"));
+        assertNull(config.get("str2"));
+        assertEquals("foo", config.get("str1"));
+        assertEquals("foo", config.get("str3"));
+        assertNotNull(config.get("subCfg"));
+        assertNotNull(config.get("subCfg1"));
+        assertNotNull(config.get("namedCfg"));
+        assertNotNull(config.get("publicSubCfg1"));
+
+        subConfig = (Map<String, Object>) config.get("subCfg");
+
+        assertEquals(4, subConfig.size());
+        assertEquals("foo", subConfig.get("str00"));
+        assertEquals("foo", subConfig.get("str01"));
+        assertEquals("foo", subConfig.get("str02"));
+        assertEquals("bar", subConfig.get("publicStr03"));
+
+        subConfig = (Map<String, Object>) config.get("subCfg1");
+
+        assertEquals(4, subConfig.size());
+        assertEquals("foo", subConfig.get("str00"));
+        assertEquals("foo", subConfig.get("str01"));
+        assertEquals("foo", subConfig.get("str02"));
+        assertEquals("bar", subConfig.get("publicStr03"));
     }
 
     @Test
@@ -1076,6 +1200,16 @@ public class ConfigurationUtilTest {
     }
 
     /**
+     * Public schema extension.
+     */
+    @ConfigurationExtension
+    public static class PublicConfigurationSchema extends InternalConfigurationSchema {
+        /** String value with default. */
+        @Value(hasDefault = true)
+        public String publicStr03 = "bar";
+    }
+
+    /**
      * First root simple internal schema extension.
      */
     @ConfigurationExtension(internal = true)
@@ -1097,6 +1231,16 @@ public class ConfigurationUtilTest {
         /** Second sub configuration schema. */
         @ConfigValue
         public InternalConfigurationSchema subCfg1;
+    }
+
+    /**
+     * Public root schema extension.
+     */
+    @ConfigurationExtension
+    public static class PublicRootConfigurationSchema extends InternalRootConfigurationSchema {
+        /** Second sub configuration schema. */
+        @ConfigValue
+        public InternalConfigurationSchema publicSubCfg1;
     }
 
     /**

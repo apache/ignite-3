@@ -55,7 +55,7 @@ class SchemaDistributedConfigurationModuleTest {
 
     @Test
     void providesInternalSchemaExtensions() {
-        assertThat(module.allSchemaExtensions(), hasItem(ExtendedTableConfigurationSchema.class));
+        assertThat(module.schemaExtensions(), hasItem(ExtendedTableConfigurationSchema.class));
     }
 
     @Test

@@ -38,7 +38,7 @@ public class RootKey<T extends ConfigurationTree<VIEWT, ?>, VIEWT> {
     /** Schema class for the root. */
     private final Class<?> schemaClass;
 
-    /** Marked with {@link ConfigurationExtension} and internal = true. */
+    /** Marked with {@link ConfigurationExtension} and internal = {@code true}. */
     private final boolean internal;
 
     /**
@@ -88,7 +88,8 @@ public class RootKey<T extends ConfigurationTree<VIEWT, ?>, VIEWT> {
     }
 
     /**
-     * Check if the root configuration is marked with {@link ConfigurationExtension}.
+     * Check if the root configuration is marked with {@link ConfigurationExtension}
+     * and {@link ConfigurationExtension#internal()} is {@code true}.
      *
      * @return {@code true} if the root configuration is internal.
      */

@@ -53,7 +53,7 @@ class SecurityConfigurationModuleTest {
 
     @Test
     void providesNoSchemaExtensions() {
-        assertThat(module.allSchemaExtensions(), is(empty()));
+        assertThat(module.schemaExtensions(), is(empty()));
     }
 
     @Test

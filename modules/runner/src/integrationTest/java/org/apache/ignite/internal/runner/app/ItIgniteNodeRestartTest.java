@@ -214,7 +214,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var localConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.local().rootKeys(),
-                modules.local().allSchemaExtensions(),
+                modules.local().schemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
 
@@ -298,7 +298,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
-                modules.distributed().allSchemaExtensions(),
+                modules.distributed().schemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
 

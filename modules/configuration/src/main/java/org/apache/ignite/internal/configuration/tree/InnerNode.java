@@ -266,8 +266,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     /**
      * Returns schemas for {@link ConfigurationExtension configuration extensions}.
      */
-    @Nullable
-    public Class<?>[] extensionSchemaTypes() {
+    public Class<?> @Nullable [] extensionSchemaTypes() {
         return null;
     }
 

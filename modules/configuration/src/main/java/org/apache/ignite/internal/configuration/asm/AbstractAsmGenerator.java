@@ -64,8 +64,8 @@ abstract class AbstractAsmGenerator {
     /** Configuration schema class. */
     final Class<?> schemaClass;
 
-    /** Extensions of the configuration schema (including internal ones). */
-    final Set<Class<?>> allConfigurationExtensions;
+    /** Extensions of the configuration schema (public and internal ones). */
+    final Set<Class<?>> extensions;
 
     /** Polymorphic extensions of the configuration schema. */
     final Set<Class<?>> polymorphicExtensions;
@@ -73,8 +73,8 @@ abstract class AbstractAsmGenerator {
     /** Fields of the schema class. */
     final List<Field> schemaFields;
 
-    /** Fields of extensions of the configuration schema. */
-    final Collection<Field> extensionFields;
+    /** Fields of public extensions of the configuration schema. */
+    final Collection<Field> publicExtensionFields;
 
     /** Fields of internal extensions of the configuration schema. */
     final Collection<Field> internalExtensionFields;
@@ -92,20 +92,20 @@ abstract class AbstractAsmGenerator {
     AbstractAsmGenerator(
             ConfigurationAsmGenerator cgen,
             Class<?> schemaClass,
-            Set<Class<?>> allConfigurationExtensions,
+            Set<Class<?>> extensions,
             Set<Class<?>> polymorphicExtensions,
             List<Field> schemaFields,
-            Collection<Field> extensionFields,
+            Collection<Field> publicExtensionFields,
             Collection<Field> internalExtensionFields,
             Collection<Field> polymorphicFields,
             @Nullable Field internalIdField
     ) {
         this.cgen = cgen;
         this.schemaClass = schemaClass;
-        this.allConfigurationExtensions = allConfigurationExtensions;
+        this.extensions = extensions;
         this.polymorphicExtensions = polymorphicExtensions;
         this.schemaFields = schemaFields;
-        this.extensionFields = extensionFields;
+        this.publicExtensionFields = publicExtensionFields;
         this.internalExtensionFields = internalExtensionFields;
         this.polymorphicFields = polymorphicFields;
         this.internalIdField = internalIdField;

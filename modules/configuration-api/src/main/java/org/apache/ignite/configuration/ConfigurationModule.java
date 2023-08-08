@@ -80,10 +80,8 @@ public interface ConfigurationModule {
     /**
      * Returns classes of schema extensions (annotated with {@link ConfigurationExtension})
      * provided by this module, including internal extensions.
-     *
-     * @return all schema extensions' classes including internal
      */
-    default Collection<Class<?>> allSchemaExtensions() {
+    default Collection<Class<?>> schemaExtensions() {
         return emptySet();
     }
 
