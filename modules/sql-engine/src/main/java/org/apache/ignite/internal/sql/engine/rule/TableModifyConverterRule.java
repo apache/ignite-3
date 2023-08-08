@@ -145,11 +145,12 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
      * This method aligns the keys to their indexes so that a row containing only the key fields can be read.
      *
      * <pre>
-     * For example:
-     *  [0] -> [0]
-     *  [1] -> [0]
-     *  [1, 3] -> [0, 1]
-     *  [7, 3, 5] -> [2, 0, 1]
+     * For example we have a table with the following columns in the following order: a INT, b INT, c INT, d INT.
+     *
+     *  1. (a) is PK. Key fields row contains [a], we can read it using 0-index. No alignment required.
+     *  2. (b) is PK. Key fields row contains [b], distribution key contains logical index '1', which requires it to be "shifted" to '0'.
+     *  3. (b, d) is PK. Key fields row contains [b, d], distribution keys [1, 3] need to be shifted to [0, 1].
+     *  4. (d, b, c) is PK. Key fields row contains [d, b, c]. distribution keys [3, 1, 2] need to be shifted to [2, 0, 1].
      * </pre>
      *
      * @param distribution Distribution specification.
