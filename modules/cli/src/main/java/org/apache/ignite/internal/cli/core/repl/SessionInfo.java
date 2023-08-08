@@ -28,7 +28,7 @@ public class SessionInfo {
     private final String username;
 
     /** Constructor. */
-    public SessionInfo(String nodeUrl, String nodeName, String jdbcUrl, String username) {
+    private SessionInfo(String nodeUrl, String nodeName, String jdbcUrl, String username) {
         this.nodeUrl = nodeUrl;
         this.nodeName = nodeName;
         this.jdbcUrl = jdbcUrl;
