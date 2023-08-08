@@ -118,8 +118,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
             return constructSessionInfo(apiClient, nodeUrl, null);
         } catch (ApiException e) {
             if (e.getCause() == null) {
-                Problem problem = IgniteCliApiExceptionHandler.extractProblem(e);
-                if (problem.getStatus() == HttpStatus.UNAUTHORIZED.getCode()) {
+                if (e.getCode() == HttpStatus.UNAUTHORIZED.getCode()) {
                     return null;
                 } else {
                     throw e;
