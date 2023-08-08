@@ -207,31 +207,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
     /** Composite key. */
     protected static class CompositeKeyPojo {
         public String id;
-        public int gid;
-    }
-
-    /** Partial column set. */
-    protected static class IncompletePojoNullable {
-        public int gid;
-        public String id;
-        public Boolean zboolean;
-        public Byte zbyte;
-        public Short zshort;
-        public Integer zint;
-        public Long zlong;
-        public Float zfloat;
-        public Double zdouble;
-    }
-
-    /** Partial column set. */
-    protected static class IncompleteValPojoNullable {
-        public Boolean zboolean;
-        public Byte zbyte;
-        public Short zshort;
-        public Integer zint;
-        public Long zlong;
-        public Float zfloat;
-        public Double zdouble;
+        public long gid;
     }
 
     /** Columns of all types. */
