@@ -23,10 +23,10 @@ import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 /**
  * Listener of any connection related events.
  */
-public abstract class AsyncConnectionEventListener implements EventListener {
+public interface ConnectionEventListener extends EventListener {
 
     @Override
-    public void onEvent(Event event) {
+    default void onEvent(Event event) {
         switch (event.eventType()) {
             case CONNECT:
                 ConnectEvent connectEvent = (ConnectEvent) event;
@@ -47,19 +47,19 @@ public abstract class AsyncConnectionEventListener implements EventListener {
     }
 
     /** Implementation must be async. */
-    protected void onConnect(SessionInfo sessionInfo) {
+    default void onConnect(SessionInfo sessionInfo) {
     }
 
     /** Implementation must be async. */
-    protected void onDisconnect() {
+    default void onDisconnect() {
     }
 
     /** Implementation must be async. */
-    protected void onConnectionLost() {
+    default void onConnectionLost() {
     }
 
     /** Implementation must be async. */
-    protected void onConnectionRestored() {
+    default void onConnectionRestored() {
     }
 
 }

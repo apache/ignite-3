@@ -20,13 +20,13 @@ package org.apache.ignite.internal.cli.core.repl;
 import jakarta.inject.Singleton;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.cli.core.exception.ConnectionException;
-import org.apache.ignite.internal.cli.event.AsyncConnectionEventListener;
+import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 
 /**
  * Connection session that in fact is holder for state: connected or disconnected. Also has session info if the state is connected.
  */
 @Singleton
-public class Session extends AsyncConnectionEventListener {
+public class Session implements ConnectionEventListener {
 
     private final AtomicReference<SessionInfo> info = new AtomicReference<>();
 
@@ -34,14 +34,14 @@ public class Session extends AsyncConnectionEventListener {
     }
 
     @Override
-    protected void onConnect(SessionInfo sessionInfo) {
+    public void onConnect(SessionInfo sessionInfo) {
         if (!info.compareAndSet(null, sessionInfo)) {
             throw new ConnectionException("Already connected to " + info.get().nodeUrl());
         }
     }
 
     @Override
-    protected void onDisconnect() {
+    public void onDisconnect() {
         info.getAndSet(null);
     }
 

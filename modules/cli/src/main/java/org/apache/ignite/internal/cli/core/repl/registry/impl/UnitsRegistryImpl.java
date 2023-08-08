@@ -28,13 +28,13 @@ import org.apache.ignite.internal.cli.call.unit.ListUnitCallInput;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
-import org.apache.ignite.internal.cli.event.AsyncConnectionEventListener;
+import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 import org.apache.ignite.rest.client.model.UnitStatus;
 import org.apache.ignite.rest.client.model.UnitVersionStatus;
 
 /** Implementation of {@link UnitsRegistry}. */
 @Singleton
-public class UnitsRegistryImpl extends AsyncConnectionEventListener implements UnitsRegistry {
+public class UnitsRegistryImpl implements UnitsRegistry, ConnectionEventListener {
 
     private final AtomicReference<String> lastKnownUrl = new AtomicReference<>(null);
 

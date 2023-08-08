@@ -27,7 +27,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.Nullable;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
-import org.apache.ignite.internal.cli.event.AsyncConnectionEventListener;
+import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
@@ -40,7 +40,7 @@ import org.apache.ignite.rest.client.invoker.ApiException;
  * Connection to node heart beat.
  */
 @Singleton
-public class ConnectionHeartBeat extends AsyncConnectionEventListener {
+public class ConnectionHeartBeat implements ConnectionEventListener {
 
     private static final IgniteLogger LOG = CliLoggers.forClass(ConnectionHeartBeat.class);
 
@@ -79,7 +79,7 @@ public class ConnectionHeartBeat extends AsyncConnectionEventListener {
      * @param sessionInfo session info with node url
      */
     @Override
-    protected void onConnect(SessionInfo sessionInfo) {
+    public void onConnect(SessionInfo sessionInfo) {
         if (connected.compareAndSet(false, true)) {
             eventPublisher.publish(Events.connectionRestored());
         }
@@ -107,7 +107,7 @@ public class ConnectionHeartBeat extends AsyncConnectionEventListener {
      * Stops connection heartbeat.
      */
     @Override
-    protected void onDisconnect() {
+    public void onDisconnect() {
         lock.lock();
         try {
             if (scheduledConnectionHeartbeatExecutor != null) {

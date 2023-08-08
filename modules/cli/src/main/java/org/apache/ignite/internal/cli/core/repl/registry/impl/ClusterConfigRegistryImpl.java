@@ -26,12 +26,12 @@ import org.apache.ignite.internal.cli.call.configuration.JsonString;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.ClusterConfigRegistry;
-import org.apache.ignite.internal.cli.event.AsyncConnectionEventListener;
+import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link ClusterConfigRegistry}. */
 @Singleton
-public class ClusterConfigRegistryImpl extends AsyncConnectionEventListener implements ClusterConfigRegistry {
+public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, ConnectionEventListener {
 
     private final ClusterConfigShowCall clusterConfigShowCall;
 

@@ -25,13 +25,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
-import org.apache.ignite.internal.cli.event.AsyncConnectionEventListener;
+import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 
 /**
  * Provider for prompt in REPL.
  */
 @Singleton
-public class ReplPromptProvider extends AsyncConnectionEventListener implements PromptProvider {
+public class ReplPromptProvider implements PromptProvider, ConnectionEventListener {
     private final Session session;
 
     private final AtomicBoolean connected = new AtomicBoolean(true);
@@ -61,12 +61,12 @@ public class ReplPromptProvider extends AsyncConnectionEventListener implements 
     }
 
     @Override
-    protected void onConnectionLost() {
+    public void onConnectionLost() {
         connected.getAndSet(false);
     }
 
     @Override
-    protected void onConnectionRestored() {
+    public void onConnectionRestored() {
         connected.getAndSet(true);
     }
 }
