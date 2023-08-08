@@ -28,7 +28,12 @@ import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -37,9 +42,17 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.FilterValidator;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,13 +71,23 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     private ConfigurationRegistry registry;
 
-    private DistributionZoneManager distributionZoneManager;
-
     @InjectConfiguration("mock.tables.fooTable {}")
     private TablesConfiguration tablesConfiguration;
 
+    private VaultManager vault;
+
+    private MetaStorageManager metastore;
+
+    private ClockWaiter clockWaiter;
+
+    private CatalogManager catalogManager;
+
+    private DistributionZoneManager distributionZoneManager;
+
     @BeforeEach
     public void setUp() {
+        String nodeName = "node";
+
         generator = new ConfigurationTreeGenerator(
                 List.of(DistributionZonesConfiguration.KEY),
                 List.of(),
@@ -82,22 +105,43 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
         DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
+        vault = new VaultManager(new InMemoryVaultService());
+
+        metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage(nodeName));
+
+        var clock = new HybridClockImpl();
+
+        clockWaiter = new ClockWaiter(nodeName, clock);
+
+        catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter);
+
         distributionZoneManager = new DistributionZoneManager(
-                "node",
-                null,
+                nodeName,
+                function -> metastore.registerRevisionUpdateListener(function::apply),
                 zonesConfiguration,
                 tablesConfiguration,
-                null,
-                null,
-                null,
-                mock(CatalogManager.class)
+                metastore,
+                mock(LogicalTopologyService.class),
+                vault,
+                catalogManager
         );
+
+        Stream.of(vault, metastore, clockWaiter, catalogManager, distributionZoneManager).forEach(IgniteComponent::start);
+
+        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void tearDown() throws Exception {
-        registry.stop();
-        generator.close();
+        IgniteUtils.closeAll(
+                distributionZoneManager == null ? null : distributionZoneManager::stop,
+                catalogManager == null ? null : catalogManager::stop,
+                clockWaiter == null ? null : clockWaiter::stop,
+                metastore == null ? null : metastore::stop,
+                vault == null ? null : vault::stop,
+                registry == null ? null : registry::stop,
+                generator == null ? null : generator::close
+        );
     }
 
     @Test
@@ -134,7 +178,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     private void createZone(String zoneName) {
-        DistributionZonesTestUtil.createZone(distributionZoneManager, zoneName, null, null, null);
+        DistributionZonesTestUtil.createZone(catalogManager, zoneName, null, null, null);
     }
 
     private void dropZone(String zoneName) {

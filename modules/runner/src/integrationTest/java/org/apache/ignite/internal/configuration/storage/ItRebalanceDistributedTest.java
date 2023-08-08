@@ -19,8 +19,10 @@ package org.apache.ignite.internal.configuration.storage;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZoneReplicas;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZoneWithDataStorage;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -134,7 +136,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
-import org.apache.ignite.internal.storage.impl.schema.TestDataStorageChange;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
@@ -266,9 +268,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @Test
     void testOneRebalance() {
-        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1);
+        createZone(nodes.get(0).catalogManager, ZONE_1_NAME, 1, 1);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
@@ -292,9 +294,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @Test
     void testTwoQueuedRebalances() {
-        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1);
+        createZone(nodes.get(0).catalogManager, ZONE_1_NAME, 1, 1);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
@@ -319,9 +321,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @Test
     void testThreeQueuedRebalances() throws InterruptedException {
-        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1);
+        createZone(nodes.get(0).catalogManager, ZONE_1_NAME, 1, 1);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
@@ -348,9 +350,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     void testOnLeaderElectedRebalanceRestart() throws Exception {
         String zoneName = "zone2";
 
-        createZone(nodes.get(0).distributionZoneManager, zoneName, 1, 2);
+        createZone(nodes.get(0).catalogManager, zoneName, 1, 2);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "TBL1").columns(
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, "TBL1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
@@ -412,9 +414,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @Test
     void testRebalanceRetryWhenCatchupFailed() {
-        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1);
+        createZone(nodes.get(0).catalogManager, ZONE_1_NAME, 1, 1);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
@@ -1004,12 +1006,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private void createTableWithOnePartition(String tableName, String zoneName, int replicas, boolean testDataStorage) {
-        createZone(
-                nodes.get(0).distributionZoneManager,
+        createZoneWithDataStorage(
+                nodes.get(0).catalogManager,
                 zoneName,
                 1,
                 replicas,
-                testDataStorage ? (dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class)) : null
+                testDataStorage ? TestStorageEngine.ENGINE_NAME : null
         );
 
         assertThat(

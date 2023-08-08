@@ -49,12 +49,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -62,7 +62,6 @@ import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -75,75 +74,34 @@ import org.jetbrains.annotations.Nullable;
  */
 public class DistributionZonesTestUtil {
     /**
-     * Creates distribution zone.
+     * Creates distribution zone in the catalog.
      *
-     * @param zoneManager Zone manager.
+     * @param catalogManager Catalog manager.
      * @param zoneName Zone name.
      * @param partitions Zone number of partitions.
      * @param replicas Zone number of replicas.
-     * @param dataStorageChangeConsumer Consumer of {@link DataStorageChange}, which sets the right data storage options.
+     * @param dataStorage Data storage, {@code null} if not set.
      */
-    public static void createZone(
-            DistributionZoneManager zoneManager,
+    public static void createZoneWithDataStorage(
+            CatalogManager catalogManager,
             String zoneName,
             int partitions,
             int replicas,
-            Consumer<DataStorageChange> dataStorageChangeConsumer
+            @Nullable String dataStorage
     ) {
-        var distributionZoneCfgBuilder = new Builder(zoneName)
-                .replicas(replicas)
-                .partitions(partitions)
-                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
-
-        if (dataStorageChangeConsumer != null) {
-            distributionZoneCfgBuilder.dataStorageChangeConsumer(dataStorageChangeConsumer);
-        }
-
-        assertThat(zoneManager.createZone(distributionZoneCfgBuilder.build()), willCompleteSuccessfully());
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, dataStorage);
     }
 
     /**
-     * Creates distribution zone.
+     * Creates distribution zone in the catalog.
      *
-     * @param zoneManager Zone manager.
+     * @param catalogManager Catalog manager.
      * @param zoneName Zone name.
      * @param partitions Zone number of partitions.
      * @param replicas Zone number of replicas.
      */
-    public static void createZone(
-            DistributionZoneManager zoneManager,
-            String zoneName,
-            int partitions,
-            int replicas
-    ) {
-        createZone(zoneManager, zoneName, partitions, replicas, null);
-    }
-
-    /**
-     * Creates a distribution zone in the configuration.
-     *
-     * @param distributionZoneManager Distributed zone manager.
-     * @param zoneName Zone name.
-     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
-     *         {@code null} if not set.
-     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
-     *         {@code null} if not set.
-     * @param filter Nodes filter, {@code null} if not set.
-     */
-    public static void createZone(
-            DistributionZoneManager distributionZoneManager,
-            String zoneName,
-            @Nullable Integer dataNodesAutoAdjustScaleUp,
-            @Nullable Integer dataNodesAutoAdjustScaleDown,
-            @Nullable String filter
-    ) {
-        assertThat(
-                distributionZoneManager.createZone(
-                        createParameters(zoneName, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter)
-                ),
-                willCompleteSuccessfully()
-        );
+    public static void createZone(CatalogManager catalogManager, String zoneName, int partitions, int replicas) {
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null);
     }
 
     /**
@@ -164,7 +122,28 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter
     ) {
+        createZone(catalogManager, zoneName, null, null, dataNodesAutoAdjustScaleDown, dataNodesAutoAdjustScaleDown, filter, null);
+    }
+
+    private static void createZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer partitions,
+            @Nullable Integer replicas,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter,
+            @Nullable String dataStorage
+    ) {
         CreateZoneParams.Builder builder = CreateZoneParams.builder().zoneName(zoneName);
+
+        if (partitions != null) {
+            builder.partitions(partitions);
+        }
+
+        if (replicas != null) {
+            builder.replicas(replicas);
+        }
 
         if (dataNodesAutoAdjustScaleUp != null) {
             builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
@@ -176,6 +155,10 @@ public class DistributionZonesTestUtil {
 
         if (filter != null) {
             builder.filter(filter);
+        }
+
+        if (dataStorage != null) {
+            builder.dataStorage(DataStorageParams.builder().engine(dataStorage).build());
         }
 
         assertThat(catalogManager.createZone(builder.build()), willCompleteSuccessfully());
