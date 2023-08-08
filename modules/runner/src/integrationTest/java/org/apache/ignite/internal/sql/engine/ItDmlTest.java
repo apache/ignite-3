@@ -614,7 +614,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testDeleteUsingCompositePk() {
-        sql("CREATE TABLE test (a INT, b INT NOT NULL, c INT NOT NULL, d VARCHAR NOT NULL, PRIMARY KEY(d, b))");
+        sql("CREATE TABLE test (a INT, b INT NOT NULL, c INT NOT NULL, d VARCHAR NOT NULL, PRIMARY KEY(d, b)) COLOCATE BY (d)");
         sql("INSERT INTO test VALUES "
                 + "(0, 1, 0, '3'),"
                 + "(0, 2, 0, '3'),"

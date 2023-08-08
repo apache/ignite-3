@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.rule;
 
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -44,12 +43,14 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.IntPair;
+import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
@@ -80,7 +81,7 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
         IgniteDistribution distribution = igniteTable.distribution();
 
         if (rel.getOperation() == Operation.DELETE) {
-            distribution = adjustDistributionKeysForDelete(distribution);
+            distribution = distribution.apply(createMappingForDelete(igniteTable.descriptor()));
         }
 
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
@@ -142,7 +143,7 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
     /**
      * To perform delete we need row with key fields only.
      * But input distribution contains the indexes of the key columns according to the schema (i.e. for the full row).
-     * This method aligns the keys to their indexes so that a row containing only the key fields can be read.
+     * This method creates mapping to align the keys to their indexes so that a row containing only the key fields can be read.
      *
      * <pre>
      * For example we have a table with the following columns in the following order: a INT, b INT, c INT, d INT.
@@ -153,20 +154,28 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
      *  4. (d, b, c) is PK. Key fields row contains [d, b, c]. distribution keys [3, 1, 2] need to be shifted to [2, 0, 1].
      * </pre>
      *
-     * @param distribution Distribution specification.
-     * @return Distribution with adjusted keys.
+     * @param tableDesc Table descriptor.
+     * @return Mapping to adjust distribution keys.
      */
-    private IgniteDistribution adjustDistributionKeysForDelete(IgniteDistribution distribution) {
-        int[] keys = distribution.getKeys().toIntArray();
+    private Mapping createMappingForDelete(TableDescriptor tableDesc) {
+        List<Integer> keyColumnIndexes = new ArrayList<>();
 
-        Arrays.sort(keys);
-
-        List<IntPair> pairs = new ArrayList<>(keys.length);
-
-        for (int i = 0; i < keys.length; i++) {
-            pairs.add(new IntPair(keys[i], i));
+        for (int i = 0; i < tableDesc.columnsCount(); i++) {
+            if (tableDesc.columnDescriptor(i).key()) {
+                keyColumnIndexes.add(i);
+            }
         }
 
-        return distribution.apply(Mappings.target(pairs, keys[keys.length - 1] + 1, keys.length));
+        int keyColumnCount = keyColumnIndexes.size();
+
+        Collections.sort(keyColumnIndexes);
+
+        List<IntPair> mapEntries = new ArrayList<>(keyColumnCount);
+
+        for (int i = 0; i < keyColumnIndexes.size(); i++) {
+            mapEntries.add(new IntPair(keyColumnIndexes.get(i), i));
+        }
+
+        return Mappings.target(mapEntries, keyColumnIndexes.get(keyColumnCount - 1) + 1, keyColumnCount);
     }
 }
