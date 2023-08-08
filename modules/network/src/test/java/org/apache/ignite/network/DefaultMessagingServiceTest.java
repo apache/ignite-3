@@ -89,13 +89,13 @@ class DefaultMessagingServiceTest {
     private final TestMessagesFactory testMessagesFactory = new TestMessagesFactory();
     private final MessageSerializationRegistry messageSerializationRegistry = defaultSerializationRegistry();
 
-    private final ClusterNode senderNode = new ClusterNode(
+    private final ClusterNode senderNode = new ClusterNodeImpl(
             "sender",
             "sender",
             new NetworkAddress("localhost", SENDER_PORT)
     );
 
-    private final ClusterNode receiverNode = new ClusterNode(
+    private final ClusterNode receiverNode = new ClusterNodeImpl(
             "receiver",
             "receiver",
             new NetworkAddress("localhost", RECEIVER_PORT)

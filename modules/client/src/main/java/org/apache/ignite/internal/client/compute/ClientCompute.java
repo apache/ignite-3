@@ -39,6 +39,7 @@ import org.apache.ignite.internal.client.table.ClientRecordSerializer;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
@@ -92,6 +93,21 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
+    public <R> R execute(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        try {
+            return this.<R>executeAsync(nodes, units, jobClassName, args).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.wrap(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public <R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
             Tuple key,
@@ -138,6 +154,39 @@ public class ClientCompute implements IgniteCompute {
                         r == MISSING_TABLE_TOKEN
                                 ? executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args)
                                 : CompletableFuture.completedFuture(r));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <R> R executeColocated(
+            String tableName,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        try {
+            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.wrap(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <K, R> R executeColocated(
+            String tableName,
+            K key,
+            Mapper<K> keyMapper,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        try {
+            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.wrap(e);
+        }
     }
 
     /** {@inheritDoc} */

@@ -38,9 +38,8 @@ import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.metastorage.server.If;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -52,22 +51,22 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
     private static final String FILTER = "$[?(@.storage == 'SSD' || @.region == 'US')]";
 
     private static final LogicalNode A = new LogicalNode(
-            new ClusterNode("1", "A", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10")
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new ClusterNode("2", "B", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
             Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30")
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new ClusterNode("3", "C", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20")
     );
 
     private static final LogicalNode D = new LogicalNode(
-            new ClusterNode("4", "D", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("4", "D", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20")
     );
 
@@ -77,7 +76,6 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20058")
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
     void testAlterFilter(int zoneId, String zoneName) throws Exception {
@@ -102,7 +100,6 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20058")
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
     void testAlterFilterToEmtpyNodes(int zoneId, String zoneName) throws Exception {
@@ -126,7 +123,6 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20058")
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
     void testAlterFilterDoNotAffectScaleDown(int zoneId, String zoneName) throws Exception {
@@ -172,7 +168,6 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20058")
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
     void testNodeAddedWhileAlteringFilter(int zoneId, String zoneName) throws Exception {
@@ -198,7 +193,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         alterZone(zoneName, null, null, newFilter);
 
         LogicalNode e = new LogicalNode(
-                new ClusterNode("5", "E", new NetworkAddress("localhost", 123)),
+                new ClusterNodeImpl("5", "E", new NetworkAddress("localhost", 123)),
                 Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20")
         );
 

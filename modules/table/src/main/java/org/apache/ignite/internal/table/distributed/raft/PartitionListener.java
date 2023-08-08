@@ -233,10 +233,14 @@ public class PartitionListener implements RaftGroupListener {
 
         storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.row(),
                 rowId -> {
-                    txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId);
+                    // Cleanup is not required for one-phase transactions.
+                    if (!cmd.full()) {
+                        txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId);
+                    }
 
                     storage.lastApplied(commandIndex, commandTerm);
-                }
+                },
+                cmd.full() ? cmd.safeTime() : null
         );
     }
 
@@ -253,13 +257,18 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(), rowIds -> {
-            for (RowId rowId : rowIds) {
-                txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new TreeSet<>()).add(rowId);
-            }
+        storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(),
+                rowIds -> {
+                    // Cleanup is not required for one-phase transactions.
+                    if (!cmd.full()) {
+                        for (RowId rowId : rowIds) {
+                            txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new TreeSet<>()).add(rowId);
+                        }
+                    }
 
-            storage.lastApplied(commandIndex, commandTerm);
-        });
+                    storage.lastApplied(commandIndex, commandTerm);
+                },
+                cmd.full() ? cmd.safeTime() : null);
     }
 
     /**
@@ -365,7 +374,7 @@ public class PartitionListener implements RaftGroupListener {
      *
      * @param cmd Command.
      * @param commandIndex RAFT index of the command.
-     * @param commandTerm  RAFT term of the command.
+     * @param commandTerm RAFT term of the command.
      */
     private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.

@@ -123,9 +123,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.lang.DistributionZoneBindTableException;
-import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteSystemProperties;
@@ -719,12 +716,12 @@ public class DistributionZoneManager implements IgniteComponent {
             if (newScaleDown != INFINITE_TIMER_VALUE) {
                 Optional<Long> highestRevision = zoneState.highestRevision(false);
 
-                assert highestRevision.isEmpty() || ctx.storageRevision() >= highestRevision.get() : "Expected revision that "
+                assert highestRevision.isEmpty() || revision >= highestRevision.get() : "Expected revision that "
                         + "is greater or equal to already seen meta storage events.";
 
                 zoneState.rescheduleScaleDown(
                         newScaleDown,
-                        () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, ctx.storageRevision()),
+                        () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, revision),
                         zoneId
                 );
             } else {
@@ -759,20 +756,18 @@ public class DistributionZoneManager implements IgniteComponent {
 
             VaultEntry filterUpdateRevision = vaultMgr.get(zonesFilterUpdateRevision()).join();
 
-            long eventRevision = ctx.storageRevision();
-
             if (filterUpdateRevision != null) {
                 // This means that we have already handled event with this revision.
                 // It is possible when node was restarted after this listener completed,
                 // but applied revision didn't have time to be propagated to the Vault.
-                if (bytesToLong(filterUpdateRevision.value()) >= eventRevision) {
+                if (bytesToLong(filterUpdateRevision.value()) >= revision) {
                     return completedFuture(null);
                 }
             }
 
-            vaultMgr.put(zonesFilterUpdateRevision(), longToBytes(eventRevision)).join();
+            vaultMgr.put(zonesFilterUpdateRevision(), longToBytes(revision)).join();
 
-            saveDataNodesToMetaStorageOnScaleUp(zoneId, eventRevision);
+            saveDataNodesToMetaStorageOnScaleUp(zoneId, revision);
 
             causalityDataNodesEngine.onUpdateFilter(revision, zoneId, filter);
 
@@ -800,7 +795,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             zoneState.stopTimers();
 
-            removeTriggerKeysAndDataNodes(zoneId, ctx.storageRevision());
+            removeTriggerKeysAndDataNodes(zoneId, revision);
 
             causalityDataNodesEngine.onDelete(revision, zoneId);
 

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deployWatchesAndUpdateMetaStorageRevision;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -168,10 +167,10 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         generator.close();
     }
 
-    void startDistributionZoneManager() throws Exception {
-        deployWatchesAndUpdateMetaStorageRevision(metaStorageManager);
-
+    void startDistributionZoneManager() {
         distributionZoneManager.start();
+
+        metaStorageManager.deployWatches();
     }
 
     protected void createZone(

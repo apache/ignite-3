@@ -1235,11 +1235,25 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testScan() throws Exception {
-        accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
+        doTestScan(null);
+    }
 
-        CompletableFuture<List<Tuple>> scanFut = scan(accounts.internalTable(), null);
+    @Test
+    public void testScanExplicit() throws Exception {
+        igniteTransactions.runInTransaction(this::doTestScan);
+    }
 
-        var rows = scanFut.get(10, TimeUnit.SECONDS);
+    /**
+     * Do scan in test.
+     *
+     * @param tx The transaction.
+     */
+    private void doTestScan(@Nullable Transaction tx) {
+        accounts.recordView().upsertAll(tx, List.of(makeValue(1, 100.), makeValue(2, 200.)));
+
+        CompletableFuture<List<Tuple>> scanFut = scan(accounts.internalTable(), tx == null ? null : (InternalTransaction) tx);
+
+        var rows = scanFut.join();
 
         Map<Long, Tuple> map = new HashMap<>();
 
@@ -1249,6 +1263,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         assertEquals(100., map.get(1L).doubleValue("balance"));
         assertEquals(200., map.get(2L).doubleValue("balance"));
+
+        // Attempt to overwrite.
+        accounts.recordView().upsertAll(tx, List.of(makeValue(1, 300.), makeValue(2, 400.)));
     }
 
     /**
@@ -1258,7 +1275,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param internalTx Internal transaction of {@code null}.
      * @return Future to scanning result.
      */
-    private CompletableFuture<List<Tuple>> scan(InternalTable internalTable, InternalTransaction internalTx) {
+    private CompletableFuture<List<Tuple>> scan(InternalTable internalTable, @Nullable InternalTransaction internalTx) {
         Flow.Publisher<BinaryRow> pub = internalTx != null && internalTx.isReadOnly()
                 ? internalTable.scan(0, internalTx.readTimestamp(), internalTable.leaderAssignment(0))
                 : internalTable.scan(0, internalTx);
@@ -1910,6 +1927,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     @Test
     public void testTransactionAlreadyRolledback() {
         testTransactionAlreadyFinished(false);
+    }
+
+    @Test
+    public void testImplicit() {
+        accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
+        assertEquals(BALANCE_1, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
     }
 
     /**

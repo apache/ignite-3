@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -79,8 +79,8 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
         keyValueStorage.put(zonesChangeTriggerKey(DEFAULT_ZONE_ID).bytes(), longToBytes(revision), HybridTimestamp.MIN_VALUE);
 
         Set<LogicalNode> nodes = Set.of(
-                new LogicalNode(new ClusterNode("node1", "node1", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap()),
-                new LogicalNode(new ClusterNode("node2", "node2", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap())
+                new LogicalNode(new ClusterNodeImpl("node1", "node1", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap()),
+                new LogicalNode(new ClusterNodeImpl("node2", "node2", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap())
         );
 
         mockVaultZonesLogicalTopologyKey(nodes, vaultMgr, metaStorageManager.appliedRevision());
@@ -93,8 +93,8 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
     @Test
     void testDataNodesUpdatedOnZoneManagerStart() throws Exception {
         Set<LogicalNode> nodes = Set.of(
-                new LogicalNode(new ClusterNode("node1", "node1", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap()),
-                new LogicalNode(new ClusterNode("node2", "node2", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap())
+                new LogicalNode(new ClusterNodeImpl("node1", "node1", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap()),
+                new LogicalNode(new ClusterNodeImpl("node2", "node2", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap())
         );
 
         mockVaultZonesLogicalTopologyKey(nodes, vaultMgr, metaStorageManager.appliedRevision());

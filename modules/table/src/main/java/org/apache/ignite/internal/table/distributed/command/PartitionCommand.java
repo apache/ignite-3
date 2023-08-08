@@ -28,4 +28,9 @@ public interface PartitionCommand extends SafeTimePropagatingCommand {
      * Returns a transaction id.
      */
     UUID txId();
+
+    /**
+     * Returns {@code true} if a command represents a full (including all keys) transaction.
+     */
+    boolean full();
 }
