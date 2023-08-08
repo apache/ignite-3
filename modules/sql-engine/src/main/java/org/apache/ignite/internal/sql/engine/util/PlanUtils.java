@@ -144,6 +144,15 @@ public class PlanUtils {
             }
         }
 
+        return computeAggFieldMapping(fieldIndices);
+    }
+
+    /**
+     * Creates a field index mapping such that each index is replaced by its position in the ordered list.
+     *
+     * @param fieldIndices Required field indices.
+     */
+    public static Mapping computeAggFieldMapping(BitSet fieldIndices) {
         Mapping mapping = Mappings.create(MappingType.INVERSE_SURJECTION, fieldIndices.length(), fieldIndices.cardinality());
 
         int i = 0;

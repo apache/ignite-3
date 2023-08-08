@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.rule;
 
 import com.google.common.collect.ImmutableList;
-import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -42,9 +42,7 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.calcite.util.mapping.IntPair;
 import org.apache.calcite.util.mapping.Mapping;
-import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
@@ -55,6 +53,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 
 /**
  * TableModifyConverterRule.
@@ -158,24 +157,14 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
      * @return Mapping to adjust distribution keys.
      */
     private Mapping createMappingForDelete(TableDescriptor tableDesc) {
-        List<Integer> keyColumnIndexes = new ArrayList<>();
+        BitSet bitSet = new BitSet();
 
         for (int i = 0; i < tableDesc.columnsCount(); i++) {
             if (tableDesc.columnDescriptor(i).key()) {
-                keyColumnIndexes.add(i);
+                bitSet.set(i);
             }
         }
 
-        int keyColumnCount = keyColumnIndexes.size();
-
-        Collections.sort(keyColumnIndexes);
-
-        List<IntPair> mapEntries = new ArrayList<>(keyColumnCount);
-
-        for (int i = 0; i < keyColumnIndexes.size(); i++) {
-            mapEntries.add(new IntPair(keyColumnIndexes.get(i), i));
-        }
-
-        return Mappings.target(mapEntries, keyColumnIndexes.get(keyColumnCount - 1) + 1, keyColumnCount);
+        return PlanUtils.computeAggFieldMapping(bitSet);
     }
 }

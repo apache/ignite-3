@@ -24,11 +24,12 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
@@ -304,27 +306,21 @@ public final class UpdatableTableImpl implements UpdatableTable {
         RowAssembler rowAssembler = RowAssembler.keyAssembler(schemaDescriptor);
 
         List<ColumnDescriptor> keyColumns = new ArrayList<>();
-        List<Integer> keyLogicalIndexes = new ArrayList<>();
+        BitSet keyLogicalIndexes = new BitSet();
 
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
             if (!colDesc.key()) {
                 continue;
             }
 
-            keyLogicalIndexes.add(colDesc.logicalIndex());
+            keyLogicalIndexes.set(colDesc.logicalIndex());
             keyColumns.add(colDesc);
         }
 
-        Collections.sort(keyLogicalIndexes);
-
-        int[] mapping = new int[keyLogicalIndexes.get(keyLogicalIndexes.size() - 1) + 1];
-
-        for (int i = 0; i < keyLogicalIndexes.size(); i++) {
-            mapping[keyLogicalIndexes.get(i)] = i;
-        }
+        Mapping mapping = PlanUtils.computeAggFieldMapping(keyLogicalIndexes);
 
         for (ColumnDescriptor colDesc : keyColumns) {
-            Object val = hnd.get(mapping[colDesc.logicalIndex()], row);
+            Object val = hnd.get(mapping.getTarget(colDesc.logicalIndex()), row);
 
             // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
             assert val != DEFAULT_VALUE_PLACEHOLDER;
