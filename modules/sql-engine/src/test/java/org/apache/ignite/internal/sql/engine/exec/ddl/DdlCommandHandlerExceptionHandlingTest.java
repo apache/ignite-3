@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -39,7 +40,6 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExist
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
@@ -107,8 +107,8 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         commandHandler = new DdlCommandHandler(
                 distributionZoneManager,
                 mock(TableManager.class),
-                mock(IndexManager.class),
-                mock(DataStorageManager.class)
+                mock(DataStorageManager.class),
+                mock(CatalogManager.class)
         );
     }
 

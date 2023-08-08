@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
@@ -56,8 +57,8 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
         commandHandler = new DdlCommandHandler(
                 distributionZoneManager,
                 mock(TableManager.class),
-                mock(IndexManager.class),
-                mock(DataStorageManager.class)
+                mock(DataStorageManager.class),
+                mock(CatalogManager.class)
         );
     }
 
