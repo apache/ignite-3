@@ -534,7 +534,7 @@ public class TypeUtils {
             return false;
         }
 
-        // No need to binary between char and varbinary.
+        // No need to cast between binary and varbinary.
         if (SqlTypeUtil.isBinary(toType) && SqlTypeUtil.isBinary(fromType)) {
             return false;
         }
