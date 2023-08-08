@@ -146,9 +146,9 @@ public class MarshallerUtil {
                 return cls == LocalDateTime.class;
             case TIMESTAMP:
                 return cls == Instant.class;
+            default:
+                return false;
         }
-
-        return false;
     }
 
     /**
