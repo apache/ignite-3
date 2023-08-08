@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cli.commands;
 
+import static org.apache.ignite.internal.cli.event.EventType.CONNECTION_LOST;
+import static org.apache.ignite.internal.cli.event.EventType.CONNECTION_RESTORED;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,9 +30,7 @@ import jakarta.inject.Inject;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.cli.core.repl.Session;
-import org.apache.ignite.internal.cli.event.EventListener;
 import org.apache.ignite.internal.cli.event.EventSubscriptionManager;
-import org.apache.ignite.internal.cli.event.EventType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,17 +54,10 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
     void setUp() {
         connectionLostCount.set(0);
         connectionRestoredCount.set(0);
-        EventListener connectionRestoredEventListener = (event) -> {
-            connectionRestoredCount.incrementAndGet();
-        };
-
-        EventListener connectionLostEventListener = (event) -> {
-            connectionLostCount.incrementAndGet();
-        };
 
         // Register listeners
-        eventSubscriptionManager.subscribe(EventType.CONNECTION_LOST, connectionLostEventListener);
-        eventSubscriptionManager.subscribe(EventType.CONNECTION_RESTORED, connectionRestoredEventListener);
+        eventSubscriptionManager.subscribe(CONNECTION_LOST, event -> connectionLostCount.incrementAndGet());
+        eventSubscriptionManager.subscribe(CONNECTION_RESTORED, event -> connectionRestoredCount.incrementAndGet());
     }
 
     @Override
@@ -106,14 +99,15 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
 
         // When stop node
         String nodeName = session.info().nodeName();
-        this.stopNode(nodeName);
+        stopNode(nodeName);
 
         // Listener was invoked
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestoredCount.get() == 1);
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionLostCount.get() == 1);
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(
+                () -> connectionRestoredCount.get() == 1 && connectionLostCount.get() == 1
+        );
 
         // Tear down. Restore initial state of node to exclude any impact on next test.
-        this.startNode(nodeName);
+        startNode(nodeName);
     }
 
     @Test
@@ -130,17 +124,19 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
 
         // When stop node
         String nodeName = session.info().nodeName();
-        this.stopNode(nodeName);
+        stopNode(nodeName);
 
         // Then connection lost event obtained
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestoredCount.get() == 1);
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionLostCount.get() == 1);
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(
+                () -> connectionRestoredCount.get() == 1 && connectionLostCount.get() == 1
+        );
 
         // When
-        this.startNode(nodeName);
+        startNode(nodeName);
 
         // Then one more connection restore event obtained
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionRestoredCount.get() == 2);
-        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(() -> connectionLostCount.get() == 1);
+        await().timeout(cliCheckConnectionPeriodSecond * 2, TimeUnit.SECONDS).until(
+                () -> connectionRestoredCount.get() == 2 && connectionLostCount.get() == 1
+        );
     }
 }

@@ -30,13 +30,10 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 @Singleton
 public class EventFactory implements EventPublisher, EventSubscriptionManager {
 
-    private static final IgniteLogger log = CliLoggers.forClass(EventFactory.class);
+    private static final IgniteLogger LOG = CliLoggers.forClass(EventFactory.class);
 
     /** All listeners. */
     private final ConcurrentHashMap<EventType, List<EventListener>> listeners = new ConcurrentHashMap<>();
-
-    public EventFactory() {
-    }
 
     /**
      * Registers an event listener.
@@ -80,7 +77,7 @@ public class EventFactory implements EventPublisher, EventSubscriptionManager {
             try {
                 listener.onEvent(event);
             } catch (Exception exception) {
-                log.warn("Got an exception: ", exception);
+                LOG.warn("Got an exception: ", exception);
             }
         });
     }

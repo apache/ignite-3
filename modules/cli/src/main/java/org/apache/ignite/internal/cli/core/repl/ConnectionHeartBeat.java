@@ -44,7 +44,7 @@ import org.apache.ignite.rest.client.invoker.ApiException;
 @Singleton
 public class ConnectionHeartBeat implements EventListener {
 
-    private static final IgniteLogger log = CliLoggers.forClass(ConnectionHeartBeat.class);
+    private static final IgniteLogger LOG = CliLoggers.forClass(ConnectionHeartBeat.class);
 
     /** CLI check connection period period. */
     private final long cliCheckConnectionPeriodSecond;
@@ -89,7 +89,7 @@ public class ConnectionHeartBeat implements EventListener {
         try {
             if (scheduledConnectionHeartbeatExecutor == null) {
                 scheduledConnectionHeartbeatExecutor =
-                        Executors.newScheduledThreadPool(1, new NamedThreadFactory("cli-check-connection-thread", log));
+                        Executors.newScheduledThreadPool(1, new NamedThreadFactory("cli-check-connection-thread", LOG));
 
                 // Start connection heart beat
                 scheduledConnectionHeartbeatExecutor.scheduleAtFixedRate(
