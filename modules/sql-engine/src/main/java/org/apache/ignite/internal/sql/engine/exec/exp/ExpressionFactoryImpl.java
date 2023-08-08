@@ -105,6 +105,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     private static final ConcurrentMap<String, Scalar> SCALAR_CACHE = Caffeine.newBuilder()
             .maximumSize(CACHE_SIZE)
+            .initialCapacity(CACHE_SIZE)
             .<String, Scalar>build()
             .asMap();
 
