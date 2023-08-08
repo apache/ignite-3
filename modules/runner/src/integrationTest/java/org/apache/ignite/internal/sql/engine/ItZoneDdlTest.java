@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 

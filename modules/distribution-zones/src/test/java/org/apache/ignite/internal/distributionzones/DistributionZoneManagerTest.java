@@ -38,7 +38,6 @@ import org.apache.ignite.internal.distributionzones.configuration.FilterValidato
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,7 +47,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for distribution zone manager.
  */
 @ExtendWith(ConfigurationExtension.class)
-@SuppressWarnings("ThrowableNotThrown")
 class DistributionZoneManagerTest extends IgniteAbstractTest {
     private static final String ZONE_NAME = "zone1";
 
