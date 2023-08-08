@@ -53,6 +53,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,7 +62,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Base class for {@link DistributionZoneManager} unit tests.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
+public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
+    protected static final String ZONE_NAME = "zone1";
+
+    protected static final int ZONE_ID = 1;
+
+    protected static final long ZONE_MODIFICATION_AWAIT_TIMEOUT = 10_000L;
+
+    protected static final int COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS = 10_000;
+
     @InjectConfiguration
     private TablesConfiguration tablesConfiguration;
 
@@ -71,7 +80,7 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
     protected DistributionZoneManager distributionZoneManager;
 
-    protected SimpleInMemoryKeyValueStorage keyValueStorage;
+    SimpleInMemoryKeyValueStorage keyValueStorage;
 
     protected LogicalTopology topology;
 
@@ -79,17 +88,19 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
 
     protected MetaStorageManager metaStorageManager;
 
-    protected VaultManager vaultMgr;
+    VaultManager vaultMgr;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
+        String nodeName = "test";
+
         vaultMgr = new VaultManager(new InMemoryVaultService());
 
         components.add(vaultMgr);
 
-        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage("test"));
+        keyValueStorage = spy(new SimpleInMemoryKeyValueStorage(nodeName));
 
         metaStorageManager = StandaloneMetaStorageManager.create(vaultMgr, keyValueStorage);
 
@@ -135,7 +146,7 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 vaultMgr,
-                "test"
+                nodeName
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
@@ -160,5 +171,39 @@ public class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
         distributionZoneManager.start();
 
         metaStorageManager.deployWatches();
+    }
+
+    protected void createZone(
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        DistributionZonesTestUtil.createZone(
+                distributionZoneManager,
+                zoneName,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter
+        );
+    }
+
+    protected void alterZone(
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        DistributionZonesTestUtil.alterZone(
+                distributionZoneManager,
+                zoneName,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter
+        );
+    }
+
+    protected void dropZone(String zoneName) {
+        DistributionZonesTestUtil.dropZone(distributionZoneManager, zoneName);
     }
 }

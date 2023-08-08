@@ -58,7 +58,9 @@ public final class JRaftUtils {
 
         NodeOptions nodeOpts = opts.getNodeOptions();
 
-        nodeOpts.setStripes(1);
+        if (nodeOpts != null) {
+            nodeOpts.setStripes(1);
+        }
 
         final boolean ret = node.bootstrap(opts);
         node.shutdown();
