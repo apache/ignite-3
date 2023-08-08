@@ -220,6 +220,19 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    public void testIncompatiblePojoFieldType2() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var pojoView = table.recordView(Mapper.of(IncompatibleFieldPojo2.class));
+
+        IncompatibleFieldPojo2 rec = new IncompatibleFieldPojo2();
+        rec.key = -1;
+        rec.val = "f";
+
+        Throwable ex = assertThrows(IgniteException.class, () -> pojoView.upsert(null, rec));
+        assertThat(ex.getMessage(), startsWith("Column's type mismatch"));
+    }
+
+    @Test
     public void testIncompatibleTupleElementType() {
         Table table = ignite().tables().table(TABLE_NAME);
         var tupleView = table.recordView();
@@ -245,7 +258,12 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     private static class IncompatibleFieldPojo {
-        public String key;
+        public String key; // Must be int.
         public BigDecimal val;
+    }
+
+    private static class IncompatibleFieldPojo2 {
+        public short key; // Must be int.
+        public String val;
     }
 }
