@@ -118,7 +118,7 @@ class FileReceiver implements ManuallyCloseable {
         return CompletableFuture.runAsync(() -> receiveFileTransferInfo0(info), executorService)
                 .whenComplete((v, throwable) -> {
                     if (throwable != null) {
-                        LOG.error("Failed to receive file transfer info. Id: {}. Exception: {}", info.transferId(), throwable);
+                        LOG.error("Failed to receive file transfer info. Id: {}", throwable, info.transferId());
                     }
                 });
     }
@@ -136,7 +136,7 @@ class FileReceiver implements ManuallyCloseable {
         return CompletableFuture.runAsync(() -> receiveFileHeader0(header), executorService)
                 .whenComplete((v, throwable) -> {
                     if (throwable != null) {
-                        LOG.error("Failed to receive file header. Id: {}. Exception: {}", header.transferId(), throwable);
+                        LOG.error("Failed to receive file header. Id: {}", throwable, header.transferId());
                     }
                 });
     }
@@ -154,7 +154,7 @@ class FileReceiver implements ManuallyCloseable {
         return CompletableFuture.runAsync(() -> receiveFileChunk0(chunk), executorService)
                 .whenComplete((v, throwable) -> {
                     if (throwable != null) {
-                        LOG.error("Failed to receive file chunk. Id: {}. Exception: {}", chunk.transferId(), throwable);
+                        LOG.error("Failed to receive file chunk. Id: {}", throwable, chunk.transferId());
                     }
                 });
     }
@@ -172,9 +172,9 @@ class FileReceiver implements ManuallyCloseable {
         return CompletableFuture.runAsync(() -> receiveFileTransferErrorMessage0(errorMessage), executorService)
                 .whenComplete((v, throwable) -> {
                     if (throwable != null) {
-                        LOG.error("Failed to receive file transfer error message. Id: {}. Exception: {}",
-                                errorMessage.transferId(),
-                                throwable
+                        LOG.error("Failed to receive file transfer error message. Id: {}",
+                                throwable,
+                                errorMessage.transferId()
                         );
                     }
                 });

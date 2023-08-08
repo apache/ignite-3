@@ -82,10 +82,10 @@ class FileSender implements ManuallyCloseable {
                             .whenComplete((res, e) -> {
                                 try {
                                     if (e != null) {
-                                        LOG.error("Failed to send message to node: {}, transfer id: {}. Exception: {}",
+                                        LOG.error("Failed to send message to node: {}, transfer id: {}",
+                                                e,
                                                 receiverConsistentId,
-                                                id,
-                                                e
+                                                id
                                         );
                                         error.compareAndSet(null, e);
                                     }

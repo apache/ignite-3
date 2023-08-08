@@ -81,5 +81,5 @@ public class NetworkConfigurationSchema {
 
     /** File transferring configuration. */
     @ConfigValue
-    public FileTransferConfigurationSchema fileTransferring;
+    public FileTransferConfigurationSchema fileTransfer;
 }

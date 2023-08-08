@@ -19,8 +19,8 @@ package org.apache.ignite.internal.network.file;
 
 import static org.apache.ignite.internal.network.file.FileAssertions.assertContentEquals;
 import static org.apache.ignite.internal.network.file.FileGenerator.randomFile;
-import static org.apache.ignite.internal.network.file.FileUtils.sortByNames;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.FilesUtils.sortByNames;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.File;

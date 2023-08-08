@@ -50,7 +50,7 @@ class FileTransferMessagesHandler {
 
     void handleFileTransferInfo(FileTransferInfoMessage info) {
         if (result.isDone()) {
-            throw new IllegalStateException("Received file transfer info after result is already done.");
+            throw new IllegalStateException("Received file transfer info after result is already done");
         }
 
         filesCount.set(info.filesCount());
@@ -64,7 +64,7 @@ class FileTransferMessagesHandler {
 
     void handleFileHeader(FileHeaderMessage header) {
         if (result.isDone()) {
-            throw new IllegalStateException("Received file header after result is already done.");
+            throw new IllegalStateException("Received file header after result is already done");
         }
         doInLock(header.fileName(), () -> handleFileHeader0(header));
     }
@@ -92,7 +92,7 @@ class FileTransferMessagesHandler {
 
     void handleFileChunk(FileChunkMessage fileChunk) {
         if (result.isDone()) {
-            throw new IllegalStateException("Received chunked file after result is already done.");
+            throw new IllegalStateException("Received chunked file after result is already done");
         }
         doInLock(fileChunk.fileName(), () -> handleFileChunk0(fileChunk));
     }
@@ -117,7 +117,7 @@ class FileTransferMessagesHandler {
 
     void handleFileTransferError(Throwable error) {
         if (result.isDone()) {
-            throw new IllegalStateException("Received file transfer error after result is already done.");
+            throw new IllegalStateException("Received file transfer error after result is already done");
         }
         result.completeExceptionally(error);
         closeAllWriters();

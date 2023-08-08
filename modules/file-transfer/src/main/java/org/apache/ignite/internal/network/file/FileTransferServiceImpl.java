@@ -205,10 +205,10 @@ public class FileTransferServiceImpl implements FileTransferService {
                             .whenComplete((v, e) -> {
                                 if (e != null) {
                                     LOG.error(
-                                            "Failed to handle file upload. Transfer ID: {}. Metadata: {}. Exception: {}",
+                                            "Failed to handle file upload. Transfer ID: {}. Metadata: {}",
+                                            e,
                                             transferId,
-                                            metadata,
-                                            e
+                                            metadata
                                     );
                                 }
                                 deleteDirectoryIfExists(directory);
@@ -244,10 +244,10 @@ public class FileTransferServiceImpl implements FileTransferService {
         return fileSender.send(recipientConsistentId, transferId, files)
                 .whenComplete((v, e) -> {
                     if (e != null) {
-                        LOG.error("Failed to send files to node: {}, transfer id: {}. Exception: {}",
+                        LOG.error("Failed to send files to node: {}, transfer id: {}",
+                                e,
                                 recipientConsistentId,
-                                transferId,
-                                e
+                                transferId
                         );
                         FileTransferErrorMessage message = factory.fileTransferErrorMessage()
                                 .transferId(transferId)
@@ -379,7 +379,7 @@ public class FileTransferServiceImpl implements FileTransferService {
         try {
             return Files.createDirectories(tempDirectory.resolve(transferId.toString()));
         } catch (IOException e) {
-            throw new FileTransferException("Failed to create transfer directory. Transfer id: {}. Exception: {}" + transferId, e);
+            throw new FileTransferException("Failed to create transfer directory. Transfer id: " + transferId, e);
         }
     }
 
@@ -387,7 +387,7 @@ public class FileTransferServiceImpl implements FileTransferService {
         try {
             FilesUtils.deleteDirectoryIfExists(directory);
         } catch (IOException e) {
-            LOG.error("Failed to delete directory: {}. Exception: {}", directory, e);
+            LOG.error("Failed to delete directory: {}", e, directory);
         }
     }
 

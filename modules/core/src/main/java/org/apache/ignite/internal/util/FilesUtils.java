@@ -17,17 +17,44 @@
 
 package org.apache.ignite.internal.util;
 
+import static java.util.stream.Collectors.toList;
+
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * Files utilities.
  */
 public class FilesUtils {
+
+    /**
+     * Sorts files by names.
+     *
+     * @param files Files.
+     * @return Sorted files.
+     */
+    public static List<File> sortByNames(File... files) {
+        return sortByNames(List.of(files));
+    }
+
+    /**
+     * Sorts files by names.
+     *
+     * @param files Files.
+     * @return Sorted files.
+     */
+    public static List<File> sortByNames(List<File> files) {
+        return files.stream()
+                .sorted(Comparator.comparing(File::getName))
+                .collect(toList());
+    }
 
     /**
      * Deletes directory if it exists.
@@ -41,7 +68,7 @@ public class FilesUtils {
             return false;
         }
 
-        Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
+        Files.walkFileTree(directory, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                 Files.delete(file);

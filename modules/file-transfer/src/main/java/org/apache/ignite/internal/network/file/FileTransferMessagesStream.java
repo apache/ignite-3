@@ -68,11 +68,11 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
             int chunkSize
     ) {
         if (chunkSize <= 0) {
-            throw new IllegalArgumentException("Chunk size must be positive.");
+            throw new IllegalArgumentException("Chunk size must be positive");
         }
 
         if (filesToSend.isEmpty()) {
-            throw new IllegalArgumentException("Files to send must not be empty.");
+            throw new IllegalArgumentException("Files to send must not be empty");
         }
 
         this.transferId = transferId;
@@ -108,7 +108,7 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
      */
     NetworkMessage nextMessage() throws IOException {
         if (!hasNextMessage()) {
-            throw new IllegalStateException("There are no more messages to send.");
+            throw new IllegalStateException("There are no more messages to send");
         }
 
         if (fileTransferInfoMessage != null) {
@@ -136,7 +136,7 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
      * Returns the header of the current file to send.
      */
     private FileHeaderMessage header() throws IOException {
-        assert currFile != null : "Current file is null.";
+        assert currFile != null : "Current file is null";
 
         return factory.fileHeaderMessage()
                 .transferId(transferId)
@@ -153,8 +153,8 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
      * @throws IllegalStateException if the current file is finished.
      */
     private FileChunkMessage nextChunk() throws IOException {
-        assert currFile != null : "Current file is null.";
-        assert !currFile.isFinished() : "Current file is finished.";
+        assert currFile != null : "Current file is null";
+        assert !currFile.isFinished() : "Current file is finished";
 
         return factory.fileChunkMessage()
                 .transferId(transferId)
@@ -168,7 +168,7 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
         closeCurrFile();
 
         if (filesToSend.isEmpty()) {
-            throw new IllegalStateException("There are no more files to send.");
+            throw new IllegalStateException("There are no more files to send");
         } else {
             currFile = ChunkedFileReader.open(filesToSend.poll(), chunkSize);
         }
