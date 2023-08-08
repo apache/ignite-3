@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.file.exception;
 
-import org.apache.ignite.internal.network.file.messages.Metadata;
+import org.apache.ignite.internal.network.file.messages.Identifier;
 import org.apache.ignite.lang.ErrorGroups.Network;
 import org.apache.ignite.lang.IgniteException;
 
@@ -30,7 +30,7 @@ public class FileProviderNotFoundException extends IgniteException {
      *
      * @param message Message.
      */
-    public FileProviderNotFoundException(Class<? extends Metadata> message) {
+    public FileProviderNotFoundException(Class<? extends Identifier> message) {
         super(Network.FILE_PROVIDER_NOT_FOUND_ERR, "File provider not found for message: " + message.getName());
     }
 }

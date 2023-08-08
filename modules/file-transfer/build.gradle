@@ -46,4 +46,4 @@ dependencies {
     testFixturesImplementation libs.hamcrest.core
 }
 
-description = 'ignite-file-io'
+description = 'ignite-file-transfer'

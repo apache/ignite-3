@@ -21,7 +21,7 @@ import java.io.File;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.network.file.messages.Metadata;
+import org.apache.ignite.internal.network.file.messages.Identifier;
 
 /**
  * File transferring service.
@@ -33,7 +33,7 @@ public interface FileTransferService extends IgniteComponent {
      * @param metadata Metadata.
      * @param provider Provider.
      */
-    <M extends Metadata> void addFileProvider(
+    <M extends Identifier> void addFileProvider(
             Class<M> metadata,
             FileProvider<M> provider
     );
@@ -44,23 +44,23 @@ public interface FileTransferService extends IgniteComponent {
      * @param metadata Metadata.
      * @param handler Handler.
      */
-    <M extends Metadata> void addFileHandler(Class<M> metadata, FileConsumer<M> handler);
+    <M extends Identifier> void addFileConsumer(Class<M> metadata, FileConsumer<M> handler);
 
     /**
      * Downloads files for the given metadata from the given node.
      *
-     * @param nodeConsistentId consistent ID of a node.
-     * @param metadata Metadata.
+     * @param sourceNodeConsistentId consistent ID of a node.
+     * @param identifier Metadata.
      * @return Temporary path to the downloaded files. The caller is responsible for deleting the files.
      */
-    CompletableFuture<List<File>> download(String nodeConsistentId, Metadata metadata);
+    CompletableFuture<List<File>> download(String sourceNodeConsistentId, Identifier identifier);
 
     /**
      * Uploads files for the given metadata to the given node.
      *
-     * @param nodeConsistentId consistent ID of a node.
-     * @param metadata Metadata.
+     * @param targetNodeConsistentId consistent ID of a node.
+     * @param identifier Metadata.
      * @return Future that will be completed when the upload is finished.
      */
-    CompletableFuture<Void> upload(String nodeConsistentId, Metadata metadata);
+    CompletableFuture<Void> upload(String targetNodeConsistentId, Identifier identifier);
 }

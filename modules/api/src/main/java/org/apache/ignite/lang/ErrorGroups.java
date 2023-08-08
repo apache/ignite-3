@@ -331,9 +331,11 @@ public class ErrorGroups {
         /** File transfer error. */
         public static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
 
+        /** File provider not found error. */
         public static final int FILE_PROVIDER_NOT_FOUND_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 4);
 
-        public static final int FILE_HANDLER_NOT_FOUND_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 5);
+        /** File consumer not found error. */
+        public static final int FILE_CONSUMER_NOT_FOUND_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 5);
     }
 
     /** Node configuration error group. */

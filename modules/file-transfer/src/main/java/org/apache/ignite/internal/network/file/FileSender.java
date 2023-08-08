@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.network.file;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -26,7 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -36,6 +40,10 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkMessage;
 
+/**
+ * A class that sends files to a node. It uses a rate limiter to limit the bandwidth used. It also uses a thread pool to send the files in
+ * parallel.
+ */
 class FileSender implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(FileSender.class);
 
@@ -66,47 +74,81 @@ class FileSender implements ManuallyCloseable {
     }
 
     /**
-     * Adds files to the queue to be sent to the receiver.
+     * Sends the files to the node with the given consistent id.
+     *
+     * @param receiverConsistentId The consistent id of the node to send the files to.
+     * @param id The id of the file transfer.
+     * @param files The files to send.
+     * @return A future that will be completed when the files are sent.
      */
     CompletableFuture<Void> send(String receiverConsistentId, UUID id, List<File> files) {
-        return CompletableFuture.runAsync(() -> send0(receiverConsistentId, id, files), executorService);
+        // file transfer should be cancelled if an error occurs during the file transfer
+        AtomicBoolean shouldBeCancelled = new AtomicBoolean(false);
+        CompletableFuture<?>[] futures = files.stream()
+                .map(file -> send(receiverConsistentId, id, file, shouldBeCancelled))
+                .toArray(CompletableFuture[]::new);
+        return CompletableFuture.allOf(futures);
     }
 
-    private void send0(String receiverConsistentId, UUID id, List<File> files) {
-        AtomicReference<Throwable> error = new AtomicReference<>();
-        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(id, files, chunkSize)) {
-            while (stream.hasNextMessage() && error.get() == null && !Thread.currentThread().isInterrupted()) {
-                if (rateLimiter.tryAcquire()) {
-                    CompletableFuture.completedFuture(stream.nextMessage())
-                            .thenCompose(message -> send.apply(receiverConsistentId, message))
+    /**
+     * Sends the file to the node with the given consistent id.
+     *
+     * @param receiverConsistentId The consistent id of the node to send the file to.
+     * @param id The id of the file transfer.
+     * @param file The file to send.
+     * @return A future that will be completed when the file is sent.
+     */
+    private CompletableFuture<Void> send(String receiverConsistentId, UUID id, File file, AtomicBoolean shouldBeCancelled) {
+        AtomicBoolean acquired = new AtomicBoolean(false);
+        return runAsync(() -> {
+            try {
+                rateLimiter.acquire();
+                acquired.set(true);
+            } catch (InterruptedException e) {
+                throw new FileTransferException("Failed to send files to node: " + receiverConsistentId + "the thread was interrupted");
+            }
+        }, executorService)
+                .thenApplyAsync(v -> {
+                    try {
+                        return FileTransferMessagesStream.fromFile(chunkSize, id, file);
+                    } catch (IOException e) {
+                        throw new FileTransferException("Failed to create a file transfer stream", e);
+                    }
+                }, executorService)
+                .thenComposeAsync(stream -> {
+                    return send(receiverConsistentId, stream, shouldBeCancelled)
                             .whenComplete((res, e) -> {
                                 try {
-                                    if (e != null) {
-                                        LOG.error("Failed to send message to node: {}, transfer id: {}",
-                                                e,
-                                                receiverConsistentId,
-                                                id
-                                        );
-                                        error.compareAndSet(null, e);
-                                    }
-                                } finally {
-                                    rateLimiter.release();
+                                    stream.close();
+                                } catch (IOException ex) {
+                                    throw new FileTransferException("Failed to close the file transfer stream", ex);
                                 }
                             });
-                }
-            }
+                }, executorService)
+                .whenCompleteAsync((res, e) -> {
+                    if (acquired.get()) {
+                        rateLimiter.release();
+                    }
+                }, executorService);
+    }
 
-            if (error.get() != null) {
-                throw new FileTransferException(
-                        "Failed to send files to node: " + receiverConsistentId + ", transfer id: " + id,
-                        error.get()
-                );
-            } else if (Thread.currentThread().isInterrupted()) {
-                throw new FileTransferException(
-                        "Failed to send files to node: " + receiverConsistentId + ", transfer id: " + id + ", thread was interrupted");
+    /**
+     * Sends the next message in the stream. If there are no more messages, the future will be completed.
+     *
+     * @param receiverConsistentId The consistent id of the node to send the files to.
+     * @param stream The stream of messages to send.
+     * @return A future that will be completed when the next message is sent.
+     */
+    private CompletableFuture<Void> send(String receiverConsistentId, FileTransferMessagesStream stream, AtomicBoolean shouldBeCancelled) {
+        try {
+            if (!Thread.currentThread().isInterrupted() && stream.hasNextMessage() && !shouldBeCancelled.get()) {
+                return send.apply(receiverConsistentId, stream.nextMessage())
+                        .thenComposeAsync(it -> send(receiverConsistentId, stream, shouldBeCancelled), executorService);
+            } else {
+                return completedFuture(null);
             }
         } catch (IOException e) {
-            throw new FileTransferException("Failed to send files to node: " + receiverConsistentId + ", transfer id: " + id, e);
+            return failedFuture(new FileTransferException("Failed to send files to node: " + receiverConsistentId, e));
         }
     }
 

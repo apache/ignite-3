@@ -15,28 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file.messages;
+package org.apache.ignite.internal.network.file;
 
+import static java.util.stream.Collectors.toList;
+
+import java.io.File;
 import java.util.List;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.stream.IntStream;
+import org.apache.ignite.internal.network.file.messages.FileHeader;
+import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 
 /**
- * File upload request.
+ * Utility class for file transfer messages.
  */
-@Transferable(FileTransferMessageType.FILE_UPLOAD_REQUEST)
-public interface FileUploadRequest extends NetworkMessage {
-    /**
-     * Returns the identifier of the files that are going to be uploaded.
-     *
-     * @return Identifier of the files.
-     */
-    Identifier identifier();
+final class MessagesUtils {
+    private MessagesUtils() {
+        // No-op.
+    }
 
     /**
-     * Returns the headers of the files that are going to be uploaded.
+     * Extracts file headers from files.
      *
-     * @return Headers of the files.
+     * @param factory File transfer factory.
+     * @param files Files to get headers for.
+     * @return List of file headers.
      */
-    List<FileHeader> headers();
+    static List<FileHeader> getHeaders(FileTransferFactory factory, List<File> files) {
+        return IntStream.range(0, files.size())
+                .mapToObj(id -> FileHeader.fromFile(factory, id, files.get(id)))
+                .collect(toList());
+    }
 }

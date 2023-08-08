@@ -24,19 +24,19 @@ import org.apache.ignite.network.annotations.MessageGroup;
  */
 @MessageGroup(groupType = 200, groupName = "FileTransfer")
 public final class FileTransferMessageType {
-    public static final short FILE_TRANSFER_INFO = 0;
+    public static final short FILE_IDENTIFIER = 0;
     public static final short FILE_HEADER = 1;
     public static final short FILE_CHUNK = 2;
-    public static final short FILE_DOWNLOAD_REQUEST = 3;
-    public static final short FILE_DOWNLOAD_RESPONSE = 4;
-    public static final short FILE_UPLOAD_REQUEST = 5;
-    public static final short FILE_UPLOAD_RESPONSE = 6;
-    public static final short FILE_TRANSFER_ERROR = 7;
-    public static final short METADATA = 8;
+    public static final short FILE_TRANSFER_ERROR = 3;
+    public static final short FILE_DOWNLOAD_REQUEST = 4;
+    public static final short FILE_DOWNLOAD_RESPONSE = 5;
+    public static final short FILE_UPLOAD_REQUEST = 6;
+    public static final short FILE_UPLOAD_RESPONSE = 7;
+    public static final short FILE_TRANSFER_ERROR_MESSAGE = 8;
 
     /**
      * File transferring metadata.
      */
-    public static final class Metadata {
+    public static final class Identifier {
     }
 }

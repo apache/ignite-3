@@ -17,26 +17,25 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
-import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * File transfer info.
+ * File transfer error.
  */
-@Transferable(FileTransferMessageType.FILE_TRANSFER_INFO)
-public interface FileTransferInfoMessage extends NetworkMessage {
+@Transferable(FileTransferMessageType.FILE_TRANSFER_ERROR)
+public interface FileTransferError extends NetworkMessage {
     /**
-     * Returns the id of the stream.
+     * Returns the error code.
      *
-     * @return the id of the stream.
+     * @return Error code.
      */
-    UUID transferId();
+    int code();
 
     /**
-     * Returns the number of files to send.
+     * Returns the error message.
      *
-     * @return the number of files to send.
+     * @return Error message.
      */
-    int filesCount();
+    String message();
 }

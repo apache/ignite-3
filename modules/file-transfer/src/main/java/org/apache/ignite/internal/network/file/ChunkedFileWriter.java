@@ -26,6 +26,11 @@ import java.util.Queue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 
+/**
+ * Chunked file writer. Writes chunks in order. If a chunk is not in order, it is stored in a queue. When the next chunk is written, the
+ * queues are checked for the next chunk. If the next chunk is found, it is written to the file and removed from the queue. If the next
+ * chunk is not found, the file is not written to. The writer is not thread-safe
+ */
 class ChunkedFileWriter implements ManuallyCloseable {
     private final RandomAccessFile raf;
 
@@ -38,13 +43,26 @@ class ChunkedFileWriter implements ManuallyCloseable {
         this.fileSize = fileSize;
     }
 
+    /**
+     * Opens a file for writing.
+     *
+     * @param path File path.
+     * @param fileSize File size.
+     * @return Chunked file writer.
+     * @throws FileNotFoundException If the file is not found.
+     */
     static ChunkedFileWriter open(Path path, long fileSize) throws FileNotFoundException {
         return new ChunkedFileWriter(new RandomAccessFile(path.toFile(), "rw"), fileSize);
     }
 
+    /**
+     * Writes a chunk to the file.
+     *
+     * @param chunk Chunk.
+     * @throws IOException If an I/O error occurs.
+     */
     void write(FileChunkMessage chunk) throws IOException {
         chunks.add(chunk);
-
         while (!chunks.isEmpty() && chunks.peek().offset() == raf.getFilePointer()) {
             raf.write(chunks.poll().data());
         }
@@ -54,14 +72,30 @@ class ChunkedFileWriter implements ManuallyCloseable {
         }
     }
 
+    /**
+     * Checks if the file is finished.
+     *
+     * @return {@code True} if the file is finished.
+     * @throws IOException If an I/O error occurs.
+     */
     boolean isFinished() throws IOException {
-        return raf.getFilePointer() == fileSize;
+        return raf.length() == fileSize;
     }
 
-    public void fileSize(long fileSize) {
+    /**
+     * Sets the file size.
+     *
+     * @param fileSize File size.
+     */
+    void fileSize(long fileSize) {
         this.fileSize = fileSize;
     }
 
+    /**
+     * Closes the file.
+     *
+     * @throws IOException If an I/O error occurs.
+     */
     @Override
     public void close() throws IOException {
         raf.close();

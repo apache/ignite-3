@@ -31,50 +31,53 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
-import org.apache.ignite.internal.network.file.messages.FileHeaderMessage;
-import org.apache.ignite.internal.network.file.messages.FileTransferInfoMessage;
+import org.apache.ignite.internal.network.file.messages.FileHeader;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
 
+/**
+ * Handler for file transfer messages.
+ */
 class FileTransferMessagesHandler {
+    private static final int UNKNOWN_FILES_COUNT = -1;
+
     private final Path dir;
-    private final AtomicInteger filesCount = new AtomicInteger(-1);
+    private final AtomicInteger filesCount = new AtomicInteger(UNKNOWN_FILES_COUNT);
     private final AtomicInteger filesFinished = new AtomicInteger(0);
     private final CompletableFuture<List<File>> result = new CompletableFuture<>();
     private final Map<String, ChunkedFileWriter> fileNameToWriter = new ConcurrentHashMap<>();
     private final Map<String, Lock> fileNameToLock = new ConcurrentHashMap<>();
 
+    /**
+     * Constructor.
+     *
+     * @param dir Directory to write files to.
+     */
     FileTransferMessagesHandler(Path dir) {
         this.dir = dir;
     }
 
-    void handleFileTransferInfo(FileTransferInfoMessage info) {
-        if (result.isDone()) {
-            throw new IllegalStateException("Received file transfer info after result is already done");
+    void handleFileHeaders(List<FileHeader> headers) {
+        if (!filesCount.compareAndSet(UNKNOWN_FILES_COUNT, headers.size())) {
+            throw new IllegalStateException("Received file headers after files count is already set");
         }
 
-        filesCount.set(info.filesCount());
-
-        try {
-            completeIfAllFilesFinished();
-        } catch (IOException e) {
-            handleFileTransferError(e);
-        }
+        headers.forEach(this::handleFileHeader);
     }
 
-    void handleFileHeader(FileHeaderMessage header) {
+    private void handleFileHeader(FileHeader header) {
         if (result.isDone()) {
             throw new IllegalStateException("Received file header after result is already done");
         }
-        doInLock(header.fileName(), () -> handleFileHeader0(header));
+        doInLock(header.name(), () -> handleFileHeader0(header));
     }
 
-    private void handleFileHeader0(FileHeaderMessage header) {
-        ChunkedFileWriter writer = fileNameToWriter.compute(header.fileName(), (k, v) -> {
+    private void handleFileHeader0(FileHeader header) {
+        ChunkedFileWriter writer = fileNameToWriter.compute(header.name(), (k, v) -> {
             if (v == null) {
-                return writer(header.fileName(), header.fileSize());
+                return writer(header.name(), header.length());
             } else {
-                v.fileSize(header.fileSize());
+                v.fileSize(header.length());
                 return v;
             }
         });
@@ -161,8 +164,7 @@ class FileTransferMessagesHandler {
 
     private ChunkedFileWriter writer(String fileName, long fileSize) {
         try {
-            Path path = Files.createFile(dir.resolve(fileName));
-            return ChunkedFileWriter.open(path, fileSize);
+            return ChunkedFileWriter.open(dir.resolve(fileName), fileSize);
         } catch (IOException e) {
             handleFileTransferError(e);
             throw new IgniteInternalException(e);

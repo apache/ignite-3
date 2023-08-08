@@ -34,9 +34,9 @@ public interface FileDownloadRequest extends NetworkMessage {
     UUID transferId();
 
     /**
-     * Returns the metadata of the file transfer to download.
+     * Returns the identifier of the files to download.
      *
-     * @return The metadata of the file transfer to download.
+     * @return Files identifier.
      */
-    Metadata metadata();
+    Identifier identifier();
 }

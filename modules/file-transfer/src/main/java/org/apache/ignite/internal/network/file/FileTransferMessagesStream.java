@@ -21,35 +21,20 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
-import org.apache.ignite.internal.network.file.messages.FileHeaderMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
-import org.apache.ignite.internal.network.file.messages.FileTransferInfoMessage;
-import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Stream of messages to send files.
  */
-public class FileTransferMessagesStream implements Iterable<NetworkMessage>, AutoCloseable {
+public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, AutoCloseable {
     private final UUID transferId;
 
-    private final Queue<File> filesToSend;
-
-    private final int chunkSize;
-
-    @Nullable
-    private ChunkedFileReader currFile;
-
-    @Nullable
-    private FileTransferInfoMessage fileTransferInfoMessage;
+    private final ChunkedFileReader reader;
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
@@ -59,26 +44,35 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
      * Creates a new stream of messages to send files.
      *
      * @param transferId the id of the stream.
-     * @param filesToSend the files to send. Must not be empty.
-     * @param chunkSize the size of the chunks to send. Must be positive.
+     * @param reader the reader of the file to send.
      */
-    FileTransferMessagesStream(
+    private FileTransferMessagesStream(
             UUID transferId,
-            List<File> filesToSend,
-            int chunkSize
+            ChunkedFileReader reader
     ) {
+        this.transferId = transferId;
+        this.reader = reader;
+    }
+
+    /**
+     * Creates a new stream of messages to send file.
+     *
+     * @param chunkSize the size of the chunks to send.
+     * @param transferId the id of the transfer.
+     * @param file the file to send.
+     * @return a new stream of messages to send files.
+     * @throws IOException if an I/O error occurs.
+     */
+    public static FileTransferMessagesStream fromFile(
+            int chunkSize,
+            UUID transferId,
+            File file
+    ) throws IOException {
         if (chunkSize <= 0) {
             throw new IllegalArgumentException("Chunk size must be positive");
         }
 
-        if (filesToSend.isEmpty()) {
-            throw new IllegalArgumentException("Files to send must not be empty");
-        }
-
-        this.transferId = transferId;
-        this.filesToSend = new LinkedList<>(filesToSend);
-        this.chunkSize = chunkSize;
-        this.fileTransferInfoMessage = fileTransferInfo();
+        return new FileTransferMessagesStream(transferId, ChunkedFileReader.open(file, chunkSize));
     }
 
     /**
@@ -87,16 +81,8 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
      * @return true if there are more messages to send.
      */
     boolean hasNextMessage() throws IOException {
-        // check that the stream is not closed.
-        if (closed.get()) {
-            return false;
-        } else {
-            // check that there are more messages to send.
-            // 1. there is a file transfer info message to send.
-            // 2. there are files to send.
-            // 3. there is a current file to send.
-            return fileTransferInfoMessage != null || !filesToSend.isEmpty() || (currFile != null && !currFile.isFinished());
-        }
+        // check that the stream is not closed and the reader is not finished.
+        return !closed.get() && !reader.isFinished();
     }
 
     /**
@@ -106,43 +92,12 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
      * @throws IOException if an I/O error occurs.
      * @throws IllegalStateException if there are no more messages to send.
      */
-    NetworkMessage nextMessage() throws IOException {
-        if (!hasNextMessage()) {
+    FileChunkMessage nextMessage() throws IOException {
+        if (hasNextMessage()) {
+            return nextChunk();
+        } else {
             throw new IllegalStateException("There are no more messages to send");
         }
-
-        if (fileTransferInfoMessage != null) {
-            FileTransferInfoMessage info = fileTransferInfoMessage;
-            fileTransferInfoMessage = null;
-            return info;
-        } else {
-            if (currFile == null || currFile.isFinished()) {
-                switchToNextFile();
-                return header();
-            } else {
-                return nextChunk();
-            }
-        }
-    }
-
-    private FileTransferInfoMessage fileTransferInfo() {
-        return factory.fileTransferInfoMessage()
-                .transferId(transferId)
-                .filesCount(filesToSend.size())
-                .build();
-    }
-
-    /**
-     * Returns the header of the current file to send.
-     */
-    private FileHeaderMessage header() throws IOException {
-        assert currFile != null : "Current file is null";
-
-        return factory.fileHeaderMessage()
-                .transferId(transferId)
-                .fileName(currFile.fileName())
-                .fileSize(currFile.length())
-                .build();
     }
 
     /**
@@ -153,32 +108,12 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
      * @throws IllegalStateException if the current file is finished.
      */
     private FileChunkMessage nextChunk() throws IOException {
-        assert currFile != null : "Current file is null";
-        assert !currFile.isFinished() : "Current file is finished";
-
         return factory.fileChunkMessage()
                 .transferId(transferId)
-                .fileName(currFile.fileName())
-                .offset(currFile.offset())
-                .data(currFile.readNextChunk())
+                .fileName(reader.fileName())
+                .offset(reader.offset())
+                .data(reader.readNextChunk())
                 .build();
-    }
-
-    private void switchToNextFile() throws IOException {
-        closeCurrFile();
-
-        if (filesToSend.isEmpty()) {
-            throw new IllegalStateException("There are no more files to send");
-        } else {
-            currFile = ChunkedFileReader.open(filesToSend.poll(), chunkSize);
-        }
-    }
-
-    private void closeCurrFile() throws IOException {
-        if (currFile != null) {
-            currFile.close();
-            currFile = null;
-        }
     }
 
     /**
@@ -186,16 +121,14 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
      */
     @Override
     public void close() throws IOException {
-        if (!closed.compareAndSet(false, true)) {
-            return;
+        if (closed.compareAndSet(false, true)) {
+            reader.close();
         }
-
-        closeCurrFile();
     }
 
     @NotNull
     @Override
-    public Iterator<NetworkMessage> iterator() {
+    public Iterator<FileChunkMessage> iterator() {
         return new Iterator<>() {
             @Override
             public boolean hasNext() {
@@ -207,7 +140,7 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
             }
 
             @Override
-            public NetworkMessage next() {
+            public FileChunkMessage next() {
                 try {
                     return nextMessage();
                 } catch (IOException e) {
@@ -218,8 +151,8 @@ public class FileTransferMessagesStream implements Iterable<NetworkMessage>, Aut
     }
 
     @Override
-    public void forEach(Consumer<? super NetworkMessage> action) {
-        for (NetworkMessage message : this) {
+    public void forEach(Consumer<? super FileChunkMessage> action) {
+        for (FileChunkMessage message : this) {
             action.accept(message);
         }
     }

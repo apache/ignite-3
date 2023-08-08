@@ -17,31 +17,15 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
-import java.util.List;
+import org.apache.ignite.internal.network.file.FileConsumer;
+import org.apache.ignite.internal.network.file.FileProvider;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * File download response.
+ * Identifier. This interface is used to mark all identifier messages. Identifier messages are used to retrieve files from
+ * {@link FileProvider} and handle them on the receiving side by {@link FileConsumer}.
  */
-@Transferable(FileTransferMessageType.FILE_DOWNLOAD_RESPONSE)
-public interface FileDownloadResponse extends NetworkMessage {
-
-    /**
-     * Returns the headers of the files that are going to be transferred.
-     * It is possible that the headers are not present if the request was not handled successfully.
-     *
-     * @return Headers of the files that are going to be transferred.
-     */
-    @Nullable
-    List<FileHeader> headers();
-
-    /**
-     * Returns the error that occurred during the handling file download request.
-     *
-     * @return The error. {@code null} if the request was handled successfully and the files are going to be transferred.
-     */
-    @Nullable
-    FileTransferError error();
+@Transferable(FileTransferMessageType.FILE_IDENTIFIER)
+public interface Identifier extends NetworkMessage {
 }

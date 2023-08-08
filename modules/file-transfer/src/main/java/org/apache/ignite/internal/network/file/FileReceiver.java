@@ -34,9 +34,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
-import org.apache.ignite.internal.network.file.messages.FileHeaderMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferErrorMessage;
-import org.apache.ignite.internal.network.file.messages.FileTransferInfoMessage;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.RefCountedObjectPool;
@@ -90,11 +88,15 @@ class FileReceiver implements ManuallyCloseable {
         lock.lock();
         try {
             transferIdToHandler.remove(transferId);
-            Set<UUID> uuids = senderConsistentIdToTransferIds.get(senderConsistentId);
-            uuids.remove(transferId);
-            if (uuids.isEmpty()) {
-                senderConsistentIdToTransferIds.remove(senderConsistentId);
-            }
+            senderConsistentIdToTransferIds.compute(senderConsistentId, (k, v) -> {
+                if (v != null) {
+                    v.remove(transferId);
+                    if (v.isEmpty()) {
+                        return null;
+                    }
+                }
+                return v;
+            });
         } finally {
             lock.unlock();
         }
@@ -104,49 +106,14 @@ class FileReceiver implements ManuallyCloseable {
         ReentrantLock lock = senderConsistentIdToLock.acquire(senderConsistentId, ignored -> new ReentrantLock());
         lock.lock();
         try {
-            new HashSet<>(senderConsistentIdToTransferIds.get(senderConsistentId))
-                    .stream()
-                    .forEach(uuid -> {
-                        transferIdToHandler.get(uuid).handleFileTransferError(new FileTransferException("Transfer was cancelled"));
-                    });
+            Set<UUID> uuids = senderConsistentIdToTransferIds.remove(senderConsistentId);
+            if (uuids != null) {
+                uuids.forEach(uuid -> {
+                    transferIdToHandler.get(uuid).handleFileTransferError(new FileTransferException("Transfer was cancelled"));
+                });
+            }
         } finally {
             lock.unlock();
-        }
-    }
-
-    CompletableFuture<Void> receiveFileTransferInfo(FileTransferInfoMessage info) {
-        return CompletableFuture.runAsync(() -> receiveFileTransferInfo0(info), executorService)
-                .whenComplete((v, throwable) -> {
-                    if (throwable != null) {
-                        LOG.error("Failed to receive file transfer info. Id: {}", throwable, info.transferId());
-                    }
-                });
-    }
-
-    private void receiveFileTransferInfo0(FileTransferInfoMessage info) {
-        FileTransferMessagesHandler handler = transferIdToHandler.get(info.transferId());
-        if (handler == null) {
-            throw new FileTransferException("Handler is not found for unknown transferId: " + info.transferId());
-        } else {
-            handler.handleFileTransferInfo(info);
-        }
-    }
-
-    CompletableFuture<Void> receiveFileHeader(FileHeaderMessage header) {
-        return CompletableFuture.runAsync(() -> receiveFileHeader0(header), executorService)
-                .whenComplete((v, throwable) -> {
-                    if (throwable != null) {
-                        LOG.error("Failed to receive file header. Id: {}", throwable, header.transferId());
-                    }
-                });
-    }
-
-    private void receiveFileHeader0(FileHeaderMessage header) {
-        FileTransferMessagesHandler handler = transferIdToHandler.get(header.transferId());
-        if (handler == null) {
-            throw new FileTransferException("Handler is not found for unknown transferId: " + header.transferId());
-        } else {
-            handler.handleFileHeader(header);
         }
     }
 
@@ -185,7 +152,7 @@ class FileReceiver implements ManuallyCloseable {
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + errorMessage.transferId());
         } else {
-            handler.handleFileTransferError(new FileTransferException(errorMessage.error()));
+            handler.handleFileTransferError(new FileTransferException(errorMessage.error().message()));
         }
     }
 

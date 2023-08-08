@@ -26,11 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
-import org.apache.ignite.internal.network.file.messages.FileHeaderMessage;
-import org.apache.ignite.internal.network.file.messages.FileTransferInfoMessage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
@@ -47,228 +44,78 @@ class FileTransferMessagesStreamTest {
     void negativeChunkSize() {
         UUID transferId = UUID.randomUUID();
         File file = randomFile(workDir, 1024);
-        List<File> filesToSend = List.of(file);
         int chunkSize = -1;
 
-        assertThrows(IllegalArgumentException.class, () -> new FileTransferMessagesStream(transferId, filesToSend, chunkSize));
+        assertThrows(IllegalArgumentException.class, () -> FileTransferMessagesStream.fromFile(chunkSize, transferId, file));
     }
 
     @Test
-    void emptyFileList() {
+    void emptyFile() throws IOException {
         UUID transferId = UUID.randomUUID();
-        List<File> filesToSend = List.of();
+        File file = randomFile(workDir, 0);
 
-        assertThrows(IllegalArgumentException.class, () -> new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE));
+        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromFile(CHUNK_SIZE, transferId, file)) {
+            assertFalse(stream.hasNextMessage());
+            assertThrows(IllegalStateException.class, stream::nextMessage);
+        }
     }
 
     @Test
-    void listOfEmptyFiles() throws IOException {
+    void fileWithSizeLessThanChunkSize() throws IOException {
         UUID transferId = UUID.randomUUID();
-        File file1 = randomFile(workDir, 0);
-        File file2 = randomFile(workDir, 0);
-        List<File> filesToSend = List.of(file1, file2);
+        int fileSize = CHUNK_SIZE - 1;
+        File file = randomFile(workDir, fileSize);
 
-        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE)) {
-            // check transfer FileTransferInfo
+        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromFile(CHUNK_SIZE, transferId, file)) {
+
             assertTrue(stream.hasNextMessage());
-            FileTransferInfoMessage info = (FileTransferInfoMessage) stream.nextMessage();
-            assertEquals(transferId, info.transferId());
-            assertEquals(2, info.filesCount());
+            FileChunkMessage fileChunkMessage = stream.nextMessage();
+            assertEquals(transferId, fileChunkMessage.transferId());
+            assertEquals(0, fileChunkMessage.offset());
+            assertEquals(fileSize, fileChunkMessage.data().length);
 
-            // check the first FileHeader
-            assertTrue(stream.hasNextMessage());
-            FileHeaderMessage header1 = (FileHeaderMessage) stream.nextMessage();
-            assertEquals(transferId, header1.transferId());
-            assertEquals(header1.fileName(), file1.getName());
-            assertEquals(file1.length(), header1.fileSize());
-
-            // check the second FileHeader
-            assertTrue(stream.hasNextMessage());
-            FileHeaderMessage header2 = (FileHeaderMessage) stream.nextMessage();
-            assertEquals(transferId, header2.transferId());
-            assertEquals(header2.fileName(), file2.getName());
-            assertEquals(file2.length(), header2.fileSize());
-
-            // check the stream is empty
             assertFalse(stream.hasNextMessage());
         }
     }
 
     @Test
-    void listOfSmallFiles() throws IOException {
+    void fileWithSizeEqualToChunkSize() throws IOException {
         UUID transferId = UUID.randomUUID();
-        File file1 = randomFile(workDir, 1024);
-        File file2 = randomFile(workDir, 1024);
-        List<File> filesToSend = List.of(file1, file2);
+        int fileSize = CHUNK_SIZE;
+        File file = randomFile(workDir, fileSize);
 
-        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE)) {
-            // check transfer FileTransferInfo
+        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromFile(CHUNK_SIZE, transferId, file)) {
+
             assertTrue(stream.hasNextMessage());
-            FileTransferInfoMessage info = (FileTransferInfoMessage) stream.nextMessage();
-            assertEquals(transferId, info.transferId());
-            assertEquals(2, info.filesCount());
+            FileChunkMessage fileChunkMessage = stream.nextMessage();
+            assertEquals(transferId, fileChunkMessage.transferId());
+            assertEquals(0, fileChunkMessage.offset());
+            assertEquals(fileSize, fileChunkMessage.data().length);
 
-            // check the first FileHeader
-            assertTrue(stream.hasNextMessage());
-            FileHeaderMessage header1 = (FileHeaderMessage) stream.nextMessage();
-            assertEquals(transferId, header1.transferId());
-            assertEquals(header1.fileName(), file1.getName());
-            assertEquals(file1.length(), header1.fileSize());
-
-            // check the first ChunkedFile
-            assertTrue(stream.hasNextMessage());
-            FileChunkMessage fileChunk1 = (FileChunkMessage) stream.nextMessage();
-            assertEquals(transferId, fileChunk1.transferId());
-            assertEquals(header1.fileName(), fileChunk1.fileName());
-            assertEquals(0, fileChunk1.offset());
-            assertEquals(file1.length(), fileChunk1.data().length);
-
-            // check the second FileHeader
-            assertTrue(stream.hasNextMessage());
-            FileHeaderMessage header2 = (FileHeaderMessage) stream.nextMessage();
-            assertEquals(transferId, header2.transferId());
-            assertEquals(header2.fileName(), file2.getName());
-            assertEquals(file2.length(), header2.fileSize());
-
-            // check the second ChunkedFile
-            assertTrue(stream.hasNextMessage());
-            FileChunkMessage fileChunk2 = (FileChunkMessage) stream.nextMessage();
-            assertEquals(transferId, fileChunk2.transferId());
-            assertEquals(header2.fileName(), fileChunk2.fileName());
-            assertEquals(0, fileChunk2.offset());
-            assertEquals(file2.length(), fileChunk2.data().length);
-
-            // check the stream is empty
             assertFalse(stream.hasNextMessage());
         }
     }
 
     @Test
-    void listOfBigFiles() throws IOException {
+    void fileWithSizeGreaterThanChunkSize() throws IOException {
         UUID transferId = UUID.randomUUID();
-        File file1 = randomFile(workDir, 1948);
-        File file2 = randomFile(workDir, 1724);
-        List<File> filesToSend = List.of(file1, file2);
+        int fileSize = CHUNK_SIZE + 1;
+        File file = randomFile(workDir, fileSize);
 
-        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE)) {
-            // check transfer FileTransferInfo
+        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromFile(CHUNK_SIZE, transferId, file)) {
+
             assertTrue(stream.hasNextMessage());
-            FileTransferInfoMessage info = (FileTransferInfoMessage) stream.nextMessage();
-            assertEquals(transferId, info.transferId());
-            assertEquals(2, info.filesCount());
+            FileChunkMessage fileChunkMessage = stream.nextMessage();
+            assertEquals(transferId, fileChunkMessage.transferId());
+            assertEquals(0, fileChunkMessage.offset());
+            assertEquals(CHUNK_SIZE, fileChunkMessage.data().length);
 
-            // check the first FileHeader
             assertTrue(stream.hasNextMessage());
-            FileHeaderMessage header1 = (FileHeaderMessage) stream.nextMessage();
-            assertEquals(transferId, header1.transferId());
-            assertEquals(header1.fileName(), file1.getName());
-            assertEquals(file1.length(), header1.fileSize());
+            fileChunkMessage = stream.nextMessage();
+            assertEquals(transferId, fileChunkMessage.transferId());
+            assertEquals(CHUNK_SIZE, fileChunkMessage.offset());
+            assertEquals(1, fileChunkMessage.data().length);
 
-            // check the first ChunkedFile
-            assertTrue(stream.hasNextMessage());
-            FileChunkMessage fileChunk1 = (FileChunkMessage) stream.nextMessage();
-            assertEquals(transferId, fileChunk1.transferId());
-            assertEquals(header1.fileName(), fileChunk1.fileName());
-            assertEquals(0, fileChunk1.offset());
-            assertEquals(CHUNK_SIZE, fileChunk1.data().length);
-
-            // check the second ChunkedFile
-            assertTrue(stream.hasNextMessage());
-            FileChunkMessage fileChunk2 = (FileChunkMessage) stream.nextMessage();
-            assertEquals(transferId, fileChunk2.transferId());
-            assertEquals(header1.fileName(), fileChunk2.fileName());
-            assertEquals(CHUNK_SIZE, fileChunk2.offset());
-            assertEquals(file1.length() - CHUNK_SIZE, fileChunk2.data().length);
-
-            // check the second FileHeader
-            assertTrue(stream.hasNextMessage());
-            FileHeaderMessage header2 = (FileHeaderMessage) stream.nextMessage();
-            assertEquals(transferId, header2.transferId());
-            assertEquals(header2.fileName(), file2.getName());
-            assertEquals(file2.length(), header2.fileSize());
-
-            // check the third ChunkedFile
-            assertTrue(stream.hasNextMessage());
-            FileChunkMessage fileChunk3 = (FileChunkMessage) stream.nextMessage();
-            assertEquals(transferId, fileChunk3.transferId());
-            assertEquals(header2.fileName(), fileChunk3.fileName());
-            assertEquals(0, fileChunk3.offset());
-            assertEquals(CHUNK_SIZE, fileChunk3.data().length);
-
-            // check the fourth ChunkedFile
-            assertTrue(stream.hasNextMessage());
-            FileChunkMessage fileChunk4 = (FileChunkMessage) stream.nextMessage();
-            assertEquals(transferId, fileChunk4.transferId());
-            assertEquals(header2.fileName(), fileChunk4.fileName());
-            assertEquals(CHUNK_SIZE, fileChunk4.offset());
-            assertEquals(file2.length() - CHUNK_SIZE, fileChunk4.data().length);
-
-            // check the stream is empty
-            assertFalse(stream.hasNextMessage());
-        }
-    }
-
-    @Test
-    void listOfDifferentFiles() throws IOException {
-        UUID transferId = UUID.randomUUID();
-        File file1 = randomFile(workDir, CHUNK_SIZE * 2);
-        File file2 = randomFile(workDir, 0);
-        File file3 = randomFile(workDir, CHUNK_SIZE);
-        List<File> filesToSend = List.of(file1, file2, file3);
-
-        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE)) {
-            // check transfer FileTransferInfo
-            assertTrue(stream.hasNextMessage());
-            FileTransferInfoMessage info = (FileTransferInfoMessage) stream.nextMessage();
-            assertEquals(transferId, info.transferId());
-            assertEquals(3, info.filesCount());
-
-            // check the first FileHeader
-            assertTrue(stream.hasNextMessage());
-            FileHeaderMessage header1 = (FileHeaderMessage) stream.nextMessage();
-            assertEquals(transferId, header1.transferId());
-            assertEquals(header1.fileName(), file1.getName());
-            assertEquals(file1.length(), header1.fileSize());
-
-            // check the first ChunkedFile
-            assertTrue(stream.hasNextMessage());
-            FileChunkMessage fileChunk1 = (FileChunkMessage) stream.nextMessage();
-            assertEquals(transferId, fileChunk1.transferId());
-            assertEquals(header1.fileName(), fileChunk1.fileName());
-            assertEquals(0, fileChunk1.offset());
-            assertEquals(CHUNK_SIZE, fileChunk1.data().length);
-
-            // check the second ChunkedFile
-            assertTrue(stream.hasNextMessage());
-            FileChunkMessage fileChunk2 = (FileChunkMessage) stream.nextMessage();
-            assertEquals(transferId, fileChunk2.transferId());
-            assertEquals(header1.fileName(), fileChunk2.fileName());
-            assertEquals(CHUNK_SIZE, fileChunk2.offset());
-            assertEquals(CHUNK_SIZE, fileChunk2.data().length);
-
-            // check the second FileHeader
-            assertTrue(stream.hasNextMessage());
-            FileHeaderMessage header2 = (FileHeaderMessage) stream.nextMessage();
-            assertEquals(transferId, header2.transferId());
-            assertEquals(header2.fileName(), file2.getName());
-            assertEquals(file2.length(), header2.fileSize());
-
-            // check the third FileHeader
-            assertTrue(stream.hasNextMessage());
-            FileHeaderMessage header3 = (FileHeaderMessage) stream.nextMessage();
-            assertEquals(transferId, header3.transferId());
-            assertEquals(header3.fileName(), file3.getName());
-            assertEquals(file3.length(), header3.fileSize());
-
-            // check the third ChunkedFile
-            assertTrue(stream.hasNextMessage());
-            FileChunkMessage fileChunk3 = (FileChunkMessage) stream.nextMessage();
-            assertEquals(transferId, fileChunk3.transferId());
-            assertEquals(header3.fileName(), fileChunk3.fileName());
-            assertEquals(0, fileChunk3.offset());
-            assertEquals(CHUNK_SIZE, fileChunk3.data().length);
-
-            // check the stream is empty
             assertFalse(stream.hasNextMessage());
         }
     }

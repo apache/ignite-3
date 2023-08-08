@@ -24,7 +24,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * File transfer error message.
  */
-@Transferable(FileTransferMessageType.FILE_TRANSFER_ERROR)
+@Transferable(FileTransferMessageType.FILE_TRANSFER_ERROR_MESSAGE)
 public interface FileTransferErrorMessage extends NetworkMessage {
     /**
      * Returns transfer ID.
@@ -38,5 +38,5 @@ public interface FileTransferErrorMessage extends NetworkMessage {
      *
      * @return Error message.
      */
-    String error();
+    FileTransferError error();
 }

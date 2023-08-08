@@ -17,20 +17,20 @@
 
 package org.apache.ignite.internal.network.file.exception;
 
-import org.apache.ignite.internal.network.file.messages.Metadata;
+import org.apache.ignite.internal.network.file.messages.Identifier;
 import org.apache.ignite.lang.ErrorGroups.Network;
 import org.apache.ignite.lang.IgniteException;
 
 /**
  * Exception thrown when file handler is not found for a metadata message.
  */
-public class FileHandlerNotFoundException extends IgniteException {
+public class FileConsumerNotFoundException extends IgniteException {
     /**
      * Constructor.
      *
-     * @param message Message.
+     * @param metadata Metadata.
      */
-    public FileHandlerNotFoundException(Class<? extends Metadata> message) {
-        super(Network.FILE_HANDLER_NOT_FOUND_ERR, "File handler not found for message: " + message.getName());
+    public FileConsumerNotFoundException(Class<? extends Identifier> metadata) {
+        super(Network.FILE_CONSUMER_NOT_FOUND_ERR, "File consumer not found for metadata: " + metadata.getName());
     }
 }

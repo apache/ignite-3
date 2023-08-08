@@ -17,30 +17,18 @@
 
 package org.apache.ignite.internal.network.file;
 
-class RateLimiter {
-    private final int maxConcurrentRequests;
-    private volatile int counter = 0;
+/**
+ * Rate limiter interface.
+ */
+public interface RateLimiter {
 
-    RateLimiter(int maxConcurrentRequests) {
-        this.maxConcurrentRequests = maxConcurrentRequests;
-    }
+    /**
+     * Acquires a permit from this {@code RateLimiter}, blocking until one is available, or the thread is interrupted.
+     */
+    void acquire() throws InterruptedException;
 
-    boolean tryAcquire() {
-        if (counter >= maxConcurrentRequests) {
-            return false;
-        } else {
-            synchronized (this) {
-                if (counter >= maxConcurrentRequests) {
-                    return false;
-                } else {
-                    counter++;
-                    return true;
-                }
-            }
-        }
-    }
-
-    synchronized void release() {
-        counter--;
-    }
+    /**
+     * Releases a permit, returning it to the semaphore.
+     */
+    void release();
 }

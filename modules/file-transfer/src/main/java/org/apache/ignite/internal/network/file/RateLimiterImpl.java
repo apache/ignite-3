@@ -15,17 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file.messages;
+package org.apache.ignite.internal.network.file;
 
-import org.apache.ignite.internal.network.file.FileConsumer;
-import org.apache.ignite.internal.network.file.FileProvider;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import java.util.concurrent.Semaphore;
 
 /**
- * Metadata. This interface is used to mark all metadata messages. Metadata messages are used to retrieve files from {@link FileProvider}
- * and handle them on the receiving side by {@link FileConsumer}.
+ * Implementation of {@link RateLimiter}. It uses {@link Semaphore} to limit the number of concurrent requests.
  */
-@Transferable(FileTransferMessageType.METADATA)
-public interface Metadata extends NetworkMessage {
+class RateLimiterImpl implements RateLimiter {
+
+    private final Semaphore semaphore;
+
+    RateLimiterImpl(int maxConcurrentRequests) {
+        this.semaphore = new Semaphore(maxConcurrentRequests);
+    }
+
+    @Override
+    public void acquire() throws InterruptedException {
+        semaphore.acquire();
+    }
+
+    @Override
+    public void release() {
+        semaphore.release();
+    }
 }

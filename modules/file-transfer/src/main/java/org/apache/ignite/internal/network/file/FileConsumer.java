@@ -20,18 +20,18 @@ package org.apache.ignite.internal.network.file;
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.network.file.messages.Metadata;
+import org.apache.ignite.internal.network.file.messages.Identifier;
 
 /**
  * Handler for the uploaded file.
  */
-public interface FileConsumer<M extends Metadata> {
+public interface FileConsumer<I extends Identifier> {
     /**
      * Handles the uploaded files.
      *
-     * @param metadata The metadata of the uploaded file.
+     * @param identifier The identifier of the uploaded file.
      * @param uploadedFiles The temporary files that were uploaded. These files will be deleted after the method returns.
      * @return A future that will be completed when the file is handled.
      */
-    CompletableFuture<Void> handleUpload(M metadata, List<File> uploadedFiles);
+    CompletableFuture<Void> handleUpload(I identifier, List<File> uploadedFiles);
 }

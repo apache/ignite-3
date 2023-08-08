@@ -17,33 +17,28 @@
 
 package org.apache.ignite.internal.network.file;
 
-import static org.apache.ignite.internal.testframework.matchers.FileContentMatcher.hasContent;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.core.Is.is;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import java.io.File;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import org.apache.ignite.internal.testframework.matchers.FileMatchers;
+import org.hamcrest.Matcher;
 
 /**
  * File assertions.
  */
 public class FileAssertions {
+
     /**
-     * Asserts that the content of two sets of files is the same.
+     * Asserts that the given files have the same names and content as the expected files.
      *
-     * @param files1 First set of files.
-     * @param files2 Second set of files.
+     * @param expectedFiles Expected files.
+     * @return Matcher.
      */
-    public static void assertContentEquals(List<File> files1, List<File> files2) {
-        assertThat(files1.size(), is(files2.size()));
-
-        Map<String, File> map = files1.stream()
-                .collect(Collectors.toMap(File::getName, file -> file));
-
-        for (File file : files2) {
-            assertThat(file, hasContent(map.get(file.getName())));
-        }
+    public static Matcher<Iterable<? extends File>> assertNamesAndContentEquals(List<File> expectedFiles) {
+        Matcher<File>[] matchers = expectedFiles.stream()
+                .map(FileMatchers::hasSameContentAndName)
+                .toArray(Matcher[]::new);
+        return containsInAnyOrder(matchers);
     }
 }

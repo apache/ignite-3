@@ -8,7 +8,7 @@ The module provides a `org.apache.ignite.internal.network.file.FileTransferServi
 host and the target.
 
 ### Metadata 
-For all files, that age going to be transferred, the metadata should be provided.
+For all files, that are going to be transferred, the metadata should be provided.
 The metadata is represented by the `org.apache.ignite.internal.network.file.messages.Metadata` class. 
 The metadata allows to fetch files from the target and upload files to the target.
 
@@ -20,4 +20,4 @@ The `FileProvider` is a function that accepts a `Metadata` object and returns a 
 ### Uploading files to the target
 For uploading files to the target, the target should have a `FileTransferService` instance running
 and registered `org.apache.ignite.internal.network.file.FileConsumer` for the files that should be uploaded.
-The `FileHandler` is a function that accepts a `Metadata` object and a collection of `File` objects.
+The `FileConsumer` is a function that accepts a `Metadata` object and a collection of `File` objects.

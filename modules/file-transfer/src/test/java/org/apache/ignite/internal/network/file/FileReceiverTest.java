@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.network.file;
 
-import static org.apache.ignite.internal.network.file.FileAssertions.assertContentEquals;
+import static org.apache.ignite.internal.network.file.FileAssertions.assertNamesAndContentEquals;
 import static org.apache.ignite.internal.network.file.FileGenerator.randomFile;
+import static org.apache.ignite.internal.network.file.MessagesUtils.getHeaders;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.FilesUtils.sortByNames;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.File;
@@ -31,14 +31,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
-import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
-import org.apache.ignite.internal.network.file.messages.FileHeaderMessage;
-import org.apache.ignite.internal.network.file.messages.FileTransferInfoMessage;
+import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -48,6 +44,8 @@ class FileReceiverTest {
 
     @WorkDirectory
     private Path workDir;
+
+    private final FileTransferFactory factory = new FileTransferFactory();
 
     @Test
     void receiveSingleFile() throws IOException {
@@ -60,16 +58,14 @@ class FileReceiverTest {
         path.toFile().deleteOnExit();
 
         FileTransferMessagesHandler handler = receiver.registerTransfer("node2", transferId, path);
-        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE)) {
-            stream.forEach(message -> sendMessageToReceiver(receiver, message));
-        }
+
+        handler.handleFileHeaders(getHeaders(factory, filesToSend));
+        sendFilesToReceiver(receiver, transferId, filesToSend);
 
         // then the file is received
         assertThat(
-                handler.result().thenAccept(files -> {
-                    assertContentEquals(sortByNames(filesToSend), sortByNames(files));
-                }),
-                willCompleteSuccessfully()
+                handler.result(),
+                willBe(assertNamesAndContentEquals(filesToSend))
         );
     }
 
@@ -88,15 +84,14 @@ class FileReceiverTest {
         path.toFile().deleteOnExit();
 
         FileTransferMessagesHandler handler = receiver.registerTransfer("node2", transferId, path);
-        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE)) {
-            stream.forEach(message -> sendMessageToReceiver(receiver, message));
-        }
+
+        handler.handleFileHeaders(getHeaders(factory, filesToSend));
+
+        sendFilesToReceiver(receiver, transferId, filesToSend);
         // then the files are received
         assertThat(
-                handler.result().thenAccept(files -> {
-                    assertContentEquals(sortByNames(filesToSend), sortByNames(files));
-                }),
-                willCompleteSuccessfully()
+                handler.result(),
+                willBe(assertNamesAndContentEquals(filesToSend))
         );
     }
 
@@ -107,15 +102,14 @@ class FileReceiverTest {
 
         // and the first file transfer is started
         UUID transferId1 = UUID.randomUUID();
-        List<File> filesToSend1 = List.of(randomFile(workDir, CHUNK_SIZE));
+        List<File> filesToSend1 = List.of(randomFile(workDir, CHUNK_SIZE * 2));
 
         Path path1 = Files.createDirectory(workDir.resolve(transferId1.toString()));
         path1.toFile().deleteOnExit();
 
         FileTransferMessagesHandler handler1 = receiver.registerTransfer("node2", transferId1, path1);
-        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId1, filesToSend1, CHUNK_SIZE)) {
-            sendMessageToReceiver(receiver, stream.nextMessage());
-        }
+
+        handler1.handleFileHeaders(getHeaders(factory, filesToSend1));
 
         // and the second file transfer is registered
         UUID transferId2 = UUID.randomUUID();
@@ -133,9 +127,10 @@ class FileReceiverTest {
         path3.toFile().deleteOnExit();
 
         FileTransferMessagesHandler handler3 = receiver.registerTransfer("node3", transferId3, path3);
-        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId3, filesToSend3, CHUNK_SIZE)) {
-            sendMessageToReceiver(receiver, stream.nextMessage());
-        }
+
+        handler3.handleFileHeaders(getHeaders(factory, filesToSend3));
+
+        sendFilesToReceiver(receiver, transferId3, filesToSend3);
 
         // all transfers from node2 are canceled
         receiver.cancelTransfersFromSender("node2");
@@ -155,19 +150,17 @@ class FileReceiverTest {
         // and the third file transfer is not canceled
         assertThat(
                 handler3.result(),
-                willTimeoutIn(250, TimeUnit.MILLISECONDS)
+                willCompleteSuccessfully()
         );
     }
 
-    private static void sendMessageToReceiver(FileReceiver receiver, NetworkMessage msg) {
-        if (msg instanceof FileHeaderMessage) {
-            receiver.receiveFileHeader((FileHeaderMessage) msg);
-        } else if (msg instanceof FileTransferInfoMessage) {
-            receiver.receiveFileTransferInfo((FileTransferInfoMessage) msg);
-        } else if (msg instanceof FileChunkMessage) {
-            receiver.receiveFileChunk((FileChunkMessage) msg);
-        } else {
-            throw new IllegalArgumentException("Unknown message type: " + msg);
-        }
+    private static void sendFilesToReceiver(FileReceiver receiver, UUID transferId, List<File> files) {
+        files.forEach(file -> {
+            try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromFile(CHUNK_SIZE, transferId, file)) {
+                stream.forEach(receiver::receiveFileChunk);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 }

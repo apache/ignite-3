@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
-import java.util.UUID;
+import java.io.File;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -25,25 +25,36 @@ import org.apache.ignite.network.annotations.Transferable;
  * File header.
  */
 @Transferable(FileTransferMessageType.FILE_HEADER)
-public interface FileHeaderMessage extends NetworkMessage {
+public interface FileHeader extends NetworkMessage {
     /**
-     * Returns the ID of the transfer.
+     * Returns the id of the file.
      *
-     * @return Transfer ID.
+     * @return File id.
      */
-    UUID transferId();
+    int id();
 
     /**
      * Returns the name of the file.
      *
      * @return File name.
      */
-    String fileName();
+    String name();
 
     /**
      * Returns the size of the file in bytes.
      *
      * @return File size.
      */
-    long fileSize();
+    long length();
+
+    /**
+     * Creates a new {@link FileHeader} instance from the given {@link File}.
+     */
+    public static FileHeader fromFile(FileTransferFactory factory, int id, File file) {
+        return factory.fileHeader()
+                .id(id)
+                .name(file.getName())
+                .length(file.length())
+                .build();
+    }
 }

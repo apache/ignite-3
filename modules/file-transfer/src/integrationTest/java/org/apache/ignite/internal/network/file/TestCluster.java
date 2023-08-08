@@ -96,7 +96,6 @@ public class TestCluster {
 
         if (initial) {
             clusterSvc.topologyService().addEventHandler(new TopologyEventHandler() {
-                /** {@inheritDoc} */
                 @Override
                 public void onAppeared(ClusterNode member) {
                     startupLatch.countDown();
@@ -129,7 +128,7 @@ public class TestCluster {
         members.forEach(Node::start);
 
         if (!startupLatch.await(STARTUP_TIMEOUT, TimeUnit.SECONDS)) {
-            throw new AssertionError();
+            throw new AssertionError("Cluster was unable to start in " + STARTUP_TIMEOUT + " seconds");
         }
     }
 
@@ -137,9 +136,7 @@ public class TestCluster {
      * Stops the cluster.
      */
     void shutdown() throws Exception {
-        for (Node member : members) {
-            member.stop();
-        }
+        IgniteUtils.closeAll(members.stream().map(it -> it::stop));
     }
 
     /**
@@ -171,10 +168,6 @@ public class TestCluster {
 
         public Path workDir() {
             return workDir;
-        }
-
-        public ClusterService clusterService() {
-            return clusterService;
         }
 
         public FileTransferService fileTransferringService() {

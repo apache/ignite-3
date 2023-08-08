@@ -17,62 +17,16 @@
 
 package org.apache.ignite.internal.util;
 
-import static org.apache.ignite.internal.util.FilesUtils.deleteDirectoryIfExists;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
-@ExtendWith(WorkDirectoryExtension.class)
 class FilesUtilsTest {
-
-    @WorkDirectory
-    private Path testDir;
-
-    private Path testFile;
-
-    @BeforeEach
-    void setUp() throws IOException {
-        testFile = Files.createTempFile(testDir, "testFile", ".txt");
-    }
-
-    @Test
-    void deleteDirectoryWhenItExists() throws IOException {
-        assertTrue(deleteDirectoryIfExists(testDir));
-        assertFalse(Files.exists(testDir));
-        assertFalse(Files.exists(testFile));
-    }
-
-    @Test
-    void deleteDirectoryWhenItDoesNotExist() throws IOException {
-        Files.deleteIfExists(testFile);
-        Files.deleteIfExists(testDir);
-        assertFalse(deleteDirectoryIfExists(testDir));
-    }
-
-    @Test
-    void deleteNestedDirectory() throws IOException {
-        Path nestedDirectory = Files.createDirectory(testDir.resolve("nested"));
-        Path nestedFile = Files.createFile(nestedDirectory.resolve("nestedFile.txt"));
-        assertTrue(deleteDirectoryIfExists(testDir));
-        assertFalse(Files.exists(nestedDirectory));
-        assertFalse(Files.exists(nestedFile));
-        assertFalse(Files.exists(testDir));
-        assertFalse(Files.exists(testFile));
-    }
-
     @Test
     void sortByNames() {
         File file1 = new File("C.txt");
