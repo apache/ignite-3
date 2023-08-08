@@ -199,7 +199,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
     protected static class IncompletePojo {
         public byte zbyte;
         public String id;
-        public int gid;
+        public long gid;
         public String zstring;
         public byte[] zbytes;
     }
@@ -236,7 +236,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
 
     /** Columns of all types. */
     protected static class AllColumnsPojo {
-        public int gid;
+        public long gid;
         public String id;
         public boolean zboolean;
         public byte zbyte;
@@ -258,7 +258,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
 
     /** Columns of all types. */
     protected static class AllColumnsPojoNullable {
-        public Integer gid;
+        public Long gid;
         public String id;
         public Boolean zboolean;
         public Byte zbyte;
@@ -323,13 +323,13 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public int id;
         public String str;
         public String strNonNull;
-        public BigDecimal num;
+        public Byte num;
     }
 
     /** Columns with default values. */
     protected static class DefaultValuesValPojo {
         public String str;
         public String strNonNull;
-        public BigDecimal num;
+        public Byte num;
     }
 }
