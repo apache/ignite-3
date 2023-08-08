@@ -281,21 +281,6 @@ public final class UpdatableTableImpl implements UpdatableTable {
     private <RowT> BinaryRowEx convertRow(RowT row, ExecutionContext<RowT> ectx, boolean keyOnly) {
         RowHandler<RowT> hnd = ectx.rowHandler();
 
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (keyOnly && !colDesc.key()) {
-                continue;
-            }
-
-            Object value = hnd.get(keyOnly ? colDesc.physicalIndex() : colDesc.logicalIndex(), row);
-
-            // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-            assert value != DEFAULT_VALUE_PLACEHOLDER;
-
-            if (value == null) {
-                break;
-            }
-        }
-
         RowAssembler rowAssembler = keyOnly ? RowAssembler.keyAssembler(schemaDescriptor) : new RowAssembler(schemaDescriptor);
 
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
@@ -304,6 +289,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
             }
 
             Object val = hnd.get(keyOnly ? colDesc.physicalIndex() : colDesc.logicalIndex(), row);
+
+            // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
+            assert val != DEFAULT_VALUE_PLACEHOLDER;
 
             val = TypeUtils.fromInternal(val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
 
