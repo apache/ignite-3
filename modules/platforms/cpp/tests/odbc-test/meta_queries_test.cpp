@@ -326,7 +326,7 @@ TEST_F(meta_queries_test, test_date_type_column_attribute_literal) {
 TEST_F(meta_queries_test, test_date_type_column_attribute_field) {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR req[] = "select {fn CONVERT(date, DATE)} from TBL_ALL_COLUMNS_SQL";
+    SQLCHAR req[] = "select {fn CONVERT(\"DATE\", DATE)} from TBL_ALL_COLUMNS_SQL";
     SQLRETURN ret = SQLExecDirect(m_statement, req, SQL_NTS);
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));

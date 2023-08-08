@@ -10,7 +10,7 @@ INSERT INTO test VALUES (11, 22), (13, 22), (12, 21)
 
 # HAVING with condition on group
 query IR
-SELECT b, SUM(a) AS sum FROM test GROUP BY b HAVING b=21 ORDER BY b;
+SELECT b, SUM(a) AS sum_c FROM test GROUP BY b HAVING b=21 ORDER BY b;
 ----
 21	12.000000
 
@@ -22,13 +22,13 @@ SELECT b, SUM(a) FROM test GROUP BY b HAVING SUM(a) < 20 ORDER BY b;
 
 # HAVING without alias
 query IR
-SELECT b, SUM(a) AS sum FROM test GROUP BY b HAVING SUM(a) < 20 ORDER BY b;
+SELECT b, SUM(a) AS sum_c FROM test GROUP BY b HAVING SUM(a) < 20 ORDER BY b;
 ----
 21	12.000000
 
 # HAVING on column not in aggregate
 query IR
-SELECT b, SUM(a) AS sum FROM test GROUP BY b HAVING COUNT(*) = 1 ORDER BY b;
+SELECT b, SUM(a) AS sum_c FROM test GROUP BY b HAVING COUNT(*) = 1 ORDER BY b;
 ----
 21	12.000000
 

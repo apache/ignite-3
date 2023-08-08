@@ -349,8 +349,8 @@ TEST_F(sql_test, decimal_literal) {
 
 TEST_F(sql_test, all_type_arguments) {
     auto result_set = m_client.get_sql().execute(nullptr,
-        {"select str,int8,int16,int32,int64,float,double,uuid,date,\"TIME\",time2,"
-         "\"DATETIME\",datetime2,timestamp,timestamp2,blob,decimal from TBL_ALL_COLUMNS_SQL"},
+        {"select str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\",\"DATE\",\"TIME\",time2,"
+         "\"DATETIME\",datetime2,\"TIMESTAMP\",timestamp2,\"BLOB\",\"DECIMAL\" from TBL_ALL_COLUMNS_SQL"},
         {});
 
     EXPECT_TRUE(result_set.has_rowset());
@@ -397,7 +397,7 @@ TEST_F(sql_test, uuid_literal) {
 TEST_F(sql_test, uuid_argument) {
     uuid req{0x123e4567e89b12d3, 0x7456426614174000};
     auto result_set =
-        m_client.get_sql().execute(nullptr, {"select MAX(UUID) from TBL_ALL_COLUMNS_SQL WHERE UUID = ?"}, {req});
+        m_client.get_sql().execute(nullptr, {"select MAX(\"UUID\") from TBL_ALL_COLUMNS_SQL WHERE \"UUID\" = ?"}, {req});
 
     EXPECT_TRUE(result_set.has_rowset());
 
