@@ -45,7 +45,6 @@ import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
-import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -94,22 +93,20 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
         when(value.namedListKeys()).thenReturn(new ArrayList<>());
 
+        CatalogManager catalogManager = mock(CatalogManager.class);
+
         distributionZoneManager = new DistributionZoneManager(
+                "node",
                 null,
                 zonesConfiguration,
                 null,
                 null,
                 null,
                 null,
-                "node"
+                catalogManager
         );
 
-        commandHandler = new DdlCommandHandler(
-                distributionZoneManager,
-                mock(TableManager.class),
-                mock(DataStorageManager.class),
-                mock(CatalogManager.class)
-        );
+        commandHandler = new DdlCommandHandler(mock(TableManager.class), catalogManager);
     }
 
     @AfterEach

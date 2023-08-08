@@ -28,6 +28,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -43,6 +47,8 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -89,6 +95,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     protected MetaStorageManager metaStorageManager;
 
     VaultManager vaultMgr;
+
+    private CatalogManager catalogManager;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -139,14 +147,23 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
 
+        HybridClock clock = new HybridClockImpl();
+
+        ClockWaiter clockWaiter = new ClockWaiter(nodeName, clock);
+        components.add(clockWaiter);
+
+        catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageManager), clockWaiter);
+        components.add(catalogManager);
+
         distributionZoneManager = new DistributionZoneManager(
+                nodeName,
                 revisionUpdater,
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 vaultMgr,
-                nodeName
+                catalogManager
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.

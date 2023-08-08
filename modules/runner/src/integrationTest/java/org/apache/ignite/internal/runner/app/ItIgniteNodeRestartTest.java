@@ -345,21 +345,20 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metaStorageMgr.registerRevisionUpdateListener(function::apply);
 
+
+        var clockWaiter = new ClockWaiter(name, hybridClock);
+
+        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageMgr), clockWaiter);
+
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
-                null,
+                name,
+                registry,
                 zonesConfig,
                 tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
                 vault,
-                name
-        );
-
-        var clockWaiter = new ClockWaiter("test", hybridClock);
-
-        var catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageMgr),
-                clockWaiter
+                catalogManager
         );
 
         TableManager tableManager = new TableManager(

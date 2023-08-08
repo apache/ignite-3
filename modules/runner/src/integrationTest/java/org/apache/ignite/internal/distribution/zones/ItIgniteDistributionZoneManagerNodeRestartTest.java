@@ -58,6 +58,9 @@ import java.util.function.LongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -78,6 +81,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -216,14 +220,21 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
+        var clock = new HybridClockImpl();
+
+        var clockWaiter = new ClockWaiter(name, clock);
+
+        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageMgr), clockWaiter);
+
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
+                name,
                 revisionUpdater,
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageMgr,
                 logicalTopologyService,
                 vault,
-                name
+                catalogManager
         );
 
         // Preparing the result map.
@@ -246,6 +257,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 cmgManager,
                 metaStorageMgr,
                 clusterCfgMgr,
+                clockWaiter,
+                catalogManager,
                 distributionZoneManager
         );
 

@@ -787,7 +787,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     clusterService);
 
-            clockWaiter = new ClockWaiter("test", hybridClock);
+            clockWaiter = new ClockWaiter(name, hybridClock);
 
             catalogManager = new CatalogManagerImpl(
                     new UpdateLogImpl(metaStorageManager),
@@ -797,15 +797,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
             distributionZoneManager = new DistributionZoneManager(
+                    name,
                     registry,
                     zonesCfg,
                     tablesCfg,
                     metaStorageManager,
                     logicalTopologyService,
                     vaultManager,
-                    name
+                    catalogManager
             );
-
 
             tableManager = new TableManager(
                     name,

@@ -24,9 +24,11 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
@@ -81,13 +83,14 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         distributionZoneManager = new DistributionZoneManager(
+                "node",
                 null,
                 zonesConfiguration,
                 tablesConfiguration,
                 null,
                 null,
                 null,
-                "node"
+                mock(CatalogManager.class)
         );
     }
 
