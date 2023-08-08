@@ -93,9 +93,10 @@ public class MarshallerUtil {
         return null;
     }
 
-    public static void validateColumnType(BinaryMode colType, Class<?> cls) {
-        if (!isColumnCompatible(colType, cls)) {
-            throw new IllegalArgumentException("Column type " + colType + " is not compatible with class " + cls);
+    static void validateColumnType(MarshallerColumn col, Class<?> cls) {
+        if (!isColumnCompatible(col.type(), cls)) {
+            throw new ClassCastException("Incorrect value type for column '" + col.name() + "': class " + cls +
+                    " cannot be cast to column type " + col.type());
         }
     }
 
