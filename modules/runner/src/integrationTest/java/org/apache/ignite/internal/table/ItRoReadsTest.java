@@ -43,6 +43,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -534,7 +535,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
     private static void stopTable(Ignite node, String tableName) {
         await(((TableManager) node.tables()).dropTableAsync(tableName));
-        await(((IgniteImpl) node).distributionZoneManager().dropZone("zone_" + tableName));
+        DistributionZonesTestUtil.dropZone(((IgniteImpl) node).distributionZoneManager(), "zone_" + tableName);
     }
 
     protected static int nodes() {
