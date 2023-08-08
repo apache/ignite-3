@@ -17,26 +17,19 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import java.util.UUID;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * File transfer message types.
+ * File upload response.
  */
-@MessageGroup(groupType = 200, groupName = "FileTransfer")
-public final class FileTransferMessageType {
-    public static final short FILE_TRANSFER_INFO = 0;
-    public static final short FILE_HEADER = 1;
-    public static final short FILE_CHUNK = 2;
-    public static final short FILE_DOWNLOAD_REQUEST = 3;
-    public static final short FILE_DOWNLOAD_RESPONSE = 4;
-    public static final short FILE_UPLOAD_REQUEST = 5;
-    public static final short FILE_UPLOAD_RESPONSE = 6;
-    public static final short FILE_TRANSFER_ERROR = 7;
-    public static final short METADATA = 8;
-
+@Transferable(FileTransferMessageType.FILE_UPLOAD_RESPONSE)
+public interface FileUploadResponse extends NetworkMessage {
     /**
-     * File transferring metadata.
+     * Returns the ID of the transfer.
+     *
+     * @return Transfer ID.
      */
-    public static final class Metadata {
-    }
+    UUID transferId();
 }

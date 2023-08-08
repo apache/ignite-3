@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
-import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -26,13 +25,6 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(FileTransferMessageType.FILE_UPLOAD_REQUEST)
 public interface FileUploadRequest extends NetworkMessage {
-    /**
-     * Returns the ID of the transfer.
-     *
-     * @return Transfer ID.
-     */
-    UUID transferId();
-
     /**
      * Returns the metadata of the file transfer.
      *
