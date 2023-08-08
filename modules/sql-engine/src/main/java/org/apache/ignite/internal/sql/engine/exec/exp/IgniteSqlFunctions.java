@@ -62,6 +62,7 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteSqlFunctions {
     private static final DateTimeFormatter ISO_LOCAL_DATE_TIME_EX;
     private static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
+    private static final RoundingMode roundingMode = RoundingMode.HALF_UP;
 
     static {
         ISO_LOCAL_DATE_TIME_EX = new DateTimeFormatterBuilder()
@@ -205,98 +206,59 @@ public class IgniteSqlFunctions {
             return null;
         }
 
-        BigDecimal dec = convertToBigDecimal(value);
         int defaultPrecision = IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL);
 
-        if (checkPrecisionScaleFractionPart(value, precision, scale)) {
-            return precision == defaultPrecision ? dec : dec.setScale(scale, RoundingMode.HALF_UP);
-        }
-
         if (precision == defaultPrecision) {
+            BigDecimal dec = convertToBigDecimal(value);
             // This branch covers at least one known case: access to dynamic parameter from context.
             // In this scenario precision = DefaultTypePrecision, because types for dynamic params
             // are created by toSql(createType(param.class)).
             return dec;
         }
 
-        boolean nonZero = !dec.unscaledValue().equals(BigInteger.ZERO);
+        BigDecimal dec = processFractionData(value, precision, scale);
 
-        if (nonZero) {
-            if (scale > precision) {
+        if (dec != null) {
+            return dec;
+        } else {
+            dec = convertToBigDecimal(value);
+        }
+
+        if (scale > precision) {
+            throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+        } else {
+            int currentSignificantDigits = dec.precision() - dec.scale();
+            int expectedSignificantDigits = precision - scale;
+
+            if (currentSignificantDigits > expectedSignificantDigits) {
                 throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
-            } else {
-                int currentSignificantDigits = dec.precision() - dec.scale();
-                int expectedSignificantDigits = precision - scale;
-
-                if (currentSignificantDigits > expectedSignificantDigits) {
-                    throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
-                }
             }
         }
 
-        return dec.setScale(scale, RoundingMode.HALF_UP);
+        return dec.setScale(scale, roundingMode);
     }
 
-    /** Check precision scale for fraction numbers. */
-    private static boolean checkPrecisionScaleFractionPart(Number num, int precision, int scale) {
-        if (num.longValue() != 0) {
-            return false;
+    private static @Nullable BigDecimal processFractionData(Number value, int precision, int scale) {
+        if (value.longValue() != 0) {
+            return null;
         }
 
-        if (!(num instanceof Double) && !(num instanceof Float) && !(num instanceof BigDecimal)) {
-            return false;
+        BigDecimal num = convertToBigDecimal(value);
+
+        if (num.unscaledValue().equals(BigInteger.ZERO)) {
+            return num.setScale(scale, RoundingMode.UNNECESSARY);
         }
 
-        boolean canProcess = true;
+        // skip all fractional part after scale
+        BigDecimal num0 = num.movePointRight(scale).setScale(0, RoundingMode.DOWN);
 
-        if (num instanceof Double) {
-            Double num0 = (Double) num;
-            canProcess = !num0.isInfinite() && !num0.isNaN();
+        int numPrecision = Math.min(num0.precision(), scale);
+
+        if (numPrecision > precision) {
+            throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
         }
 
-        if (num instanceof Float) {
-            Float num0 = (Float) num;
-            canProcess = !num0.isInfinite() && !num0.isNaN();
-        }
-
-        if (canProcess) {
-            int lastSignificantDigit = 0;
-
-            String strRepr = num.toString();
-            int pos = strRepr.indexOf('.');
-
-            if (pos == -1) {
-                return false;
-            }
-
-            // fractional part
-            strRepr = strRepr.substring(pos + 1);
-
-            // length of fractional part
-            int processingDigits = strRepr.length();
-
-            // cut if scale is less than processing digits
-            if (scale < processingDigits) {
-                strRepr = strRepr.substring(0, scale);
-            }
-
-            // calculate overall processing digits
-            int digit = scale > processingDigits ? scale - processingDigits : 0;
-            for (int i = strRepr.length() - 1; i >= 0; i--) {
-                digit++;
-                if (strRepr.charAt(i) != '0') {
-                    lastSignificantDigit = digit;
-                }
-            }
-
-            if (lastSignificantDigit > precision) {
-                throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
-            }
-
-            return true;
-        }
-
-        return false;
+        return num.setScale(scale, roundingMode);
     }
 
     private static BigDecimal convertToBigDecimal(Number value) {
