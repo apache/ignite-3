@@ -19,10 +19,10 @@
 
 #include "ignite/client/detail/connection_event_handler.h"
 #include "ignite/client/detail/node_connection.h"
-#include "ignite/client/detail/protocol_context.h"
 #include "ignite/client/detail/response_handler.h"
 #include "ignite/client/detail/transaction/transaction_impl.h"
 #include "ignite/client/ignite_client_configuration.h"
+#include "ignite/protocol/protocol_context.h"
 
 #include "ignite/common/ignite_result.h"
 #include "ignite/network/async_client_pool.h"
@@ -350,7 +350,7 @@ private:
      *
      * @param context Protocol context.
      */
-    void initial_connect_result(const protocol_context &context);
+    void initial_connect_result(const protocol::protocol_context &context);
 
     /**
      * Find and return client.

@@ -21,7 +21,7 @@
 #include "ignite/odbc/config/connection_info.h"
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
 #include "ignite/odbc/odbc_error.h"
-#include "ignite/odbc/protocol_version.h"
+#include "ignite/protocol/protocol_version.h"
 
 #include "ignite/network/data_buffer.h"
 #include "ignite/network/socket_client.h"
@@ -511,7 +511,7 @@ private:
     std::unique_ptr<network::socket_client> m_socket;
 
     /** Protocol version. */
-    protocol_version m_protocol_version;
+    protocol::protocol_version m_protocol_version;
 
     /** Request ID generator. */
     std::atomic_int64_t m_req_id_gen{0};

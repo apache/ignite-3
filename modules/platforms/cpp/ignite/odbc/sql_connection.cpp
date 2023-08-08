@@ -30,7 +30,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <cstring>
 #include <random>
 #include <sstream>
 
@@ -159,7 +158,7 @@ sql_result sql_connection::internal_release() {
         add_status_record(sql_state::S08003_NOT_CONNECTED, "Connection is not open.");
 
         // It is important to return SUCCESS_WITH_INFO and not ERROR here, as if we return an error, Windows
-        // Driver Manager may decide that connection is not valid anymore which results in memory leak.
+        // Driver Manager may decide that connection is not valid anymore, which results in memory leak.
         return sql_result::AI_SUCCESS_WITH_INFO;
     }
 
@@ -591,7 +590,7 @@ std::vector<std::byte> sql_connection::make_request(
 
 sql_result sql_connection::make_request_handshake() {
     static constexpr int8_t ODBC_CLIENT = 3;
-    m_protocol_version = protocol_version::get_current();
+    m_protocol_version = protocol::protocol_version::get_current();
 
     try {
         std::vector<std::byte> message;
@@ -602,7 +601,7 @@ sql_result sql_connection::make_request_handshake() {
             protocol::write_message_to_buffer(buffer, [&ver = m_protocol_version](protocol::writer &writer) {
                 writer.write(ver.get_major());
                 writer.write(ver.get_minor());
-                writer.write(ver.get_maintenance());
+                writer.write(ver.get_patch());
 
                 writer.write(ODBC_CLIENT);
 
@@ -650,11 +649,11 @@ sql_result sql_connection::make_request_handshake() {
         auto ver_minor = reader.read_int16();
         auto ver_patch = reader.read_int16();
 
-        protocol_version ver(ver_major, ver_minor, ver_patch);
+        protocol::protocol_version ver(ver_major, ver_minor, ver_patch);
         LOG_MSG("Server-side protocol version: " << ver.to_string());
 
         // We now only support a single version
-        if (ver != protocol_version::get_current()) {
+        if (ver != protocol::protocol_version::get_current()) {
             add_status_record(
                 sql_state::S08004_CONNECTION_REJECTED, "Unsupported server version: " + ver.to_string() + ".");
             return sql_result::AI_ERROR;

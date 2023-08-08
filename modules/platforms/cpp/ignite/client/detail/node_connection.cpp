@@ -64,9 +64,9 @@ bool node_connection::handshake() {
             buffer, [&context = m_protocol_context, &extensions](protocol::writer &writer) {
                 auto ver = context.get_version();
 
-                writer.write(ver.major());
-                writer.write(ver.minor());
-                writer.write(ver.patch());
+                writer.write(ver.get_major());
+                writer.write(ver.get_minor());
+                writer.write(ver.get_patch());
 
                 writer.write(CLIENT_TYPE);
 
@@ -131,11 +131,11 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
     auto ver_minor = reader.read_int16();
     auto ver_patch = reader.read_int16();
 
-    protocol_version ver(ver_major, ver_minor, ver_patch);
+    protocol::protocol_version ver(ver_major, ver_minor, ver_patch);
     m_logger->log_debug("Server-side protocol version: " + ver.to_string());
 
     // We now only support a single version
-    if (ver != protocol_context::CURRENT_VERSION)
+    if (ver != protocol::protocol_version::get_current())
         return {ignite_error("Unsupported server version: " + ver.to_string())};
 
     auto err = protocol::read_error(reader);

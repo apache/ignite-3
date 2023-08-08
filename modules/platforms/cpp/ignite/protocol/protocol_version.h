@@ -18,10 +18,11 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <set>
 #include <string>
 
-namespace ignite {
+namespace ignite::protocol {
 
 /** Protocol version. */
 class protocol_version {
@@ -37,14 +38,14 @@ public:
      *
      * @return String to version map.
      */
-    static const version_set &get_supported();
+    static const version_set &get_supported(){ return m_supported; }
 
     /**
      * Get current version.
      *
      * @return Current version.
      */
-    static const protocol_version &get_current();
+    static const protocol_version &get_current() { return VERSION_3_0_0; }
 
     /**
      * Parse string and extract protocol version.
@@ -53,7 +54,7 @@ public:
      * @param version Version string to parse.
      * @return Protocol version.
      */
-    static protocol_version from_string(const std::string &version);
+    static std::optional<protocol_version> from_string(const std::string &version);
 
     /**
      * Convert to string value.
@@ -72,40 +73,40 @@ public:
      *
      * @param vmajor Major version part.
      * @param vminor Minor version part.
-     * @param vmaintenance Maintenance version part.
+     * @param vpatch Patch version part.
      */
-    protocol_version(std::int16_t vmajor, std::int16_t vminor, std::int16_t vmaintenance)
+    protocol_version(std::int16_t vmajor, std::int16_t vminor, std::int16_t vpatch)
         : m_major(vmajor)
         , m_minor(vminor)
-        , m_maintenance(vmaintenance) {}
+        , m_patch(vpatch) {}
 
     /**
      * Get major part.
      *
      * @return Major part.
      */
-    [[nodiscard]] std::int16_t get_major() const;
+    [[nodiscard]] std::int16_t get_major() const { return m_major; }
 
     /**
      * Get minor part.
      *
      * @return Minor part.
      */
-    [[nodiscard]] std::int16_t get_minor() const;
+    [[nodiscard]] std::int16_t get_minor() const { return m_minor; }
 
     /**
-     * Get maintenance part.
+     * Get patch part.
      *
-     * @return Maintenance part.
+     * @return Patch part.
      */
-    [[nodiscard]] std::int16_t get_maintenance() const;
+    [[nodiscard]] std::int16_t get_patch() const { return m_patch; }
 
     /**
      * Check if the version is supported.
      *
      * @return True if the version is supported.
      */
-    [[nodiscard]] bool is_supported() const;
+    [[nodiscard]] bool is_supported() const { return m_supported.count(*this) != 0; }
 
     /**
      * compare to another value.
@@ -114,60 +115,6 @@ public:
      * @return Zero if equals, negative number if less and positive if more.
      */
     [[nodiscard]] std::int32_t compare(const protocol_version &other) const;
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if equal.
-     */
-    friend bool operator==(const protocol_version &val1, const protocol_version &val2);
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if not equal.
-     */
-    friend bool operator!=(const protocol_version &val1, const protocol_version &val2);
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if less.
-     */
-    friend bool operator<(const protocol_version &val1, const protocol_version &val2);
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if less or equal.
-     */
-    friend bool operator<=(const protocol_version &val1, const protocol_version &val2);
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if greater.
-     */
-    friend bool operator>(const protocol_version &val1, const protocol_version &val2);
-
-    /**
-     * Comparison operator.
-     *
-     * @param val1 First value.
-     * @param val2 Second value.
-     * @return True if greater or equal.
-     */
-    friend bool operator>=(const protocol_version &val1, const protocol_version &val2);
 
 private:
     /** Set of supported versions. */
@@ -179,8 +126,74 @@ private:
     /** Minor part. */
     std::int16_t m_minor{0};
 
-    /** Maintenance part. */
-    std::int16_t m_maintenance{0};
+    /** Patch part. */
+    std::int16_t m_patch{0};
 };
 
-} // namespace ignite
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if equal.
+ */
+inline bool operator==(const protocol_version &val1, const protocol_version &val2) {
+    return val1.compare(val2) == 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if not equal.
+ */
+inline bool operator!=(const protocol_version &val1, const protocol_version &val2) {
+    return val1.compare(val2) != 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if less.
+ */
+inline bool operator<(const protocol_version &val1, const protocol_version &val2) {
+    return val1.compare(val2) < 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if less or equal.
+ */
+inline bool operator<=(const protocol_version &val1, const protocol_version &val2) {
+    return val1.compare(val2) <= 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if greater.
+ */
+inline bool operator>(const protocol_version &val1, const protocol_version &val2) {
+    return val1.compare(val2) > 0;
+}
+
+/**
+ * Comparison operator.
+ *
+ * @param val1 First value.
+ * @param val2 Second value.
+ * @return True if greater or equal.
+ */
+inline bool operator>=(const protocol_version &val1, const protocol_version &val2) {
+    return val1.compare(val2) >= 0;
+}
+
+} // namespace ignite::protocol

@@ -18,7 +18,7 @@
 #pragma once
 
 #include <ignite/client/detail/connection_event_handler.h>
-#include <ignite/client/detail/protocol_context.h>
+#include "ignite/protocol/protocol_context.h"
 #include <ignite/client/detail/response_handler.h>
 #include <ignite/client/ignite_client_configuration.h>
 #include <ignite/protocol/client_operation.h>
@@ -192,7 +192,7 @@ public:
      *
      * @return Protocol context.
      */
-    const protocol_context &get_protocol_context() const { return m_protocol_context; }
+    const protocol::protocol_context &get_protocol_context() const { return m_protocol_context; }
 
 private:
     /**
@@ -227,7 +227,7 @@ private:
     bool m_handshake_complete{false};
 
     /** Protocol context. */
-    protocol_context m_protocol_context;
+    protocol::protocol_context m_protocol_context;
 
     /** Connection ID. */
     uint64_t m_id{0};
