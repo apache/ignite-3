@@ -199,7 +199,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
     protected static class IncompletePojo {
         public byte zbyte;
         public String id;
-        public int gid;
+        public long gid;
         public String zstring;
         public byte[] zbytes;
     }
@@ -207,36 +207,12 @@ public class AbstractClientTableTest extends AbstractClientTest {
     /** Composite key. */
     protected static class CompositeKeyPojo {
         public String id;
-        public int gid;
-    }
-
-    /** Partial column set. */
-    protected static class IncompletePojoNullable {
-        public int gid;
-        public String id;
-        public Boolean zboolean;
-        public Byte zbyte;
-        public Short zshort;
-        public Integer zint;
-        public Long zlong;
-        public Float zfloat;
-        public Double zdouble;
-    }
-
-    /** Partial column set. */
-    protected static class IncompleteValPojoNullable {
-        public Boolean zboolean;
-        public Byte zbyte;
-        public Short zshort;
-        public Integer zint;
-        public Long zlong;
-        public Float zfloat;
-        public Double zdouble;
+        public long gid;
     }
 
     /** Columns of all types. */
     protected static class AllColumnsPojo {
-        public int gid;
+        public long gid;
         public String id;
         public boolean zboolean;
         public byte zbyte;
@@ -258,7 +234,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
 
     /** Columns of all types. */
     protected static class AllColumnsPojoNullable {
-        public Integer gid;
+        public Long gid;
         public String id;
         public Boolean zboolean;
         public Byte zbyte;
@@ -323,13 +299,13 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public int id;
         public String str;
         public String strNonNull;
-        public BigDecimal num;
+        public Byte num;
     }
 
     /** Columns with default values. */
     protected static class DefaultValuesValPojo {
         public String str;
         public String strNonNull;
-        public BigDecimal num;
+        public Byte num;
     }
 }

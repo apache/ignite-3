@@ -51,6 +51,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -237,7 +238,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testObservableTimestamp() {
-        int compareThreshold = 50;
+        long compareThreshold = 50;
         // Check that idle safe time propagation period is significantly greater than compareThreshold.
         assertTrue(IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + CLOCK_SKEW > compareThreshold * 5);
 
@@ -260,7 +261,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         tx = txManager.begin(true, timestampInPast);
 
         long readTime = now.getPhysical() - IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS - CLOCK_SKEW;
-        assertTrue(abs(readTime - tx.readTimestamp().getPhysical()) < compareThreshold);
+        assertThat(abs(readTime - tx.readTimestamp().getPhysical()), Matchers.lessThan(compareThreshold));
         tx.commit();
 
         assertThrows(AssertionError.class, () -> txManager.begin(false, now));

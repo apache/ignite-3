@@ -131,6 +131,15 @@ public interface PartitionDataStorage extends ManuallyCloseable {
             throws TxIdMismatchException, StorageException;
 
     /**
+     * Write and commit the row in one step.
+     *
+     * @param rowId Row id.
+     * @param row Row (null to remove existing)
+     * @param commitTs Commit timestamp.
+     */
+    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs);
+
+    /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
      *
      * <p>This must be called under a lock acquired using {@link #acquirePartitionSnapshotsReadLock()}.

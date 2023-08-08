@@ -37,6 +37,8 @@ import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
+import org.apache.ignite.internal.cli.event.EventPublisher;
+import org.apache.ignite.internal.cli.event.Events;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
@@ -58,18 +60,22 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
 
     private final JdbcUrlFactory jdbcUrlFactory;
 
-    private ConfigManagerProvider configManagerProvider;
+    private final ConfigManagerProvider configManagerProvider;
+
+    private final EventPublisher eventPublisher;
 
     /**
      * Constructor.
      */
     public ConnectCall(Session session, StateConfigProvider stateConfigProvider, ApiClientFactory clientFactory,
-            JdbcUrlFactory jdbcUrlFactory, ConfigManagerProvider configManagerProvider) {
+            JdbcUrlFactory jdbcUrlFactory, ConfigManagerProvider configManagerProvider,
+            EventPublisher eventPublisher) {
         this.session = session;
         this.stateConfigProvider = stateConfigProvider;
         this.clientFactory = clientFactory;
         this.jdbcUrlFactory = jdbcUrlFactory;
         this.configManagerProvider = configManagerProvider;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -94,11 +100,13 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
 
             stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), nodeUrl);
 
-            session.connect(sessionInfo);
+            eventPublisher.publish(Events.connect(sessionInfo));
 
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
         } catch (Exception e) {
-            session.disconnect();
+            if (session.info() != null) {
+                eventPublisher.publish(Events.disconnect());
+            }
             return DefaultCallOutput.failure(handleException(e, nodeUrl));
         }
     }
@@ -137,7 +145,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
         String configuration = new NodeConfigurationApi(apiClient).getNodeConfiguration();
         String nodeName = new NodeManagementApi(apiClient).nodeState().getName();
         String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(configuration, nodeUrl);
-        return new SessionInfo(nodeUrl, nodeName, jdbcUrl, username);
+        return SessionInfo.builder().nodeUrl(nodeUrl).nodeName(nodeName).jdbcUrl(jdbcUrl).username(username).build();
     }
 
     private static IgniteCliApiException handleException(Exception e, String nodeUrl) {

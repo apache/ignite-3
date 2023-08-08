@@ -187,8 +187,8 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
     /** {@inheritDoc} */
     @Override
     public  <C> @Nullable C unwrap(Class<C> cls) {
-        if (cls.isInstance(this)) {
-            return cls.cast(this);
+        if (cls.isInstance(desc)) {
+            return cls.cast(desc);
         }
 
         return super.unwrap(cls);

@@ -230,11 +230,7 @@ public class FSMCallerImpl implements FSMCaller {
             return false;
         }
 
-        if (!this.taskQueue.tryPublishEvent(tpl)) {
-            setError(new RaftException(ErrorType.ERROR_TYPE_STATE_MACHINE, new Status(RaftError.EBUSY,
-                "FSMCaller is overload.")));
-            return false;
-        }
+        this.taskQueue.publishEvent(tpl);
         return true;
     }
 

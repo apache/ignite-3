@@ -20,7 +20,7 @@ package org.apache.ignite.internal.cli.commands.questions;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.internal.cli.core.style.component.QuestionUiComponent.fromYesNoQuestion;
-import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
+import static org.apache.ignite.lang.util.StringUtils.nullOrBlank;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
