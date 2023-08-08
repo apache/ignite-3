@@ -17,16 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.calcite.sql.type.SqlTypeName.APPROX_TYPES;
-import static org.apache.calcite.sql.type.SqlTypeName.DAY_INTERVAL_TYPES;
-import static org.apache.calcite.sql.type.SqlTypeName.EXACT_TYPES;
-import static org.apache.calcite.sql.type.SqlTypeName.NUMERIC_TYPES;
-import static org.apache.calcite.sql.type.SqlTypeName.YEAR_INTERVAL_TYPES;
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
-import com.google.common.collect.ImmutableSet;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -43,8 +37,6 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.EnumMap;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -73,7 +65,6 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeCoercionRule;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -181,56 +172,7 @@ public final class Commons {
     }
 
     private static SqlTypeCoercionRule standardCompatibleCoercionRules() {
-        Map<SqlTypeName, ImmutableSet<SqlTypeName>> mappings = new EnumMap<>(SqlTypeCoercionRule.instance()
-                .getTypeMapping());
-
-        EnumSet<SqlTypeName> fromTypes;
-
-        fromTypes = EnumSet.copyOf(mappings.get(SqlTypeName.BOOLEAN));
-        fromTypes.removeAll(NUMERIC_TYPES);
-        mappings.put(SqlTypeName.BOOLEAN, ImmutableSet.<SqlTypeName>builder().addAll(fromTypes).build());
-
-        for (SqlTypeName type : EXACT_TYPES) {
-            fromTypes = EnumSet.copyOf(mappings.get(type));
-            fromTypes.remove(SqlTypeName.BOOLEAN);
-            fromTypes.remove(SqlTypeName.TIMESTAMP);
-            fromTypes.removeAll(YEAR_INTERVAL_TYPES);
-            fromTypes.removeAll(DAY_INTERVAL_TYPES);
-            mappings.put(type, ImmutableSet.<SqlTypeName>builder().addAll(fromTypes).build());
-        }
-
-        for (SqlTypeName type : APPROX_TYPES) {
-            fromTypes = EnumSet.copyOf(mappings.get(type));
-            fromTypes.remove(SqlTypeName.BOOLEAN);
-
-            fromTypes.remove(SqlTypeName.TIMESTAMP);
-            fromTypes.addAll(EXACT_TYPES);
-            mappings.put(type, ImmutableSet.<SqlTypeName>builder().addAll(fromTypes).build());
-        }
-
-        for (SqlTypeName type : List.of(SqlTypeName.DATE, SqlTypeName.TIME, SqlTypeName.TIMESTAMP)) {
-            fromTypes = EnumSet.copyOf(mappings.get(type));
-            fromTypes.remove(SqlTypeName.VARBINARY);
-            mappings.put(type, ImmutableSet.<SqlTypeName>builder().addAll(fromTypes).build());
-        }
-
-        fromTypes = EnumSet.copyOf(mappings.get(SqlTypeName.TIMESTAMP));
-        fromTypes.removeAll(NUMERIC_TYPES);
-        mappings.put(SqlTypeName.TIMESTAMP, ImmutableSet.<SqlTypeName>builder().addAll(fromTypes).build());
-
-        for (SqlTypeName type : YEAR_INTERVAL_TYPES) {
-            fromTypes = EnumSet.copyOf(mappings.get(type));
-            fromTypes.removeAll(NUMERIC_TYPES);
-            mappings.put(type, ImmutableSet.<SqlTypeName>builder().addAll(fromTypes).build());
-        }
-
-        for (SqlTypeName type : DAY_INTERVAL_TYPES) {
-            fromTypes = EnumSet.copyOf(mappings.get(type));
-            fromTypes.removeAll(NUMERIC_TYPES);
-            mappings.put(type, ImmutableSet.<SqlTypeName>builder().addAll(fromTypes).build());
-        }
-
-        return SqlTypeCoercionRule.instance(mappings);
+        return SqlTypeCoercionRule.instance(IgniteCustomAssigmentsRules.instance().getTypeMapping());
     }
 
     /**

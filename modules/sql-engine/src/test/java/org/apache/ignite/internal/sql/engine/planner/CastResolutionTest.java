@@ -191,6 +191,8 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
         VARBINARY(SqlTypeName.VARBINARY.getName(), charAndBinaryNames),
 
+        BINARY(SqlTypeName.BINARY.getName(), charAndBinaryNames),
+
         DATE(SqlTypeName.DATE.getName(), charAndTs),
 
         TIME(SqlTypeName.TIME.getName(), charAndTs),
