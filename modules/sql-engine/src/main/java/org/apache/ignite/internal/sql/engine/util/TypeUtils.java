@@ -650,7 +650,7 @@ public class TypeUtils {
                 // YEAR MONTH interval is stored as number of days in ints.
                 return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.INT32, nullable);
             } else {
-                // DAY interval is stored as time in nanos as long.
+                // DAY interval is stored as time as long.
                 return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.INT64, nullable);
             }
         } else if (SqlTypeUtil.isRow(type)) {
