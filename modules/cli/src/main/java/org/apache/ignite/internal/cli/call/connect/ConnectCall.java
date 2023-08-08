@@ -31,7 +31,6 @@ import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
-import org.apache.ignite.internal.cli.core.exception.handler.IgniteCliApiExceptionHandler;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
@@ -43,7 +42,6 @@ import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.model.Problem;
 import org.jetbrains.annotations.Nullable;
 
 
