@@ -372,6 +372,7 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
                 arguments(CaseStatus.RUN, numeric, "100", decimalType(3, 0), bigDecimalVal("100")),
                 // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
                 arguments(CaseStatus.SKIP, numeric, "100.12", decimalType(5, 1), bigDecimalVal("100.1")),
+                arguments(CaseStatus.SKIP, numeric, "100.16", decimalType(5, 1), bigDecimalVal("100.2")),
                 arguments(CaseStatus.SKIP, numeric, "100.12", decimalType(5, 0), bigDecimalVal("100")),
                 arguments(CaseStatus.SKIP, numeric, "100", decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR))
         );
