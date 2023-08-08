@@ -26,17 +26,15 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.cluster.unit.ClusterListUnitCall;
 import org.apache.ignite.internal.cli.call.unit.ListUnitCallInput;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
-import org.apache.ignite.internal.cli.core.repl.ConnectEvent;
+import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
-import org.apache.ignite.internal.cli.event.Event;
-import org.apache.ignite.internal.cli.event.EventListener;
-import org.apache.ignite.internal.cli.event.EventType;
+import org.apache.ignite.internal.cli.event.AsyncConnectionEventListener;
 import org.apache.ignite.rest.client.model.UnitStatus;
 import org.apache.ignite.rest.client.model.UnitVersionStatus;
 
 /** Implementation of {@link UnitsRegistry}. */
 @Singleton
-public class UnitsRegistryImpl implements UnitsRegistry, EventListener {
+public class UnitsRegistryImpl extends AsyncConnectionEventListener implements UnitsRegistry {
 
     private final AtomicReference<String> lastKnownUrl = new AtomicReference<>(null);
 
@@ -48,15 +46,9 @@ public class UnitsRegistryImpl implements UnitsRegistry, EventListener {
         this.call = call;
     }
 
-
     @Override
-    public void onEvent(Event event) {
-        if (EventType.CONNECT == event.eventType()) {
-            ConnectEvent connectEvent = (ConnectEvent) event;
-            updateState(connectEvent.sessionInfo().nodeUrl());
-        } else if (EventType.DISCONNECT == event.eventType()) {
-            idToVersionsRef = null;
-        }
+    public void onConnect(SessionInfo sessionInfo) {
+        updateState(sessionInfo.nodeUrl());
     }
 
     private void updateState(String url) {
@@ -82,6 +74,11 @@ public class UnitsRegistryImpl implements UnitsRegistry, EventListener {
     }
 
     @Override
+    public void onDisconnect() {
+        idToVersionsRef = null;
+    }
+
+    @Override
     public Set<String> versions(String unitId) {
         return (idToVersionsRef == null || idToVersionsRef.get() == null)
                 ? Set.of()
@@ -97,7 +94,7 @@ public class UnitsRegistryImpl implements UnitsRegistry, EventListener {
 
     @Override
     public void refresh() {
-        idToVersionsRef = null;
+        onDisconnect();
         updateState(lastKnownUrl.get());
     }
 }

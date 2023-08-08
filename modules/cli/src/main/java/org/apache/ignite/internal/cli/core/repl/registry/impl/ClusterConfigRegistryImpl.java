@@ -24,21 +24,17 @@ import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.internal.cli.call.configuration.JsonString;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.internal.cli.core.repl.ConnectEvent;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.ClusterConfigRegistry;
-import org.apache.ignite.internal.cli.event.Event;
-import org.apache.ignite.internal.cli.event.EventListener;
-import org.apache.ignite.internal.cli.event.EventType;
+import org.apache.ignite.internal.cli.event.AsyncConnectionEventListener;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link ClusterConfigRegistry}. */
 @Singleton
-public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, EventListener {
+public class ClusterConfigRegistryImpl extends AsyncConnectionEventListener implements ClusterConfigRegistry {
 
     private final ClusterConfigShowCall clusterConfigShowCall;
 
-    @Nullable
     private LazyObjectRef<Config> configRef;
 
     public ClusterConfigRegistryImpl(ClusterConfigShowCall clusterConfigShowCall) {
@@ -46,13 +42,8 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, EventLi
     }
 
     @Override
-    public void onEvent(Event event) {
-        if (EventType.CONNECT == event.eventType()) {
-            ConnectEvent connectEvent = (ConnectEvent) event;
-            configRef = new LazyObjectRef<>(() -> fetchConfig(connectEvent.sessionInfo()));
-        } else if (EventType.DISCONNECT == event.eventType()) {
-            configRef = null;
-        }
+    public void onConnect(SessionInfo sessionInfo) {
+        configRef = new LazyObjectRef<>(() -> fetchConfig(sessionInfo));
     }
 
     @Nullable
@@ -63,6 +54,11 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, EventLi
             return null;
         }
         return ConfigFactory.parseString(output.body().getValue());
+    }
+
+    @Override
+    public void onDisconnect() {
+        configRef = null;
     }
 
     /** {@inheritDoc} */

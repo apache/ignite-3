@@ -25,18 +25,15 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.node.metric.NodeMetricSourceListCall;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.UrlCallInput;
-import org.apache.ignite.internal.cli.core.repl.ConnectEvent;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.MetricRegistry;
-import org.apache.ignite.internal.cli.event.Event;
-import org.apache.ignite.internal.cli.event.EventListener;
-import org.apache.ignite.internal.cli.event.EventType;
+import org.apache.ignite.internal.cli.event.AsyncConnectionEventListener;
 import org.apache.ignite.rest.client.model.MetricSource;
 import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link MetricRegistry}. */
 @Singleton
-public class MetricRegistryImpl implements MetricRegistry, EventListener {
+public class MetricRegistryImpl extends AsyncConnectionEventListener implements MetricRegistry {
 
     @Inject
     private NodeMetricSourceListCall metricSourceListCall;
@@ -50,14 +47,14 @@ public class MetricRegistryImpl implements MetricRegistry, EventListener {
                 : metricSourcesRef.get();
     }
 
+    /**
+     * Gets list of metric sources from the node.
+     *
+     * @param sessionInfo sessionInfo.
+     */
     @Override
-    public void onEvent(Event event) {
-        if (EventType.CONNECT == event.eventType()) {
-            ConnectEvent connectEvent = (ConnectEvent) event;
-            metricSourcesRef = new LazyObjectRef<>(() -> fetchMetricSources(connectEvent.sessionInfo()));
-        } else if (EventType.DISCONNECT == event.eventType()) {
-            metricSourcesRef = null;
-        }
+    public void onConnect(SessionInfo sessionInfo) {
+        metricSourcesRef = new LazyObjectRef<>(() -> fetchMetricSources(sessionInfo));
     }
 
     @Nullable
@@ -69,5 +66,10 @@ public class MetricRegistryImpl implements MetricRegistry, EventListener {
         return output.body().stream()
                 .map(MetricSource::getName)
                 .collect(Collectors.toSet());
+    }
+
+    @Override
+    public void onDisconnect() {
+        metricSourcesRef = null;
     }
 }

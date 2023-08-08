@@ -24,9 +24,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.cli.event.Event;
-import org.apache.ignite.internal.cli.event.EventListener;
-import org.apache.ignite.internal.cli.event.EventType;
+import org.apache.ignite.internal.cli.event.AsyncConnectionEventListener;
 import org.apache.ignite.internal.cli.logger.CliLoggers;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -34,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Executes tasks periodically while the session is connected. */
 @Singleton
-public class PeriodicSessionTaskExecutor implements EventListener {
+public class PeriodicSessionTaskExecutor extends AsyncConnectionEventListener {
     private static final IgniteLogger LOG = CliLoggers.forClass(PeriodicSessionTaskExecutor.class);
 
     @Nullable
@@ -47,23 +45,15 @@ public class PeriodicSessionTaskExecutor implements EventListener {
     }
 
     @Override
-    public void onEvent(Event event) {
-        if (EventType.CONNECT == event.eventType()) {
-            ConnectEvent connectEvent = (ConnectEvent) event;
-            onConnect(connectEvent.sessionInfo());
-        } else if (EventType.DISCONNECT == event.eventType()) {
-            onDisconnect();
-        }
-    }
-
-    private synchronized void onConnect(SessionInfo sessionInfo) {
+    public synchronized void onConnect(SessionInfo sessionInfo) {
         if (executor == null) {
             executor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("SessionTaskExecutor", LOG));
             executor.scheduleWithFixedDelay(() -> runTasks(sessionInfo), 0, 5, TimeUnit.SECONDS);
         }
     }
 
-    private synchronized void onDisconnect() {
+    @Override
+    public synchronized void onDisconnect() {
         if (executor != null) {
             shutdownAndAwaitTermination(executor, 3, TimeUnit.SECONDS);
             tasks.forEach(PeriodicSessionTask::onDisconnect);
