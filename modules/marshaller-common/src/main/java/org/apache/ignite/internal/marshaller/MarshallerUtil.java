@@ -95,8 +95,11 @@ public class MarshallerUtil {
 
     static void validateColumnType(MarshallerColumn col, Class<?> cls) {
         if (!isColumnCompatible(col.type(), cls)) {
-            throw new ClassCastException("Incorrect value type for column '" + col.name() + "': " + cls +
-                    " cannot be cast to column type " + col.type());
+            // Exception message is similar to embedded mode - see o.a.i.i.schema.Column#validate
+            throw new ClassCastException("Column's type mismatch ["
+                    + "column=" + col.name()
+                    + ", expectedType=" + col.type()
+                    + ", actualType=" + cls + ']');
         }
     }
 
