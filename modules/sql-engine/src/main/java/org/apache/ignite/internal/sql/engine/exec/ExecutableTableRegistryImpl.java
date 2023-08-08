@@ -74,16 +74,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
     // TODO IGNITE-19499: Drop this temporal method to get table by name.
     @Override
     public CompletableFuture<ExecutableTable> getTable(int tableId, String tableName, TableDescriptor tableDescriptor) {
-        return tableCache.computeIfAbsent(tableId, (k) -> loadTable(tableName, tableDescriptor));
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public void onSchemaUpdated() {
-        tableCache.clear();
-    }
-    private CompletableFuture<ExecutableTable> loadTable(String tableName, TableDescriptor tableDescriptor) {
         return tableManager.tableAsyncInternal(tableName.toUpperCase())
                 .thenApply(table -> {
                     InternalTable internalTable = table.internalTable();
@@ -97,6 +87,12 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
                     return new ExecutableTableImpl(internalTable, scannableTable, updatableTable);
                 });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onSchemaUpdated() {
+        tableCache.clear();
     }
 
     private CompletableFuture<ExecutableTable> loadTable(int tableId, TableDescriptor tableDescriptor) {

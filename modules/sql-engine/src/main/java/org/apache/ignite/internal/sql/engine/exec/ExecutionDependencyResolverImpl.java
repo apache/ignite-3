@@ -47,7 +47,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
      * {@inheritDoc}
      */
     @Override
-    public CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, long schemaVersion) {
+    public CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, int schemaVersion) {
         Map<Integer, CompletableFuture<ExecutableTable>> tableMap = new HashMap<>();
 
         IgniteRelShuttle shuttle = new IgniteRelShuttle() {

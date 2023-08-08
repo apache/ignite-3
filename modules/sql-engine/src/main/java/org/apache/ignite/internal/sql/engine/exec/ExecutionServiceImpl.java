@@ -607,7 +607,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             start.thenCompose(none -> {
                 IgniteRel treeRoot = relationalTreeFromJsonString(fragmentString, ctx);
-                long schemaVersion = ctx.schemaVersion();
+                int schemaVersion = ctx.schemaVersion();
 
                 return dependencyResolver.resolveDependencies(List.of(treeRoot), schemaVersion).thenComposeAsync(deps -> {
                     return executeFragment(treeRoot, deps, context);

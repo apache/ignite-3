@@ -79,12 +79,9 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public SchemaPlus schema(@Nullable String name, long timestamp) {
-        String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
-
         int schemaVersion = catalogManager.activeCatalogVersion(timestamp);
 
-        Entry<String, Integer> entry = Map.entry(schemaName, schemaVersion);
-        return cache.computeIfAbsent(entry, (e) -> createSqlSchema(e.getValue(), catalogManager.schema(e.getKey(), e.getValue())));
+        return schema(name, schemaVersion);
     }
 
     /** {@inheritDoc} */
