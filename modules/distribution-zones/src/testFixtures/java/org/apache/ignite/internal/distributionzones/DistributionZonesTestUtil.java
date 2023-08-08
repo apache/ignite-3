@@ -72,7 +72,6 @@ import org.jetbrains.annotations.Nullable;
  * Utils to manage distribution zones inside tests.
  */
 public class DistributionZonesTestUtil {
-
     /**
      * Creates distribution zone.
      *
