@@ -182,6 +182,6 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     private void dropZone(String zoneName) {
-        DistributionZonesTestUtil.dropZone(distributionZoneManager, zoneName);
+        DistributionZonesTestUtil.dropZone(catalogManager, zoneName);
     }
 }

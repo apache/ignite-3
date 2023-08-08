@@ -270,6 +270,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     }
 
     private void dropZone(String zoneName) {
-        DistributionZonesTestUtil.dropZone(distributionZoneManager, zoneName);
+        DistributionZonesTestUtil.dropZone(catalogManager, zoneName);
     }
 }

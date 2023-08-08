@@ -113,9 +113,6 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
-import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
@@ -447,71 +444,6 @@ public class DistributionZoneManager implements IgniteComponent {
                     fut.complete(null);
                 }
             });
-
-            return fut;
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Drops a distribution zone with the name specified.
-     *
-     * @param name Distribution zone name.
-     * @return Future representing pending completion of the operation. Future can be completed with:
-     *      {@link DistributionZoneNotFoundException} if a zone with the given name doesn't exist,
-     *      {@link IllegalArgumentException} if {@code name} is {@code null} or distribution zone name is {@code DEFAULT_ZONE_NAME},
-     *      {@link DistributionZoneBindTableException} if the zone is bound to table,
-     *      {@link NodeStoppingException} if the node is stopping.
-     */
-    public CompletableFuture<Void> dropZone(String name) {
-        if (name == null || name.isEmpty()) {
-            return failedFuture(new IllegalArgumentException("Distribution zone name is null or empty [name=" + name + ']'));
-        }
-
-        if (DEFAULT_ZONE_NAME.equals(name)) {
-            return failedFuture(new IllegalArgumentException("Default distribution zone cannot be dropped."));
-        }
-
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            CompletableFuture<Void> fut = new CompletableFuture<>();
-
-            zonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(zonesListChange -> {
-                DistributionZoneView zoneView = zonesListChange.get(name);
-
-                if (zoneView == null) {
-                    throw new DistributionZoneNotFoundException(name);
-                }
-
-                NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = tablesConfiguration.tables();
-
-                for (int i = 0; i < tables.value().size(); i++) {
-                    TableView tableView = tables.value().get(i);
-                    int tableZoneId = tableView.zoneId();
-
-                    if (zoneView.zoneId() == tableZoneId) {
-                        throw new DistributionZoneBindTableException(name, tableView.name());
-                    }
-                }
-
-                zonesListChange.delete(name);
-            }))
-                    .whenComplete((res, e) -> {
-                        if (e != null) {
-                            fut.completeExceptionally(
-                                    unwrapDistributionZoneException(
-                                            e,
-                                            DistributionZoneNotFoundException.class,
-                                            DistributionZoneBindTableException.class)
-                            );
-                        } else {
-                            fut.complete(null);
-                        }
-                    });
 
             return fut;
         } finally {

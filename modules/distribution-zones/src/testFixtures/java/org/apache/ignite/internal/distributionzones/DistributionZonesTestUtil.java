@@ -55,6 +55,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
+import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -540,16 +541,13 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Drops a distribution zone in the configuration.
+     * Drops a distribution zone from the catalog.
      *
-     * @param distributionZoneManager Distributed zone manager.
+     * @param catalogManager Catalog manager.
      * @param zoneName Zone name.
      */
-    public static void dropZone(
-            DistributionZoneManager distributionZoneManager,
-            String zoneName
-    ) {
-        assertThat(distributionZoneManager.dropZone(zoneName), willCompleteSuccessfully());
+    public static void dropZone(CatalogManager catalogManager, String zoneName) {
+        assertThat(catalogManager.dropZone(DropZoneParams.builder().zoneName(zoneName).build()), willCompleteSuccessfully());
     }
 
     private static DistributionZoneConfigurationParameters createParameters(

@@ -221,6 +221,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     }
 
     protected void dropZone(String zoneName) {
-        DistributionZonesTestUtil.dropZone(distributionZoneManager, zoneName);
+        DistributionZonesTestUtil.dropZone(catalogManager, zoneName);
     }
 }
