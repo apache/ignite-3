@@ -517,7 +517,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     } catch (ConfigurationNodeAlreadyExistException e) {
                         throw new DistributionZoneAlreadyExistsException(distributionZoneCfg.name(), e);
                     } catch (ConfigurationNodeDoesNotExistException | ConfigurationNodeRemovedException e) {
-                        throw new DistributionZoneNotFoundException(distributionZoneCfg.name(), e);
+                        throw new DistributionZoneNotFoundException(name, e);
                     }
 
                     try {
