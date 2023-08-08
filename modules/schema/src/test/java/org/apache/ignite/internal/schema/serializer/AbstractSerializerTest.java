@@ -45,8 +45,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
@@ -338,7 +338,7 @@ public class AbstractSerializerTest {
             case DOUBLE:
                 return NativeTypes.DOUBLE;
             case DECIMAL:
-                return NativeTypes.decimalOf(DecimalNativeType.DEFAULT_PRECISION, DecimalNativeType.DEFAULT_SCALE);
+                return NativeTypes.decimalOf(CatalogUtils.DEFAULT_DECIMAL_PRECISION, CatalogUtils.DEFAULT_SCALE);
             case DATE:
                 return NativeTypes.DATE;
             case TIME:
@@ -348,7 +348,7 @@ public class AbstractSerializerTest {
             case TIMESTAMP:
                 return NativeTypes.timestamp();
             case NUMBER:
-                return NativeTypes.numberOf(DecimalNativeType.DEFAULT_PRECISION);
+                return NativeTypes.numberOf(CatalogUtils.DEFAULT_DECIMAL_PRECISION);
             case STRING:
                 return NativeTypes.stringOf(Byte.MAX_VALUE);
             case UUID:

@@ -14,29 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.ignite.internal.table.distributed.replication.request;
-
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.raft.jraft.option;
 
 /**
- * Read-write dual row replica request.
+ * Apply task in blocking or non-blocking mode.
+ *
  */
-@Transferable(TableMessageGroup.RW_DUAL_ROW_REPLICA_REQUEST)
-public interface ReadWriteSwapRowReplicaRequest extends SwapRowReplicaRequest, ReadWriteReplicaRequest {
-    /**
-     * Gets a commit partition id.
-     *
-     * @return Table partition id.
-     */
-    @Marshallable
-    TablePartitionId commitPartitionId();
-
-    /**
-     * Return {@code true} if this is a full transaction.
-     */
-    boolean full();
+public enum ApplyTaskMode {
+    // It is strongly not recommended to use blocking mode because it is forbidden to use blocking code in Ignite worker threads.
+    // This mode is not deleted mostly because of the desire to not differ with the original JRaft.
+    Blocking,
+    NonBlocking
 }
