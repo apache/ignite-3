@@ -27,6 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /** Helper class for logging HTTP requests/responses from generated REST API client. */
 class HttpLogging {
     private final ApiClient client;
+
     @Nullable
     private HttpLoggingInterceptor interceptor;
 
