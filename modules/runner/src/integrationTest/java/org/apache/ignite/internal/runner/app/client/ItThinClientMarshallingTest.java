@@ -243,6 +243,31 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         assertThat(ex.getMessage(), startsWith("Column's type mismatch"));
     }
 
+    @Test
+    public void testBoxedPrimitivePojo() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var pojoView = table.recordView(Mapper.of(BoxedPrimitivePojo.class));
+
+        BoxedPrimitivePojo rec = new BoxedPrimitivePojo();
+        rec.key = -1;
+        rec.val = "f";
+
+        pojoView.upsert(null, rec);
+        assertEquals("f", pojoView.get(null, rec).val);
+    }
+
+    @Test
+    public void testBoxedPrimitiveTuple() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var tupleView = table.recordView();
+
+        Integer key = -1;
+        Tuple rec = Tuple.create().set("KEY", key).set("VAL", "v");
+
+        tupleView.upsert(null, rec);
+        assertEquals("v", tupleView.get(null, Tuple.create().set("KEY", key)).value("VAL"));
+    }
+
     private static class TestPojo2 {
         public int key;
 
@@ -264,6 +289,11 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     private static class IncompatibleFieldPojo2 {
         public short key; // Must be int.
+        public String val;
+    }
+
+    private static class BoxedPrimitivePojo {
+        public Integer key;
         public String val;
     }
 }
