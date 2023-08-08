@@ -45,6 +45,8 @@ public class DdlToCatalogCommandConverterTest {
         cmd.dataNodesAutoAdjustScaleUp(4);
         cmd.dataNodesAutoAdjustScaleDown(5);
         cmd.nodeFilter("filter");
+        cmd.dataStorage("test_engine");
+        cmd.addDataStorageOption("dataRegion", "test_region");
 
         CreateZoneParams params = DdlToCatalogCommandConverter.convert(cmd);
 
@@ -55,6 +57,8 @@ public class DdlToCatalogCommandConverterTest {
         assertEquals(4, params.dataNodesAutoAdjustScaleUp());
         assertEquals(5, params.dataNodesAutoAdjustScaleDown());
         assertEquals("filter", params.filter());
+        assertEquals("test_engine", params.dataStorage().engine());
+        assertEquals("test_region", params.dataStorage().dataRegion());
     }
 
     @Test

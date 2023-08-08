@@ -17,38 +17,32 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.NamedConfigurationTree;
-import org.apache.ignite.configuration.NamedListView;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
-import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.junit.jupiter.api.AfterAll;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,62 +55,36 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     private static final String ZONE_NAME = "zone1";
 
-    private static final ConfigurationTreeGenerator generator = new ConfigurationTreeGenerator(
-            List.of(DistributionZonesConfiguration.KEY),
-            List.of(),
-            List.of(TestPersistStorageConfigurationSchema.class)
-    );
+    private VaultManager vault;
 
-    private final ConfigurationRegistry registry = new ConfigurationRegistry(
-            List.of(DistributionZonesConfiguration.KEY),
-            new TestConfigurationStorage(DISTRIBUTED),
-            generator,
-            ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of())
-    );
+    private MetaStorageManager metastore;
 
-    private DistributionZoneManager distributionZoneManager;
+    private ClockWaiter clockWaiter;
 
-    /** Inner initialisation. */
+    private CatalogManager catalogManager;
+
     @BeforeEach
     void before() {
-        registry.start();
+        String nodeName = "test";
 
-        assertThat(registry.onDefaultsPersisted(), willCompleteSuccessfully());
+        vault = new VaultManager(new InMemoryVaultService());
 
-        DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
+        metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage(nodeName));
 
-        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tables = mock(NamedConfigurationTree.class);
+        clockWaiter = new ClockWaiter(nodeName, new HybridClockImpl());
 
-        NamedListView<TableView> value = mock(NamedListView.class);
-
-        when(tables.value()).thenReturn(value);
-
-        when(value.namedListKeys()).thenReturn(new ArrayList<>());
-
-        CatalogManager catalogManager = mock(CatalogManager.class);
-
-        distributionZoneManager = new DistributionZoneManager(
-                "node",
-                null,
-                zonesConfiguration,
-                null,
-                null,
-                null,
-                null,
-                catalogManager
-        );
+        catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter);
 
         commandHandler = new DdlCommandHandler(mock(TableManager.class), catalogManager);
+
+        Stream.of(vault, metastore, clockWaiter, catalogManager).forEach(IgniteComponent::start);
+
+        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void after() throws Exception {
-        registry.stop();
-    }
-
-    @AfterAll
-    static void afterAll() {
-        generator.close();
+        IgniteUtils.stopAll(catalogManager, clockWaiter, metastore, vault);
     }
 
     @Test
@@ -147,7 +115,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<Boolean> handleCreateZoneCommand(boolean ifNotExists) {
-        createZone(distributionZoneManager, ZONE_NAME, null, null, null);
+        createZone(catalogManager, ZONE_NAME, null, null, null);
 
         CreateZoneCommand cmd = new CreateZoneCommand();
         cmd.zoneName(ZONE_NAME);

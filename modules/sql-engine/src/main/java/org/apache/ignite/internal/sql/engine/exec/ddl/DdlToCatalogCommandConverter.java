@@ -86,10 +86,8 @@ class DdlToCatalogCommandConverter {
     }
 
     static CreateZoneParams convert(CreateZoneCommand cmd) {
-        // TODO: IGNITE-19719 Should be defined differently
+        // TODO: IGNITE-19719 We need to define the default engine differently and the parameters should depend on the engine
         String engine = Objects.requireNonNullElse(cmd.dataStorage(), DEFAULT_STORAGE_ENGINE);
-        // TODO: IGNITE-20114 проверить позже на название параметра и не забыть про расширение тестов
-        // TODO: IGNITE-19719 Must be storage engine specific
         String dataRegion = (String) cmd.dataStorageOptions().getOrDefault("dataRegion", DEFAULT_DATA_REGION);
 
         return CreateZoneParams.builder()
