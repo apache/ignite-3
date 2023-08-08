@@ -67,9 +67,9 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     protected static final int ZONE_ID = 1;
 
-    protected static final long TIMEOUT_MILLIS = 10_000L;
+    protected static final long ZONE_MODIFICATION_AWAIT_TIMEOUT = 10_000L;
 
-    protected static final int TIMER_SECONDS = 10_000;
+    protected static final int COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS = 10_000;
 
     @InjectConfiguration
     private TablesConfiguration tablesConfiguration;

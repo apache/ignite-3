@@ -92,7 +92,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         alterZone(zoneName, null, null, newFilter);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(C, D),
-                TIMEOUT_MILLIS);
+                ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
     /**
@@ -115,7 +115,8 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
 
         alterZone(zoneName, null, null, newFilter);
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(),
+                ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
     /**
@@ -126,7 +127,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
     void testAlterFilterDoNotAffectScaleDown(int zoneId, String zoneName) throws Exception {
-        preparePrerequisites(IMMEDIATE_TIMER_VALUE, TIMER_SECONDS, zoneId);
+        preparePrerequisites(IMMEDIATE_TIMER_VALUE, COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, zoneId);
 
         topology.putNode(D);
 
@@ -140,7 +141,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         assertTrue(
                 waitForCondition(
                         () -> distributionZoneManager.zonesState().get(zoneId).scaleDownTask() != null,
-                        TIMEOUT_MILLIS
+                        ZONE_MODIFICATION_AWAIT_TIMEOUT
                 )
         );
 
@@ -151,7 +152,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
 
         // Node C is still in data nodes because altering a filter triggers only immediate scale up.
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(C, D),
-                TIMEOUT_MILLIS);
+                ZONE_MODIFICATION_AWAIT_TIMEOUT);
 
         // Check that scale down task is still scheduled.
         assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
@@ -159,7 +160,8 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         // Alter zone so we could check that node C is removed from data nodes.
         alterZone(zoneName, INFINITE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, newFilter);
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(D), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(D),
+                ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
     /**
@@ -171,7 +173,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
     void testNodeAddedWhileAlteringFilter(int zoneId, String zoneName) throws Exception {
-        preparePrerequisites(TIMER_SECONDS, INFINITE_TIMER_VALUE, zoneId);
+        preparePrerequisites(COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, INFINITE_TIMER_VALUE, zoneId);
 
         if (zoneId == ZONE_ID) {
             assertNull(distributionZoneManager.zonesState().get(ZONE_ID).scaleUpTask());
@@ -183,7 +185,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         assertTrue(
                 waitForCondition(
                         () -> distributionZoneManager.zonesState().get(zoneId).scaleUpTask() != null,
-                        TIMEOUT_MILLIS
+                        ZONE_MODIFICATION_AWAIT_TIMEOUT
                 )
         );
 
@@ -213,7 +215,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
 
         // Check that node E, that was added while filter's altering, is not propagated to data nodes.
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(C, D),
-                TIMEOUT_MILLIS);
+                ZONE_MODIFICATION_AWAIT_TIMEOUT);
 
         // Assert that scheduled timer was not canceled because of immediate scale up after filter altering.
         assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
@@ -222,7 +224,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
 
         // Check that node E, that was added after filter's altering, was added only after altering immediate scale up.
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(C, D, e),
-                TIMEOUT_MILLIS);
+                ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
     /**
@@ -255,7 +257,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         }
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(A, C),
-                TIMEOUT_MILLIS);
+                ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
     private static Stream<Arguments> provideArgumentsForFilterAlteringTests() {
