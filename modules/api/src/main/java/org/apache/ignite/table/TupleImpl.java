@@ -31,8 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.IgniteNameUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -389,6 +388,17 @@ class TupleImpl implements Tuple, Serializable {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(Tuple.class.getSimpleName(), colNames, colValues);
+        StringBuilder b = new StringBuilder();
+
+        b.append(Tuple.class.getSimpleName()).append(" [");
+        for (int i = 0; i < colNames.size(); i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(colNames.get(i)).append('=').append(colValues.get(i));
+        }
+        b.append(']');
+
+        return b.toString();
     }
 }

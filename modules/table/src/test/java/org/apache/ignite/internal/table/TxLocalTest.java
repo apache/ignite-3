@@ -19,19 +19,23 @@ package org.apache.ignite.internal.table;
 
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -42,7 +46,6 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.Table;
@@ -68,19 +71,44 @@ public class TxLocalTest extends TxAbstractTest {
 
         lockManager = new HeapLockManager();
 
-        ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
-        PlacementDriver placementDriver = mock(PlacementDriver.class, RETURNS_DEEP_STUBS);
+        ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
+
+        TestHybridClock localClock = new TestHybridClock(() -> 1);
+        MessagingService msgSvc = mock(MessagingService.class, RETURNS_DEEP_STUBS);
+        ReplicaService replicaSvc = new ReplicaService(msgSvc, localClock);
 
         Map<ReplicationGroupId, DummyInternalTableImpl> tables = new HashMap<>();
+        doAnswer(invocationOnMock -> {
+            ReplicaRequest request = invocationOnMock.getArgument(1);
+            ReplicaListener replicaListener = tables.get(request.groupId()).getReplicaListener();
 
-        lenient().doAnswer(
-            invocationOnMock -> {
-                    ReplicaRequest request = invocationOnMock.getArgument(1);
-                    ReplicaListener replicaListener = tables.get(request.groupId()).getReplicaListener();
+            if (request instanceof TimestampAware) {
+                TimestampAware aware = (TimestampAware) request;
+                HybridTimestamp updated = DummyInternalTableImpl.CLOCK.update(aware.timestamp());
 
-                    return replicaListener.invoke(request);
+                return replicaListener.invoke(request).handle((res, err) -> err == null ? replicaMessagesFactory
+                        .timestampAwareReplicaResponse()
+                        .result(res)
+                        .timestampLong(updated.longValue())
+                        .build() :
+                        replicaMessagesFactory
+                                .errorTimestampAwareReplicaResponse()
+                                .throwable(err)
+                                .timestampLong(updated.longValue())
+                                .build());
+            } else {
+                return replicaListener.invoke(request).handle((res, err) -> err == null ? replicaMessagesFactory
+                        .replicaResponse()
+                        .result(res)
+                        .build() : replicaMessagesFactory
+                        .errorReplicaResponse()
+                        .throwable(err)
+                        .build());
             }
-        ).when(replicaSvc).invoke(any(ClusterNode.class), any());
+
+        }).when(msgSvc).invoke((String) isNull(), any(), anyLong());
+
+        PlacementDriver placementDriver = mock(PlacementDriver.class, RETURNS_DEEP_STUBS);
 
         doAnswer(invocationOnMock -> {
             TxStateReplicaRequest request = invocationOnMock.getArgument(1);
@@ -89,7 +117,7 @@ public class TxLocalTest extends TxAbstractTest {
                     tables.get(request.groupId()).txStateStorage().getTxStateStorage(0).get(request.txId()));
         }).when(placementDriver).sendMetaRequest(any(), any());
 
-        txManager = new TxManagerImpl(replicaSvc, lockManager, new HybridClockImpl(), new TransactionIdGenerator(0xdeadbeef));
+        txManager = new TxManagerImpl(replicaSvc, lockManager, localClock, new TransactionIdGenerator(0xdeadbeef));
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
@@ -100,8 +128,6 @@ public class TxLocalTest extends TxAbstractTest {
         DummyInternalTableImpl table2 = new DummyInternalTableImpl(replicaSvc, txManager, true, placementDriver, CUSTOMERS_SCHEMA);
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), lockManager);
-
-        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
         tables.put(table.groupId(), table);
         tables.put(table2.groupId(), table2);

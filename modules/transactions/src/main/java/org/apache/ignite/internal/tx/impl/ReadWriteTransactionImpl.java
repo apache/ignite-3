@@ -30,7 +30,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -46,7 +46,17 @@ import org.jetbrains.annotations.NotNull;
  * The read-write implementation of an internal transaction.
  */
 public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
+    /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(InternalTransaction.class);
+
+    /** Commit partition updater. */
+    private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, TablePartitionId> COMMIT_PART_UPDATER =
+            AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, TablePartitionId.class, "commitPart");
+
+    /** Finish future updater. */
+    @SuppressWarnings("rawtypes")
+    private static final AtomicReferenceFieldUpdater<ReadWriteTransactionImpl, CompletableFuture> FINISH_FUT_UPDATER =
+            AtomicReferenceFieldUpdater.newUpdater(ReadWriteTransactionImpl.class, CompletableFuture.class, "finishFut");
 
     /** Enlisted partitions: partition id -> (primary replica node, raft term). */
     private final Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
@@ -54,11 +64,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** Enlisted operation futures in this transaction. */
     private final List<CompletableFuture<?>> enlistedResults = new CopyOnWriteArrayList<>();
 
-    /** Reference to the partition that stores the transaction state. */
-    private final AtomicReference<TablePartitionId> commitPartitionRef = new AtomicReference<>();
+    /** A partition which stores the transaction state. */
+    private volatile TablePartitionId commitPart;
 
     /** The future used on repeated commit/rollback. */
-    private final AtomicReference<CompletableFuture<Void>> finishFut = new AtomicReference<>();
+    private volatile CompletableFuture<Void> finishFut;
 
     /**
      * The constructor.
@@ -73,13 +83,13 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     public boolean assignCommitPartition(TablePartitionId tablePartitionId) {
-        return commitPartitionRef.compareAndSet(null, tablePartitionId);
+        return COMMIT_PART_UPDATER.compareAndSet(this, null, tablePartitionId);
     }
 
     /** {@inheritDoc} */
     @Override
     public TablePartitionId commitPartition() {
-        return commitPartitionRef.get();
+        return commitPart;
     }
 
     /** {@inheritDoc} */
@@ -97,8 +107,8 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
-        if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
-            return finishFut.get();
+        if (!FINISH_FUT_UPDATER.compareAndSet(this, null, new CompletableFuture<>())) {
+            return finishFut;
         }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
@@ -123,7 +133,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                     }
                                 });
 
-                                TablePartitionId commitPart = commitPartitionRef.get();
                                 ClusterNode recipientNode = enlisted.get(commitPart).get1();
                                 Long term = enlisted.get(commitPart).get2();
 
@@ -142,7 +151,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                         id()
                                 );
                             } else {
-                                // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+                                // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
                                 txManager.changeState(id(), PENDING, commit ? COMMITED : ABORTED);
 
                                 return completedFuture(null);
@@ -150,7 +159,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                         }
                 );
 
-        mainFinishFut.handle((res, e) -> finishFut.get().complete(null));
+        mainFinishFut.handle((res, e) -> finishFut.complete(null));
 
         return mainFinishFut;
     }

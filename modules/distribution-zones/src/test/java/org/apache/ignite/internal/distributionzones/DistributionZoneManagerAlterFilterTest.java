@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.metastorage.server.If;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -60,22 +60,22 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
     private static final int TIMER_SECONDS = 10_000;
 
     private static final LogicalNode A = new LogicalNode(
-            new ClusterNode("1", "A", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10")
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new ClusterNode("2", "B", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
             Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30")
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new ClusterNode("3", "C", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20")
     );
 
     private static final LogicalNode D = new LogicalNode(
-            new ClusterNode("4", "D", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("4", "D", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20")
     );
 
@@ -112,8 +112,8 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
                         .build()
         ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(C, D), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(C, D),
+                TIMEOUT_MILLIS);
     }
 
     /**
@@ -148,8 +148,7 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
                         .build()
         ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(), TIMEOUT_MILLIS);
     }
 
     /**
@@ -188,9 +187,9 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
                         .build()
         ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
         // Node C is still in data nodes because altering a filter triggers only immediate scale up.
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(C, D), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(C, D),
+                TIMEOUT_MILLIS);
 
         // Check that scale down task is still scheduled.
         assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
@@ -205,7 +204,7 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
                         .build()
         ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(D), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(D), TIMEOUT_MILLIS);
     }
 
     /**
@@ -243,7 +242,7 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
         ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         LogicalNode e = new LogicalNode(
-                new ClusterNode("5", "E", new NetworkAddress("localhost", 123)),
+                new ClusterNodeImpl("5", "E", new NetworkAddress("localhost", 123)),
                 Map.of("region", "CN", "storage", "HDD", "dataRegionSize", "20")
         );
 
@@ -262,8 +261,8 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
         }).when(keyValueStorage).invoke(any(), any());
 
         // Check that node E, that was added while filter's altering, is not propagated to data nodes.
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(C, D), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(C, D),
+                TIMEOUT_MILLIS);
 
         // Assert that scheduled timer was not canceled because of immediate scale up after filter altering.
         assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
@@ -278,7 +277,8 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
         ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
         // Check that node E, that was added after filter's altering, was added only after altering immediate scale up.
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(C, D, e), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(C, D, e),
+                TIMEOUT_MILLIS);
     }
 
     /**
@@ -323,7 +323,8 @@ public class DistributionZoneManagerAlterFilterTest  extends BaseDistributionZon
             ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         }
 
-        assertDataNodesFromManager(distributionZoneManager, zoneId, Set.of(A, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(A, C),
+                TIMEOUT_MILLIS);
     }
 
     private static Stream<Arguments> provideArgumentsForFilterAlteringTests() {

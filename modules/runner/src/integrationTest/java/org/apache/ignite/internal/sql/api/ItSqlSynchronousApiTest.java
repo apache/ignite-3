@@ -29,18 +29,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.common.collect.Streams;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -59,7 +54,6 @@ import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -87,19 +81,6 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         }
 
         tearDownBase(testInfo);
-    }
-
-    /**
-     * Gets the SQL API.
-     *
-     * @return SQL API.
-     */
-    protected IgniteSql igniteSql() {
-        return CLUSTER_NODES.get(0).sql();
-    }
-
-    protected IgniteTransactions igniteTx() {
-        return CLUSTER_NODES.get(0).transactions();
     }
 
     @Test
@@ -236,7 +217,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
-        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+        TxManager txManagerInternal = txManager();
 
         int txPrevCnt = txManagerInternal.finished();
 
@@ -246,9 +227,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(ROW_COUNT, txManagerInternal.finished() - txPrevCnt);
 
-        var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
-
-        assertEquals(txManagerInternal.finished(), states.size());
+        assertEquals(0, txManagerInternal.pending());
 
         checkDml(ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
@@ -257,7 +236,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
 
     @SuppressWarnings("UnstableApiUsage")
     @Test
-    public void select() throws ExecutionException, InterruptedException {
+    public void select() throws Exception {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);

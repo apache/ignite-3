@@ -65,7 +65,7 @@ public class RequestBalancingTest extends BaseIgniteAbstractTest {
             assertTrue(IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000));
 
             // Execute on unknown node to fall back to balancing.
-            List<String> res = IntStream.range(0, 5)
+            List<Object> res = IntStream.range(0, 5)
                     .mapToObj(i -> client.compute().<String>executeAsync(getClusterNodes("s123"), List.of(), "job").join())
                     .collect(Collectors.toList());
 
