@@ -48,7 +48,7 @@ class FileTransferMessagesHandlerTest {
     @WorkDirectory
     private static Path worDir;
 
-    public static Stream<List<File>> files() {
+    private static Stream<List<File>> files() {
         return Stream.of(
                 List.of(randomFile(worDir, CHUNK_SIZE)),
                 List.of(randomFile(worDir, CHUNK_SIZE - 1)),

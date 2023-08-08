@@ -68,9 +68,7 @@ class FileTransferMessagesStreamTest {
         File file2 = randomFile(workDir, 0);
         List<File> filesToSend = List.of(file1, file2);
 
-        FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE);
-
-        try {
+        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE)) {
             // check transfer FileTransferInfo
             assertTrue(stream.hasNextMessage());
             FileTransferInfoMessage info = (FileTransferInfoMessage) stream.nextMessage();
@@ -93,8 +91,6 @@ class FileTransferMessagesStreamTest {
 
             // check the stream is empty
             assertFalse(stream.hasNextMessage());
-        } finally {
-            stream.close();
         }
     }
 
@@ -105,9 +101,7 @@ class FileTransferMessagesStreamTest {
         File file2 = randomFile(workDir, 1024);
         List<File> filesToSend = List.of(file1, file2);
 
-        FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE);
-
-        try {
+        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE)) {
             // check transfer FileTransferInfo
             assertTrue(stream.hasNextMessage());
             FileTransferInfoMessage info = (FileTransferInfoMessage) stream.nextMessage();
@@ -146,8 +140,6 @@ class FileTransferMessagesStreamTest {
 
             // check the stream is empty
             assertFalse(stream.hasNextMessage());
-        } finally {
-            stream.close();
         }
     }
 
@@ -158,9 +150,7 @@ class FileTransferMessagesStreamTest {
         File file2 = randomFile(workDir, 1724);
         List<File> filesToSend = List.of(file1, file2);
 
-        FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE);
-
-        try {
+        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE)) {
             // check transfer FileTransferInfo
             assertTrue(stream.hasNextMessage());
             FileTransferInfoMessage info = (FileTransferInfoMessage) stream.nextMessage();
@@ -215,8 +205,6 @@ class FileTransferMessagesStreamTest {
 
             // check the stream is empty
             assertFalse(stream.hasNextMessage());
-        } finally {
-            stream.close();
         }
     }
 
@@ -228,9 +216,7 @@ class FileTransferMessagesStreamTest {
         File file3 = randomFile(workDir, CHUNK_SIZE);
         List<File> filesToSend = List.of(file1, file2, file3);
 
-        FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE);
-
-        try {
+        try (FileTransferMessagesStream stream = new FileTransferMessagesStream(transferId, filesToSend, CHUNK_SIZE)) {
             // check transfer FileTransferInfo
             assertTrue(stream.hasNextMessage());
             FileTransferInfoMessage info = (FileTransferInfoMessage) stream.nextMessage();
@@ -284,8 +270,6 @@ class FileTransferMessagesStreamTest {
 
             // check the stream is empty
             assertFalse(stream.hasNextMessage());
-        } finally {
-            stream.close();
         }
     }
 }

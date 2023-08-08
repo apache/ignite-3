@@ -25,7 +25,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.network.file.messages.FileTransferMessageType;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.junit.jupiter.api.Test;
@@ -67,7 +67,7 @@ class FileTransferServiceImplTest {
         verify(messagingService).addMessageHandler(eq(FileTransferMessageType.class), any(NetworkMessageHandler.class));
         verify(topologyService).addEventHandler(any());
 
-        topologyService.fairDisappearedEvent(new ClusterNode("node1", "localhost", new NetworkAddress("localhost", 1234)));
+        topologyService.fairDisappearedEvent(new ClusterNodeImpl("node1", "localhost", new NetworkAddress("localhost", 1234)));
 
         verify(fileReceiver).cancelTransfersFromSender("node1");
     }

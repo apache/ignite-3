@@ -158,7 +158,7 @@ class FileReceiverTest {
         );
     }
 
-    private void sendMessageToReceiver(FileReceiver receiver, NetworkMessage msg) {
+    private static void sendMessageToReceiver(FileReceiver receiver, NetworkMessage msg) {
         if (msg instanceof FileHeaderMessage) {
             receiver.receiveFileHeader((FileHeaderMessage) msg);
         } else if (msg instanceof FileTransferInfoMessage) {
