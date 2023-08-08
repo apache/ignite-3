@@ -88,7 +88,8 @@ public class DistributionZonesTestUtil {
             String zoneName,
             int partitions,
             int replicas,
-            Consumer<DataStorageChange> dataStorageChangeConsumer) {
+            Consumer<DataStorageChange> dataStorageChangeConsumer
+    ) {
         var distributionZoneCfgBuilder = new Builder(zoneName)
                 .replicas(replicas)
                 .partitions(partitions)
@@ -96,8 +97,7 @@ public class DistributionZonesTestUtil {
                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
 
         if (dataStorageChangeConsumer != null) {
-            distributionZoneCfgBuilder
-                    .dataStorageChangeConsumer(dataStorageChangeConsumer);
+            distributionZoneCfgBuilder.dataStorageChangeConsumer(dataStorageChangeConsumer);
         }
 
         return zoneManager.createZone(distributionZoneCfgBuilder.build());
@@ -113,9 +113,38 @@ public class DistributionZonesTestUtil {
      * @return A future, which will be completed, when create operation finished.
      */
     public static CompletableFuture<Integer> createZone(
-            DistributionZoneManager zoneManager, String zoneName,
-            int partitions, int replicas) {
+            DistributionZoneManager zoneManager,
+            String zoneName,
+            int partitions,
+            int replicas
+    ) {
         return createZone(zoneManager, zoneName, partitions, replicas, null);
+    }
+
+    /**
+     * Creates a distribution zone in the configuration.
+     *
+     * @param distributionZoneManager Distributed zone manager.
+     * @param zoneName Zone name.
+     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param filter Nodes filter, {@code null} if not set.
+     */
+    public static void createZone(
+            DistributionZoneManager distributionZoneManager,
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        assertThat(
+                distributionZoneManager.createZone(
+                        createParameters(zoneName, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter)
+                ),
+                willCompleteSuccessfully()
+        );
     }
 
     /**
@@ -464,5 +493,68 @@ public class DistributionZonesTestUtil {
 
             assertThat(dataNodes, is(expectedValueNames));
         }
+    }
+
+    /**
+     * Alters a distribution zone in the configuration.
+     *
+     * @param distributionZoneManager Distributed zone manager.
+     * @param zoneName Zone name.
+     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param filter Nodes filter, {@code null} if not set.
+     */
+    public static void alterZone(
+            DistributionZoneManager distributionZoneManager,
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        assertThat(
+                distributionZoneManager.alterZone(
+                        zoneName,
+                        createParameters(zoneName, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter)
+                ),
+                willCompleteSuccessfully()
+        );
+    }
+
+    /**
+     * Drops a distribution zone in the configuration.
+     *
+     * @param distributionZoneManager Distributed zone manager.
+     * @param zoneName Zone name.
+     */
+    public static void dropZone(
+            DistributionZoneManager distributionZoneManager,
+            String zoneName
+    ) {
+        assertThat(distributionZoneManager.dropZone(zoneName), willCompleteSuccessfully());
+    }
+
+    private static DistributionZoneConfigurationParameters createParameters(
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        DistributionZoneConfigurationParameters.Builder builder = new DistributionZoneConfigurationParameters.Builder(zoneName);
+
+        if (dataNodesAutoAdjustScaleUp != null) {
+            builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
+        }
+
+        if (dataNodesAutoAdjustScaleDown != null) {
+            builder.dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
+        }
+
+        if (filter != null) {
+            builder.filter(filter);
+        }
+
+        return builder.build();
     }
 }

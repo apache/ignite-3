@@ -17,90 +17,116 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
+import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Integration tests for DDL statements that affect distribution zones.
  */
 public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
+    private static final String ZONE_NAME = "TEST_ZONE";
+
+    @AfterEach
+    void tearDown() {
+        tryToDropZone(ZONE_NAME, false);
+    }
 
     @Test
-    public void testCreateIfExists() {
-        String zoneName = randomZoneName();
+    public void testCreateZone() {
+        tryToCreateZone(ZONE_NAME, true);
 
-        sql("CREATE ZONE " + zoneName);
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> tryToCreateZone(ZONE_NAME, true),
+                DistributionZoneAlreadyExistsException.class,
+                String.format("Distribution zone already exists [zoneName=%s]", ZONE_NAME)
+        );
 
-        // create zone w/o IF NOT EXIST flag must fail
-        assertThrows(Exception.class, () -> sql("CREATE ZONE " + zoneName));
-
-        // create zone with not exist flag
-        sql("CREATE ZONE IF NOT EXISTS " + zoneName);
+        tryToCreateZone(ZONE_NAME, false);
     }
 
     @Test
     public void testDropZone() {
-        String zoneName = randomZoneName();
+        tryToCreateZone(ZONE_NAME, true);
 
-        sql("CREATE ZONE " + zoneName);
-        sql("DROP ZONE " + zoneName);
+        tryToDropZone(ZONE_NAME, true);
 
-        // dropping not existing zone w/o IF EXIST flag must fail
-        assertThrows(IgniteException.class, () -> sql("DROP ZONE not_existing_" + zoneName));
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> tryToDropZone(ZONE_NAME, true),
+                DistributionZoneNotFoundException.class,
+                String.format("Distribution zone is not found [zoneName=%s]", ZONE_NAME)
+        );
 
-        // drop with IF EXISTS set
-        sql("DROP ZONE IF EXISTS " + zoneName);
+        tryToDropZone(ZONE_NAME, false);
     }
 
     @Test
     public void testRenameZone() {
-        String zoneName = randomZoneName();
+        tryToCreateZone(ZONE_NAME, true);
 
-        sql("CREATE ZONE " + zoneName);
-        sql(String.format("ALTER ZONE %s RENAME TO renamed_%s", zoneName, zoneName));
-        sql(String.format("ALTER ZONE renamed_%s RENAME TO %s", zoneName, zoneName));
+        tryToRenameZone(ZONE_NAME, "renamed_" + ZONE_NAME, true);
+        tryToRenameZone("renamed_" + ZONE_NAME, ZONE_NAME, true);
 
-        // renaming not existing zone w/o IF EXIST flag must fail
-        assertThrows(IgniteException.class,
-                () -> sql(String.format("ALTER ZONE not_existing_%s RENAME TO another_%s", zoneName, zoneName)));
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> tryToRenameZone("not_existing_" + ZONE_NAME, "another_" + ZONE_NAME, true),
+                DistributionZoneNotFoundException.class,
+                String.format("Distribution zone is not found [zoneName=%s]", ("not_existing_" + ZONE_NAME).toUpperCase())
+        );
 
-        // rename with IF EXISTS set
-        sql(String.format("ALTER ZONE IF EXISTS not_existing_%s RENAME TO another_%s", zoneName, zoneName));
+        tryToRenameZone("not_existing_" + ZONE_NAME, "another_" + ZONE_NAME, false);
     }
 
     @Test
     public void testRenameToExistingZone() {
-        String zoneName = randomZoneName();
-        String anotherZone = randomZoneName() + "_2";
+        tryToCreateZone(ZONE_NAME, true);
+        tryToCreateZone(ZONE_NAME + "_2", true);
 
-        sql("CREATE ZONE " + zoneName);
-        sql("CREATE ZONE " + anotherZone);
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> tryToRenameZone(ZONE_NAME, ZONE_NAME + "_2", true),
+                DistributionZoneAlreadyExistsException.class,
+                String.format("Distribution zone already exists [zoneName=%s]", ZONE_NAME + "_2")
+        );
 
-        // must fail
-        assertThrows(IgniteException.class, () -> sql(String.format("ALTER ZONE %s RENAME TO %s", zoneName, anotherZone)));
-
-        // must fail regardless of IF EXISTS flag because such zone already exists.
-        assertThrows(IgniteException.class, () -> sql(String.format("ALTER ZONE IF EXISTS %s RENAME TO %s", zoneName, anotherZone)));
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> tryToRenameZone(ZONE_NAME, ZONE_NAME + "_2", false),
+                DistributionZoneAlreadyExistsException.class,
+                String.format("Distribution zone already exists [zoneName=%s]", ZONE_NAME + "_2")
+        );
     }
 
     @Test
     public void testAlterZone() {
-        String zoneName = randomZoneName();
+        tryToCreateZone(ZONE_NAME, true);
 
-        sql("CREATE ZONE " + zoneName);
-        sql(String.format("ALTER ZONE %s SET DATA_NODES_AUTO_ADJUST=100", zoneName));
+        tryToAlterZone(ZONE_NAME, 100, true);
 
-        // altering not existing zone w/o IF EXISTS flag must fail
-        assertThrows(IgniteException.class,
-                () -> sql(String.format("ALTER ZONE not_existing_%s SET DATA_NODES_AUTO_ADJUST=200", zoneName)));
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> tryToAlterZone("not_existing_" + ZONE_NAME, 200, true),
+                DistributionZoneNotFoundException.class,
+                String.format("Distribution zone is not found [zoneName=%s]", ("not_existing_" + ZONE_NAME).toUpperCase())
+        );
 
-        // alter with IF EXISTS set
-        sql(String.format("ALTER ZONE IF EXISTS not_existing_%s SET DATA_NODES_AUTO_ADJUST=200", zoneName));
+        tryToAlterZone("not_existing_" + ZONE_NAME, 200, false);
     }
 
-    private static String randomZoneName() {
-        return "test_zone" + System.currentTimeMillis();
+    private static void tryToCreateZone(String zoneName, boolean failIfExists) {
+        sql(String.format("CREATE ZONE %s", failIfExists ? zoneName : "IF NOT EXISTS " + zoneName));
+    }
+
+    private static void tryToDropZone(String zoneName, boolean failIfNotExists) {
+        sql(String.format("DROP ZONE %s", failIfNotExists ? zoneName : "IF EXISTS " + zoneName));
+    }
+
+    private static void tryToRenameZone(String formZoneName, String toZoneName, boolean failIfNoExists) {
+        sql(String.format("ALTER ZONE %s RENAME TO %s", failIfNoExists ? formZoneName : "IF EXISTS " + formZoneName, toZoneName));
+    }
+
+    private static void tryToAlterZone(String zoneName, int dataNodesAutoAdjust, boolean failIfNotExists) {
+        sql(String.format(
+                "ALTER ZONE %s SET DATA_NODES_AUTO_ADJUST=%s",
+                failIfNotExists ? zoneName : "IF EXISTS " + zoneName, dataNodesAutoAdjust
+        ));
     }
 }
