@@ -25,6 +25,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -121,7 +122,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(row, ectx, false);
+            BinaryRowEx binaryRow = convertRow(row, ectx);
 
             rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
@@ -186,7 +187,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(row, ectx, false);
+            BinaryRowEx binaryRow = convertRow(row, ectx);
 
             rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
@@ -249,7 +250,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(row, ectx, true);
+            BinaryRowEx binaryRow = convertKeyOnlyRow(row, ectx);
 
             keyRowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
@@ -278,17 +279,52 @@ public final class UpdatableTableImpl implements UpdatableTable {
         return CompletableFuture.allOf(futures);
     }
 
-    private <RowT> BinaryRowEx convertRow(RowT row, ExecutionContext<RowT> ectx, boolean keyOnly) {
+    private <RowT> BinaryRowEx convertRow(RowT row, ExecutionContext<RowT> ectx) {
         RowHandler<RowT> hnd = ectx.rowHandler();
 
-        RowAssembler rowAssembler = keyOnly ? RowAssembler.keyAssembler(schemaDescriptor) : new RowAssembler(schemaDescriptor);
+        RowAssembler rowAssembler = new RowAssembler(schemaDescriptor);
 
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (keyOnly && !colDesc.key()) {
+            Object val = hnd.get(colDesc.logicalIndex(), row);
+
+            // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
+            assert val != DEFAULT_VALUE_PLACEHOLDER;
+
+            val = TypeUtils.fromInternal(val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
+
+            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
+        }
+
+        return new Row(schemaDescriptor, rowAssembler.build());
+    }
+
+    private <RowT> BinaryRowEx convertKeyOnlyRow(RowT row, ExecutionContext<RowT> ectx) {
+        RowHandler<RowT> hnd = ectx.rowHandler();
+
+        RowAssembler rowAssembler = RowAssembler.keyAssembler(schemaDescriptor);
+
+        List<ColumnDescriptor> keyColumns = new ArrayList<>();
+        List<Integer> keyLogicalIndexes = new ArrayList<>();
+
+        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
+            if (!colDesc.key()) {
                 continue;
             }
 
-            Object val = hnd.get(keyOnly ? colDesc.physicalIndex() : colDesc.logicalIndex(), row);
+            keyLogicalIndexes.add(colDesc.logicalIndex());
+            keyColumns.add(colDesc);
+        }
+
+        Collections.sort(keyLogicalIndexes);
+
+        int[] mapping = new int[keyLogicalIndexes.get(keyLogicalIndexes.size() - 1) + 1];
+
+        for (int i = 0; i < keyLogicalIndexes.size(); i++) {
+            mapping[keyLogicalIndexes.get(i)] = i;
+        }
+
+        for (ColumnDescriptor colDesc : keyColumns) {
+            Object val = hnd.get(mapping[colDesc.logicalIndex()], row);
 
             // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
             assert val != DEFAULT_VALUE_PLACEHOLDER;

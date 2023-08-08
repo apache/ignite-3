@@ -614,18 +614,18 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testDeleteUsingCompositePk() {
-        sql("CREATE TABLE test (a INT, b INT NOT NULL, c INT NOT NULL, d VARCHAR NOT NULL, PRIMARY KEY(d, b)) COLOCATE BY (d)");
+        sql("CREATE TABLE test (a INT, b VARCHAR NOT NULL, c INT NOT NULL, d INT NOT NULL, PRIMARY KEY(d, b)) COLOCATE BY (d)");
         sql("INSERT INTO test VALUES "
-                + "(0, 1, 0, '3'),"
-                + "(0, 2, 0, '3'),"
-                + "(0, 2, 0, '4')");
+                + "(0, '3', 0, 1),"
+                + "(0, '3', 0, 2),"
+                + "(0, '4', 0, 2)");
 
         // Use PK index.
-        sql("DELETE FROM test WHERE d = '3' and b = 2");
-        assertQuery("SELECT b FROM test").returns(1).returns(2).check();
+        sql("DELETE FROM test WHERE b = '3' and d = 2");
+        assertQuery("SELECT d FROM test").returns(1).returns(2).check();
 
-        sql("DELETE FROM test WHERE d = '3'");
-        assertQuery("SELECT d FROM test").returns("4").check();
+        sql("DELETE FROM test WHERE d = 1");
+        assertQuery("SELECT b FROM test").returns("4").check();
 
         sql("DELETE FROM test WHERE a = 0");
         assertQuery("SELECT d FROM test").returnNothing();
