@@ -272,7 +272,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return tbl.deleteAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(rows -> wrap(rows, false));
+        return tbl.deleteAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(this::wrapKeys);
     }
 
     /** {@inheritDoc} */
@@ -336,6 +336,22 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
                 wrapped.add(TableRow.tuple(row));
             } else if (addNull) {
                 wrapped.add(null);
+            }
+        }
+
+        return wrapped;
+    }
+
+    private List<Tuple> wrapKeys(Collection<BinaryRow> rows) {
+        if (rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        var wrapped = new ArrayList<Tuple>(rows.size());
+
+        for (Row row : schemaReg.resolveKeys(rows)) {
+            if (row != null) {
+                wrapped.add(TableRow.tuple(row));
             }
         }
 

@@ -30,7 +30,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 import java.util.function.LongSupplier;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.configuration.ConfigurationValue;
@@ -53,8 +52,8 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -275,7 +274,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         int tableId = tableId();
         int indexId = 1;
 
-        Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schema);
+        ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schema);
 
         Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                 indexId,
@@ -324,7 +323,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 placementDriver,
                 storageUpdateHandler,
                 new DummySchemas(schemaManager),
-                completedFuture(schemaManager),
                 mock(ClusterNode.class),
                 mock(MvTableStorage.class),
                 mock(IndexBuilder.class),

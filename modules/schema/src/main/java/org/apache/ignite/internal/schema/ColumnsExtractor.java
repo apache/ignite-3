@@ -15,20 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
-
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.internal.schema;
 
 /**
- * Factory interface.
- *
- * @param <T> Object type.
+ * Class for extracting a subset of columns from {@code BinaryRow}s.
  */
-public interface Factory<T> {
+public interface ColumnsExtractor {
     /**
-     * Creates object.
+     * Extracts a subset of columns from a given {@code BinaryRow}, that only contains a key.
      *
-     * @return Object.
+     * @param keyOnlyRow Row that only contains a key.
+     * @return Subset of columns, packed into a {@code BinaryTuple}.
      */
-    @Nullable T create();
+    BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow);
+
+    /**
+     * Extracts a subset of columns from a given {@code BinaryRow}.
+     *
+     * @param row Row with data (both key and value).
+     * @return Subset of columns, packed into a {@code BinaryTuple}.
+     */
+    BinaryTuple extractColumns(BinaryRow row);
 }

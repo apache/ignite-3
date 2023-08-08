@@ -153,7 +153,7 @@ public abstract class Marshaller {
      * @return Object.
      * @throws MarshallerException If failed to unmarshall given row to an object.
      */
-    public abstract Object readObject(Row reader) throws MarshallerException;
+    public abstract @Nullable Object readObject(Row reader) throws MarshallerException;
 
     /**
      * Write an object to a row.
@@ -239,9 +239,13 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public Object readObject(Row reader) throws MarshallerException {
+        public @Nullable Object readObject(Row reader) throws MarshallerException {
             try {
                 final Object obj = factory.create();
+
+                if (obj == null) {
+                    return null;
+                }
 
                 for (int fldIdx = 0; fldIdx < columnBindings.length; fldIdx++) {
                     columnBindings[fldIdx].read(reader, obj);

@@ -166,8 +166,9 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         InternalTable internalTable = ((TableImpl) table).internalTable();
 
         Row keyValueRow = createKeyValueRow(1, 1, "some string row" + 1);
+        Row keyRow = createKeyRow(1);
 
-        BinaryRow res = internalTable.get(keyValueRow, node.clock().now(), node.node()).get();
+        BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
         assertNull(res);
 
@@ -175,7 +176,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         populateData(node, keyValueView, false);
 
-        res = internalTable.get(keyValueRow, node.clock().now(), node.node()).get();
+        res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
         assertRowEquals(res, keyValueRow);
     }
@@ -279,12 +280,13 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         InternalTable internalTable = ((TableImpl) table).internalTable();
 
+        Row keyRow = createKeyRow(1);
+
         Row keyValueRow = createKeyValueRow(1, 1, "some string row" + 1);
 
         Row keyValueRow2 = createKeyValueRow(1, 2, "some string row" + 2);
 
-        assertNull(internalTable.get(keyValueRow, node.clock().now(), node.node()).get());
-        assertNull(internalTable.get(keyValueRow2, node.clock().now(), node.node()).get());
+        assertNull(internalTable.get(keyRow, node.clock().now(), node.node()).get());
 
         Transaction tx1 = node.transactions().begin();
 
@@ -296,13 +298,13 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         internalTable.upsert(keyValueRow2, (InternalTransaction) tx2);
 
-        BinaryRow res = internalTable.get(keyValueRow, node.clock().now(), node.node()).get();
+        BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
         assertRowEquals(res, keyValueRow);
 
         tx2.commit();
 
-        res = internalTable.get(keyValueRow, node.clock().now(), node.node()).get();
+        res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
         assertRowEquals(res, keyValueRow2);
     }
@@ -313,15 +315,17 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         InternalTable internalTable = ((TableImpl) table).internalTable();
 
-        Row keyValueRow1 = createKeyValueRow(1, 1, "some string row" + 1);
-        Row keyValueRow2 = createKeyValueRow(2, 2, "some string row" + 2);
-        Row keyValueRow3 = createKeyValueRow(3, 3, "some string row" + 3);
+        var keyRows = new ArrayList<BinaryRowEx>();
+        var keyValueRows = new ArrayList<BinaryRowEx>();
 
-        List<BinaryRowEx> rowsToSearch = List.of(keyValueRow1, keyValueRow2, keyValueRow3);
+        for (int i = 1; i <= 3; i++) {
+            keyRows.add(createKeyRow(i));
+            keyValueRows.add(createKeyValueRow(i, i, "some string row" + i));
+        }
 
         KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
 
-        List<BinaryRow> res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
+        List<BinaryRow> res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
 
         assertEquals(3, res.size());
 
@@ -331,12 +335,12 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
             }
         });
 
-        res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
+        res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
 
         assertEquals(3, res.size());
 
         for (int i = 0; i < 3; i++) {
-            assertRowEquals(res.get(i), rowsToSearch.get(i));
+            assertRowEquals(res.get(i), keyValueRows.get(i));
         }
     }
 
@@ -346,26 +350,28 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         InternalTable internalTable = ((TableImpl) table).internalTable();
 
-        Row keyValueRow1 = createKeyValueRow(1, 1, "some string row" + 1);
-        Row keyValueRow2 = createKeyValueRow(2, 2, "some string row" + 2);
-        Row keyValueRow3 = createKeyValueRow(3, 3, "some string row" + 3);
+        var keyRows = new ArrayList<BinaryRowEx>();
+        var keyValueRows = new ArrayList<BinaryRowEx>();
 
-        List<BinaryRowEx> rowsToSearch = List.of(keyValueRow1, keyValueRow2, keyValueRow3);
+        for (int i = 1; i <= 3; i++) {
+            keyRows.add(createKeyRow(i));
+            keyValueRows.add(createKeyValueRow(i, i, "some string row" + i));
+        }
 
         KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
 
-        List<BinaryRow> res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
+        List<BinaryRow> res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
 
         assertEquals(3, res.size());
 
         populateData(node(), keyValueView, false);
 
-        res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
+        res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
 
         assertEquals(3, res.size());
 
         for (int i = 0; i < 3; i++) {
-            assertRowEquals(res.get(i), rowsToSearch.get(i));
+            assertRowEquals(res.get(i), keyValueRows.get(i));
         }
 
         node.transactions().runInTransaction(txs -> {
@@ -378,7 +384,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         Row newKeyValueRow2 = createKeyValueRow(2, 102, "some string row" + 102);
         Row newKeyValueRow3 = createKeyValueRow(3, 103, "some string row" + 103);
 
-        res = internalTable.getAll(rowsToSearch, node.clock().now(), node.node()).get();
+        res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
 
         assertEquals(3, res.size());
 
@@ -476,7 +482,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         rowBuilder.appendInt(value);
         rowBuilder.appendString(str);
 
-        return new Row(SCHEMA_1, rowBuilder.build());
+        return Row.wrapBinaryRow(SCHEMA_1, rowBuilder.build());
     }
 
     private static Row createKeyRow(long id) {
@@ -484,7 +490,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         rowBuilder.appendLong(id);
 
-        return new Row(SCHEMA_1, rowBuilder.build());
+        return Row.wrapKeyOnlyBinaryRow(SCHEMA_1, rowBuilder.build());
     }
 
     private static void putValue(KeyValueView<Tuple, Tuple> kv, int val) {
@@ -550,7 +556,6 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
     private static void assertRowEquals(BinaryRow row1, BinaryRow row2) {
         assertThat(row1.schemaVersion(), is(row2.schemaVersion()));
-        assertThat(row1.hasValue(), is(row2.hasValue()));
         assertThat(row1.tupleSlice(), is(row2.tupleSlice()));
     }
 }

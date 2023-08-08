@@ -312,7 +312,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
 
-        return new Row(schemaDescriptor, rowAssembler.build());
+        BinaryRow binaryRow = rowAssembler.build();
+
+        return keyOnly ? Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow) : Row.wrapBinaryRow(schemaDescriptor, binaryRow);
     }
 
     private static <RowT> CompletableFuture<List<RowT>> handleInsertResults(
