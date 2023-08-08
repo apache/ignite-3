@@ -21,6 +21,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -50,7 +51,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
     private final HybridClock clock;
 
-    final ConcurrentMap<Integer, CompletableFuture<ExecutableTable>> tableCache;
+    final ConcurrentMap<CacheKey, CompletableFuture<ExecutableTable>> tableCache;
 
     /** Constructor. */
     public ExecutableTableRegistryImpl(TableManager tableManager, SchemaManager schemaManager,
@@ -62,18 +63,28 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         this.clock = clock;
         this.tableCache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
-                .<Integer, ExecutableTable>buildAsync().asMap();
+                .<CacheKey, ExecutableTable>buildAsync().asMap();
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor) {
-        return tableCache.computeIfAbsent(tableId, (k) -> loadTable(k, tableDescriptor));
+    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId, TableDescriptor tableDescriptor) {
+        return tableCache.computeIfAbsent(new CacheKey(schemaVersion, tableId), (k) -> loadTable(tableId, tableDescriptor));
     }
 
     // TODO IGNITE-19499: Drop this temporal method to get table by name.
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, String tableName, TableDescriptor tableDescriptor) {
+    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId, String tableName, TableDescriptor tableDescriptor) {
+        return tableCache.computeIfAbsent(new CacheKey(schemaVersion, tableId), (k) -> loadTable(tableName, tableDescriptor));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onSchemaUpdated() {
+        tableCache.clear();
+    }
+
+    private CompletableFuture<ExecutableTable> loadTable(String tableName, TableDescriptor tableDescriptor) {
         return tableManager.tableAsyncInternal(tableName.toUpperCase())
                 .thenApply(table -> {
                     InternalTable internalTable = table.internalTable();
@@ -87,12 +98,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
                     return new ExecutableTableImpl(internalTable, scannableTable, updatableTable);
                 });
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void onSchemaUpdated() {
-        tableCache.clear();
     }
 
     private CompletableFuture<ExecutableTable> loadTable(int tableId, TableDescriptor tableDescriptor) {
@@ -161,6 +166,33 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
                 return ColocationGroup.forAssignments(assignments);
             });
+        }
+    }
+
+    static class CacheKey {
+        private final int version;
+        private final int tableId;
+
+        CacheKey(int version, int tableId) {
+            this.version = version;
+            this.tableId = tableId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            CacheKey cacheKey = (CacheKey) o;
+            return version == cacheKey.version && tableId == cacheKey.tableId;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(version, tableId);
         }
     }
 }

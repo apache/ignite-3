@@ -84,7 +84,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
                 //TODO IGNITE-19499 Use id instead of name.
                 String tableName = igniteTable.name();
 
-                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable(tableId, tableName, tableDescriptor));
+                tableMap.computeIfAbsent(tableId, (id) -> registry.getTable(schemaVersion, tableId, tableName, tableDescriptor));
             }
         };
 
