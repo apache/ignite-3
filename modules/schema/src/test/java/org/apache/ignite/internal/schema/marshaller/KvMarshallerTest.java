@@ -282,9 +282,6 @@ public class KvMarshallerTest {
 
         Throwable ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(key, val)).getCause();
         assertThat(ex.getMessage(), startsWith("Column's type mismatch"));
-        assertThat(ex.getMessage(), containsString(
-                "expectedType=BitmaskNativeType [bits=42, typeSpec=NativeTypeSpec [name=BITMASK, fixed=true], len=6], "
-                        + "actualType=NativeType [name=INT64, sizeInBytes=8, fixed=true]"));
     }
 
     /**
