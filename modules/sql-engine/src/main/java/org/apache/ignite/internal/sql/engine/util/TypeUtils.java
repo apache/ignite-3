@@ -534,6 +534,11 @@ public class TypeUtils {
             return false;
         }
 
+        // No need to binary between char and varbinary.
+        if (SqlTypeUtil.isBinary(toType) && SqlTypeUtil.isBinary(fromType)) {
+            return false;
+        }
+
         // No need to cast if the source type precedence list
         // contains target type. i.e. do not cast from
         // tinyint to int or int to bigint.

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.stream.Stream;
@@ -71,11 +73,13 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
         T value3 = values.get(2);
 
         checkQuery("SELECT * FROM t WHERE test_key != $0 ORDER BY id")
+                .matches(containsTableScan("PUBLIC", "T"))
                 .returns(2, value2)
                 .returns(3, value3)
                 .check();
 
         checkQuery("SELECT * FROM t WHERE test_key IS DISTINCT FROM $0")
+                .matches(containsTableScan("PUBLIC", "T"))
                 .returns(2, value2)
                 .returns(3, value3)
                 .check();
@@ -91,21 +95,25 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
         T value3 = values.get(2);
 
         checkQuery("SELECT * FROM t WHERE test_key > $0 ORDER BY id")
+                .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .returns(2, value2)
                 .returns(3, value3)
                 .check();
 
         checkQuery("SELECT * FROM t WHERE test_key >= $1 ORDER BY id")
+                .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .returns(2, value2)
                 .returns(3, value3)
                 .check();
 
         checkQuery("SELECT * FROM t WHERE test_key < $2 ORDER BY id")
+                .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .returns(1, value1)
                 .returns(2, value2)
                 .check();
 
         checkQuery("SELECT * FROM t WHERE test_key <= $2 ORDER BY id")
+                .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .returns(1, value1)
                 .returns(2, value2)
                 .returns(3, value3)
@@ -122,10 +130,12 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
         T value3 = values.get(2);
 
         checkQuery("SELECT * FROM t WHERE test_key > $0 AND test_key < $2 ORDER BY id")
+                .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .returns(2, value2)
                 .check();
 
         checkQuery("SELECT * FROM t WHERE test_key >= $1 AND test_key <= $2 ORDER BY id")
+                .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .returns(2, value2)
                 .returns(3, value3)
                 .check();
@@ -145,6 +155,7 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
 
         String query = format("SELECT * FROM t WHERE test_key BETWEEN {} AND {} ORDER BY id", lit0, lit1);
         checkQuery(query)
+                .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .returns(1, value0)
                 .returns(2, value1)
                 .check();
@@ -156,6 +167,7 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
     @Test
     public void testOutOfRangeLookUp() {
         checkQuery("SELECT * FROM t WHERE test_key < $0")
+                .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .returnNothing()
                 .check();
     }
@@ -169,6 +181,7 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
         T value3 = values.get(2);
 
         checkQuery("SELECT * FROM t WHERE test_key IN ($0, $2) ORDER BY id")
+                .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .returns(1, value1)
                 .returns(3, value3)
                 .check();
@@ -182,6 +195,7 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
         T value2 = values.get(1);
 
         checkQuery("SELECT * FROM t WHERE test_key NOT IN ($0, $2) ORDER BY id")
+                .matches(containsTableScan("PUBLIC", "T"))
                 .returns(2, value2)
                 .check();
     }
@@ -199,6 +213,7 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
 
         String query = format("select id, test_key from t where test_key = {} and id = 100", arguments.valueExpr(0));
         checkQuery(query)
+                .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_PK_IDX"))
                 .returns(100, arguments.value(0))
                 .check();
     }
@@ -209,6 +224,7 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
     @Test
     public void testIndexDynParam() {
         assertQuery("SELECT * FROM t WHERE test_key=?")
+                .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .withParams(values.get(0))
                 .check();
     }
