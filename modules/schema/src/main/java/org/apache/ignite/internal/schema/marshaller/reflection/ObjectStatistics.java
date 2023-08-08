@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -58,11 +59,14 @@ class ObjectStatistics {
 
         for (int i = 0; i < cols.length(); i++) {
             Object val = marsh.value(obj, i);
-            NativeType colType = cols.column(i).type();
+            Column col = cols.column(i);
+            NativeType colType = col.type();
 
             if (val == null) {
                 continue;
             }
+
+            col.validate(val);
 
             if (colType.spec().fixedLength()) {
                 estimatedValueSize += colType.sizeInBytes();
