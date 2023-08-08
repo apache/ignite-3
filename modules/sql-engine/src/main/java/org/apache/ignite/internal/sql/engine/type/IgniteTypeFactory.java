@@ -51,6 +51,7 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -260,12 +261,12 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case VARCHAR:
             case CHAR:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED
-                        ? NativeTypes.stringOf(Integer.MAX_VALUE)
+                        ? NativeTypes.stringOf(CatalogUtils.MAX_LENGTH)
                         : NativeTypes.stringOf(relType.getPrecision());
             case BINARY:
             case VARBINARY:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED
-                        ? NativeTypes.blobOf(Integer.MAX_VALUE)
+                        ? NativeTypes.blobOf(CatalogUtils.MAX_LENGTH)
                         : NativeTypes.blobOf(relType.getPrecision());
             case ANY:
                 if (relType instanceof IgniteCustomType) {

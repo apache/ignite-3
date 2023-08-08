@@ -209,6 +209,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
                     col.type(),
                     col.precision(),
                     col.scale(),
+                    col.length(),
                     defaultValueStrategy,
                     defaultValueSupplier
             );
