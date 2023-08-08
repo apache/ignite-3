@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import org.apache.ignite.Ignite;
@@ -225,10 +226,8 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
         Tuple rec = Tuple.create().set("KEY", "1").set("VAL", BigDecimal.ONE);
 
-        Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, rec), ClassCastException.class);
-        assertThat(
-                ex.getMessage(),
-                startsWith("Incorrect value type for column 'KEY': class java.lang.String cannot be cast to class java.lang.Integer"));
+        Throwable ex = assertThrows(IgniteException.class, () -> tupleView.upsert(null, rec));
+        assertThat(ex.getMessage(), startsWith("Column's type mismatch"));
     }
 
     // TODO: Add schema update tests - add column, drop column.
