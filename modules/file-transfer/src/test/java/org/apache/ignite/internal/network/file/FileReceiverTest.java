@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.network.file.messages.FileHeaderMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferInfoMessage;

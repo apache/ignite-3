@@ -15,17 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file.messages;
+package org.apache.ignite.internal.network.file.exception;
 
-import org.apache.ignite.internal.network.file.FileConsumer;
-import org.apache.ignite.internal.network.file.FileProvider;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.network.file.messages.Metadata;
+import org.apache.ignite.lang.ErrorGroups.Network;
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * Metadata. This interface is used to mark all metadata messages. Metadata messages are used to retrieve files from {@link FileProvider}
- * and handle them on the receiving side by {@link FileConsumer}.
+ * Exception thrown when file provider is not found for a metadata message.
  */
-@Transferable(FileTransferMessageType.METADATA)
-public interface Metadata extends NetworkMessage {
+public class FileProviderNotFoundException extends IgniteException {
+    /**
+     * Constructor.
+     *
+     * @param message Message.
+     */
+    public FileProviderNotFoundException(Class<? extends Metadata> message) {
+        super(Network.FILE_PROVIDER_NOT_FOUND_ERR, "File provider not found for message: " + message.getName());
+    }
 }

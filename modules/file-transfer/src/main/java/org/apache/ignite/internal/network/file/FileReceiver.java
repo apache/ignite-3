@@ -29,8 +29,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.network.file.messages.FileHeaderMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferErrorMessage;
@@ -42,7 +44,7 @@ import org.apache.ignite.internal.util.RefCountedObjectPool;
 /**
  * File receiver.
  */
-class FileReceiver {
+class FileReceiver implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(FileReceiver.class);
 
     private final ExecutorService executorService;
@@ -121,10 +123,6 @@ class FileReceiver {
                 });
     }
 
-    void stop() {
-        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
-    }
-
     private void receiveFileTransferInfo0(FileTransferInfoMessage info) {
         FileTransferMessagesHandler handler = transferIdToHandler.get(info.transferId());
         if (handler == null) {
@@ -189,5 +187,10 @@ class FileReceiver {
         } else {
             handler.handleFileTransferError(new FileTransferException(errorMessage.error()));
         }
+    }
+
+    @Override
+    public void close() {
+        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
     }
 }

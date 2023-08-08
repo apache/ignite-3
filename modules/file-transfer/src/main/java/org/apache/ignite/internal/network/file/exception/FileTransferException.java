@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file;
+package org.apache.ignite.internal.network.file.exception;
 
 import org.apache.ignite.lang.ErrorGroups.Network;
 import org.apache.ignite.lang.IgniteException;
@@ -24,7 +24,6 @@ import org.apache.ignite.lang.IgniteException;
  * Exception is thrown when file transfer fails.
  */
 public class FileTransferException extends IgniteException {
-
     /**
      * Constructor.
      *

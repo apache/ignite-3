@@ -15,23 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file;
+package org.apache.ignite.internal.network.file.exception;
 
-import java.io.File;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.file.messages.Metadata;
+import org.apache.ignite.lang.ErrorGroups.Network;
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * Handler for the uploaded file.
+ * Exception thrown when file handler is not found for a metadata message.
  */
-public interface FileHandler<M extends Metadata> {
+public class FileHandlerNotFoundException extends IgniteException {
     /**
-     * Handles the uploaded files.
+     * Constructor.
      *
-     * @param metadata The metadata of the uploaded file.
-     * @param uploadedFiles The temporary files that were uploaded. These files will be deleted after the method returns.
-     * @return A future that will be completed when the file is handled.
+     * @param message Message.
      */
-    CompletableFuture<Void> handleUpload(M metadata, List<File> uploadedFiles);
+    public FileHandlerNotFoundException(Class<? extends Metadata> message) {
+        super(Network.FILE_HANDLER_NOT_FOUND_ERR, "File handler not found for message: " + message.getName());
+    }
 }

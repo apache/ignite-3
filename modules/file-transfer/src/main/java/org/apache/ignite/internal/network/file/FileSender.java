@@ -28,13 +28,15 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkMessage;
 
-class FileSender {
+class FileSender implements ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(FileSender.class);
 
     private final int chunkSize;
@@ -108,7 +110,8 @@ class FileSender {
         }
     }
 
-    void stop() {
+    @Override
+    public void close() {
         IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
     }
 }

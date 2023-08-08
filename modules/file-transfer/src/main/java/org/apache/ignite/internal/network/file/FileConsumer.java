@@ -15,17 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file.messages;
+package org.apache.ignite.internal.network.file;
 
-import org.apache.ignite.internal.network.file.FileConsumer;
-import org.apache.ignite.internal.network.file.FileProvider;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import java.io.File;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.network.file.messages.Metadata;
 
 /**
- * Metadata. This interface is used to mark all metadata messages. Metadata messages are used to retrieve files from {@link FileProvider}
- * and handle them on the receiving side by {@link FileConsumer}.
+ * Handler for the uploaded file.
  */
-@Transferable(FileTransferMessageType.METADATA)
-public interface Metadata extends NetworkMessage {
+public interface FileConsumer<M extends Metadata> {
+    /**
+     * Handles the uploaded files.
+     *
+     * @param metadata The metadata of the uploaded file.
+     * @param uploadedFiles The temporary files that were uploaded. These files will be deleted after the method returns.
+     * @return A future that will be completed when the file is handled.
+     */
+    CompletableFuture<Void> handleUpload(M metadata, List<File> uploadedFiles);
 }

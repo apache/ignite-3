@@ -19,5 +19,5 @@ The `FileProvider` is a function that accepts a `Metadata` object and returns a 
 
 ### Uploading files to the target
 For uploading files to the target, the target should have a `FileTransferService` instance running
-and registered `org.apache.ignite.internal.network.file.FileHandler` for the files that should be uploaded.
+and registered `org.apache.ignite.internal.network.file.FileConsumer` for the files that should be uploaded.
 The `FileHandler` is a function that accepts a `Metadata` object and a collection of `File` objects.

@@ -41,6 +41,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.configuration.FileTransferConfiguration;
 import org.apache.ignite.internal.network.file.TestCluster.Node;
+import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.network.file.messages.Metadata;
 import org.apache.ignite.internal.network.file.messages.MetadataImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;

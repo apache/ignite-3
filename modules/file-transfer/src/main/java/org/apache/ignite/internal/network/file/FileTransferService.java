@@ -44,7 +44,7 @@ public interface FileTransferService extends IgniteComponent {
      * @param metadata Metadata.
      * @param handler Handler.
      */
-    <M extends Metadata> void addFileHandler(Class<M> metadata, FileHandler<M> handler);
+    <M extends Metadata> void addFileHandler(Class<M> metadata, FileConsumer<M> handler);
 
     /**
      * Downloads files for the given metadata from the given node.
