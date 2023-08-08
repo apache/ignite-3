@@ -217,7 +217,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         rec.val = BigDecimal.ONE;
 
         Throwable ex = assertThrows(IgniteException.class, () -> pojoView.upsert(null, rec));
-        assertThat(ex.getMessage(), anyOf(startsWith("Column's type mismatch"), startsWith("Incorrect value type for column 'KEY'")));
+        assertThat(ex.getMessage(), startsWith("Column's type mismatch"));
     }
 
     @Test
@@ -228,7 +228,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         Tuple rec = Tuple.create().set("KEY", "1").set("VAL", BigDecimal.ONE);
 
         Throwable ex = assertThrows(IgniteException.class, () -> tupleView.upsert(null, rec));
-        assertThat(ex.getMessage(), anyOf(startsWith("Column's type mismatch"), startsWith("Incorrect value type for column 'KEY'")));
+        assertThat(ex.getMessage(), startsWith("Column's type mismatch"));
     }
 
     // TODO: Add schema update tests - add column, drop column.
