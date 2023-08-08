@@ -141,6 +141,10 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
      * @throws MarshallerException If failed to read key or value object content.
      */
     private RowAssembler createAssembler(Object key, Object val) throws MarshallerException {
-        return ObjectStatistics.createAssembler(schema, keyMarsh, valMarsh, key, val);
+        try {
+            return ObjectStatistics.createAssembler(schema, keyMarsh, valMarsh, key, val);
+        } catch (Throwable e) {
+            throw new MarshallerException(e.getMessage(), e);
+        }
     }
 }

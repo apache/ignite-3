@@ -216,8 +216,8 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         rec.key = "1";
         rec.val = BigDecimal.ONE;
 
-        Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, rec), ClassCastException.class);
-        assertThat(ex.getMessage(), startsWith("class java.math.BigDecimal cannot be cast to class java.lang.CharSequence"));
+        Throwable ex = assertThrows(IgniteException.class, () -> pojoView.upsert(null, rec));
+        assertThat(ex.getMessage(), anyOf(startsWith("Column's type mismatch"), startsWith("Incorrect value type for column 'KEY'")));
     }
 
     @Test
