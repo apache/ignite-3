@@ -36,6 +36,8 @@ import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
+import org.apache.ignite.internal.cli.event.EventPublisher;
+import org.apache.ignite.internal.cli.event.Events;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -56,15 +58,18 @@ public class ConnectCall implements Call<UrlCallInput, String> {
 
     private final JdbcUrlFactory jdbcUrlFactory;
 
+    private final EventPublisher eventPublisher;
+
     /**
      * Constructor.
      */
     public ConnectCall(Session session, StateConfigProvider stateConfigProvider, ApiClientFactory clientFactory,
-            JdbcUrlFactory jdbcUrlFactory) {
+            JdbcUrlFactory jdbcUrlFactory, EventPublisher eventPublisher) {
         this.session = session;
         this.stateConfigProvider = stateConfigProvider;
         this.clientFactory = clientFactory;
         this.jdbcUrlFactory = jdbcUrlFactory;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -81,11 +86,19 @@ public class ConnectCall implements Call<UrlCallInput, String> {
             stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), nodeUrl);
 
             String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(configuration, nodeUrl);
-            session.connect(new SessionInfo(nodeUrl, fetchNodeName(nodeUrl), jdbcUrl, username));
+            sessionInfo = SessionInfo.builder()
+                    .nodeUrl(nodeUrl)
+                    .nodeName(fetchNodeName(nodeUrl))
+                    .jdbcUrl(jdbcUrl)
+                    .username(username)
+                    .build();
+            eventPublisher.publish(Events.connect(sessionInfo));
 
             return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
         } catch (Exception e) {
-            session.disconnect();
+            if (session.info() != null) {
+                eventPublisher.publish(Events.disconnect());
+            }
             return DefaultCallOutput.failure(handleException(e, nodeUrl));
         }
     }

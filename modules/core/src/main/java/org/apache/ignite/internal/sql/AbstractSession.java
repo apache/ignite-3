@@ -60,7 +60,7 @@ public interface AbstractSession extends Session {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, query, arguments).join());
         } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
     }
 
@@ -79,7 +79,7 @@ public interface AbstractSession extends Session {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, statement, arguments).join());
         } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
     }
 
@@ -104,7 +104,7 @@ public interface AbstractSession extends Session {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, query, arguments).join());
         } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
     }
 
@@ -129,7 +129,7 @@ public interface AbstractSession extends Session {
         try {
             return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, statement, arguments).join());
         } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
     }
 
@@ -147,7 +147,7 @@ public interface AbstractSession extends Session {
         try {
             return executeBatchAsync(transaction, dmlQuery, batch).join();
         } catch (CompletionException e) {
-            throw ExceptionUtils.wrap(e);
+            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
     }
 }

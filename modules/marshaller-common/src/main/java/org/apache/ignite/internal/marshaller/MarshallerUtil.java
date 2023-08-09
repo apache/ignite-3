@@ -93,6 +93,64 @@ public class MarshallerUtil {
         return null;
     }
 
+    static void validateColumnType(MarshallerColumn col, Class<?> cls) {
+        if (!isColumnCompatible(col.type(), cls)) {
+            // Exception message is similar to embedded mode - see o.a.i.i.schema.Column#validate
+            throw new ClassCastException("Column's type mismatch ["
+                    + "column=" + col.name()
+                    + ", expectedType=" + col.type()
+                    + ", actualType=" + cls + ']');
+        }
+    }
+
+    private static boolean isColumnCompatible(BinaryMode colType, Class<?> cls) {
+        switch (colType) {
+            case P_BOOLEAN:
+            case BOOLEAN:
+                return cls == boolean.class || cls == Boolean.class;
+            case P_BYTE:
+            case BYTE:
+                return cls == byte.class || cls == Byte.class;
+            case P_SHORT:
+            case SHORT:
+                return cls == short.class || cls == Short.class;
+            case P_INT:
+            case INT:
+                return cls == int.class || cls == Integer.class;
+            case P_LONG:
+            case LONG:
+                return cls == long.class || cls == Long.class;
+            case P_FLOAT:
+            case FLOAT:
+                return cls == float.class || cls == Float.class;
+            case P_DOUBLE:
+            case DOUBLE:
+                return cls == double.class || cls == Double.class;
+            case STRING:
+                return cls == String.class;
+            case UUID:
+                return cls == UUID.class;
+            case BYTE_ARR:
+                return cls == byte[].class;
+            case BITSET:
+                return cls == BitSet.class;
+            case NUMBER:
+                return cls == BigInteger.class;
+            case DECIMAL:
+                return cls == BigDecimal.class;
+            case DATE:
+                return cls == LocalDate.class;
+            case TIME:
+                return cls == LocalTime.class;
+            case DATETIME:
+                return cls == LocalDateTime.class;
+            case TIMESTAMP:
+                return cls == Instant.class;
+            default:
+                return false;
+        }
+    }
+
     /**
      * Stub.
      */

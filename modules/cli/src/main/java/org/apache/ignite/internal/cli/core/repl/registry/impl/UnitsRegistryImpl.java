@@ -26,15 +26,15 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cli.call.cluster.unit.ClusterListUnitCall;
 import org.apache.ignite.internal.cli.call.unit.ListUnitCallInput;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
-import org.apache.ignite.internal.cli.core.repl.AsyncSessionEventListener;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.UnitsRegistry;
+import org.apache.ignite.internal.cli.event.ConnectionEventListener;
 import org.apache.ignite.rest.client.model.UnitStatus;
 import org.apache.ignite.rest.client.model.UnitVersionStatus;
 
 /** Implementation of {@link UnitsRegistry}. */
 @Singleton
-public class UnitsRegistryImpl implements UnitsRegistry, AsyncSessionEventListener {
+public class UnitsRegistryImpl implements UnitsRegistry, ConnectionEventListener {
 
     private final AtomicReference<String> lastKnownUrl = new AtomicReference<>(null);
 
