@@ -64,6 +64,7 @@ import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.type.SqlTypeCoercionRule;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -155,6 +156,7 @@ public final class Commons {
                     .withIdentifierExpansion(true)
                     .withDefaultNullCollation(NullCollation.HIGH)
                     .withSqlConformance(IgniteSqlConformance.INSTANCE)
+                    .withTypeCoercionRules(standardCompatibleCoercionRules())
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
             .operatorTable(IgniteSqlOperatorTable.INSTANCE)
@@ -167,6 +169,10 @@ public final class Commons {
             .build();
 
     private Commons() {
+    }
+
+    private static SqlTypeCoercionRule standardCompatibleCoercionRules() {
+        return SqlTypeCoercionRule.instance(IgniteCustomAssigmentsRules.instance().getTypeMapping());
     }
 
     /**
