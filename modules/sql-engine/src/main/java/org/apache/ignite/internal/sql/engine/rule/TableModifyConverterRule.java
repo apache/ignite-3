@@ -79,7 +79,7 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
         IgniteDistribution distribution = igniteTable.distribution();
 
         if (rel.getOperation() == Operation.DELETE) {
-            // To perform delete we need row with key fields only.
+            // To perform the delete, we need a row with key fields only.
             // Input distribution contains the indexes of the key columns according to the schema (i.e. for the full row).
             // Here we adjusting distribution keys so that a row containing only the key fields can be read.
             BitSet keyFields = new BitSet();

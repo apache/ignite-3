@@ -186,6 +186,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         return Stream.of(
                 IgniteDistributions.hash(List.of(1, 3)),
                 IgniteDistributions.affinity(1, 2, "0"),
+                IgniteDistributions.affinity(3, 2, "0"),
                 IgniteDistributions.affinity(List.of(1, 3), 2, "0"),
                 IgniteDistributions.affinity(List.of(3, 1), 2, "0")
         );
