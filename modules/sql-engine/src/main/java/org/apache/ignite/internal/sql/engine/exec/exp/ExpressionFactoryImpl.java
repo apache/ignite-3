@@ -274,7 +274,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /** {@inheritDoc} */
     @Override
     public Supplier<RowT> rowSource(List<RexNode> values) {
-        // FIXME: Take NULLs into account, Null Values are not possible?
         List<RelDataType> typeList = Commons.transform(values, v -> v != null ? v.getType() : nullType);
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typeList);
 
