@@ -216,13 +216,15 @@ public class IgniteSqlFunctions {
             return dec;
         }
 
-        BigDecimal dec = processFractionData(value, precision, scale);
-
-        if (dec != null) {
-            return dec;
+        if (value.longValue() == 0) {
+            return processFractionData(value, precision, scale);
         } else {
-            dec = convertToBigDecimal(value);
+            return processValueWithIntegralPart(value, precision, scale);
         }
+    }
+
+    private static BigDecimal processValueWithIntegralPart(Number value, int precision, int scale) {
+        BigDecimal dec = convertToBigDecimal(value);
 
         if (scale > precision) {
             throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
@@ -238,11 +240,7 @@ public class IgniteSqlFunctions {
         return dec.setScale(scale, roundingMode);
     }
 
-    private static @Nullable BigDecimal processFractionData(Number value, int precision, int scale) {
-        if (value.longValue() != 0) {
-            return null;
-        }
-
+    private static BigDecimal processFractionData(Number value, int precision, int scale) {
         BigDecimal num = convertToBigDecimal(value);
 
         if (num.unscaledValue().equals(BigInteger.ZERO)) {
