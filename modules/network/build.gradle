@@ -60,7 +60,6 @@ dependencies {
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.javapoet
-    testImplementation libs.slf4j.jdk14
     testImplementation libs.bytebuddy
     testImplementation libs.compileTesting
     testImplementation libs.awaitility
