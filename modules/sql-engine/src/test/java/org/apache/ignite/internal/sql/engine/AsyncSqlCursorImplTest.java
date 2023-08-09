@@ -50,7 +50,7 @@ public class AsyncSqlCursorImplTest {
 
     private static final ResultSetMetadata RESULT_SET_METADATA = new ResultSetMetadataImpl(Collections.emptyList());
 
-    /** Cursor should trigger commit of an implicit transaction (if any) only if when data is fully read. */
+    /** Cursor should trigger commit of an implicit transaction (if any) only if data is fully read. */
     @ParameterizedTest
     @MethodSource("transactions")
     public void testTriggerCommitAfterDataIsFullyRead(NoOpTransaction implicitTx) {
