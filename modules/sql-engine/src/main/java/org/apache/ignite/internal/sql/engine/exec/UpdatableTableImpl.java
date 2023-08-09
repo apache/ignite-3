@@ -76,7 +76,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final List<ColumnDescriptor> keyColumnsOrderedByPhysSchema;
 
-    private final Mapping keyColumnsMappingForDelete;
+    /** Mapping of column indexes for a row containing only primary key columns. */
+    private final Mapping columnsMappingForKeyOnlyRow;
 
     private final PartitionExtractor partitionExtractor;
 
@@ -123,7 +124,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         }
 
         keyColumnsOrderedByPhysSchema = keyCols;
-        keyColumnsMappingForDelete = PlanUtils.sortedValueIndexMapping(keyLogicalIndexes);
+        columnsMappingForKeyOnlyRow = PlanUtils.sortedValuesIndexMapping(keyLogicalIndexes);
 
         this.rowConverter = rowConverter;
     }
@@ -315,7 +316,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         RowAssembler rowAssembler = RowAssembler.keyAssembler(schemaDescriptor);
 
         for (ColumnDescriptor colDesc : keyColumnsOrderedByPhysSchema) {
-            Object val = hnd.get(keyColumnsMappingForDelete.getTarget(colDesc.logicalIndex()), row);
+            Object val = hnd.get(columnsMappingForKeyOnlyRow.getTarget(colDesc.logicalIndex()), row);
 
             appendValue(rowAssembler, colDesc, val);
         }

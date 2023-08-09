@@ -144,7 +144,7 @@ public class PlanUtils {
             }
         }
 
-        return sortedValueIndexMapping(fieldIndices);
+        return sortedValuesIndexMapping(fieldIndices);
     }
 
     /**
@@ -162,7 +162,7 @@ public class PlanUtils {
      *
      * @param values Values to be mapped to its position in the ordered list.
      */
-    public static Mapping sortedValueIndexMapping(BitSet values) {
+    public static Mapping sortedValuesIndexMapping(BitSet values) {
         Mapping mapping = Mappings.create(MappingType.INVERSE_SURJECTION, values.length(), values.cardinality());
 
         int i = 0;

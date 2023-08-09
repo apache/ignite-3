@@ -92,7 +92,7 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
                 }
             }
 
-            distribution = distribution.apply(PlanUtils.sortedValueIndexMapping(keyFields));
+            distribution = distribution.apply(PlanUtils.sortedValuesIndexMapping(keyFields));
         }
 
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
