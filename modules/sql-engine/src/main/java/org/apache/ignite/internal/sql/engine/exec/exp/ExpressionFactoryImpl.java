@@ -81,9 +81,9 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -631,8 +631,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             this.scalar = scalar;
             hnd = ctx.rowHandler();
 
-            RelDataType javaBoolType = typeFactory.createJavaType(Boolean.class);
-            RowSchema schema = TypeUtils.rowSchemaFromRelTypes(List.of(javaBoolType));
+            RelDataType booleanType = typeFactory.createSqlType(SqlTypeName.BOOLEAN);
+            RelDataType nullableType = typeFactory.createTypeWithNullability(booleanType, true);
+            RowSchema schema = TypeUtils.rowSchemaFromRelTypes(List.of(nullableType));
 
             out = hnd.factory(schema).create();
         }
