@@ -400,8 +400,42 @@ namespace Apache.Ignite.Internal
             string? message = reader.ReadStringNullable();
             string? javaStackTrace = reader.ReadStringNullable();
 
-            // TODO IGNITE-19838 Retry outdated schema error
-            reader.Skip(); // Error extensions.
+            if (code == ErrorGroups.Table.SchemaVersionMismatch)
+            {
+                int extSize = reader.TryReadNil() ? 0 : reader.ReadMapHeader();
+                int expectedSchemaVersion = -1;
+
+                for (int i = 0; i < extSize; i++)
+                {
+                    var key = reader.ReadString();
+
+                    if (key == ErrorExtensions.ExpectedSchemaVersion)
+                    {
+                        expectedSchemaVersion = reader.ReadInt32();
+                    }
+                    else
+                    {
+                        // Unknown extension - ignore.
+                        reader.Skip();
+                    }
+                }
+
+                if (expectedSchemaVersion == -1)
+                {
+                    return new IgniteException(
+                        traceId,
+                        ErrorGroups.Client.Protocol,
+                        "Expected schema version is not specified in error extension map.",
+                        ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace));
+                }
+
+                // TODO: return ClientSchemaVersionMismatchException
+            }
+            else
+            {
+                // Ignore unknown extensions.
+                reader.Skip();
+            }
 
             return ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
         }
