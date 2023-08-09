@@ -45,7 +45,6 @@ import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeFactoryImpl.JavaType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.BasicSqlType;
@@ -663,16 +662,11 @@ public class TypeUtils {
 
             return new RowType(fields, type.isNullable());
 
-        } else if (SqlTypeUtil.isMap(type) || SqlTypeUtil.isMultiset(type))  {
+        } else if (SqlTypeUtil.isArray(type) || SqlTypeUtil.isMap(type) || SqlTypeUtil.isMultiset(type))  {
             // TODO https://issues.apache.org/jira/browse/IGNITE-20162
+            //  Add collection types support
             throw new IllegalArgumentException("Collection types is not supported: " + type);
-        } else if (SqlTypeUtil.isArray(type)) {
-            // FIXME Aggregation type. Should be the same a branch with collection types.
-            return new BaseTypeSpec(null, nullable);
-        } else if (type instanceof JavaType) {
-            // FIXME Aggregation type. Soon to be removed.
-            return new BaseTypeSpec(null, nullable);
-        } else {
+        }  else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
     }
