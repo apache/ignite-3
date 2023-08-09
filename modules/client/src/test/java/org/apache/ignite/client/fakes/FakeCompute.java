@@ -22,9 +22,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -55,6 +57,21 @@ public class FakeCompute implements IgniteCompute {
         return future != null ? future : CompletableFuture.completedFuture((R) nodeName);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public <R> R execute(
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        try {
+            return this.<R>executeAsync(nodes, units, jobClassName, args).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.wrap(e);
+        }
+    }
+
     @Override
     public <R> CompletableFuture<R> executeColocatedAsync(
             String tableName,
@@ -76,6 +93,39 @@ public class FakeCompute implements IgniteCompute {
             Object... args
     ) {
         return future != null ? future : CompletableFuture.completedFuture((R) nodeName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <R> R executeColocated(
+            String tableName,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        try {
+            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, args).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.wrap(e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <K, R> R executeColocated(
+            String tableName,
+            K key,
+            Mapper<K> keyMapper,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            Object... args
+    ) {
+        try {
+            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, args).join();
+        } catch (CompletionException e) {
+            throw ExceptionUtils.wrap(e);
+        }
     }
 
     @Override

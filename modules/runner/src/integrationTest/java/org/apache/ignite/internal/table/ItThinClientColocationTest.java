@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.handler.requests.table.ClientTableCommon;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -145,7 +145,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
 
         var types2 = new ArrayList<NativeType>();
 
-        for (int i = 0; i <= TemporalNativeType.MAX_TIME_PRECISION; i++) {
+        for (int i = 0; i <= CatalogUtils.MAX_TIME_PRECISION; i++) {
             types2.add(NativeTypes.time(i));
             types2.add(NativeTypes.datetime(i));
             types2.add(NativeTypes.timestamp(i));

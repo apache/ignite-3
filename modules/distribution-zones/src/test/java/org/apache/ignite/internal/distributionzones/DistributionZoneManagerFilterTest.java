@@ -22,9 +22,8 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 
@@ -32,29 +31,23 @@ import org.junit.jupiter.api.Test;
  * Tests distribution zone manager interactions with data nodes filtering.
  */
 public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManagerTest {
-    private static final String ZONE_NAME = "zone1";
-
-    private static final int ZONE_ID = 1;
-
-    private static final long TIMEOUT_MILLIS = 10_000L;
-
     private static final LogicalNode A = new LogicalNode(
-            new ClusterNode("1", "A", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("1", "A", new NetworkAddress("localhost", 123)),
             Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10")
     );
 
     private static final LogicalNode B = new LogicalNode(
-            new ClusterNode("2", "B", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("2", "B", new NetworkAddress("localhost", 123)),
             Map.of("region", "EU", "storage", "HHD", "dataRegionSize", "30")
     );
 
     private static final LogicalNode C = new LogicalNode(
-            new ClusterNode("3", "C", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("3", "C", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20")
     );
 
     private static final LogicalNode D = new LogicalNode(
-            new ClusterNode("4", "D", new NetworkAddress("localhost", 123)),
+            new ClusterNodeImpl("4", "D", new NetworkAddress("localhost", 123)),
             Map.of("region", "CN", "storage", "SSD", "dataRegionSize", "20")
     );
 
@@ -64,7 +57,8 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.putNode(D);
 
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID, Set.of(A, C, D), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID,
+                Set.of(A, C, D), ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
     @Test
@@ -73,7 +67,8 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.removeNodes(Set.of(C));
 
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID, Set.of(A), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID, Set.of(A),
+                ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
     @Test
@@ -83,13 +78,14 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
         topology.removeNodes(Set.of(B));
 
         LogicalNode newB = new LogicalNode(
-                new ClusterNode("2", "newB", new NetworkAddress("localhost", 123)),
+                new ClusterNodeImpl("2", "newB", new NetworkAddress("localhost", 123)),
                 Map.of("region", "US", "storage", "HHD", "dataRegionSize", "30")
         );
 
         topology.putNode(newB);
 
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID, Set.of(A, newB, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID,
+                Set.of(A, newB, C), ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
     /**
@@ -107,14 +103,9 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
         topology.putNode(B);
         topology.putNode(C);
 
-        distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .filter(filter)
-                        .build()
-        ).get(10_000, TimeUnit.MILLISECONDS);
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter);
 
-        assertDataNodesFromManager(distributionZoneManager, ZONE_ID, Set.of(A, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID,
+                Set.of(A, C), ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 }

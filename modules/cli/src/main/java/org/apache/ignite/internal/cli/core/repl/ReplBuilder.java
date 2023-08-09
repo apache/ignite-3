@@ -53,6 +53,8 @@ public class ReplBuilder {
 
     private Runnable onStart = () -> {};
 
+    private EventListeningActivationPoint eventListeningActivationPoint;
+
     /**
      * Build methods.
      *
@@ -70,7 +72,8 @@ public class ReplBuilder {
                 historyFileName,
                 tailTipWidgetsEnabled,
                 autosuggestionsWidgetsEnabled,
-                onStart
+                onStart,
+                eventListeningActivationPoint
         );
     }
 
@@ -150,6 +153,17 @@ public class ReplBuilder {
 
     public ReplBuilder withAutosuggestionsWidgets() {
         this.autosuggestionsWidgetsEnabled = true;
+        return this;
+    }
+
+    /**
+     * Builder setter of {@code eventListeningActivationPoint} field.
+     *
+     * @param eventListeningActivationPoint event listening activation point.
+     * @return invoked builder instance {@link ReplBuilder}.
+     */
+    public ReplBuilder withEventSubscriber(EventListeningActivationPoint eventListeningActivationPoint) {
+        this.eventListeningActivationPoint = eventListeningActivationPoint;
         return this;
     }
 }

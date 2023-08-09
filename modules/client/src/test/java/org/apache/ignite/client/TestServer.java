@@ -40,17 +40,21 @@ import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
@@ -94,6 +98,33 @@ public class TestServer implements AutoCloseable {
                 null,
                 UUID.randomUUID(),
                 null,
+                null,
+                null
+        );
+    }
+
+    /**
+     * Constructor.
+     */
+    public TestServer(
+            long idleTimeout,
+            Ignite ignite,
+            @Nullable Function<Integer, Boolean> shouldDropConnection,
+            @Nullable Function<Integer, Integer> responseDelay,
+            @Nullable String nodeName,
+            UUID clusterId,
+            @Nullable AuthenticationConfiguration authenticationConfiguration,
+            @Nullable Integer port
+    ) {
+        this(
+                idleTimeout,
+                ignite,
+                shouldDropConnection,
+                responseDelay,
+                nodeName,
+                clusterId,
+                authenticationConfiguration,
+                port,
                 null
         );
     }
@@ -112,7 +143,8 @@ public class TestServer implements AutoCloseable {
             @Nullable String nodeName,
             UUID clusterId,
             @Nullable AuthenticationConfiguration authenticationConfiguration,
-            @Nullable Integer port
+            @Nullable Integer port,
+            @Nullable HybridClock clock
     ) {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
@@ -156,6 +188,11 @@ public class TestServer implements AutoCloseable {
         AuthenticationConfiguration authenticationConfigToApply = authenticationConfiguration == null
                 ? mock(AuthenticationConfiguration.class)
                 : authenticationConfiguration;
+
+        if (clock == null) {
+            clock = new HybridClockImpl();
+        }
+
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
                         ignite,
@@ -167,11 +204,12 @@ public class TestServer implements AutoCloseable {
                         compute,
                         clusterId,
                         metrics,
-                        authenticationConfigToApply)
+                        authenticationConfigToApply,
+                        clock)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
-                        ignite.transactions(),
+                        (IgniteTransactionsImpl) ignite.transactions(),
                         cfg,
                         compute,
                         clusterService,
@@ -181,7 +219,8 @@ public class TestServer implements AutoCloseable {
                         mock(MetricManager.class),
                         metrics,
                         authenticationManager(authenticationConfigToApply),
-                        authenticationConfigToApply
+                        authenticationConfigToApply,
+                        clock
                         );
 
         module.start();
@@ -246,7 +285,7 @@ public class TestServer implements AutoCloseable {
     }
 
     private ClusterNode getClusterNode(String name) {
-        return new ClusterNode(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
+        return new ClientClusterNode(getNodeId(name), name, new NetworkAddress("127.0.0.1", 8080));
     }
 
     private static String getNodeId(String name) {

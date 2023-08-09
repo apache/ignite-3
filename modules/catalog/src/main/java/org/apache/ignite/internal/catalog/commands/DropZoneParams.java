@@ -20,53 +20,18 @@ package org.apache.ignite.internal.catalog.commands;
 /**
  * DROP ZONE statement.
  */
-public class DropZoneParams implements DdlCommandParams {
+public class DropZoneParams extends AbstractZoneCommandParams {
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
     }
 
-    /** Distribution zone name. */
-    protected String zoneName;
-
-    /**
-     * Returns distribution zone name.
-     */
-    public String zoneName() {
-        return zoneName;
-    }
-
     /**
      * Parameters builder.
      */
-    public static class Builder {
-        DropZoneParams params;
-
+    public static class Builder extends AbstractBuilder<DropZoneParams, Builder> {
         Builder() {
-            params = new DropZoneParams();
-        }
-
-        /**
-         * Sets distribution zone name.
-         *
-         * @param zoneName Distribution zone name.
-         * @return {@code this}.
-         */
-        public Builder zoneName(String zoneName) {
-            params.zoneName = zoneName;
-
-            return this;
-        }
-
-        /**
-         * Builds parameters.
-         *
-         * @return Parameters.
-         */
-        public DropZoneParams build() {
-            DropZoneParams params0 = params;
-            params = null;
-            return params0;
+            super(new DropZoneParams());
         }
     }
 }

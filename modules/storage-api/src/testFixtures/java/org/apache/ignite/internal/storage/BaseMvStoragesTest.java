@@ -32,6 +32,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -77,7 +78,9 @@ public abstract class BaseMvStoragesTest {
 
     protected static BinaryRow binaryRow(TestKey key, TestValue value) {
         try {
-            return kvMarshaller.marshal(key, value);
+            Row row = kvMarshaller.marshal(key, value);
+
+            return new BinaryRowImpl(row.schemaVersion(), row.tupleSlice());
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }

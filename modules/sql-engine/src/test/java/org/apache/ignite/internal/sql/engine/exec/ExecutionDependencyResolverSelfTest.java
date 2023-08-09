@@ -32,23 +32,25 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.sql.type.SqlTypeName;
+import java.util.function.UnaryOperator;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
+import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -81,16 +83,17 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
      */
     @Test
     public void testTableScan() {
-        Tester tester = new Tester();
+        TestTable testTable1 = createTestTable("TEST1");
+        TestTable testTable2 = createTestTable("TEST2");
 
-        RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                .add("ID", SqlTypeName.INTEGER)
-                .build();
+        int t1Id = testTable1.id();
+        int t2Id = testTable2.id();
+        TableDescriptor td1 = testTable1.descriptor();
+        TableDescriptor td2 = testTable2.descriptor();
 
-        int t1Id = tester.addTable("TEST1", tableType);
+        Tester tester = new Tester(createSchema(testTable1, testTable2));
+
         tester.setDependencies(t1Id, table1, update1);
-
-        int t2Id = tester.addTable("TEST2", tableType);
         tester.setDependencies(t2Id, table2, update2);
 
         CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT * FROM test1 JOIN test2 ON test1.id = test2.id");
@@ -98,9 +101,6 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         ResolvedDependencies deps = f.join();
         tester.checkDependencies(deps, t1Id);
         tester.checkDependencies(deps, t2Id);
-
-        TableDescriptor td1 = tester.tableDescriptor("TEST1");
-        TableDescriptor td2 = tester.tableDescriptor("TEST2");
 
         verify(registry, times(1)).getTable(eq(t1Id), same(td1));
         verify(registry, times(1)).getTable(eq(t2Id), same(td2));
@@ -111,20 +111,16 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
      */
     @Test
     public void testIndexScan() {
-        Tester tester = new Tester();
+        TestTable table = createTestTable("TEST1", addHashIndex("ID"));
 
-        RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                .add("ID", SqlTypeName.INTEGER)
-                .build();
+        int t1Id = table.id();
+        TableDescriptor td1 = table.descriptor();
 
-        int t1Id = tester.addTable("TEST1", tableType);
+        Tester tester = new Tester(createSchema(table));
         tester.setDependencies(t1Id, table1, update1);
-        tester.addIndex("TEST1", new IgniteIndex(TestHashIndex.create(List.of("ID"), "ID_IDX")));
 
         CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT * FROM test1 WHERE id=1");
         tester.checkDependencies(f.join(), t1Id);
-
-        TableDescriptor td1 = tester.tableDescriptor("TEST1");
 
         verify(registry, times(1)).getTable(eq(t1Id), same(td1));
     }
@@ -134,17 +130,17 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
      */
     @Test
     public void testModify() {
-        RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                .add("ID", SqlTypeName.INTEGER)
-                .add("VAL", SqlTypeName.INTEGER)
-                .build();
+        TestTable testTable1 = createTestTable("TEST1");
+        TestTable testTable2 = createTestTable("TEST2");
 
-        Tester tester = new Tester();
+        int t1Id = testTable1.id();
+        int t2Id = testTable2.id();
+        TableDescriptor td1 = testTable1.descriptor();
+        TableDescriptor td2 = testTable2.descriptor();
 
-        int t1Id = tester.addTable("TEST1", tableType);
+        Tester tester = new Tester(createSchema(testTable1, testTable2));
+
         tester.setDependencies(t1Id, table1, update1);
-
-        int t2Id = tester.addTable("TEST2", tableType);
         tester.setDependencies(t2Id, table2, update2);
 
         CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies(
@@ -153,9 +149,6 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         ResolvedDependencies deps = f.join();
         tester.checkDependencies(deps, t1Id);
         tester.checkDependencies(deps, t2Id);
-
-        TableDescriptor td1 = tester.tableDescriptor("TEST1");
-        TableDescriptor td2 = tester.tableDescriptor("TEST2");
 
         verify(registry, times(1)).getTable(eq(t1Id), same(td1));
         verify(registry, times(1)).getTable(eq(t2Id), same(td2));
@@ -166,14 +159,12 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
      */
     @Test
     public void testCached() {
-        Tester tester = new Tester();
+        TestTable table = createTestTable("TEST1");
 
-        RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                .add("ID", SqlTypeName.INTEGER)
-                .build();
+        int t1Id = table.id();
 
-        String tableName = "TEST1";
-        int t1Id = tester.addTable(tableName, tableType);
+        Tester tester = new Tester(createSchema(table));
+
         tester.setDependencies(t1Id, table1, update1);
 
         CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT (SELECT id FROM test1) FROM test1");
@@ -189,13 +180,11 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
      */
     @Test
     public void testResolutionErrorIsReturned() {
-        Tester tester = new Tester();
+        TestTable table = createTestTable("TEST1");
 
-        RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                .add("ID", SqlTypeName.INTEGER)
-                .build();
+        int t1Id = table.id();
 
-        int t1Id = tester.addTable("TEST1", tableType);
+        Tester tester = new Tester(createSchema(table));
 
         RuntimeException err = new RuntimeException("Broken");
         tester.setError(t1Id, err);
@@ -208,13 +197,12 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
     /** Fetch colocation group succeeds. */
     @Test
     public void testFetchColocationGroup() {
-        Tester tester = new Tester();
+        TestTable table = createTestTable("TEST1");
 
-        RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                .add("ID", SqlTypeName.INTEGER)
-                .build();
+        int t1Id = table.id();
 
-        int t1Id = tester.addTable("TEST1", tableType);
+        Tester tester = new Tester(createSchema(table));
+
         ColocationGroup g1 = ColocationGroup.forNodes(List.of("n1"));
 
         tester.setColocationGroup(t1Id, CompletableFuture.completedFuture(g1));
@@ -229,15 +217,13 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
     /** Fetch colocation group propagates an error. */
     @Test
     public void testFetchColocationGroupErrorIsReturned() {
-        Tester tester = new Tester();
+        TestTable table = createTestTable("TEST1");
 
-        RelDataType tableType = new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                .add("ID", SqlTypeName.INTEGER)
-                .build();
+        int t1Id = table.id();
 
-        int t1Id = tester.addTable("TEST1", tableType);
+        Tester tester = new Tester(createSchema(table));
 
-        ClusterNode node1 = new ClusterNode("1", "node1", new NetworkAddress("host", 1234));
+        ClusterNode node1 = new ClusterNodeImpl("1", "node1", new NetworkAddress("host", 1234));
 
         List<PrimaryReplica> rs = new ArrayList<>();
         rs.add(new PrimaryReplica(node1, 5));
@@ -254,23 +240,14 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
     private class Tester {
 
-        final IgniteSchema igniteSchema = new IgniteSchema("PUBLIC");
+        final IgniteSchema igniteSchema;
 
         final Map<Integer, TestExecutableTable> deps = new HashMap<>();
 
         final Map<Integer, CompletableFuture<ColocationGroup>> colocationGroups = new HashMap<>();
 
-        int addTable(String name, RelDataType rowType) {
-            IgniteTable table = createTable(igniteSchema, name, rowType, IgniteDistributions.single());
-            igniteSchema.addTable(table);
-
-            return table.id();
-        }
-
-        void addIndex(String tableName, IgniteIndex index) {
-            IgniteTable table = (IgniteTable) igniteSchema.getTable(tableName);
-            Objects.requireNonNull(table, "No table");
-            table.addIndex(index);
+        Tester(IgniteSchema schema) {
+            igniteSchema = schema;
         }
 
         void setDependencies(int tableId, ScannableTable table, UpdatableTable updates) {
@@ -321,6 +298,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
             IgniteTable table = (IgniteTable) igniteSchema.getTable(tableName);
             return table.descriptor();
         }
+
     }
 
     private static final class TestExecutableTable implements ExecutableTable {
@@ -351,5 +329,23 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         public CompletableFuture<ColocationGroup> fetchColocationGroup() {
             return colocationGroup;
         }
+    }
+
+    private static TestTable createTestTable(String tableName) {
+        return createTestTable(tableName, null);
+    }
+
+    private static TestTable createTestTable(String tableName, @Nullable UnaryOperator<TableBuilder> changer) {
+        TableBuilder testTable = TestBuilders.table()
+                .name(tableName)
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("VAL", NativeTypes.STRING)
+                .distribution(IgniteDistributions.single());
+
+        if (changer != null) {
+            changer.apply(testTable);
+        }
+
+        return testTable.build();
     }
 }

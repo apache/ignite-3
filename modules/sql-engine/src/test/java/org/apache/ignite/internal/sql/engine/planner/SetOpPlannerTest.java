@@ -18,9 +18,10 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import java.util.List;
+import java.util.function.UnaryOperator;
 import org.apache.calcite.rel.RelDistribution.Type;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteColocatedIntersect;
@@ -34,9 +35,8 @@ import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceMinus;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceSetOp;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -57,27 +57,28 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
      */
     @BeforeAll
     public void setup() {
-        publicSchema = new IgniteSchema("PUBLIC");
+        publicSchema = createSchemaFrom(
+                createTable("RANDOM_TBL1", IgniteDistributions.random()),
+                createTable("RANDOM_TBL2", IgniteDistributions.random()),
+                createTable("BROADCAST_TBL1", IgniteDistributions.broadcast()),
+                createTable("BROADCAST_TBL2", IgniteDistributions.broadcast()),
+                createTable("SINGLE_TBL1", IgniteDistributions.single()),
+                createTable("SINGLE_TBL2", IgniteDistributions.single()),
+                createTable("AFFINITY_TBL1", IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)),
+                createTable("HASH_TBL1", IgniteDistributions.hash(List.of(0))),
+                createTable("AFFINITY_TBL2", IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)),
+                createTable("AFFINITY_TBL3", IgniteDistributions.affinity(1, nextTableId(), DEFAULT_ZONE_ID)),
+                createTable("AFFINITY_TBL4", IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID + 1))
+        );
+    }
 
-        IgniteTypeFactory f = Commons.typeFactory();
-
-        RelDataType type = new RelDataTypeFactory.Builder(f)
-                .add("ID", f.createJavaType(Integer.class))
-                .add("NAME", f.createJavaType(String.class))
-                .add("SALARY", f.createJavaType(Double.class))
-                .build();
-
-        createTable(publicSchema, "RANDOM_TBL1", type, IgniteDistributions.random());
-        createTable(publicSchema, "RANDOM_TBL2", type, IgniteDistributions.random());
-        createTable(publicSchema, "BROADCAST_TBL1", type, IgniteDistributions.broadcast());
-        createTable(publicSchema, "BROADCAST_TBL2", type, IgniteDistributions.broadcast());
-        createTable(publicSchema, "SINGLE_TBL1", type, IgniteDistributions.single());
-        createTable(publicSchema, "SINGLE_TBL2", type, IgniteDistributions.single());
-        createTable(publicSchema, "AFFINITY_TBL1", type, IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID));
-        createTable(publicSchema, "HASH_TBL1", type, IgniteDistributions.hash(List.of(0)));
-        createTable(publicSchema, "AFFINITY_TBL2", type, IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID));
-        createTable(publicSchema, "AFFINITY_TBL3", type, IgniteDistributions.affinity(1, nextTableId(), DEFAULT_ZONE_ID));
-        createTable(publicSchema, "AFFINITY_TBL4", type, IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID + 1));
+    private static UnaryOperator<TableBuilder> createTable(String tableName, IgniteDistribution distribution) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .distribution(distribution)
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("NAME", NativeTypes.STRING)
+                .addColumn("SALARY", NativeTypes.DOUBLE);
     }
 
     /**

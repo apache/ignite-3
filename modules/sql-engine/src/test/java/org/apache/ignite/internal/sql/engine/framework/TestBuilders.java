@@ -433,7 +433,6 @@ public class TestBuilders {
             TestTable testTable = new TestTable(
                     new TableDescriptorImpl(columns, distribution),
                     Objects.requireNonNull(name),
-                    Map.of(),
                     size
             );
 
@@ -524,7 +523,7 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Index must contain at least one column");
             }
 
-            if (collations.size() == columns.size()) {
+            if (collations.size() != columns.size()) {
                 throw new IllegalArgumentException("Collation must be specified for each of columns.");
             }
 
@@ -673,8 +672,14 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         public ChildT addColumn(String name, NativeType type) {
+            return addColumn(name, type, true);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ChildT addColumn(String name, NativeType type, boolean nullable) {
             columns.add(new ColumnDescriptorImpl(
-                    name, false, true, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, false, nullable, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return self();
@@ -777,6 +782,9 @@ public class TestBuilders {
 
         /** Adds a column to the table. */
         ChildT addColumn(String name, NativeType type);
+
+        /** Adds a column with given nullability to the table. */
+        ChildT addColumn(String name, NativeType type, boolean nullable);
 
         /** Adds a column with the given default value to the table. */
         ChildT addColumn(String name, NativeType type, @Nullable Object defaultValue);

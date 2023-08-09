@@ -42,6 +42,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -167,8 +168,14 @@ public class DistributionZoneRebalanceEngine {
 
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
 
-                    DistributionZoneView zoneConfig =
-                            getZoneById(zonesConfiguration, zoneId).value();
+                    DistributionZoneView zoneConfig;
+
+                    try {
+                        zoneConfig = getZoneById(zonesConfiguration, zoneId).value();
+                    } catch (DistributionZoneNotFoundException e) {
+                        //The zone was removed.
+                        return completedFuture(null);
+                    }
 
                     Set<String> filteredDataNodes = filterDataNodes(
                             dataNodes,
@@ -252,36 +259,37 @@ public class DistributionZoneRebalanceEngine {
 
             DistributionZoneView zoneCfg = replicasCtx.newValue(DistributionZoneView.class);
 
-            Set<String> dataNodes = distributionZoneManager.dataNodes(zoneCfg.zoneId());
+            return distributionZoneManager.dataNodes(replicasCtx.storageRevision(), zoneCfg.zoneId())
+                    .thenCompose(dataNodes -> {
+                        if (dataNodes.isEmpty()) {
+                            return completedFuture(null);
+                        }
 
-            if (dataNodes.isEmpty()) {
-                return completedFuture(null);
-            }
+                        List<TableView> tableViews = findTablesByZoneId(zoneCfg.zoneId());
 
-            List<TableView> tableViews = findTablesByZoneId(zoneCfg.zoneId());
+                        CatalogZoneDescriptor zoneDescriptor = toZoneDescriptor(zoneCfg);
 
-            CatalogZoneDescriptor zoneDescriptor = toZoneDescriptor(zoneCfg);
+                        List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableViews.size());
 
-            List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableViews.size());
+                        for (TableView tableCfg : tableViews) {
+                            CatalogTableDescriptor tableDescriptor = toTableDescriptor(tableCfg);
 
-            for (TableView tableCfg : tableViews) {
-                CatalogTableDescriptor tableDescriptor = toTableDescriptor(tableCfg);
+                            LOG.info("Received update for replicas number [table={}/{}, oldNumber={}, newNumber={}]",
+                                    tableDescriptor.id(), tableDescriptor.name(), replicasCtx.oldValue(), replicasCtx.newValue());
 
-                LOG.info("Received update for replicas number [table={}/{}, oldNumber={}, newNumber={}]",
-                        tableDescriptor.id(), tableDescriptor.name(), replicasCtx.oldValue(), replicasCtx.newValue());
+                            CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
+                                    tableDescriptor,
+                                    zoneDescriptor,
+                                    dataNodes,
+                                    replicasCtx.storageRevision(),
+                                    metaStorageManager
+                            );
 
-                CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
-                        tableDescriptor,
-                        zoneDescriptor,
-                        dataNodes,
-                        replicasCtx.storageRevision(),
-                        metaStorageManager
-                );
+                            tableFutures.add(allOf(partitionFutures));
+                        }
 
-                tableFutures.add(allOf(partitionFutures));
-            }
-
-            return allOf(tableFutures.toArray(CompletableFuture[]::new));
+                        return allOf(tableFutures.toArray(CompletableFuture[]::new));
+                    });
         } finally {
             busyLock.leaveBusy();
         }

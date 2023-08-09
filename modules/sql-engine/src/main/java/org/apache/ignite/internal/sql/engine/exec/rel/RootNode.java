@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
 import com.google.common.base.Functions;
@@ -34,7 +33,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.SqlException;
 
 /**
@@ -284,15 +283,6 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
             return;
         }
 
-        if (e instanceof RuntimeException) {
-            throw (RuntimeException) e;
-        } else {
-            throw new IgniteInternalException(INTERNAL_ERR, "An error occurred while query executing.", e);
-        }
-        // TODO: rework with SQL error code
-        //        if (e instanceof IgniteSQLException)
-        //            throw (IgniteSQLException)e;
-        //        else
-        //            throw new IgniteSQLException("An error occurred while query executing.", IgniteQueryErrorCode.UNKNOWN, e);
+        ExceptionUtils.sneakyThrow(e);
     }
 }

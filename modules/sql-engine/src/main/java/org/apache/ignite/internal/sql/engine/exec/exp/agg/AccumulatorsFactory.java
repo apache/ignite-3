@@ -284,9 +284,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         /** {@inheritDoc} */
         @Override
         public void add(RowT row) {
-            assert type != AggregateType.REDUCE;
-
-            if (filterArg >= 0 && Boolean.TRUE != handler.get(filterArg, row)) {
+            if (type != AggregateType.REDUCE && filterArg >= 0 && Boolean.TRUE != handler.get(filterArg, row)) {
                 return;
             }
 
@@ -305,25 +303,8 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         /** {@inheritDoc} */
         @Override
         public Object end() {
-            assert type != AggregateType.MAP;
-
             return outAdapter.apply(accumulator.end());
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public void apply(Accumulator accumulator) {
-            assert type == AggregateType.REDUCE;
-
-            this.accumulator.apply(accumulator);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Accumulator accumulator() {
-            assert type == AggregateType.MAP;
-
-            return accumulator;
-        }
     }
 }

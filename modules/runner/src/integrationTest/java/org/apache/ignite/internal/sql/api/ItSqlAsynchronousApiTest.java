@@ -22,7 +22,16 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTa
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_CLOSED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_NO_RESULT_SET_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -35,9 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
@@ -45,18 +52,19 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.apache.ignite.internal.app.IgniteImpl;
+import javax.annotation.Nullable;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
+import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.ErrorGroups.Index;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -75,7 +83,6 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
@@ -106,22 +113,9 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         tearDownBase(testInfo);
     }
 
-    /**
-     * Gets the SQL API.
-     *
-     * @return SQL API.
-     */
-    protected IgniteSql igniteSql() {
-        return CLUSTER_NODES.get(0).sql();
-    }
-
-    protected IgniteTransactions igniteTx() {
-        return CLUSTER_NODES.get(0).transactions();
-    }
-
     @Test
     public void ddl() throws Exception {
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
         // CREATE TABLE
@@ -133,7 +127,8 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
                 "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)"
         );
         checkError(
-                IgniteException.class,
+                SqlException.class,
+                ErrorGroups.Table.TABLE_DEFINITION_ERR,
                 "Can't create table with duplicate columns: ID, VAL, VAL",
                 ses,
                 "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL INT, VAL INT)"
@@ -175,6 +170,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(true, ses, "CREATE INDEX TEST_IDX3 ON TEST(ID, VAL0, VAL1)");
         checkError(
                 SqlException.class,
+                Index.INVALID_INDEX_DEFINITION_ERR,
                 "Can't create index on duplicate columns: VAL0, VAL0",
                 ses,
                 "CREATE INDEX TEST_IDX4 ON TEST(VAL0, VAL0)"
@@ -182,15 +178,19 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         checkError(
                 SqlException.class,
+                STMT_VALIDATION_ERR,
                 "Can`t delete column(s). Column VAL1 is used by indexes [TEST_IDX3].",
                 ses,
                 "ALTER TABLE TEST DROP COLUMN val1"
         );
 
-        SqlException ex = IgniteTestUtils.cause(assertThrows(Throwable.class,
-                () -> await(ses.executeAsync(null, "ALTER TABLE TEST DROP COLUMN (val0, val1)"))), SqlException.class);
-        assertNotNull(ex);
-        assertEquals(STMT_VALIDATION_ERR, ex.code());
+        SqlException ex = checkError(
+                SqlException.class,
+                STMT_VALIDATION_ERR,
+                "Can`t delete column(s).",
+                ses,
+                "ALTER TABLE TEST DROP COLUMN (val0, val1)"
+        );
 
         String msg = ex.getMessage();
         String explainMsg = "Unexpected error message: " + msg;
@@ -201,6 +201,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         checkError(
                 SqlException.class,
+                STMT_VALIDATION_ERR,
                 "Can`t delete column, belongs to primary key: [name=ID]",
                 ses,
                 "ALTER TABLE TEST DROP COLUMN id"
@@ -250,7 +251,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
     public void dml() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        IgniteSql sql = igniteSql();
         Session ses = sql.createSession();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
@@ -275,9 +276,9 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         Session ses = sql.createSession();
 
-        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+        TxManager txManager = txManager();
 
-        int txPrevCnt = txManagerInternal.finished();
+        int txPrevCnt = txManager.finished();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
             CompletableFuture<AsyncResultSet<SqlRow>> fut = ses.executeAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)", i, i);
@@ -296,7 +297,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         }
 
         // No new transactions through ddl.
-        assertEquals(0, txManagerInternal.finished() - txPrevCnt);
+        assertEquals(0, txManager.finished() - txPrevCnt);
     }
 
     /** Check correctness of explicit transaction rollback. */
@@ -337,7 +338,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         Session ses = sql.createSession();
 
-        TxManager txManagerInternal = (TxManager) IgniteTestUtils.getFieldValue(CLUSTER_NODES.get(0), IgniteImpl.class, "txManager");
+        TxManager txManagerInternal = txManager();
 
         int txPrevCnt = txManagerInternal.finished();
 
@@ -356,12 +357,13 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         // Outdated tx.
         Transaction outerTx0 = outerTx;
-
-        assertThrows(SqlException.class,
+        IgniteException e = assertThrows(IgniteException.class,
                 () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", outerTx0, ROW_COUNT, Integer.MAX_VALUE));
+        assertEquals(TX_FAILED_READ_WRITE_OPERATION_ERR, e.code());
 
-        assertThrows(SqlException.class,
+        e = assertThrows(SqlException.class,
                 () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE));
+        assertEquals(CONSTRAINT_VIOLATION_ERR, e.code());
 
         AsyncResultSet rs = await(ses.executeAsync(null, "SELECT VAL0 FROM TEST ORDER BY VAL0"));
 
@@ -385,9 +387,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(ROW_COUNT + 1 + 1 + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
 
-        var states = (Map<UUID, TxState>) IgniteTestUtils.getFieldValue(txManagerInternal, TxManagerImpl.class, "states");
-
-        assertEquals(txManagerInternal.finished(), states.size());
+        assertEquals(0, txManagerInternal.pending());
     }
 
     /** Check correctness of rw and ro transactions for table scan. */
@@ -600,7 +600,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void errors() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT NOT NULL)");
         for (int i = 0; i < ROW_COUNT; ++i) {
             sql("INSERT INTO TEST VALUES (?, ?)", i, i);
         }
@@ -609,33 +609,40 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
 
         // Parse error.
-        assertThrowsWithCause(() -> await(ses.executeAsync(null, "SELECT ID FROM")),
-                SqlException.class, "Failed to parse query");
+        checkError(SqlException.class, STMT_PARSE_ERR, "Failed to parse query", ses, "SELECT ID FROM");
 
-        // Multiple statements error.
-        assertThrowsWithCause(() -> await(ses.executeAsync(null, "SELECT 1; SELECT 2")),
-                SqlException.class, "Multiple statements are not allowed");
+        // Validation errors.
+        checkError(SqlException.class, STMT_VALIDATION_ERR, "Column 'VAL0' does not allow NULLs", ses,
+                "INSERT INTO TEST VALUES (2, NULL)");
 
-        // Planning error.
-        assertThrowsWithCause(() -> await(ses.executeAsync(null, "CREATE TABLE TEST2 (VAL INT)")),
-                SqlException.class, "Table without PRIMARY KEY is not supported");
+        checkError(SqlException.class, STMT_VALIDATION_ERR, "Object 'NOT_EXISTING_TABLE' not found", ses,
+                "SELECT * FROM NOT_EXISTING_TABLE");
+
+        checkError(SqlException.class, STMT_VALIDATION_ERR, "Column 'NOT_EXISTING_COLUMN' not found", ses,
+                "SELECT NOT_EXISTING_COLUMN FROM TEST");
+
+        checkError(SqlException.class, STMT_VALIDATION_ERR, "Multiple statements are not allowed", ses, "SELECT 1; SELECT 2");
+
+        checkError(SqlException.class, STMT_VALIDATION_ERR, "Table without PRIMARY KEY is not supported", ses,
+                "CREATE TABLE TEST2 (VAL INT)");
 
         // Execute error.
-        assertThrowsWithCause(() -> await(ses.executeAsync(null, "SELECT 1 / ?", 0)),
-                IgniteException.class, "/ by zero");
+        checkError(SqlException.class, RUNTIME_ERR, "/ by zero", ses, "SELECT 1 / ?", 0);
+        checkError(SqlException.class, RUNTIME_ERR, "negative substring length not allowed", ses, "SELECT SUBSTRING('foo', 1, -3)");
 
         // No result set error.
         {
             AsyncResultSet ars = await(ses.executeAsync(null, "CREATE TABLE TEST3 (ID INT PRIMARY KEY)"));
-            assertThrowsWithCause(() -> await(ars.fetchNextPage()), NoRowSetExpectedException.class,
-                    "Query has no result set");
+            assertThrowsPublicException(() -> await(ars.fetchNextPage()),
+                    NoRowSetExpectedException.class, QUERY_NO_RESULT_SET_ERR, "Query has no result set");
         }
 
         // Cursor closed error.
         {
             AsyncResultSet ars = await(ses.executeAsync(null, "SELECT * FROM TEST"));
             await(ars.closeAsync());
-            assertThrowsWithCause(() -> await(ars.fetchNextPage()), CursorClosedException.class);
+            assertThrowsPublicException(() -> await(ars.fetchNextPage()),
+                    CursorClosedException.class, CURSOR_CLOSED_ERR, null);
         }
     }
 
@@ -650,8 +657,9 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         {
             Transaction tx = igniteTx().begin();
             try {
-                assertThrowsWithCause(() -> await(ses.executeAsync(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")),
+                assertThrowsPublicException(() -> await(ses.executeAsync(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")),
                         SqlException.class,
+                        STMT_VALIDATION_ERR,
                         "DDL doesn't support transactions."
                 );
             } finally {
@@ -663,8 +671,9 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
             AsyncResultSet<SqlRow> res = await(ses.executeAsync(tx, "INSERT INTO TEST VALUES (?, ?)", -1, -1));
             assertEquals(1, res.affectedRows());
 
-            assertThrowsWithCause(() -> await(ses.executeAsync(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")),
+            assertThrowsPublicException(() -> await(ses.executeAsync(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")),
                     SqlException.class,
+                    STMT_VALIDATION_ERR,
                     "DDL doesn't support transactions."
             );
             tx.commit();
@@ -690,16 +699,12 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         // Fetched page is available after cancel.
         ars0.currentPage();
 
-        assertThrowsWithCause(
-                () -> await(ars0.fetchNextPage()),
-                ExecutionCancelledException.class
-        );
+        SqlException sqlEx = assertThrowsPublicException(() -> await(ars0.fetchNextPage()),
+                SqlException.class, EXECUTION_CANCELLED_ERR, null);
+        assertTrue(IgniteTestUtils.hasCause(sqlEx, ExecutionCancelledException.class, null));
 
-        assertThrowsWithCause(
-                () -> await(ses.executeAsync(null, "SELECT ID FROM TEST")),
-                SqlException.class,
-                "Session is closed"
-        );
+        assertThrowsPublicException(() -> await(ses.executeAsync(null, "SELECT ID FROM TEST")),
+                SqlException.class, SESSION_CLOSED_ERR, "Session is closed");
     }
 
     @Test
@@ -724,17 +729,11 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         IntStream.range(0, ROW_COUNT).forEach(i -> assertEquals(i, res.get(i).get(0)));
 
         // Check invalid query type
-        assertThrowsWithCause(
-                () -> await(ses.executeBatchAsync(null, "SELECT * FROM TEST", args)),
-                SqlException.class,
-                "Invalid SQL statement type in the batch"
-        );
+        assertThrowsPublicException(() -> await(ses.executeBatchAsync(null, "SELECT * FROM TEST", args)),
+                SqlBatchException.class, STMT_VALIDATION_ERR, "Invalid SQL statement type in the batch");
 
-        assertThrowsWithCause(
-                () -> await(ses.executeBatchAsync(null, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args)),
-                SqlException.class,
-                "Invalid SQL statement type in the batch"
-        );
+        assertThrowsPublicException(() -> await(ses.executeBatchAsync(null, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args)),
+                SqlBatchException.class, STMT_VALIDATION_ERR, "Invalid SQL statement type in the batch");
     }
 
     @Test
@@ -756,12 +755,13 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
             }
         }
 
-        SqlBatchException ex = assertThrows(
+        SqlBatchException ex = assertThrowsPublicException(
+                () -> await(ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args)),
                 SqlBatchException.class,
-                () -> await(ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args))
+                CONSTRAINT_VIOLATION_ERR,
+                null
         );
 
-        assertEquals(CONSTRAINT_VIOLATION_ERR, ex.code());
         assertEquals(err, ex.updateCounters().length);
         IntStream.range(0, ex.updateCounters().length).forEach(i -> assertEquals(1, ex.updateCounters()[i]));
     }
@@ -788,12 +788,19 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(expectedApplied, ses, sql, null);
     }
 
-    private static void checkError(Class<? extends Throwable> expectedException, String msg, Session ses, String sql, Object... args) {
-        assertThrowsWithCause(() -> await(ses.executeAsync(
-                null,
-                sql,
-                args
-        )), expectedException, msg);
+    private static <T extends IgniteException> T checkError(Class<T> expCls, String msg, Session ses, String sql, Object... args) {
+        return checkError(expCls, null, msg, ses, sql, args);
+    }
+
+    private static <T extends IgniteException> T checkError(
+            Class<T> expCls,
+            @Nullable Integer code,
+            @Nullable String msg,
+            Session ses,
+            String sql,
+            Object... args
+    ) {
+        return assertThrowsPublicException(() -> await(ses.executeAsync(null, sql, args)), expCls, code, msg);
     }
 
     protected static void checkDml(int expectedAffectedRows, Session ses, String sql, Transaction tx, Object... args) {
@@ -809,8 +816,27 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         await(asyncRes.closeAsync());
     }
 
-    protected static void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args) {
+    private static void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args) {
         checkDml(expectedAffectedRows, ses, sql, null, args);
+    }
+
+    static <T extends IgniteException> T assertThrowsPublicException(
+            RunnableX executable,
+            Class<T> expCls,
+            @Nullable Integer code,
+            @Nullable String msgPart
+    ) {
+        T ex = assertThrows(expCls, executable::run);
+
+        if (code != null) {
+            assertEquals(new IgniteException(code).codeAsString(), ex.codeAsString());
+        }
+
+        if (msgPart != null) {
+            assertThat(ex.getMessage(), containsString(msgPart));
+        }
+
+        return ex;
     }
 
     static class TestPageProcessor implements

@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.util;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -51,8 +53,10 @@ public class IgniteNameUtilsTest {
             "f.f", "f f", "f\"f", "f\"\"f", "\"foo", "\"fo\"o"
     })
     public void malformedSimpleNames(String source) {
-        IgniteInternalException ex = assertThrows(IgniteInternalException.class, () -> IgniteNameUtils.parseSimpleName(source));
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> IgniteNameUtils.parseSimpleName(source));
 
-        assertThat(ex.getMessage(), ex.code(), equalTo(Common.ILLEGAL_ARGUMENT_ERR));
+        assertThat(ex.getMessage(), is(anyOf(
+                equalTo("Fully qualified name is not expected [name=" + source + "]"),
+                containsString("Malformed name [name=" + source))));
     }
 }
