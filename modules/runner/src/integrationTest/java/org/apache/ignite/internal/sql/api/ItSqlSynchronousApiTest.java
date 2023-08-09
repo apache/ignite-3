@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.sql.api.ItSqlAsynchronousApiTest.assertThrowsPublicException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_CLOSED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_NO_RESULT_SET_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
@@ -49,6 +50,7 @@ import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
@@ -305,15 +307,14 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
             assertThrowsPublicException(rs::next, NoRowSetExpectedException.class, QUERY_NO_RESULT_SET_ERR, "Query has no result set");
         }
 
-        // TODO unmute after https://issues.apache.org/jira/browse/IGNITE-19919
         // Cursor closed error.
-        // {
-        //     ResultSet rs = ses.execute(null, "SELECT * FROM TEST");
-        //     Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
-        //     rs.close();
-        //     assertThrowsPublicException(() -> rs.forEachRemaining(Object::hashCode),
-        //             CursorClosedException.class, CURSOR_CLOSED_ERR, null);
-        // }
+        {
+            ResultSet rs = ses.execute(null, "SELECT * FROM TEST");
+            Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
+            rs.close();
+            assertThrowsPublicException(() -> rs.forEachRemaining(Object::hashCode),
+                    CursorClosedException.class, CURSOR_CLOSED_ERR, null);
+        }
     }
 
     /**
