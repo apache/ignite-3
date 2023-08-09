@@ -24,15 +24,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import jakarta.inject.Inject;
 import java.io.IOException;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.cli.commands.ItConnectToClusterTestBase;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.CliConfigKeys.Constants;
+import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTestBase {
+
+    @Inject
+    private ApiClientFactory apiClientFactory;
+
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
         builder.clusterConfiguration(readClusterConfigurationWithEnabledAuth());
@@ -249,5 +255,32 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
 
         // And prompt shows user name and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
+    }
+
+    @Test
+    @DisplayName("Should create correct api client even if user doesn't store credentials in settings.")
+    void sessionListenersShouldBeInvokedWithCorrectCredentials() throws IOException {
+        // Given basic authentication is configured in config file
+        configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
+        // And wrong password is in config
+        configManagerProvider.configManager.setProperty(CliConfigKeys.Constants.BASIC_AUTHENTICATION_PASSWORD, "wrong-password");
+
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // And answer is "n"
+        bindAnswers("n");
+
+        // When connect with auth parameters
+        execute("connect", "--username", "admin", "--password", "password");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> "),
+                () -> assertEquals("password", apiClientFactory.currentSessionSettings().basicAuthenticationPassword()),
+                () -> assertEquals("wrong-password",
+                        configManagerProvider.get().getCurrentProperty(Constants.BASIC_AUTHENTICATION_PASSWORD))
+        );
     }
 }

@@ -31,9 +31,11 @@ import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
+import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.core.repl.Session;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
+import org.apache.ignite.internal.cli.core.rest.ApiClientSettings;
 import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
 import org.apache.ignite.internal.cli.event.EventPublisher;
@@ -91,9 +93,22 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
                 // Try with authentication
                 if (!nullOrBlank(input.username()) && !nullOrBlank(input.password())) {
                     sessionInfo = connectWithAuthentication(nodeUrl, input.username(), input.password());
+
+                    // Use current credentials as default for api clients
+                    ApiClientSettings clientSettings = ApiClientSettings.builder()
+                            .basicAuthenticationUsername(input.username())
+                            .basicAuthenticationPassword(input.password())
+                            .build();
+                    clientFactory.setSessionSettings(clientSettings);
                 } else {
                     sessionInfo = connectWithAuthentication(nodeUrl);
                 }
+            } else if (!nullOrBlank(input.username()) || !nullOrBlank(input.password())) {
+                // Cluster without authentication but connect command invoked with username/password
+                return DefaultCallOutput.failure(
+                        handleException(new IgniteCliException(
+                                "Authentication is not enabled on cluster but username or password were provided."),
+                                sessionInfo.nodeUrl()));
             }
 
             stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), nodeUrl);
