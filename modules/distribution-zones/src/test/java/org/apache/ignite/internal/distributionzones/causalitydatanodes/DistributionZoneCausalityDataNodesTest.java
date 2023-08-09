@@ -52,8 +52,8 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.BaseDistributionZoneManagerTest;
-import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
@@ -63,7 +63,6 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -75,13 +74,9 @@ import org.junit.jupiter.api.Test;
  * Tests for causality data nodes updating in {@link DistributionZoneManager}.
  */
 public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZoneManagerTest {
-    private static final String ZONE_NAME_1 = "zone1";
-
     private static final String ZONE_NAME_2 = "zone2";
 
     private static final String ZONE_NAME_3 = "zone3";
-
-    private static final int ZONE_ID_1 = 1;
 
     private static final int ZONE_ID_2 = 2;
 
@@ -186,22 +181,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Prerequisite.
 
         // Create the zone with immediate timers.
-        distributionZoneManager.createZone(
-                        new Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         // Create the zone with not immediate timers.
-        distributionZoneManager.createZone(
-                        new Builder(ZONE_NAME_2)
-                                .dataNodesAutoAdjustScaleUp(1)
-                                .dataNodesAutoAdjustScaleDown(1)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(ZONE_NAME_2, 1, 1, null);
 
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
@@ -211,7 +194,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Check that data nodes value of both zone is NODE_0 and NODE_1.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
-        Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes0);
 
         long dataNodesRevisionZone = dataNodesUpdateRevision.get(TIMEOUT, MILLISECONDS);
@@ -230,7 +213,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision2 = fireTopologyLeapAndGetRevision(twoNodes2);
 
         // Check that data nodes value of the zone with immediate timers with the topology update revision is NODE_0 and NODE_2.
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(twoNodesNames2, dataNodes3);
 
         // Check that data nodes value of the zone with not immediate timers with the topology update revision is NODE_0 and NODE_1.
@@ -254,22 +237,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Prerequisite.
 
         // Create the zone with immediate timers.
-        distributionZoneManager.createZone(
-                        new Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         // Alter the zone with immediate timers.
-        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new Builder(DEFAULT_ZONE_NAME)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
@@ -280,25 +251,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes0);
 
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Alter zones with not immediate scale up timer.
-        distributionZoneManager.alterZone(ZONE_NAME_1,
-                        new Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(1)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(ZONE_NAME, 1, IMMEDIATE_TIMER_VALUE, null);
 
-        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new Builder(DEFAULT_ZONE_NAME)
-                                .dataNodesAutoAdjustScaleUp(1)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(DEFAULT_ZONE_NAME, 1, IMMEDIATE_TIMER_VALUE, null);
 
         // Test steps.
 
@@ -307,7 +266,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<String> twoNodesNames2 = Set.of(NODE_0.name(), NODE_2.name());
 
         CompletableFuture<Long> dataNodesUpdateRevision0 = getZoneDataNodesRevision(DEFAULT_ZONE_ID, twoNodes2);
-        CompletableFuture<Long> dataNodesUpdateRevision1 = getZoneDataNodesRevision(ZONE_ID_1, twoNodes2);
+        CompletableFuture<Long> dataNodesUpdateRevision1 = getZoneDataNodesRevision(ZONE_ID, twoNodes2);
 
         long topologyRevision2 = fireTopologyLeapAndGetRevision(twoNodes2);
 
@@ -315,7 +274,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes2);
 
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes3);
 
         // Check that data nodes value of zones is NODE_0 and NODE_2.
@@ -324,7 +283,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertEquals(twoNodesNames2, dataNodes4);
 
         long dataNodesRevisionZone1 = dataNodesUpdateRevision1.get(TIMEOUT, MILLISECONDS);
-        Set<String> dataNodes5 = distributionZoneManager.dataNodes(dataNodesRevisionZone1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes5 = distributionZoneManager.dataNodes(dataNodesRevisionZone1, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(twoNodesNames2, dataNodes5);
     }
 
@@ -339,22 +298,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Prerequisite.
 
         // Create the zone with not immediate scale down timer.
-        distributionZoneManager.createZone(
-                        new Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(1)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, 1, null);
 
         // Alter the zone with not immediate scale down timer.
-        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new Builder(DEFAULT_ZONE_NAME)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(1)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, 1, null);
 
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
@@ -365,7 +312,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes0);
 
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Test steps.
@@ -375,7 +322,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<String> twoNodesNames2 = Set.of(NODE_0.name(), NODE_2.name());
 
         CompletableFuture<Long> dataNodesUpdateRevision0 = getZoneDataNodesRevision(DEFAULT_ZONE_ID, twoNodes2);
-        CompletableFuture<Long> dataNodesUpdateRevision1 = getZoneDataNodesRevision(ZONE_ID_1, twoNodes2);
+        CompletableFuture<Long> dataNodesUpdateRevision1 = getZoneDataNodesRevision(ZONE_ID, twoNodes2);
 
         long topologyRevision2 = fireTopologyLeapAndGetRevision(twoNodes2);
 
@@ -383,7 +330,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(THREE_NODES_NAMES, dataNodes2);
 
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(THREE_NODES_NAMES, dataNodes3);
 
         // Check that data nodes value of zones is NODE_0 and NODE_2.
@@ -392,7 +339,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertEquals(twoNodesNames2, dataNodes4);
 
         long dataNodesRevisionZone1 = dataNodesUpdateRevision1.get(TIMEOUT, MILLISECONDS);
-        Set<String> dataNodes5 = distributionZoneManager.dataNodes(dataNodesRevisionZone1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes5 = distributionZoneManager.dataNodes(dataNodesRevisionZone1, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(twoNodesNames2, dataNodes5);
     }
 
@@ -406,30 +353,17 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Prerequisite.
 
         // Create the zone with immediate timers.
-        distributionZoneManager.createZone(
-                        new Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         // Create logical topology with NODE_0.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
 
         // Check that data nodes value of the the zone is NODE_0.
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes1);
 
         // Changes a scale up timer to not immediate.
-        distributionZoneManager.alterZone(
-                        ZONE_NAME_1,
-                        new Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(10000)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(ZONE_NAME, 10000, IMMEDIATE_TIMER_VALUE, null);
 
         // Test steps.
 
@@ -437,14 +371,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision2 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 because scale up timer has not fired yet.
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes2);
 
         // Change scale up value to immediate.
-        long scaleUpRevision = alterZoneScaleUpAndGetRevision(ZONE_NAME_1, IMMEDIATE_TIMER_VALUE);
+        long scaleUpRevision = alterZoneScaleUpAndGetRevision(ZONE_NAME, IMMEDIATE_TIMER_VALUE);
 
         // Check that data nodes value of the zone with the scale up update revision is NODE_0 and NODE_1.
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(scaleUpRevision, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(scaleUpRevision, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes3);
     }
 
@@ -458,13 +392,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Prerequisite.
 
         // Create the zone with immediate scale up timer and not immediate scale down timer.
-        distributionZoneManager.createZone(
-                        new Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(10000)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, 10000, null);
 
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
@@ -472,7 +400,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
         // Check that data nodes value of the the zone is NODE_0 and NODE_1.
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Test steps.
@@ -482,14 +410,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
         // because scale down timer has not fired yet.
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes2);
 
         // Change scale down value to immediate.
-        long scaleDownRevision = alterZoneScaleDownAndGetRevision(ZONE_NAME_1, IMMEDIATE_TIMER_VALUE);
+        long scaleDownRevision = alterZoneScaleDownAndGetRevision(ZONE_NAME, IMMEDIATE_TIMER_VALUE);
 
         // Check that data nodes value of the zone with the scale down update revision is NODE_0.
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(scaleDownRevision, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(scaleDownRevision, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes3);
     }
 
@@ -503,29 +431,17 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Prerequisite.
 
         // Create the zone with immediate timers.
-        distributionZoneManager.createZone(
-                        new Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         // Create logical topology with NODE_0.
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_0, ONE_NODE);
 
         // Check that data nodes value of the zone is NODE_0.
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes1);
 
         // Alter the zones with not immediate scale up timer.
-        distributionZoneManager.alterZone(ZONE_NAME_1,
-                        new Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(10000)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(ZONE_NAME, 10000, IMMEDIATE_TIMER_VALUE, null);
 
         // Test steps.
 
@@ -534,20 +450,20 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(ZONE_ID_1),
+                zoneDataNodesKey(ZONE_ID),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 ONE_NODE_NAME,
                 TIMEOUT
         );
 
-        long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME_1);
+        long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME);
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 because scale up timer has not fired.
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes3);
 
         // Check that zones is removed and attempt to get data nodes throws an exception.
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS),
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, ZONE_ID).get(TIMEOUT, MILLISECONDS),
                 DistributionZoneNotFoundException.class);
     }
 
@@ -561,13 +477,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Prerequisite.
 
         // Create the zone with immediate scale up timer and not immediate scale down timer.
-        distributionZoneManager.createZone(
-                        new Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(10000)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, 10000, null);
 
         // Create logical topology with NODE_0 and NODE_1.
         topology.putNode(NODE_0);
@@ -575,7 +485,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         long topologyRevision1 = putNodeInLogicalTopologyAndGetRevision(NODE_1, TWO_NODES);
 
         // Check that data nodes value of the the zone is NODE_0 and NODE_1.
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes1);
 
         // Test steps.
@@ -585,21 +495,21 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(ZONE_ID_1),
+                zoneDataNodesKey(ZONE_ID),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 TWO_NODES_NAMES,
                 TIMEOUT
         );
 
-        long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME_1);
+        long dropRevision1 = dropZoneAndGetRevision(ZONE_NAME);
 
         // Check that data nodes value of the zone with the topology update revision is NODE_0 and NODE_1
         // because scale down timer has not fired.
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes2);
 
         // Check that zones is removed and attempt to get data nodes throws an exception.
-        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS),
+        assertThrowsWithCause(() -> distributionZoneManager.dataNodes(dropRevision1, ZONE_ID).get(TIMEOUT, MILLISECONDS),
                 DistributionZoneNotFoundException.class);
     }
 
@@ -613,22 +523,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Prerequisite.
 
         // Create the zone with immediate timers.
-        distributionZoneManager.createZone(
-                        new Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         // Alter the zone with immediate timers.
-        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new Builder(DEFAULT_ZONE_NAME)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         // Create logical topology with NODE_0.
         // Check that data nodes value of both zone is NODE_0.
@@ -637,26 +535,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         Set<String> dataNodes0 = distributionZoneManager.dataNodes(topologyRevision1, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes0);
 
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes1);
 
         // Alter the zones with infinite timers.
-        distributionZoneManager.alterZone(ZONE_NAME_1,
-                        new Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(ZONE_NAME, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
 
         // Alter the zone with infinite timers.
-        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new Builder(DEFAULT_ZONE_NAME)
-                                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(DEFAULT_ZONE_NAME, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
 
         // Test steps.
 
@@ -664,14 +550,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Change filter and get revision of this change.
         long filterRevision0 = alterFilterAndGetRevision(DEFAULT_ZONE_NAME, filter);
-        long filterRevision1 = alterFilterAndGetRevision(ZONE_NAME_1, filter);
+        long filterRevision1 = alterFilterAndGetRevision(ZONE_NAME, filter);
 
         // Check that data nodes value of the the zone is NODE_0.
         // The future didn't hang due to the fact that the actual data nodes value did not change.
         Set<String> dataNodes2 = distributionZoneManager.dataNodes(filterRevision0, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes2);
 
-        Set<String> dataNodes3 = distributionZoneManager.dataNodes(filterRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes3 = distributionZoneManager.dataNodes(filterRevision1, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes3);
 
     }
@@ -689,13 +575,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Create a zone.
         long createZoneRevision = createZoneAndGetRevision(
-                ZONE_NAME_1,
-                ZONE_ID_1,
+                ZONE_NAME,
+                ZONE_ID,
                 INFINITE_TIMER_VALUE,
                 INFINITE_TIMER_VALUE);
 
         // Check that data nodes value of the zone with the create zone revision is NODE_0.
-        Set<String> dataNodes1 = distributionZoneManager.dataNodes(createZoneRevision, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes1 = distributionZoneManager.dataNodes(createZoneRevision, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes1);
     }
 
@@ -716,27 +602,27 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Create a zone.
         long createZoneRevision = createZoneAndGetRevision(
-                ZONE_NAME_1,
-                ZONE_ID_1,
+                ZONE_NAME,
+                ZONE_ID,
                 IMMEDIATE_TIMER_VALUE,
                 IMMEDIATE_TIMER_VALUE);
 
         // Check that data nodes value of the zone with the revision lower than the create zone revision is absent.
         assertThrowsWithCause(
-                () -> distributionZoneManager.dataNodes(createZoneRevision - 1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS),
+                () -> distributionZoneManager.dataNodes(createZoneRevision - 1, ZONE_ID).get(TIMEOUT, MILLISECONDS),
                 DistributionZoneNotFoundException.class
         );
 
         // Check that data nodes value of the zone with the create zone revision is NODE_0 and NODE_1.
-        Set<String> dataNodes = distributionZoneManager.dataNodes(createZoneRevision, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes = distributionZoneManager.dataNodes(createZoneRevision, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes);
 
         // Drop the zone.
-        long dropZoneRevision = dropZoneAndGetRevision(ZONE_NAME_1);
+        long dropZoneRevision = dropZoneAndGetRevision(ZONE_NAME);
 
         // Check that data nodes value of the zone with the drop zone revision is absent.
         assertThrowsWithCause(
-                () -> distributionZoneManager.dataNodes(dropZoneRevision, ZONE_ID_1).get(TIMEOUT, MILLISECONDS),
+                () -> distributionZoneManager.dataNodes(dropZoneRevision, ZONE_ID).get(TIMEOUT, MILLISECONDS),
                 DistributionZoneNotFoundException.class
         );
     }
@@ -768,20 +654,9 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         // Prerequisite.
 
         // Create zones with immediate timers.
-        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new Builder(DEFAULT_ZONE_NAME)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
-        distributionZoneManager.createZone(new Builder(ZONE_NAME_1)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         // Test steps.
         // Change logical topology. NODE_0 is added.
@@ -792,12 +667,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision0, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes1);
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision0, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision0, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(ONE_NODE_NAME, dataNodes2);
 
         Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision1, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes3);
-        Set<String> dataNodes4 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes4 = distributionZoneManager.dataNodes(topologyRevision1, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes4);
 
         Set<LogicalNode> twoNodes1 = Set.of(NODE_0, NODE_2);
@@ -811,12 +686,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         Set<String> dataNodes5 = distributionZoneManager.dataNodes(topologyRevision2, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(THREE_NODES_NAMES, dataNodes5);
-        Set<String> dataNodes6 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes6 = distributionZoneManager.dataNodes(topologyRevision2, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(THREE_NODES_NAMES, dataNodes6);
 
         Set<String> dataNodes7 = distributionZoneManager.dataNodes(topologyRevision3, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(twoNodesNames1, dataNodes7);
-        Set<String> dataNodes8 = distributionZoneManager.dataNodes(topologyRevision3, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes8 = distributionZoneManager.dataNodes(topologyRevision3, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(twoNodesNames1, dataNodes8);
     }
 
@@ -895,34 +770,13 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      * Added two nodes in topology and assert that data nodes of zones are contains all topology nodes.
      */
     private void prepareZonesWithOneDataNodes() throws Exception {
-        distributionZoneManager.alterZone(DEFAULT_ZONE_NAME,
-                        new Builder(DEFAULT_ZONE_NAME)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
-        distributionZoneManager.createZone(new Builder(ZONE_NAME_1)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
-        distributionZoneManager.createZone(new Builder(ZONE_NAME_2)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(ZONE_NAME_2, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
-        distributionZoneManager.createZone(new Builder(ZONE_NAME_3)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(ZONE_NAME_3, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         // Change logical topology. NODE_0 is added.
         topology.putNode(NODE_0);
@@ -932,7 +786,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         Set<String> dataNodes1 = distributionZoneManager.dataNodes(topologyRevision0, DEFAULT_ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes1);
-        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision0, ZONE_ID_1).get(TIMEOUT, MILLISECONDS);
+        Set<String> dataNodes2 = distributionZoneManager.dataNodes(topologyRevision0, ZONE_ID).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes2);
         Set<String> dataNodes3 = distributionZoneManager.dataNodes(topologyRevision0, ZONE_ID_2).get(TIMEOUT, MILLISECONDS);
         assertEquals(TWO_NODES_NAMES, dataNodes3);
@@ -956,10 +810,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             }
         };
 
-        distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask);
-        distributionZoneManager.zonesState().get(ZONE_ID_1).rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask);
-        distributionZoneManager.zonesState().get(ZONE_ID_2).rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask);
-        distributionZoneManager.zonesState().get(ZONE_ID_3).rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask);
+        distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, DEFAULT_ZONE_ID);
+        distributionZoneManager.zonesState().get(ZONE_ID)
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, ZONE_ID);
+        distributionZoneManager.zonesState().get(ZONE_ID_2)
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, ZONE_ID_2);
+        distributionZoneManager.zonesState().get(ZONE_ID_3)
+                .rescheduleScaleUp(IMMEDIATE_TIMER_VALUE, dummyScaleUpTask, ZONE_ID_3);
 
         return scaleUpLatch;
     }
@@ -980,10 +838,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             }
         };
 
-        distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID).rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask);
-        distributionZoneManager.zonesState().get(ZONE_ID_1).rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask);
-        distributionZoneManager.zonesState().get(ZONE_ID_2).rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask);
-        distributionZoneManager.zonesState().get(ZONE_ID_3).rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask);
+        distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID)
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, DEFAULT_ZONE_ID);
+        distributionZoneManager.zonesState().get(ZONE_ID)
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, ZONE_ID);
+        distributionZoneManager.zonesState().get(ZONE_ID_2)
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, ZONE_ID_2);
+        distributionZoneManager.zonesState().get(ZONE_ID_3)
+                .rescheduleScaleDown(IMMEDIATE_TIMER_VALUE, dummyScaleDownTask, ZONE_ID_3);
 
         return scaleDownLatch;
     }
@@ -999,7 +861,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(ZONE_ID_1),
+                zoneDataNodesKey(ZONE_ID),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 TWO_NODES_NAMES,
                 TIMEOUT
@@ -1039,7 +901,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertEquals(
                 expectedZone1DataNodes,
-                distributionZoneManager.dataNodes(revision, ZONE_ID_1).get(TIMEOUT, MILLISECONDS)
+                distributionZoneManager.dataNodes(revision, ZONE_ID).get(TIMEOUT, MILLISECONDS)
         );
 
         assertEquals(
@@ -1068,7 +930,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(ZONE_ID_1),
+                zoneDataNodesKey(ZONE_ID),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 dataNodes2,
                 TIMEOUT
@@ -1091,35 +953,17 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         );
     }
 
-    private void prepareZonesTimerValuesToTest() throws Exception {
+    private void prepareZonesTimerValuesToTest() {
         // The default zone already has immediate scale up and immediate scale down timers.
 
         // The zone with immediate scale up and infinity scale down timers.
-        distributionZoneManager.alterZone(ZONE_NAME_1,
-                        new Builder(ZONE_NAME_1)
-                                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
 
         // The zone with infinity scale up and immediate scale down timers.
-        distributionZoneManager.alterZone(ZONE_NAME_2,
-                        new Builder(ZONE_NAME_2)
-                                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(ZONE_NAME_2, INFINITE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null);
 
         // The zone with infinity scale up and infinity scale down timers.
-        distributionZoneManager.alterZone(ZONE_NAME_3,
-                        new Builder(ZONE_NAME_3)
-                                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(ZONE_NAME_3, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
     }
 
     /**
@@ -1206,9 +1050,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         zoneScaleUpRevisions.put(zoneId, revisionFut);
 
-        distributionZoneManager.alterZone(zoneName, new Builder(zoneName)
-                        .dataNodesAutoAdjustScaleUp(scaleUp).build())
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(zoneName, scaleUp, null, null);
 
         return revisionFut.get(TIMEOUT, MILLISECONDS);
     }
@@ -1228,9 +1070,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         zoneScaleDownRevisions.put(zoneId, revisionFut);
 
-        distributionZoneManager.alterZone(zoneName, new Builder(zoneName)
-                        .dataNodesAutoAdjustScaleDown(scaleDown).build())
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(zoneName, null, scaleDown, null);
 
         return revisionFut.get(TIMEOUT, MILLISECONDS);
     }
@@ -1250,9 +1090,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         zoneChangeFilterRevisions.put(zoneId, revisionFut);
 
-        distributionZoneManager.alterZone(zoneName, new Builder(zoneName)
-                        .filter(filter).build())
-                .get(TIMEOUT, MILLISECONDS);
+        alterZone(zoneName, null, null, filter);
 
         return revisionFut.get(TIMEOUT, MILLISECONDS);
     }
@@ -1272,13 +1110,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         createZoneRevisions.put(zoneId, revisionFut);
 
-        distributionZoneManager.createZone(
-                        new Builder(zoneName)
-                                .dataNodesAutoAdjustScaleUp(scaleUp)
-                                .dataNodesAutoAdjustScaleDown(scaleDown)
-                                .build()
-                )
-                .get(TIMEOUT, MILLISECONDS);
+        createZone(zoneName, scaleUp, scaleDown, null);
 
         return revisionFut.get(TIMEOUT, MILLISECONDS);
     }
@@ -1297,7 +1129,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         dropZoneRevisions.put(zoneId, revisionFut);
 
-        distributionZoneManager.dropZone(zoneName).get(TIMEOUT, MILLISECONDS);
+        dropZone(zoneName);
 
         return revisionFut.get(TIMEOUT, MILLISECONDS);
     }
@@ -1311,7 +1143,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      * @return Future with revision.
      */
     private CompletableFuture<Long> getZoneDataNodesRevision(int zoneId, Set<LogicalNode> nodes) {
-        Set<String> nodeNames = nodes.stream().map(node -> node.name()).collect(toSet());
+        Set<String> nodeNames = nodes.stream().map(ClusterNode::name).collect(toSet());
 
         CompletableFuture<Long> revisionFut = new CompletableFuture<>();
 
@@ -1426,7 +1258,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                     }
                 }
 
-                Set<String> nodeNames = newLogicalTopology.stream().map(node -> node.nodeName()).collect(toSet());
+                Set<String> nodeNames = newLogicalTopology.stream().map(NodeWithAttributes::nodeName).collect(toSet());
 
                 if (topologyRevisions.containsKey(nodeNames)) {
                     topologyRevisions.remove(nodeNames).complete(revision);
@@ -1476,7 +1308,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                     }
                 }
 
-                Set<String> nodeNames = newDataNodes.stream().map(node -> node.nodeName()).collect(toSet());
+                Set<String> nodeNames = newDataNodes.stream().map(Node::nodeName).collect(toSet());
 
                 IgniteBiTuple<Integer, Set<String>> zoneDataNodesKey = new IgniteBiTuple<>(zoneId, nodeNames);
 

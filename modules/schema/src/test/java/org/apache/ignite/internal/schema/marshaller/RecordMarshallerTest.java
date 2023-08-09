@@ -32,8 +32,10 @@ import static org.apache.ignite.internal.schema.NativeTypes.UUID;
 import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -61,9 +63,11 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.testobjects.TestBitmaskObject;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithNoDefaultConstructor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithPrivateConstructor;
+import org.apache.ignite.internal.schema.testobjects.TestSimpleObject;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
@@ -136,7 +140,7 @@ public class RecordMarshallerTest {
 
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
-    public void widerType(MarshallerFactory factory) throws MarshallerException {
+    public void widerType(MarshallerFactory factory) {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
                 keyColumns(),
@@ -146,28 +150,16 @@ public class RecordMarshallerTest {
                 }
         );
 
-        RecordMarshaller<TestObjectWithAllTypes> marshaller = factory.create(schema, TestObjectWithAllTypes.class);
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> factory.create(schema, TestObjectWithAllTypes.class));
 
-        final TestObjectWithAllTypes rec = TestObjectWithAllTypes.randomObject(rnd);
-
-        BinaryRow row = marshaller.marshal(rec);
-
-        TestObjectWithAllTypes restoredRec = marshaller.unmarshal(new Row(schema, row));
-
-        assertTrue(rec.getClass().isInstance(restoredRec));
-
-        TestObjectWithAllTypes expectedRec = new TestObjectWithAllTypes();
-
-        expectedRec.setPrimitiveLongCol(rec.getPrimitiveLongCol());
-        expectedRec.setIntCol(rec.getIntCol());
-        expectedRec.setPrimitiveDoubleCol(rec.getPrimitiveDoubleCol());
-        expectedRec.setStringCol(rec.getStringCol());
-
-        assertEquals(expectedRec, restoredRec);
-
-        // Check non-mapped fields has default values.
-        assertNull(restoredRec.getUuidCol());
-        assertEquals(0, restoredRec.getPrimitiveIntCol());
+        assertEquals(
+                "Fields [bitmaskCol, booleanCol, byteCol, bytesCol, dateCol, dateTimeCol, decimalCol, doubleCol, floatCol, "
+                        + "longCol, nullBytesCol, nullLongCol, numberCol, primitiveBooleanCol, primitiveByteCol, primitiveFloatCol, "
+                        + "primitiveIntCol, primitiveShortCol, shortCol, timeCol, timestampCol, uuidCol] of type "
+                        + "org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes are not mapped to columns.",
+                ex.getMessage());
     }
 
     @ParameterizedTest
@@ -207,22 +199,24 @@ public class RecordMarshallerTest {
     public void classWithWrongFieldType(MarshallerFactory factory) {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                keyColumns(),
                 new Column[]{
-                        new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
-                        new Column("shortCol".toUpperCase(), UUID, true)
+                        new Column("longCol".toUpperCase(), NativeTypes.bitmaskOf(42), false),
+                        new Column("intCol".toUpperCase(), UUID, false)
+                },
+                new Column[]{
+                        new Column("bytesCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
+                        new Column("stringCol".toUpperCase(), UUID, true)
                 }
         );
 
-        RecordMarshaller<TestObjectWithAllTypes> marshaller = factory.create(schema, TestObjectWithAllTypes.class);
+        RecordMarshaller<TestSimpleObject> marshaller = factory.create(schema, TestSimpleObject.class);
 
-        final TestObjectWithAllTypes rec = TestObjectWithAllTypes.randomObject(rnd);
+        TestSimpleObject rec = TestSimpleObject.randomObject(rnd);
 
-        assertThrows(
-                MarshallerException.class,
-                () -> marshaller.marshal(rec),
-                "Failed to write field [name=shortCol]"
-        );
+        Throwable ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec)).getCause();
+        assertThat(ex.getMessage(), containsString(
+                "expectedType=BitmaskNativeType [bits=42, typeSpec=NativeTypeSpec [name=BITMASK, fixed=true], len=6], "
+                        + "actualType=NativeType [name=INT64, sizeInBytes=8, fixed=true]"));
     }
 
     @ParameterizedTest
@@ -230,22 +224,16 @@ public class RecordMarshallerTest {
     public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
         SchemaDescriptor schema = new SchemaDescriptor(
                 1,
-                keyColumns(),
-                new Column[]{
-                        new Column("primitiveLongCol".toUpperCase(), INT64, false),
-                        new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true),
-                }
+                new Column[]{ new Column("key".toUpperCase(), INT32, false) },
+                new Column[]{ new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true) }
         );
 
-        RecordMarshaller<TestObjectWithAllTypes> marshaller = factory.create(schema, TestObjectWithAllTypes.class);
+        RecordMarshaller<TestBitmaskObject> marshaller = factory.create(schema, TestBitmaskObject.class);
 
-        final TestObjectWithAllTypes rec = TestObjectWithAllTypes.randomObject(rnd);
+        TestBitmaskObject rec = new TestBitmaskObject(1, IgniteTestUtils.randomBitSet(rnd, 42));
 
-        assertThrows(
-                MarshallerException.class,
-                () -> marshaller.marshal(rec),
-                "Failed to write field [name=bitmaskCol]"
-        );
+        Throwable ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(rec)).getCause();
+        assertThat(ex.getMessage(), startsWith("Failed to set bitmask for column 'BITMASKCOL' (mask size exceeds allocated size)"));
     }
 
     @ParameterizedTest

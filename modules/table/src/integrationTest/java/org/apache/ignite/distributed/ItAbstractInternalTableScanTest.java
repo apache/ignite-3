@@ -268,7 +268,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             }
         });
 
-        gotExceptionLatch.await();
+        assertTrue(gotExceptionLatch.await(10_000, TimeUnit.MILLISECONDS));
 
         assertEquals(gotException.get().getCause().getClass(), StorageException.class);
 
@@ -352,7 +352,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
             }
         });
 
-        gotExceptionLatch.await();
+        assertTrue(gotExceptionLatch.await(10_000, TimeUnit.MILLISECONDS));
 
         assertEquals(gotException.get().getClass(), IllegalStateException.class);
     }

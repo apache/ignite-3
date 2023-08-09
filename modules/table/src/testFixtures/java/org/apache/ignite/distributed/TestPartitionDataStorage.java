@@ -99,6 +99,11 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
+    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs) {
+        partitionStorage.addWriteCommitted(rowId, row, commitTs);
+    }
+
+    @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
         return partitionStorage.abortWrite(rowId);
     }

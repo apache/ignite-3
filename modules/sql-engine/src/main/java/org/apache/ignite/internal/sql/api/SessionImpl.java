@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
 import static org.apache.ignite.lang.IgniteExceptionMapperUtil.mapToPublicException;
@@ -35,6 +36,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -48,11 +50,10 @@ import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteExceptionUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
@@ -66,7 +67,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Embedded implementation of the SQL session.
  */
-public class SessionImpl implements Session {
+public class SessionImpl implements AbstractSession {
     /** Busy lock for close synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -348,7 +349,7 @@ public class SessionImpl implements Session {
         try {
             closeAsync().get();
         } catch (ExecutionException e) {
-            sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
+            sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         } catch (InterruptedException e) {
             throw new SqlException(SESSION_CLOSED_ERR, e);
         }

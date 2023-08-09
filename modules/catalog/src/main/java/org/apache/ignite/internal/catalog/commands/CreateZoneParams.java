@@ -17,6 +17,13 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+
 import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,13 +35,6 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
     public static Builder builder() {
         return new Builder();
     }
-
-    /** Default number of zone partitions. */
-    public static final int DEFAULT_PARTITION_COUNT = 25;
-    /** Default number of zone replicas. */
-    public static final int DEFAULT_REPLICA_COUNT = 1;
-    /** Default infinite value for the distribution zones' timers. */
-    public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
 
     /** Amount of zone partitions. */
     private int partitions = DEFAULT_PARTITION_COUNT;
@@ -51,13 +51,14 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
     /** Data nodes auto adjust scale down timeout. */
     private int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;
 
-    /**
-     * Default filter value for a distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes
-     * of nodes.
-     */
-    public static final String DEFAULT_FILTER = "$.+";
     /** Nodes' filter. */
-    protected String filter = DEFAULT_FILTER;
+    private String filter = DEFAULT_FILTER;
+
+    /** Data storage. */
+    private DataStorageParams dataStorage = DataStorageParams.builder()
+            .engine(DEFAULT_STORAGE_ENGINE)
+            .dataRegion(DEFAULT_DATA_REGION)
+            .build();
 
     /**
      * Returns amount of zone partitions.
@@ -67,7 +68,7 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
     }
 
     /**
-     * Return amount of zone replicas.
+     * Returns amount of zone replicas.
      */
     public int replicas() {
         return replicas;
@@ -107,6 +108,11 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
      */
     public String filter() {
         return filter;
+    }
+
+    /** Returns the data storage. */
+    public DataStorageParams dataStorage() {
+        return dataStorage;
     }
 
     /**
@@ -184,6 +190,21 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
          */
         public Builder filter(@Nullable String filter) {
             params.filter = Objects.requireNonNullElse(filter, DEFAULT_FILTER);
+
+            return this;
+        }
+
+        /**
+         * Sets the data storage.
+         *
+         * @param dataStorage Data storage.
+         * @return This instance.
+         */
+        public Builder dataStorage(@Nullable DataStorageParams dataStorage) {
+            params.dataStorage = Objects.requireNonNullElse(
+                    dataStorage,
+                    DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build()
+            );
 
             return this;
         }

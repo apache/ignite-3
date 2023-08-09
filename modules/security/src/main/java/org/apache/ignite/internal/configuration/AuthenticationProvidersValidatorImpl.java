@@ -21,7 +21,7 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.util.StringUtils;
+import org.apache.ignite.lang.util.StringUtils;
 import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.UnknownAuthenticationTypeException;
 

@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType.DecimalColumnType;
 import org.apache.ignite.internal.util.ArrayUtils;
 
@@ -144,7 +145,7 @@ public class AbstractSchemaConverterTest {
             case TIMESTAMP:
                 return NativeTypes.timestamp();
             case NUMBER:
-                return NativeTypes.numberOf(DecimalNativeType.DEFAULT_PRECISION);
+                return NativeTypes.numberOf(CatalogUtils.DEFAULT_DECIMAL_PRECISION);
             case STRING:
                 return NativeTypes.stringOf(8);
             case UUID:

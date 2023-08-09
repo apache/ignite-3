@@ -17,12 +17,9 @@
 
 package org.apache.ignite.sql;
 
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.lang.IgniteExceptionUtils;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.mapper.Mapper;
@@ -36,12 +33,6 @@ import org.jetbrains.annotations.Nullable;
  * The session object is immutable and thread-safe.
  */
 public interface Session extends AutoCloseable {
-    /** Default schema name. */
-    String DEFAULT_SCHEMA = "PUBLIC";
-
-    /** Default maximal number of rows in a single page. */
-    int DEFAULT_PAGE_SIZE = 1024;
-
     /**
      * Executes a single SQL query.
      *
@@ -51,15 +42,7 @@ public interface Session extends AutoCloseable {
      * @return SQL query result set.
      * @throws SqlException If failed.
      */
-    default ResultSet<SqlRow> execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        Objects.requireNonNull(query);
-
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, query, arguments).join());
-        } catch (CompletionException e) {
-            throw IgniteExceptionUtils.sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
-        }
-    }
+    ResultSet<SqlRow> execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments);
 
     /**
      * Executes a single SQL statement.
@@ -69,15 +52,7 @@ public interface Session extends AutoCloseable {
      * @param arguments Arguments for the statement.
      * @return SQL query result set.
      */
-    default ResultSet<SqlRow> execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
-        Objects.requireNonNull(statement);
-
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, statement, arguments).join());
-        } catch (CompletionException e) {
-            throw IgniteExceptionUtils.sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
-        }
-    }
+    ResultSet<SqlRow> execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
 
     /**
      * Executes single SQL statement and maps results to objects with the provided mapper.
@@ -89,19 +64,11 @@ public interface Session extends AutoCloseable {
      * @param <T> A type of object contained in result set.
      * @return SQL query results set.
      */
-    default <T> ResultSet<T> execute(
+    <T> ResultSet<T> execute(
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
             String query,
-            @Nullable Object... arguments) {
-        Objects.requireNonNull(query);
-
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, query, arguments).join());
-        } catch (CompletionException e) {
-            throw IgniteExceptionUtils.sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
-        }
-    }
+            @Nullable Object... arguments);
 
     /**
      * Executes single SQL statement and maps results to objects with the provided mapper.
@@ -113,19 +80,11 @@ public interface Session extends AutoCloseable {
      * @param <T> A type of object contained in result set.
      * @return SQL query results set.
      */
-    default <T> ResultSet<T> execute(
+    <T> ResultSet<T> execute(
             @Nullable Transaction transaction,
             @Nullable Mapper<T> mapper,
             Statement statement,
-            @Nullable Object... arguments) {
-        Objects.requireNonNull(statement);
-
-        try {
-            return new SyncResultSetAdapter<>(executeAsync(transaction, mapper, statement, arguments).join());
-        } catch (CompletionException e) {
-            throw IgniteExceptionUtils.sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
-        }
-    }
+            @Nullable Object... arguments);
 
     /**
      * Executes SQL query in an asynchronous way.
@@ -215,13 +174,7 @@ public interface Session extends AutoCloseable {
      * @return Number of rows affected by each query in the batch.
      * @throws SqlBatchException If the batch fails.
      */
-    default long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        try {
-            return executeBatchAsync(transaction, dmlQuery, batch).join();
-        } catch (CompletionException e) {
-            throw IgniteExceptionUtils.sneakyThrow(IgniteExceptionUtils.copyExceptionWithCause(e));
-        }
-    }
+    long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch);
 
     /**
      * Executes a batched SQL statement. Only DML queries are supported.

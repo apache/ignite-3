@@ -496,6 +496,38 @@ public final class Commons {
         return Mappings.invert(trimmingMapping(sourceSize, requiredElements).inverse());
     }
 
+    /**
+     * Produces new bitset setting bits according to the given mapping.
+     *
+     * <pre>
+     * bitset:
+     *   [0, 1, 4]
+     * mapping:
+     *   1 -> 0
+     *   0 -> 1
+     *   4 -> 3
+     * result:
+     *   [0, 1, 3]
+     * </pre>
+     *
+     * @param bitset A bitset.
+     * @param mapping Mapping to use.
+     * @return  a transformed bit set.
+     */
+    public static ImmutableBitSet mapBitSet(ImmutableBitSet bitset, Mapping mapping) {
+        ImmutableBitSet.Builder result = ImmutableBitSet.builder();
+
+        int bitPos = bitset.nextSetBit(0);
+
+        while (bitPos != -1) {
+            int target = mapping.getTarget(bitPos);
+            result.set(target);
+            bitPos = bitset.nextSetBit(bitPos + 1);
+        }
+
+        return result.build();
+    }
+
 
     /**
      * Checks if there is a such permutation of all {@code elems} that is prefix of provided {@code seq}.
