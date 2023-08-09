@@ -46,5 +46,4 @@ public @interface ConfigurationExtension {
      * An extension is public by default.
      */
     boolean internal() default false;
-
 }

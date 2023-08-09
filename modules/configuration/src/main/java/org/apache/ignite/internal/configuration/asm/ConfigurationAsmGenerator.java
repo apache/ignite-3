@@ -161,7 +161,7 @@ public class ConfigurationAsmGenerator {
      * Generates, defines, loads and initializes all dynamic classes required for the given configuration schema.
      *
      * @param rootSchemaClass             Class of the root configuration schema.
-     * @param schemaExtensions            All extensions (public and internal) ({@link ConfigurationExtension}) of configuration schemas
+     * @param schemaExtensions            Extensions (public and internal) ({@link ConfigurationExtension}) of configuration schemas
      *                                    {@link ConfigurationRoot} and {@link Config}). Mapping: original schema -> extensions.
      * @param polymorphicSchemaExtensions Polymorphic extensions ({@link PolymorphicConfigInstance}) of configuration schemas ({@link
      *                                    PolymorphicConfig}). Mapping: original schema -> extensions.

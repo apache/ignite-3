@@ -95,6 +95,12 @@ public static class AbstractConfigurationSchema {
   @Value(hasDefault = true)
   public int intVal = 0;
 }
+
+@ConfigurationExtension
+public static class ExtendedChildConfigurationSchema extends ChildConfigurationSchema {
+  @Value(hasDefault = true)
+  public int intVal = 0;
+}
 ```
 
 * `@ConfigurationRoot` marks the root schema. It contains the following properties:
@@ -109,6 +115,7 @@ public static class AbstractConfigurationSchema {
    a unique identifier among the inheritors of one polymorphic configuration, used to define the type (schema) of the polymorphic configuration we are dealing with now;
 * `@AbstractConfiguration` is similar to `@PolymorphicConfig` but its type cannot be changed and its inheritors must be annotated with
   either `@Config` or `@ConfigurationRoot`. Configuration schemas with this annotation cannot be used as a nested (sub)configuration;
+* `@ConfigurationExtension` allows to mix-in properties into `@Config` or `@ConfigurationRoot`.
 * `@ConfigValue` marks a nested schema field. Cyclic dependencies are not allowed;
 * `@NamedConfigValue` is similar to `@ConfigValue`, but such fields represent a collection of properties, not a single
   instance. Every element of the collection will have a `String` name, similar to a `Map`.
@@ -194,6 +201,38 @@ public static class DatetimeColumnConfigurationSchema extends ColumnConfiguratio
 
 Thus, a column can only be one of these (varchar, decimal and datetime) types and will contain the
 type, name and fields specific to it.
+
+### Configuration extension
+
+Allows to add properties into other configurations.
+
+Suppose we have a `security` module and want to add one more authentication component that is located 
+in a different module that depends on `security`.
+
+```java
+@ConfigurationRoot(rootName = "security", type = ConfigurationType.DISTRIBUTED)
+public class SecurityConfigurationSchema {
+    @ConfigValue
+    public AuthenticationConfigurationSchema authentication;
+}
+
+@Config
+public class AuthenticationConfigurationSchema {
+  @Value(hasDefault = true)
+  public final boolean enabled = false;
+}
+```
+
+What we need to do is to subclass the configuration we want to extend.
+
+```java
+@ConfigurationExtension
+public class UserSecurityConfigurationSchema extends SecurityConfigurationSchema {
+  @Value
+  public final String user;
+}
+```
+And the resulting configuration will look as if the field `user` was declared directly in `SecurityConfigurationSchema`.
 
 ### Additional annotations
 

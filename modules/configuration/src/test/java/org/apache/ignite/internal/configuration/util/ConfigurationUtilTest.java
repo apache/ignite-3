@@ -550,24 +550,24 @@ public class ConfigurationUtilTest {
 
     @Test
     void testExtensionsType() {
-        // public extensions
+        // Public extensions.
         assertTrue(ConfigurationUtil.isPublicExtension(PublicConfigurationSchema.class));
 
         assertTrue(ConfigurationUtil.isPublicExtension(PublicRootConfigurationSchema.class));
 
-        //internal extensions
+        // Internal extensions.
         assertTrue(ConfigurationUtil.isInternalExtension(InternalSecondConfigurationSchema.class));
 
         assertTrue(ConfigurationUtil.isInternalExtension(InternalSecondRootConfigurationSchema.class));
 
-        //this one is not an extension at all
+        // This one is not an extension at all.
         assertFalse(ConfigurationUtil.isPublicExtension(InternalConfigurationSchema.class));
 
         assertFalse(ConfigurationUtil.isInternalExtension(InternalConfigurationSchema.class));
     }
 
     @Test
-    void testSchemaExtensions() {
+    void testInternalSchemaExtensions() {
         assertTrue(schemaExtensions(List.of()).isEmpty());
 
         assertThrows(IllegalArgumentException.class, () -> schemaExtensions(List.of(Object.class)));
@@ -586,7 +586,31 @@ public class ConfigurationUtilTest {
                 InternalFirstRootConfigurationSchema.class,
                 InternalSecondRootConfigurationSchema.class,
                 InternalFirstConfigurationSchema.class,
-                InternalSecondConfigurationSchema.class,
+                InternalSecondConfigurationSchema.class
+        ));
+
+        assertEquals(2, extensions.size());
+
+        assertEquals(
+                Set.of(
+                        InternalFirstRootConfigurationSchema.class,
+                        InternalSecondRootConfigurationSchema.class
+                ),
+                extensions.get(InternalRootConfigurationSchema.class)
+        );
+
+        assertEquals(
+                Set.of(
+                        InternalFirstConfigurationSchema.class,
+                        InternalSecondConfigurationSchema.class
+                ),
+                extensions.get(InternalConfigurationSchema.class)
+        );
+    }
+
+    @Test
+    void testPublicSchemaExtensions() {
+        Map<Class<?>, Set<Class<?>>> extensions = schemaExtensions(List.of(
                 PublicRootConfigurationSchema.class,
                 PublicConfigurationSchema.class
         ));
@@ -595,8 +619,33 @@ public class ConfigurationUtilTest {
 
         assertEquals(
                 Set.of(
+                        PublicRootConfigurationSchema.class
+                ),
+                extensions.get(InternalRootConfigurationSchema.class)
+        );
+
+        assertEquals(
+                Set.of(
+                        PublicConfigurationSchema.class
+                ),
+                extensions.get(InternalConfigurationSchema.class)
+        );
+    }
+
+    @Test
+    void testPublicAndInternalSchemaExtensions() {
+        Map<Class<?>, Set<Class<?>>> extensions = schemaExtensions(List.of(
+                PublicRootConfigurationSchema.class,
+                PublicConfigurationSchema.class,
+                InternalFirstRootConfigurationSchema.class,
+                InternalFirstConfigurationSchema.class
+        ));
+
+        assertEquals(2, extensions.size());
+
+        assertEquals(
+                Set.of(
                         InternalFirstRootConfigurationSchema.class,
-                        InternalSecondRootConfigurationSchema.class,
                         PublicRootConfigurationSchema.class
                 ),
                 extensions.get(InternalRootConfigurationSchema.class)
@@ -605,7 +654,6 @@ public class ConfigurationUtilTest {
         assertEquals(
                 Set.of(
                         InternalFirstConfigurationSchema.class,
-                        InternalSecondConfigurationSchema.class,
                         PublicConfigurationSchema.class
                 ),
                 extensions.get(InternalConfigurationSchema.class)
@@ -801,7 +849,6 @@ public class ConfigurationUtilTest {
         );
 
         // Check that public configuration will still be received.
-
         assertEquals(5, config.size());
         assertNull(config.get("str0"));
         assertEquals("foo", config.get("str1"));
@@ -816,7 +863,6 @@ public class ConfigurationUtilTest {
         assertEquals("bar", subConfig.get("publicStr03"));
 
         // Check that public configuration will be received along with the internal one.
-
         config = (Map<String, Object>) innerNode.accept(
                 null,
                 null,
