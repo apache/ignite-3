@@ -450,14 +450,22 @@ namespace Apache.Ignite.Internal.Table
             T record,
             bool keyOnly = false)
         {
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = transaction.ToInternal();
+            try
+            {
+                var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
+                var tx = transaction.ToInternal();
 
-            using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = _ser.Write(writer, tx, schema, record, keyOnly);
-            var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
+                using var writer = ProtoCommon.GetMessageWriter();
+                var colocationHash = _ser.Write(writer, tx, schema, record, keyOnly);
+                var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
 
-            return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
+                return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
+            }
+            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
+            {
+                // TODO: Pass desired schema version as override.
+                return await DoRecordOutOpAsync(op, transaction, record, keyOnly).ConfigureAwait(false);
+            }
         }
     }
 }
