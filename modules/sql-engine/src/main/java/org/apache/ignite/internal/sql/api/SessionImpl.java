@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
 import static org.apache.ignite.lang.IgniteExceptionMapperUtil.mapToPublicException;
-import static org.apache.ignite.lang.IgniteExceptionUtils.sneakyThrow;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
@@ -50,7 +49,6 @@ import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.sql.BatchedArguments;
