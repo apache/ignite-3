@@ -65,14 +65,6 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
 
         Set<SqlTypeName> rule = EnumSet.noneOf(SqlTypeName.class);
 
-        // IntervalYearMonth is assignable from...
-        for (SqlTypeName interval : YEAR_INTERVAL_TYPES) {
-            rules.add(interval, YEAR_INTERVAL_TYPES);
-        }
-        for (SqlTypeName interval : DAY_INTERVAL_TYPES) {
-            rules.add(interval, DAY_INTERVAL_TYPES);
-        }
-
         // MULTISET is assignable from...
         rules.add(SqlTypeName.MULTISET, EnumSet.of(SqlTypeName.MULTISET));
 
@@ -81,19 +73,22 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
         rule.addAll(APPROX_TYPES);
         rule.addAll(CHAR_TYPES);
 
-        // TINYINT is assignable from...
-        // SMALLINT is assignable from...
-        // INTEGER is assignable from...
-        // BIGINT is assignable from...
-        for (SqlTypeName type : EXACT_TYPES) {
-            rules.add(type, rule);
-        }
-
         // FLOAT (up to 64 bit floating point) is assignable from...
         // REAL (32 bit floating point) is assignable from...
         // DOUBLE is assignable from...
         // DECIMAL is assignable from...
         for (SqlTypeName type : FRACTIONAL_TYPES) {
+            rules.add(type, rule);
+        }
+
+        rule.addAll(YEAR_INTERVAL_TYPES);
+        rule.addAll(DAY_INTERVAL_TYPES);
+
+        // TINYINT is assignable from...
+        // SMALLINT is assignable from...
+        // INTEGER is assignable from...
+        // BIGINT is assignable from...
+        for (SqlTypeName type : EXACT_TYPES) {
             rules.add(type, rule);
         }
 
@@ -178,16 +173,20 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
 
         rule.clear();
         rule.addAll(CHAR_TYPES);
+        rule.addAll(EXACT_TYPES);
         rule.addAll(YEAR_INTERVAL_TYPES);
 
+        // IntervalYearMonth is assignable from...
         for (SqlTypeName type : YEAR_INTERVAL_TYPES) {
             rules.add(type, rule);
         }
 
         rule.clear();
         rule.addAll(CHAR_TYPES);
+        rule.addAll(EXACT_TYPES);
         rule.addAll(DAY_INTERVAL_TYPES);
 
+        // IntervalDayHourMinuteSecond is assignable from...
         for (SqlTypeName type : DAY_INTERVAL_TYPES) {
             rules.add(type, rule);
         }

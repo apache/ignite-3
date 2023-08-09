@@ -277,6 +277,8 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
         assertExpression("GREATEST('a', 'b')").returns("b").check();
         assertExpression("COMPRESS('')::VARCHAR").returns("").check();
         assertExpression("OCTET_LENGTH(x'01')").returns(1).check();
+        assertExpression("CAST(INTERVAL 1 SECONDS AS INT)").returns(1).check(); // Converted to REINTERPRED.
+        assertExpression("CAST(INTERVAL 1 DAY AS INT)").returns(1).check(); // Converted to REINTERPRED.
     }
 
     @Test

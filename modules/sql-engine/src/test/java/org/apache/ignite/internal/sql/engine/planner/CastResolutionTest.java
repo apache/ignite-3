@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static org.apache.calcite.sql.type.SqlTypeName.BINARY_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.DATETIME_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeName.EXACT_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_HOUR;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_MINUTE;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_MONTH;
@@ -50,6 +51,14 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
     private static final Set<String> dtNames = DATETIME_TYPES.stream().map(SqlTypeName::getName).collect(Collectors.toSet());
 
+    private static final Set<String> ymInterval = Set.of(INTERVAL_YEAR.getName(), INTERVAL_MONTH.getName());
+
+    private static final Set<String> dayInterval = Set.of(INTERVAL_HOUR.getName(), INTERVAL_MINUTE.getName());
+
+    private static final Set<String> exactNumeric = EXACT_TYPES.stream().map(SqlTypeName::getName).collect(Collectors.toSet());
+
+    private static final Set<String> charNumericAndIntervalNames = new HashSet<>();
+
     private static final Set<String> charAndNumericNames = new HashSet<>();
 
     private static final Set<String> charAndBinaryNames = new HashSet<>();
@@ -58,9 +67,9 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
     private static final Set<String> charAndDt = new HashSet<>();
 
-    private static final Set<String> charAndYInterval = new HashSet<>();
+    private static final Set<String> charExactAndYInterval = new HashSet<>();
 
-    private static final Set<String> charAndDInterval = new HashSet<>();
+    private static final Set<String> charExactAndDInterval = new HashSet<>();
 
     private static final String commonTemplate = "SELECT CAST('1'::%s AS %s)";
 
@@ -68,6 +77,11 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
     static {
         numericNames.add("NUMERIC");
+
+        charNumericAndIntervalNames.addAll(numericNames);
+        charNumericAndIntervalNames.addAll(charNames);
+        charNumericAndIntervalNames.addAll(ymInterval);
+        charNumericAndIntervalNames.addAll(dayInterval);
 
         charAndNumericNames.addAll(numericNames);
         charAndNumericNames.addAll(charNames);
@@ -81,11 +95,15 @@ public class CastResolutionTest extends AbstractPlannerTest {
         charAndDt.addAll(dtNames);
         charAndDt.addAll(charNames);
 
-        charAndYInterval.addAll(List.of(INTERVAL_YEAR.getName(), INTERVAL_MONTH.getName()));
-        charAndYInterval.addAll(charNames);
+        charExactAndYInterval.addAll(List.of(INTERVAL_YEAR.getName(), INTERVAL_MONTH.getName()));
+        charExactAndYInterval.addAll(charNames);
+        charExactAndYInterval.addAll(exactNumeric);
+        charExactAndYInterval.add("NUMERIC");
 
-        charAndDInterval.addAll(List.of(INTERVAL_HOUR.getName(), INTERVAL_MINUTE.getName()));
-        charAndDInterval.addAll(charNames);
+        charExactAndDInterval.addAll(List.of(INTERVAL_HOUR.getName(), INTERVAL_MINUTE.getName()));
+        charExactAndDInterval.addAll(charNames);
+        charExactAndDInterval.addAll(exactNumeric);
+        charExactAndDInterval.add("NUMERIC");
     }
 
     /** Test CAST possibility for different supported types. */
@@ -165,15 +183,15 @@ public class CastResolutionTest extends AbstractPlannerTest {
     private enum CastMatrix {
         BOOLEAN(SqlTypeName.BOOLEAN.getName(), charNames),
 
-        INT8(SqlTypeName.TINYINT.getName(), charAndNumericNames),
+        INT8(SqlTypeName.TINYINT.getName(), charNumericAndIntervalNames),
 
-        INT16(SqlTypeName.SMALLINT.getName(), charAndNumericNames),
+        INT16(SqlTypeName.SMALLINT.getName(), charNumericAndIntervalNames),
 
-        INT32(SqlTypeName.INTEGER.getName(), charAndNumericNames),
+        INT32(SqlTypeName.INTEGER.getName(), charNumericAndIntervalNames),
 
-        INT64(SqlTypeName.BIGINT.getName(), charAndNumericNames),
+        INT64(SqlTypeName.BIGINT.getName(), charNumericAndIntervalNames),
 
-        DECIMAL(SqlTypeName.DECIMAL.getName(), charAndNumericNames),
+        DECIMAL(SqlTypeName.DECIMAL.getName(), charNumericAndIntervalNames),
 
         REAL(SqlTypeName.REAL.getName(), charAndNumericNames),
 
@@ -181,7 +199,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
         FLOAT(SqlTypeName.FLOAT.getName(), charAndNumericNames),
 
-        NUMERIC("NUMERIC", charAndNumericNames),
+        NUMERIC("NUMERIC", charNumericAndIntervalNames),
 
         UUID(UuidType.NAME, new HashSet<>(charNames)),
 
@@ -199,9 +217,9 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
         TIMESTAMP(SqlTypeName.TIMESTAMP.getName(), charAndDt),
 
-        INTERVAL_YEAR(SqlTypeName.INTERVAL_YEAR.getName(), charAndYInterval),
+        INTERVAL_YEAR(SqlTypeName.INTERVAL_YEAR.getName(), charExactAndYInterval),
 
-        INTERVAL_HOUR(SqlTypeName.INTERVAL_HOUR.getName(), charAndDInterval);
+        INTERVAL_HOUR(SqlTypeName.INTERVAL_HOUR.getName(), charExactAndDInterval);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19274
         //TIMESTAMP_TS(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE.getName(), charAndDt);
