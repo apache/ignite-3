@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
@@ -480,7 +481,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkMetadata(new ColumnMetadataImpl(
                         "COL1",
                         ColumnType.STRING,
-                        2 << 15,
+                        CatalogUtils.DEFAULT_VARLEN_LENGTH,
                         ColumnMetadata.UNDEFINED_SCALE,
                         false,
                         new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
