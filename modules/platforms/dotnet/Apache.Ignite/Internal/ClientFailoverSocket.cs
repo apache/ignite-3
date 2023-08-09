@@ -75,6 +75,9 @@ namespace Apache.Ignite.Internal
         /** Local index for round-robin balancing within this FailoverSocket. */
         private long _endPointIndex = Interlocked.Increment(ref _globalEndPointIndex);
 
+        /** Observable timestamp. */
+        private long _observableTimestamp;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
         /// </summary>
@@ -261,7 +264,20 @@ namespace Apache.Ignite.Internal
         /// <inheritdoc/>
         void IClientSocketEventListener.OnObservableTimestampChanged(long timestamp)
         {
-            // TODO: Implement CAS-based timestamp update.
+            // Atomically update the observable timestamp to max(newTs, curTs).
+            while (true)
+            {
+                var current = Interlocked.Read(ref _observableTimestamp);
+                if (current >= timestamp)
+                {
+                    return;
+                }
+
+                if (Interlocked.CompareExchange(ref _observableTimestamp, timestamp, current) == current)
+                {
+                    return;
+                }
+            }
         }
 
         /// <summary>
