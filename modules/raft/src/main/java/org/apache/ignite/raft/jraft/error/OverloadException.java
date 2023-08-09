@@ -14,29 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.ignite.internal.table.distributed.replication.request;
-
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.raft.jraft.error;
 
 /**
- * Read-write dual row replica request.
+ * Threw when Node is overloaded.
  */
-@Transferable(TableMessageGroup.RW_DUAL_ROW_REPLICA_REQUEST)
-public interface ReadWriteSwapRowReplicaRequest extends SwapRowReplicaRequest, ReadWriteReplicaRequest {
-    /**
-     * Gets a commit partition id.
-     *
-     * @return Table partition id.
-     */
-    @Marshallable
-    TablePartitionId commitPartitionId();
+public class OverloadException extends JRaftException {
 
     /**
-     * Return {@code true} if this is a full transaction.
+     *
      */
-    boolean full();
+    private static final long serialVersionUID = -5505054326197103575L;
+
+    public OverloadException() {
+        super();
+    }
+
+    public OverloadException(final String message, final Throwable cause, final boolean enableSuppression,
+                             final boolean writableStackTrace) {
+        super(message, cause, enableSuppression, writableStackTrace);
+    }
+
+    public OverloadException(final String message, final Throwable cause) {
+        super(message, cause);
+    }
+
+    public OverloadException(final String message) {
+        super(message);
+    }
+
+    public OverloadException(final Throwable cause) {
+        super(cause);
+    }
 }

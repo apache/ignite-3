@@ -594,7 +594,7 @@ public class ExecutionServiceImplTest {
 
         when(schemaManagerMock.tableById(anyInt())).thenReturn(table);
 
-        when(schemaManagerMock.actualSchemaAsync(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
+        when(schemaManagerMock.schemaReadyFuture(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
 
         TestExecutableTableRegistry executableTableRegistry = new TestExecutableTableRegistry();
         executableTableRegistry.setColocatioGroupProvider((tableId) -> {
@@ -612,7 +612,7 @@ public class ExecutionServiceImplTest {
         rootSch.add(schema.getName(), schema);
         SchemaPlus plus = rootSch.plus().getSubSchema(schema.getName());
 
-        when(schemaManagerMock.schema(any())).thenReturn(plus);
+        when(schemaManagerMock.schema(any(), anyInt())).thenReturn(plus);
 
         var executionService = new ExecutionServiceImpl<>(
                 messageService,
