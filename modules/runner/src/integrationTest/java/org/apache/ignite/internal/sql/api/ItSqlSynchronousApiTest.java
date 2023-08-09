@@ -259,7 +259,6 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19919")
     public void errors() throws InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
@@ -439,9 +438,11 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         // Fetch all data in one read.
         Session ses = sql.sessionBuilder().defaultPageSize(100).build();
-        ResultSet<?> rs = ses.execute(null, "SELECT * FROM TEST");
+        ResultSet<SqlRow> rs = ses.execute(null, "SELECT * FROM TEST");
 
-        rs.forEachRemaining(Object::hashCode);
+        while (rs.hasNext()) {
+            rs.next();
+        }
 
         assertEquals(0, txManager().pending(), "Expected no pending transactions");
     }
