@@ -23,6 +23,10 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.times;
@@ -36,16 +40,29 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.network.MessagingService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.invocation.Invocation;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 class FileSenderTest {
     private static final int CHUNK_SIZE = 1024;
 
     @WorkDirectory
     private Path workDir;
+
+    @Mock
+    private MessagingService messagingService;
+
+    @BeforeEach
+    void setUp() {
+        doReturn(completedFuture(null)).when(messagingService).send(anyString(), any(), any());
+    }
 
     @Test
     void sendSingleFile() {
@@ -57,7 +74,7 @@ class FileSenderTest {
                 CHUNK_SIZE,
                 4,
                 new RateLimiterImpl(4),
-                (fileName, message) -> completedFuture(null)
+                messagingService
         );
 
         // Then - no exception is thrown.
@@ -81,7 +98,7 @@ class FileSenderTest {
                 CHUNK_SIZE,
                 4,
                 new RateLimiterImpl(4),
-                (fileName, message) -> completedFuture(null)
+                messagingService
         );
 
         // Then - no exception is thrown.
@@ -93,22 +110,26 @@ class FileSenderTest {
 
     @Test
     void exceptionIsThrownIfFileTransferFailed() {
+        // Setup messaging service to fail on second file transfer.
+        AtomicInteger count = new AtomicInteger();
+        given(messagingService.send(anyString(), any(), any())).will(invocation -> {
+            if (count.incrementAndGet() == 2) {
+                return failedFuture(new RuntimeException("Test exception"));
+            } else {
+                return completedFuture(null);
+            }
+
+        });
+
         // When.
         Path randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE * 5);
         UUID transferId = UUID.randomUUID();
-        AtomicInteger count = new AtomicInteger();
         FileSender sender = new FileSender(
                 "node1",
                 CHUNK_SIZE,
                 1,
                 new RateLimiterImpl(4),
-                (fileName, message) -> {
-                    if (count.incrementAndGet() == 2) {
-                        return failedFuture(new RuntimeException("Test exception"));
-                    } else {
-                        return completedFuture(null);
-                    }
-                }
+                messagingService
         );
 
         // Then - exception is thrown.
@@ -120,6 +141,28 @@ class FileSenderTest {
 
     @Test
     void maxConcurrentRequestsLimitIsNotExceeded() {
+        // Setup mock messaging service to emulate long processing and count concurrent requests.
+        // Max concurrent requests limit is 5. If it is exceeded, exception is thrown.
+        int maxConcurrentRequests = 5;
+        AtomicInteger concurrentRequests = new AtomicInteger();
+
+        given(messagingService.send(anyString(), any(), any())).will(invocation -> {
+            int currentConcurrentRequests = concurrentRequests.incrementAndGet();
+            if (currentConcurrentRequests > maxConcurrentRequests) {
+                throw new RuntimeException("Max concurrent requests limit exceeded");
+            }
+
+            try {
+                // Emulate long processing.
+                TimeUnit.MILLISECONDS.sleep(5);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            } finally {
+                concurrentRequests.decrementAndGet();
+            }
+            return completedFuture(null);
+        });
+
         // When.
         List<Path> randomFiles = List.of(
                 FileGenerator.randomFile(workDir, CHUNK_SIZE),
@@ -128,29 +171,12 @@ class FileSenderTest {
         );
         UUID transferId = UUID.randomUUID();
 
-        int maxConcurrentRequests = 5;
-        AtomicInteger concurrentRequests = new AtomicInteger();
         FileSender sender = new FileSender(
                 "node1",
                 CHUNK_SIZE,
                 10,
                 new RateLimiterImpl(maxConcurrentRequests),
-                (fileName, message) -> {
-                    int currentConcurrentRequests = concurrentRequests.incrementAndGet();
-                    if (currentConcurrentRequests > maxConcurrentRequests) {
-                        throw new RuntimeException("Max concurrent requests limit exceeded");
-                    }
-
-                    try {
-                        // Emulate long processing.
-                        TimeUnit.MILLISECONDS.sleep(5);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    } finally {
-                        concurrentRequests.decrementAndGet();
-                    }
-                    return completedFuture(null);
-                }
+                messagingService
         );
 
         // Then - no exception is thrown.
@@ -162,23 +188,27 @@ class FileSenderTest {
 
     @Test
     void rateLimiterIsReleasedIfSendThrowsException() {
+        // Setup messaging service to fail on second file transfer.
+        AtomicInteger count = new AtomicInteger();
+        given(messagingService.send(anyString(), any(), any())).will(invocation -> {
+            if (count.incrementAndGet() == 2) {
+                return failedFuture(new RuntimeException("Test exception"));
+            } else {
+                return completedFuture(null);
+            }
+
+        });
+
         // When.
         Path randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE * 5);
         UUID transferId = UUID.randomUUID();
         RateLimiter rateLimiter = mock(RateLimiter.class);
-        AtomicInteger count = new AtomicInteger();
         FileSender sender = new FileSender(
                 "node1",
                 CHUNK_SIZE,
                 1,
                 rateLimiter,
-                (fileName, message) -> {
-                    if (count.incrementAndGet() == 2) {
-                        return failedFuture(new RuntimeException("Test exception"));
-                    } else {
-                        return completedFuture(null);
-                    }
-                }
+                messagingService
         );
 
         // Then - exception is thrown.

@@ -21,7 +21,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 
 import java.nio.file.Path;
 import java.util.List;
-import org.apache.ignite.internal.testframework.matchers.PathMatchers;
+import org.apache.ignite.internal.testframework.matchers.PathMatcher;
 import org.hamcrest.Matcher;
 
 /**
@@ -35,9 +35,9 @@ public class PathAssertions {
      * @param expectedFiles The expected list of files.
      * @return A matcher that will match if the given list of paths contains the same files as the expected list.
      */
-    public static Matcher<Iterable<? extends Path>> assertNamesAndContentEquals(List<Path> expectedFiles) {
+    public static Matcher<Iterable<? extends Path>> namesAndContentEquals(List<Path> expectedFiles) {
         Matcher<Path>[] matchers = expectedFiles.stream()
-                .map(PathMatchers::hasSameContentAndName)
+                .map(PathMatcher::hasSameContentAndName)
                 .toArray(Matcher[]::new);
         return containsInAnyOrder(matchers);
     }

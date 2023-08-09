@@ -20,15 +20,16 @@ package org.apache.ignite.internal.network.file;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 
 /**
  * Chunked file reader. Reads the file in chunks. Each chunk has a fixed size. The last chunk may be smaller than the chunk size. If the
  * file size is less than the chunk size, only one chunk will be read. The reader is not thread-safe.
  */
-class ChunkedFileReader implements ManuallyCloseable {
+class ChunkedFileReader implements AutoCloseable {
     private final String fileName;
+
     private final RandomAccessFile raf;
+
     private final int chunkSize;
 
     /**
@@ -53,8 +54,16 @@ class ChunkedFileReader implements ManuallyCloseable {
      * @throws IOException If an I/O error occurs.
      */
     static ChunkedFileReader open(File file, int chunkSize) throws IOException {
-        RandomAccessFile raf = new RandomAccessFile(file, "r");
-        return new ChunkedFileReader(file.getName(), raf, chunkSize);
+        return new ChunkedFileReader(file.getName(), new RandomAccessFile(file, "r"), chunkSize);
+    }
+
+    /**
+     * Returns {@code false} if there are no more chunks to read. Otherwise, returns {@code true}.
+     *
+     * @return {@code false} if there are no more chunks to read. Otherwise, returns {@code true}.
+     */
+    boolean hasNextChunk() throws IOException {
+        return raf.getFilePointer() != raf.length();
     }
 
     /**
@@ -64,6 +73,10 @@ class ChunkedFileReader implements ManuallyCloseable {
      * @throws IOException If an I/O error occurs.
      */
     byte[] readNextChunk() throws IOException {
+        if (!hasNextChunk()) {
+            throw new IOException("No more chunks to read");
+        }
+
         int toRead = (int) Math.min(chunkSize, length() - offset());
         byte[] data = new byte[toRead];
         raf.read(data);
@@ -95,15 +108,6 @@ class ChunkedFileReader implements ManuallyCloseable {
      */
     long length() throws IOException {
         return raf.length();
-    }
-
-    /**
-     * Returns {@code true} if the file has been read completely.
-     *
-     * @return {@code true} if the file has been read completely.
-     */
-    boolean isFinished() throws IOException {
-        return raf.getFilePointer() == raf.length();
     }
 
     /**

@@ -29,9 +29,9 @@ import org.hamcrest.Matcher;
 /**
  * Matchers for {@link Path}.
  */
-public final class PathMatchers {
+public final class PathMatcher {
 
-    private PathMatchers() {
+    private PathMatcher() {
     }
 
     /**

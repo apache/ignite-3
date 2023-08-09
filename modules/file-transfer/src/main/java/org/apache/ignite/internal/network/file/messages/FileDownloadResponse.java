@@ -27,7 +27,6 @@ import org.jetbrains.annotations.Nullable;
  */
 @Transferable(FileTransferMessageType.FILE_DOWNLOAD_RESPONSE)
 public interface FileDownloadResponse extends NetworkMessage {
-
     /**
      * Returns the headers of the files that are going to be transferred.
      * It is possible that the headers are not present if the request was not handled successfully.

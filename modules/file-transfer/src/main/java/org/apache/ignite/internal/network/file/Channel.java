@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file.messages;
+package org.apache.ignite.internal.network.file;
 
-import org.apache.ignite.internal.network.file.FileConsumer;
-import org.apache.ignite.internal.network.file.FileProvider;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.network.ChannelType;
 
 /**
- * Files identifier. This interface is used to mark all identifier messages. Identifier messages are used to retrieve files from
- * {@link FileProvider} and handle them on the receiving side by {@link FileConsumer}.
+ * Channel types used by the file transfer protocol.
  */
-@Transferable(FileTransferMessageType.FILE_IDENTIFIER)
-public interface Identifier extends NetworkMessage {
+final class Channel {
+    /**
+     * File transfer channel.
+     */
+    static final ChannelType FILE_TRANSFER_CHANNEL = ChannelType.register((short) 1, "FileTransfer");
+
+    private Channel() {
+        // No-op.
+    }
 }

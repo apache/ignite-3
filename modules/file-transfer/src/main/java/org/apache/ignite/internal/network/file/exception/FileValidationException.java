@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file.messages;
+package org.apache.ignite.internal.network.file.exception;
 
-import org.apache.ignite.internal.network.file.FileConsumer;
-import org.apache.ignite.internal.network.file.FileProvider;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.lang.ErrorGroups.Network;
+import org.apache.ignite.lang.IgniteException;
 
 /**
- * Files identifier. This interface is used to mark all identifier messages. Identifier messages are used to retrieve files from
- * {@link FileProvider} and handle them on the receiving side by {@link FileConsumer}.
+ * Exception is thrown when there is an error during file validation.
  */
-@Transferable(FileTransferMessageType.FILE_IDENTIFIER)
-public interface Identifier extends NetworkMessage {
+public class FileValidationException extends IgniteException {
+    /**
+     * Constructor.
+     *
+     * @param message Message.
+     */
+    public FileValidationException(String message) {
+        super(Network.FILE_VALIDATION_ERR, message);
+    }
 }

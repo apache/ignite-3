@@ -29,7 +29,7 @@ public interface FileProvider<I extends Identifier> {
     /**
      * Returns a collection of paths to files for the given identifier.
      *
-     * @param identifier Identifier.
+     * @param identifier Files identifier.
      * @return Collection of paths to files.
      */
     CompletableFuture<List<Path>> files(I identifier);

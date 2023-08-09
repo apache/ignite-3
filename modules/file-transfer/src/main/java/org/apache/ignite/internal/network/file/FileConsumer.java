@@ -29,7 +29,7 @@ public interface FileConsumer<I extends Identifier> {
     /**
      * Consumes the list of paths to the uploaded files. The paths are temporary and will be deleted after the method returns.
      *
-     * @param identifier Metadata.
+     * @param identifier Uploaded files identifier.
      * @param uploadedFiles List of paths to the uploaded files.
      * @return Future that will be completed when the consumption is finished.
      */

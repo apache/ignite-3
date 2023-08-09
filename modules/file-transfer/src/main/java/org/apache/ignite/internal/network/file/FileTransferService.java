@@ -28,39 +28,41 @@ import org.apache.ignite.internal.network.file.messages.Identifier;
  */
 public interface FileTransferService extends IgniteComponent {
     /**
-     * Adds a file provider for the given metadata.
+     * Adds a file provider for the given identifier.
      *
-     * @param metadata Metadata.
+     * @param identifier Files identifier.
      * @param provider Provider.
      */
     <M extends Identifier> void addFileProvider(
-            Class<M> metadata,
+            Class<M> identifier,
             FileProvider<M> provider
     );
 
     /**
-     * Adds a file handler for the given metadata.
+     * Adds a file handler for the given identifier.
      *
-     * @param metadata Metadata.
-     * @param handler Handler.
+     * @param identifier Files identifier.
+     * @param consumer Consumer.
      */
-    <M extends Identifier> void addFileConsumer(Class<M> metadata, FileConsumer<M> handler);
+    <M extends Identifier> void addFileConsumer(Class<M> identifier, FileConsumer<M> consumer);
 
     /**
      * Downloads files for the given metadata from the given node.
      *
      * @param sourceNodeConsistentId consistent ID of a node.
-     * @param identifier Metadata.
-     * @return Future that will be completed when the download is finished. The future will contain a list of temporary paths to the
-     *         downloaded files. The caller is responsible for deleting the files.
+     * @param identifier Files identifier.
+     * @param targetDir Target directory. The directory will be created if it doesn't exist. If the directory exists, it will be
+     *         cleaned up.
+     * @return Future that will be completed when the download is finished. The future will contain a list of paths to the downloaded
+     *         files.
      */
-    CompletableFuture<List<Path>> download(String sourceNodeConsistentId, Identifier identifier);
+    CompletableFuture<List<Path>> download(String sourceNodeConsistentId, Identifier identifier, Path targetDir);
 
     /**
      * Uploads files for the given metadata to the given node.
      *
      * @param targetNodeConsistentId consistent ID of a node.
-     * @param identifier Metadata.
+     * @param identifier Files identifier.
      * @return Future that will be completed when the upload is finished.
      */
     CompletableFuture<Void> upload(String targetNodeConsistentId, Identifier identifier);

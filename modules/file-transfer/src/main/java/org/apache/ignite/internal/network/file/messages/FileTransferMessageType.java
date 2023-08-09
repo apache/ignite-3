@@ -24,19 +24,48 @@ import org.apache.ignite.network.annotations.MessageGroup;
  */
 @MessageGroup(groupType = 200, groupName = "FileTransfer")
 public final class FileTransferMessageType {
+    /**
+     * Type for {@link Identifier}.
+     */
     public static final short FILE_IDENTIFIER = 0;
-    public static final short FILE_HEADER = 1;
-    public static final short FILE_CHUNK = 2;
-    public static final short FILE_TRANSFER_ERROR = 3;
-    public static final short FILE_DOWNLOAD_REQUEST = 4;
-    public static final short FILE_DOWNLOAD_RESPONSE = 5;
-    public static final short FILE_UPLOAD_REQUEST = 6;
-    public static final short FILE_UPLOAD_RESPONSE = 7;
-    public static final short FILE_TRANSFER_ERROR_MESSAGE = 8;
 
     /**
-     * File transferring metadata.
+     * Type for {@link FileHeader}.
      */
-    public static final class Identifier {
-    }
+    public static final short FILE_HEADER = 1;
+
+    /**
+     * Type for {@link FileChunkMessage}.
+     */
+    public static final short FILE_CHUNK = 2;
+
+    /**
+     * Type for {@link FileTransferError}.
+     */
+    public static final short FILE_TRANSFER_ERROR = 3;
+
+    /**
+     * Type for {@link FileDownloadRequest}.
+     */
+    public static final short FILE_DOWNLOAD_REQUEST = 4;
+
+    /**
+     * Type for {@link FileDownloadResponse}.
+     */
+    public static final short FILE_DOWNLOAD_RESPONSE = 5;
+
+    /**
+     * Type for {@link FileUploadRequest}.
+     */
+    public static final short FILE_UPLOAD_REQUEST = 6;
+
+    /**
+     * Type for {@link FileUploadResponse}.
+     */
+    public static final short FILE_UPLOAD_RESPONSE = 7;
+
+    /**
+     * Type for {@link FileTransferErrorMessage}.
+     */
+    public static final short FILE_TRANSFER_ERROR_MESSAGE = 8;
 }

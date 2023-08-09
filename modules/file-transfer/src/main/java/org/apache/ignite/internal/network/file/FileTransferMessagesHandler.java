@@ -29,10 +29,10 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Handler for file transfer messages.
@@ -41,10 +41,15 @@ class FileTransferMessagesHandler {
     private static final int UNKNOWN_FILES_COUNT = -1;
 
     private final Path dir;
+
     private final AtomicInteger filesCount = new AtomicInteger(UNKNOWN_FILES_COUNT);
+
     private final AtomicInteger filesFinished = new AtomicInteger(0);
+
     private final CompletableFuture<List<Path>> result = new CompletableFuture<>();
+
     private final Map<String, ChunkedFileWriter> fileNameToWriter = new ConcurrentHashMap<>();
+
     private final Map<String, Lock> fileNameToLock = new ConcurrentHashMap<>();
 
     /**
@@ -78,6 +83,7 @@ class FileTransferMessagesHandler {
         if (result.isDone()) {
             throw new IllegalStateException("Received file header after result is already done");
         }
+
         doInLock(header.name(), () -> handleFileHeader0(header));
     }
 
@@ -117,6 +123,7 @@ class FileTransferMessagesHandler {
         if (result.isDone()) {
             throw new IllegalStateException("Received chunked file after result is already done");
         }
+
         doInLock(fileChunk.fileName(), () -> handleFileChunk0(fileChunk));
     }
 
@@ -152,6 +159,7 @@ class FileTransferMessagesHandler {
         if (result.isDone()) {
             throw new IllegalStateException("Received file transfer error after result is already done");
         }
+
         result.completeExceptionally(error);
         closeAllWriters();
     }
@@ -197,9 +205,9 @@ class FileTransferMessagesHandler {
      */
     private void closeAllWriters() {
         try {
-            IgniteUtils.closeAllManually(fileNameToWriter.values().stream());
+            IgniteUtils.closeAll(fileNameToWriter.values());
         } catch (Exception e) {
-            throw new IgniteInternalException(e);
+            throw new FileTransferException("Failed to close file writers", e);
         }
     }
 
@@ -210,8 +218,12 @@ class FileTransferMessagesHandler {
      * @return File writer.
      */
     private ChunkedFileWriter writer(String fileName) {
-        // Set -1 as file size to indicate that file size is unknown and will be set later.
-        return writer(fileName, -1);
+        try {
+            return ChunkedFileWriter.open(dir.resolve(fileName));
+        } catch (IOException e) {
+            handleFileTransferError(e);
+            throw new FileTransferException("Failed to open file writer", e);
+        }
     }
 
     /**
@@ -226,7 +238,7 @@ class FileTransferMessagesHandler {
             return ChunkedFileWriter.open(dir.resolve(fileName), fileSize);
         } catch (IOException e) {
             handleFileTransferError(e);
-            throw new IgniteInternalException(e);
+            throw new FileTransferException("Failed to open file writer", e);
         }
     }
 }

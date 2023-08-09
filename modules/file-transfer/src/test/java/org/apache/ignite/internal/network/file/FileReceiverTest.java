@@ -19,7 +19,7 @@ package org.apache.ignite.internal.network.file;
 
 import static org.apache.ignite.internal.network.file.FileGenerator.randomFile;
 import static org.apache.ignite.internal.network.file.MessagesUtils.getHeaders;
-import static org.apache.ignite.internal.network.file.PathAssertions.assertNamesAndContentEquals;
+import static org.apache.ignite.internal.network.file.PathAssertions.namesAndContentEquals;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -55,7 +55,6 @@ class FileReceiverTest {
         UUID transferId = UUID.randomUUID();
 
         Path path = Files.createDirectory(workDir.resolve(transferId.toString()));
-        path.toFile().deleteOnExit();
 
         CompletableFuture<List<Path>> receivedFiles = receiver.registerTransfer("node2", transferId, path);
 
@@ -65,7 +64,7 @@ class FileReceiverTest {
         // Then the file is received.
         assertThat(
                 receivedFiles,
-                willBe(assertNamesAndContentEquals(filesToSend))
+                willBe(namesAndContentEquals(filesToSend))
         );
     }
 
@@ -81,7 +80,6 @@ class FileReceiverTest {
         UUID transferId = UUID.randomUUID();
 
         Path path = Files.createDirectory(workDir.resolve(transferId.toString()));
-        path.toFile().deleteOnExit();
 
         CompletableFuture<List<Path>> receivedFiles = receiver.registerTransfer("node2", transferId, path);
 
@@ -91,7 +89,7 @@ class FileReceiverTest {
         // Then the files are received.
         assertThat(
                 receivedFiles,
-                willBe(assertNamesAndContentEquals(filesToSend))
+                willBe(namesAndContentEquals(filesToSend))
         );
     }
 
@@ -105,7 +103,6 @@ class FileReceiverTest {
         List<Path> filesToSend1 = List.of(randomFile(workDir, CHUNK_SIZE * 2));
 
         Path path1 = Files.createDirectory(workDir.resolve(transferId1.toString()));
-        path1.toFile().deleteOnExit();
 
         CompletableFuture<List<Path>> receivedFiles1 = receiver.registerTransfer("node2", transferId1, path1);
 
@@ -115,7 +112,6 @@ class FileReceiverTest {
         UUID transferId2 = UUID.randomUUID();
 
         Path path2 = Files.createDirectory(workDir.resolve(transferId2.toString()));
-        path2.toFile().deleteOnExit();
 
         CompletableFuture<List<Path>> receivedFiles2 = receiver.registerTransfer("node2", transferId2, path2);
 
@@ -124,7 +120,6 @@ class FileReceiverTest {
         List<Path> filesToSend3 = List.of(randomFile(workDir, CHUNK_SIZE));
 
         Path path3 = Files.createDirectory(workDir.resolve(transferId3.toString()));
-        path3.toFile().deleteOnExit();
 
         CompletableFuture<List<Path>> receivedFiles3 = receiver.registerTransfer("node3", transferId3, path3);
 

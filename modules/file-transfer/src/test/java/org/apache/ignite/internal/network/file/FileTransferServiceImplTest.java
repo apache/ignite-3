@@ -56,6 +56,7 @@ class FileTransferServiceImplTest {
     @Test
     void fileTransfersCanceledWhenSenderLeft() {
         FileTransferServiceImpl fileTransferService = new FileTransferServiceImpl(
+                10_000,
                 topologyService,
                 messagingService,
                 workDir,

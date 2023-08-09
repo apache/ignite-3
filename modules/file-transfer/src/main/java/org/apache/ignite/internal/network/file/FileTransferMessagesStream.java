@@ -29,7 +29,7 @@ import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Stream of messages to send files.
+ * A stream of messages to send file.
  */
 public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, AutoCloseable {
     private final UUID transferId;
@@ -81,8 +81,8 @@ public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, A
      * @return true if there are more messages to send.
      */
     boolean hasNextMessage() throws IOException {
-        // Check that the stream is not closed and the reader is not finished.
-        return !closed.get() && !reader.isFinished();
+        // Check that the stream is not closed and the reader has more chunks.
+        return !closed.get() && reader.hasNextChunk();
     }
 
     /**

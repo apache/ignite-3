@@ -28,13 +28,6 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(FileTransferMessageType.FILE_HEADER)
 public interface FileHeader extends NetworkMessage {
     /**
-     * Returns the id of the file.
-     *
-     * @return File id.
-     */
-    int id();
-
-    /**
      * Returns the name of the file.
      *
      * @return File name.
@@ -53,7 +46,6 @@ public interface FileHeader extends NetworkMessage {
      */
     static FileHeader fromPath(FileTransferFactory factory, int id, Path path) {
         return factory.fileHeader()
-                .id(id)
                 .name(path.getFileName().toString())
                 .length(path.toFile().length())
                 .build();

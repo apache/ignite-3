@@ -29,7 +29,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -79,23 +81,23 @@ class FileReceiver implements ManuallyCloseable {
      * @return Future that will be completed when file transfer is finished.
      */
     CompletableFuture<List<Path>> registerTransfer(String senderConsistentId, UUID transferId, Path handlerDir) {
-        ReentrantLock lock = senderConsistentIdToLock.acquire(senderConsistentId, ignored -> new ReentrantLock());
-        lock.lock();
-        try {
-            FileTransferMessagesHandler handler = new FileTransferMessagesHandler(handlerDir);
-            transferIdToHandler.put(transferId, handler);
-            senderConsistentIdToTransferIds.compute(senderConsistentId, (k, v) -> {
-                if (v == null) {
-                    v = new HashSet<>();
-                }
-                v.add(transferId);
-                return v;
-            });
-            handler.result().whenComplete((files, throwable) -> deregisterTransfer(senderConsistentId, transferId));
-            return handler.result();
-        } finally {
-            lock.unlock();
-        }
+        return doInLock(senderConsistentId, () -> registerTransfer0(senderConsistentId, transferId, handlerDir));
+    }
+
+    private CompletableFuture<List<Path>> registerTransfer0(String senderConsistentId, UUID transferId, Path handlerDir) {
+        FileTransferMessagesHandler handler = new FileTransferMessagesHandler(handlerDir);
+        transferIdToHandler.put(transferId, handler);
+
+        senderConsistentIdToTransferIds.compute(senderConsistentId, (k, v) -> {
+            if (v == null) {
+                v = new HashSet<>();
+            }
+            v.add(transferId);
+            return v;
+        });
+
+        return handler.result()
+                .whenComplete((files, throwable) -> deregisterTransfer(senderConsistentId, transferId));
     }
 
     /**
@@ -105,22 +107,21 @@ class FileReceiver implements ManuallyCloseable {
      * @param transferId Transfer id.
      */
     private void deregisterTransfer(String senderConsistentId, UUID transferId) {
-        ReentrantLock lock = senderConsistentIdToLock.acquire(senderConsistentId, ignored -> new ReentrantLock());
-        lock.lock();
-        try {
-            transferIdToHandler.remove(transferId);
-            senderConsistentIdToTransferIds.compute(senderConsistentId, (k, v) -> {
-                if (v != null) {
-                    v.remove(transferId);
-                    if (v.isEmpty()) {
-                        return null;
-                    }
+        doInLock(senderConsistentId, () -> deregisterTransfer0(senderConsistentId, transferId));
+    }
+
+    private void deregisterTransfer0(String senderConsistentId, UUID transferId) {
+        transferIdToHandler.remove(transferId);
+
+        senderConsistentIdToTransferIds.compute(senderConsistentId, (k, v) -> {
+            if (v != null) {
+                v.remove(transferId);
+                if (v.isEmpty()) {
+                    return null;
                 }
-                return v;
-            });
-        } finally {
-            lock.unlock();
-        }
+            }
+            return v;
+        });
     }
 
     /**
@@ -129,17 +130,15 @@ class FileReceiver implements ManuallyCloseable {
      * @param senderConsistentId Sender consistent id.
      */
     void cancelTransfersFromSender(String senderConsistentId) {
-        ReentrantLock lock = senderConsistentIdToLock.acquire(senderConsistentId, ignored -> new ReentrantLock());
-        lock.lock();
-        try {
-            Set<UUID> uuids = senderConsistentIdToTransferIds.remove(senderConsistentId);
-            if (uuids != null) {
-                uuids.forEach(uuid -> {
-                    transferIdToHandler.get(uuid).handleFileTransferError(new FileTransferException("Transfer was cancelled"));
-                });
-            }
-        } finally {
-            lock.unlock();
+        doInLock(senderConsistentId, () -> cancelTransfersFromSender0(senderConsistentId));
+    }
+
+    private void cancelTransfersFromSender0(String senderConsistentId) {
+        Set<UUID> uuids = senderConsistentIdToTransferIds.remove(senderConsistentId);
+        if (uuids != null) {
+            uuids.forEach(uuid -> {
+                transferIdToHandler.get(uuid).handleFileTransferError(new FileTransferException("Transfer was cancelled"));
+            });
         }
     }
 
@@ -213,6 +212,38 @@ class FileReceiver implements ManuallyCloseable {
             throw new FileTransferException("Handler is not found for unknown transferId: " + errorMessage.transferId());
         } else {
             handler.handleFileTransferError(new FileTransferException(errorMessage.error().message()));
+        }
+    }
+
+    /**
+     * Acquires lock for sender consistent id and executes supplier.
+     *
+     * @param senderConsistentId Sender consistent id.
+     * @param supplier Supplier.
+     */
+    private <V> V doInLock(String senderConsistentId, Supplier<V> supplier) {
+        Lock lock = senderConsistentIdToLock.acquire(senderConsistentId, ignored -> new ReentrantLock());
+        lock.lock();
+        try {
+            return supplier.get();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Acquires lock for sender consistent id and executes runnable.
+     *
+     * @param senderConsistentId Sender consistent id.
+     * @param runnable Runnable.
+     */
+    private void doInLock(String senderConsistentId, Runnable runnable) {
+        Lock lock = senderConsistentIdToLock.acquire(senderConsistentId, ignored -> new ReentrantLock());
+        lock.lock();
+        try {
+            runnable.run();
+        } finally {
+            lock.unlock();
         }
     }
 

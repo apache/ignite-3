@@ -330,6 +330,9 @@ public class ErrorGroups {
 
         /** File transfer error. */
         public static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
+
+        /** File validation error. */
+        public static final int FILE_VALIDATION_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 4);
     }
 
     /** Node configuration error group. */

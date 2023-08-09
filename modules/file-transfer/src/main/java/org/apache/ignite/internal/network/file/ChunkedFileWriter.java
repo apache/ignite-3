@@ -23,7 +23,7 @@ import java.io.RandomAccessFile;
 import java.nio.file.Path;
 import java.util.PriorityQueue;
 import java.util.Queue;
-import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.network.file.exception.FileValidationException;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 
 /**
@@ -31,7 +31,9 @@ import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
  * queues are checked for the next chunk. If the next chunk is found, it is written to the file and removed from the queue. If the next
  * chunk is not found, the file is not written to. The writer is not thread-safe
  */
-class ChunkedFileWriter implements ManuallyCloseable {
+class ChunkedFileWriter implements AutoCloseable {
+    private static final int UNKNOWN_FILE_SIZE = -1;
+
     private final RandomAccessFile raf;
 
     private long fileSize;
@@ -39,15 +41,30 @@ class ChunkedFileWriter implements ManuallyCloseable {
     private final Queue<FileChunkMessage> chunks = new PriorityQueue<>(FileChunkMessage.COMPARATOR);
 
     private ChunkedFileWriter(RandomAccessFile raf, long fileSize) {
+        if (fileSize < UNKNOWN_FILE_SIZE) {
+            throw new IllegalArgumentException("File size must be non-negative");
+        }
+
         this.raf = raf;
         this.fileSize = fileSize;
     }
 
     /**
-     * Opens a file for writing.
+     * Opens a file with unknown size for writing.
      *
      * @param path File path.
-     * @param fileSize File size.
+     * @return Chunked file writer.
+     * @throws FileNotFoundException If the file is not found.
+     */
+    static ChunkedFileWriter open(Path path) throws FileNotFoundException {
+        return new ChunkedFileWriter(new RandomAccessFile(path.toFile(), "rw"), UNKNOWN_FILE_SIZE);
+    }
+
+    /**
+     * Opens a file with known size for writing.
+     *
+     * @param path File path.
+     * @param fileSize File size. If the file size is unknown, pass {@link #UNKNOWN_FILE_SIZE}.
      * @return Chunked file writer.
      * @throws FileNotFoundException If the file is not found.
      */
@@ -67,8 +84,8 @@ class ChunkedFileWriter implements ManuallyCloseable {
             raf.write(chunks.poll().data());
         }
 
-        if (fileSize > -1 && raf.getFilePointer() > fileSize) {
-            throw new IOException("File size exceeded");
+        if (fileSize != UNKNOWN_FILE_SIZE && raf.getFilePointer() > fileSize) {
+            throw new FileValidationException("File size exceeded: expected " + fileSize + ", actual " + raf.getFilePointer());
         }
     }
 
@@ -88,6 +105,10 @@ class ChunkedFileWriter implements ManuallyCloseable {
      * @param fileSize File size.
      */
     void fileSize(long fileSize) {
+        if (fileSize < 0) {
+            throw new IllegalArgumentException("File size must be non-negative");
+        }
+
         this.fileSize = fileSize;
     }
 
