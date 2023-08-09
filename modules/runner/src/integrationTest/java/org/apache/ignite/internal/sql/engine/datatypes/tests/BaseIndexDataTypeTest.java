@@ -56,10 +56,12 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
         T value1 = values.get(0);
 
         checkQuery("SELECT * FROM t WHERE test_key = $0")
+                .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .returns(1, value1)
                 .check();
 
         checkQuery("SELECT * FROM t WHERE test_key iS NOT DISTINCT FROM $0")
+                .matches(containsIndexScan("PUBLIC", "T", "T_TEST_KEY_IDX"))
                 .returns(1, value1)
                 .check();
     }
