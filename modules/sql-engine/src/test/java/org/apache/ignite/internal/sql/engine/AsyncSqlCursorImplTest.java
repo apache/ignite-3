@@ -65,7 +65,7 @@ public class AsyncSqlCursorImplTest {
 
         if (implicitTx != null) {
             CompletableFuture<Void> f = implicitTx.commitFuture();
-            assertFalse(f.isDone(), "Implicit transaction should have not been committed because there is more data: " + f);
+            assertFalse(f.isDone(), "Implicit transaction should have not been committed because there is more data.");
         }
 
         BatchedResult<Integer> in2 = cursor.requestNextAsync(requestRows).join();
@@ -73,7 +73,7 @@ public class AsyncSqlCursorImplTest {
 
         if (implicitTx != null) {
             CompletableFuture<Void> f = implicitTx.commitFuture();
-            assertTrue(f.isDone());
+            assertTrue(f.isDone(), "Implicit transaction should been committed because there is no more data");
         }
     }
 
