@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System.Threading.Tasks;
+using Ignite.Table;
 using NUnit.Framework;
 
 /// <summary>
@@ -25,11 +26,38 @@ using NUnit.Framework;
 /// </summary>
 public class SchemaSynchronizationTest : IgniteTestsBase
 {
+    private static string TestTableName => TestContext.CurrentContext.Test.Name;
+
+    [TearDown]
+    public async Task DeleteTable() => await Client.Sql.ExecuteAsync(null, $"DROP TABLE {TestTableName}");
+
     [Test]
     public async Task TestClientUsesLatestSchemaOnWrite()
     {
         // Create table, insert data.
-        var tableName = TestContext.CurrentContext.Test.Name;
-        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {tableName} (ID INT NOT NULL PRIMARY KEY, NAME VARCHAR NOT NULL)");
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (ID INT NOT NULL PRIMARY KEY, NAME VARCHAR NOT NULL)");
+
+        var table = await Client.Tables.GetTableAsync(TestTableName);
+        var view = table!.RecordBinaryView;
+
+        var rec = new IgniteTuple
+        {
+            ["ID"] = 1,
+            ["NAME"] = "name"
+        };
+
+        await view.InsertAsync(null, rec);
+
+        // Modify table, insert data - client will use old schema, receive error, retry with new schema, fail due to an extra column.
+        // The process is transparent for the user: updated schema is in effect immediately.
+        await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} DROP COLUMN NAME");
+
+        var rec2 = new IgniteTuple
+        {
+            ["ID"] = 2,
+            ["NAME"] = "nam2"
+        };
+
+        await view.InsertAsync(null, rec2);
     }
 }
