@@ -42,13 +42,12 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
@@ -80,7 +79,20 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
         IgniteDistribution distribution = igniteTable.distribution();
 
         if (rel.getOperation() == Operation.DELETE) {
-            distribution = distribution.apply(createMappingForDelete(igniteTable.descriptor()));
+            // To perform delete we need row with key fields only.
+            // Input distribution contains the indexes of the key columns according to the schema (i.e. for the full row).
+            // Here we adjusting distribution keys so that a row containing only the key fields can be read.
+            BitSet keyFields = new BitSet();
+
+            for (int i = 0; i < igniteTable.descriptor().columnsCount(); i++) {
+                ColumnDescriptor column = igniteTable.descriptor().columnDescriptor(i);
+
+                if (column.key()) {
+                    keyFields.set(column.logicalIndex());
+                }
+            }
+
+            distribution = distribution.apply(PlanUtils.sortedValueIndexMapping(keyFields));
         }
 
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
@@ -137,34 +149,5 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
         List<RexNode> projections = Collections.singletonList(rexNode);
 
         return new IgniteProject(cluster, outTrait.replace(IgniteDistributions.single()), sumAgg, projections, convertedRowType);
-    }
-
-    /**
-     * To perform delete we need row with key fields only.
-     * But input distribution contains the indexes of the key columns according to the schema (i.e. for the full row).
-     * This method creates mapping to align the keys to their indexes so that a row containing only the key fields can be read.
-     *
-     * <pre>
-     * For example we have a table with the following columns in the following order: a INT, b INT, c INT, d INT.
-     *
-     *  1. (a) is PK. Key fields row contains [a], we can read it using 0-index. No alignment required.
-     *  2. (b) is PK. Key fields row contains [b], distribution key contains logical index '1', which requires it to be "shifted" to '0'.
-     *  3. (b, d) is PK. Key fields row contains [b, d], distribution keys [1, 3] need to be shifted to [0, 1].
-     *  4. (d, b, c) is PK. Key fields row contains [d, b, c]. distribution keys [3, 1, 2] need to be shifted to [2, 0, 1].
-     * </pre>
-     *
-     * @param tableDesc Table descriptor.
-     * @return Mapping to adjust distribution keys.
-     */
-    private Mapping createMappingForDelete(TableDescriptor tableDesc) {
-        BitSet bitSet = new BitSet();
-
-        for (int i = 0; i < tableDesc.columnsCount(); i++) {
-            if (tableDesc.columnDescriptor(i).key()) {
-                bitSet.set(i);
-            }
-        }
-
-        return PlanUtils.computeAggFieldMapping(bitSet);
     }
 }

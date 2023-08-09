@@ -317,7 +317,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             keyColumns.add(colDesc);
         }
 
-        Mapping mapping = PlanUtils.computeAggFieldMapping(keyLogicalIndexes);
+        Mapping mapping = PlanUtils.sortedValueIndexMapping(keyLogicalIndexes);
 
         for (ColumnDescriptor colDesc : keyColumns) {
             Object val = hnd.get(mapping.getTarget(colDesc.logicalIndex()), row);
