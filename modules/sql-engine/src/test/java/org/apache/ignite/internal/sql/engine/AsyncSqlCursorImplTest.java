@@ -50,7 +50,7 @@ public class AsyncSqlCursorImplTest {
 
     private static final ResultSetMetadata RESULT_SET_METADATA = new ResultSetMetadataImpl(Collections.emptyList());
 
-    /** Cursor should trigger a commit of an implicit transaction (if any) only if when data is fully read. */
+    /** Cursor should trigger commit of an implicit transaction (if any) only if when data is fully read. */
     @ParameterizedTest
     @MethodSource("transactions")
     public void testTriggerCommitAfterDataIsFullyRead(NoOpTransaction implicitTx) {
@@ -77,7 +77,7 @@ public class AsyncSqlCursorImplTest {
         }
     }
 
-    /** Exception on read should trigger a rollback of an implicit transaction, if any. */
+    /** Exception on read should trigger rollback of an implicit transaction, if any. */
     @ParameterizedTest
     @MethodSource("transactions")
     public void testExceptionRollbacksImplicitTx(NoOpTransaction implicitTx) {
@@ -97,7 +97,7 @@ public class AsyncSqlCursorImplTest {
         assertEquals(err.codeAsString(), igniteErr.codeAsString());
     }
 
-    /** Cursor close should trigger a commit of an implicit transaction, if any. */
+    /** Cursor close should trigger commit of an implicit transaction, if any. */
     @ParameterizedTest
     @MethodSource("transactions")
     public void testCloseCommitsImplicitTx(NoOpTransaction implicitTx) {
