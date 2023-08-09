@@ -529,6 +529,10 @@ public class TypeUtils {
 
     /** Checks whether cast operation is necessary in {@code SearchBound}. */
     public static boolean needCastInSearchBounds(IgniteTypeFactory typeFactory, RelDataType fromType, RelDataType toType) {
+        // Checks for both chars and binary type allow comparison
+        // between types with precision, types w/o precision, and
+        // varying non-varying length variants.
+
         // No need to cast between char and varchar.
         if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
             return false;

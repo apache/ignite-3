@@ -162,12 +162,14 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
      * Creates a query template.
      * <ul>
      *     <li>{@code <type>} are replaced with a value of type name of {@link DataTypeTestSpec}.</li>
-     *     <li>{@code $N_lit} are replaced with corresponding literals, where {@code N} is 1-indexed</li>
-     *     <li>{@code $N} are replaced with corresponding values, where {@code N} is 1-indexed</li>
+     *     <li>{@code $N} are replaced with corresponding values provided by
+     *     {@link DataTypeTestSpec#toValueExpr(Comparable)} or {@link DataTypeTestSpec#toLiteral(Comparable)}
+     *     depending on whether type supports literals or not}. {@code N} is 0-indexed.</li>
      * </ul>
      */
     protected QueryTemplate createQueryTemplate(String query) {
-        QueryTemplate parameterProvidingTemplate = new ParameterReplacingTemplate<>(testTypeSpec, query, values);
+        boolean useLiterals = testTypeSpec.hasLiterals();
+        QueryTemplate parameterProvidingTemplate = new ParameterReplacingTemplate<>(testTypeSpec, query, values, useLiterals);
         return createQueryTemplate(parameterProvidingTemplate, testTypeSpec.typeName());
     }
 
@@ -194,10 +196,13 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
 
         private final List<T> values;
 
-        ParameterReplacingTemplate(DataTypeTestSpec<T> spec, String query, List<T> values) {
+        private final boolean useLiterals;
+
+        ParameterReplacingTemplate(DataTypeTestSpec<T> spec, String query, List<T> values, boolean useLiterals) {
             this.testTypeSpec = spec;
             this.query = query;
             this.values = values;
+            this.useLiterals = useLiterals;
         }
 
         @Override
@@ -211,13 +216,12 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
 
             for (var i = 0; i < values.size(); i++) {
                 T value = values.get(i);
-
-                if (testTypeSpec.hasLiterals()) {
-                    String literalValue = testTypeSpec.toLiteral(value);
-                    q = q.replace("$" + i + "_lit", literalValue);
+                String placeHolderValue;
+                if (useLiterals) {
+                    placeHolderValue = testTypeSpec.toLiteral(value);
+                } else {
+                    placeHolderValue = testTypeSpec.toValueExpr(value);
                 }
-
-                String placeHolderValue = testTypeSpec.toValueExpr(value);
                 q = q.replace("$" + i, placeHolderValue);
             }
 
