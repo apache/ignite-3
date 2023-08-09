@@ -93,7 +93,7 @@ namespace Apache.Ignite.Tests
                 // No-op.
             }
 
-            public void OnObservableTimestampChanged(ClientSocket clientSocket, long timestamp)
+            public void OnObservableTimestampChanged(long timestamp)
             {
                 // No-op.
             }

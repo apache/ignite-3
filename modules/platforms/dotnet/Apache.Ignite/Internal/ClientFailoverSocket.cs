@@ -259,7 +259,7 @@ namespace Apache.Ignite.Internal
         }
 
         /// <inheritdoc/>
-        void IClientSocketEventListener.OnObservableTimestampChanged(ClientSocket clientSocket, long timestamp)
+        void IClientSocketEventListener.OnObservableTimestampChanged(long timestamp)
         {
             // TODO: Implement CAS-based timestamp update.
         }

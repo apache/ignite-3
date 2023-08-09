@@ -31,7 +31,6 @@ internal interface IClientSocketEventListener
     /// <summary>
     /// Called when observable timestamp changes.
     /// </summary>
-    /// <param name="clientSocket">Source socket.</param>
     /// <param name="timestamp">Timestamp.</param>
-    void OnObservableTimestampChanged(ClientSocket clientSocket, long timestamp);
+    void OnObservableTimestampChanged(long timestamp);
 }

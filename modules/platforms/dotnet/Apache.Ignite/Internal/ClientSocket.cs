@@ -701,7 +701,7 @@ namespace Apache.Ignite.Internal
             }
 
             var observableTimestamp = reader.ReadInt64();
-            _listener.OnObservableTimestampChanged(this, observableTimestamp);
+            _listener.OnObservableTimestampChanged(observableTimestamp);
 
             var exception = ReadError(ref reader);
 
