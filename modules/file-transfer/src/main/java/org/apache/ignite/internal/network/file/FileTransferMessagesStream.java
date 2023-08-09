@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.network.file;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,7 +38,7 @@ public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, A
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private final FileTransferFactory factory = new FileTransferFactory();
+    private final FileTransferFactory messageFactory = new FileTransferFactory();
 
     /**
      * Creates a new stream of messages to send files.
@@ -59,20 +59,20 @@ public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, A
      *
      * @param chunkSize the size of the chunks to send.
      * @param transferId the id of the transfer.
-     * @param file the file to send.
+     * @param path the path of the file to send.
      * @return a new stream of messages to send files.
      * @throws IOException if an I/O error occurs.
      */
-    public static FileTransferMessagesStream fromFile(
+    public static FileTransferMessagesStream fromPath(
             int chunkSize,
             UUID transferId,
-            File file
+            Path path
     ) throws IOException {
         if (chunkSize <= 0) {
             throw new IllegalArgumentException("Chunk size must be positive");
         }
 
-        return new FileTransferMessagesStream(transferId, ChunkedFileReader.open(file, chunkSize));
+        return new FileTransferMessagesStream(transferId, ChunkedFileReader.open(path.toFile(), chunkSize));
     }
 
     /**
@@ -81,7 +81,7 @@ public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, A
      * @return true if there are more messages to send.
      */
     boolean hasNextMessage() throws IOException {
-        // check that the stream is not closed and the reader is not finished.
+        // Check that the stream is not closed and the reader is not finished.
         return !closed.get() && !reader.isFinished();
     }
 
@@ -108,7 +108,7 @@ public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, A
      * @throws IllegalStateException if the current file is finished.
      */
     private FileChunkMessage nextChunk() throws IOException {
-        return factory.fileChunkMessage()
+        return messageFactory.fileChunkMessage()
                 .transferId(transferId)
                 .fileName(reader.fileName())
                 .offset(reader.offset())

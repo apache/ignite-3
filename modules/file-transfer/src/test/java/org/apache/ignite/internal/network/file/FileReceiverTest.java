@@ -17,20 +17,20 @@
 
 package org.apache.ignite.internal.network.file;
 
-import static org.apache.ignite.internal.network.file.FileAssertions.assertNamesAndContentEquals;
 import static org.apache.ignite.internal.network.file.FileGenerator.randomFile;
 import static org.apache.ignite.internal.network.file.MessagesUtils.getHeaders;
+import static org.apache.ignite.internal.network.file.PathAssertions.assertNamesAndContentEquals;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -45,34 +45,34 @@ class FileReceiverTest {
     @WorkDirectory
     private Path workDir;
 
-    private final FileTransferFactory factory = new FileTransferFactory();
+    private final FileTransferFactory messageFactory = new FileTransferFactory();
 
     @Test
     void receiveSingleFile() throws IOException {
-        // when a single file is sent
-        List<File> filesToSend = List.of(randomFile(workDir, CHUNK_SIZE));
+        // When a single file is sent.
+        List<Path> filesToSend = List.of(randomFile(workDir, CHUNK_SIZE));
         FileReceiver receiver = new FileReceiver("node1", 10);
         UUID transferId = UUID.randomUUID();
 
         Path path = Files.createDirectory(workDir.resolve(transferId.toString()));
         path.toFile().deleteOnExit();
 
-        FileTransferMessagesHandler handler = receiver.registerTransfer("node2", transferId, path);
+        CompletableFuture<List<Path>> receivedFiles = receiver.registerTransfer("node2", transferId, path);
 
-        handler.handleFileHeaders(getHeaders(factory, filesToSend));
+        receiver.receiveFileHeaders(transferId, getHeaders(messageFactory, filesToSend));
         sendFilesToReceiver(receiver, transferId, filesToSend);
 
-        // then the file is received
+        // Then the file is received.
         assertThat(
-                handler.result(),
+                receivedFiles,
                 willBe(assertNamesAndContentEquals(filesToSend))
         );
     }
 
     @Test
     void receiveMultipleFiles() throws IOException {
-        // when multiple files are sent
-        List<File> filesToSend = List.of(
+        // When multiple files are sent.
+        List<Path> filesToSend = List.of(
                 randomFile(workDir, CHUNK_SIZE),
                 randomFile(workDir, CHUNK_SIZE * 2),
                 randomFile(workDir, CHUNK_SIZE * 3)
@@ -83,80 +83,79 @@ class FileReceiverTest {
         Path path = Files.createDirectory(workDir.resolve(transferId.toString()));
         path.toFile().deleteOnExit();
 
-        FileTransferMessagesHandler handler = receiver.registerTransfer("node2", transferId, path);
+        CompletableFuture<List<Path>> receivedFiles = receiver.registerTransfer("node2", transferId, path);
 
-        handler.handleFileHeaders(getHeaders(factory, filesToSend));
-
+        receiver.receiveFileHeaders(transferId, getHeaders(messageFactory, filesToSend));
         sendFilesToReceiver(receiver, transferId, filesToSend);
-        // then the files are received
+
+        // Then the files are received.
         assertThat(
-                handler.result(),
+                receivedFiles,
                 willBe(assertNamesAndContentEquals(filesToSend))
         );
     }
 
     @Test
     void transfersCanceled() throws IOException {
-        // when
+        // When.
         FileReceiver receiver = new FileReceiver("node1", 10);
 
-        // and the first file transfer is started
+        // And the first file transfer is started.
         UUID transferId1 = UUID.randomUUID();
-        List<File> filesToSend1 = List.of(randomFile(workDir, CHUNK_SIZE * 2));
+        List<Path> filesToSend1 = List.of(randomFile(workDir, CHUNK_SIZE * 2));
 
         Path path1 = Files.createDirectory(workDir.resolve(transferId1.toString()));
         path1.toFile().deleteOnExit();
 
-        FileTransferMessagesHandler handler1 = receiver.registerTransfer("node2", transferId1, path1);
+        CompletableFuture<List<Path>> receivedFiles1 = receiver.registerTransfer("node2", transferId1, path1);
 
-        handler1.handleFileHeaders(getHeaders(factory, filesToSend1));
+        receiver.receiveFileHeaders(transferId1, getHeaders(messageFactory, filesToSend1));
 
-        // and the second file transfer is registered
+        // And the second file transfer is registered.
         UUID transferId2 = UUID.randomUUID();
 
         Path path2 = Files.createDirectory(workDir.resolve(transferId2.toString()));
         path2.toFile().deleteOnExit();
 
-        FileTransferMessagesHandler handler2 = receiver.registerTransfer("node2", transferId2, path2);
+        CompletableFuture<List<Path>> receivedFiles2 = receiver.registerTransfer("node2", transferId2, path2);
 
-        // and the third file transfer from another node is started
+        // And the third file transfer from another node is started.
         UUID transferId3 = UUID.randomUUID();
-        List<File> filesToSend3 = List.of(randomFile(workDir, CHUNK_SIZE));
+        List<Path> filesToSend3 = List.of(randomFile(workDir, CHUNK_SIZE));
 
         Path path3 = Files.createDirectory(workDir.resolve(transferId3.toString()));
         path3.toFile().deleteOnExit();
 
-        FileTransferMessagesHandler handler3 = receiver.registerTransfer("node3", transferId3, path3);
+        CompletableFuture<List<Path>> receivedFiles3 = receiver.registerTransfer("node3", transferId3, path3);
 
-        handler3.handleFileHeaders(getHeaders(factory, filesToSend3));
-
+        receiver.receiveFileHeaders(transferId3, getHeaders(messageFactory, filesToSend3));
         sendFilesToReceiver(receiver, transferId3, filesToSend3);
 
-        // all transfers from node2 are canceled
+        // All transfers from node2 are canceled.
         receiver.cancelTransfersFromSender("node2");
 
-        // then the file transfer is canceled
+        // Then the file transfer is canceled.
         assertThat(
-                handler1.result(),
+                receivedFiles1,
                 willThrow(FileTransferException.class)
         );
 
-        // and the second file transfer is canceled
+        // And the second file transfer is canceled.
         assertThat(
-                handler2.result(),
+                receivedFiles2,
                 willThrow(FileTransferException.class)
         );
 
-        // and the third file transfer is not canceled
+        // And the third file transfer is not canceled.
         assertThat(
-                handler3.result(),
+                receivedFiles3,
                 willCompleteSuccessfully()
         );
     }
 
-    private static void sendFilesToReceiver(FileReceiver receiver, UUID transferId, List<File> files) {
+    private static void sendFilesToReceiver(FileReceiver receiver, UUID transferId, List<Path> files) {
         files.forEach(file -> {
-            try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromFile(CHUNK_SIZE, transferId, file)) {
+            try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
                 stream.forEach(receiver::receiveFileChunk);
             } catch (IOException e) {
                 throw new RuntimeException(e);

@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.UUID;
@@ -43,18 +42,18 @@ class FileTransferMessagesStreamTest {
     @Test
     void negativeChunkSize() {
         UUID transferId = UUID.randomUUID();
-        File file = randomFile(workDir, 1024);
+        Path file = randomFile(workDir, 1024);
         int chunkSize = -1;
 
-        assertThrows(IllegalArgumentException.class, () -> FileTransferMessagesStream.fromFile(chunkSize, transferId, file));
+        assertThrows(IllegalArgumentException.class, () -> FileTransferMessagesStream.fromPath(chunkSize, transferId, file));
     }
 
     @Test
     void emptyFile() throws IOException {
         UUID transferId = UUID.randomUUID();
-        File file = randomFile(workDir, 0);
+        Path file = randomFile(workDir, 0);
 
-        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromFile(CHUNK_SIZE, transferId, file)) {
+        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
             assertFalse(stream.hasNextMessage());
             assertThrows(IllegalStateException.class, stream::nextMessage);
         }
@@ -64,9 +63,9 @@ class FileTransferMessagesStreamTest {
     void fileWithSizeLessThanChunkSize() throws IOException {
         UUID transferId = UUID.randomUUID();
         int fileSize = CHUNK_SIZE - 1;
-        File file = randomFile(workDir, fileSize);
+        Path file = randomFile(workDir, fileSize);
 
-        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromFile(CHUNK_SIZE, transferId, file)) {
+        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
 
             assertTrue(stream.hasNextMessage());
             FileChunkMessage fileChunkMessage = stream.nextMessage();
@@ -82,9 +81,9 @@ class FileTransferMessagesStreamTest {
     void fileWithSizeEqualToChunkSize() throws IOException {
         UUID transferId = UUID.randomUUID();
         int fileSize = CHUNK_SIZE;
-        File file = randomFile(workDir, fileSize);
+        Path file = randomFile(workDir, fileSize);
 
-        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromFile(CHUNK_SIZE, transferId, file)) {
+        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
 
             assertTrue(stream.hasNextMessage());
             FileChunkMessage fileChunkMessage = stream.nextMessage();
@@ -100,9 +99,9 @@ class FileTransferMessagesStreamTest {
     void fileWithSizeGreaterThanChunkSize() throws IOException {
         UUID transferId = UUID.randomUUID();
         int fileSize = CHUNK_SIZE + 1;
-        File file = randomFile(workDir, fileSize);
+        Path file = randomFile(workDir, fileSize);
 
-        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromFile(CHUNK_SIZE, transferId, file)) {
+        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
 
             assertTrue(stream.hasNextMessage());
             FileChunkMessage fileChunkMessage = stream.nextMessage();

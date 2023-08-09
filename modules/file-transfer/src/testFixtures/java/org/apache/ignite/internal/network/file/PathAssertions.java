@@ -19,25 +19,25 @@ package org.apache.ignite.internal.network.file;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
-import org.apache.ignite.internal.testframework.matchers.FileMatchers;
+import org.apache.ignite.internal.testframework.matchers.PathMatchers;
 import org.hamcrest.Matcher;
 
 /**
- * File assertions.
+ * Path assertions.
  */
-public class FileAssertions {
+public class PathAssertions {
 
     /**
-     * Asserts that the given files have the same names and content as the expected files.
+     * Asserts that the given list of paths contains the same files as the expected list.
      *
-     * @param expectedFiles Expected files.
-     * @return Matcher.
+     * @param expectedFiles The expected list of files.
+     * @return A matcher that will match if the given list of paths contains the same files as the expected list.
      */
-    public static Matcher<Iterable<? extends File>> assertNamesAndContentEquals(List<File> expectedFiles) {
-        Matcher<File>[] matchers = expectedFiles.stream()
-                .map(FileMatchers::hasSameContentAndName)
+    public static Matcher<Iterable<? extends Path>> assertNamesAndContentEquals(List<Path> expectedFiles) {
+        Matcher<Path>[] matchers = expectedFiles.stream()
+                .map(PathMatchers::hasSameContentAndName)
                 .toArray(Matcher[]::new);
         return containsInAnyOrder(matchers);
     }

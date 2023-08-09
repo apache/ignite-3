@@ -19,10 +19,10 @@ package org.apache.ignite.internal.network.file;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -81,9 +81,10 @@ class FileSender implements ManuallyCloseable {
      * @param files The files to send.
      * @return A future that will be completed when the files are sent.
      */
-    CompletableFuture<Void> send(String receiverConsistentId, UUID id, List<File> files) {
-        // file transfer should be cancelled if an error occurs during the file transfer
+    CompletableFuture<Void> send(String receiverConsistentId, UUID id, List<Path> files) {
+        // It doesn't make sense to continue file transfer if there is a failure in one of the files.
         AtomicBoolean shouldBeCancelled = new AtomicBoolean(false);
+
         CompletableFuture<?>[] futures = files.stream()
                 .map(file -> send(receiverConsistentId, id, file, shouldBeCancelled))
                 .toArray(CompletableFuture[]::new);
@@ -95,29 +96,36 @@ class FileSender implements ManuallyCloseable {
      *
      * @param receiverConsistentId The consistent id of the node to send the file to.
      * @param id The id of the file transfer.
-     * @param file The file to send.
+     * @param path The path of the file to send.
      * @return A future that will be completed when the file is sent.
      */
-    private CompletableFuture<Void> send(String receiverConsistentId, UUID id, File file, AtomicBoolean shouldBeCancelled) {
+    private CompletableFuture<Void> send(String receiverConsistentId, UUID id, Path path, AtomicBoolean shouldBeCancelled) {
+        // Acquire the rate limiter only if the file is not empty.
         AtomicBoolean acquired = new AtomicBoolean(false);
-        return runAsync(() -> {
+
+        return supplyAsync(() -> {
             try {
-                rateLimiter.acquire();
-                acquired.set(true);
-            } catch (InterruptedException e) {
-                throw new FileTransferException("Failed to send files to node: " + receiverConsistentId + "the thread was interrupted");
+                return FileTransferMessagesStream.fromPath(chunkSize, id, path);
+            } catch (IOException e) {
+                throw new FileTransferException("Failed to create a file transfer stream", e);
             }
         }, executorService)
-                .thenApplyAsync(v -> {
+                .whenCompleteAsync((stream, e) -> {
                     try {
-                        return FileTransferMessagesStream.fromFile(chunkSize, id, file);
-                    } catch (IOException e) {
-                        throw new FileTransferException("Failed to create a file transfer stream", e);
+                        if (stream != null && stream.hasNextMessage()) {
+                            rateLimiter.acquire();
+                            acquired.set(true);
+                        }
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                        throw new FileTransferException("Failed to acquire the rate limiter", ex);
+                    } catch (IOException ex) {
+                        throw new FileTransferException("Failed to check if there are more messages in the stream", ex);
                     }
                 }, executorService)
                 .thenComposeAsync(stream -> {
                     return send(receiverConsistentId, stream, shouldBeCancelled)
-                            .whenComplete((res, e) -> {
+                            .whenComplete((v, e) -> {
                                 try {
                                     stream.close();
                                 } catch (IOException ex) {
@@ -125,7 +133,11 @@ class FileSender implements ManuallyCloseable {
                                 }
                             });
                 }, executorService)
-                .whenCompleteAsync((res, e) -> {
+                .whenCompleteAsync((v, e) -> {
+                    if (e != null) {
+                        shouldBeCancelled.set(true);
+                    }
+
                     if (acquired.get()) {
                         rateLimiter.release();
                     }
@@ -141,7 +153,7 @@ class FileSender implements ManuallyCloseable {
      */
     private CompletableFuture<Void> send(String receiverConsistentId, FileTransferMessagesStream stream, AtomicBoolean shouldBeCancelled) {
         try {
-            if (!Thread.currentThread().isInterrupted() && stream.hasNextMessage() && !shouldBeCancelled.get()) {
+            if (!Thread.currentThread().isInterrupted() && !shouldBeCancelled.get() && stream.hasNextMessage()) {
                 return send.apply(receiverConsistentId, stream.nextMessage())
                         .thenComposeAsync(it -> send(receiverConsistentId, stream, shouldBeCancelled), executorService);
             } else {

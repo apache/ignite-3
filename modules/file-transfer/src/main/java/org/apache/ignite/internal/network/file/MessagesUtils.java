@@ -19,7 +19,7 @@ package org.apache.ignite.internal.network.file;
 
 import static java.util.stream.Collectors.toList;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
@@ -37,12 +37,12 @@ final class MessagesUtils {
      * Extracts file headers from files.
      *
      * @param factory File transfer factory.
-     * @param files Files to get headers for.
+     * @param paths List of paths.
      * @return List of file headers.
      */
-    static List<FileHeader> getHeaders(FileTransferFactory factory, List<File> files) {
-        return IntStream.range(0, files.size())
-                .mapToObj(id -> FileHeader.fromFile(factory, id, files.get(id)))
+    static List<FileHeader> getHeaders(FileTransferFactory factory, List<Path> paths) {
+        return IntStream.range(0, paths.size())
+                .mapToObj(id -> FileHeader.fromPath(factory, id, paths.get(id)))
                 .collect(toList());
     }
 }

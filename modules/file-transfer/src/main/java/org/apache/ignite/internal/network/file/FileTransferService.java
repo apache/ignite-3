@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.file;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -51,9 +51,10 @@ public interface FileTransferService extends IgniteComponent {
      *
      * @param sourceNodeConsistentId consistent ID of a node.
      * @param identifier Metadata.
-     * @return Temporary path to the downloaded files. The caller is responsible for deleting the files.
+     * @return Future that will be completed when the download is finished. The future will contain a list of temporary paths to the
+     *         downloaded files. The caller is responsible for deleting the files.
      */
-    CompletableFuture<List<File>> download(String sourceNodeConsistentId, Identifier identifier);
+    CompletableFuture<List<Path>> download(String sourceNodeConsistentId, Identifier identifier);
 
     /**
      * Uploads files for the given metadata to the given node.

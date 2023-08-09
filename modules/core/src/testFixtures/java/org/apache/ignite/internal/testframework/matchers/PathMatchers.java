@@ -19,39 +19,38 @@ package org.apache.ignite.internal.testframework.matchers;
 
 import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.io.FileMatchers.aFileNamed;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
 
 /**
- * File matchers.
+ * Matchers for {@link Path}.
  */
-public final class FileMatchers {
+public final class PathMatchers {
 
-    private FileMatchers() {
+    private PathMatchers() {
     }
 
     /**
-     * Matcher that checks if file has the same content and name as expected file.
+     * Creates a matcher for matching file content and name.
      *
      * @param expectedFile Expected file.
      * @return Matcher that checks if file has the same content and name as expected file.
      */
-    public static Matcher<File> hasSameContentAndName(File expectedFile) {
-        return both(hasSameContent(expectedFile)).and(aFileNamed(equalTo(expectedFile.getName())));
+    public static Matcher<Path> hasSameContentAndName(Path expectedFile) {
+        return both(hasSameContent(expectedFile)).and(hasSameName(expectedFile));
     }
 
     /**
-     * Matcher that checks if file has the same content as expected file.
+     * Creates a matcher for matching file content.
      *
      * @param expectedFile Expected file.
-     * @return Matcher that checks if file has the same content as expected file.
+     * @return Matcher for matching file content.
      */
-    public static Matcher<File> hasSameContent(File expectedFile) {
+    public static Matcher<Path> hasSameContent(Path expectedFile) {
         return hasContent(equalTo(readFile(expectedFile)));
     }
 
@@ -61,18 +60,43 @@ public final class FileMatchers {
      * @param contentMatcher Matcher for matching file content.
      * @return Matcher for matching file content.
      */
-    public static Matcher<File> hasContent(Matcher<byte[]> contentMatcher) {
+    public static Matcher<Path> hasContent(Matcher<byte[]> contentMatcher) {
         return new FeatureMatcher<>(contentMatcher, "A file with content", "content") {
             @Override
-            protected byte[] featureValueOf(File actual) {
+            protected byte[] featureValueOf(Path actual) {
                 return readFile(actual);
             }
         };
     }
 
-    private static byte[] readFile(File file) {
+    /**
+     * Creates a matcher for matching file name.
+     *
+     * @param expectedFile Expected file.
+     * @return Matcher for matching file name.
+     */
+    public static Matcher<Path> hasSameName(Path expectedFile) {
+        return hasName(equalTo(expectedFile.getFileName().toString()));
+    }
+
+    /**
+     * Creates a matcher for matching file name.
+     *
+     * @param nameMatcher Matcher for matching file name.
+     * @return Matcher for matching file name.
+     */
+    public static Matcher<Path> hasName(Matcher<String> nameMatcher) {
+        return new FeatureMatcher<>(nameMatcher, "A file with name", "name") {
+            @Override
+            protected String featureValueOf(Path actual) {
+                return actual.getFileName().toString();
+            }
+        };
+    }
+
+    private static byte[] readFile(Path path) {
         try {
-            return Files.readAllBytes(file.toPath());
+            return Files.readAllBytes(path);
         } catch (IOException e) {
             throw new RuntimeException("Could not read file content", e);
         }

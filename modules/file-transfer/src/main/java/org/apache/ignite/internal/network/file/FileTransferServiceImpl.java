@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.network.file;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.network.file.MessagesUtils.getHeaders;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,8 +32,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.configuration.FileTransferConfiguration;
-import org.apache.ignite.internal.network.file.exception.FileConsumerNotFoundException;
-import org.apache.ignite.internal.network.file.exception.FileProviderNotFoundException;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
@@ -70,6 +66,7 @@ public class FileTransferServiceImpl implements FileTransferService {
      * Topology service.
      */
     private final TopologyService topologyService;
+
     /**
      * Cluster service.
      */
@@ -103,12 +100,15 @@ public class FileTransferServiceImpl implements FileTransferService {
     /**
      * File transfer factory.
      */
-    private final FileTransferFactory factory = new FileTransferFactory();
+    private final FileTransferFactory messageFactory = new FileTransferFactory();
 
     /**
      * Constructor.
      *
+     * @param nodeName Node name.
+     * @param topologyService Topology service.
      * @param messagingService Messaging service.
+     * @param configuration File transfer configuration.
      * @param tempDirectory Temporary directory.
      */
     public FileTransferServiceImpl(
@@ -134,6 +134,15 @@ public class FileTransferServiceImpl implements FileTransferService {
         );
     }
 
+    /**
+     * Constructor.
+     *
+     * @param topologyService Topology service.
+     * @param messagingService Messaging service.
+     * @param tempDirectory Temporary directory.
+     * @param fileSender File sender.
+     * @param fileReceiver File receiver.
+     */
     FileTransferServiceImpl(
             TopologyService topologyService,
             MessagingService messagingService,
@@ -178,57 +187,58 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     private void processUploadRequest(FileUploadRequest message, String senderConsistentId, long correlationId) {
-        completedFuture(UUID.randomUUID())
-                .thenCompose(transferId -> {
-                    Path directory = createTransferDirectory(transferId);
-                    FileTransferMessagesHandler handler = fileReceiver.registerTransfer(
-                            senderConsistentId,
-                            transferId,
-                            directory
-                    );
-                    handler.handleFileHeaders(message.headers());
-                    FileUploadResponse response = factory.fileUploadResponse()
-                            .transferId(transferId)
-                            .build();
-                    Identifier identifier = message.identifier();
-                    return messagingService.respond(senderConsistentId, FILE_TRANSFERRING_CHANNEL, response, correlationId)
-                            .thenCompose(ignored -> {
-                                return handler.result()
-                                        .thenCompose(files -> getFileConsumer(identifier).handleUpload(identifier, files));
-                            })
-                            .whenComplete((v, e) -> {
-                                if (e != null) {
-                                    LOG.error(
-                                            "Failed to handle file upload. Transfer ID: {}. Metadata: {}",
-                                            e,
-                                            transferId,
-                                            identifier
-                                    );
-                                }
-                                IgniteUtils.deleteIfExists(directory);
-                            });
+        UUID transferId = UUID.randomUUID();
+
+        Path directory = createTransferDirectory(transferId);
+
+        CompletableFuture<List<Path>> uploadedFiles = fileReceiver.registerTransfer(
+                senderConsistentId,
+                transferId,
+                directory
+        );
+
+        fileReceiver.receiveFileHeaders(transferId, message.headers());
+
+        FileUploadResponse response = messageFactory.fileUploadResponse()
+                .transferId(transferId)
+                .build();
+        Identifier identifier = message.identifier();
+
+        messagingService.respond(senderConsistentId, FILE_TRANSFERRING_CHANNEL, response, correlationId)
+                .thenCompose(ignored -> {
+                    return uploadedFiles.thenCompose(files -> getFileConsumer(identifier).consume(identifier, files));
+                })
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error(
+                                "Failed to handle file upload. Transfer ID: {}. Metadata: {}",
+                                e,
+                                transferId,
+                                identifier
+                        );
+                    }
+                    IgniteUtils.deleteIfExists(directory);
                 });
     }
 
     private void processDownloadRequest(FileDownloadRequest message, String senderConsistentId, Long correlationId) {
-        supplyAsync(() -> getFileProvider(message.identifier()))
-                .thenCompose(provider -> provider.files(message.identifier()))
+        getFileProvider(message.identifier()).files(message.identifier())
                 .whenComplete((files, e) -> {
                     if (e != null) {
                         LOG.error("Failed to get files for download. Metadata: {}", message.identifier(), e);
-                        FileDownloadResponse response = factory.fileDownloadResponse()
+                        FileDownloadResponse response = messageFactory.fileDownloadResponse()
                                 .error(buildError(e))
                                 .build();
                         messagingService.respond(senderConsistentId, FILE_TRANSFERRING_CHANNEL, response, correlationId);
                     } else if (files.isEmpty()) {
                         LOG.warn("No files to download. Metadata: {}", message.identifier());
-                        FileDownloadResponse response = factory.fileDownloadResponse()
+                        FileDownloadResponse response = messageFactory.fileDownloadResponse()
                                 .error(buildError(new FileTransferException("No files to download")))
                                 .build();
                         messagingService.respond(senderConsistentId, FILE_TRANSFERRING_CHANNEL, response, correlationId);
                     } else {
-                        FileDownloadResponse response = factory.fileDownloadResponse()
-                                .headers(getHeaders(factory, files))
+                        FileDownloadResponse response = messageFactory.fileDownloadResponse()
+                                .headers(getHeaders(messageFactory, files))
                                 .build();
                         messagingService.respond(senderConsistentId, FILE_TRANSFERRING_CHANNEL, response, correlationId)
                                 .thenCompose(v -> sendFiles(senderConsistentId, message.transferId(), files));
@@ -236,8 +246,8 @@ public class FileTransferServiceImpl implements FileTransferService {
                 });
     }
 
-    private CompletableFuture<Void> sendFiles(String recipientConsistentId, UUID transferId, List<File> files) {
-        return fileSender.send(recipientConsistentId, transferId, files)
+    private CompletableFuture<Void> sendFiles(String recipientConsistentId, UUID transferId, List<Path> paths) {
+        return fileSender.send(recipientConsistentId, transferId, paths)
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.error("Failed to send files to node: {}, transfer id: {}",
@@ -245,7 +255,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                                 recipientConsistentId,
                                 transferId
                         );
-                        FileTransferErrorMessage message = factory.fileTransferErrorMessage()
+                        FileTransferErrorMessage message = messageFactory.fileTransferErrorMessage()
                                 .transferId(transferId)
                                 .error(buildError(e))
                                 .build();
@@ -296,28 +306,29 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     @Override
-    public CompletableFuture<List<File>> download(String sourceNodeConsistentId, Identifier identifier) {
-        return completedFuture(UUID.randomUUID())
-                .thenApply(transferId -> factory.fileDownloadRequest()
-                        .transferId(transferId)
-                        .identifier(identifier)
-                        .build())
-                .thenCompose(message -> {
-                    Path directory = createTransferDirectory(message.transferId());
-                    FileTransferMessagesHandler handler = fileReceiver.registerTransfer(
+    public CompletableFuture<List<Path>> download(String sourceNodeConsistentId, Identifier identifier) {
+        UUID transferId = UUID.randomUUID();
+        FileDownloadRequest downloadRequest = messageFactory.fileDownloadRequest()
+                .transferId(transferId)
+                .identifier(identifier)
+                .build();
+
+        return supplyAsync(() -> createTransferDirectory(transferId))
+                .thenApply(directory -> {
+                    return fileReceiver.registerTransfer(
                             sourceNodeConsistentId,
-                            message.transferId(),
+                            transferId,
                             directory
                     );
-                    return messagingService.invoke(sourceNodeConsistentId, FILE_TRANSFERRING_CHANNEL, message,
-                                    RESPONSE_TIMEOUT)
+                }).thenCompose(downloadedFiles -> {
+                    return messagingService.invoke(sourceNodeConsistentId, FILE_TRANSFERRING_CHANNEL, downloadRequest, RESPONSE_TIMEOUT)
                             .thenApply(FileDownloadResponse.class::cast)
                             .thenCompose(response -> {
                                 if (response.error() != null) {
                                     return failedFuture(new FileTransferException(response.error().message()));
                                 } else {
-                                    handler.handleFileHeaders(response.headers());
-                                    return handler.result();
+                                    return fileReceiver.receiveFileHeaders(transferId, response.headers())
+                                            .thenCompose(ignored -> downloadedFiles);
                                 }
                             });
                 });
@@ -325,12 +336,11 @@ public class FileTransferServiceImpl implements FileTransferService {
 
     @Override
     public CompletableFuture<Void> upload(String targetNodeConsistentId, Identifier identifier) {
-        return supplyAsync(() -> getFileProvider(identifier))
-                .thenCompose(provider -> provider.files(identifier))
+        return getFileProvider(identifier).files(identifier)
                 .thenCompose(files -> {
-                    FileUploadRequest message = factory.fileUploadRequest()
+                    FileUploadRequest message = messageFactory.fileUploadRequest()
                             .identifier(identifier)
-                            .headers(getHeaders(factory, files))
+                            .headers(getHeaders(messageFactory, files))
                             .build();
 
                     if (files.isEmpty()) {
@@ -354,18 +364,18 @@ public class FileTransferServiceImpl implements FileTransferService {
     private <M extends Identifier> FileProvider<M> getFileProvider(M metadata) {
         FileProvider<Identifier> provider = metadataToProvider.get(metadata.messageType());
         if (provider == null) {
-            throw new FileProviderNotFoundException(metadata.getClass());
+            throw new IllegalArgumentException("File provider for metadata " + metadata.getClass().getName() + " not found");
         } else {
             return (FileProvider<M>) provider;
         }
     }
 
     private <M extends Identifier> FileConsumer<M> getFileConsumer(M metadata) {
-        FileConsumer<Identifier> handler = metadataToHandler.get(metadata.messageType());
-        if (handler == null) {
-            throw new FileConsumerNotFoundException(metadata.getClass());
+        FileConsumer<Identifier> consumer = metadataToHandler.get(metadata.messageType());
+        if (consumer == null) {
+            throw new IllegalArgumentException("File consumer for metadata " + metadata.getClass().getName() + " not found");
         } else {
-            return (FileConsumer<M>) handler;
+            return (FileConsumer<M>) consumer;
         }
     }
 
@@ -378,7 +388,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     private FileTransferError buildError(Throwable throwable) {
-        return factory.fileTransferError()
+        return messageFactory.fileTransferError()
                 .message(unwrapFileTransferException(throwable).getMessage())
                 .build();
     }

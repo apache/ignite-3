@@ -19,8 +19,8 @@ package org.apache.ignite.internal.network.file;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.network.file.FileAssertions.assertNamesAndContentEquals;
 import static org.apache.ignite.internal.network.file.FileGenerator.randomFile;
+import static org.apache.ignite.internal.network.file.PathAssertions.assertNamesAndContentEquals;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
@@ -29,7 +29,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
@@ -69,7 +68,7 @@ public class ItFileTransferTest {
 
     private Path sourceDir;
 
-    private final FileTransferFactory factory = new FileTransferFactory();
+    private final FileTransferFactory messageFactory = new FileTransferFactory();
 
     @BeforeEach
     void setUp(TestInfo testInfo) throws InterruptedException, IOException {
@@ -89,21 +88,21 @@ public class ItFileTransferTest {
         Node targetNode = cluster.members.get(0);
 
         int chunkSize = configuration.value().chunkSize();
-        File file1 = randomFile(sourceDir, chunkSize);
-        File file2 = randomFile(sourceDir, chunkSize + 1);
-        File file3 = randomFile(sourceDir, chunkSize * 2);
-        File file4 = randomFile(sourceDir, chunkSize * 2);
+        Path file1 = randomFile(sourceDir, chunkSize);
+        Path file2 = randomFile(sourceDir, chunkSize + 1);
+        Path file3 = randomFile(sourceDir, chunkSize * 2);
+        Path file4 = randomFile(sourceDir, chunkSize * 2);
 
-        List<File> files = List.of(file1, file2, file3, file4);
+        List<Path> files = List.of(file1, file2, file3, file4);
         targetNode.fileTransferringService().addFileProvider(
                 Identifier.class,
                 req -> completedFuture(files)
         );
 
         Node sourceNode = cluster.members.get(1);
-        CompletableFuture<List<File>> downloadedFilesFuture = sourceNode.fileTransferringService().download(
+        CompletableFuture<List<Path>> downloadedFilesFuture = sourceNode.fileTransferringService().download(
                 targetNode.nodeName(),
-                factory.identifier().build()
+                messageFactory.identifier().build()
         );
 
         assertThat(
@@ -117,11 +116,11 @@ public class ItFileTransferTest {
         Node targetNode = cluster.members.get(0);
 
         int chunkSize = configuration.value().chunkSize();
-        File file1 = randomFile(sourceDir, chunkSize - 1);
-        File file2 = randomFile(sourceDir, chunkSize + 1);
-        File file3 = randomFile(sourceDir, chunkSize * 2);
+        Path file1 = randomFile(sourceDir, chunkSize - 1);
+        Path file2 = randomFile(sourceDir, chunkSize + 1);
+        Path file3 = randomFile(sourceDir, chunkSize * 2);
 
-        assertTrue(file2.setReadable(false));
+        assertTrue(file2.toFile().setReadable(false));
 
         targetNode.fileTransferringService().addFileProvider(
                 Identifier.class,
@@ -129,9 +128,9 @@ public class ItFileTransferTest {
         );
 
         Node sourceNode = cluster.members.get(1);
-        CompletableFuture<List<File>> download = sourceNode.fileTransferringService().download(
+        CompletableFuture<List<Path>> download = sourceNode.fileTransferringService().download(
                 targetNode.nodeName(),
-                factory.identifier().build()
+                messageFactory.identifier().build()
         );
         assertThat(download, willThrow(FileTransferException.class, "Permission denied"));
     }
@@ -146,9 +145,9 @@ public class ItFileTransferTest {
         );
 
         Node sourceNode = cluster.members.get(1);
-        CompletableFuture<List<File>> download = sourceNode.fileTransferringService().download(
+        CompletableFuture<List<Path>> download = sourceNode.fileTransferringService().download(
                 targetNode.nodeName(),
-                factory.identifier().build()
+                messageFactory.identifier().build()
         );
         assertThat(download, willThrowWithCauseOrSuppressed(FileTransferException.class));
     }
@@ -158,10 +157,10 @@ public class ItFileTransferTest {
         Node targetNode = cluster.members.get(0);
 
         int chunkSize = configuration.value().chunkSize();
-        File file1 = randomFile(sourceDir, 0);
-        File file2 = randomFile(sourceDir, chunkSize + 1);
-        File file3 = randomFile(sourceDir, chunkSize * 2);
-        File file4 = randomFile(sourceDir, chunkSize * 2);
+        Path file1 = randomFile(sourceDir, 0);
+        Path file2 = randomFile(sourceDir, chunkSize + 1);
+        Path file3 = randomFile(sourceDir, chunkSize * 2);
+        Path file4 = randomFile(sourceDir, chunkSize * 2);
 
         targetNode.fileTransferringService().addFileProvider(
                 Identifier.class,
@@ -171,9 +170,9 @@ public class ItFileTransferTest {
         Node sourceNode = cluster.members.get(1);
         assertTrue(sourceNode.workDir().toFile().setWritable(false));
 
-        CompletableFuture<List<File>> downloadedFilesFuture = sourceNode.fileTransferringService().download(
+        CompletableFuture<List<Path>> downloadedFilesFuture = sourceNode.fileTransferringService().download(
                 targetNode.nodeName(),
-                factory.identifier().build()
+                messageFactory.identifier().build()
         );
 
         assertThat(
@@ -192,9 +191,9 @@ public class ItFileTransferTest {
         );
 
         Node sourceNode = cluster.members.get(1);
-        CompletableFuture<List<File>> downloadedFiles = sourceNode.fileTransferringService().download(
+        CompletableFuture<List<Path>> downloadedFiles = sourceNode.fileTransferringService().download(
                 targetNode.nodeName(),
-                factory.identifier().build()
+                messageFactory.identifier().build()
         );
         assertThat(downloadedFiles, willThrow(FileTransferException.class, "No files to download"));
     }
@@ -204,12 +203,12 @@ public class ItFileTransferTest {
         Node sourceNode = cluster.members.get(0);
 
         int chunkSize = configuration.value().chunkSize();
-        File file1 = randomFile(sourceDir, chunkSize);
-        File file2 = randomFile(sourceDir, chunkSize - 1);
-        File file3 = randomFile(sourceDir, chunkSize + 1);
-        File file4 = randomFile(sourceDir, chunkSize * 2);
+        Path file1 = randomFile(sourceDir, chunkSize);
+        Path file2 = randomFile(sourceDir, chunkSize - 1);
+        Path file3 = randomFile(sourceDir, chunkSize + 1);
+        Path file4 = randomFile(sourceDir, chunkSize * 2);
 
-        List<File> files = List.of(file1, file2, file3, file4);
+        List<Path> files = List.of(file1, file2, file3, file4);
         sourceNode.fileTransferringService().addFileProvider(
                 Identifier.class,
                 req -> completedFuture(files)
@@ -225,7 +224,7 @@ public class ItFileTransferTest {
             });
         }));
 
-        sourceNode.fileTransferringService().upload(targetNode.nodeName(), factory.identifier().build());
+        sourceNode.fileTransferringService().upload(targetNode.nodeName(), messageFactory.identifier().build());
 
         assertThat(
                 uploadedFilesAssertion,
@@ -245,7 +244,7 @@ public class ItFileTransferTest {
         Node targetNode = cluster.members.get(1);
 
         assertThat(
-                sourceNode.fileTransferringService().upload(targetNode.nodeName(), factory.identifier().build()),
+                sourceNode.fileTransferringService().upload(targetNode.nodeName(), messageFactory.identifier().build()),
                 willThrow(FileTransferException.class, "No files to upload")
         );
     }
@@ -255,11 +254,11 @@ public class ItFileTransferTest {
         Node sourceNode = cluster.members.get(0);
 
         int chunkSize = configuration.value().chunkSize();
-        File file1 = randomFile(sourceDir, chunkSize - 1);
-        File file2 = randomFile(sourceDir, chunkSize + 1);
-        File file3 = randomFile(sourceDir, chunkSize * 2);
+        Path file1 = randomFile(sourceDir, chunkSize - 1);
+        Path file2 = randomFile(sourceDir, chunkSize + 1);
+        Path file3 = randomFile(sourceDir, chunkSize * 2);
 
-        assertTrue(file2.setReadable(false));
+        assertTrue(file2.toFile().setReadable(false));
 
         sourceNode.fileTransferringService().addFileProvider(
                 Identifier.class,
@@ -268,13 +267,14 @@ public class ItFileTransferTest {
 
         Node targetNode = cluster.members.get(1);
 
-        CompletableFuture<List<File>> uploadedFilesFuture = new CompletableFuture<>();
+        CompletableFuture<List<Path>> uploadedFilesFuture = new CompletableFuture<>();
         targetNode.fileTransferringService().addFileConsumer(Identifier.class, ((metadata, uploadedFiles) -> {
             uploadedFilesFuture.complete(uploadedFiles);
             return completedFuture(null);
         }));
 
-        CompletableFuture<Void> upload = sourceNode.fileTransferringService().upload(targetNode.nodeName(), factory.identifier().build());
+        Identifier identifier = messageFactory.identifier().build();
+        CompletableFuture<Void> upload = sourceNode.fileTransferringService().upload(targetNode.nodeName(), identifier);
         assertThat(
                 upload,
                 willThrow(FileTransferException.class, "Failed to create a file transfer stream")
@@ -297,14 +297,14 @@ public class ItFileTransferTest {
 
         Node targetNode = cluster.members.get(1);
 
-        CompletableFuture<List<File>> uploadedFilesFuture = new CompletableFuture<>();
+        CompletableFuture<List<Path>> uploadedFilesFuture = new CompletableFuture<>();
         targetNode.fileTransferringService().addFileConsumer(Identifier.class, ((metadata, uploadedFiles) -> {
             uploadedFilesFuture.complete(uploadedFiles);
             return completedFuture(null);
         }));
 
         assertThat(
-                sourceNode.fileTransferringService().upload(targetNode.nodeName(), factory.identifier().build()),
+                sourceNode.fileTransferringService().upload(targetNode.nodeName(), messageFactory.identifier().build()),
                 willThrow(RuntimeException.class, "Test exception")
         );
 

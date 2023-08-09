@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.file;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.file.messages.Identifier;
@@ -27,10 +27,10 @@ import org.apache.ignite.internal.network.file.messages.Identifier;
  */
 public interface FileProvider<I extends Identifier> {
     /**
-     * Returns files for the given identifier. The provider must return non-empty list of files.
+     * Returns a collection of paths to files for the given identifier.
      *
-     * @param identifier Metadata.
-     * @return Files.
+     * @param identifier Identifier.
+     * @return Collection of paths to files.
      */
-    CompletableFuture<List<File>> files(I identifier);
+    CompletableFuture<List<Path>> files(I identifier);
 }

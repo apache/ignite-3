@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network.file;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,7 +43,7 @@ class FileTransferMessagesHandler {
     private final Path dir;
     private final AtomicInteger filesCount = new AtomicInteger(UNKNOWN_FILES_COUNT);
     private final AtomicInteger filesFinished = new AtomicInteger(0);
-    private final CompletableFuture<List<File>> result = new CompletableFuture<>();
+    private final CompletableFuture<List<Path>> result = new CompletableFuture<>();
     private final Map<String, ChunkedFileWriter> fileNameToWriter = new ConcurrentHashMap<>();
     private final Map<String, Lock> fileNameToLock = new ConcurrentHashMap<>();
 
@@ -57,6 +56,11 @@ class FileTransferMessagesHandler {
         this.dir = dir;
     }
 
+    /**
+     * Handles file headers. Should be called only once. Updates files count. Creates file writers.
+     *
+     * @param headers File headers.
+     */
     void handleFileHeaders(List<FileHeader> headers) {
         if (!filesCount.compareAndSet(UNKNOWN_FILES_COUNT, headers.size())) {
             throw new IllegalStateException("Received file headers after files count is already set");
@@ -65,6 +69,11 @@ class FileTransferMessagesHandler {
         headers.forEach(this::handleFileHeader);
     }
 
+    /**
+     * Acquires lock for file name and handles file header.
+     *
+     * @param header File header.
+     */
     private void handleFileHeader(FileHeader header) {
         if (result.isDone()) {
             throw new IllegalStateException("Received file header after result is already done");
@@ -72,6 +81,11 @@ class FileTransferMessagesHandler {
         doInLock(header.name(), () -> handleFileHeader0(header));
     }
 
+    /**
+     * Handles file header. Creates file writer if it doesn't exist yet. Closes file writer if all chunks are received.
+     *
+     * @param header File header.
+     */
     private void handleFileHeader0(FileHeader header) {
         ChunkedFileWriter writer = fileNameToWriter.compute(header.name(), (k, v) -> {
             if (v == null) {
@@ -86,6 +100,7 @@ class FileTransferMessagesHandler {
             if (writer.isFinished()) {
                 writer.close();
                 filesFinished.incrementAndGet();
+
                 completeIfAllFilesFinished();
             }
         } catch (IOException e) {
@@ -93,6 +108,11 @@ class FileTransferMessagesHandler {
         }
     }
 
+    /**
+     * Acquires lock for file name and handles file chunk.
+     *
+     * @param fileChunk File chunk.
+     */
     void handleFileChunk(FileChunkMessage fileChunk) {
         if (result.isDone()) {
             throw new IllegalStateException("Received chunked file after result is already done");
@@ -100,6 +120,11 @@ class FileTransferMessagesHandler {
         doInLock(fileChunk.fileName(), () -> handleFileChunk0(fileChunk));
     }
 
+    /**
+     * Handles file chunk. Creates file writer if it doesn't exist yet. Closes file writer if all chunks are received.
+     *
+     * @param fileChunk File chunk.
+     */
     private void handleFileChunk0(FileChunkMessage fileChunk) {
         try {
             ChunkedFileWriter writer = fileNameToWriter.computeIfAbsent(fileChunk.fileName(), this::writer);
@@ -118,6 +143,11 @@ class FileTransferMessagesHandler {
         }
     }
 
+    /**
+     * Handles file transfer error. Closes all file writers and completes result exceptionally.
+     *
+     * @param error Error.
+     */
     void handleFileTransferError(Throwable error) {
         if (result.isDone()) {
             throw new IllegalStateException("Received file transfer error after result is already done");
@@ -126,6 +156,12 @@ class FileTransferMessagesHandler {
         closeAllWriters();
     }
 
+    /**
+     * Acquires lock for file name and executes runnable.
+     *
+     * @param fileName File name.
+     * @param runnable Runnable.
+     */
     private void doInLock(String fileName, Runnable runnable) {
         Lock lock = fileNameToLock.computeIfAbsent(fileName, k -> new ReentrantLock());
         lock.lock();
@@ -136,19 +172,29 @@ class FileTransferMessagesHandler {
         }
     }
 
+    /**
+     * Completes result if all files are finished.
+     */
     private void completeIfAllFilesFinished() throws IOException {
         if (filesFinished.get() == filesCount.get()) {
             try (Stream<Path> stream = Files.list(dir)) {
-                List<File> files = stream.map(Path::toFile).collect(Collectors.toList());
-                result.complete(files);
+                result.complete(stream.collect(Collectors.toList()));
             }
         }
     }
 
-    CompletableFuture<List<File>> result() {
+    /**
+     * Returns result future.
+     *
+     * @return Result future.
+     */
+    CompletableFuture<List<Path>> result() {
         return result;
     }
 
+    /**
+     * Close all writers.
+     */
     private void closeAllWriters() {
         try {
             IgniteUtils.closeAllManually(fileNameToWriter.values().stream());
@@ -157,11 +203,24 @@ class FileTransferMessagesHandler {
         }
     }
 
+    /**
+     * Creates file writer with unknown file size.
+     *
+     * @param fileName File name.
+     * @return File writer.
+     */
     private ChunkedFileWriter writer(String fileName) {
-        // set -1 as file size to indicate that file size is unknown and will be set later
+        // Set -1 as file size to indicate that file size is unknown and will be set later.
         return writer(fileName, -1);
     }
 
+    /**
+     * Creates file writer with known file size.
+     *
+     * @param fileName File name.
+     * @param fileSize File size.
+     * @return File writer.
+     */
     private ChunkedFileWriter writer(String fileName, long fileSize) {
         try {
             return ChunkedFileWriter.open(dir.resolve(fileName), fileSize);

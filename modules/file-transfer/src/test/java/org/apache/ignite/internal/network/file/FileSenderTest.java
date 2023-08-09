@@ -28,7 +28,6 @@ import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -50,8 +49,8 @@ class FileSenderTest {
 
     @Test
     void sendSingleFile() {
-        // when
-        File randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE);
+        // When.
+        Path randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE);
         UUID transferId = UUID.randomUUID();
         FileSender sender = new FileSender(
                 "node1",
@@ -61,7 +60,7 @@ class FileSenderTest {
                 (fileName, message) -> completedFuture(null)
         );
 
-        // then - no exception is thrown
+        // Then - no exception is thrown.
         assertThat(
                 sender.send("node2", transferId, List.of(randomFile)),
                 willCompleteSuccessfully()
@@ -70,8 +69,8 @@ class FileSenderTest {
 
     @Test
     void sendMultipleFiles() {
-        // when
-        List<File> randomFiles = List.of(
+        // When.
+        List<Path> randomFiles = List.of(
                 FileGenerator.randomFile(workDir, CHUNK_SIZE),
                 FileGenerator.randomFile(workDir, CHUNK_SIZE),
                 FileGenerator.randomFile(workDir, CHUNK_SIZE)
@@ -85,7 +84,7 @@ class FileSenderTest {
                 (fileName, message) -> completedFuture(null)
         );
 
-        // then - no exception is thrown
+        // Then - no exception is thrown.
         assertThat(
                 sender.send("node2", transferId, randomFiles),
                 willCompleteSuccessfully()
@@ -94,8 +93,8 @@ class FileSenderTest {
 
     @Test
     void exceptionIsThrownIfFileTransferFailed() {
-        // when
-        File randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE * 5);
+        // When.
+        Path randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE * 5);
         UUID transferId = UUID.randomUUID();
         AtomicInteger count = new AtomicInteger();
         FileSender sender = new FileSender(
@@ -112,7 +111,7 @@ class FileSenderTest {
                 }
         );
 
-        // then - exception is thrown
+        // Then - exception is thrown.
         assertThat(
                 sender.send("node2", transferId, List.of(randomFile)),
                 willThrowWithCauseOrSuppressed(RuntimeException.class)
@@ -121,8 +120,8 @@ class FileSenderTest {
 
     @Test
     void maxConcurrentRequestsLimitIsNotExceeded() {
-        // when
-        List<File> randomFiles = List.of(
+        // When.
+        List<Path> randomFiles = List.of(
                 FileGenerator.randomFile(workDir, CHUNK_SIZE),
                 FileGenerator.randomFile(workDir, CHUNK_SIZE * 10),
                 FileGenerator.randomFile(workDir, CHUNK_SIZE * 20)
@@ -143,7 +142,7 @@ class FileSenderTest {
                     }
 
                     try {
-                        // emulate long processing
+                        // Emulate long processing.
                         TimeUnit.MILLISECONDS.sleep(5);
                     } catch (InterruptedException e) {
                         throw new RuntimeException(e);
@@ -154,7 +153,7 @@ class FileSenderTest {
                 }
         );
 
-        // then - no exception is thrown
+        // Then - no exception is thrown.
         assertThat(
                 sender.send("node2", transferId, randomFiles),
                 willCompleteSuccessfully()
@@ -163,8 +162,8 @@ class FileSenderTest {
 
     @Test
     void rateLimiterIsReleasedIfSendThrowsException() {
-        // when
-        File randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE * 5);
+        // When.
+        Path randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE * 5);
         UUID transferId = UUID.randomUUID();
         RateLimiter rateLimiter = mock(RateLimiter.class);
         AtomicInteger count = new AtomicInteger();
@@ -182,13 +181,13 @@ class FileSenderTest {
                 }
         );
 
-        // then - exception is thrown
+        // Then - exception is thrown.
         assertThat(
                 sender.send("node2", transferId, List.of(randomFile)),
                 willThrowWithCauseOrSuppressed(RuntimeException.class)
         );
 
-        // and - rate limiter is released
+        // And - rate limiter is released.
         Collection<Invocation> invocations = mockingDetails(rateLimiter).getInvocations();
         long expectedCount = invocations
                 .stream()

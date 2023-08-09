@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.file;
 
 import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
+import org.apache.ignite.internal.network.file.messages.FileHeader;
 import org.apache.ignite.internal.network.file.messages.FileTransferErrorMessage;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -53,6 +55,12 @@ class FileReceiver implements ManuallyCloseable {
 
     private final RefCountedObjectPool<String, ReentrantLock> senderConsistentIdToLock = new RefCountedObjectPool<>();
 
+    /**
+     * Constructor.
+     *
+     * @param nodeName Node name.
+     * @param threadPoolSize Thread pool size.
+     */
     FileReceiver(String nodeName, int threadPoolSize) {
         this.executorService = new ThreadPoolExecutor(
                 0,
@@ -63,7 +71,14 @@ class FileReceiver implements ManuallyCloseable {
         );
     }
 
-    FileTransferMessagesHandler registerTransfer(String senderConsistentId, UUID transferId, Path handlerDir) {
+    /**
+     * Registers file transfer.
+     *
+     * @param senderConsistentId Sender consistent id.
+     * @param transferId Transfer id.
+     * @return Future that will be completed when file transfer is finished.
+     */
+    CompletableFuture<List<Path>> registerTransfer(String senderConsistentId, UUID transferId, Path handlerDir) {
         ReentrantLock lock = senderConsistentIdToLock.acquire(senderConsistentId, ignored -> new ReentrantLock());
         lock.lock();
         try {
@@ -77,12 +92,18 @@ class FileReceiver implements ManuallyCloseable {
                 return v;
             });
             handler.result().whenComplete((files, throwable) -> deregisterTransfer(senderConsistentId, transferId));
-            return handler;
+            return handler.result();
         } finally {
             lock.unlock();
         }
     }
 
+    /**
+     * De-registers file transfer.
+     *
+     * @param senderConsistentId Sender consistent id.
+     * @param transferId Transfer id.
+     */
     private void deregisterTransfer(String senderConsistentId, UUID transferId) {
         ReentrantLock lock = senderConsistentIdToLock.acquire(senderConsistentId, ignored -> new ReentrantLock());
         lock.lock();
@@ -102,6 +123,11 @@ class FileReceiver implements ManuallyCloseable {
         }
     }
 
+    /**
+     * Cancels all transfers from sender.
+     *
+     * @param senderConsistentId Sender consistent id.
+     */
     void cancelTransfersFromSender(String senderConsistentId) {
         ReentrantLock lock = senderConsistentIdToLock.acquire(senderConsistentId, ignored -> new ReentrantLock());
         lock.lock();
@@ -117,6 +143,35 @@ class FileReceiver implements ManuallyCloseable {
         }
     }
 
+    /**
+     * Receives file headers.
+     *
+     * @param transferId Transfer id.
+     * @param headers File headers.
+     */
+    CompletableFuture<Void> receiveFileHeaders(UUID transferId, List<FileHeader> headers) {
+        return CompletableFuture.runAsync(() -> receiveFileHeaders0(transferId, headers), executorService)
+                .whenComplete((v, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Failed to receive file headers. Id: {}", throwable, transferId);
+                    }
+                });
+    }
+
+    private void receiveFileHeaders0(UUID transferId, List<FileHeader> headers) {
+        FileTransferMessagesHandler handler = transferIdToHandler.get(transferId);
+        if (handler == null) {
+            throw new FileTransferException("Handler is not found for unknown transferId: " + transferId);
+        } else {
+            handler.handleFileHeaders(headers);
+        }
+    }
+
+    /**
+     * Receives file chunk.
+     *
+     * @param chunk File chunk.
+     */
     CompletableFuture<Void> receiveFileChunk(FileChunkMessage chunk) {
         return CompletableFuture.runAsync(() -> receiveFileChunk0(chunk), executorService)
                 .whenComplete((v, throwable) -> {
@@ -135,6 +190,11 @@ class FileReceiver implements ManuallyCloseable {
         }
     }
 
+    /**
+     * Receives file transfer error message.
+     *
+     * @param errorMessage Error message.
+     */
     CompletableFuture<Void> receiveFileTransferErrorMessage(FileTransferErrorMessage errorMessage) {
         return CompletableFuture.runAsync(() -> receiveFileTransferErrorMessage0(errorMessage), executorService)
                 .whenComplete((v, throwable) -> {

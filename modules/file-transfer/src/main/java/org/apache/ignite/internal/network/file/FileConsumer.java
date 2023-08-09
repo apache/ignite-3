@@ -17,21 +17,21 @@
 
 package org.apache.ignite.internal.network.file;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.file.messages.Identifier;
 
 /**
- * Handler for the uploaded file.
+ * Consumes the uploaded files.
  */
 public interface FileConsumer<I extends Identifier> {
     /**
-     * Handles the uploaded files.
+     * Consumes the list of paths to the uploaded files. The paths are temporary and will be deleted after the method returns.
      *
-     * @param identifier The identifier of the uploaded file.
-     * @param uploadedFiles The temporary files that were uploaded. These files will be deleted after the method returns.
-     * @return A future that will be completed when the file is handled.
+     * @param identifier Metadata.
+     * @param uploadedFiles List of paths to the uploaded files.
+     * @return Future that will be completed when the consumption is finished.
      */
-    CompletableFuture<Void> handleUpload(I identifier, List<File> uploadedFiles);
+    CompletableFuture<Void> consume(I identifier, List<Path> uploadedFiles);
 }

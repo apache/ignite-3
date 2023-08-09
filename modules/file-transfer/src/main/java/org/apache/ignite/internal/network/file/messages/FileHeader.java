@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.file.messages;
 
 import java.io.File;
+import java.nio.file.Path;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -50,11 +51,11 @@ public interface FileHeader extends NetworkMessage {
     /**
      * Creates a new {@link FileHeader} instance from the given {@link File}.
      */
-    public static FileHeader fromFile(FileTransferFactory factory, int id, File file) {
+    static FileHeader fromPath(FileTransferFactory factory, int id, Path path) {
         return factory.fileHeader()
                 .id(id)
-                .name(file.getName())
-                .length(file.length())
+                .name(path.getFileName().toString())
+                .length(path.toFile().length())
                 .build();
     }
 }
