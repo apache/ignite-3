@@ -66,6 +66,10 @@ public interface CatalogService {
 
     CatalogZoneDescriptor zone(int zoneId, long timestamp);
 
+    @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion);
+
+    Collection<CatalogZoneDescriptor> zones(int catalogVersion);
+
     @Nullable CatalogSchemaDescriptor activeSchema(long timestamp);
 
     @Nullable CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
@@ -86,5 +90,5 @@ public interface CatalogService {
      */
     CompletableFuture<Void> catalogReadyFuture(int version);
 
-    void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
+    void listen(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure);
 }

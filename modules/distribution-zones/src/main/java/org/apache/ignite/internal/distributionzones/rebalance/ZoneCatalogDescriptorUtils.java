@@ -26,6 +26,7 @@ import org.apache.ignite.internal.schema.configuration.storage.DataStorageView;
 /**
  * Utils used to convert configuration representations of distribution zones to catalog representations.
  */
+// TODO: IGNITE-20114 избавиться
 @Deprecated(forRemoval = true)
 public class ZoneCatalogDescriptorUtils {
     // TODO: IGNITE-19719 Fix it

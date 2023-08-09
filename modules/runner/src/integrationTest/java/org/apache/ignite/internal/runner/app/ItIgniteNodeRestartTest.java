@@ -401,7 +401,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 schemaManager,
                 dataStorageManager,
                 txManager,
-                distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
                 replicaSvc,
                 hybridClock,

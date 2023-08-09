@@ -89,6 +89,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundExce
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
@@ -260,6 +261,16 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CatalogZoneDescriptor zone(int zoneId, long timestamp) {
         return catalogAt(timestamp).zone(zoneId);
+    }
+
+    @Override
+    public @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion) {
+        return catalog(catalogVersion).zone(zoneId);
+    }
+
+    @Override
+    public Collection<CatalogZoneDescriptor> zones(int catalogVersion) {
+        return catalog(catalogVersion).zones();
     }
 
     @Override
@@ -596,6 +607,11 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
             return List.of(new AlterZoneEntry(descriptor));
         });
+    }
+
+    @Override
+    public void listen(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure) {
+        super.listen(evt, (EventListener<CatalogEventParameters>) closure);
     }
 
     private void registerCatalog(Catalog newCatalog) {

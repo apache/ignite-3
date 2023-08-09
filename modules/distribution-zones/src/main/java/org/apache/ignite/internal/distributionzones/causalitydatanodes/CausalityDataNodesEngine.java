@@ -44,6 +44,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
 import org.apache.ignite.internal.causality.VersionedValue;
@@ -54,7 +55,6 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundExce
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -583,10 +583,10 @@ public class CausalityDataNodesEngine {
      * We save versioned configuration in the Vault every time we receive event which triggers the data nodes recalculation.
      *
      * @param revision Revision.
-     * @param zone Zone's view.
+     * @param zone Zone descriptor.
      */
-    public void onCreateOrRestoreZoneState(long revision, DistributionZoneView zone) {
-        int zoneId = zone.zoneId();
+    public void onCreateOrRestoreZoneState(long revision, CatalogZoneDescriptor zone) {
+        int zoneId = zone.id();
 
         VaultEntry versionedCfgEntry = vaultMgr.get(zoneVersionedConfigurationKey(zoneId)).join();
 
@@ -605,7 +605,6 @@ public class CausalityDataNodesEngine {
             zonesVersionedCfg.put(zoneId, versionedCfg);
 
             vaultMgr.put(zoneVersionedConfigurationKey(zoneId), toBytes(versionedCfg)).join();
-
         } else {
             zonesVersionedCfg.put(zoneId, fromBytes(versionedCfgEntry.value()));
         }

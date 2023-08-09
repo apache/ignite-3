@@ -71,9 +71,11 @@ public class DistributionZoneRebalanceEngine {
     private final IgniteSpinBusyLock busyLock;
 
     /** Distribution zone configuration. */
+    // TODO: IGNITE-20114 избавиться
     private final DistributionZonesConfiguration zonesConfiguration;
 
     /** Tables configuration. */
+    // TODO: IGNITE-20114 избавиться
     private final TablesConfiguration tablesConfiguration;
 
     /** Meta Storage manager. */

@@ -559,7 +559,6 @@ public class IgniteImpl implements Ignite {
                 schemaManager,
                 dataStorageMgr,
                 txManager,
-                distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
                 replicaSvc,
                 clock,
