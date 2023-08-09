@@ -92,6 +92,7 @@ class FileSender implements ManuallyCloseable {
                     }
                 }))
                 .toArray(CompletableFuture[]::new);
+
         return CompletableFuture.allOf(futures);
     }
 
