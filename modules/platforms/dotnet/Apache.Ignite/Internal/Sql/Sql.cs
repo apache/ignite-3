@@ -177,8 +177,7 @@ namespace Apache.Ignite.Internal.Sql
                 w.Write(statement.Query);
                 w.WriteObjectCollectionAsBinaryTuple(args);
 
-                // TODO IGNITE-20056 .NET: Thin 3.0: Track observable timestamp
-                w.Write(0);
+                w.Write(_socket.ObservableTimestamp);
 
                 return writer;
             }
