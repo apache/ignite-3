@@ -261,12 +261,12 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case VARCHAR:
             case CHAR:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED
-                        ? NativeTypes.stringOf(CatalogUtils.MAX_LENGTH)
+                        ? NativeTypes.stringOf(CatalogUtils.DEFAULT_VARLEN_LENGTH)
                         : NativeTypes.stringOf(relType.getPrecision());
             case BINARY:
             case VARBINARY:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED
-                        ? NativeTypes.blobOf(CatalogUtils.MAX_LENGTH)
+                        ? NativeTypes.blobOf(CatalogUtils.DEFAULT_VARLEN_LENGTH)
                         : NativeTypes.blobOf(relType.getPrecision());
             case ANY:
                 if (relType instanceof IgniteCustomType) {

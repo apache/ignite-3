@@ -125,11 +125,11 @@ public class CatalogUtils {
     public static final int DEFAULT_LENGTH = 1;
 
     /**
-     * Max length is implementation defined.
+     * Max length for VARCHAR and VARBINARY is implementation defined.
      *
-     * <p>SQL`16 part 2 section 6.1 syntax rule 15
+     * <p>SQL`16 part 2 section 6.1 syntax rule 8
      */
-    public static final int MAX_LENGTH = Short.MAX_VALUE;
+    public static final int DEFAULT_VARLEN_LENGTH = 0xffff;
 
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
@@ -265,7 +265,7 @@ public class CatalogUtils {
             case BITMASK:
             case STRING:
             case BYTE_ARRAY:
-                return Integer.MAX_VALUE;
+                return DEFAULT_VARLEN_LENGTH;
             default:
                 return Math.max(DEFAULT_LENGTH, defaultPrecision(columnType));
         }

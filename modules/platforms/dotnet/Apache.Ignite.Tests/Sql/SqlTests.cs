@@ -301,7 +301,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.IsTrue(columns[0].Nullable);
             Assert.AreEqual(ColumnType.String, columns[0].Type);
             Assert.AreEqual(int.MinValue, columns[0].Scale);
-            Assert.AreEqual(65536, columns[0].Precision);
+            Assert.AreEqual(65535, columns[0].Precision);
 
             Assert.AreEqual("ID", columns[1].Name);
             Assert.AreEqual("ID", columns[1].Origin!.ColumnName);

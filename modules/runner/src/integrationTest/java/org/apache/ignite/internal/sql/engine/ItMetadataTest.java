@@ -182,13 +182,13 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
                         // Character string types
                         new MetadataMatcher().name("CHAR_C").type(ColumnType.STRING).precision(1).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("CHAR_C2").type(ColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("VARCHAR_C").type(ColumnType.STRING).precision(65536).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("VARCHAR_C").type(ColumnType.STRING).precision(65535).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("VARCHAR_C2").type(ColumnType.STRING).precision(125).scale(UNDEFINED_SCALE),
 
                         // Binary string types
                         new MetadataMatcher().name("BINARY_C").type(ColumnType.BYTE_ARRAY).precision(1).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("BINARY_C2").type(ColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
-                        new MetadataMatcher().name("VARBINARY_C").type(ColumnType.BYTE_ARRAY).precision(65536).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("VARBINARY_C").type(ColumnType.BYTE_ARRAY).precision(65535).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("VARBINARY_C2").type(ColumnType.BYTE_ARRAY).precision(125).scale(UNDEFINED_SCALE),
 
                         // Datetime types

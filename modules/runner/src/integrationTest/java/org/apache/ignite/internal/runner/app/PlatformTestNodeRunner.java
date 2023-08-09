@@ -46,6 +46,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
@@ -61,7 +62,6 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -296,14 +296,14 @@ public class PlatformTestNodeRunner {
                 .tableName(TABLE_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name(keyCol).type(org.apache.ignite.sql.ColumnType.INT64).build(),
-                        ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.STRING).length(0).nullable(true).build()
+                        ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.STRING).nullable(true).build()
                 ))
                 .primaryKeyColumns(List.of(keyCol))
                 .build();
 
         assertThat(ignite.catalogManager().createTable(createTableParams), willBe(nullValue()));
 
-        int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
+        int maxTimePrecision = CatalogUtils.MAX_TIME_PRECISION;
 
         TableDefinition schTblAll = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
@@ -337,7 +337,7 @@ public class PlatformTestNodeRunner {
                 .tableName(TABLE_NAME_ALL_COLUMNS)
                 .columns(List.of(
                         ColumnParams.builder().name(keyCol).type(org.apache.ignite.sql.ColumnType.INT64).build(),
-                        ColumnParams.builder().name("STR").type(org.apache.ignite.sql.ColumnType.STRING).length(0).nullable(true).build(),
+                        ColumnParams.builder().name("STR").type(org.apache.ignite.sql.ColumnType.STRING).nullable(true).build(),
                         ColumnParams.builder().name("INT8").type(org.apache.ignite.sql.ColumnType.INT8).nullable(true).build(),
                         ColumnParams.builder().name("INT16").type(org.apache.ignite.sql.ColumnType.INT16).nullable(true).build(),
                         ColumnParams.builder().name("INT32").type(org.apache.ignite.sql.ColumnType.INT32).nullable(true).build(),
@@ -360,7 +360,7 @@ public class PlatformTestNodeRunner {
                                 .nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP2").type(org.apache.ignite.sql.ColumnType.DATETIME).precision(4)
                                 .nullable(true).build(),
-                        ColumnParams.builder().name("BLOB").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).length(0).nullable(true)
+                        ColumnParams.builder().name("BLOB").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).nullable(true)
                                 .build(),
                         ColumnParams.builder().name("DECIMAL").type(org.apache.ignite.sql.ColumnType.DECIMAL).precision(19).scale(3)
                                 .nullable(true).build()
@@ -402,7 +402,7 @@ public class PlatformTestNodeRunner {
                 .tableName(TABLE_NAME_ALL_COLUMNS_SQL)
                 .columns(List.of(
                         ColumnParams.builder().name(keyCol).type(org.apache.ignite.sql.ColumnType.INT64).build(),
-                        ColumnParams.builder().name("STR").type(org.apache.ignite.sql.ColumnType.STRING).length(0).nullable(true).build(),
+                        ColumnParams.builder().name("STR").type(org.apache.ignite.sql.ColumnType.STRING).nullable(true).build(),
                         ColumnParams.builder().name("INT8").type(org.apache.ignite.sql.ColumnType.INT8).nullable(true).build(),
                         ColumnParams.builder().name("INT16").type(org.apache.ignite.sql.ColumnType.INT16).nullable(true).build(),
                         ColumnParams.builder().name("INT32").type(org.apache.ignite.sql.ColumnType.INT32).nullable(true).build(),
@@ -423,7 +423,7 @@ public class PlatformTestNodeRunner {
                                 .precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP2").type(org.apache.ignite.sql.ColumnType.TIMESTAMP)
                                 .precision(maxTimePrecision).nullable(true).build(),
-                        ColumnParams.builder().name("BLOB").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).length(0).nullable(true)
+                        ColumnParams.builder().name("BLOB").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).nullable(true)
                                 .build(),
                         ColumnParams.builder().name("DECIMAL").type(org.apache.ignite.sql.ColumnType.DECIMAL).precision(19).scale(3)
                                 .nullable(true).build()
@@ -501,8 +501,8 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.STRING).length(0).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.STRING).length(0).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.STRING).build(),
+                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.STRING).nullable(true).build()
         );
 
         createTwoColumnTable(
@@ -538,8 +538,8 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).length(0).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).length(0).nullable(true)
+                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).build(),
+                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).nullable(true)
                         .build()
         );
 
