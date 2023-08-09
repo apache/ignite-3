@@ -51,6 +51,8 @@ import org.apache.ignite.internal.cli.core.repl.completer.filter.CompleterFilter
 import org.apache.ignite.internal.cli.core.repl.completer.filter.DynamicCompleterFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.NonRepeatableOptionsFilter;
 import org.apache.ignite.internal.cli.core.repl.completer.filter.ShortOptionsFilter;
+import org.apache.ignite.internal.cli.event.EventPublisher;
+import org.apache.ignite.internal.cli.event.Events;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.assertj.core.util.Files;
 import org.jline.reader.Candidate;
@@ -101,6 +103,9 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
 
     @Inject
     Session session;
+
+    @Inject
+    EventPublisher eventPublisher;
 
     SystemCompleter completer;
 
@@ -245,7 +250,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     }
 
     private void connected() {
-        session.connect(new SessionInfo(DEFAULT_REST_URL, null, null, null));
+        eventPublisher.publish(Events.connect(SessionInfo.builder().nodeUrl(DEFAULT_REST_URL).build()));
     }
 
     private Stream<Arguments> nodeConfigUpdateSuggestedSource() {
