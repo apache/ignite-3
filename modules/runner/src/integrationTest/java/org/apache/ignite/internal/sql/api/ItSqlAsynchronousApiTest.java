@@ -756,7 +756,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         IgniteSql sql = igniteSql();
 
         Session ses = sql.sessionBuilder().defaultPageSize(2).build();
-        CompletableFuture<AsyncResultSet<SqlRow>> f = ses.executeAsync(null, "SELECT * FROM TEST WHERE VAL0 >= ?", -1000);
+        CompletableFuture<AsyncResultSet<SqlRow>> f = ses.executeAsync(null, "SELECT * FROM TEST");
 
         AsyncResultSet<SqlRow> ars = f.join();
         // There should be a pending transaction since not all data was read.
