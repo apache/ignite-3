@@ -27,7 +27,8 @@ import org.apache.ignite.internal.network.file.messages.Identifier;
  */
 public interface FileConsumer<I extends Identifier> {
     /**
-     * Consumes the list of paths to the uploaded files. The paths are temporary and will be deleted after the method returns.
+     * Consumes the list of paths to the uploaded files. The paths are temporary and will be deleted after the method returns. If there is a
+     * need to keep the files, they should be copied to a different location.
      *
      * @param identifier Uploaded files identifier.
      * @param uploadedFiles List of paths to the uploaded files.
