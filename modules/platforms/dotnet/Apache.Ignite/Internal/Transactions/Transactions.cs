@@ -59,9 +59,7 @@ namespace Apache.Ignite.Internal.Transactions
             {
                 var w = writer.MessageWriter;
                 w.Write(options.ReadOnly);
-
-                // TODO IGNITE-20056 .NET: Thin 3.0: Track observable timestamp
-                w.Write(0);
+                w.Write(_socket.ObservableTimestamp);
             }
         }
 

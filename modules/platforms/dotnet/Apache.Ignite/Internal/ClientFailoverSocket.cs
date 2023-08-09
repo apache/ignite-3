@@ -108,6 +108,11 @@ namespace Apache.Ignite.Internal
         public int PartitionAssignmentVersion => Interlocked.CompareExchange(ref _assignmentVersion, -1, -1);
 
         /// <summary>
+        /// Gets the observable timestamp.
+        /// </summary>
+        public long ObservableTimestamp => Interlocked.Read(ref _observableTimestamp);
+
+        /// <summary>
         /// Connects the socket.
         /// </summary>
         /// <param name="configuration">Client configuration.</param>
