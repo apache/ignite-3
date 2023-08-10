@@ -172,21 +172,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
-            using var iterator = records.GetEnumerator();
-
-            if (!iterator.MoveNext())
-            {
-                return;
-            }
-
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = transaction.ToInternal();
-
-            using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator);
-            var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
-
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, tx, writer, preferredNode).ConfigureAwait(false);
+            using var resBuf = await DoMultiRecordOutOpAsync(ClientOp.TupleUpsertAll, transaction, records).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
