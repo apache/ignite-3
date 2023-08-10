@@ -147,25 +147,16 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
-            using var iterator = keys.GetEnumerator();
-
-            if (!iterator.MoveNext())
+            using var resBuf = await DoMultiRecordOutOpAsync(ClientOp.TupleGetAll, transaction, keys, true).ConfigureAwait(false);
+            if (resBuf == null)
             {
                 return resultFactory(0);
             }
 
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = transaction.ToInternal();
-
-            using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: true);
-            var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
-
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleGetAll, tx, writer, preferredNode).ConfigureAwait(false);
-            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf.Value).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
-            return _ser.ReadMultipleNullable(resBuf, resSchema, resultFactory, addAction);
+            return _ser.ReadMultipleNullable(resBuf.Value, resSchema, resultFactory, addAction);
         }
 
         /// <inheritdoc/>
@@ -479,6 +470,39 @@ namespace Apache.Ignite.Internal.Table
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
             {
                 return await DoRecordOutOpAsync(op, transaction, record, keyOnly, GetExpectedSchemaVersion(e)).ConfigureAwait(false);
+            }
+        }
+
+        private async Task<PooledBuffer?> DoMultiRecordOutOpAsync(
+            ClientOp op,
+            ITransaction? transaction,
+            IEnumerable<T> recs,
+            bool keyOnly = false,
+            int? schemaVersionOverride = null)
+        {
+            // ReSharper disable once PossibleMultipleEnumeration (we may have to retry, but this is very rare)
+            using var iterator = recs.GetEnumerator();
+
+            if (!iterator.MoveNext())
+            {
+                return null;
+            }
+
+            try
+            {
+                var schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
+                var tx = transaction.ToInternal();
+
+                using var writer = ProtoCommon.GetMessageWriter();
+                var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly);
+                var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
+
+                return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
+            }
+            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
+            {
+                // ReSharper disable once PossibleMultipleEnumeration (we have to retry, but this is very rare)
+                return await DoMultiRecordOutOpAsync(op, transaction, recs, keyOnly, GetExpectedSchemaVersion(e)).ConfigureAwait(false);
             }
         }
     }
