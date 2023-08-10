@@ -431,6 +431,20 @@ namespace Apache.Ignite.Internal.Table
             return reader.ReadBoolean();
         }
 
+        private static int GetExpectedSchemaVersion(IgniteException e)
+        {
+            if (e.Data[ErrorExtensions.ExpectedSchemaVersion] is int schemaVer)
+            {
+                return schemaVer;
+            }
+
+            throw new IgniteException(
+                e.TraceId,
+                ErrorGroups.Client.Protocol,
+                "Expected schema version is not specified in error extension map.",
+                e);
+        }
+
         private async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             Transaction? tx,
@@ -464,16 +478,7 @@ namespace Apache.Ignite.Internal.Table
             }
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
             {
-                if (e.Data[ErrorExtensions.ExpectedSchemaVersion] is not int schemaVer)
-                {
-                    throw new IgniteException(
-                        e.TraceId,
-                        ErrorGroups.Client.Protocol,
-                        "Expected schema version is not specified in error extension map.",
-                        e);
-                }
-
-                return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVer).ConfigureAwait(false);
+                return await DoRecordOutOpAsync(op, transaction, record, keyOnly, GetExpectedSchemaVersion(e)).ConfigureAwait(false);
             }
         }
     }
