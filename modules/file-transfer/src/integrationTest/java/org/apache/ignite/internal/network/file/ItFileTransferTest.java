@@ -102,14 +102,14 @@ public class ItFileTransferTest {
 
         // Add file provider to the source node.
         List<Path> files = List.of(file1, file2, file3, file4);
-        sourceNode.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferService().addFileProvider(
                 Identifier.class,
                 req -> completedFuture(files)
         );
 
         // Download files on the target node from the source node.
         Node targetNode = cluster.members.get(1);
-        CompletableFuture<List<Path>> downloadedFilesFuture = targetNode.fileTransferringService().download(
+        CompletableFuture<List<Path>> downloadedFilesFuture = targetNode.fileTransferService().download(
                 sourceNode.nodeName(),
                 messageFactory.identifier().build(),
                 targetNode.workDir().resolve(DOWNLOADS_DIR)
@@ -141,7 +141,7 @@ public class ItFileTransferTest {
 
         // Add file provider to the source node.
         List<Path> files = List.of(file1, file2, file3, file4);
-        sourceNode.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferService().addFileProvider(
                 Identifier.class,
                 req -> completedFuture(files)
         );
@@ -157,7 +157,7 @@ public class ItFileTransferTest {
         Path file6 = randomFile(targetNodeDownloadsDir, chunkSize + 1);
 
         // Download files on the target node from the source node.
-        CompletableFuture<List<Path>> downloadedFilesFuture = targetNode.fileTransferringService().download(
+        CompletableFuture<List<Path>> downloadedFilesFuture = targetNode.fileTransferService().download(
                 sourceNode.nodeName(),
                 messageFactory.identifier().build(),
                 targetNodeDownloadsDir
@@ -198,14 +198,14 @@ public class ItFileTransferTest {
         assertTrue(file2.toFile().setReadable(false));
 
         // Add file provider to the source node.
-        sourceNode.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferService().addFileProvider(
                 Identifier.class,
                 req -> completedFuture(List.of(file1, file2, file3))
         );
 
         // Download files on the target node from the source node.
         Node targetNode = cluster.members.get(1);
-        CompletableFuture<List<Path>> download = targetNode.fileTransferringService().download(
+        CompletableFuture<List<Path>> download = targetNode.fileTransferService().download(
                 sourceNode.nodeName(),
                 messageFactory.identifier().build(),
                 targetNode.workDir().resolve(DOWNLOADS_DIR)
@@ -222,14 +222,14 @@ public class ItFileTransferTest {
     void downloadFilesWhenProviderThrowsException() {
         // Add file provider to the source node that throws an exception.
         Node sourceNode = cluster.members.get(0);
-        sourceNode.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferService().addFileProvider(
                 Identifier.class,
                 req -> failedFuture(new RuntimeException("Test exception"))
         );
 
         // Download files on the target node from the source node.
         Node targetNode = cluster.members.get(1);
-        CompletableFuture<List<Path>> download = targetNode.fileTransferringService().download(
+        CompletableFuture<List<Path>> download = targetNode.fileTransferService().download(
                 sourceNode.nodeName(),
                 messageFactory.identifier().build(),
                 targetNode.workDir().resolve(DOWNLOADS_DIR)
@@ -254,7 +254,7 @@ public class ItFileTransferTest {
         Path file4 = randomFile(sourceDir, chunkSize * 2);
 
         // Add file provider to the source node.
-        sourceNode.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferService().addFileProvider(
                 Identifier.class,
                 req -> completedFuture(List.of(file1, file2, file3, file4))
         );
@@ -264,7 +264,7 @@ public class ItFileTransferTest {
         assertTrue(targetNode.workDir().toFile().setWritable(false));
 
         // Download files on the target node from the source node.
-        CompletableFuture<List<Path>> downloadedFilesFuture = targetNode.fileTransferringService().download(
+        CompletableFuture<List<Path>> downloadedFilesFuture = targetNode.fileTransferService().download(
                 sourceNode.nodeName(),
                 messageFactory.identifier().build(),
                 targetNode.workDir().resolve(DOWNLOADS_DIR)
@@ -284,14 +284,14 @@ public class ItFileTransferTest {
     void downloadEmptyFileList() {
         // Set empty file list provider on the source node.
         Node sourceNode = cluster.members.get(0);
-        sourceNode.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferService().addFileProvider(
                 Identifier.class,
                 req -> completedFuture(List.of())
         );
 
         // Download files on the target node from the source node.
         Node targetNode = cluster.members.get(1);
-        CompletableFuture<List<Path>> downloadedFiles = targetNode.fileTransferringService().download(
+        CompletableFuture<List<Path>> downloadedFiles = targetNode.fileTransferService().download(
                 sourceNode.nodeName(),
                 messageFactory.identifier().build(),
                 targetNode.workDir().resolve(DOWNLOADS_DIR)
@@ -318,7 +318,7 @@ public class ItFileTransferTest {
 
         // Add file provider to the source node.
         List<Path> files = List.of(file1, file2, file3, file4);
-        sourceNode.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferService().addFileProvider(
                 Identifier.class,
                 req -> completedFuture(files)
         );
@@ -327,7 +327,7 @@ public class ItFileTransferTest {
 
         // The future that will be completed when the consumer is called.
         CompletableFuture<Void> uploadedFilesFuture = new CompletableFuture<>();
-        targetNode.fileTransferringService().addFileConsumer(Identifier.class, ((metadata, uploadedFiles) -> {
+        targetNode.fileTransferService().addFileConsumer(Identifier.class, ((metadata, uploadedFiles) -> {
             return uploadedFilesFuture.completeAsync(() -> {
                 assertThat(uploadedFiles, namesAndContentEquals(files));
                 return null;
@@ -335,7 +335,7 @@ public class ItFileTransferTest {
         }));
 
         // Upload files to the target node from the source node.
-        CompletableFuture<Void> upload = sourceNode.fileTransferringService()
+        CompletableFuture<Void> upload = sourceNode.fileTransferService()
                 .upload(targetNode.nodeName(), messageFactory.identifier().build());
 
         // Check that transfer was successful.
@@ -358,14 +358,14 @@ public class ItFileTransferTest {
     void uploadEmptyFileList() {
         // Set empty file list provider on the source node.
         Node sourceNode = cluster.members.get(0);
-        sourceNode.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferService().addFileProvider(
                 Identifier.class,
                 req -> completedFuture(List.of())
         );
 
         // Upload files to the target node from the source node.
         Node targetNode = cluster.members.get(1);
-        CompletableFuture<Void> uploaded = sourceNode.fileTransferringService()
+        CompletableFuture<Void> uploaded = sourceNode.fileTransferService()
                 .upload(targetNode.nodeName(), messageFactory.identifier().build());
 
         // Check that files transfer failed.
@@ -392,7 +392,7 @@ public class ItFileTransferTest {
         assertTrue(file2.toFile().setReadable(false));
 
         // Add file provider to the source node.
-        sourceNode.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferService().addFileProvider(
                 Identifier.class,
                 req -> completedFuture(List.of(file1, file2, file3))
         );
@@ -402,14 +402,14 @@ public class ItFileTransferTest {
 
         // The future will be completed when the file consumer is called.
         CompletableFuture<List<Path>> uploadedFilesFuture = new CompletableFuture<>();
-        targetNode.fileTransferringService().addFileConsumer(Identifier.class, ((metadata, uploadedFiles) -> {
+        targetNode.fileTransferService().addFileConsumer(Identifier.class, ((metadata, uploadedFiles) -> {
             uploadedFilesFuture.complete(uploadedFiles);
             return completedFuture(null);
         }));
 
         // Upload files to the target node from the source node.
         Identifier identifier = messageFactory.identifier().build();
-        CompletableFuture<Void> upload = sourceNode.fileTransferringService().upload(targetNode.nodeName(), identifier);
+        CompletableFuture<Void> upload = sourceNode.fileTransferService().upload(targetNode.nodeName(), identifier);
 
         // Check that files transfer failed.
         assertThat(
@@ -429,7 +429,7 @@ public class ItFileTransferTest {
         // Set file provider on the source node that throws an exception.
         Node sourceNode = cluster.members.get(0);
 
-        sourceNode.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferService().addFileProvider(
                 Identifier.class,
                 req -> failedFuture(new RuntimeException("Test exception"))
         );
@@ -439,13 +439,13 @@ public class ItFileTransferTest {
 
         // The future will be completed when the file consumer is called.
         CompletableFuture<List<Path>> uploadedFilesFuture = new CompletableFuture<>();
-        targetNode.fileTransferringService().addFileConsumer(Identifier.class, ((metadata, uploadedFiles) -> {
+        targetNode.fileTransferService().addFileConsumer(Identifier.class, ((metadata, uploadedFiles) -> {
             uploadedFilesFuture.complete(uploadedFiles);
             return completedFuture(null);
         }));
 
         // Upload files to the target node from the source node.
-        CompletableFuture<Void> uploaded = sourceNode.fileTransferringService()
+        CompletableFuture<Void> uploaded = sourceNode.fileTransferService()
                 .upload(targetNode.nodeName(), messageFactory.identifier().build());
 
         // Check that files transfer failed.
@@ -473,7 +473,7 @@ public class ItFileTransferTest {
         Path file4 = randomFile(sourceDir, chunkSize * 2);
 
         // Add file provider to the source node.
-        sourceNode.fileTransferringService().addFileProvider(
+        sourceNode.fileTransferService().addFileProvider(
                 Identifier.class,
                 req -> completedFuture(List.of(file1, file2, file3, file4))
         );
@@ -483,7 +483,7 @@ public class ItFileTransferTest {
         assertTrue(targetNode.workDir().toFile().setWritable(false));
 
         // Upload files to the target node from the source node.
-        CompletableFuture<Void> uploaded = sourceNode.fileTransferringService().upload(
+        CompletableFuture<Void> uploaded = sourceNode.fileTransferService().upload(
                 targetNode.nodeName(), messageFactory.identifier().build()
         );
 

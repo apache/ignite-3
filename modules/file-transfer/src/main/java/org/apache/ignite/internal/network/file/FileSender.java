@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.file;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -25,7 +26,6 @@ import static org.apache.ignite.internal.network.file.Channel.FILE_TRANSFER_CHAN
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.network.MessagingService;
 
@@ -49,7 +50,7 @@ class FileSender {
 
     private final ExecutorService executorService;
 
-    private final Queue<FileTransferRequest> requests = new ConcurrentLinkedQueue<>();
+    private final Queue<FileTransfer> requests = new ConcurrentLinkedQueue<>();
 
     FileSender(
             int chunkSize,
@@ -64,7 +65,8 @@ class FileSender {
     }
 
     /**
-     * Submit a request to send files to the queue. The request will be processed asynchronously.
+     * Creates {@link FileTransfer} objects for each file and places them in the queue. The files will be sent when the rate limiter is
+     * available.
      *
      * @param targetNodeConsistentId The consistent ID of the node to send the files to.
      * @param transferId The ID of the transfer.
@@ -72,20 +74,34 @@ class FileSender {
      * @return A future that will be completed when the transfer is complete.
      */
     CompletableFuture<Void> send(String targetNodeConsistentId, UUID transferId, List<Path> paths) {
-        FileTransferRequest request = new FileTransferRequest(targetNodeConsistentId, transferId, paths);
-        requests.add(request);
+        // It doesn't make sense to continue file transfer if there is a failure in one of the files.
+        AtomicBoolean shouldBeCancelled = new AtomicBoolean(false);
 
-        processNextRequest();
+        List<FileTransfer> transfers = paths.stream()
+                .map(path -> new FileTransfer(targetNodeConsistentId, transferId, path, shouldBeCancelled))
+                .collect(Collectors.toList());
 
-        return request.result;
+        CompletableFuture[] results = transfers.stream().map(it -> it.result)
+                .map(it -> it.whenComplete((v, e) -> {
+                    if (e != null) {
+                        shouldBeCancelled.set(true);
+                    }
+                }))
+                .toArray(CompletableFuture[]::new);
+
+        requests.addAll(transfers);
+
+        processNextTransfer();
+
+        return allOf(results);
     }
 
     /**
-     * Process the next request in the queue. If the rate limiter is not available, the request will be processed later.
+     * Process the next transfer in the queue. If the rate limiter is not available, the transfer will be processed later.
      *
      * @return A future that will be completed when the request is processed.
      */
-    private CompletableFuture<Void> processNextRequest() {
+    private CompletableFuture<Void> processNextTransfer() {
         if (rateLimiter.tryAcquire()) {
             return completedFuture(requests.poll())
                     .thenComposeAsync(request -> {
@@ -93,48 +109,27 @@ class FileSender {
                             return CompletableFuture.<Void>completedFuture(null)
                                     .whenComplete((v, e) -> rateLimiter.release());
                         } else {
-                            return sendFiles(request.receiverConsistentId, request.transferId, request.paths)
-                                    .whenComplete((v, e) -> {
+                            return sendFile(request.receiverConsistentId, request.transferId, request.path, request.shouldBeCancelled)
+                                    .handle((v, e) -> {
                                         try {
                                             if (e == null) {
                                                 request.result.complete(null);
                                             } else {
                                                 request.result.completeExceptionally(e);
                                             }
+
+                                            // We need to return null here because we want to process the next transfer.
+                                            return null;
                                         } finally {
                                             rateLimiter.release();
                                         }
                                     })
-                                    .thenCompose(v -> processNextRequest());
+                                    .thenCompose(v -> processNextTransfer());
                         }
                     }, executorService);
         } else {
             return completedFuture(null);
         }
-    }
-
-    /**
-     * Sends the files to the node with the given consistent id.
-     *
-     * @param targetNodeConsistentId The consistent id of the node to send the files to.
-     * @param transferId The id of the file transfer.
-     * @param paths The paths of the files to send.
-     * @return A future that will be completed when the files are sent.
-     */
-    private CompletableFuture<Void> sendFiles(String targetNodeConsistentId, UUID transferId, List<Path> paths) {
-        // It doesn't make sense to continue file transfer if there is a failure in one of the files.
-        AtomicBoolean shouldBeCancelled = new AtomicBoolean(false);
-
-        CompletableFuture<?>[] futures = paths.stream()
-                .map(path -> sendFile(targetNodeConsistentId, transferId, path, shouldBeCancelled)
-                        .whenComplete((v, e) -> {
-                            if (e != null) {
-                                shouldBeCancelled.set(true);
-                            }
-                        }))
-                .toArray(CompletableFuture[]::new);
-
-        return CompletableFuture.allOf(futures);
     }
 
     /**
@@ -196,34 +191,18 @@ class FileSender {
         }
     }
 
-    private static class FileTransferRequest {
+    private static class FileTransfer {
         private final String receiverConsistentId;
         private final UUID transferId;
-        private final List<Path> paths;
+        private final Path path;
+        private final AtomicBoolean shouldBeCancelled;
         private final CompletableFuture<Void> result = new CompletableFuture<>();
 
-        private FileTransferRequest(String receiverConsistentId, UUID transferId, List<Path> paths) {
+        private FileTransfer(String receiverConsistentId, UUID transferId, Path path, AtomicBoolean shouldBeCancelled) {
             this.receiverConsistentId = receiverConsistentId;
             this.transferId = transferId;
-            this.paths = paths;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            FileTransferRequest that = (FileTransferRequest) o;
-            return Objects.equals(receiverConsistentId, that.receiverConsistentId) && Objects.equals(transferId, that.transferId)
-                    && Objects.equals(paths, that.paths);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(receiverConsistentId, transferId, paths);
+            this.path = path;
+            this.shouldBeCancelled = shouldBeCancelled;
         }
     }
 }

@@ -170,7 +170,7 @@ public class TestCluster {
             return workDir;
         }
 
-        public FileTransferService fileTransferringService() {
+        public FileTransferService fileTransferService() {
             return fileTransferService;
         }
 

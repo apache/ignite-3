@@ -22,12 +22,14 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -192,10 +194,23 @@ class FileSenderTest {
 
         });
 
+        // Setup rate limiter to count tryAcquire and release calls.
+        Semaphore rateLimiter = spy(new Semaphore(4));
+        AtomicInteger tryAcquireCount = new AtomicInteger();
+        doAnswer(invocation -> {
+            tryAcquireCount.incrementAndGet();
+            return true;
+        }).when(rateLimiter).tryAcquire();
+
+        AtomicInteger releaseCount = new AtomicInteger();
+        doAnswer(invocation -> {
+            releaseCount.incrementAndGet();
+            return null;
+        }).when(rateLimiter).release();
+
         // When.
         Path randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE * 5);
         UUID transferId = UUID.randomUUID();
-        Semaphore rateLimiter = spy(new Semaphore(4));
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 rateLimiter,
@@ -209,7 +224,8 @@ class FileSenderTest {
                 willThrowWithCauseOrSuppressed(RuntimeException.class)
         );
 
-        // And - rate limiter is released.
-        verify(rateLimiter).release();
+        // And - rate limiter is released the same number of times as it was acquired.
+        assertThat(tryAcquireCount.get(), greaterThan(0));
+        assertThat(releaseCount.get(), equalTo(tryAcquireCount.get()));
     }
 }
