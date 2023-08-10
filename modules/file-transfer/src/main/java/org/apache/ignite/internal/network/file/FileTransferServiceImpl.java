@@ -120,7 +120,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     private final FileTransferFactory messageFactory = new FileTransferFactory();
 
     /**
-     * Constructor.
+     * Factory method. Creates a new instance of {@link FileTransferServiceImpl}.
      *
      * @param nodeName Node name.
      * @param topologyService Topology service.
@@ -128,14 +128,22 @@ public class FileTransferServiceImpl implements FileTransferService {
      * @param configuration File transfer configuration.
      * @param transferDirectory Transfer directory. All files will be saved here before being moved to their final location.
      */
-    public FileTransferServiceImpl(
+    public static FileTransferServiceImpl create(
             String nodeName,
             TopologyService topologyService,
             MessagingService messagingService,
             FileTransferConfiguration configuration,
             Path transferDirectory
     ) {
-        this(
+        ExecutorService executor = new ThreadPoolExecutor(
+                0,
+                configuration.value().threadPoolSize(),
+                0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(nodeName, "file-transfer", LOG)
+        );
+
+        return new FileTransferServiceImpl(
                 configuration.value().responseTimeout(),
                 topologyService,
                 messagingService,
@@ -143,16 +151,11 @@ public class FileTransferServiceImpl implements FileTransferService {
                 new FileSender(
                         configuration.value().chunkSize(),
                         new Semaphore(configuration.value().maxConcurrentRequests()),
-                        messagingService
+                        messagingService,
+                        executor
                 ),
                 new FileReceiver(),
-                new ThreadPoolExecutor(
-                        0,
-                        configuration.value().threadPoolSize(),
-                        0L, TimeUnit.MILLISECONDS,
-                        new LinkedBlockingQueue<>(),
-                        NamedThreadFactory.create(nodeName, "file-sender", LOG)
-                )
+                executor
         );
     }
 
@@ -208,6 +211,11 @@ public class FileTransferServiceImpl implements FileTransferService {
                         LOG.error("Unexpected message received: {}", message);
                     }
                 });
+    }
+
+    @Override
+    public void stop() {
+        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
     }
 
     private void processUploadRequest(FileUploadRequest message, String senderConsistentId, long correlationId) {
@@ -324,11 +332,6 @@ public class FileTransferServiceImpl implements FileTransferService {
                         messagingService.send(targetNodeConsistentId, FILE_TRANSFER_CHANNEL, message);
                     }
                 });
-    }
-
-    @Override
-    public void stop() {
-        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
     }
 
     @Override

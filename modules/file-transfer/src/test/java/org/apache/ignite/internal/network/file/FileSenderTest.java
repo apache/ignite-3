@@ -32,6 +32,7 @@ import static org.mockito.Mockito.verify;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -68,8 +69,9 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 new Semaphore(4),
-                messagingService
-        );
+                messagingService,
+                Executors.newSingleThreadExecutor()
+                );
 
         // Then - no exception is thrown.
         assertThat(
@@ -90,7 +92,8 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 new Semaphore(4),
-                messagingService
+                messagingService,
+                Executors.newSingleThreadExecutor()
         );
 
         // Then - no exception is thrown.
@@ -119,7 +122,8 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 new Semaphore(4),
-                messagingService
+                messagingService,
+                Executors.newSingleThreadExecutor()
         );
 
         // Then - exception is thrown.
@@ -164,7 +168,8 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 new Semaphore(maxConcurrentRequests),
-                messagingService
+                messagingService,
+                Executors.newSingleThreadExecutor()
         );
 
         // Then - no exception is thrown.
@@ -194,7 +199,8 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 rateLimiter,
-                messagingService
+                messagingService,
+                Executors.newSingleThreadExecutor()
         );
 
         // Then - exception is thrown.

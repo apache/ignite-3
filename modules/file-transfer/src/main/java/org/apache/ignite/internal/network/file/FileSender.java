@@ -32,6 +32,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
@@ -48,6 +49,8 @@ class FileSender {
 
     private final MessagingService messagingService;
 
+    private final ExecutorService executorService;
+
     private final Queue<FileTransferRequest> requests = new ConcurrentLinkedQueue<>();
 
     private final Map<FileTransferRequest, CompletableFuture<Void>> results = new ConcurrentHashMap<>();
@@ -55,18 +58,22 @@ class FileSender {
     FileSender(
             int chunkSize,
             Semaphore rateLimiter,
-            MessagingService messagingService) {
+            MessagingService messagingService,
+            ExecutorService executorService
+    ) {
         this.chunkSize = chunkSize;
         this.rateLimiter = rateLimiter;
         this.messagingService = messagingService;
+        this.executorService = executorService;
     }
 
     CompletableFuture<Void> send(String targetNodeConsistentId, UUID transferId, List<Path> paths) {
         if (rateLimiter.tryAcquire()) {
             return send0(targetNodeConsistentId, transferId, paths)
                     .whenComplete((v, e) -> {
-                        rateLimiter.release();
-                        processQueue();
+                        //
+                        processNextRequestFromQueue()
+                                .whenComplete((v1, e1) -> rateLimiter.release());
                     });
         } else {
             // If the rate limiter is full, we should place the request in a queue and wait for the rate limiter to be released.
@@ -79,7 +86,7 @@ class FileSender {
         AtomicBoolean shouldBeCancelled = new AtomicBoolean(false);
 
         CompletableFuture<?>[] futures = paths.stream()
-                .map(file -> sendFile(targetNodeConsistentId, transferId, file, shouldBeCancelled)
+                .map(path -> sendFile(targetNodeConsistentId, transferId, path, shouldBeCancelled)
                         .whenComplete((v, e) -> {
                             if (e != null) {
                                 shouldBeCancelled.set(true);
@@ -136,7 +143,10 @@ class FileSender {
         try {
             if (stream.hasNextMessage() && !shouldBeCancelled.get()) {
                 return messagingService.send(receiverConsistentId, FILE_TRANSFER_CHANNEL, stream.nextMessage())
-                        .thenCompose(ignored -> sendMessagesFromStream(receiverConsistentId, stream, shouldBeCancelled));
+                        .thenComposeAsync(
+                                ignored -> sendMessagesFromStream(receiverConsistentId, stream, shouldBeCancelled),
+                                executorService
+                        );
             } else {
                 return completedFuture(null);
             }
@@ -160,30 +170,29 @@ class FileSender {
     }
 
     /**
-     * Processes the queue of file transfer requests. If the rate limiter is full, the request will not be processed.
+     * Processes the next request from the queue. Must be called when the rate limiter is acquired.
      */
-    private synchronized void processQueue() {
-        FileTransferRequest request = requests.peek();
+    private CompletableFuture<Void> processNextRequestFromQueue() {
+        FileTransferRequest request = requests.poll();
 
         if (request != null) {
-            if (rateLimiter.tryAcquire()) {
-                requests.remove();
 
-                CompletableFuture<Void> result = results.remove(request);
+            CompletableFuture<Void> result = results.remove(request);
 
-                Objects.requireNonNull(result);
+            Objects.requireNonNull(result);
 
-                send0(request.receiverConsistentId, request.transferId, request.paths)
-                        .whenComplete((v, e) -> {
-                            rateLimiter.release();
+            send0(request.receiverConsistentId, request.transferId, request.paths)
+                    .whenComplete((v, e) -> {
+                        if (e != null) {
+                            result.completeExceptionally(e);
+                        } else {
+                            result.complete(null);
+                        }
+                    });
 
-                            if (e != null) {
-                                result.completeExceptionally(e);
-                            } else {
-                                result.complete(null);
-                            }
-                        });
-            }
+            return completedFuture(null).thenCompose(ignored -> processNextRequestFromQueue());
+        } else {
+            return failedFuture(new FileTransferException("There are no requests in the queue"));
         }
     }
 
