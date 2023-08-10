@@ -448,11 +448,12 @@ namespace Apache.Ignite.Internal.Table
             ClientOp op,
             ITransaction? transaction,
             T record,
-            bool keyOnly = false)
+            bool keyOnly = false,
+            int? schemaVersionOverride = null)
         {
             try
             {
-                var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
+                var schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
                 var tx = transaction.ToInternal();
 
                 using var writer = ProtoCommon.GetMessageWriter();
@@ -463,8 +464,9 @@ namespace Apache.Ignite.Internal.Table
             }
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
             {
-                // TODO: Pass desired schema version as override.
-                return await DoRecordOutOpAsync(op, transaction, record, keyOnly).ConfigureAwait(false);
+                var schemaVer = e.Data[ErrorExtensions.ExpectedSchemaVersion] as int?;
+
+                return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVer).ConfigureAwait(false);
             }
         }
     }

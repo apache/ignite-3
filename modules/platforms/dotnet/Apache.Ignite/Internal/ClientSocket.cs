@@ -429,7 +429,10 @@ namespace Apache.Ignite.Internal
                         ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace));
                 }
 
-                // TODO: return ClientSchemaVersionMismatchException
+                var ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
+                ex.Data[ErrorExtensions.ExpectedSchemaVersion] = expectedSchemaVersion;
+
+                return ex;
             }
             else
             {

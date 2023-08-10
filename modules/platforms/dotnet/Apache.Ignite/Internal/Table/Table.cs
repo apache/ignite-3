@@ -169,6 +169,13 @@ namespace Apache.Ignite.Internal.Table
         /// <summary>
         /// Gets the latest schema.
         /// </summary>
+        /// <param name="version">Schema version; when null, latest is used.</param>
+        /// <returns>Schema.</returns>
+        internal Task<Schema> GetSchemaAsync(int? version) => GetCachedSchemaAsync(version ?? _latestSchemaVersion);
+
+        /// <summary>
+        /// Gets the latest schema.
+        /// </summary>
         /// <returns>Schema.</returns>
         internal Task<Schema> GetLatestSchemaAsync()
         {
