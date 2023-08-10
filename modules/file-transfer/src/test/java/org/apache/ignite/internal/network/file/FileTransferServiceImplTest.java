@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 
 import java.nio.file.Path;
+import java.util.concurrent.Executors;
 import org.apache.ignite.internal.network.file.messages.FileTransferMessageType;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -37,7 +38,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 class FileTransferServiceImplTest {
-
     @WorkDirectory
     private Path workDir;
 
@@ -61,15 +61,16 @@ class FileTransferServiceImplTest {
                 messagingService,
                 workDir,
                 fileSender,
-                fileReceiver
+                fileReceiver,
+                Executors.newSingleThreadExecutor()
         );
 
         fileTransferService.start();
         verify(messagingService).addMessageHandler(eq(FileTransferMessageType.class), any(NetworkMessageHandler.class));
         verify(topologyService).addEventHandler(any());
 
-        topologyService.fairDisappearedEvent(new ClusterNodeImpl("node1", "localhost", new NetworkAddress("localhost", 1234)));
+        topologyService.fairDisappearedEvent(new ClusterNodeImpl("node1", "sender", new NetworkAddress("localhost", 1234)));
 
-        verify(fileReceiver).cancelTransfersFromSender("node1");
+        verify(fileReceiver).cancelTransfersFromSender("sender");
     }
 }

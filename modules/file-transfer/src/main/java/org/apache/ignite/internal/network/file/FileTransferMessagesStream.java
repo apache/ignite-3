@@ -26,13 +26,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * A stream of messages to send file.
  */
 public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, AutoCloseable {
     private final UUID transferId;
+
+    private final Path path;
 
     private final ChunkedFileReader reader;
 
@@ -48,9 +49,11 @@ public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, A
      */
     private FileTransferMessagesStream(
             UUID transferId,
+            Path path,
             ChunkedFileReader reader
     ) {
         this.transferId = transferId;
+        this.path = path;
         this.reader = reader;
     }
 
@@ -72,7 +75,7 @@ public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, A
             throw new IllegalArgumentException("Chunk size must be positive");
         }
 
-        return new FileTransferMessagesStream(transferId, ChunkedFileReader.open(path.toFile(), chunkSize));
+        return new FileTransferMessagesStream(transferId, path, ChunkedFileReader.open(path.toFile(), chunkSize));
     }
 
     /**
@@ -116,6 +119,10 @@ public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, A
                 .build();
     }
 
+    public Path path() {
+        return path;
+    }
+
     /**
      * Closes the stream.
      */
@@ -126,7 +133,6 @@ public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, A
         }
     }
 
-    @NotNull
     @Override
     public Iterator<FileChunkMessage> iterator() {
         return new Iterator<>() {

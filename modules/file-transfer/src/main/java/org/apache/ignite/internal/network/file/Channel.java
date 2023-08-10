@@ -26,7 +26,7 @@ final class Channel {
     /**
      * File transfer channel.
      */
-    static final ChannelType FILE_TRANSFER_CHANNEL = ChannelType.register((short) 1, "FileTransfer");
+    static final ChannelType FILE_TRANSFER_CHANNEL = ChannelType.register((short) 2, "FileTransfer");
 
     private Channel() {
         // No-op.

@@ -38,14 +38,10 @@ public class FileTransferConfigurationSchema {
     /** File sender thread pool size. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public final int senderThreadPoolSize = 1;
-
-    /** File receiver thread pool size. */
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public final int receiverThreadPoolSize = 4;
+    public final int threadPoolSize = 8;
 
     /** Max concurrent requests. */
+    @Range(min = 1)
     @Value(hasDefault = true)
     public final int maxConcurrentRequests = 4;
 }

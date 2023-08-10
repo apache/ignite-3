@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.network.file;
 
 import static org.apache.ignite.internal.network.file.FileGenerator.randomFile;
-import static org.apache.ignite.internal.network.file.MessagesUtils.getHeaders;
 import static org.apache.ignite.internal.network.file.PathAssertions.namesAndContentEquals;
+import static org.apache.ignite.internal.network.file.messages.FileHeader.fromPaths;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -51,14 +51,14 @@ class FileReceiverTest {
     void receiveSingleFile() throws IOException {
         // When a single file is sent.
         List<Path> filesToSend = List.of(randomFile(workDir, CHUNK_SIZE));
-        FileReceiver receiver = new FileReceiver("node1", 10);
+        FileReceiver receiver = new FileReceiver();
         UUID transferId = UUID.randomUUID();
 
         Path path = Files.createDirectory(workDir.resolve(transferId.toString()));
 
         CompletableFuture<List<Path>> receivedFiles = receiver.registerTransfer("node2", transferId, path);
 
-        receiver.receiveFileHeaders(transferId, getHeaders(messageFactory, filesToSend));
+        receiver.receiveFileHeaders(transferId, fromPaths(messageFactory, filesToSend));
         sendFilesToReceiver(receiver, transferId, filesToSend);
 
         // Then the file is received.
@@ -76,14 +76,14 @@ class FileReceiverTest {
                 randomFile(workDir, CHUNK_SIZE * 2),
                 randomFile(workDir, CHUNK_SIZE * 3)
         );
-        FileReceiver receiver = new FileReceiver("node1", 10);
+        FileReceiver receiver = new FileReceiver();
         UUID transferId = UUID.randomUUID();
 
         Path path = Files.createDirectory(workDir.resolve(transferId.toString()));
 
         CompletableFuture<List<Path>> receivedFiles = receiver.registerTransfer("node2", transferId, path);
 
-        receiver.receiveFileHeaders(transferId, getHeaders(messageFactory, filesToSend));
+        receiver.receiveFileHeaders(transferId, fromPaths(messageFactory, filesToSend));
         sendFilesToReceiver(receiver, transferId, filesToSend);
 
         // Then the files are received.
@@ -96,7 +96,7 @@ class FileReceiverTest {
     @Test
     void transfersCanceled() throws IOException {
         // When.
-        FileReceiver receiver = new FileReceiver("node1", 10);
+        FileReceiver receiver = new FileReceiver();
 
         // And the first file transfer is started.
         UUID transferId1 = UUID.randomUUID();
@@ -106,7 +106,7 @@ class FileReceiverTest {
 
         CompletableFuture<List<Path>> receivedFiles1 = receiver.registerTransfer("node2", transferId1, path1);
 
-        receiver.receiveFileHeaders(transferId1, getHeaders(messageFactory, filesToSend1));
+        receiver.receiveFileHeaders(transferId1, fromPaths(messageFactory, filesToSend1));
 
         // And the second file transfer is registered.
         UUID transferId2 = UUID.randomUUID();
@@ -123,7 +123,7 @@ class FileReceiverTest {
 
         CompletableFuture<List<Path>> receivedFiles3 = receiver.registerTransfer("node3", transferId3, path3);
 
-        receiver.receiveFileHeaders(transferId3, getHeaders(messageFactory, filesToSend3));
+        receiver.receiveFileHeaders(transferId3, fromPaths(messageFactory, filesToSend3));
         sendFilesToReceiver(receiver, transferId3, filesToSend3);
 
         // All transfers from node2 are canceled.

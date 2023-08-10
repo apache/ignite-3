@@ -29,7 +29,7 @@ import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 /**
  * Chunked file writer. Writes chunks in order. If a chunk is not in order, it is stored in a queue. When the next chunk is written, the
  * queues are checked for the next chunk. If the next chunk is found, it is written to the file and removed from the queue. If the next
- * chunk is not found, the file is not written to. The writer is not thread-safe
+ * chunk is not found, the file is not written to. The writer is not thread-safe.
  */
 class ChunkedFileWriter implements AutoCloseable {
     private static final int UNKNOWN_FILE_SIZE = -1;

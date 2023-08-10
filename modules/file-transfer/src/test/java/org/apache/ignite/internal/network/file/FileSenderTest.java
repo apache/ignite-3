@@ -22,20 +22,17 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.greaterThan;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockingDetails;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -45,7 +42,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.invocation.Invocation;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -70,10 +66,8 @@ class FileSenderTest {
         Path randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE);
         UUID transferId = UUID.randomUUID();
         FileSender sender = new FileSender(
-                "node1",
                 CHUNK_SIZE,
-                4,
-                new RateLimiterImpl(4),
+                new Semaphore(4),
                 messagingService
         );
 
@@ -94,10 +88,8 @@ class FileSenderTest {
         );
         UUID transferId = UUID.randomUUID();
         FileSender sender = new FileSender(
-                "node1",
                 CHUNK_SIZE,
-                4,
-                new RateLimiterImpl(4),
+                new Semaphore(4),
                 messagingService
         );
 
@@ -125,10 +117,8 @@ class FileSenderTest {
         Path randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE * 5);
         UUID transferId = UUID.randomUUID();
         FileSender sender = new FileSender(
-                "node1",
                 CHUNK_SIZE,
-                1,
-                new RateLimiterImpl(4),
+                new Semaphore(4),
                 messagingService
         );
 
@@ -172,10 +162,8 @@ class FileSenderTest {
         UUID transferId = UUID.randomUUID();
 
         FileSender sender = new FileSender(
-                "node1",
                 CHUNK_SIZE,
-                10,
-                new RateLimiterImpl(maxConcurrentRequests),
+                new Semaphore(maxConcurrentRequests),
                 messagingService
         );
 
@@ -202,11 +190,9 @@ class FileSenderTest {
         // When.
         Path randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE * 5);
         UUID transferId = UUID.randomUUID();
-        RateLimiter rateLimiter = mock(RateLimiter.class);
+        Semaphore rateLimiter = spy(new Semaphore(4));
         FileSender sender = new FileSender(
-                "node1",
                 CHUNK_SIZE,
-                1,
                 rateLimiter,
                 messagingService
         );
@@ -218,13 +204,6 @@ class FileSenderTest {
         );
 
         // And - rate limiter is released.
-        Collection<Invocation> invocations = mockingDetails(rateLimiter).getInvocations();
-        long expectedCount = invocations
-                .stream()
-                .filter(it -> it.getMethod().getName().equals("acquire"))
-                .count();
-
-        assertThat(expectedCount, greaterThan(0L));
-        verify(rateLimiter, times((int) expectedCount)).release();
+        verify(rateLimiter).release();
     }
 }

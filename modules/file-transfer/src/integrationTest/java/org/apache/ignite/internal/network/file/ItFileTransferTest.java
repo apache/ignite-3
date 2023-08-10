@@ -351,7 +351,7 @@ public class ItFileTransferTest {
         );
 
         // Check temporary files were deleted.
-        await().until(() -> targetNode.workDir().toFile().listFiles().length == 0);
+        assertTemporaryFilesWereDeleted(targetNode);
     }
 
     @Test
@@ -375,7 +375,7 @@ public class ItFileTransferTest {
         );
 
         // Check temporary files were deleted.
-        await().until(() -> targetNode.workDir().toFile().listFiles().length == 0);
+        assertTemporaryFilesWereDeleted(targetNode);
     }
 
     @Test
@@ -421,7 +421,7 @@ public class ItFileTransferTest {
         assertFalse(uploadedFilesFuture.isDone());
 
         // Check temporary files were deleted.
-        await().until(() -> targetNode.workDir().toFile().listFiles().length == 0);
+        assertTemporaryFilesWereDeleted(targetNode);
     }
 
     @Test
@@ -458,20 +458,20 @@ public class ItFileTransferTest {
         assertFalse(uploadedFilesFuture.isDone());
 
         // Check temporary files were deleted.
-        await().until(() -> targetNode.workDir().toFile().listFiles().length == 0);
+        assertTemporaryFilesWereDeleted(targetNode);
     }
 
-
     private static void assertTemporaryFilesWereDeleted(Node targetNode) {
-        try (Stream<Path> stream = Files.list(targetNode.workDir())) {
-            List<String> names = stream.map(Path::getFileName)
-                    .map(Path::toString)
-                    .filter(path -> !path.equals(DOWNLOADS_DIR))
-                    .collect(Collectors.toList());
-            assertThat(names, emptyIterable());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        await().until(() -> {
+            try (Stream<Path> stream = Files.list(targetNode.workDir())) {
+                return stream.map(Path::getFileName)
+                        .map(Path::toString)
+                        .filter(path -> !path.equals(DOWNLOADS_DIR))
+                        .collect(Collectors.toList());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }, emptyIterable());
     }
 
     private static void assertDownloadsDirContainsFiles(Node node, List<Path> expectedFiles) {

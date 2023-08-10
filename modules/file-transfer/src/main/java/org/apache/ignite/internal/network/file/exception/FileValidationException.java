@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.network.file.exception;
 
-import org.apache.ignite.lang.ErrorGroups.Network;
+import static org.apache.ignite.internal.network.file.exception.ErrorCodes.FILE_VALIDATION_ERR;
+
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -30,6 +31,6 @@ public class FileValidationException extends IgniteException {
      * @param message Message.
      */
     public FileValidationException(String message) {
-        super(Network.FILE_VALIDATION_ERR, message);
+        super(FILE_VALIDATION_ERR, message);
     }
 }

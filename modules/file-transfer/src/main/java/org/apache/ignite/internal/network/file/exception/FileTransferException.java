@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.network.file.exception;
 
-import org.apache.ignite.lang.ErrorGroups.Network;
+import static org.apache.ignite.internal.network.file.exception.ErrorCodes.FILE_TRANSFER_ERR;
+
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -30,7 +31,7 @@ public class FileTransferException extends IgniteException {
      * @param message Message.
      */
     public FileTransferException(String message) {
-        super(Network.FILE_TRANSFER_ERR, message);
+        super(FILE_TRANSFER_ERR, message);
     }
 
     /**
@@ -40,6 +41,6 @@ public class FileTransferException extends IgniteException {
      * @param cause Cause.
      */
     public FileTransferException(String message, Throwable cause) {
-        super(Network.FILE_TRANSFER_ERR, message, cause);
+        super(FILE_TRANSFER_ERR, message, cause);
     }
 }

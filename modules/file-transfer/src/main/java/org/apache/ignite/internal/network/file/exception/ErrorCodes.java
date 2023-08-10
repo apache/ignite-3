@@ -15,28 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file;
+package org.apache.ignite.internal.network.file.exception;
 
-import java.util.concurrent.Semaphore;
+import static org.apache.ignite.lang.ErrorGroups.Network.NETWORK_ERR_GROUP;
 
-/**
- * Implementation of {@link RateLimiter}. It uses {@link Semaphore} to limit the number of concurrent requests.
- */
-class RateLimiterImpl implements RateLimiter {
+class ErrorCodes {
+    /** File transfer error. */
+    static final int FILE_TRANSFER_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 3);
 
-    private final Semaphore semaphore;
-
-    RateLimiterImpl(int maxConcurrentRequests) {
-        this.semaphore = new Semaphore(maxConcurrentRequests);
-    }
-
-    @Override
-    public void acquire() throws InterruptedException {
-        semaphore.acquire();
-    }
-
-    @Override
-    public void release() {
-        semaphore.release();
-    }
+    /** File validation error. */
+    static final int FILE_VALIDATION_ERR = NETWORK_ERR_GROUP.registerErrorCode((short) 4);
 }
