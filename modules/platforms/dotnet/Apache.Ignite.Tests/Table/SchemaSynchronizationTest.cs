@@ -148,4 +148,48 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 break;
         }
     }
+
+    [Test]
+    public async Task TestClientUsesLatestSchemaOnReadPoco()
+    {
+        // Create table, insert data.
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (ID INT NOT NULL PRIMARY KEY)");
+
+        var table = await Client.Tables.GetTableAsync(TestTableName);
+        var view = table!.RecordBinaryView;
+
+        var rec = new IgniteTuple { ["ID"] = 1 };
+        await view.InsertAsync(null, rec);
+
+        await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
+
+        var pocoView = table.GetRecordView<Poco>();
+        var res = await pocoView.GetAsync(null, new Poco(1, string.Empty));
+
+        Assert.IsTrue(res.HasValue);
+        Assert.AreEqual("name1", res.Value.Name);
+    }
+
+    [Test]
+    public async Task TestClientUsesLatestSchemaOnReadKv()
+    {
+        // Create table, insert data.
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (ID INT NOT NULL PRIMARY KEY)");
+
+        var table = await Client.Tables.GetTableAsync(TestTableName);
+        var view = table!.RecordBinaryView;
+
+        var rec = new IgniteTuple { ["ID"] = 1 };
+        await view.InsertAsync(null, rec);
+
+        await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
+
+        var pocoView = table.GetKeyValueView<int, string>();
+        var res = await pocoView.GetAsync(null, 1);
+
+        Assert.IsTrue(res.HasValue);
+        Assert.AreEqual("name1", res.Value);
+    }
+
+    private record Poco(int Id, string Name);
 }
