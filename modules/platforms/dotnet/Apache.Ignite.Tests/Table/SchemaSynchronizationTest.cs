@@ -17,7 +17,11 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System;
+using System.Linq;
 using System.Threading.Tasks;
+using Compute;
+using Ignite.Compute;
 using Ignite.Table;
 using NUnit.Framework;
 
@@ -26,13 +30,25 @@ using NUnit.Framework;
 /// </summary>
 public class SchemaSynchronizationTest : IgniteTestsBase
 {
-    private static string TestTableName => TestContext.CurrentContext.Test.Name;
+    private static readonly TestMode[] TestModes = Enum.GetValues<TestMode>();
+
+    public enum TestMode
+    {
+        One,
+        Two,
+        Multiple,
+        Compute
+    }
+
+    private static string TestTableName => TestContext.CurrentContext.Test.Name
+        .Replace("(", string.Empty)
+        .Replace(")", string.Empty);
 
     [TearDown]
     public async Task DeleteTable() => await Client.Sql.ExecuteAsync(null, $"DROP TABLE {TestTableName}");
 
     [Test]
-    public async Task TestClientUsesLatestSchemaOnWrite()
+    public async Task TestClientUsesLatestSchemaOnWrite([ValueSource(nameof(TestModes))] TestMode testMode)
     {
         // Create table, insert data.
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (ID INT NOT NULL PRIMARY KEY, NAME VARCHAR NOT NULL)");
@@ -59,6 +75,24 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         };
 
         // TODO this should fail when we implement IGNITE-19836 Reject Tuples and POCOs with unmapped fields
-        await view.InsertAsync(null, rec2);
+        switch (testMode)
+        {
+            case TestMode.One:
+                await view.InsertAsync(null, rec2);
+                break;
+
+            case TestMode.Two:
+                await view.ReplaceAsync(null, rec2, rec2);
+                break;
+
+            case TestMode.Multiple:
+                await view.InsertAllAsync(null, new[] { rec2, rec2, rec2 });
+                break;
+
+            case TestMode.Compute:
+                await Client.Compute.ExecuteColocatedAsync<string>(
+                    table.Name, rec2, Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
+                break;
+        }
     }
 }
