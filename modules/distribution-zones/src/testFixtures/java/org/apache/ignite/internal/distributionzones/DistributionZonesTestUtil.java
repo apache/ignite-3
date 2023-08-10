@@ -55,6 +55,9 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesView;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -553,5 +556,25 @@ public class DistributionZonesTestUtil {
         }
 
         return builder.build();
+    }
+
+    /**
+     * Returns the zone ID from the configuration, {@code null} if the zone was not found.
+     *
+     * @param config Zones configuration.
+     * @param zoneName Zone name.
+     */
+    public static @Nullable Integer getZoneId(DistributionZonesConfiguration config, String zoneName) {
+        DistributionZonesView zonesView = config.value();
+
+        DistributionZoneView defaultZone = zonesView.defaultDistributionZone();
+
+        if (defaultZone.name().equals(zoneName)) {
+            return defaultZone.zoneId();
+        } else {
+            DistributionZoneView zone = zonesView.distributionZones().get(zoneName);
+
+            return zone == null ? null : zone.zoneId();
+        }
     }
 }
