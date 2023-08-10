@@ -112,8 +112,6 @@ public class DirectPropertiesTest {
         );
 
         registry.start();
-
-        registry.initializeDefaults();
     }
 
     @AfterEach

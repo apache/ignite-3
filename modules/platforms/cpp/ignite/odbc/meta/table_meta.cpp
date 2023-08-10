@@ -17,26 +17,22 @@
 
 #include "ignite/odbc/meta/table_meta.h"
 
-namespace ignite
-{
+namespace ignite {
 
-void table_meta::read(protocol::reader &reader)
-{
+void table_meta::read(protocol::reader &reader) {
     catalog_name = reader.read_string();
     schema_name = reader.read_string();
     table_name = reader.read_string();
     table_type = reader.read_string();
 }
 
-void read_table_meta_vector(protocol::reader &reader, table_meta_vector &meta)
-{
+void read_table_meta_vector(protocol::reader &reader, table_meta_vector &meta) {
     std::int32_t meta_num = reader.read_int32();
 
     meta.clear();
     meta.reserve(static_cast<std::size_t>(meta_num));
 
-    for (std::int32_t i = 0; i < meta_num; ++i)
-    {
+    for (std::int32_t i = 0; i < meta_num; ++i) {
         meta.emplace_back();
         meta.back().read(reader);
     }

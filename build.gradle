@@ -54,19 +54,23 @@ allprojects {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 
-    tasks.withType(Test) {
+    tasks.withType(Test).configureEach {
         defaultCharacterEncoding = 'UTF-8'
 
         jvmArgs += ["--add-opens=java.base/java.lang=ALL-UNNAMED",
-                "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
-                "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
-                "--add-opens=java.base/java.io=ALL-UNNAMED",
-                "--add-opens=java.base/java.nio=ALL-UNNAMED",
-                "--add-opens=java.base/java.math=ALL-UNNAMED",
-                "--add-opens=java.base/java.util=ALL-UNNAMED",
-                "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
-                "-Dio.netty.tryReflectionSetAccessible=true",
-                "-Djava.util.logging.config.file=${project.rootDir}/config/java.util.logging.properties"]
+                    "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+                    "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+                    "--add-opens=java.base/java.io=ALL-UNNAMED",
+                    "--add-opens=java.base/java.nio=ALL-UNNAMED",
+                    "--add-opens=java.base/java.math=ALL-UNNAMED",
+                    "--add-opens=java.base/java.util=ALL-UNNAMED",
+                    "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
+                    "--add-opens=java.base/sun.security.x509=ALL-UNNAMED",
+                    "-Dio.netty.tryReflectionSetAccessible=true",
+                    "-Djava.util.logging.config.file=${project.rootDir}/config/java.util.logging.properties",
+                    "-XX:+HeapDumpOnOutOfMemoryError"]
+
+        systemProperty 'jraft.available_processors', 1
 
         if (project.hasProperty('excludeTest')) {
             exclude project.property('excludeTest')

@@ -35,6 +35,7 @@ import java.util.stream.IntStream;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -224,6 +226,9 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     @ParameterizedTest
     @EnumSource
     public void avg(TestAggregateType testAgg) {
+        Assumptions.assumeFalse(testAgg == TestAggregateType.MAP_REDUCE,
+                "AVG should be implemented as multiple aggregates");
+
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
@@ -386,6 +391,8 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
     @ParameterizedTest
     @EnumSource
     public void distinctSum(TestAggregateType testAgg) {
+        Assumptions.assumeTrue(testAgg == TestAggregateType.COLOCATED);
+
         ExecutionContext<Object[]> ctx = executionContext();
         IgniteTypeFactory tf = ctx.getTypeFactory();
         RelDataType rowType = TypeUtils.createRowType(tf, int.class, int.class);
@@ -720,5 +727,18 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         COLOCATED,
 
         MAP_REDUCE
+    }
+
+    protected AggregateCall newAggCall(SqlAggFunction func, int arg, RelDataType resultType) {
+        return AggregateCall.create(
+                func,
+                false,
+                false,
+                false,
+                ImmutableIntList.of(arg),
+                -1,
+                RelCollations.EMPTY,
+                resultType,
+                null);
     }
 }

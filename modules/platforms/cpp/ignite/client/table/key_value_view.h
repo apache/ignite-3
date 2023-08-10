@@ -17,10 +17,10 @@
 
 #pragma once
 
+#include "ignite/client/detail/type_mapping_utils.h"
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/transaction/transaction.h"
 #include "ignite/client/type_mapping.h"
-#include "ignite/client/detail/type_mapping_utils.h"
 
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
@@ -511,9 +511,8 @@ public:
      *   exists and @c std::nullopt otherwise
      */
     void get_async(transaction *tx, const key_type &key, ignite_callback<std::optional<value_type>> callback) {
-        m_delegate.get_async(tx, convert_to_tuple(key), [callback = std::move(callback)] (auto res) {
-            callback(convert_result<value_type>(std::move(res)));
-        });
+        m_delegate.get_async(tx, convert_to_tuple(key),
+            [callback = std::move(callback)](auto res) { callback(convert_result<value_type>(std::move(res))); });
     }
 
     /**
@@ -544,9 +543,7 @@ public:
     void get_all_async(
         transaction *tx, std::vector<key_type> keys, ignite_callback<std::vector<std::optional<value_type>>> callback) {
         m_delegate.get_all_async(tx, values_to_tuples<key_type>(std::move(keys)),
-            [callback = std::move(callback)] (auto res) {
-                callback(convert_result<value_type>(std::move(res)));
-            });
+            [callback = std::move(callback)](auto res) { callback(convert_result<value_type>(std::move(res))); });
     }
 
     /**
@@ -560,8 +557,7 @@ public:
      *   keys. If a record does not exist, the resulting element of the
      *   corresponding order is @c std::nullopt.
      */
-    [[nodiscard]] std::vector<std::optional<value_type>> get_all(
-        transaction *tx, std::vector<key_type> keys) {
+    [[nodiscard]] std::vector<std::optional<value_type>> get_all(transaction *tx, std::vector<key_type> keys) {
         return sync<std::vector<std::optional<value_type>>>([this, tx, keys = std::move(keys)](auto callback) mutable {
             get_all_async(tx, std::move(keys), std::move(callback));
         });
@@ -654,9 +650,7 @@ public:
     void get_and_put_async(transaction *tx, const key_type &key, const value_type &value,
         ignite_callback<std::optional<value_type>> callback) {
         m_delegate.get_and_put_async(tx, convert_to_tuple(key), convert_to_tuple(value),
-            [callback = std::move(callback)] (auto res) {
-                callback(convert_result<value_type>(std::move(res)));
-            });
+            [callback = std::move(callback)](auto res) { callback(convert_result<value_type>(std::move(res))); });
     }
 
     /**
@@ -668,8 +662,7 @@ public:
      * @param value Value.
      * @return A replaced value or @c std::nullopt if it did not exist.
      */
-    [[nodiscard]] std::optional<value_type> get_and_put(
-        transaction *tx, const key_type &key, const value_type &value) {
+    [[nodiscard]] std::optional<value_type> get_and_put(transaction *tx, const key_type &key, const value_type &value) {
         return sync<std::optional<value_type>>(
             [this, tx, &key, &value](auto callback) { get_and_put_async(tx, key, value, std::move(callback)); });
     }
@@ -738,8 +731,7 @@ public:
      * @param callback Callback that is called on operation completion. Called with
      *   a value indicating whether a record with the specified key was deleted.
      */
-    void remove_async(
-        transaction *tx, const key_type &key, const value_type &value, ignite_callback<bool> callback) {
+    void remove_async(transaction *tx, const key_type &key, const value_type &value, ignite_callback<bool> callback) {
         m_delegate.remove_async(tx, convert_to_tuple(key), convert_to_tuple(value), std::move(callback));
     }
 
@@ -771,9 +763,7 @@ public:
     void remove_all_async(
         transaction *tx, std::vector<key_type> keys, ignite_callback<std::vector<key_type>> callback) {
         m_delegate.remove_all_async(tx, values_to_tuples<key_type>(std::move(keys)),
-            [callback = std::move(callback)] (auto res) {
-                callback(convert_result<key_type>(std::move(res)));
-            });
+            [callback = std::move(callback)](auto res) { callback(convert_result<key_type>(std::move(res))); });
     }
 
     /**
@@ -804,9 +794,7 @@ public:
     void remove_all_async(transaction *tx, const std::vector<std::pair<key_type, value_type>> &pairs,
         ignite_callback<std::vector<key_type>> callback) {
         m_delegate.remove_all_async(tx, values_to_tuples<key_type, value_type>(std::move(pairs)),
-            [callback = std::move(callback)] (auto res) {
-                callback(convert_result<key_type>(std::move(res)));
-            });
+            [callback = std::move(callback)](auto res) { callback(convert_result<key_type>(std::move(res))); });
     }
 
     /**
@@ -836,9 +824,7 @@ public:
     void get_and_remove_async(
         transaction *tx, const key_type &key, ignite_callback<std::optional<value_type>> callback) {
         m_delegate.get_and_remove_async(tx, convert_to_tuple(key),
-            [callback = std::move(callback)] (auto res) {
-                callback(convert_result<value_type>(std::move(res)));
-            });
+            [callback = std::move(callback)](auto res) { callback(convert_result<value_type>(std::move(res))); });
     }
 
     /**
@@ -896,10 +882,10 @@ public:
      * @param callback Callback. Called with a value indicating whether a
      *   specified record was replaced.
      */
-    void replace_async(transaction *tx, const key_type &key, const value_type &old_value,
-        const value_type &new_value, ignite_callback<bool> callback) {
-        m_delegate.replace_async(tx, convert_to_tuple(key), convert_to_tuple(old_value), convert_to_tuple(new_value),
-            std::move(callback));
+    void replace_async(transaction *tx, const key_type &key, const value_type &old_value, const value_type &new_value,
+        ignite_callback<bool> callback) {
+        m_delegate.replace_async(
+            tx, convert_to_tuple(key), convert_to_tuple(old_value), convert_to_tuple(new_value), std::move(callback));
     }
 
     /**
@@ -913,8 +899,7 @@ public:
      * @param new_value New value.
      * @return A value indicating whether a specified record was replaced.
      */
-    bool replace(
-        transaction *tx, const key_type &key, const value_type &old_value, const value_type &new_value) {
+    bool replace(transaction *tx, const key_type &key, const value_type &old_value, const value_type &new_value) {
         return sync<bool>([this, tx, &key, &old_value, &new_value](
                               auto callback) { replace_async(tx, key, old_value, new_value, std::move(callback)); });
     }
@@ -933,9 +918,7 @@ public:
     void get_and_replace_async(transaction *tx, const key_type &key, const value_type &value,
         ignite_callback<std::optional<value_type>> callback) {
         m_delegate.get_and_replace_async(tx, convert_to_tuple(key), convert_to_tuple(value),
-            [callback = std::move(callback)] (auto res) {
-                callback(convert_result<value_type>(std::move(res)));
-            });
+            [callback = std::move(callback)](auto res) { callback(convert_result<value_type>(std::move(res))); });
     }
 
     /**
@@ -954,6 +937,7 @@ public:
         return sync<std::optional<value_type>>(
             [this, tx, &key, &value](auto callback) { get_and_replace_async(tx, key, value, std::move(callback)); });
     }
+
 private:
     /**
      * Constructor

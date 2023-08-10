@@ -25,8 +25,8 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
-#include <sys/socket.h>
 #include <poll.h>
+#include <sys/socket.h>
 
 namespace ignite::network::detail {
 
@@ -120,15 +120,13 @@ void try_set_socket_options(int socket_fd, int buf_size, bool no_delay, bool out
         socket_fd, IPPROTO_TCP, TCP_KEEPINTVL, reinterpret_cast<char *>(&idle_retry_opt), sizeof(idle_retry_opt));
 }
 
-int wait_on_socket(int socket, std::int32_t timeout, bool rd)
-{
+int wait_on_socket(int socket, std::int32_t timeout, bool rd) {
     int32_t timeout0 = timeout == 0 ? -1 : timeout;
 
     int lastError = 0;
     int ret;
 
-    do
-    {
+    do {
         struct pollfd fds[1];
 
         fds[0].fd = socket;
@@ -145,7 +143,7 @@ int wait_on_socket(int socket, std::int32_t timeout, bool rd)
         return -lastError;
 
     socklen_t size = sizeof(lastError);
-    int res = getsockopt(socket, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&lastError), &size);
+    int res = getsockopt(socket, SOL_SOCKET, SO_ERROR, reinterpret_cast<char *>(&lastError), &size);
 
     if (res != SOCKET_ERROR && lastError != 0)
         return -lastError;

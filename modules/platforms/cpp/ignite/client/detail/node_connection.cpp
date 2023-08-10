@@ -26,7 +26,8 @@ node_connection::node_connection(uint64_t id, std::shared_ptr<network::async_cli
     : m_id(id)
     , m_pool(std::move(pool))
     , m_logger(std::move(logger))
-    , m_configuration(cfg) { }
+    , m_configuration(cfg) {
+}
 
 node_connection::~node_connection() {
     for (auto &handler : m_request_handlers) {
@@ -57,8 +58,8 @@ bool node_connection::handshake() {
         protocol::buffer_adapter buffer(message);
         buffer.write_raw(bytes_view(protocol::MAGIC_BYTES));
 
-        protocol::write_message_to_buffer(buffer,
-            [&context = m_protocol_context, &extensions](protocol::writer &writer) {
+        protocol::write_message_to_buffer(
+            buffer, [&context = m_protocol_context, &extensions](protocol::writer &writer) {
                 auto ver = context.get_version();
 
                 writer.write(ver.major());
@@ -89,6 +90,9 @@ void node_connection::process_message(bytes_view msg) {
     auto req_id = reader.read_int64();
     auto flags = reader.read_int32();
     UNUSED_VALUE flags; // Flags are unused for now.
+
+    auto observable_timestamp = reader.read_int64();
+    UNUSED_VALUE observable_timestamp; // // TODO IGNITE-20057 C++ client: Track observable timestamp
 
     auto handler = get_and_remove_handler(req_id);
     if (!handler) {

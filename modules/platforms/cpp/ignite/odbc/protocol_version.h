@@ -18,14 +18,13 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 #include <set>
+#include <string>
 
 namespace ignite {
 
 /** Protocol version. */
-class protocol_version
-{
+class protocol_version {
 public:
     /** Version 3.0.0. */
     static const protocol_version VERSION_3_0_0;
@@ -38,14 +37,14 @@ public:
      *
      * @return String to version map.
      */
-    static const version_set& get_supported();
+    static const version_set &get_supported();
 
     /**
      * Get current version.
      *
      * @return Current version.
      */
-    static const protocol_version& get_current();
+    static const protocol_version &get_current();
 
     /**
      * Parse string and extract protocol version.
@@ -54,7 +53,7 @@ public:
      * @param version Version string to parse.
      * @return Protocol version.
      */
-    static protocol_version from_string(const std::string& version);
+    static protocol_version from_string(const std::string &version);
 
     /**
      * Convert to string value.
@@ -78,7 +77,7 @@ public:
     protocol_version(std::int16_t vmajor, std::int16_t vminor, std::int16_t vmaintenance)
         : m_major(vmajor)
         , m_minor(vminor)
-        , m_maintenance(vmaintenance) { }
+        , m_maintenance(vmaintenance) {}
 
     /**
      * Get major part.
@@ -114,7 +113,7 @@ public:
      * @param other Instance to compare to.
      * @return Zero if equals, negative number if less and positive if more.
      */
-    [[nodiscard]] std::int32_t compare(const protocol_version& other) const;
+    [[nodiscard]] std::int32_t compare(const protocol_version &other) const;
 
     /**
      * Comparison operator.
@@ -123,7 +122,7 @@ public:
      * @param val2 Second value.
      * @return True if equal.
      */
-    friend bool operator==(const protocol_version& val1, const protocol_version& val2);
+    friend bool operator==(const protocol_version &val1, const protocol_version &val2);
 
     /**
      * Comparison operator.
@@ -132,7 +131,7 @@ public:
      * @param val2 Second value.
      * @return True if not equal.
      */
-    friend bool operator!=(const protocol_version& val1, const protocol_version& val2);
+    friend bool operator!=(const protocol_version &val1, const protocol_version &val2);
 
     /**
      * Comparison operator.
@@ -141,7 +140,7 @@ public:
      * @param val2 Second value.
      * @return True if less.
      */
-    friend bool operator<(const protocol_version& val1, const protocol_version& val2);
+    friend bool operator<(const protocol_version &val1, const protocol_version &val2);
 
     /**
      * Comparison operator.
@@ -150,7 +149,7 @@ public:
      * @param val2 Second value.
      * @return True if less or equal.
      */
-    friend bool operator<=(const protocol_version& val1, const protocol_version& val2);
+    friend bool operator<=(const protocol_version &val1, const protocol_version &val2);
 
     /**
      * Comparison operator.
@@ -159,7 +158,7 @@ public:
      * @param val2 Second value.
      * @return True if greater.
      */
-    friend bool operator>(const protocol_version& val1, const protocol_version& val2);
+    friend bool operator>(const protocol_version &val1, const protocol_version &val2);
 
     /**
      * Comparison operator.
@@ -168,7 +167,7 @@ public:
      * @param val2 Second value.
      * @return True if greater or equal.
      */
-    friend bool operator>=(const protocol_version& val1, const protocol_version& val2);
+    friend bool operator>=(const protocol_version &val1, const protocol_version &val2);
 
 private:
     /** Set of supported versions. */

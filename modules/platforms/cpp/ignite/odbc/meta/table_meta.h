@@ -17,21 +17,19 @@
 
 #pragma once
 
-#include "ignite/protocol/reader.h"
 #include "ignite/odbc/utility.h"
+#include "ignite/protocol/reader.h"
 
 #include <cstdint>
 #include <string>
 #include <utility>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Table metadata.
  */
-class table_meta
-{
+class table_meta {
 public:
     // Default.
     table_meta() = default;
@@ -48,7 +46,7 @@ public:
         : catalog_name(std::move(catalog_name))
         , schema_name(std::move(schema_name))
         , table_name(std::move(table_name))
-        , table_type(std::move(table_type)) { }
+        , table_type(std::move(table_type)) {}
 
     /**
      * Read using reader.
@@ -62,40 +60,28 @@ public:
      *
      * @return Catalog name.
      */
-    [[nodiscard]] const std::string& get_catalog_name() const
-    {
-        return catalog_name;
-    }
+    [[nodiscard]] const std::string &get_catalog_name() const { return catalog_name; }
 
     /**
      * Get schema name.
      *
      * @return Schema name.
      */
-    [[nodiscard]] const std::string& get_schema_name() const
-    {
-        return schema_name;
-    }
+    [[nodiscard]] const std::string &get_schema_name() const { return schema_name; }
 
     /**
      * Get table name.
      *
      * @return Table name.
      */
-    [[nodiscard]] const std::string& get_table_name() const
-    {
-        return table_name;
-    }
+    [[nodiscard]] const std::string &get_table_name() const { return table_name; }
 
     /**
      * Get table type.
      *
      * @return Table type.
      */
-    [[nodiscard]] const std::string& get_table_type() const
-    {
-        return table_type;
-    }
+    [[nodiscard]] const std::string &get_table_type() const { return table_type; }
 
 private:
     /** Catalog name. */
@@ -120,6 +106,6 @@ typedef std::vector<table_meta> table_meta_vector;
  * @param reader Reader.
  * @param meta Collection.
  */
-void read_table_meta_vector(protocol::reader &reader, table_meta_vector& meta);
+void read_table_meta_vector(protocol::reader &reader, table_meta_vector &meta);
 
 } // namespace ignite

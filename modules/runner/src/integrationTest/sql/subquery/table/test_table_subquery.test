@@ -42,3 +42,9 @@ query R
 select sum(x) from (select i as x from test group by i) sq;
 ----
 12.000000
+
+# subquery group aliases are visible
+query R
+select sum(x) from (select i+1 as x from test group by x) sq;
+----
+15.000000

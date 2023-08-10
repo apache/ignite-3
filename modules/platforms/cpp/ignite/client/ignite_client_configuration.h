@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <ignite/client/ignite_logger.h>
 #include <ignite/client/ignite_client_authenticator.h>
+#include <ignite/client/ignite_logger.h>
 
 #include <initializer_list>
 #include <memory>
@@ -146,9 +146,7 @@ public:
      *
      * @return Authenticator
      */
-    [[nodiscard]] std::shared_ptr<ignite_client_authenticator> get_authenticator() const {
-        return m_authenticator;
-    }
+    [[nodiscard]] std::shared_ptr<ignite_client_authenticator> get_authenticator() const { return m_authenticator; }
 
     /**
      * Sets the authenticator.

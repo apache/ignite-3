@@ -20,20 +20,17 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Socket client implementation.
  */
-class socket_client
-{
+class socket_client {
 public:
     /**
      * Non-negative timeout operation result.
      */
-    enum wait_result
-    {
+    enum wait_result {
         /** Timeout. */
         TIMEOUT = 0,
 
@@ -52,7 +49,7 @@ public:
      * @param timeout Timeout.
      * @return @c true on success and @c false on timeout.
      */
-    virtual bool connect(const char* hostname, std::uint16_t port, std::int32_t timeout) = 0;
+    virtual bool connect(const char *hostname, std::uint16_t port, std::int32_t timeout) = 0;
 
     /**
      * Close established connection.
@@ -68,7 +65,7 @@ public:
      * @return Number of bytes that have been sent on success,
      *     wait_result::TIMEOUT on timeout and -errno on failure.
      */
-    virtual int send(const std::byte* data, std::size_t size, std::int32_t timeout) = 0;
+    virtual int send(const std::byte *data, std::size_t size, std::int32_t timeout) = 0;
 
     /**
      * Receive data from established connection.
@@ -79,7 +76,7 @@ public:
      * @return Number of bytes that have been received on success,
      *     wait_result::TIMEOUT on timeout and -errno on failure.
      */
-    virtual int receive(std::byte* buffer, std::size_t size, std::int32_t timeout) = 0;
+    virtual int receive(std::byte *buffer, std::size_t size, std::int32_t timeout) = 0;
 
     /**
      * Check if the socket is blocking or not.

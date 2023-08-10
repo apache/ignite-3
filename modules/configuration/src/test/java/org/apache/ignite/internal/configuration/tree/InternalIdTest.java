@@ -98,8 +98,6 @@ public class InternalIdTest {
         );
 
         registry.start();
-
-        registry.initializeDefaults();
     }
 
     @AfterEach

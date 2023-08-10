@@ -42,19 +42,24 @@ public final class PlanningContext implements Context {
 
     private final String qry;
 
+    /** CancelFlag is used to post and check cancellation requests. */
     private final CancelFlag cancelFlag = new CancelFlag(new AtomicBoolean());
 
+    /** Rules which should be excluded for planning. */
     private Function<RuleSet, RuleSet> rulesFilter;
 
     private IgnitePlanner planner;
 
+    /** Start planning timestamp in millis. */
     private final long startTs;
 
+    /** The maximum possible planning time. If this time is exceeded, the planning will be cancelled. */
     private final long plannerTimeout;
 
-    /**
-     * Private constructor, used by a builder.
-     */
+    /** Flag indicated if planning has been canceled due to timeout. */
+    private boolean timeouted = false;
+
+    /** Private constructor, used by a builder. */
     private PlanningContext(
             Context parentCtx,
             String qry,
@@ -67,60 +72,44 @@ public final class PlanningContext implements Context {
         this.plannerTimeout = plannerTimeout;
     }
 
-    /**
-     * Get framework config.
-     */
+    /** Get framework config. */
     public FrameworkConfig config() {
         return unwrap(BaseQueryContext.class).config();
     }
 
-    /**
-     * Get query.
-     */
+    /** Get query. */
     public String query() {
         return qry;
     }
 
-    /**
-     * Get query parameters.
-     */
+    /** Get query parameters. */
     public Object[] parameters() {
         return unwrap(BaseQueryContext.class).parameters();
     }
 
     // Helper methods
 
-    /**
-     * Get sql operators table.
-     */
+    /**  Get sql operators table. */
     public SqlOperatorTable opTable() {
         return config().getOperatorTable();
     }
 
-    /**
-     * Get sql conformance.
-     */
+    /** Get sql conformance. */
     public SqlConformance conformance() {
         return config().getParserConfig().conformance();
     }
 
-    /**
-     * Get start planning timestamp in millis.
-     */
+    /** Get start planning timestamp in millis. */
     public long startTs() {
         return startTs;
     }
 
-    /**
-     * Get planning timeout in millis.
-     */
+    /** Get planning timeout in millis. */
     public long plannerTimeout() {
         return plannerTimeout;
     }
 
-    /**
-     * Get planner.
-     */
+    /** Get planner. */
     public IgnitePlanner planner() {
         if (planner == null) {
             planner = new IgnitePlanner(this);
@@ -129,37 +118,27 @@ public final class PlanningContext implements Context {
         return planner;
     }
 
-    /**
-     * Get schema name.
-     */
+    /** Get schema name. */
     public String schemaName() {
         return schema().getName();
     }
 
-    /**
-     * Get schema.
-     */
+    /** Get schema. */
     public SchemaPlus schema() {
         return config().getDefaultSchema();
     }
 
-    /**
-     * Get type factory.
-     */
+    /** Get type factory. */
     public IgniteTypeFactory typeFactory() {
         return unwrap(BaseQueryContext.class).typeFactory();
     }
 
-    /**
-     * Get new catalog reader.
-     */
+    /** Get new catalog reader. */
     public CalciteCatalogReader catalogReader() {
         return unwrap(BaseQueryContext.class).catalogReader();
     }
 
-    /**
-     * Get cluster based on a planner and its configuration.
-     */
+    /** Get cluster based on a planner and its configuration. */
     public RelOptCluster cluster() {
         return planner().cluster();
     }
@@ -178,22 +157,29 @@ public final class PlanningContext implements Context {
         return parentCtx.unwrap(clazz);
     }
 
-    /**
-     * Get context builder.
-     */
+    /** Get context builder. */
     public static Builder builder() {
         return new Builder();
     }
 
+    /** Get rules filer. */
     public RuleSet rules(RuleSet set) {
         return rulesFilter != null ? rulesFilter.apply(set) : set;
     }
 
-    /**
-     * Set rules filter.
-     */
+    /** Set rules filter. */
     public void rulesFilter(Function<RuleSet, RuleSet> rulesFilter) {
         this.rulesFilter = rulesFilter;
+    }
+
+    /** Set a flag indicating that the planning was canceled due to a timeout. */
+    public void abortByTimeout() {
+        timeouted = true;
+    }
+
+    /** Returns a flag indicates if planning has been canceled due to timeout. */
+    public boolean timeouted() {
+        return timeouted;
     }
 
     /**

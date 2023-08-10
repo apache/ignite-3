@@ -50,6 +50,7 @@ import org.apache.ignite.internal.metastorage.command.GetRangeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -63,7 +64,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for {@link CursorPublisher} and {@link CursorSubscription}.
  */
 @ExtendWith(MockitoExtension.class)
-public class CursorPublisherTest {
+public class CursorPublisherTest extends BaseIgniteAbstractTest {
     @Mock
     private RaftGroupService raftService;
 

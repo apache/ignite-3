@@ -21,14 +21,12 @@
 
 #include <cstdint>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * SQL result.
  */
-enum class sql_result
-{
+enum class sql_result {
     /** Success. */
     AI_SUCCESS,
 
@@ -48,8 +46,7 @@ enum class sql_result
 /**
  * Provides detailed information about the cause of a warning or error.
  */
-enum class sql_state
-{
+enum class sql_state {
     /** Undefined state. Internal, should never be exposed to user. */
     UNKNOWN,
 
@@ -214,8 +211,7 @@ enum class sql_state
 /**
  * Diagnostic field type.
  */
-enum class diagnostic_field
-{
+enum class diagnostic_field {
     /** Field type is unknown to the driver. */
     UNKNOWN,
 
@@ -274,8 +270,7 @@ enum class diagnostic_field
 /**
  * environment attribute.
  */
-enum class environment_attribute
-{
+enum class environment_attribute {
     /** ODBC attribute is unknown to the driver. */
     UNKNOWN,
 
@@ -286,8 +281,7 @@ enum class environment_attribute
     OUTPUT_NTS
 };
 
-enum class response_status
-{
+enum class response_status {
     /** Operation completed successfully. */
     SUCCESS = 0,
 
@@ -352,10 +346,10 @@ enum class response_status
     /** Attempt to UPDATE or DELETE a key whose value has been updated concurrently by someone else. */
     CONCURRENT_UPDATE = 4002,
 
-    /** Attempt to INSERT or MERGE {@code null} key. */
+    /** Attempt to INSERT {@code null} key. */
     NULL_KEY = 4003,
 
-    /** Attempt to INSERT or MERGE {@code null} value. */
+    /** Attempt to INSERT {@code null} value. */
     NULL_VALUE = 4004,
 
     /** EntryProcessor has thrown an exception during IgniteCache::invokeAll. */

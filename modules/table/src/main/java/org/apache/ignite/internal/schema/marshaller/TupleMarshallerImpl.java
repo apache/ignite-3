@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.table.Tuple;
@@ -70,11 +71,14 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 SchemaDescriptor tupleSchema = ((SchemaAware) tuple).schema();
                 BinaryTupleReader tupleReader = ((BinaryTupleContainer) tuple).binaryTuple();
 
-                if (tupleSchema != null
-                        && tupleReader != null
-                        && tupleSchema.version() == schema.version()
-                        && !binaryTupleRebuildRequired(schema)) {
-                    return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
+                if (tupleSchema != null && tupleReader != null) {
+                    if (tupleSchema.version() != schema.version()) {
+                        throw new SchemaVersionMismatchException(schema.version(), tupleSchema.version());
+                    }
+
+                    if (!binaryTupleRebuildRequired(schema)) {
+                        return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
+                    }
                 }
             }
 
@@ -342,8 +346,10 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @return True if binary tuple rebuild is required; false if the tuple can be written to storage as is.
      */
     private static boolean binaryTupleRebuildRequired(SchemaDescriptor schema) {
+        // TODO IGNITE-20155 Java client connector skips NOT NULL and other column checks
         // Temporal columns require normalization according to the specified precision.
-        return schema.hasTemporalColumns();
+        // return schema.hasTemporalColumns();
+        return true;
     }
 
     /**

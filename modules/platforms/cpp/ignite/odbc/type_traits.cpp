@@ -16,20 +16,19 @@
  */
 
 #include "ignite/odbc/type_traits.h"
-#include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/common/config.h"
+#include "ignite/odbc/system/odbc_constants.h"
 
-namespace ignite
-{
+namespace ignite {
 
 #ifdef _DEBUG
 
-#define DBG_STR_CASE(x) case x: return #x
+# define DBG_STR_CASE(x)                                                                                               \
+  case x:                                                                                                              \
+   return #x
 
-const char* statement_attr_id_to_string(long id)
-{
-    switch (id)
-    {
+const char *statement_attr_id_to_string(long id) {
+    switch (id) {
         DBG_STR_CASE(SQL_ATTR_APP_PARAM_DESC);
         DBG_STR_CASE(SQL_ATTR_APP_ROW_DESC);
         DBG_STR_CASE(SQL_ATTR_ASYNC_ENABLE);
@@ -63,77 +62,73 @@ const char* statement_attr_id_to_string(long id)
         DBG_STR_CASE(SQL_ATTR_ROWS_FETCHED_PTR);
         DBG_STR_CASE(SQL_ATTR_SIMULATE_CURSOR);
         DBG_STR_CASE(SQL_ATTR_USE_BOOKMARKS);
-    default:
-        break;
+        default:
+            break;
     }
     return "<< UNKNOWN ID >>";
 }
 
-#undef DBG_STR_CASE
+# undef DBG_STR_CASE
 #endif // _DEBUG
 
 // TODO: probably need to be re-factored and ignite_type_to_sql_type should be utilized instead.
-const std::string& ignite_type_to_sql_type_name(ignite_type typ)
-{
-    switch (typ)
-    {
-    case ignite_type::STRING:
-        return sql_type_name::VARCHAR;
+const std::string &ignite_type_to_sql_type_name(ignite_type typ) {
+    switch (typ) {
+        case ignite_type::STRING:
+            return sql_type_name::VARCHAR;
 
-    case ignite_type::INT16:
-        return sql_type_name::SMALLINT;
+        case ignite_type::INT16:
+            return sql_type_name::SMALLINT;
 
-    case ignite_type::INT32:
-        return sql_type_name::INTEGER;
+        case ignite_type::INT32:
+            return sql_type_name::INTEGER;
 
-    case ignite_type::INT64:
-        return sql_type_name::BIGINT;
+        case ignite_type::INT64:
+            return sql_type_name::BIGINT;
 
-    case ignite_type::DECIMAL:
-        return sql_type_name::DECIMAL;
+        case ignite_type::DECIMAL:
+            return sql_type_name::DECIMAL;
 
-    case ignite_type::FLOAT:
-        return sql_type_name::FLOAT;
+        case ignite_type::FLOAT:
+            return sql_type_name::FLOAT;
 
-    case ignite_type::DOUBLE:
-        return sql_type_name::DOUBLE;
+        case ignite_type::DOUBLE:
+            return sql_type_name::DOUBLE;
 
-    case ignite_type::BOOLEAN:
-        return sql_type_name::BIT;
+        case ignite_type::BOOLEAN:
+            return sql_type_name::BIT;
 
-    case ignite_type::INT8:
-        return sql_type_name::TINYINT;
+        case ignite_type::INT8:
+            return sql_type_name::TINYINT;
 
-    case ignite_type::UUID:
-        return sql_type_name::GUID;
+        case ignite_type::UUID:
+            return sql_type_name::GUID;
 
-    case ignite_type::DATE:
-        return sql_type_name::DATE;
+        case ignite_type::DATE:
+            return sql_type_name::DATE;
 
-    case ignite_type::TIMESTAMP:
-        return sql_type_name::TIMESTAMP;
+        case ignite_type::TIMESTAMP:
+            return sql_type_name::TIMESTAMP;
 
-    case ignite_type::TIME:
-        return sql_type_name::TIME;
+        case ignite_type::TIME:
+            return sql_type_name::TIME;
 
-    case ignite_type::DATETIME:
-    case ignite_type::BITMASK:
-    case ignite_type::BYTE_ARRAY:
-    case ignite_type::PERIOD:
-    case ignite_type::DURATION:
-    case ignite_type::NUMBER:
-    default:
-        // TODO: Add proper support for all possible types.
-        break;
+        case ignite_type::DATETIME:
+        case ignite_type::BITMASK:
+        case ignite_type::BYTE_ARRAY:
+        case ignite_type::PERIOD:
+        case ignite_type::DURATION:
+        case ignite_type::NUMBER:
+        default:
+            // TODO: IGNITE-19969 implement support for period, duration and big_integer
+            break;
     }
 
     return sql_type_name::BINARY;
 }
 
-bool is_sql_type_supported(int16_t type)
-{
-    switch (type)
-    {
+bool is_sql_type_supported(int16_t type) {
+    switch (type) {
         case SQL_CHAR:
         case SQL_VARCHAR:
         case SQL_LONGVARCHAR:
@@ -177,10 +172,8 @@ bool is_sql_type_supported(int16_t type)
     }
 }
 
-ignite_type sql_type_to_ignite_type(int16_t sql_type)
-{
-    switch (sql_type)
-    {
+ignite_type sql_type_to_ignite_type(int16_t sql_type) {
+    switch (sql_type) {
         case SQL_CHAR:
         case SQL_VARCHAR:
         case SQL_LONGVARCHAR:
@@ -236,10 +229,8 @@ ignite_type sql_type_to_ignite_type(int16_t sql_type)
 }
 
 // TODO: Check if this function is needed.
-odbc_native_type to_driver_type(int16_t type)
-{
-    switch (type)
-    {
+odbc_native_type to_driver_type(int16_t type) {
+    switch (type) {
         case SQL_C_CHAR:
             return odbc_native_type::AI_CHAR;
 
@@ -311,10 +302,8 @@ odbc_native_type to_driver_type(int16_t type)
     }
 }
 
-int16_t ignite_type_to_sql_type(ignite_type typ)
-{
-    switch (typ)
-    {
+int16_t ignite_type_to_sql_type(ignite_type typ) {
+    switch (typ) {
         case ignite_type::INT8:
             return SQL_TINYINT;
 
@@ -361,23 +350,21 @@ int16_t ignite_type_to_sql_type(ignite_type typ)
         case ignite_type::DURATION:
         case ignite_type::NUMBER:
         default:
+            // TODO: IGNITE-19969 implement support for period, duration and big_integer
             break;
     }
 
     return SQL_BINARY;
 }
 
-int16_t ignite_type_nullability(ignite_type typ)
-{
+int16_t ignite_type_nullability(ignite_type typ) {
     UNUSED_VALUE(typ);
 
     return SQL_NULLABLE_UNKNOWN;
 }
 
-int32_t sql_type_display_size(int16_t type)
-{
-    switch (type)
-    {
+int32_t sql_type_display_size(int16_t type) {
+    switch (type) {
         case SQL_VARCHAR:
         case SQL_CHAR:
         case SQL_WCHAR:
@@ -429,17 +416,14 @@ int32_t sql_type_display_size(int16_t type)
 }
 
 // TODO: To remove
-int32_t ignite_type_display_size(ignite_type typ)
-{
+int32_t ignite_type_display_size(ignite_type typ) {
     int16_t sql_type = ignite_type_to_sql_type(typ);
 
     return sql_type_display_size(sql_type);
 }
 
-int32_t sql_type_column_size(int16_t type)
-{
-    switch (type)
-    {
+int32_t sql_type_column_size(int16_t type) {
+    switch (type) {
         case SQL_VARCHAR:
         case SQL_CHAR:
         case SQL_WCHAR:
@@ -490,17 +474,14 @@ int32_t sql_type_column_size(int16_t type)
     }
 }
 
-int32_t ignite_type_column_size(ignite_type typ)
-{
+int32_t ignite_type_column_size(ignite_type typ) {
     int16_t sql_type = ignite_type_to_sql_type(typ);
 
     return sql_type_column_size(sql_type);
 }
 
-int32_t sql_type_transfer_length(int16_t type)
-{
-    switch (type)
-    {
+int32_t sql_type_transfer_length(int16_t type) {
+    switch (type) {
         case SQL_VARCHAR:
         case SQL_CHAR:
         case SQL_WCHAR:
@@ -541,17 +522,14 @@ int32_t sql_type_transfer_length(int16_t type)
     }
 }
 
-int32_t ignite_type_transfer_length(ignite_type typ)
-{
+int32_t ignite_type_transfer_length(ignite_type typ) {
     int16_t sql_type = ignite_type_to_sql_type(typ);
 
     return sql_type_transfer_length(sql_type);
 }
 
-int32_t sql_type_num_precision_radix(int16_t type)
-{
-    switch (type)
-    {
+int32_t sql_type_num_precision_radix(int16_t type) {
+    switch (type) {
         case SQL_REAL:
         case SQL_FLOAT:
         case SQL_DOUBLE:
@@ -569,30 +547,25 @@ int32_t sql_type_num_precision_radix(int16_t type)
     }
 }
 
-int32_t ignite_type_num_precision_radix(ignite_type typ)
-{
+int32_t ignite_type_num_precision_radix(ignite_type typ) {
     int16_t sql_type = ignite_type_to_sql_type(typ);
 
     return sql_type_num_precision_radix(sql_type);
 }
 
-int32_t sql_type_decimal_digits(int16_t)
-{
+int32_t sql_type_decimal_digits(int16_t) {
     // TODO: implement for NUMERIC and DECIMAL data types.
     return -1;
 }
 
-int32_t ignite_type_decimal_digits(ignite_type typ)
-{
+int32_t ignite_type_decimal_digits(ignite_type typ) {
     int16_t sql_type = ignite_type_to_sql_type(typ);
 
     return sql_type_decimal_digits(sql_type);
 }
 
-bool is_sql_type_unsigned(int16_t type)
-{
-    switch (type)
-    {
+bool is_sql_type_unsigned(int16_t type) {
+    switch (type) {
         case SQL_BIT:
         case SQL_TINYINT:
         case SQL_SMALLINT:
@@ -608,8 +581,7 @@ bool is_sql_type_unsigned(int16_t type)
     }
 }
 
-bool is_ignite_type_unsigned(ignite_type typ)
-{
+bool is_ignite_type_unsigned(ignite_type typ) {
     int16_t sql_type = ignite_type_to_sql_type(typ);
 
     return is_sql_type_unsigned(sql_type);

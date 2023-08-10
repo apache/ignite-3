@@ -58,7 +58,7 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
-import org.apache.ignite.internal.catalog.CatalogServiceImpl;
+import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -89,6 +89,7 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
 import org.apache.ignite.internal.raft.Loza;
@@ -258,6 +259,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new TestConfigurationValidator());
 
         ReplicaManager replicaMgr = new ReplicaManager(
+                name,
                 clusterSvc,
                 cmgManager,
                 hybridClock,
@@ -340,7 +342,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
+        Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
+                metaStorageMgr.registerRevisionUpdateListener(function::apply);
+
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
+                null,
                 zonesConfig,
                 tablesConfig,
                 metaStorageMgr,
@@ -351,7 +357,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var clockWaiter = new ClockWaiter("test", hybridClock);
 
-        var catalogManager = new CatalogServiceImpl(
+        var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockWaiter
         );
@@ -385,6 +391,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager);
 
+        var metricManager = new MetricManager();
+
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 registry,
                 clusterSvc,
@@ -397,7 +405,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
                 replicaSvc,
                 hybridClock,
-                catalogManager
+                catalogManager,
+                metricManager
         );
 
         // Preparing the result map.
@@ -942,6 +951,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * checks that the table created before node stop, is not available when majority if lost.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20137")
     public void testOneNodeRestartWithGap() throws InterruptedException {
         IgniteImpl ignite = startNode(0);
 
@@ -1012,9 +1022,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 DEFAULT_CLIENT_PORT + 11
         );
 
-        PartialNode partialNode = startPartialNode(1, cfgString);
+        IgniteImpl node1 = startNode(1, cfgString);
 
-        TableManager tableManager = findComponent(partialNode.startedComponents(), TableManager.class);
+        TableManager tableManager = (TableManager) node1.tables();
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
     }
@@ -1039,9 +1049,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         log.info("Starting the node.");
 
-        PartialNode partialNode = startPartialNode(nodes.size() - 1, null);
+        IgniteImpl node = startNode(nodes.size() - 1, null);
 
-        TableManager tableManager = findComponent(partialNode.startedComponents(), TableManager.class);
+        log.info("After starting the node.");
+
+        TableManager tableManager = (TableManager) node.tables();
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
         assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());

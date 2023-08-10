@@ -24,9 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Objects;
 import java.util.stream.Stream;
-import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -127,7 +127,7 @@ public abstract class BaseExpressionDataTypeTest<T extends Comparable<T>> extend
     @ParameterizedTest
     @MethodSource("convertedFrom")
     public void testCoalesceMissingTypesIsIllegal(TestTypeArguments arguments) {
-        CalciteContextException t = assertThrows(CalciteContextException.class, () -> {
+        IgniteException t = assertThrows(IgniteException.class, () -> {
             checkQuery(format("SELECT COALESCE($0, {})", arguments.valueExpr(0))).check();
         });
 

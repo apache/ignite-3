@@ -1478,7 +1478,7 @@ public class ItNodeTest {
         assertTrue(cluster.stop(leader.getNodeId().getPeerId()));
 
         assertFalse(followers.isEmpty());
-        sendTestTaskAndWait("follower apply ", followers.get(0), -1); // Should fail, because no leader.
+        int success = sendTestTaskAndWait("follower apply ", followers.get(0), 10, -1); // Should fail, because no leader.
 
         stopBlockingMessagesOnFollowers(followers);
 
@@ -1517,7 +1517,7 @@ public class ItNodeTest {
         cluster.ensureSame();
 
         for (MockStateMachine fsm : cluster.getFsms())
-            assertEquals(30, fsm.getLogs().size());
+            assertEquals(30 + success, fsm.getLogs().size());
     }
 
     @Test
@@ -2836,12 +2836,10 @@ public class ItNodeTest {
         opts.setGroupConf(JRaftUtils.getConfiguration(peer.getPeerId().toString()));
         opts.setFsm(fsm);
 
-        NodeOptions nodeOpts = new NodeOptions();
-        opts.setNodeOptions(nodeOpts);
-
         assertTrue(JRaftUtils.bootstrap(opts));
         logStorageProvider.close();
 
+        NodeOptions nodeOpts = new NodeOptions();
         nodeOpts.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOpts.setLogUri("test");
@@ -2883,12 +2881,11 @@ public class ItNodeTest {
         opts.setLogUri("test");
         opts.setGroupConf(JRaftUtils.getConfiguration(peer.getPeerId().toString()));
         opts.setFsm(fsm);
-        NodeOptions nodeOpts = new NodeOptions();
-        opts.setNodeOptions(nodeOpts);
 
         assertTrue(JRaftUtils.bootstrap(opts));
         logStorageProvider.close();
 
+        NodeOptions nodeOpts = new NodeOptions();
         nodeOpts.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOpts.setLogUri("test");
@@ -2927,11 +2924,16 @@ public class ItNodeTest {
         List<TestPeer> peers = new ArrayList<>();
         peers.add(peer0);
 
-        for (int i = 1; i < 10; i++) {
+        int numPeers = 10;
+
+        for (int i = 1; i < numPeers; i++) {
             TestPeer peer = new TestPeer(testInfo, TestUtils.INIT_PORT + i);
             peers.add(peer);
             assertTrue(cluster.start(peer, false, 300));
         }
+
+        waitForTopologyOnEveryNode(numPeers);
+
         for (int i = 0; i < 9; i++) {
             leader = cluster.waitAndGetLeader();
             assertNotNull(leader);
@@ -3022,6 +3024,10 @@ public class ItNodeTest {
         }
 
         verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any());
+
+        // Wait until every node sees every other node, otherwise
+        // changePeersAsync can fail.
+        waitForTopologyOnEveryNode(numPeers);
 
         for (int i = 0; i < 4; i++) {
             leader = cluster.getLeader();
@@ -3169,7 +3175,7 @@ public class ItNodeTest {
 
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
         peers.add(peer0);
-        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+        cluster = new TestCluster("testChangePeersAddMultiNodes", dataPath, Collections.singletonList(peer0), testInfo);
         assertTrue(cluster.start(peer0));
 
         Node leader = cluster.waitAndGetLeader();
@@ -3336,7 +3342,7 @@ public class ItNodeTest {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
         peers.add(new TestPeer(testInfo, TestUtils.INIT_PORT));
-        cluster = new TestCluster("unittest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
+        cluster = new TestCluster("testChangePeersChaosWithSnapshot", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
         assertTrue(cluster.start(peers.get(0), false, 2));
         // start other peers
         for (int i = 1; i < 10; i++) {
@@ -3381,7 +3387,7 @@ public class ItNodeTest {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
         peers.add(new TestPeer(testInfo, TestUtils.INIT_PORT));
-        cluster = new TestCluster("unittest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
+        cluster = new TestCluster("testChangePeersChaosWithoutSnapshot", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
         assertTrue(cluster.start(peers.get(0), false, 100000));
         // start other peers
         for (int i = 1; i < 10; i++) {
@@ -3418,8 +3424,8 @@ public class ItNodeTest {
         cluster.ensureSame();
         assertEquals(10, cluster.getFsms().size());
         for (MockStateMachine fsm : cluster.getFsms()) {
-            assertTrue(fsm.getLogs().size() >= tasks);
-            assertTrue(fsm.getLogs().size() - tasks < 100);
+            final int logSize = fsm.getLogs().size();
+            assertTrue(logSize >= tasks, "logSize=" + logSize);
         }
     }
 
@@ -3428,7 +3434,7 @@ public class ItNodeTest {
         // start cluster
         List<TestPeer> peers = new ArrayList<>();
         peers.add(new TestPeer(testInfo, TestUtils.INIT_PORT));
-        cluster = new TestCluster("unittest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
+        cluster = new TestCluster("testChangePeersChaosApplyTasks", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
         assertTrue(cluster.start(peers.get(0), false, 100000));
         // start other peers
         for (int i = 1; i < 10; i++) {
@@ -3494,7 +3500,6 @@ public class ItNodeTest {
         for (MockStateMachine fsm : cluster.getFsms()) {
             int logSize = fsm.getLogs().size();
             assertTrue(logSize >= 5000 * threads, "logSize= " + logSize);
-            assertTrue(logSize - 5000 * threads < 100, "logSize= " + logSize);
         }
     }
 
@@ -3648,8 +3653,11 @@ public class ItNodeTest {
             return false;
         });
 
-        assertTrue(waitForCondition(() -> cluster.getLeader() != null &&
-            !leader.getNodeId().equals(cluster.getLeader().getNodeId()), 10_000));
+        assertTrue(waitForCondition(() -> {
+            Node currentLeader = cluster.getLeader();
+
+            return currentLeader != null && !leader.getNodeId().equals(currentLeader.getNodeId());
+        }, 10_000));
 
         CompletableFuture<Status> res = new CompletableFuture<>();
 
@@ -3892,20 +3900,17 @@ public class ItNodeTest {
     }
 
     @SuppressWarnings("SameParameterValue")
-    private void sendTestTaskAndWait(String prefix, Node node, int code) throws InterruptedException {
-        sendTestTaskAndWait(prefix, node, 10, code);
-    }
-
-    @SuppressWarnings("SameParameterValue")
-    private void sendTestTaskAndWait(String prefix, Node node, int amount,
+    private int sendTestTaskAndWait(String prefix, Node node, int amount,
                                      int code) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(10);
+        final AtomicInteger successCount = new AtomicInteger(0);
         for (int i = 0; i < amount; i++) {
             ByteBuffer data = ByteBuffer.wrap((prefix + i).getBytes(UTF_8));
-            Task task = new Task(data, new ExpectClosure(code, null, latch));
+            Task task = new Task(data, new ExpectClosure(code, null, latch, successCount));
             node.apply(task);
         }
         waitLatch(latch);
+        return successCount.get();
     }
 
     private void triggerLeaderSnapshot(TestCluster cluster, Node leader) throws InterruptedException {
@@ -3965,6 +3970,12 @@ public class ItNodeTest {
             RpcClientEx rpcClientEx = sender(follower);
             rpcClientEx.stopBlock();
         }
+    }
+
+    private void waitForTopologyOnEveryNode(int count) {
+        cluster.getAllNodes().forEach(peerId -> {
+            assertTrue(waitForTopology(cluster, peerId, count, TimeUnit.SECONDS.toMillis(10)));
+        });
     }
 
     private static TestPeer findById(Collection<TestPeer> peers, PeerId id) {

@@ -17,30 +17,29 @@
 
 #pragma once
 
-#include <string>
-#include <sstream>
 #include <fstream>
 #include <mutex>
+#include <sstream>
+#include <string>
 
-#define LOG_MSG(param)                                              \
-    do {                                                            \
-        if (ignite::odbc_logger* p = ignite::odbc_logger::get()) {  \
-            ignite::log_stream lstream(p);                          \
-            lstream << __FUNCTION__ << ": " << param;               \
-        }                                                           \
-    } while (false)
+#define LOG_MSG(param)                                                                                                 \
+ do {                                                                                                                  \
+  if (ignite::odbc_logger *p = ignite::odbc_logger::get()) {                                                           \
+   ignite::log_stream lstream(p);                                                                                      \
+   lstream << __FUNCTION__ << ": " << param;                                                                           \
+  }                                                                                                                    \
+ } while (false)
 
-#define TRACE_MSG(param)                                        \
-    do {                                                        \
-        ignite::odbc_logger* p = ignite::odbc_logger::get();    \
-        if (p && p->is_trace_enabled()) {                       \
-            ignite::log_stream lstream(p);                      \
-            lstream << __FUNCTION__ << ": " << param;           \
-        }                                                       \
-    } while (false)
+#define TRACE_MSG(param)                                                                                               \
+ do {                                                                                                                  \
+  ignite::odbc_logger *p = ignite::odbc_logger::get();                                                                 \
+  if (p && p->is_trace_enabled()) {                                                                                    \
+   ignite::log_stream lstream(p);                                                                                      \
+   lstream << __FUNCTION__ << ": " << param;                                                                           \
+  }                                                                                                                    \
+ } while (false)
 
-namespace ignite
-{
+namespace ignite {
 
 /* Forward declaration */
 class odbc_logger;
@@ -49,8 +48,7 @@ class odbc_logger;
  * Helper object providing stream operations for single log line.
  * Writes resulting string to odbc_logger object upon destruction.
  */
-class log_stream: public std::basic_ostream<char>
-{
+class log_stream : public std::basic_ostream<char> {
 public:
     // Delete
     log_stream(log_stream &&) = delete;
@@ -62,11 +60,10 @@ public:
      * Constructor.
      * @param parent pointer to odbc_logger.
      */
-    explicit log_stream(odbc_logger* parent)
+    explicit log_stream(odbc_logger *parent)
         : std::basic_ostream<char>(nullptr)
         , m_string_buf()
-        , m_logger(parent)
-    {
+        , m_logger(parent) {
         init(&m_string_buf);
     }
 
@@ -74,9 +71,7 @@ public:
      * Conversion operator helpful to determine if log is enabled
      * @return True if logger is enabled
      */
-    bool operator()() {
-        return m_logger != nullptr;
-    }
+    bool operator()() { return m_logger != nullptr; }
 
     /**
      * Destructor.
@@ -88,14 +83,13 @@ private:
     std::basic_stringbuf<char> m_string_buf{};
 
     /** Parent logger object */
-    odbc_logger* m_logger{nullptr};
+    odbc_logger *m_logger{nullptr};
 };
 
 /**
  * Logging facility.
  */
-class odbc_logger
-{
+class odbc_logger {
 public:
     // Delete
     odbc_logger(odbc_logger &&) = delete;
@@ -108,7 +102,7 @@ public:
      *
      * @return odbc_logger instance if logging is enabled. Null otherwise.
      */
-    static odbc_logger* get();
+    static odbc_logger *get();
 
     /**
      * Checks if logging is enabled.
@@ -122,15 +116,13 @@ public:
      *
      * @return True, if tracing is enabled.
      */
-    [[nodiscard]] bool is_trace_enabled() const {
-        return m_trace_enabled;
-    }
+    [[nodiscard]] bool is_trace_enabled() const { return m_trace_enabled; }
 
     /**
      * Outputs the message to log file
      * @param message The message to write
      */
-    void write_message(std::string const& message);
+    void write_message(std::string const &message);
 
 private:
     /**
@@ -139,7 +131,7 @@ private:
      * @param path to log file.
      * @param trace_enabled Tracing enabled.
      */
-    odbc_logger(const char* path, bool trace_enabled);
+    odbc_logger(const char *path, bool trace_enabled);
 
     /**
      * Destructor.

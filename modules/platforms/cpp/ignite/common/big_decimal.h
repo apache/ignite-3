@@ -136,11 +136,11 @@ public:
             return m_magnitude.to_int64();
         }
 
-        big_decimal zeroScaled;
+        big_decimal zero_scaled;
 
-        set_scale(0, zeroScaled);
+        set_scale(0, zero_scaled);
 
-        return zeroScaled.m_magnitude.to_int64();
+        return zero_scaled.m_magnitude.to_int64();
     }
 
     /**
@@ -252,9 +252,7 @@ public:
     /**
      * Reverses sign of this value.
      */
-    void negate() {
-        m_magnitude.negate();
-    }
+    void negate() { m_magnitude.negate(); }
 
     /**
      * compare this instance to another.

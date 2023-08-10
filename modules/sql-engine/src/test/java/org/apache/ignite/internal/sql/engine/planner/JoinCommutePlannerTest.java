@@ -35,7 +35,6 @@ import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule;
 import org.apache.calcite.rel.rules.FilterJoinRule.JoinConditionPushRule.JoinConditionPushRuleConfig;
 import org.apache.calcite.rel.rules.JoinCommuteRule;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -45,7 +44,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -63,28 +61,18 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
     @BeforeAll
     public static void init() {
         publicSchema = createSchema(
-                new TestTable(
-                        "HUGE",
-                        new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                                .add("ID", TYPE_FACTORY.createJavaType(Integer.class))
-                                .build(), 1_000) {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
-                    }
-                },
-                new TestTable(
-                        "SMALL",
-                        new RelDataTypeFactory.Builder(TYPE_FACTORY)
-                                .add("ID", TYPE_FACTORY.createJavaType(Integer.class))
-                                .build(), 10) {
-
-                    @Override
-                    public IgniteDistribution distribution() {
-                        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
-                    }
-                }
+                TestBuilders.table()
+                        .name("HUGE")
+                        .addColumn("ID", NativeTypes.INT32)
+                        .distribution(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+                        .size(1_000)
+                        .build(),
+                TestBuilders.table()
+                        .name("SMALL")
+                        .addColumn("ID", NativeTypes.INT32)
+                        .distribution(IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID))
+                        .size(10)
+                        .build()
         );
     }
 
@@ -123,7 +111,8 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testOuterCommute() throws Exception {
-        String sql = "SELECT COUNT(*) FROM SMALL s RIGHT JOIN HUGE h on h.id = s.id";
+        // Use aggregates that are the same for both MAP and REDUCE phases.
+        String sql = "SELECT SUM(s.id), SUM(h.id) FROM SMALL s RIGHT JOIN HUGE h on h.id = s.id";
 
         IgniteRel phys = physicalPlan(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin");
 
@@ -173,7 +162,8 @@ public class JoinCommutePlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testInnerCommute() throws Exception {
-        String sql = "SELECT COUNT(*) FROM SMALL s JOIN HUGE h on h.id = s.id";
+        // Use aggregates that are the same for both MAP and REDUCE phases.
+        String sql = "SELECT SUM(s.id), SUM(h.id) FROM SMALL s JOIN HUGE h on h.id = s.id";
 
         IgniteRel phys = physicalPlan(sql, publicSchema, "MergeJoinConverter", "CorrelatedNestedLoopJoin");
 

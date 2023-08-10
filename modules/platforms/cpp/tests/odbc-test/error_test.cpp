@@ -17,6 +17,7 @@
 
 #include "odbc_suite.h"
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 using namespace ignite;
@@ -48,20 +49,8 @@ public:
     }
 };
 
-TEST_F(error_test, test_connect_fail)
-{
-    // Allocate an environment handle
-    SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &m_env);
-
-    ASSERT_TRUE(m_env != SQL_NULL_HANDLE);
-
-    // We want ODBC 3 support
-    SQLSetEnvAttr(m_env, SQL_ATTR_ODBC_VERSION, reinterpret_cast<void*>(SQL_OV_ODBC3), 0);
-
-    // Allocate a connection handle
-    SQLAllocHandle(SQL_HANDLE_DBC, m_env, &m_conn);
-
-    ASSERT_TRUE(m_conn != SQL_NULL_HANDLE);
+TEST_F(error_test, connect_fail) {
+    prepare_environment();
 
     // Connect string
     auto connect_str = to_sqlchar("driver={" + DRIVER_NAME + "};ADDRESS=127.0.0.1:1111");
@@ -70,15 +59,14 @@ TEST_F(error_test, test_connect_fail)
     SQLSMALLINT out_str_len;
 
     // Connecting to ODBC server.
-    SQLRETURN ret = SQLDriverConnect(m_conn, NULL, connect_str.data(), SQLSMALLINT(connect_str.size()),
-        out_str, sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
+    SQLRETURN ret = SQLDriverConnect(m_conn, NULL, connect_str.data(), SQLSMALLINT(connect_str.size()), out_str,
+        sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
 
     ASSERT_EQ(ret, SQL_ERROR);
     EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_DBC, m_conn), "08001");
 }
 
-TEST_F(error_test, test_duplicate_key)
-{
+TEST_F(error_test, duplicate_key) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR insert_req[] = "INSERT INTO tbl_all_columns_sql(key, str) VALUES(1, 'some')";
@@ -95,8 +83,7 @@ TEST_F(error_test, test_duplicate_key)
     EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "HY000");
 }
 
-TEST_F(error_test, test_update_key)
-{
+TEST_F(error_test, update_key) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR insert_req[] = "INSERT INTO tbl_all_columns_sql(key, str) VALUES(1, 'some')";
@@ -115,8 +102,7 @@ TEST_F(error_test, test_update_key)
     EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "HY000");
 }
 
-TEST_F(error_test, test_table_not_found)
-{
+TEST_F(error_test, table_not_found) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "DROP TABLE Nonexisting";
@@ -128,10 +114,26 @@ TEST_F(error_test, test_table_not_found)
     ASSERT_EQ(ret, SQL_ERROR);
     // TODO: IGNITE-19944 Propagate SQL errors from engine to driver
     EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "HY000");
+
+    std::string error = get_odbc_error_message(SQL_HANDLE_STMT, m_statement);
+    EXPECT_THAT(error, testing::HasSubstr("The table does not exist [name=\"PUBLIC\".\"NONEXISTING\"]"));
 }
 
-TEST_F(error_test, test_index_not_found)
-{
+TEST_F(error_test, object_not_found_message) {
+    odbc_connect(get_basic_connection_string());
+
+    SQLCHAR select_req[] = "SELECT a FROM B";
+
+    SQLRETURN ret = SQLExecDirect(m_statement, select_req, sizeof(select_req));
+
+    ASSERT_EQ(ret, SQL_ERROR);
+
+    std::string error = get_odbc_error_message(SQL_HANDLE_STMT, m_statement);
+
+    EXPECT_THAT(error, testing::HasSubstr("Object 'B' not found"));
+}
+
+TEST_F(error_test, index_not_found) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "DROP INDEX Nonexisting";
@@ -145,8 +147,7 @@ TEST_F(error_test, test_index_not_found)
     EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_STMT, m_statement), "HY000");
 }
 
-TEST_F(error_test, test_syntax_error)
-{
+TEST_F(error_test, syntax_error) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "INSERT INTO tbl_all_columns_sql(key, non_existing) VALUES(1, 'some')";

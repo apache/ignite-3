@@ -18,42 +18,15 @@
 #pragma once
 
 #include "ignite/client/detail/table/schema.h"
-#include "ignite/client/primitive.h"
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/transaction/transaction.h"
+#include "ignite/common/primitive.h"
 
 #include "ignite/protocol/writer.h"
 #include "ignite/tuple/binary_tuple_builder.h"
 #include "ignite/tuple/binary_tuple_parser.h"
 
 namespace ignite::detail {
-
-/**
- * Claim space for a value with type header in tuple builder.
- *
- * @param builder Tuple builder.
- * @param value Value.
- */
-void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &value);
-
-/**
- * Append a value with type header in tuple builder.
- *
- * @param builder Tuple builder.
- * @param value Value.
- */
-void append_primitive_with_type(binary_tuple_builder &builder, const primitive &value);
-
-/**
- * Read column value from binary tuple.
- *
- * @param parser Binary tuple parser.
- * @param typ Column type.
- * @param scale Column scale.
- * @return Column value.
- */
-[[nodiscard]] primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::int32_t scale);
-
 /**
  * Tuple concatenation function.
  *

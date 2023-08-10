@@ -146,6 +146,13 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
     }
 
     /**
+     * Returns a list of started servers.
+     */
+    protected List<JraftServerImpl> servers() {
+        return List.copyOf(servers);
+    }
+
+    /**
      * Test parameters for {@link #testSnapshot}.
      */
     private static class TestData {

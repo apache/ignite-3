@@ -21,7 +21,7 @@ import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static org.apache.calcite.runtime.SqlFunctions.charLength;
 import static org.apache.calcite.runtime.SqlFunctions.octetLength;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -53,7 +53,6 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -63,6 +62,7 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteSqlFunctions {
     private static final DateTimeFormatter ISO_LOCAL_DATE_TIME_EX;
     private static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
+    private static final RoundingMode roundingMode = RoundingMode.HALF_UP;
 
     static {
         ISO_LOCAL_DATE_TIME_EX = new DateTimeFormatterBuilder()
@@ -97,7 +97,7 @@ public class IgniteSqlFunctions {
         try {
             return timestampStringToNumeric0(dtStr);
         } catch (DateTimeException e) {
-            throw new IgniteInternalException(QUERY_INVALID_ERR, e.getMessage());
+            throw new SqlException(RUNTIME_ERR, e.getMessage());
         }
     }
 
@@ -146,25 +146,25 @@ public class IgniteSqlFunctions {
     /** CAST(java long AS DECIMAL). */
     public static BigDecimal toBigDecimal(long val, int precision, int scale) {
         BigDecimal decimal = BigDecimal.valueOf(val);
-        return convertDecimal(decimal, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** CAST(INT AS DECIMAL). */
     public static BigDecimal toBigDecimal(int val, int precision, int scale) {
         BigDecimal decimal = new BigDecimal(val);
-        return convertDecimal(decimal, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** CAST(java short AS DECIMAL). */
     public static BigDecimal toBigDecimal(short val, int precision, int scale) {
         BigDecimal decimal = new BigDecimal(val);
-        return convertDecimal(decimal, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** CAST(java byte AS DECIMAL). */
     public static BigDecimal toBigDecimal(byte val, int precision, int scale) {
         BigDecimal decimal = new BigDecimal(val);
-        return convertDecimal(decimal, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** CAST(BOOL AS DECIMAL). */
@@ -178,29 +178,7 @@ public class IgniteSqlFunctions {
             return null;
         }
         BigDecimal decimal = new BigDecimal(s.trim());
-        return convertDecimal(decimal, precision, scale);
-    }
-
-    /** CAST(REAL AS DECIMAL). */
-    public static BigDecimal toBigDecimal(Number num, int precision, int scale) {
-        if (num == null) {
-            return null;
-        }
-
-        BigDecimal dec;
-        if (num instanceof Float) {
-            dec = new BigDecimal(num.floatValue());
-        } else if (num instanceof Double) {
-            dec = new BigDecimal(num.doubleValue());
-        } else if (num instanceof BigDecimal) {
-            dec = (BigDecimal) num;
-        } else if (num instanceof BigInteger) {
-            dec = new BigDecimal((BigInteger) num);
-        } else {
-            dec = new BigDecimal(num.longValue());
-        }
-
-        return convertDecimal(dec, precision, scale);
+        return toBigDecimal(decimal, precision, scale);
     }
 
     /** Cast object depending on type to DECIMAL. */
@@ -214,40 +192,88 @@ public class IgniteSqlFunctions {
         }
 
         return o instanceof Number ? toBigDecimal((Number) o, precision, scale)
-               : toBigDecimal(o.toString(), precision, scale);
+                : toBigDecimal(o.toString(), precision, scale);
     }
 
     /**
-     * Converts the given {@code BigDecimal} to a decimal with the given {@code precision} and {@code scale}
+     * Converts the given {@code Number} to a decimal with the given {@code precision} and {@code scale}
      * according to SQL spec for CAST specification: General Rules, 8.
      */
-    public static BigDecimal convertDecimal(BigDecimal value, int precision, int scale) {
+    public static BigDecimal toBigDecimal(Number value, int precision, int scale) {
         assert precision > 0 : "Invalid precision: " + precision;
 
+        if (value == null) {
+            return null;
+        }
+
         int defaultPrecision = IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL);
+
         if (precision == defaultPrecision) {
+            BigDecimal dec = convertToBigDecimal(value);
             // This branch covers at least one known case: access to dynamic parameter from context.
             // In this scenario precision = DefaultTypePrecision, because types for dynamic params
             // are created by toSql(createType(param.class)).
-            return value;
+            return dec;
         }
 
-        boolean nonZero = !value.unscaledValue().equals(BigInteger.ZERO);
+        if (value.longValue() == 0) {
+            return processFractionData(value, precision, scale);
+        } else {
+            return processValueWithIntegralPart(value, precision, scale);
+        }
+    }
 
-        if (nonZero) {
-            if (scale > precision) {
-                throw new SqlException(QUERY_INVALID_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
-            } else {
-                int currentSignificantDigits = value.precision() - value.scale();
-                int expectedSignificantDigits = precision - scale;
+    private static BigDecimal processValueWithIntegralPart(Number value, int precision, int scale) {
+        BigDecimal dec = convertToBigDecimal(value);
 
-                if (currentSignificantDigits > expectedSignificantDigits) {
-                    throw new SqlException(QUERY_INVALID_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
-                }
+        if (scale > precision) {
+            throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+        } else {
+            int currentSignificantDigits = dec.precision() - dec.scale();
+            int expectedSignificantDigits = precision - scale;
+
+            if (currentSignificantDigits > expectedSignificantDigits) {
+                throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
             }
         }
 
-        return value.setScale(scale, RoundingMode.HALF_UP);
+        return dec.setScale(scale, roundingMode);
+    }
+
+    private static BigDecimal processFractionData(Number value, int precision, int scale) {
+        BigDecimal num = convertToBigDecimal(value);
+
+        if (num.unscaledValue().equals(BigInteger.ZERO)) {
+            return num.setScale(scale, RoundingMode.UNNECESSARY);
+        }
+
+        // skip all fractional part after scale
+        BigDecimal num0 = num.movePointRight(scale).setScale(0, RoundingMode.DOWN);
+
+        int numPrecision = Math.min(num0.precision(), scale);
+
+        if (numPrecision > precision) {
+            throw new SqlException(RUNTIME_ERR, NUMERIC_FIELD_OVERFLOW_ERROR);
+        }
+
+        return num.setScale(scale, roundingMode);
+    }
+
+    private static BigDecimal convertToBigDecimal(Number value) {
+        BigDecimal dec;
+        if (value instanceof Float) {
+            dec = new BigDecimal(value.floatValue());
+        } else if (value instanceof Double) {
+            dec = new BigDecimal(value.doubleValue());
+        } else if (value instanceof BigDecimal) {
+            dec = (BigDecimal) value;
+        } else if (value instanceof BigInteger) {
+            dec = new BigDecimal((BigInteger) value);
+        } else {
+            dec = new BigDecimal(value.longValue());
+        }
+
+        return dec;
     }
 
     /** CAST(VARCHAR AS VARBINARY). */

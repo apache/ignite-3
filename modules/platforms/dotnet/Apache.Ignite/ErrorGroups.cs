@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite
 {
-    using System;
     using System.Diagnostics.CodeAnalysis;
 
     /// <summary>

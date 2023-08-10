@@ -18,9 +18,12 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -30,42 +33,73 @@ import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.plan.volcano.VolcanoTimeoutException;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelVisitor;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
+import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
+import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
+import org.apache.ignite.internal.sql.engine.sql.ParserService;
+import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
+import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 /**
  * Test planner timeout.
  */
 public class PlannerTimeoutTest extends AbstractPlannerTest {
-    private static final long PLANNER_TIMEOUT = 500;
 
     @Test
-    public void testLongPlanningTimeout() throws Exception {
+    public void testPlannerTimeout() throws Exception {
+        long plannerTimeout = 1L;
+        IgniteSchema schema = createSchema(createTestTable("T1"));
+        BaseQueryContext ctx = baseQueryContext(Collections.singletonList(schema), null);
+
+        PrepareService prepareService = new PrepareServiceImpl("test", 0, null, plannerTimeout, new MetricManager());
+        prepareService.start();
+        try {
+            ParserService parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+
+            ParsedResult parsedResult = parserService.parse("SELECT * FROM T1 t, T1 t1, T1 t2, T1 t3");
+
+            SqlTestUtils.assertThrowsSqlException(
+                    PLANNING_TIMEOUT_ERR,
+                    () -> await(prepareService.prepareAsync(parsedResult, ctx)));
+        } finally {
+            prepareService.stop();
+        }
+    }
+
+    @Test
+    public void testLongPlanningTimeout() {
+        final long plannerTimeout = 500;
+
         IgniteSchema schema = createSchema(
-                createTestTable("T1", "A", Integer.class, "B", Integer.class),
-                createTestTable("T2", "A", Integer.class, "B", Integer.class)
+                createTestTable("T1"),
+                createTestTable("T2")
         );
 
         String sql = "SELECT * FROM T1 JOIN T2 ON T1.A = T2.A";
 
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(baseQueryContext(Collections.singletonList(schema), null))
-                .plannerTimeout(PLANNER_TIMEOUT)
+                .plannerTimeout(plannerTimeout)
                 .query(sql)
                 .build();
 
         AtomicReference<IgniteRel> plan = new AtomicReference<>();
         AtomicReference<RelOptPlanner.CannotPlanException> plannerError = new AtomicReference<>();
 
-        assertTimeoutPreemptively(Duration.ofMillis(10 * PLANNER_TIMEOUT), () -> {
+        assertTimeoutPreemptively(Duration.ofMillis(10 * plannerTimeout), () -> {
             try (IgnitePlanner planner = ctx.planner()) {
                 plan.set(physicalPlan(planner, ctx.query()));
 
@@ -98,25 +132,30 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
         }
     }
 
-    @NotNull
-    private static TestTable createTestTable(String name, Object... cols) {
-        RelDataTypeFactory.Builder b = new RelDataTypeFactory.Builder(TYPE_FACTORY);
+    private static TestTable createTestTable(String tableName) {
+        TestTable testTable = TestBuilders.table()
+                .name(tableName)
+                .addColumn("A", NativeTypes.INT32)
+                .addColumn("B", NativeTypes.INT32)
+                .distribution(someAffinity())
+                .size(DEFAULT_TBL_SIZE)
+                .build();
 
-        for (int i = 0; i < cols.length; i += 2) {
-            b.add((String) cols[i], TYPE_FACTORY.createJavaType((Class<?>) cols[i + 1]));
-        }
+        // Create a proxy.
+        TestTable spyTable = Mockito.spy(testTable);
 
-        return new TestTable(name, b.build(), DEFAULT_TBL_SIZE) {
-            @Override
-            public RelDataType getRowType(RelDataTypeFactory typeFactory, ImmutableBitSet bitSet) {
-                try {
-                    Thread.sleep(300);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-                return super.getRowType(typeFactory, bitSet);
+        // Override and slowdown a method, which is called by Planner, to emulate long planning.
+        Mockito.doAnswer(inv -> {
+            try {
+                Thread.sleep(300);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
             }
-        };
+            // Call original method.
+            return testTable.getRowType(inv.getArgument(0), inv.getArgument(1));
+        }).when(spyTable).getRowType(any(), any());
+
+        return spyTable;
     }
 }
 

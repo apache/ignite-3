@@ -260,7 +260,7 @@ public class PlatformTestNodeRunner {
     private static void createTables(Ignite node) {
         var keyCol = "key";
 
-        int zoneId = await(createZone(((IgniteImpl) node).distributionZoneManager(), ZONE_NAME, 10, 1));
+        createZone(((IgniteImpl) node).distributionZoneManager(), ZONE_NAME, 10, 1);
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),

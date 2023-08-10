@@ -34,7 +34,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -428,11 +427,11 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     void testResultSetMappingColumnNameMismatch() {
         String query = "select 1 as foo, 2 as bar";
 
-        ResultSet<Pojo> resultSet = client().sql().createSession().execute(null, Mapper.of(Pojo.class), query);
-        Pojo row = resultSet.next();
+        IgniteException e = assertThrows(
+                IgniteException.class,
+                () -> client().sql().createSession().execute(null, Mapper.of(Pojo.class), query));
 
-        assertEquals(0, row.num);
-        assertNull(row.str);
+        assertEquals("Failed to deserialize server response: No field found for column FOO", e.getMessage());
     }
 
     @Test
@@ -516,27 +515,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(ColumnType.BYTE_ARRAY, meta.columns().get(13).type());
     }
 
-    private void waitForTableOnAllNodes(String tableName) throws InterruptedException {
-        // TODO IGNITE-18733, IGNITE-18449: remove this workaround when issues are fixed.
-        // Currently newly created table is not immediately available on all nodes.
-        boolean res = IgniteTestUtils.waitForCondition(() -> {
-            var nodeCount = client().clusterNodes().size();
-
-            // Do N checks - they will go to different nodes becase of request balancing.
-            for (int i = 0; i < nodeCount; i++) {
-                if (client().tables().table(tableName) == null) {
-                    return false;
-                }
-            }
-
-            return true;
-        }, 3000);
-
-        assertTrue(res);
-    }
-
     private static class Pojo {
-        public long num;
+        public int num;
 
         public String str;
     }

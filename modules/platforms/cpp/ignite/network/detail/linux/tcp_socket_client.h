@@ -24,21 +24,18 @@
 #include <cstdint>
 #include <sstream>
 
+#include <netdb.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <netinet/tcp.h>
-#include <netdb.h>
 #include <unistd.h>
 
-
-namespace ignite::network
-{
+namespace ignite::network {
 
 /**
  * Socket client implementation.
  */
-class tcp_socket_client : public socket_client
-{
+class tcp_socket_client : public socket_client {
 public:
     // Delete
     tcp_socket_client(tcp_socket_client &&) = delete;
@@ -55,9 +52,7 @@ public:
     /**
      * Destructor.
      */
-    ~tcp_socket_client() override {
-        internal_close();
-    }
+    ~tcp_socket_client() override { internal_close(); }
 
     /**
      * Establish connection with remote TCP service.
@@ -67,8 +62,7 @@ public:
      * @param timeout Timeout.
      * @return True on success.
      */
-    bool connect(const char* hostname, std::uint16_t port, std::int32_t timeout) override
-    {
+    bool connect(const char *hostname, std::uint16_t port, std::int32_t timeout) override {
         internal_close();
 
         addrinfo hints{};
@@ -86,17 +80,17 @@ public:
         int res = getaddrinfo(hostname, str_port.c_str(), &hints, &result);
 
         if (res != 0)
-            throw ignite_error(status_code::NETWORK, "Can not resolve host: " + std::string(hostname) + ":" + str_port
+            throw ignite_error(status_code::NETWORK,
+                "Can not resolve host: " + std::string(hostname) + ":" + str_port
                     + ", error_code=" + std::to_string(res));
 
-        std::vector<addrinfo*> shuffled = detail::shuffle_addresses(result);
+        std::vector<addrinfo *> shuffled = detail::shuffle_addresses(result);
 
         std::string last_err_msg = "Failed to resolve host";
         bool is_timeout = false;
 
         // Attempt to connect to an address until one succeeds
-        for (auto *addr : shuffled)
-        {
+        for (auto *addr : shuffled) {
             last_err_msg = "Failed to establish connection with the host";
             is_timeout = false;
 
@@ -104,7 +98,8 @@ public:
             m_socket_handle = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
 
             if (m_socket_handle == SOCKET_ERROR)
-                throw ignite_error(status_code::OS, "Socket creation failed: " + detail::get_last_socket_error_message());
+                throw ignite_error(
+                    status_code::OS, "Socket creation failed: " + detail::get_last_socket_error_message());
 
             detail::try_set_socket_options(m_socket_handle, BUFFER_SIZE, true, true, true);
 
@@ -112,12 +107,10 @@ public:
 
             // Connect to server.
             res = ::connect(m_socket_handle, addr->ai_addr, static_cast<int>(addr->ai_addrlen));
-            if (SOCKET_ERROR == res)
-            {
+            if (SOCKET_ERROR == res) {
                 int last_error = errno;
 
-                if (last_error != EWOULDBLOCK && last_error != EINPROGRESS)
-                {
+                if (last_error != EWOULDBLOCK && last_error != EINPROGRESS) {
                     last_err_msg.append(": ").append(detail::get_socket_error_message(last_error));
                     close();
 
@@ -126,8 +119,7 @@ public:
 
                 res = wait_on_socket(timeout, false);
 
-                if (res < 0 || res == wait_result::TIMEOUT)
-                {
+                if (res < 0 || res == wait_result::TIMEOUT) {
                     is_timeout = true;
                     close();
 
@@ -140,8 +132,7 @@ public:
 
         freeaddrinfo(result);
 
-        if (m_socket_handle == SOCKET_ERROR)
-        {
+        if (m_socket_handle == SOCKET_ERROR) {
             if (is_timeout)
                 return false;
 
@@ -154,10 +145,7 @@ public:
     /**
      * Close established connection.
      */
-    void close() override
-    {
-        internal_close();
-    }
+    void close() override { internal_close(); }
 
     /**
      * Send data by established connection.
@@ -168,17 +156,15 @@ public:
      * @return Number of bytes that have been sent on success,
      *     wait_result::TIMEOUT on timeout and -errno on failure.
      */
-    int send(const std::byte* data, std::size_t size, std::int32_t timeout) override
-    {
-        if (!m_blocking)
-        {
+    int send(const std::byte *data, std::size_t size, std::int32_t timeout) override {
+        if (!m_blocking) {
             int res = wait_on_socket(timeout, false);
 
             if (res < 0 || res == wait_result::TIMEOUT)
                 return res;
         }
 
-        return int(::send(m_socket_handle, reinterpret_cast<const char*>(data), static_cast<int>(size), 0));
+        return int(::send(m_socket_handle, reinterpret_cast<const char *>(data), static_cast<int>(size), 0));
     }
 
     /**
@@ -190,36 +176,29 @@ public:
      * @return Number of bytes that have been received on success,
      *     wait_result::TIMEOUT on timeout and -errno on failure.
      */
-    int receive(std::byte* buffer, std::size_t size, std::int32_t timeout) override
-    {
-        if (!m_blocking)
-        {
+    int receive(std::byte *buffer, std::size_t size, std::int32_t timeout) override {
+        if (!m_blocking) {
             int res = wait_on_socket(timeout, true);
 
             if (res < 0 || res == wait_result::TIMEOUT)
                 return res;
         }
 
-        return int(::recv(m_socket_handle, reinterpret_cast<char*>(buffer), static_cast<int>(size), 0));
+        return int(::recv(m_socket_handle, reinterpret_cast<char *>(buffer), static_cast<int>(size), 0));
     }
 
     /**
      * Check if the socket is m_blocking or not.
      * @return @c true if the socket is m_blocking and false otherwise.
      */
-    [[nodiscard]] bool is_blocking() const override
-    {
-        return m_blocking;
-    }
+    [[nodiscard]] bool is_blocking() const override { return m_blocking; }
 
 private:
     /**
      * Close established connection.
      */
-    void internal_close()
-    {
-        if (m_socket_handle != SOCKET_ERROR)
-        {
+    void internal_close() {
+        if (m_socket_handle != SOCKET_ERROR) {
             ::close(m_socket_handle);
             m_socket_handle = SOCKET_ERROR;
         }
@@ -245,4 +224,4 @@ private:
     bool m_blocking{true};
 };
 
-}
+} // namespace ignite::network

@@ -17,20 +17,18 @@
 
 #pragma once
 
+#include <exception>
 #include <string>
 #include <utility>
-#include <exception>
 
 #include "common_types.h"
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * ODBC error.
  */
-class odbc_error : public std::exception
-{
+class odbc_error : public std::exception {
 public:
     // Default
     odbc_error() = default;
@@ -43,27 +41,21 @@ public:
      */
     odbc_error(sql_state state, std::string message) noexcept
         : m_state(state)
-        , m_message(std::move(message)) { }
+        , m_message(std::move(message)) {}
 
     /**
      * Get state.
      *
      * @return State.
      */
-    [[nodiscard]] sql_state get_state() const
-    {
-        return m_state;
-    }
+    [[nodiscard]] sql_state get_state() const { return m_state; }
 
     /**
      * Get error message.
      *
      * @return Error message.
      */
-    [[nodiscard]] const std::string& get_error_message() const
-    {
-        return m_message;
-    }
+    [[nodiscard]] const std::string &get_error_message() const { return m_message; }
 
     /**
      * Get error message.

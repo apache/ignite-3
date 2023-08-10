@@ -21,8 +21,8 @@
 #include "ignite/odbc/protocol_version.h"
 #include "ignite/odbc/utility.h"
 
-#include "ignite/protocol/reader.h"
 #include "ignite/common/ignite_type.h"
+#include "ignite/protocol/reader.h"
 
 #include <cstdint>
 #include <string>
@@ -33,8 +33,7 @@ namespace ignite {
 /**
  * Nullability type.
  */
-enum class nullability
-{
+enum class nullability {
     NO_NULL = 0,
 
     NULLABLE = 1,
@@ -61,8 +60,7 @@ enum class nullability
 /**
  * Column metadata.
  */
-class column_meta
-{
+class column_meta {
 public:
     /**
      * Convert attribute ID to string containing its name.
@@ -70,7 +68,7 @@ public:
      * @param type Attribute ID.
      * @return Null-terminated string containing attribute name.
      */
-    static const char* attr_id_to_string(std::uint16_t id);
+    static const char *attr_id_to_string(std::uint16_t id);
 
     // Default
     column_meta() = default;
@@ -94,78 +92,57 @@ public:
         , m_data_type(data_type)
         , m_precision(precision)
         , m_scale(scale)
-        , m_nullability(nullable ? nullability::NULLABLE : nullability::NO_NULL) { }
+        , m_nullability(nullable ? nullability::NULLABLE : nullability::NO_NULL) {}
 
     /**
      * Read using reader.
      * @param reader Reader.
      * @param ver Server version.
      */
-    void read(protocol::reader &reader, const protocol_version& ver);
+    void read(protocol::reader &reader, const protocol_version &ver);
 
     /**
      * Get schema name.
      *
      * @return Schema name.
      */
-    [[nodiscard]] const std::string& get_schema_name() const
-    {
-        return m_schema_name;
-    }
+    [[nodiscard]] const std::string &get_schema_name() const { return m_schema_name; }
 
     /**
      * Get table name.
      * @return Table name.
      */
-    [[nodiscard]] const std::string& get_table_name() const
-    {
-        return m_table_name;
-    }
+    [[nodiscard]] const std::string &get_table_name() const { return m_table_name; }
 
     /**
      * Get column name.
      * @return Column name.
      */
-    [[nodiscard]] const std::string& get_column_name() const
-    {
-        return m_column_name;
-    }
+    [[nodiscard]] const std::string &get_column_name() const { return m_column_name; }
 
     /**
      * Get data type.
      * @return Data type.
      */
-    [[nodiscard]] ignite_type get_data_type() const
-    {
-        return m_data_type;
-    }
+    [[nodiscard]] ignite_type get_data_type() const { return m_data_type; }
 
     /**
      * Get column precision.
      * @return Column precision.
      */
-    [[nodiscard]] std::int32_t get_precision() const
-    {
-        return m_precision;
-    }
+    [[nodiscard]] std::int32_t get_precision() const { return m_precision; }
 
     /**
      * Get column scale.
      * @return Column scale.
      */
-    [[nodiscard]] std::int32_t get_scale() const
-    {
-        return m_scale;
-    }
+    [[nodiscard]] std::int32_t get_scale() const { return m_scale; }
 
     /**
      * Get column nullability.
      * @return Column nullability.
      */
-    [[nodiscard]] nullability get_nullability() const
-    {
-        return m_nullability;
-    }
+    [[nodiscard]] nullability get_nullability() const { return m_nullability; }
 
     /**
      * Try to get attribute of a string type.
@@ -218,6 +195,6 @@ typedef std::vector<column_meta> column_meta_vector;
  * @param meta Collection.
  * @param ver Server protocol version.
  */
-void read_column_meta_vector(protocol::reader &reader, column_meta_vector& meta, const protocol_version &ver);
+void read_column_meta_vector(protocol::reader &reader, column_meta_vector &meta, const protocol_version &ver);
 
 } // namespace ignite

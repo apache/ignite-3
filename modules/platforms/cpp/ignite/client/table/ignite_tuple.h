@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "ignite/client/primitive.h"
 #include "ignite/common/ignite_error.h"
+#include "ignite/common/primitive.h"
 
 #include <initializer_list>
 #include <string_view>

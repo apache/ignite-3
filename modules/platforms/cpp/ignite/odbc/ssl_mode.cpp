@@ -29,11 +29,9 @@ const std::string REQUIRE_TOKEN{"require"};
 /** A string token for ssl_mode::UNKNOWN. */
 const std::string UNKNOWN_TOKEN{"unknown"};
 
-namespace ignite
-{
+namespace ignite {
 
-ssl_mode ssl_mode_from_string(std::string_view val, ssl_mode dflt)
-{
+ssl_mode ssl_mode_from_string(std::string_view val, ssl_mode dflt) {
     std::string lower_val = normalize_argument_string(val);
 
     if (lower_val == DISABLE_TOKEN)
@@ -45,10 +43,8 @@ ssl_mode ssl_mode_from_string(std::string_view val, ssl_mode dflt)
     return dflt;
 }
 
-std::string ssl_mode_to_string(ssl_mode val)
-{
-    switch (val)
-    {
+std::string ssl_mode_to_string(ssl_mode val) {
+    switch (val) {
         case ssl_mode::DISABLE:
             return DISABLE_TOKEN;
 

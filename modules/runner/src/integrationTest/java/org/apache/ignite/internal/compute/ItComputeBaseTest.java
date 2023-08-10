@@ -42,6 +42,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -52,7 +53,6 @@ import org.junit.jupiter.api.Test;
  * Base integration tests for Compute functionality.
  */
 public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
-
     protected abstract List<DeploymentUnit> units();
 
     protected abstract String concatJobClassName();
@@ -64,44 +64,42 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     protected abstract String jobExceptionClassName();
 
     @Test
-    void executesJobLocally() throws Exception {
+    void executesJobLocally() {
         IgniteImpl entryNode = node(0);
 
         String result = entryNode.compute()
-                .<String>execute(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42)
-                .get(1, TimeUnit.SECONDS);
+                .<String>execute(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42);
 
         assertThat(result, is("a42"));
     }
 
     @Test
-    void executesJobLocallyByClassName() throws Exception {
+    void executesJobLocallyAsync() throws Exception {
         IgniteImpl entryNode = node(0);
 
         String result = entryNode.compute()
-                .<String>execute(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42)
+                .<String>executeAsync(Set.of(entryNode.node()), units(), concatJobClassName(), "a", 42)
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is("a42"));
     }
 
     @Test
-    void executesJobOnRemoteNodes() throws Exception {
+    void executesJobOnRemoteNodes() {
         Ignite entryNode = node(0);
 
         String result = entryNode.compute()
-                .<String>execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42)
-                .get(1, TimeUnit.SECONDS);
+                .execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
 
         assertThat(result, is("a42"));
     }
 
     @Test
-    void executesJobByClassNameOnRemoteNodes() throws Exception {
+    void executesJobOnRemoteNodesAsync() throws Exception {
         Ignite entryNode = node(0);
 
         String result = entryNode.compute()
-                .<String>execute(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42)
+                .<String>executeAsync(Set.of(node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42)
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is("a42"));
@@ -112,7 +110,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         String result = entryNode.compute()
-                .<String>execute(Set.of(entryNode.node()), units(), getNodeNameJobClassName())
+                .<String>executeAsync(Set.of(entryNode.node()), units(), getNodeNameJobClassName())
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is(entryNode.name()));
@@ -124,7 +122,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteImpl remoteNode = node(1);
 
         String result = entryNode.compute()
-                .<String>execute(Set.of(remoteNode.node()), units(), getNodeNameJobClassName())
+                .<String>executeAsync(Set.of(remoteNode.node()), units(), getNodeNameJobClassName())
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(result, is(remoteNode.name()));
@@ -134,11 +132,21 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     void executesFailingJobLocally() {
         IgniteImpl entryNode = node(0);
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> {
-            entryNode.compute()
-                    .execute(Set.of(entryNode.node()), units(), failingJobClassName())
-                    .get(1, TimeUnit.SECONDS);
-        });
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
+                .execute(Set.of(entryNode.node()), units(), failingJobClassName()));
+
+        assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
+        assertThat(ex.getCause().getMessage(), is("Oops"));
+        assertThat(ex.getCause().getCause(), is(notNullValue()));
+    }
+
+    @Test
+    void executesFailingJobLocallyAsync() {
+        IgniteImpl entryNode = node(0);
+
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
+                .executeAsync(Set.of(entryNode.node()), units(), failingJobClassName())
+                .get(1, TimeUnit.SECONDS));
 
         assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
         assertThat(ex.getCause().getMessage(), is("Oops"));
@@ -149,11 +157,8 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     void executesFailingJobOnRemoteNodes() {
         Ignite entryNode = node(0);
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> {
-            entryNode.compute()
-                    .execute(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName())
-                    .get(1, TimeUnit.SECONDS);
-        });
+        IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute()
+                .execute(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName()));
 
         assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
         assertThat(ex.getCause().getMessage(), is("Oops"));
@@ -161,25 +166,24 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void broadcastsJobWithArguments() {
-        IgniteImpl entryNode = node(0);
+    void executesFailingJobOnRemoteNodesAsync() {
+        Ignite entryNode = node(0);
 
-        Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
-                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
+        ExecutionException ex = assertThrows(ExecutionException.class, () -> entryNode.compute()
+                .executeAsync(Set.of(node(1).node(), node(2).node()), units(), failingJobClassName())
+                .get(1, TimeUnit.SECONDS));
 
-        assertThat(results, is(aMapWithSize(3)));
-        for (int i = 0; i < 3; i++) {
-            ClusterNode node = node(i).node();
-            assertThat(results.get(node), willBe("a42"));
-        }
+        assertThat(ex.getCause().getClass().getName(), is(jobExceptionClassName()));
+        assertThat(ex.getCause().getMessage(), is("Oops"));
+        assertThat(ex.getCause().getCause(), is(notNullValue()));
     }
 
     @Test
-    void broadcastsJobByClassName() {
+    void broadcastsJobWithArgumentsAsync() {
         IgniteImpl entryNode = node(0);
 
         Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
-                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
+                .broadcastAsync(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), concatJobClassName(), "a", 42);
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
@@ -193,7 +197,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
-                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), getNodeNameJobClassName());
+                .broadcastAsync(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), getNodeNameJobClassName());
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
@@ -207,7 +211,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
-                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), failingJobClassName());
+                .broadcastAsync(Set.of(entryNode.node(), node(1).node(), node(2).node()), units(), failingJobClassName());
 
         assertThat(results, is(aMapWithSize(3)));
         for (int i = 0; i < 3; i++) {
@@ -223,13 +227,25 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void executesColocatedWithTupleKey() throws Exception {
+    void executesColocatedWithTupleKey() {
         createTestTableWithOneRow();
 
         IgniteImpl entryNode = node(0);
 
         String actualNodeName = entryNode.compute()
-                .<String>executeColocated("test", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName())
+                .executeColocated("test", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName());
+
+        assertThat(actualNodeName, in(allNodeNames()));
+    }
+
+    @Test
+    void executesColocatedWithTupleKeyAsync() throws Exception {
+        createTestTableWithOneRow();
+
+        IgniteImpl entryNode = node(0);
+
+        String actualNodeName = entryNode.compute()
+                .<String>executeColocatedAsync("test", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName())
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(actualNodeName, in(allNodeNames()));
@@ -240,7 +256,7 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
         IgniteImpl entryNode = node(0);
 
         var ex = assertThrows(CompletionException.class,
-                () -> entryNode.compute().executeColocated(
+                () -> entryNode.compute().executeColocatedAsync(
                         "\"bad-table\"", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName()).join());
 
         assertInstanceOf(TableNotFoundException.class, ex.getCause());
@@ -260,39 +276,25 @@ public abstract class ItComputeBaseTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void executesColocatedByClassNameWithTupleKey() throws Exception {
+    void executesColocatedWithMappedKey() {
         createTestTableWithOneRow();
 
         IgniteImpl entryNode = node(0);
 
         String actualNodeName = entryNode.compute()
-                .<String>executeColocated("test", Tuple.create(Map.of("k", 1)), units(), getNodeNameJobClassName())
-                .get(1, TimeUnit.SECONDS);
+                .executeColocated("test", 1, Mapper.of(Integer.class), units(), getNodeNameJobClassName());
 
         assertThat(actualNodeName, in(allNodeNames()));
     }
 
     @Test
-    void executesColocatedWithMappedKey() throws Exception {
+    void executesColocatedWithMappedKeyAsync() throws Exception {
         createTestTableWithOneRow();
 
         IgniteImpl entryNode = node(0);
 
         String actualNodeName = entryNode.compute()
-                .<Integer, String>executeColocated("test", 1, Mapper.of(Integer.class), units(), getNodeNameJobClassName())
-                .get(1, TimeUnit.SECONDS);
-
-        assertThat(actualNodeName, in(allNodeNames()));
-    }
-
-    @Test
-    void executesColocatedByClassNameWithMappedKey() throws Exception {
-        createTestTableWithOneRow();
-
-        IgniteImpl entryNode = node(0);
-
-        String actualNodeName = entryNode.compute()
-                .<Integer, String>executeColocated("test", 1, Mapper.of(Integer.class), units(), getNodeNameJobClassName())
+                .<Integer, String>executeColocatedAsync("test", 1, Mapper.of(Integer.class), units(), getNodeNameJobClassName())
                 .get(1, TimeUnit.SECONDS);
 
         assertThat(actualNodeName, in(allNodeNames()));

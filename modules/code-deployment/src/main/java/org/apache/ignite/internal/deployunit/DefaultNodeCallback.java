@@ -32,11 +32,15 @@ import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
 import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Default implementation of {@link NodeEventCallback}.
  */
 public class DefaultNodeCallback extends NodeEventCallback {
+    private static final IgniteLogger LOG = Loggers.forClass(DefaultNodeCallback.class);
+
     private final DeploymentUnitStore deploymentUnitStore;
 
     private final DeployMessagingService messaging;
@@ -83,7 +87,17 @@ public class DefaultNodeCallback extends NodeEventCallback {
     public void onUploading(String id, Version version, List<UnitNodeStatus> holders) {
         tracker.track(id, version,
                 () -> messaging.downloadUnitContent(id, version, new ArrayList<>(getDeployedNodeIds(holders)))
-                        .thenCompose(content -> deployer.deploy(id, version, content))
+                        .thenCompose(content -> {
+                            org.apache.ignite.internal.deployunit.DeploymentUnit unit = UnitContent.toDeploymentUnit(content);
+                            return deployer.deploy(id, version, unit)
+                                    .whenComplete((deployed, err) -> {
+                                        try {
+                                            unit.close();
+                                        } catch (Exception e) {
+                                            LOG.error("Failed to close deployment unit", e);
+                                        }
+                                    });
+                        })
                         .thenApply(deployed -> {
                             if (deployed) {
                                 return deploymentUnitStore.updateNodeStatus(nodeName, id, version, DEPLOYED);

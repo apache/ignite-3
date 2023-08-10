@@ -28,6 +28,11 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 public interface PrepareService extends LifecycleAware {
     /**
      * Prepare query plan.
+     *
+     * @param parsedResult Represent of parsed query as AST, which need to be planned.
+     * @param ctx Query context.
+     *
+     * @return Future that contains prepared query plan when completes.
      */
     CompletableFuture<QueryPlan> prepareAsync(ParsedResult parsedResult, BaseQueryContext ctx);
 }

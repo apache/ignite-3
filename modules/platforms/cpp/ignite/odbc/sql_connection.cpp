@@ -29,15 +29,14 @@
 #include <ignite/protocol/client_operation.h>
 
 #include <algorithm>
-#include <cstring>
 #include <cstddef>
+#include <cstring>
 #include <random>
 #include <sstream>
 
 constexpr const std::size_t PROTOCOL_HEADER_SIZE = 4;
 
-namespace
-{
+namespace {
 
 /**
  * Get hex dump of binary data in string form.
@@ -45,26 +44,22 @@ namespace
  * @param count Number of bytes.
  * @return Hex dump string.
  */
-std::string hex_dump(const void* data, std::size_t count)
-{
+std::string hex_dump(const void *data, std::size_t count) {
     std::stringstream dump;
     std::size_t cnt = 0;
-    auto bytes = (const std::uint8_t*)data;
-    for (auto *p = bytes, *e = bytes + count; p != e; ++p)
-    {
-        if (cnt++ % 16 == 0)
-        {
+    auto bytes = (const std::uint8_t *) data;
+    for (auto *p = bytes, *e = bytes + count; p != e; ++p) {
+        if (cnt++ % 16 == 0) {
             dump << std::endl;
         }
-        dump << std::hex << std::setfill('0') << std::setw(2) << (int)*p << " ";
+        dump << std::hex << std::setfill('0') << std::setw(2) << (int) *p << " ";
     }
     return dump.str();
 }
 
-}
+} // namespace
 
-std::vector<ignite::end_point> collect_addresses(const ignite::configuration& cfg)
-{
+std::vector<ignite::end_point> collect_addresses(const ignite::configuration &cfg) {
     std::vector<ignite::end_point> end_points = cfg.get_address().get_value();
 
     std::random_device device;
@@ -76,22 +71,17 @@ std::vector<ignite::end_point> collect_addresses(const ignite::configuration& cf
 
 namespace ignite {
 
-void sql_connection::get_info(connection_info::info_type type, void* buf, short buffer_len, short* result_len)
-{
-    LOG_MSG("SQLGetInfo called: "
-        << type << " ("
-        << connection_info::info_type_to_string(type) << "), "
-        << std::hex << reinterpret_cast<size_t>(buf) << ", "
-        << buffer_len << ", "
-        << std::hex << reinterpret_cast<size_t>(result_len)
-        << std::dec);
+void sql_connection::get_info(connection_info::info_type type, void *buf, short buffer_len, short *result_len) {
+    LOG_MSG("SQLGetInfo called: " << type << " (" << connection_info::info_type_to_string(type) << "), " << std::hex
+                                  << reinterpret_cast<size_t>(buf) << ", " << buffer_len << ", " << std::hex
+                                  << reinterpret_cast<size_t>(result_len) << std::dec);
 
     IGNITE_ODBC_API_CALL(internal_get_info(type, buf, buffer_len, result_len));
 }
 
-sql_result sql_connection::internal_get_info(connection_info::info_type type, void* buf, short buffer_len, short* result_len)
-{
-    const connection_info& info = get_info();
+sql_result sql_connection::internal_get_info(
+    connection_info::info_type type, void *buf, short buffer_len, short *result_len) {
+    const connection_info &info = get_info();
 
     sql_result res = info.get_info(type, buf, buffer_len, result_len);
 
@@ -101,17 +91,15 @@ sql_result sql_connection::internal_get_info(connection_info::info_type type, vo
     return res;
 }
 
-void sql_connection::establish(const std::string& connect_str, void* parent_window)
-{
+void sql_connection::establish(const std::string &connect_str, void *parent_window) {
     IGNITE_ODBC_API_CALL(internal_establish(connect_str, parent_window));
 }
 
-sql_result sql_connection::internal_establish(const std::string& connect_str, void* parent_window)
-{
+sql_result sql_connection::internal_establish(const std::string &connect_str, void *parent_window) {
     try {
         auto config_params = parse_connection_string(connect_str);
         m_config.from_config_map(config_params);
-    } catch (const odbc_error& err) {
+    } catch (const odbc_error &err) {
         add_status_record(err);
         return sql_result::AI_ERROR;
     }
@@ -127,23 +115,19 @@ sql_result sql_connection::internal_establish(const std::string& connect_str, vo
     return internal_establish(m_config);
 }
 
-void sql_connection::establish(const configuration& cfg)
-{
+void sql_connection::establish(const configuration &cfg) {
     IGNITE_ODBC_API_CALL(internal_establish(cfg));
 }
 
-void sql_connection::init_socket()
-{
+void sql_connection::init_socket() {
     if (!m_socket)
         m_socket = network::make_tcp_socket_client();
 }
 
-sql_result sql_connection::internal_establish(const configuration& cfg)
-{
+sql_result sql_connection::internal_establish(const configuration &cfg) {
     m_config = cfg;
 
-    if (!m_config.get_address().is_set() || m_config.get_address().get_value().empty())
-    {
+    if (!m_config.get_address().is_set() || m_config.get_address().get_value().empty()) {
         add_status_record("No valid address to connect.");
 
         return sql_result::AI_ERROR;
@@ -151,8 +135,7 @@ sql_result sql_connection::internal_establish(const configuration& cfg)
 
     bool connected = try_restore_connection();
 
-    if (!connected)
-    {
+    if (!connected) {
         add_status_record(sql_state::S08001_CANNOT_CONNECT, "Failed to establish connection with the host.");
 
         return sql_result::AI_ERROR;
@@ -163,20 +146,16 @@ sql_result sql_connection::internal_establish(const configuration& cfg)
     return errors ? sql_result::AI_SUCCESS_WITH_INFO : sql_result::AI_SUCCESS;
 }
 
-void sql_connection::release()
-{
+void sql_connection::release() {
     IGNITE_ODBC_API_CALL(internal_release());
 }
 
-void sql_connection::deregister()
-{
+void sql_connection::deregister() {
     m_env->deregister_connection(this);
 }
 
-sql_result sql_connection::internal_release()
-{
-    if (!m_socket)
-    {
+sql_result sql_connection::internal_release() {
+    if (!m_socket) {
         add_status_record(sql_state::S08003_NOT_CONNECTED, "Connection is not open.");
 
         // It is important to return SUCCESS_WITH_INFO and not ERROR here, as if we return an error, Windows
@@ -189,30 +168,28 @@ sql_result sql_connection::internal_release()
     return sql_result::AI_SUCCESS;
 }
 
-void sql_connection::close()
-{
-    if (m_socket)
-    {
+void sql_connection::close() {
+    if (m_socket) {
         m_socket->close();
         m_socket.reset();
+
+        m_transaction_id = std::nullopt;
+        m_transaction_empty = true;
     }
 }
 
-sql_statement *sql_connection::create_statement()
-{
-    sql_statement * statement;
+sql_statement *sql_connection::create_statement() {
+    sql_statement *statement;
 
     IGNITE_ODBC_API_CALL(internal_create_statement(statement));
 
     return statement;
 }
 
-sql_result sql_connection::internal_create_statement(sql_statement *& statement)
-{
+sql_result sql_connection::internal_create_statement(sql_statement *&statement) {
     statement = new sql_statement(*this);
 
-    if (!statement)
-    {
+    if (!statement) {
         add_status_record(sql_state::SHY001_MEMORY_ALLOCATION, "Not enough memory.");
 
         return sql_result::AI_ERROR;
@@ -221,8 +198,7 @@ sql_result sql_connection::internal_create_statement(sql_statement *& statement)
     return sql_result::AI_SUCCESS;
 }
 
-bool sql_connection::send(const std::byte* data, std::size_t len, std::int32_t timeout)
-{
+bool sql_connection::send(const std::byte *data, std::size_t len, std::int32_t timeout) {
     if (!m_socket)
         throw odbc_error(sql_state::S08003_NOT_CONNECTED, "Connection is not established");
 
@@ -233,21 +209,19 @@ bool sql_connection::send(const std::byte* data, std::size_t len, std::int32_t t
     if (res == operation_result::FAIL)
         throw odbc_error(sql_state::S08S01_LINK_FAILURE, "Can not send message due to connection failure");
 
-    TRACE_MSG("message sent: (" <<  len << " bytes)" << hex_dump(data, len));
+    TRACE_MSG("message sent: (" << len << " bytes)" << hex_dump(data, len));
 
     return true;
 }
 
-sql_connection::operation_result sql_connection::send_all(const std::byte* data, std::size_t len, std::int32_t timeout)
-{
+sql_connection::operation_result sql_connection::send_all(
+    const std::byte *data, std::size_t len, std::int32_t timeout) {
     std::int64_t sent = 0;
-    while (sent != static_cast<std::int64_t>(len))
-    {
+    while (sent != static_cast<std::int64_t>(len)) {
         int res = m_socket->send(data + sent, len - sent, timeout);
         LOG_MSG("Send result: " << res);
 
-        if (res < 0 || res == network::socket_client::wait_result::TIMEOUT)
-        {
+        if (res < 0 || res == network::socket_client::wait_result::TIMEOUT) {
             close();
             return res < 0 ? operation_result::FAIL : operation_result::TIMEOUT;
         }
@@ -259,8 +233,7 @@ sql_connection::operation_result sql_connection::send_all(const std::byte* data,
     return operation_result::SUCCESS;
 }
 
-bool sql_connection::receive(std::vector<std::byte>& msg, std::int32_t timeout)
-{
+bool sql_connection::receive(std::vector<std::byte> &msg, std::int32_t timeout) {
     if (!m_socket)
         throw odbc_error(sql_state::S08003_NOT_CONNECTED, "Connection is not established");
 
@@ -277,8 +250,7 @@ bool sql_connection::receive(std::vector<std::byte>& msg, std::int32_t timeout)
 
     static_assert(sizeof(std::int32_t) == PROTOCOL_HEADER_SIZE);
     std::int32_t len = bytes::load<endian::BIG, std::int32_t>(len_buffer);
-    if (len < 0)
-    {
+    if (len < 0) {
         close();
         throw odbc_error(sql_state::SHY000_GENERAL_ERROR, "Protocol error: Message length is negative");
     }
@@ -299,20 +271,17 @@ bool sql_connection::receive(std::vector<std::byte>& msg, std::int32_t timeout)
     return true;
 }
 
-sql_connection::operation_result sql_connection::receive_all(void* dst, std::size_t len, std::int32_t timeout)
-{
+sql_connection::operation_result sql_connection::receive_all(void *dst, std::size_t len, std::int32_t timeout) {
     std::size_t remain = len;
-    auto* buffer = reinterpret_cast<std::byte*>(dst);
+    auto *buffer = reinterpret_cast<std::byte *>(dst);
 
-    while (remain)
-    {
+    while (remain) {
         std::size_t received = len - remain;
 
         int res = m_socket->receive(buffer + received, remain, timeout);
         LOG_MSG("Receive res: " << res << ", remain: " << remain);
 
-        if (res < 0 || res == network::socket_client::wait_result::TIMEOUT)
-        {
+        if (res < 0 || res == network::socket_client::wait_result::TIMEOUT) {
             close();
             return res < 0 ? operation_result::FAIL : operation_result::TIMEOUT;
         }
@@ -349,12 +318,15 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
 
         auto req_id = reader.read_int64();
         if (req_id != id) {
-            throw odbc_error(sql_state::S08S01_LINK_FAILURE,
-                "Response with unknown ID is received: " + std::to_string(req_id));
+            throw odbc_error(
+                sql_state::S08S01_LINK_FAILURE, "Response with unknown ID is received: " + std::to_string(req_id));
         }
 
         auto flags = reader.read_int32();
         UNUSED_VALUE flags; // Flags are unused for now.
+
+        auto observable_timestamp = reader.read_int64();
+        UNUSED_VALUE observable_timestamp; // // TODO IGNITE-20057 C++ client: Track observable timestamp
 
         auto err = protocol::read_error(reader);
         if (err) {
@@ -365,61 +337,131 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
     }
 }
 
-const configuration&sql_connection::get_configuration() const
-{
+const configuration &sql_connection::get_configuration() const {
     return m_config;
 }
 
-bool sql_connection::is_auto_commit() const
-{
+bool sql_connection::is_auto_commit() const {
     return m_auto_commit;
 }
 
-void sql_connection::transaction_commit()
-{
+void sql_connection::transaction_commit() {
     IGNITE_ODBC_API_CALL(internal_transaction_commit());
 }
 
-sql_result sql_connection::internal_transaction_commit()
-{
-    // TODO: IGNITE-19399: Implement transaction support
+sql_result sql_connection::internal_transaction_commit() {
+    if (!m_transaction_id) {
+        add_status_record(sql_state::S25000_INVALID_TRANSACTION_STATE, "No transaction to commit");
+        return sql_result::AI_ERROR;
+    }
 
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Transactions are not supported.");
-    return sql_result::AI_ERROR;
+    LOG_MSG("Committing transaction: " << *m_transaction_id);
+
+    network::data_buffer_owning response;
+    auto success = catch_errors([&] {
+        auto response = sync_request(
+            detail::client_operation::TX_COMMIT, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
+    });
+
+    if (!success)
+        return sql_result::AI_ERROR;
+
+    m_transaction_id = std::nullopt;
+    m_transaction_empty = true;
+
+    return sql_result::AI_SUCCESS;
 }
 
-void sql_connection::transaction_rollback()
-{
+void sql_connection::transaction_rollback() {
     IGNITE_ODBC_API_CALL(internal_transaction_rollback());
 }
 
-sql_result sql_connection::internal_transaction_rollback()
-{
-    // TODO: IGNITE-19399: Implement transaction support
+sql_result sql_connection::internal_transaction_rollback() {
+    if (!m_transaction_id) {
+        add_status_record(sql_state::S25000_INVALID_TRANSACTION_STATE, "No transaction to rollback");
+        return sql_result::AI_ERROR;
+    }
 
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Transactions are not supported.");
-    return sql_result::AI_ERROR;
+    LOG_MSG("Rolling back transaction: " << *m_transaction_id);
+
+    network::data_buffer_owning response;
+    auto success = catch_errors([&] {
+        auto response = sync_request(
+            detail::client_operation::TX_ROLLBACK, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
+    });
+
+    if (!success)
+        return sql_result::AI_ERROR;
+
+    m_transaction_id = std::nullopt;
+    m_transaction_empty = true;
+
+    return sql_result::AI_SUCCESS;
 }
 
-void sql_connection::get_attribute(int attr, void* buf, SQLINTEGER buf_len, SQLINTEGER* value_len)
-{
+void sql_connection::transaction_start() {
+    LOG_MSG("Starting transaction");
+
+    network::data_buffer_owning response =
+        sync_request(detail::client_operation::TX_BEGIN, [&](protocol::writer &writer) {
+            writer.write_bool(false); // read_only.
+        });
+
+    protocol::reader reader(response.get_bytes_view());
+    m_transaction_id = reader.read_int64();
+
+    LOG_MSG("Transaction ID: " << *m_transaction_id);
+}
+
+sql_result sql_connection::enable_autocommit() {
+    assert(!m_auto_commit);
+
+    if (m_transaction_id) {
+        sql_result res;
+        if (m_transaction_empty)
+            res = internal_transaction_rollback();
+        else
+            res = internal_transaction_commit();
+
+        if (res != sql_result::AI_SUCCESS)
+            return res;
+    }
+
+    m_transaction_id = std::nullopt;
+    m_transaction_empty = true;
+    m_auto_commit = true;
+
+    return sql_result::AI_SUCCESS;
+}
+
+sql_result sql_connection::disable_autocommit() {
+    assert(m_auto_commit);
+    assert(!m_transaction_id);
+
+    auto success = catch_errors([&] { transaction_start(); });
+    if (!success)
+        return sql_result::AI_ERROR;
+
+    m_transaction_empty = true;
+    m_auto_commit = false;
+
+    return sql_result::AI_SUCCESS;
+}
+
+void sql_connection::get_attribute(int attr, void *buf, SQLINTEGER buf_len, SQLINTEGER *value_len) {
     IGNITE_ODBC_API_CALL(internal_get_attribute(attr, buf, buf_len, value_len));
 }
 
-sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGER, SQLINTEGER* value_len)
-{
-    if (!buf)
-    {
+sql_result sql_connection::internal_get_attribute(int attr, void *buf, SQLINTEGER, SQLINTEGER *value_len) {
+    if (!buf) {
         add_status_record(sql_state::SHY009_INVALID_USE_OF_NULL_POINTER, "Data buffer is null.");
 
         return sql_result::AI_ERROR;
     }
 
-    switch (attr)
-    {
-        case SQL_ATTR_CONNECTION_DEAD:
-        {
-            auto *val = reinterpret_cast<SQLUINTEGER*>(buf);
+    switch (attr) {
+        case SQL_ATTR_CONNECTION_DEAD: {
+            auto *val = reinterpret_cast<SQLUINTEGER *>(buf);
 
             *val = m_socket ? SQL_CD_FALSE : SQL_CD_TRUE;
             if (value_len)
@@ -428,9 +470,8 @@ sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGE
             break;
         }
 
-        case SQL_ATTR_CONNECTION_TIMEOUT:
-        {
-            auto *val = reinterpret_cast<SQLUINTEGER*>(buf);
+        case SQL_ATTR_CONNECTION_TIMEOUT: {
+            auto *val = reinterpret_cast<SQLUINTEGER *>(buf);
 
             *val = static_cast<SQLUINTEGER>(m_timeout);
 
@@ -440,9 +481,8 @@ sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGE
             break;
         }
 
-        case SQL_ATTR_LOGIN_TIMEOUT:
-        {
-            auto *val = reinterpret_cast<SQLUINTEGER*>(buf);
+        case SQL_ATTR_LOGIN_TIMEOUT: {
+            auto *val = reinterpret_cast<SQLUINTEGER *>(buf);
 
             *val = static_cast<SQLUINTEGER>(m_login_timeout);
 
@@ -452,9 +492,8 @@ sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGE
             break;
         }
 
-        case SQL_ATTR_AUTOCOMMIT:
-        {
-            auto *val = reinterpret_cast<SQLUINTEGER*>(buf);
+        case SQL_ATTR_AUTOCOMMIT: {
+            auto *val = reinterpret_cast<SQLUINTEGER *>(buf);
 
             *val = m_auto_commit ? SQL_AUTOCOMMIT_ON : SQL_AUTOCOMMIT_OFF;
 
@@ -464,10 +503,9 @@ sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGE
             break;
         }
 
-        default:
-        {
-            add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
-                "Specified attribute is not supported.");
+        default: {
+            add_status_record(
+                sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Specified attribute is not supported.");
 
             return sql_result::AI_ERROR;
         }
@@ -476,24 +514,19 @@ sql_result sql_connection::internal_get_attribute(int attr, void* buf, SQLINTEGE
     return sql_result::AI_SUCCESS;
 }
 
-void sql_connection::set_attribute(int attr, void* value, SQLINTEGER value_len)
-{
+void sql_connection::set_attribute(int attr, void *value, SQLINTEGER value_len) {
     IGNITE_ODBC_API_CALL(internal_set_attribute(attr, value, value_len));
 }
 
-sql_result sql_connection::internal_set_attribute(int attr, void* value, SQLINTEGER)
-{
-    switch (attr)
-    {
-        case SQL_ATTR_CONNECTION_DEAD:
-        {
+sql_result sql_connection::internal_set_attribute(int attr, void *value, SQLINTEGER) {
+    switch (attr) {
+        case SQL_ATTR_CONNECTION_DEAD: {
             add_status_record(sql_state::SHY092_OPTION_TYPE_OUT_OF_RANGE, "Attribute is read only.");
 
             return sql_result::AI_ERROR;
         }
 
-        case SQL_ATTR_CONNECTION_TIMEOUT:
-        {
+        case SQL_ATTR_CONNECTION_TIMEOUT: {
             m_timeout = retrieve_timeout(value);
 
             if (get_diagnostic_records().get_status_records_number() != 0)
@@ -502,8 +535,7 @@ sql_result sql_connection::internal_set_attribute(int attr, void* value, SQLINTE
             break;
         }
 
-        case SQL_ATTR_LOGIN_TIMEOUT:
-        {
+        case SQL_ATTR_LOGIN_TIMEOUT: {
             m_login_timeout = retrieve_timeout(value);
 
             if (get_diagnostic_records().get_status_records_number() != 0)
@@ -512,27 +544,27 @@ sql_result sql_connection::internal_set_attribute(int attr, void* value, SQLINTE
             break;
         }
 
-        case SQL_ATTR_AUTOCOMMIT:
-        {
+        case SQL_ATTR_AUTOCOMMIT: {
             auto mode = static_cast<SQLUINTEGER>(reinterpret_cast<ptrdiff_t>(value));
 
-            if (mode != SQL_AUTOCOMMIT_ON && mode != SQL_AUTOCOMMIT_OFF)
-            {
-                add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
-                    "Specified attribute is not supported.");
+            if (mode != SQL_AUTOCOMMIT_ON && mode != SQL_AUTOCOMMIT_OFF) {
+                add_status_record(
+                    sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Specified attribute is not supported.");
 
                 return sql_result::AI_ERROR;
             }
 
-            m_auto_commit = mode == SQL_AUTOCOMMIT_ON;
+            auto autocommit_now = mode == SQL_AUTOCOMMIT_ON;
 
-            break;
+            if (autocommit_now && !m_auto_commit)
+                return enable_autocommit();
+            else
+                return disable_autocommit();
         }
 
-        default:
-        {
-            add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED,
-                "Specified attribute is not supported.");
+        default: {
+            add_status_record(
+                sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Specified attribute is not supported.");
 
             return sql_result::AI_ERROR;
         }
@@ -541,8 +573,8 @@ sql_result sql_connection::internal_set_attribute(int attr, void* value, SQLINTE
     return sql_result::AI_SUCCESS;
 }
 
-std::vector<std::byte> sql_connection::make_request(std::int64_t id, detail::client_operation op,
-    const std::function<void(protocol::writer &)> &func) {
+std::vector<std::byte> sql_connection::make_request(
+    std::int64_t id, detail::client_operation op, const std::function<void(protocol::writer &)> &func) {
     std::vector<std::byte> req;
     protocol::buffer_adapter buffer(req);
     buffer.reserve_length_header();
@@ -557,13 +589,11 @@ std::vector<std::byte> sql_connection::make_request(std::int64_t id, detail::cli
     return req;
 }
 
-sql_result sql_connection::make_request_handshake()
-{
+sql_result sql_connection::make_request_handshake() {
     static constexpr int8_t ODBC_CLIENT = 3;
     m_protocol_version = protocol_version::get_current();
 
-    try
-    {
+    try {
         std::vector<std::byte> message;
         {
             protocol::buffer_adapter buffer(message);
@@ -585,8 +615,7 @@ sql_result sql_connection::make_request_handshake()
         }
 
         auto res = send_all(message.data(), message.size(), m_login_timeout);
-        if (res != operation_result::SUCCESS)
-        {
+        if (res != operation_result::SUCCESS) {
             add_status_record(sql_state::S08001_CANNOT_CONNECT, "Failed to send handshake request");
             return sql_result::AI_ERROR;
         }
@@ -595,24 +624,22 @@ sql_result sql_connection::make_request_handshake()
         message.resize(protocol::MAGIC_BYTES.size());
 
         res = receive_all(message.data(), message.size(), m_login_timeout);
-        if (res != operation_result::SUCCESS)
-        {
-            add_status_record(sql_state::S08001_CANNOT_CONNECT,
-                "Failed to get handshake response (Did you forget to enable SSL?).");
+        if (res != operation_result::SUCCESS) {
+            add_status_record(
+                sql_state::S08001_CANNOT_CONNECT, "Failed to get handshake response (Did you forget to enable SSL?).");
 
             return sql_result::AI_ERROR;
         }
 
-        if (!std::equal(message.begin(), message.end(), protocol::MAGIC_BYTES.begin(), protocol::MAGIC_BYTES.end()))
-        {
-            add_status_record(sql_state::S08001_CANNOT_CONNECT, "Failed to receive magic bytes in handshake response. "
+        if (!std::equal(message.begin(), message.end(), protocol::MAGIC_BYTES.begin(), protocol::MAGIC_BYTES.end())) {
+            add_status_record(sql_state::S08001_CANNOT_CONNECT,
+                "Failed to receive magic bytes in handshake response. "
                 "Possible reasons: wrong port number used, TLS is enabled on server but not on client.");
             return sql_result::AI_ERROR;
         }
 
         bool received = receive(message, m_login_timeout);
-        if (!received)
-        {
+        if (!received) {
             add_status_record(sql_state::S08001_CANNOT_CONNECT, "Failed to get handshake response.");
             return sql_result::AI_ERROR;
         }
@@ -627,29 +654,23 @@ sql_result sql_connection::make_request_handshake()
         LOG_MSG("Server-side protocol version: " << ver.to_string());
 
         // We now only support a single version
-        if (ver != protocol_version::get_current())
-        {
-            add_status_record(sql_state::S08004_CONNECTION_REJECTED,
-                "Unsupported server version: " + ver.to_string() + ".");
+        if (ver != protocol_version::get_current()) {
+            add_status_record(
+                sql_state::S08004_CONNECTION_REJECTED, "Unsupported server version: " + ver.to_string() + ".");
             return sql_result::AI_ERROR;
         }
 
         auto err = protocol::read_error(reader);
-        if (err)
-        {
-            add_status_record(sql_state::S08004_CONNECTION_REJECTED,
-                "Server rejected handshake with error: " + err->what_str());
+        if (err) {
+            add_status_record(
+                sql_state::S08004_CONNECTION_REJECTED, "Server rejected handshake with error: " + err->what_str());
             return sql_result::AI_ERROR;
         }
-    }
-    catch (const odbc_error& err)
-    {
+    } catch (const odbc_error &err) {
         add_status_record(err);
 
         return sql_result::AI_ERROR;
-    }
-    catch (const ignite_error& err)
-    {
+    } catch (const ignite_error &err) {
         add_status_record(sql_state::S08004_CONNECTION_REJECTED, err.what_str());
 
         return sql_result::AI_ERROR;
@@ -658,8 +679,7 @@ sql_result sql_connection::make_request_handshake()
     return sql_result::AI_SUCCESS;
 }
 
-void sql_connection::ensure_connected()
-{
+void sql_connection::ensure_connected() {
     if (m_socket)
         return;
 
@@ -668,21 +688,18 @@ void sql_connection::ensure_connected()
         throw odbc_error(sql_state::S08001_CANNOT_CONNECT, "Failed to establish connection with any provided hosts");
 }
 
-bool sql_connection::try_restore_connection()
-{
+bool sql_connection::try_restore_connection() {
     std::vector<end_point> addrs = collect_addresses(m_config);
 
     if (!m_socket)
         init_socket();
 
     bool connected = false;
-    while (!addrs.empty())
-    {
-        const end_point& addr = addrs.back();
+    while (!addrs.empty()) {
+        const end_point &addr = addrs.back();
 
         connected = safe_connect(addr);
-        if (connected)
-        {
+        if (connected) {
             sql_result res = make_request_handshake();
 
             connected = res != sql_result::AI_ERROR;
@@ -699,23 +716,20 @@ bool sql_connection::try_restore_connection()
     return connected;
 }
 
-bool sql_connection::safe_connect(const end_point &addr)
-{
+bool sql_connection::safe_connect(const end_point &addr) {
     try {
         return m_socket->connect(addr.host.c_str(), addr.port, m_login_timeout);
-    } catch (const ignite_error& err) {
+    } catch (const ignite_error &err) {
         std::stringstream msgs;
-        msgs << "Error while trying connect to " << addr.host << ":" << addr.port <<", " << err.what_str();
+        msgs << "Error while trying connect to " << addr.host << ":" << addr.port << ", " << err.what_str();
         add_status_record(sql_state::S08001_CANNOT_CONNECT, msgs.str());
         return false;
     }
 }
 
-std::int32_t sql_connection::retrieve_timeout(void* value)
-{
+std::int32_t sql_connection::retrieve_timeout(void *value) {
     auto u_timeout = static_cast<SQLUINTEGER>(reinterpret_cast<ptrdiff_t>(value));
-    if (u_timeout > INT32_MAX)
-    {
+    if (u_timeout > INT32_MAX) {
         std::stringstream ss;
 
         ss << "Value is too big: " << u_timeout << ", changing to " << m_timeout << ".";

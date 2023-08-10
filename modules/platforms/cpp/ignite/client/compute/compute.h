@@ -19,11 +19,11 @@
 
 #include "ignite/client/compute/deployment_unit.h"
 #include "ignite/client/network/cluster_node.h"
-#include "ignite/client/primitive.h"
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/transaction/transaction.h"
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
+#include "ignite/common/primitive.h"
 
 #include <map>
 #include <memory>
@@ -100,8 +100,8 @@ public:
      * @return Job execution result.
      */
     IGNITE_API std::map<cluster_node, ignite_result<std::optional<primitive>>> broadcast(
-        const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units,
-        std::string_view job_class_name, const std::vector<primitive> &args) {
+        const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units, std::string_view job_class_name,
+        const std::vector<primitive> &args) {
         return sync<std::map<cluster_node, ignite_result<std::optional<primitive>>>>(
             [this, &nodes, &units, job_class_name, &args](
                 auto callback) mutable { broadcast_async(nodes, units, job_class_name, args, std::move(callback)); });
@@ -136,8 +136,8 @@ public:
         const std::vector<primitive> &args) {
         return sync<std::optional<primitive>>(
             [this, &table_name, &key, &units, job_class_name, &args](auto callback) mutable {
-            execute_colocated_async(table_name, key, units, job_class_name, args, std::move(callback));
-        });
+                execute_colocated_async(table_name, key, units, job_class_name, args, std::move(callback));
+            });
     }
 
 private:

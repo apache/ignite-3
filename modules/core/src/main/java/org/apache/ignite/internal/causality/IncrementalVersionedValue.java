@@ -63,7 +63,14 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
 
     /**
      * This registry chains two versioned values. The value, that uses this registry in the constructor, will be completed strictly after
-     * the value, passed into this method.
+     * the value, passed into this method, meaning that {@code resultVv.get(token).isDone();} will always imply
+     * {@code vv.get(token).isDone();} for the same token value.
+     *
+     * <p>While affecting the state of resulting futures, this dependency doesn't affect the order of {@link #update(long, BiFunction)}
+     * closures execution. These closures will still be called independently once the required parameter value is available.
+     *
+     * <p>In the case of "fresh" VV with no updates, first closure is always being executed synchronously inside of the
+     * {@link #update(long, BiFunction)} call.
      */
     public static Consumer<LongFunction<CompletableFuture<?>>> dependingOn(IncrementalVersionedValue<?> vv) {
         return callback -> vv.whenComplete((causalityToken, value, ex) -> callback.apply(causalityToken));
@@ -162,8 +169,9 @@ public class IncrementalVersionedValue<T> implements VersionedValue<T> {
      * previous token, then updater is used to process the exception and calculate a new value.<br> This method can be called multiple times
      * for the same token, and doesn't complete the future created for this token. The future is supposed to be completed by storage
      * revision update or a call of {@link #complete(long)} in this case. If this method has been called at least once on the given token,
-     * the updater will receive a value that was evaluated by updater on previous call, as intermediate result.<br> As the order of multiple
-     * calls of this method on the same token is unknown, operations done by the updater must be commutative. For example:
+     * the updater will receive a value that was evaluated by updater on previous call, as intermediate result. If no update were done on
+     * the given token, the updated will immediately receive the value from the previous token, if it's completed. <br> As the order of
+     * multiple calls of this method on the same token is unknown, operations done by the updater must be commutative. For example:
      * <ul>
      *     <li>this method was called for token N-1 and updater evaluated the value V1;</li>
      *     <li>a storage revision update happened;</li>

@@ -154,8 +154,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private CalciteCatalogReader catalogReader;
 
-    private final long plannerTimeout;
-
     /**
      * Private constructor, used by a builder.
      */
@@ -164,8 +162,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
             FrameworkConfig cfg,
             QueryCancel cancel,
             Object[] parameters,
-            IgniteLogger log,
-            long plannerTimeout
+            IgniteLogger log
     ) {
         super(Contexts.chain(cfg.getContext()));
 
@@ -176,7 +173,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
         this.log = log;
         this.cancel = cancel;
         this.parameters = parameters;
-        this.plannerTimeout = plannerTimeout;
 
         typeFactory = TYPE_FACTORY;
 
@@ -223,10 +219,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     public RexBuilder rexBuilder() {
         return rexBuilder;
-    }
-
-    public long plannerTimeout() {
-        return plannerTimeout;
     }
 
     public long schemaVersion() {
@@ -293,8 +285,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
-        private long plannerTimeout;
-
         public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
             this.frameworkCfg = Objects.requireNonNull(frameworkCfg);
             return this;
@@ -320,14 +310,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
-        public Builder plannerTimeout(long plannerTimeout) {
-            this.plannerTimeout = plannerTimeout;
-            return this;
-        }
-
         public BaseQueryContext build() {
-            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters,
-                    log, plannerTimeout);
+            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log);
         }
     }
 

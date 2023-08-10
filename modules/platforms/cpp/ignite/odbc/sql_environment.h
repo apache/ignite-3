@@ -27,8 +27,7 @@ class sql_connection;
 /**
  * ODBC environment.
  */
-class sql_environment : public diagnosable_adapter
-{
+class sql_environment : public diagnosable_adapter {
 public:
     /** Connection set type. */
     typedef std::set<sql_connection *> connection_set;
@@ -47,14 +46,14 @@ public:
      *
      * @return Pointer to valid instance on success or NULL on failure.
      */
-    sql_connection * create_connection();
+    sql_connection *create_connection();
 
     /**
      * Deregister connection.
      *
      * @param conn Connection to deregister.
      */
-    void deregister_connection(sql_connection * conn);
+    void deregister_connection(sql_connection *conn);
 
     /**
      * Perform transaction commit on all the associated connections.
@@ -73,7 +72,7 @@ public:
      * @param value Value.
      * @param len Value length if the attribute is of string type.
      */
-    void set_attribute(int32_t attr, void* value, int32_t len);
+    void set_attribute(int32_t attr, void *value, int32_t len);
 
     /**
      * Get attribute.
@@ -81,10 +80,9 @@ public:
      * @param attr Attribute to set.
      * @param buffer Buffer to put value to.
      */
-    void get_attribute(int32_t attr, application_data_buffer& buffer);
+    void get_attribute(int32_t attr, application_data_buffer &buffer);
 
 private:
-
     /**
      * Create connection associated with the environment.
      * Internal call.
@@ -92,7 +90,7 @@ private:
      * @return Pointer to valid instance on success or NULL on failure.
      * @return Operation result.
      */
-    sql_result internal_create_connection(sql_connection *& connection);
+    sql_result internal_create_connection(sql_connection *&connection);
 
     /**
      * Perform transaction commit on all the associated connections.
@@ -119,7 +117,7 @@ private:
      * @param len Value length if the attribute is of string type.
      * @return Operation result.
      */
-    sql_result internal_set_attribute(int32_t attr, void* value, int32_t len);
+    sql_result internal_set_attribute(int32_t attr, void *value, int32_t len);
 
     /**
      * Get attribute.
@@ -129,13 +127,13 @@ private:
      * @param buffer Buffer to put value to.
      * @return Operation result.
      */
-    sql_result internal_get_attribute(int32_t attr, application_data_buffer& buffer);
+    sql_result internal_get_attribute(int32_t attr, application_data_buffer &buffer);
 
     /** Associated connections. */
     connection_set m_connections;
 
     /** ODBC version. */
-    int32_t m_odbc_version{SQL_OV_ODBC3};
+    int32_t m_odbc_version{SQL_OV_ODBC3_80};
 
     /** ODBC null-termination of string behaviour. */
     int32_t m_odbc_nts{SQL_TRUE};

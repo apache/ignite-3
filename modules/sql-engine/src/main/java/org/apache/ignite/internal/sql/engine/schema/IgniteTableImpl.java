@@ -23,8 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.DoubleSupplier;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -39,9 +37,6 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
-import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
@@ -66,8 +61,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
 
     private final String name;
 
-    private final Supplier<ColocationGroup> colocationGroup;
-
     private final Statistic statistic;
 
     private final Map<String, IgniteIndex> indexes = new HashMap<>();
@@ -80,12 +73,11 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
      * @param name Table name.
      */
     IgniteTableImpl(TableDescriptor desc, int tableId, String name, int version,
-            Supplier<ColocationGroup> colocationGroup, DoubleSupplier rowCount) {
+            DoubleSupplier rowCount) {
         this.ver = version;
         this.desc = desc;
         this.id = tableId;
         this.name = name;
-        this.colocationGroup = colocationGroup;
         this.statistic = new IgniteStatistic(rowCount, desc.distribution());
     }
 
@@ -95,7 +87,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
         this.id = t.id;
         this.name = t.name;
         this.statistic = t.statistic;
-        this.colocationGroup = t.colocationGroup;
         this.indexes.putAll(t.indexes);
     }
 
@@ -183,12 +174,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
 
     /** {@inheritDoc} */
     @Override
-    public ColocationGroup colocationGroup(MappingQueryContext ctx) {
-        return partitionedGroup();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public Map<String, IgniteIndex> indexes() {
         return Collections.unmodifiableMap(indexes);
     }
@@ -219,22 +204,6 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
         }
 
         return super.unwrap(cls);
-    }
-
-    private ColocationGroup partitionedGroup() {
-        return colocationGroup.get();
-    }
-
-    // TODO: should be moved to a separate component after https://issues.apache.org/jira/browse/IGNITE-18453
-    static Supplier<ColocationGroup> partitionedGroup(InternalTable table) {
-        return () -> {
-            List<List<NodeWithTerm>> assignments = table.primaryReplicas().stream()
-                    .map(primaryReplica -> new NodeWithTerm(primaryReplica.node().name(), primaryReplica.term()))
-                    .map(Collections::singletonList)
-                    .collect(Collectors.toList());
-
-            return ColocationGroup.forAssignments(assignments);
-        };
     }
 
     static DoubleSupplier rowCountStatistic(InternalTable table) {

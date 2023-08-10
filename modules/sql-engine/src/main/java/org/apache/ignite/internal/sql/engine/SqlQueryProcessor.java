@@ -18,11 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
-import static org.apache.ignite.lang.ErrorGroups.Sql.OPERATION_INTERRUPTED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_INVALID_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_EXPIRED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.UNSUPPORTED_DDL_OPERATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
@@ -33,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -45,6 +43,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -52,6 +51,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.Event;
 import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
@@ -77,13 +77,15 @@ import org.apache.ignite.internal.sql.engine.session.Session;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.internal.sql.engine.session.SessionManager;
+import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
+import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -99,6 +101,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  *  SqlQueryProcessor.
@@ -106,9 +109,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SqlQueryProcessor implements QueryProcessor {
     private static final IgniteLogger LOG = Loggers.forClass(SqlQueryProcessor.class);
-
-    /** Default planner timeout, in ms. */
-    private static final long PLANNER_TIMEOUT = 15000L;
 
     /** Size of the cache for query plans. */
     private static final int PLAN_CACHE_SIZE = 1024;
@@ -185,6 +185,12 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
 
+    /** Metric manager. */
+    private final MetricManager metricManager;
+
+    /** Counter to keep track of the current number of live SQL cursors. */
+    private final AtomicInteger numberOfOpenCursors = new AtomicInteger();
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
@@ -198,7 +204,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
             HybridClock clock,
-            CatalogManager catalogManager
+            CatalogManager catalogManager,
+            MetricManager metricManager
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
@@ -212,6 +219,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.replicaService = replicaService;
         this.clock = clock;
         this.catalogManager = catalogManager;
+        this.metricManager = metricManager;
     }
 
     /** {@inheritDoc} */
@@ -224,11 +232,15 @@ public class SqlQueryProcessor implements QueryProcessor {
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
+        SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(numberOfOpenCursors::get);
+        metricManager.registerSource(sqlClientMetricSource);
+
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
                 PLAN_CACHE_SIZE,
                 dataStorageManager,
-                dataStorageFieldsSupplier.get()
+                dataStorageFieldsSupplier.get(),
+                metricManager
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
@@ -331,6 +343,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     public synchronized void stop() throws Exception {
         busyLock.block();
 
+        metricManager.unregisterSource(SqlClientMetricSource.NAME);
+
         List<LifecycleAware> services = new ArrayList<>(this.services);
 
         this.services.clear();
@@ -357,7 +371,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             SessionId sessionId, QueryContext context, String qry, Object... params
     ) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(OPERATION_INTERRUPTED_ERR, new NodeStoppingException());
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
@@ -394,8 +408,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         Session session = sessionManager.session(sessionId);
 
         if (session == null) {
-            return CompletableFuture.failedFuture(
-                    new SqlException(SESSION_NOT_FOUND_ERR, format("Session not found [{}]", sessionId)));
+            return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
         }
 
         String schemaName = session.properties().get(QueryProperty.DEFAULT_SCHEMA);
@@ -414,8 +427,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         try {
             session.registerResource(closeableResource);
         } catch (IllegalStateException ex) {
-            return CompletableFuture.failedFuture(new IgniteInternalException(SESSION_EXPIRED_ERR,
-                    format("Session has been expired [{}]", session.sessionId()), ex));
+            return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
         }
 
         CompletableFuture<Void> start = new CompletableFuture<>();
@@ -432,9 +444,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     boolean implicitTxRequired = outerTx == null;
 
-                    tx.set(implicitTxRequired ? txManager.begin(!rwOp) : outerTx);
+                    InternalTransaction currentTx = implicitTxRequired ? txManager.begin(!rwOp, null) : outerTx;
 
-                    SchemaPlus schema = sqlSchemaManager.schema(schemaName);
+                    tx.set(currentTx);
+
+                    // TODO IGNITE-18733: wait for actual metadata for TX.
+                    HybridTimestamp txTimestamp = currentTx.startTimestamp();
+
+                    SchemaPlus schema = sqlSchemaManager.schema(schemaName, txTimestamp.longValue());
 
                     if (schema == null) {
                         return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
@@ -449,7 +466,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .logger(LOG)
                             .cancel(queryCancel)
                             .parameters(params)
-                            .plannerTimeout(PLANNER_TIMEOUT)
                             .build();
 
                     return prepareSvc.prepareAsync(result, ctx)
@@ -458,6 +474,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                                 SqlQueryType queryType = plan.type();
                                 assert queryType != null : "Expected a full plan but got a fragment: " + plan;
+
+                                numberOfOpenCursors.incrementAndGet();
 
                                 return new AsyncSqlCursorImpl<>(
                                         queryType,
@@ -474,6 +492,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                             @Override
                                             public CompletableFuture<Void> closeAsync() {
                                                 session.touch();
+                                                numberOfOpenCursors.decrementAndGet();
 
                                                 return dataCursor.closeAsync();
                                             }
@@ -498,6 +517,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         start.completeAsync(() -> null, taskExecutor);
 
         return stage;
+    }
+
+    @TestOnly
+    public MetricManager metricManager() {
+        return metricManager;
     }
 
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
@@ -629,7 +653,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         if (SqlQueryType.DDL == queryType && outerTx != null) {
-            throw new SqlException(UNSUPPORTED_DDL_OPERATION_ERR, "DDL doesn't support transactions.");
+            throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
         }
 
         if (parsedResult.dynamicParamsCount() != params.length) {
@@ -638,7 +662,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     params.length, parsedResult.dynamicParamsCount()
             );
 
-            throw new SqlException(QUERY_INVALID_ERR, message);
+            throw new SqlException(STMT_VALIDATION_ERR, message);
         }
 
         for (Object param : params) {
@@ -646,7 +670,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 String message = format(
                         "Unsupported dynamic parameter defined. Provided '{}' is not supported.", param.getClass().getName());
 
-                throw new SqlException(QUERY_INVALID_ERR, message);
+                throw new SqlException(STMT_VALIDATION_ERR, message);
             }
         }
     }

@@ -31,21 +31,21 @@ public:
      *
      * @return Authenticator type.
      */
-    [[nodiscard]] virtual const std::string& get_type() const = 0;
+    [[nodiscard]] virtual const std::string &get_type() const = 0;
 
     /**
      * Get identity.
      *
      * @return Identity.
      */
-    [[nodiscard]] virtual const std::string& get_identity() const = 0;
+    [[nodiscard]] virtual const std::string &get_identity() const = 0;
 
     /**
      * Get secret.
      *
      * @return Secret.
      */
-    [[nodiscard]] virtual const std::string& get_secret() const = 0;
+    [[nodiscard]] virtual const std::string &get_secret() const = 0;
 
 protected:
     // Default

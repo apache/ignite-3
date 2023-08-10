@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-#include "ignite/odbc/string_utils.h"
 #include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/config/configuration.h"
 #include "ignite/odbc/odbc_error.h"
+#include "ignite/odbc/string_utils.h"
 
 #include <ignite/common/utils.h>
 
@@ -59,27 +59,23 @@ config_map parse_connection_string(std::string_view connect_str, char delimiter)
 
 namespace ignite {
 
-std::string addresses_to_string(const std::vector<end_point>& addresses)
-{
+std::string addresses_to_string(const std::vector<end_point> &addresses) {
     std::stringstream stream;
 
     auto it = addresses.begin();
-    if (it != addresses.end())
-    {
+    if (it != addresses.end()) {
         stream << it->host << ':' << it->port;
         ++it;
     }
 
-    for (; it != addresses.end(); ++it)
-    {
+    for (; it != addresses.end(); ++it) {
         stream << ',' << it->host << ':' << it->port;
     }
 
     return stream.str();
 }
 
-std::vector<end_point> parse_address(std::string_view value)
-{
+std::vector<end_point> parse_address(std::string_view value) {
     std::size_t addr_num = std::count(value.begin(), value.end(), ',') + 1;
 
     std::vector<end_point> end_points;
@@ -96,15 +92,13 @@ std::vector<end_point> parse_address(std::string_view value)
     return end_points;
 }
 
-end_point parse_single_address(std::string_view value)
-{
+end_point parse_single_address(std::string_view value) {
     auto colon_num = std::count(value.begin(), value.end(), ':');
 
     if (colon_num == 0)
         return {std::string(value), configuration::default_value::port};
 
-    if (colon_num != 1)
-    {
+    if (colon_num != 1) {
         throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
             "Unexpected number of ':' characters in the following address: '" + std::string(value));
     }
@@ -112,8 +106,7 @@ end_point parse_single_address(std::string_view value)
     auto colon_pos = value.find(':');
     auto host = value.substr(0, colon_pos);
 
-    if (colon_pos == value.size() - 1)
-    {
+    if (colon_pos == value.size() - 1) {
         throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
             "Port is missing in the following address: '" + std::string(value));
     }
@@ -126,17 +119,16 @@ end_point parse_single_address(std::string_view value)
 
 std::optional<std::int64_t> parse_int64(std::string_view value) {
     auto value_str = trim(value);
-    if (!std::all_of(value_str.begin(), value_str.end(), [] (char c) { return std::isdigit(c) || c == '-'; }))
+    if (!std::all_of(value_str.begin(), value_str.end(), [](char c) { return std::isdigit(c) || c == '-'; }))
         return std::nullopt;
     return lexical_cast<std::int64_t>(value_str);
 }
 
-std::uint16_t parse_port(std::string_view value)
-{
+std::uint16_t parse_port(std::string_view value) {
     auto port_opt = parse_int<std::uint16_t>(value);
     if (!port_opt || *port_opt == 0) {
-        throw odbc_error(sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE,
-            "Invalid port value: " + std::string(value));
+        throw odbc_error(
+            sql_state::S01S00_INVALID_CONNECTION_STRING_ATTRIBUTE, "Invalid port value: " + std::string(value));
     }
     return *port_opt;
 }

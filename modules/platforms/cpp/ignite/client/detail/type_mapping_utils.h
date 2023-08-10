@@ -30,7 +30,7 @@ namespace ignite {
  */
 template<typename T>
 std::vector<ignite_tuple> values_to_tuples(std::vector<T> values) {
-    //TODO: Optimize memory usage (IGNITE-19198)
+    // TODO: Optimize memory usage (IGNITE-19198)
     std::vector<ignite_tuple> tuples;
     tuples.reserve(values.size());
     for (auto &&value : std::move(values)) {
@@ -46,7 +46,7 @@ std::vector<ignite_tuple> values_to_tuples(std::vector<T> values) {
  */
 template<typename K, typename V>
 std::vector<std::pair<ignite_tuple, ignite_tuple>> values_to_tuples(std::vector<std::pair<K, V>> values) {
-    //TODO: Optimize memory usage (IGNITE-19198)
+    // TODO: Optimize memory usage (IGNITE-19198)
     std::vector<std::pair<ignite_tuple, ignite_tuple>> tuples;
     tuples.reserve(values.size());
     for (auto &&pair : std::move(values)) {
@@ -62,7 +62,7 @@ std::vector<std::pair<ignite_tuple, ignite_tuple>> values_to_tuples(std::vector<
  */
 template<typename T>
 std::vector<T> tuples_to_values(std::vector<ignite_tuple> tuples) {
-    //TODO: Optimize memory usage (IGNITE-19198)
+    // TODO: Optimize memory usage (IGNITE-19198)
     std::vector<T> values;
     values.reserve(tuples.size());
     for (auto &&tuple : std::move(tuples)) {
@@ -78,7 +78,7 @@ std::vector<T> tuples_to_values(std::vector<ignite_tuple> tuples) {
  */
 template<typename T>
 std::vector<std::optional<T>> tuples_to_values(std::vector<std::optional<ignite_tuple>> tuples) {
-    //TODO: Optimize memory usage (IGNITE-19198)
+    // TODO: Optimize memory usage (IGNITE-19198)
     std::vector<std::optional<T>> values;
     values.reserve(tuples.size());
     for (auto &&tuple : std::move(tuples)) {

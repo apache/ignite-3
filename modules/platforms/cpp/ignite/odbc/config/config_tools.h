@@ -19,14 +19,13 @@
 
 #include "ignite/common/end_point.h"
 
+#include <limits>
+#include <map>
+#include <optional>
 #include <string>
 #include <vector>
-#include <map>
-#include <limits>
-#include <optional>
 
-namespace ignite
-{
+namespace ignite {
 
 /**
  * Convert address list to string.
@@ -34,7 +33,7 @@ namespace ignite
  * @param addresses Addresses.
  * @return Resulting string.
  */
-[[nodiscard]] std::string addresses_to_string(const std::vector<end_point>& addresses);
+[[nodiscard]] std::string addresses_to_string(const std::vector<end_point> &addresses);
 
 /**
  * Parse address.
@@ -67,7 +66,7 @@ namespace ignite
  * @param value String value to parse.
  * @return @c Int value on success and std::nullopt on failure.
  */
-template <typename T>
+template<typename T>
 [[nodiscard]] std::optional<T> parse_int(std::string_view value) {
     auto i64 = parse_int64(value);
     if (!i64)
@@ -104,7 +103,7 @@ typedef std::map<std::string, std::string> config_map;
  * @param str DSN string. Must be terminated with two subsequent '\0'.
  * @return A map containing configuration attributes.
  */
-[[nodiscard]] config_map parse_config_attributes(const char* str);
+[[nodiscard]] config_map parse_config_attributes(const char *str);
 
 /**
  * Normalize argument string, i.e. strip leading and trailing whitespaces and convert to lowercase.

@@ -19,9 +19,12 @@ package org.apache.ignite.internal.causality;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,10 +34,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -339,6 +344,50 @@ public class IncrementalVersionedValueTest {
         assertThat(future1, willBe(1));
         assertThat(future2, willBe(1));
         assertThat(future3, willBe(2));
+    }
+
+    /**
+     * Tests that {@link IncrementalVersionedValue#dependingOn(IncrementalVersionedValue)} provides causality between 2 different values.
+     */
+    @RepeatedTest(100)
+    public void testDependingOn() {
+        var vv0 = new IncrementalVersionedValue<>(register, () -> 1);
+
+        var vv1 = new IncrementalVersionedValue<>(dependingOn(vv0), () -> 1);
+
+        int token = 1;
+
+        vv0.update(token, (i, e) -> supplyAsync(() -> i + 1));
+
+        vv1.update(token, (i, e) -> supplyAsync(() -> i + 1));
+
+        register.moveRevision(token);
+
+        assertThat(vv1.get(token), willCompleteSuccessfully());
+
+        assertTrue(vv0.get(token).isDone());
+    }
+
+    /**
+     * Tests that {@link IncrementalVersionedValue#update(long, BiFunction)} closure is called immediately when underlying value is
+     * accessible, i.e. when there were no other updates.
+     */
+    @Test
+    public void testImmediateUpdate() {
+        var vv = new IncrementalVersionedValue<>(register, () -> 1);
+
+        //noinspection unchecked
+        BiFunction<Integer, Throwable, CompletableFuture<Integer>> closure = mock(BiFunction.class);
+
+        when(closure.apply(any(), any())).thenReturn(completedFuture(null));
+
+        int token = 0;
+
+        vv.update(token, closure);
+
+        verify(closure).apply(eq(1), eq(null));
+
+        assertFalse(vv.get(token).isDone());
     }
 
     /**

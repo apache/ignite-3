@@ -44,52 +44,42 @@ public:
      */
     basic_authenticator(std::string username, std::string password)
         : m_username(std::move(username))
-        , m_password(std::move(password)) { }
+        , m_password(std::move(password)) {}
 
     /**
      * Get authenticator type.
      *
      * @return Authenticator type.
      */
-    [[nodiscard]] const std::string& get_type() const override {
-        return TYPE;
-    }
+    [[nodiscard]] const std::string &get_type() const override { return TYPE; }
 
     /**
      * Get identity.
      *
      * @return Username.
      */
-    [[nodiscard]] const std::string& get_identity() const override {
-        return m_username;
-    }
+    [[nodiscard]] const std::string &get_identity() const override { return m_username; }
 
     /**
      * Set username.
      *
      * @param username Username.
      */
-    void set_username(std::string username) {
-        m_username = std::move(username);
-    };
+    void set_username(std::string username) { m_username = std::move(username); };
 
     /**
      * Get secret.
      *
      * @return Password.
      */
-    [[nodiscard]] const std::string& get_secret() const override {
-        return m_password;
-    }
+    [[nodiscard]] const std::string &get_secret() const override { return m_password; }
 
     /**
      * Set password.
      *
      * @param password Password.
      */
-    void set_password(std::string password) {
-        m_password = std::move(password);
-    };
+    void set_password(std::string password) { m_password = std::move(password); };
 
 private:
     /** Username. */

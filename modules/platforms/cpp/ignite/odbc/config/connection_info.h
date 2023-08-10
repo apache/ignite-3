@@ -17,19 +17,18 @@
 
 #pragma once
 
-#include "ignite/odbc/config/configuration.h"
 #include "ignite/odbc/common_types.h"
+#include "ignite/odbc/config/configuration.h"
 
-#include <map>
 #include <cstdint>
+#include <map>
 
 namespace ignite {
 
 /**
  * Connection info.
  */
-class connection_info
-{
+class connection_info {
 public:
     /** Info type. */
     typedef unsigned short info_type;
@@ -54,7 +53,7 @@ public:
      *
      * @param config Configuration.
      */
-    explicit connection_info(const configuration& config);
+    explicit connection_info(const configuration &config);
 
     // Default
     ~connection_info() = default;
@@ -73,7 +72,7 @@ public:
      * @param result_len Result value length pointer.
      * @return True on success.
      */
-    sql_result get_info(info_type type, void* buf, short buffer_len, short* result_len) const;
+    sql_result get_info(info_type type, void *buf, short buffer_len, short *result_len) const;
 
 private:
     /** Associative array of string m_parameters. */
@@ -95,7 +94,7 @@ private:
     ushort_info_map m_short_params;
 
     /** Configuration. */
-    const configuration& config;
+    const configuration &config;
 };
 
 } // namespace ignite

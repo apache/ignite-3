@@ -22,8 +22,7 @@
 #include <cstdint>
 #include <string>
 
-namespace ignite
-{
+namespace ignite {
 
 #ifdef _DEBUG
 
@@ -34,7 +33,7 @@ namespace ignite
  * @param id Attribute ID.
  * @return Null-terminated string containing attribute name.
  */
-const char* statement_attr_id_to_string(long id);
+const char *statement_attr_id_to_string(long id);
 
 #endif //_DEBUG
 
@@ -44,8 +43,7 @@ const char* statement_attr_id_to_string(long id);
  * We use these so we will not be needed to include system-specific
  * headers in our header files.
  */
-enum class odbc_native_type
-{
+enum class odbc_native_type {
     /** Alias for the SQL_C_CHAR type. */
     AI_CHAR,
 
@@ -115,8 +113,7 @@ enum class odbc_native_type
  *
  * TODO: Replace with inline constants.
  */
-namespace sql_type_name
-{
+namespace sql_type_name {
 
 /** VARCHAR SQL type name constant. */
 const std::string VARCHAR("VARCHAR");
@@ -168,7 +165,7 @@ const std::string GUID("GUID");
  * @param typ Ignite type.
  * @return Corresponding SQL type name.
  */
-const std::string& ignite_type_to_sql_type_name(ignite_type typ);
+const std::string &ignite_type_to_sql_type_name(ignite_type typ);
 
 /**
  * Check if the SQL type supported by the current implementation.

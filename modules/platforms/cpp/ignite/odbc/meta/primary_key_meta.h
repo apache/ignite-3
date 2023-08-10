@@ -29,8 +29,7 @@ namespace ignite {
 /**
  * Primary key metadata.
  */
-class primary_key_meta
-{
+class primary_key_meta {
 public:
     // Default
     primary_key_meta() = default;
@@ -52,67 +51,49 @@ public:
         , m_table(std::move(table))
         , m_column(std::move(column))
         , m_key_seq(key_seq)
-        , m_key_name(std::move(key_name)) { }
+        , m_key_name(std::move(key_name)) {}
 
     /**
      * Get catalog name.
      *
      * @return Catalog name.
      */
-    [[nodiscard]] const std::string& get_catalog_name() const
-    {
-        return m_catalog;
-    }
+    [[nodiscard]] const std::string &get_catalog_name() const { return m_catalog; }
 
     /**
      * Get schema name.
      *
      * @return Schema name.
      */
-    [[nodiscard]] const std::string& get_schema_name() const
-    {
-        return m_schema;
-    }
+    [[nodiscard]] const std::string &get_schema_name() const { return m_schema; }
 
     /**
      * Get table name.
      *
      * @return Table name.
      */
-    [[nodiscard]] const std::string& get_table_name() const
-    {
-        return m_table;
-    }
+    [[nodiscard]] const std::string &get_table_name() const { return m_table; }
 
     /**
      * Get column name.
      *
      * @return Column name.
      */
-    [[nodiscard]] const std::string& get_column_name() const
-    {
-        return m_column;
-    }
+    [[nodiscard]] const std::string &get_column_name() const { return m_column; }
 
     /**
      * Get column sequence number in key.
      *
      * @return Sequence number in key.
      */
-    [[nodiscard]] std::int16_t get_key_seq() const
-    {
-        return m_key_seq;
-    }
+    [[nodiscard]] std::int16_t get_key_seq() const { return m_key_seq; }
 
     /**
      * Get key name.
      *
      * @return Key name.
      */
-    [[nodiscard]] const std::string& get_key_name() const
-    {
-        return m_key_name;
-    }
+    [[nodiscard]] const std::string &get_key_name() const { return m_key_name; }
 
 private:
     /** Catalog name. */

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_VALIDATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import org.apache.ignite.lang.IgniteInternalException;
 
@@ -33,6 +33,6 @@ public class QueryValidationException extends IgniteInternalException {
      * @param msg Error message.
      */
     public QueryValidationException(String msg) {
-        super(QUERY_VALIDATION_ERR, msg);
+        super(STMT_VALIDATION_ERR, msg);
     }
 }

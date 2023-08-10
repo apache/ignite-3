@@ -83,6 +83,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             JDBCType.VARCHAR,
             JDBCType.BINARY,
             JDBCType.VARBINARY,
+            JDBCType.NULL,
             JDBCType.OTHER // UUID.
     );
 

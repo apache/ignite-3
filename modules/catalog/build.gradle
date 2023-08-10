@@ -28,8 +28,14 @@ dependencies {
     implementation project(':ignite-configuration')
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-vault')
+
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
+    implementation(libs.jsonpath.core) {
+        //IDEA test runner doesn't apply Gradle dependency resolve strategy, this is just not implemented
+        //So, exclude asm-core transitive dependency to protect of jar-hell.
+        exclude group: 'org.ow2.asm', module: 'asm'
+    }
 
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-metastorage')))

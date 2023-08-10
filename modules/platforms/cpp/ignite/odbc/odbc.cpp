@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-
-#include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/log.h"
+#include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/utility.h"
 
 #include "ignite/odbc/config/configuration.h"
@@ -29,29 +28,26 @@
 
 #include <algorithm>
 
-
 #ifdef __JETBRAINS_IDE__
-#   pragma clang diagnostic push
-#   pragma ide diagnostic ignored "readability-non-const-parameter"
+# pragma clang diagnostic push
+# pragma ide diagnostic ignored "readability-non-const-parameter"
 #endif
 
-namespace ignite
-{
+namespace ignite {
 
 diagnosable *diagnosable_from_handle(SQLSMALLINT handle_type, void *handle) {
-    switch (handle_type)
-    {
+    switch (handle_type) {
         case SQL_HANDLE_ENV: {
-            auto *env = reinterpret_cast<sql_environment*>(handle);
-            return static_cast<diagnosable*>(env);
+            auto *env = reinterpret_cast<sql_environment *>(handle);
+            return static_cast<diagnosable *>(env);
         }
         case SQL_HANDLE_DBC: {
-            auto *conn = reinterpret_cast<sql_connection*>(handle);
-            return static_cast<diagnosable*>(conn);
+            auto *conn = reinterpret_cast<sql_connection *>(handle);
+            return static_cast<diagnosable *>(conn);
         }
         case SQL_HANDLE_STMT: {
-            auto *statement = reinterpret_cast<sql_statement*>(handle);
-            return static_cast<diagnosable*>(statement);
+            auto *statement = reinterpret_cast<sql_statement *>(handle);
+            return static_cast<diagnosable *>(statement);
         }
         default:
             break;
@@ -59,18 +55,13 @@ diagnosable *diagnosable_from_handle(SQLSMALLINT handle_type, void *handle) {
     return nullptr;
 }
 
-SQLRETURN SQLGetInfo(SQLHDBC        conn,
-                     SQLUSMALLINT   infoType,
-                     SQLPOINTER     infoValue,
-                     SQLSMALLINT    infoValueMax,
-                     SQLSMALLINT*   length)
-{
-    LOG_MSG("SQLGetInfo called: "
-        << infoType << " (" << connection_info::info_type_to_string(infoType) << "), "
-        << std::hex << reinterpret_cast<size_t>(infoValue) << ", " << infoValueMax << ", "
-        << std::hex << reinterpret_cast<size_t>(length));
+SQLRETURN SQLGetInfo(
+    SQLHDBC conn, SQLUSMALLINT infoType, SQLPOINTER infoValue, SQLSMALLINT infoValueMax, SQLSMALLINT *length) {
+    LOG_MSG("SQLGetInfo called: " << infoType << " (" << connection_info::info_type_to_string(infoType) << "), "
+                                  << std::hex << reinterpret_cast<size_t>(infoValue) << ", " << infoValueMax << ", "
+                                  << std::hex << reinterpret_cast<size_t>(length));
 
-    auto *connection = reinterpret_cast<sql_connection*>(conn);
+    auto *connection = reinterpret_cast<sql_connection *>(conn);
 
     if (!connection)
         return SQL_INVALID_HANDLE;
@@ -80,10 +71,8 @@ SQLRETURN SQLGetInfo(SQLHDBC        conn,
     return connection->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result)
-{
-    switch (type)
-    {
+SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE *result) {
+    switch (type) {
         case SQL_HANDLE_ENV:
             return SQLAllocEnv(result);
 
@@ -93,9 +82,8 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result)
         case SQL_HANDLE_STMT:
             return SQLAllocStmt(parent, result);
 
-        case SQL_HANDLE_DESC:
-        {
-            auto *connection = reinterpret_cast<sql_connection*>(parent);
+        case SQL_HANDLE_DESC: {
+            auto *connection = reinterpret_cast<sql_connection *>(parent);
 
             if (!connection)
                 return SQL_INVALID_HANDLE;
@@ -105,8 +93,8 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result)
 
             connection->get_diagnostic_records().reset();
             connection->add_status_record(sql_state::SIM001_FUNCTION_NOT_SUPPORTED,
-                                        "The HandleType argument was SQL_HANDLE_DESC, and "
-                                        "the driver does not support allocating a descriptor handle");
+                "The HandleType argument was SQL_HANDLE_DESC, and "
+                "the driver does not support allocating a descriptor handle");
 
             return SQL_ERROR;
         }
@@ -118,8 +106,7 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result)
     return SQL_ERROR;
 }
 
-SQLRETURN SQLAllocEnv(SQLHENV* env)
-{
+SQLRETURN SQLAllocEnv(SQLHENV *env) {
     LOG_MSG("SQLAllocEnv called");
 
     *env = reinterpret_cast<SQLHENV>(new sql_environment());
@@ -127,8 +114,7 @@ SQLRETURN SQLAllocEnv(SQLHENV* env)
     return SQL_SUCCESS;
 }
 
-SQLRETURN SQLAllocConnect(SQLHENV env, SQLHDBC* conn)
-{
+SQLRETURN SQLAllocConnect(SQLHENV env, SQLHDBC *conn) {
     LOG_MSG("SQLAllocConnect called");
 
     *conn = SQL_NULL_HDBC;
@@ -147,13 +133,12 @@ SQLRETURN SQLAllocConnect(SQLHENV env, SQLHDBC* conn)
     return SQL_SUCCESS;
 }
 
-SQLRETURN SQLAllocStmt(SQLHDBC conn, SQLHSTMT* stmt)
-{
+SQLRETURN SQLAllocStmt(SQLHDBC conn, SQLHSTMT *stmt) {
     LOG_MSG("SQLAllocStmt called");
 
     *stmt = SQL_NULL_HDBC;
 
-    auto *connection = reinterpret_cast<sql_connection*>(conn);
+    auto *connection = reinterpret_cast<sql_connection *>(conn);
 
     if (!connection)
         return SQL_INVALID_HANDLE;
@@ -165,10 +150,8 @@ SQLRETURN SQLAllocStmt(SQLHDBC conn, SQLHSTMT* stmt)
     return connection->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle)
-{
-    switch (type)
-    {
+SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
+    switch (type) {
         case SQL_HANDLE_ENV:
             return SQLFreeEnv(handle);
 
@@ -186,11 +169,10 @@ SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle)
     return SQL_ERROR;
 }
 
-SQLRETURN SQLFreeEnv(SQLHENV env)
-{
+SQLRETURN SQLFreeEnv(SQLHENV env) {
     LOG_MSG("SQLFreeEnv called: " << env);
 
-    auto *environment = reinterpret_cast<sql_environment*>(env);
+    auto *environment = reinterpret_cast<sql_environment *>(env);
     if (!environment)
         return SQL_INVALID_HANDLE;
 
@@ -199,8 +181,7 @@ SQLRETURN SQLFreeEnv(SQLHENV env)
     return SQL_SUCCESS;
 }
 
-SQLRETURN SQLFreeConnect(SQLHDBC conn)
-{
+SQLRETURN SQLFreeConnect(SQLHDBC conn) {
     LOG_MSG("SQLFreeConnect called");
 
     auto *connection = reinterpret_cast<sql_connection *>(conn);
@@ -214,8 +195,7 @@ SQLRETURN SQLFreeConnect(SQLHDBC conn)
     return SQL_SUCCESS;
 }
 
-SQLRETURN SQLFreeStmt(SQLHSTMT stmt, SQLUSMALLINT option)
-{
+SQLRETURN SQLFreeStmt(SQLHSTMT stmt, SQLUSMALLINT option) {
     LOG_MSG("SQLFreeStmt called [option=" << option << ']');
 
     auto *statement = reinterpret_cast<sql_statement *>(stmt);
@@ -232,46 +212,38 @@ SQLRETURN SQLFreeStmt(SQLHSTMT stmt, SQLUSMALLINT option)
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLCloseCursor(SQLHSTMT stmt)
-{
+SQLRETURN SQLCloseCursor(SQLHSTMT stmt) {
     LOG_MSG("SQLCloseCursor called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
 
     statement->close();
 
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLDriverConnect(SQLHDBC      conn,
-                           SQLHWND      windowHandle,
-                           SQLCHAR*     inConnectionString,
-                           SQLSMALLINT  inConnectionStringLen,
-                           SQLCHAR*     outConnectionString,
-                           SQLSMALLINT  outConnectionStringBufferLen,
-                           SQLSMALLINT* outConnectionStringLen,
-                           SQLUSMALLINT driverCompletion)
-{
+SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND windowHandle, SQLCHAR *inConnectionString,
+    SQLSMALLINT inConnectionStringLen, SQLCHAR *outConnectionString, SQLSMALLINT outConnectionStringBufferLen,
+    SQLSMALLINT *outConnectionStringLen, SQLUSMALLINT driverCompletion) {
     UNUSED_VALUE(driverCompletion);
 
     LOG_MSG("SQLDriverConnect called");
     if (inConnectionString)
         LOG_MSG("Connection String: [" << inConnectionString << "]");
 
-    auto *connection = reinterpret_cast<sql_connection*>(conn);
+    auto *connection = reinterpret_cast<sql_connection *>(conn);
     if (!connection)
         return SQL_INVALID_HANDLE;
 
     std::string connectStr = sql_string_to_string(inConnectionString, inConnectionStringLen);
     connection->establish(connectStr, windowHandle);
 
-    diagnostic_record_storage& diag = connection->get_diagnostic_records();
+    diagnostic_record_storage &diag = connection->get_diagnostic_records();
     if (!diag.is_successful())
         return diag.get_return_code();
 
-    size_t result_len = copy_string_to_buffer(connectStr,
-        reinterpret_cast<char*>(outConnectionString),
-        static_cast<size_t>(outConnectionStringBufferLen));
+    size_t result_len = copy_string_to_buffer(
+        connectStr, reinterpret_cast<char *>(outConnectionString), static_cast<size_t>(outConnectionStringBufferLen));
 
     if (outConnectionStringLen)
         *outConnectionStringLen = static_cast<SQLSMALLINT>(result_len);
@@ -282,14 +254,8 @@ SQLRETURN SQLDriverConnect(SQLHDBC      conn,
     return diag.get_return_code();
 }
 
-SQLRETURN SQLConnect(SQLHDBC        conn,
-                     SQLCHAR*       server_name,
-                     SQLSMALLINT    server_name_len,
-                     SQLCHAR*       user_name,
-                     SQLSMALLINT    user_name_len,
-                     SQLCHAR*       auth,
-                     SQLSMALLINT    auth_len)
-{
+SQLRETURN SQLConnect(SQLHDBC conn, SQLCHAR *server_name, SQLSMALLINT server_name_len, SQLCHAR *user_name,
+    SQLSMALLINT user_name_len, SQLCHAR *auth, SQLSMALLINT auth_len) {
     UNUSED_VALUE(user_name);
     UNUSED_VALUE(user_name_len);
     UNUSED_VALUE(auth);
@@ -297,7 +263,7 @@ SQLRETURN SQLConnect(SQLHDBC        conn,
 
     LOG_MSG("SQLConnect called\n");
 
-    auto *connection = reinterpret_cast<sql_connection*>(conn);
+    auto *connection = reinterpret_cast<sql_connection *>(conn);
     if (!connection)
         return SQL_INVALID_HANDLE;
 
@@ -313,11 +279,10 @@ SQLRETURN SQLConnect(SQLHDBC        conn,
     return connection->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLDisconnect(SQLHDBC conn)
-{
+SQLRETURN SQLDisconnect(SQLHDBC conn) {
     LOG_MSG("SQLDisconnect called");
 
-    auto *connection = reinterpret_cast<sql_connection*>(conn);
+    auto *connection = reinterpret_cast<sql_connection *>(conn);
     if (!connection)
         return SQL_INVALID_HANDLE;
 
@@ -326,11 +291,10 @@ SQLRETURN SQLDisconnect(SQLHDBC conn)
     return connection->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLPrepare(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER query_len)
-{
+SQLRETURN SQLPrepare(SQLHSTMT stmt, SQLCHAR *query, SQLINTEGER query_len) {
     LOG_MSG("SQLPrepare called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -343,11 +307,10 @@ SQLRETURN SQLPrepare(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER query_len)
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLExecute(SQLHSTMT stmt)
-{
+SQLRETURN SQLExecute(SQLHSTMT stmt) {
     LOG_MSG("SQLExecute called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -356,11 +319,10 @@ SQLRETURN SQLExecute(SQLHSTMT stmt)
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLExecDirect(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER query_len)
-{
+SQLRETURN SQLExecDirect(SQLHSTMT stmt, SQLCHAR *query, SQLINTEGER query_len) {
     LOG_MSG("SQLExecDirect called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -373,17 +335,11 @@ SQLRETURN SQLExecDirect(SQLHSTMT stmt, SQLCHAR* query, SQLINTEGER query_len)
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLBindCol(SQLHSTMT       stmt,
-                     SQLUSMALLINT   col_num,
-                     SQLSMALLINT    target_type,
-                     SQLPOINTER     target_value,
-                     SQLLEN         buffer_length,
-                     SQLLEN*        str_length_or_indicator)
-{
-    LOG_MSG("SQLBindCol called: index=" << col_num << ", type=" << target_type <<
-            ", target_value=" << reinterpret_cast<size_t>(target_value) <<
-            ", buffer_length=" << buffer_length <<
-            ", lengthInd=" << reinterpret_cast<size_t>(str_length_or_indicator));
+SQLRETURN SQLBindCol(SQLHSTMT stmt, SQLUSMALLINT col_num, SQLSMALLINT target_type, SQLPOINTER target_value,
+    SQLLEN buffer_length, SQLLEN *str_length_or_indicator) {
+    LOG_MSG("SQLBindCol called: index=" << col_num << ", type=" << target_type << ", target_value="
+                                        << reinterpret_cast<size_t>(target_value) << ", buffer_length=" << buffer_length
+                                        << ", lengthInd=" << reinterpret_cast<size_t>(str_length_or_indicator));
 
     auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
@@ -394,11 +350,10 @@ SQLRETURN SQLBindCol(SQLHSTMT       stmt,
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLFetch(SQLHSTMT stmt)
-{
+SQLRETURN SQLFetch(SQLHSTMT stmt) {
     LOG_MSG("SQLFetch called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -407,12 +362,11 @@ SQLRETURN SQLFetch(SQLHSTMT stmt)
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLFetchScroll(SQLHSTMT stmt, SQLSMALLINT orientation, SQLLEN offset)
-{
+SQLRETURN SQLFetchScroll(SQLHSTMT stmt, SQLSMALLINT orientation, SQLLEN offset) {
     LOG_MSG("SQLFetchScroll called");
     LOG_MSG("Orientation: " << orientation << " Offset: " << offset);
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -421,32 +375,25 @@ SQLRETURN SQLFetchScroll(SQLHSTMT stmt, SQLSMALLINT orientation, SQLLEN offset)
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLExtendedFetch(SQLHSTMT         stmt,
-                           SQLUSMALLINT     orientation,
-                           SQLLEN           offset,
-                           SQLULEN*         row_count,
-                           SQLUSMALLINT*    row_status_array)
-{
+SQLRETURN SQLExtendedFetch(
+    SQLHSTMT stmt, SQLUSMALLINT orientation, SQLLEN offset, SQLULEN *row_count, SQLUSMALLINT *row_status_array) {
     LOG_MSG("SQLExtendedFetch called");
 
     SQLRETURN res = SQLFetchScroll(stmt, SQLSMALLINT(orientation), offset);
 
-    if (res == SQL_SUCCESS)
-    {
+    if (res == SQL_SUCCESS) {
         if (row_count)
             *row_count = 1;
 
         if (row_status_array)
             row_status_array[0] = SQL_ROW_SUCCESS;
-    }
-    else if (res == SQL_NO_DATA && row_count)
+    } else if (res == SQL_NO_DATA && row_count)
         *row_count = 0;
 
     return res;
 }
 
-SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *column_num)
-{
+SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *column_num) {
     LOG_MSG("SQLNumResultCols called");
 
     auto *statement = reinterpret_cast<sql_statement *>(stmt);
@@ -455,8 +402,7 @@ SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *column_num)
 
     int32_t res = statement->get_column_number();
 
-    if (column_num)
-    {
+    if (column_num) {
         *column_num = static_cast<SQLSMALLINT>(res);
         LOG_MSG("column_num: " << *column_num);
     }
@@ -464,19 +410,12 @@ SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT *column_num)
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLTables(SQLHSTMT    stmt,
-                    SQLCHAR*    catalog_name,
-                    SQLSMALLINT catalog_name_len,
-                    SQLCHAR*    schema_name,
-                    SQLSMALLINT schema_name_len,
-                    SQLCHAR*    table_name,
-                    SQLSMALLINT table_name_len,
-                    SQLCHAR*    table_type,
-                    SQLSMALLINT table_type_len)
-{
+SQLRETURN SQLTables(SQLHSTMT stmt, SQLCHAR *catalog_name, SQLSMALLINT catalog_name_len, SQLCHAR *schema_name,
+    SQLSMALLINT schema_name_len, SQLCHAR *table_name, SQLSMALLINT table_name_len, SQLCHAR *table_type,
+    SQLSMALLINT table_type_len) {
     LOG_MSG("SQLTables called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -495,19 +434,12 @@ SQLRETURN SQLTables(SQLHSTMT    stmt,
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLColumns(SQLHSTMT       stmt,
-                     SQLCHAR*       catalog_name,
-                     SQLSMALLINT    catalog_name_len,
-                     SQLCHAR*       schema_name,
-                     SQLSMALLINT    schema_name_len,
-                     SQLCHAR*       table_name,
-                     SQLSMALLINT    table_name_len,
-                     SQLCHAR*       column_name,
-                     SQLSMALLINT    column_name_len)
-{
+SQLRETURN SQLColumns(SQLHSTMT stmt, SQLCHAR *catalog_name, SQLSMALLINT catalog_name_len, SQLCHAR *schema_name,
+    SQLSMALLINT schema_name_len, SQLCHAR *table_name, SQLSMALLINT table_name_len, SQLCHAR *column_name,
+    SQLSMALLINT column_name_len) {
     LOG_MSG("SQLColumns called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -526,8 +458,7 @@ SQLRETURN SQLColumns(SQLHSTMT       stmt,
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLMoreResults(SQLHSTMT stmt)
-{
+SQLRETURN SQLMoreResults(SQLHSTMT stmt) {
     LOG_MSG("SQLMoreResults called");
 
     auto *statement = reinterpret_cast<sql_statement *>(stmt);
@@ -539,43 +470,30 @@ SQLRETURN SQLMoreResults(SQLHSTMT stmt)
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLBindParameter(SQLHSTMT     stmt,
-                           SQLUSMALLINT param_idx,
-                           SQLSMALLINT  io_type,
-                           SQLSMALLINT  buffer_type,
-                           SQLSMALLINT  param_sql_type,
-                           SQLULEN      column_size,
-                           SQLSMALLINT  dec_digits,
-                           SQLPOINTER   buffer,
-                           SQLLEN       buffer_len,
-                           SQLLEN*      res_len)
-{
+SQLRETURN SQLBindParameter(SQLHSTMT stmt, SQLUSMALLINT param_idx, SQLSMALLINT io_type, SQLSMALLINT buffer_type,
+    SQLSMALLINT param_sql_type, SQLULEN column_size, SQLSMALLINT dec_digits, SQLPOINTER buffer, SQLLEN buffer_len,
+    SQLLEN *res_len) {
     LOG_MSG("SQLBindParameter called: " << param_idx << ", " << buffer_type << ", " << param_sql_type);
 
     auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
-    statement->bind_parameter(param_idx, io_type, buffer_type, param_sql_type, column_size, dec_digits, buffer, buffer_len, res_len);
+    statement->bind_parameter(
+        param_idx, io_type, buffer_type, param_sql_type, column_size, dec_digits, buffer, buffer_len, res_len);
 
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLNativeSql(SQLHDBC      conn,
-                       SQLCHAR*     in_query,
-                       SQLINTEGER   in_query_len,
-                       SQLCHAR*     out_query_buffer,
-                       SQLINTEGER   out_query_buffer_len,
-                       SQLINTEGER*  out_query_len)
-{
+SQLRETURN SQLNativeSql(SQLHDBC conn, SQLCHAR *in_query, SQLINTEGER in_query_len, SQLCHAR *out_query_buffer,
+    SQLINTEGER out_query_buffer_len, SQLINTEGER *out_query_len) {
     UNUSED_VALUE(conn);
 
     LOG_MSG("SQLNativeSql called");
 
     std::string in = sql_string_to_string(in_query, in_query_len);
 
-    copy_string_to_buffer(in, reinterpret_cast<char*>(out_query_buffer),
-        static_cast<size_t>(out_query_buffer_len));
+    copy_string_to_buffer(in, reinterpret_cast<char *>(out_query_buffer), static_cast<size_t>(out_query_buffer_len));
 
     if (out_query_len)
         *out_query_len = std::min(out_query_buffer_len, static_cast<SQLINTEGER>(in.size()));
@@ -583,14 +501,8 @@ SQLRETURN SQLNativeSql(SQLHDBC      conn,
     return SQL_SUCCESS;
 }
 
-SQLRETURN SQLColAttribute(SQLHSTMT        stmt,
-                          SQLUSMALLINT    column_num,
-                          SQLUSMALLINT    field_id,
-                          SQLPOINTER      str_attr,
-                          SQLSMALLINT     buffer_len,
-                          SQLSMALLINT*    str_attr_len,
-                          SQLLEN*         numeric_attr)
-{
+SQLRETURN SQLColAttribute(SQLHSTMT stmt, SQLUSMALLINT column_num, SQLUSMALLINT field_id, SQLPOINTER str_attr,
+    SQLSMALLINT buffer_len, SQLSMALLINT *str_attr_len, SQLLEN *numeric_attr) {
     LOG_MSG("SQLColAttribute called: " << field_id << " (" << column_meta::attr_id_to_string(field_id) << ")");
 
     auto *statement = reinterpret_cast<sql_statement *>(stmt);
@@ -598,8 +510,7 @@ SQLRETURN SQLColAttribute(SQLHSTMT        stmt,
         return SQL_INVALID_HANDLE;
 
     // This is a special case
-    if (field_id == SQL_DESC_COUNT)
-    {
+    if (field_id == SQL_DESC_COUNT) {
         SQLSMALLINT val = 0;
 
         SQLRETURN res = SQLNumResultCols(stmt, &val);
@@ -610,29 +521,22 @@ SQLRETURN SQLColAttribute(SQLHSTMT        stmt,
         return res;
     }
 
-    statement->get_column_attribute(column_num, field_id, reinterpret_cast<char*>(str_attr), buffer_len,
-        str_attr_len, numeric_attr);
+    statement->get_column_attribute(
+        column_num, field_id, reinterpret_cast<char *>(str_attr), buffer_len, str_attr_len, numeric_attr);
 
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLDescribeCol(SQLHSTMT       stmt,
-                         SQLUSMALLINT   column_num,
-                         SQLCHAR*       column_name_buf,
-                         SQLSMALLINT    column_name_buf_len,
-                         SQLSMALLINT*   column_name_len,
-                         SQLSMALLINT*   data_type,
-                         SQLULEN*       column_size,
-                         SQLSMALLINT*   decimal_digits,
-                         SQLSMALLINT*   nullable)
-{
+SQLRETURN SQLDescribeCol(SQLHSTMT stmt, SQLUSMALLINT column_num, SQLCHAR *column_name_buf,
+    SQLSMALLINT column_name_buf_len, SQLSMALLINT *column_name_len, SQLSMALLINT *data_type, SQLULEN *column_size,
+    SQLSMALLINT *decimal_digits, SQLSMALLINT *nullable) {
     LOG_MSG("SQLDescribeCol called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
-    statement->get_column_attribute(column_num, SQL_DESC_NAME, reinterpret_cast<char*>(column_name_buf),
+    statement->get_column_attribute(column_num, SQL_DESC_NAME, reinterpret_cast<char *>(column_name_buf),
         column_name_buf_len, column_name_len, nullptr);
 
     SQLLEN dataTypeRes;
@@ -650,7 +554,7 @@ SQLRETURN SQLDescribeCol(SQLHSTMT       stmt,
     LOG_MSG("columnSizeRes: " << columnSizeRes);
     LOG_MSG("decimalDigitsRes: " << decimalDigitsRes);
     LOG_MSG("nullableRes: " << nullableRes);
-    LOG_MSG("column_name_buf: " << (column_name_buf ? reinterpret_cast<const char*>(column_name_buf) : "<null>"));
+    LOG_MSG("column_name_buf: " << (column_name_buf ? reinterpret_cast<const char *>(column_name_buf) : "<null>"));
     LOG_MSG("column_name_len: " << (column_name_len ? *column_name_len : -1));
 
     if (data_type)
@@ -668,12 +572,10 @@ SQLRETURN SQLDescribeCol(SQLHSTMT       stmt,
     return statement->get_diagnostic_records().get_return_code();
 }
 
-
-SQLRETURN SQLRowCount(SQLHSTMT stmt, SQLLEN* row_count)
-{
+SQLRETURN SQLRowCount(SQLHSTMT stmt, SQLLEN *row_count) {
     LOG_MSG("SQLRowCount called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -687,23 +589,14 @@ SQLRETURN SQLRowCount(SQLHSTMT stmt, SQLLEN* row_count)
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLForeignKeys(SQLHSTMT       stmt,
-                         SQLCHAR*       primary_catalog_name,
-                         SQLSMALLINT    primary_catalog_name_len,
-                         SQLCHAR*       primary_schema_name,
-                         SQLSMALLINT    primary_schema_name_len,
-                         SQLCHAR*       primary_table_name,
-                         SQLSMALLINT    primary_table_name_len,
-                         SQLCHAR*       foreign_catalog_name,
-                         SQLSMALLINT    foreign_catalog_name_len,
-                         SQLCHAR*       foreign_schema_name,
-                         SQLSMALLINT    foreign_schema_name_len,
-                         SQLCHAR*       foreign_table_name,
-                         SQLSMALLINT    foreign_table_name_len)
-{
+SQLRETURN SQLForeignKeys(SQLHSTMT stmt, SQLCHAR *primary_catalog_name, SQLSMALLINT primary_catalog_name_len,
+    SQLCHAR *primary_schema_name, SQLSMALLINT primary_schema_name_len, SQLCHAR *primary_table_name,
+    SQLSMALLINT primary_table_name_len, SQLCHAR *foreign_catalog_name, SQLSMALLINT foreign_catalog_name_len,
+    SQLCHAR *foreign_schema_name, SQLSMALLINT foreign_schema_name_len, SQLCHAR *foreign_table_name,
+    SQLSMALLINT foreign_table_name_len) {
     LOG_MSG("SQLForeignKeys called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -721,25 +614,21 @@ SQLRETURN SQLForeignKeys(SQLHSTMT       stmt,
     LOG_MSG("foreign_schema: " << foreign_schema);
     LOG_MSG("foreign_table: " << foreign_table);
 
-    statement->execute_get_foreign_keys_query(primary_catalog, primary_schema,
-        primary_table, foreign_catalog, foreign_schema, foreign_table);
+    statement->execute_get_foreign_keys_query(
+        primary_catalog, primary_schema, primary_table, foreign_catalog, foreign_schema, foreign_table);
 
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLGetStmtAttr(SQLHSTMT       stmt,
-                         SQLINTEGER     attr,
-                         SQLPOINTER     value_buf,
-                         SQLINTEGER     value_buf_len,
-                         SQLINTEGER*    value_res_len)
-{
+SQLRETURN SQLGetStmtAttr(
+    SQLHSTMT stmt, SQLINTEGER attr, SQLPOINTER value_buf, SQLINTEGER value_buf_len, SQLINTEGER *value_res_len) {
     LOG_MSG("SQLGetStmtAttr called");
 
 #ifdef _DEBUG
     LOG_MSG("Attr: " << statement_attr_id_to_string(attr) << " (" << attr << ")");
 #endif //_DEBUG
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -748,18 +637,14 @@ SQLRETURN SQLGetStmtAttr(SQLHSTMT       stmt,
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLSetStmtAttr(SQLHSTMT    stmt,
-                         SQLINTEGER  attr,
-                         SQLPOINTER  value,
-                         SQLINTEGER  value_len)
-{
+SQLRETURN SQLSetStmtAttr(SQLHSTMT stmt, SQLINTEGER attr, SQLPOINTER value, SQLINTEGER value_len) {
     LOG_MSG("SQLSetStmtAttr called: " << attr);
 
 #ifdef _DEBUG
     LOG_MSG("Attr: " << statement_attr_id_to_string(attr) << " (" << attr << ")");
 #endif //_DEBUG
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -768,17 +653,11 @@ SQLRETURN SQLSetStmtAttr(SQLHSTMT    stmt,
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLPrimaryKeys(SQLHSTMT       stmt,
-                         SQLCHAR*       catalog_name,
-                         SQLSMALLINT    catalog_name_len,
-                         SQLCHAR*       schema_name,
-                         SQLSMALLINT    schema_name_len,
-                         SQLCHAR*       table_name,
-                         SQLSMALLINT    table_name_len)
-{
+SQLRETURN SQLPrimaryKeys(SQLHSTMT stmt, SQLCHAR *catalog_name, SQLSMALLINT catalog_name_len, SQLCHAR *schema_name,
+    SQLSMALLINT schema_name_len, SQLCHAR *table_name, SQLSMALLINT table_name_len) {
     LOG_MSG("SQLPrimaryKeys called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -795,16 +674,14 @@ SQLRETURN SQLPrimaryKeys(SQLHSTMT       stmt,
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLNumParams(SQLHSTMT stmt, SQLSMALLINT* param_cnt)
-{
+SQLRETURN SQLNumParams(SQLHSTMT stmt, SQLSMALLINT *param_cnt) {
     LOG_MSG("SQLNumParams called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
-    if (param_cnt)
-    {
+    if (param_cnt) {
         uint16_t param_num = 0;
         statement->get_parameters_number(param_num);
 
@@ -814,14 +691,8 @@ SQLRETURN SQLNumParams(SQLHSTMT stmt, SQLSMALLINT* param_cnt)
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLGetDiagField(SQLSMALLINT   handle_type,
-                          SQLHANDLE     handle,
-                          SQLSMALLINT   rec_num,
-                          SQLSMALLINT   diag_id,
-                          SQLPOINTER    buffer,
-                          SQLSMALLINT   buffer_len,
-                          SQLSMALLINT*  res_len)
-{
+SQLRETURN SQLGetDiagField(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT rec_num, SQLSMALLINT diag_id,
+    SQLPOINTER buffer, SQLSMALLINT buffer_len, SQLSMALLINT *res_len) {
     LOG_MSG("SQLGetDiagField called: " << rec_num);
 
     auto *diag = diagnosable_from_handle(handle_type, handle);
@@ -842,19 +713,12 @@ SQLRETURN SQLGetDiagField(SQLSMALLINT   handle_type,
     return sql_result_to_return_code(result);
 }
 
-SQLRETURN SQLGetDiagRec(SQLSMALLINT     handle_type,
-                        SQLHANDLE       handle,
-                        SQLSMALLINT     rec_num,
-                        SQLCHAR*        sql_state,
-                        SQLINTEGER*     native_error,
-                        SQLCHAR*        msg_buffer,
-                        SQLSMALLINT     msg_buffer_len,
-                        SQLSMALLINT*    msg_len)
-{
+SQLRETURN SQLGetDiagRec(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT rec_num, SQLCHAR *sql_state,
+    SQLINTEGER *native_error, SQLCHAR *msg_buffer, SQLSMALLINT msg_buffer_len, SQLSMALLINT *msg_len) {
     LOG_MSG("SQLGetDiagRec called");
 
     auto *diag = diagnosable_from_handle(handle_type, handle);
-    const diagnostic_record_storage* records = diag ? &diag->get_diagnostic_records() : nullptr;
+    const diagnostic_record_storage *records = diag ? &diag->get_diagnostic_records() : nullptr;
 
     if (rec_num < 1 || msg_buffer_len < 0)
         return SQL_ERROR;
@@ -862,29 +726,28 @@ SQLRETURN SQLGetDiagRec(SQLSMALLINT     handle_type,
     if (!records || rec_num > records->get_status_records_number())
         return SQL_NO_DATA;
 
-    const diagnostic_record& record = records->get_status_record(rec_num);
+    const diagnostic_record &record = records->get_status_record(rec_num);
 
     if (sql_state)
-        copy_string_to_buffer(record.get_sql_state(), reinterpret_cast<char*>(sql_state), 6);
+        copy_string_to_buffer(record.get_sql_state(), reinterpret_cast<char *>(sql_state), 6);
 
     if (native_error)
         *native_error = 0;
 
-    const std::string& errMsg = record.get_message_text();
+    const std::string &errMsg = record.get_message_text();
 
-    if (!msg_buffer || msg_buffer_len < static_cast<SQLSMALLINT>(errMsg.size() + 1))
-    {
+    if (!msg_buffer || msg_buffer_len < static_cast<SQLSMALLINT>(errMsg.size() + 1)) {
         if (!msg_len)
             return SQL_ERROR;
 
-        copy_string_to_buffer(errMsg, reinterpret_cast<char*>(msg_buffer), static_cast<size_t>(msg_buffer_len));
+        copy_string_to_buffer(errMsg, reinterpret_cast<char *>(msg_buffer), static_cast<size_t>(msg_buffer_len));
 
         *msg_len = static_cast<SQLSMALLINT>(errMsg.size());
 
         return SQL_SUCCESS_WITH_INFO;
     }
 
-    copy_string_to_buffer(errMsg, reinterpret_cast<char*>(msg_buffer), static_cast<size_t>(msg_buffer_len));
+    copy_string_to_buffer(errMsg, reinterpret_cast<char *>(msg_buffer), static_cast<size_t>(msg_buffer_len));
 
     if (msg_len)
         *msg_len = static_cast<SQLSMALLINT>(errMsg.size());
@@ -892,11 +755,10 @@ SQLRETURN SQLGetDiagRec(SQLSMALLINT     handle_type,
     return SQL_SUCCESS;
 }
 
-SQLRETURN SQLGetTypeInfo(SQLHSTMT stmt, SQLSMALLINT type)
-{
+SQLRETURN SQLGetTypeInfo(SQLHSTMT stmt, SQLSMALLINT type) {
     LOG_MSG("SQLGetTypeInfo called: [type=" << type << ']');
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -905,16 +767,13 @@ SQLRETURN SQLGetTypeInfo(SQLHSTMT stmt, SQLSMALLINT type)
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLEndTran(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT completion_type)
-{
+SQLRETURN SQLEndTran(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT completion_type) {
     LOG_MSG("SQLEndTran called");
 
     SQLRETURN result;
 
-    switch (handle_type)
-    {
-        case SQL_HANDLE_ENV:
-        {
+    switch (handle_type) {
+        case SQL_HANDLE_ENV: {
             auto *env = reinterpret_cast<sql_environment *>(handle);
             if (!env)
                 return SQL_INVALID_HANDLE;
@@ -929,9 +788,8 @@ SQLRETURN SQLEndTran(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT comp
             break;
         }
 
-        case SQL_HANDLE_DBC:
-        {
-            auto *conn = reinterpret_cast<sql_connection*>(handle);
+        case SQL_HANDLE_DBC: {
+            auto *conn = reinterpret_cast<sql_connection *>(handle);
             if (!conn)
                 return SQL_INVALID_HANDLE;
 
@@ -945,8 +803,7 @@ SQLRETURN SQLEndTran(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT comp
             break;
         }
 
-        default:
-        {
+        default: {
             result = SQL_INVALID_HANDLE;
 
             break;
@@ -956,16 +813,11 @@ SQLRETURN SQLEndTran(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT comp
     return result;
 }
 
-SQLRETURN SQLGetData(SQLHSTMT       stmt,
-                     SQLUSMALLINT   col_num,
-                     SQLSMALLINT    target_type,
-                     SQLPOINTER     target_value,
-                     SQLLEN         buffer_length,
-                     SQLLEN*        str_length_or_indicator)
-{
+SQLRETURN SQLGetData(SQLHSTMT stmt, SQLUSMALLINT col_num, SQLSMALLINT target_type, SQLPOINTER target_value,
+    SQLLEN buffer_length, SQLLEN *str_length_or_indicator) {
     LOG_MSG("SQLGetData called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -977,13 +829,9 @@ SQLRETURN SQLGetData(SQLHSTMT       stmt,
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLSetEnvAttr(SQLHENV     env,
-                        SQLINTEGER  attr,
-                        SQLPOINTER  value,
-                        SQLINTEGER  value_len)
-{
+SQLRETURN SQLSetEnvAttr(SQLHENV env, SQLINTEGER attr, SQLPOINTER value, SQLINTEGER value_len) {
     LOG_MSG("SQLSetEnvAttr called");
-    LOG_MSG("Attribute: " << attr << ", Value: " << (size_t)value);
+    LOG_MSG("Attribute: " << attr << ", Value: " << (size_t) value);
 
     auto *environment = reinterpret_cast<sql_environment *>(env);
     if (!environment)
@@ -994,12 +842,8 @@ SQLRETURN SQLSetEnvAttr(SQLHENV     env,
     return environment->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLGetEnvAttr(SQLHENV     env,
-                        SQLINTEGER  attr,
-                        SQLPOINTER  value_buf,
-                        SQLINTEGER  value_buf_len,
-                        SQLINTEGER* value_res_len)
-{
+SQLRETURN SQLGetEnvAttr(
+    SQLHENV env, SQLINTEGER attr, SQLPOINTER value_buf, SQLINTEGER value_buf_len, SQLINTEGER *value_res_len) {
     LOG_MSG("SQLGetEnvAttr called");
 
     auto *environment = reinterpret_cast<sql_environment *>(env);
@@ -1007,8 +851,8 @@ SQLRETURN SQLGetEnvAttr(SQLHENV     env,
         return SQL_INVALID_HANDLE;
 
     SQLLEN out_res_len;
-    application_data_buffer out_buffer(odbc_native_type::AI_SIGNED_LONG, value_buf,
-        static_cast<int32_t>(value_buf_len), &out_res_len);
+    application_data_buffer out_buffer(
+        odbc_native_type::AI_SIGNED_LONG, value_buf, static_cast<int32_t>(value_buf_len), &out_res_len);
 
     environment->get_attribute(attr, out_buffer);
 
@@ -1018,17 +862,9 @@ SQLRETURN SQLGetEnvAttr(SQLHENV     env,
     return environment->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLSpecialColumns(SQLHSTMT     stmt,
-                            SQLUSMALLINT id_type,
-                            SQLCHAR*     catalog_name,
-                            SQLSMALLINT  catalog_name_len,
-                            SQLCHAR*     schema_name,
-                            SQLSMALLINT  schema_name_len,
-                            SQLCHAR*     table_name,
-                            SQLSMALLINT  table_name_len,
-                            SQLUSMALLINT scope,
-                            SQLUSMALLINT nullable)
-{
+SQLRETURN SQLSpecialColumns(SQLHSTMT stmt, SQLUSMALLINT id_type, SQLCHAR *catalog_name, SQLSMALLINT catalog_name_len,
+    SQLCHAR *schema_name, SQLSMALLINT schema_name_len, SQLCHAR *table_name, SQLSMALLINT table_name_len,
+    SQLUSMALLINT scope, SQLUSMALLINT nullable) {
     LOG_MSG("SQLSpecialColumns called");
 
     auto *statement = reinterpret_cast<sql_statement *>(stmt);
@@ -1048,11 +884,10 @@ SQLRETURN SQLSpecialColumns(SQLHSTMT     stmt,
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLParamData(SQLHSTMT stmt, SQLPOINTER* value)
-{
+SQLRETURN SQLParamData(SQLHSTMT stmt, SQLPOINTER *value) {
     LOG_MSG("SQLParamData called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -1061,11 +896,10 @@ SQLRETURN SQLParamData(SQLHSTMT stmt, SQLPOINTER* value)
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLPutData(SQLHSTMT stmt, SQLPOINTER data, SQLLEN str_length_or_indicator)
-{
+SQLRETURN SQLPutData(SQLHSTMT stmt, SQLPOINTER data, SQLLEN str_length_or_indicator) {
     LOG_MSG("SQLPutData called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -1074,16 +908,11 @@ SQLRETURN SQLPutData(SQLHSTMT stmt, SQLPOINTER data, SQLLEN str_length_or_indica
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLDescribeParam(SQLHSTMT     stmt,
-                           SQLUSMALLINT param_num,
-                           SQLSMALLINT* data_type,
-                           SQLULEN*     param_size,
-                           SQLSMALLINT* decimal_digits,
-                           SQLSMALLINT* nullable)
-{
+SQLRETURN SQLDescribeParam(SQLHSTMT stmt, SQLUSMALLINT param_num, SQLSMALLINT *data_type, SQLULEN *param_size,
+    SQLSMALLINT *decimal_digits, SQLSMALLINT *nullable) {
     LOG_MSG("SQLDescribeParam called");
 
-    auto *statement = reinterpret_cast<sql_statement*>(stmt);
+    auto *statement = reinterpret_cast<sql_statement *>(stmt);
     if (!statement)
         return SQL_INVALID_HANDLE;
 
@@ -1092,15 +921,8 @@ SQLRETURN SQLDescribeParam(SQLHSTMT     stmt,
     return statement->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQLError(SQLHENV      env,
-                   SQLHDBC      conn,
-                   SQLHSTMT     stmt,
-                   SQLCHAR*     state,
-                   SQLINTEGER*  error,
-                   SQLCHAR*     msg_buf,
-                   SQLSMALLINT  msg_buf_len,
-                   SQLSMALLINT* msg_res_len)
-{
+SQLRETURN SQLError(SQLHENV env, SQLHDBC conn, SQLHSTMT stmt, SQLCHAR *state, SQLINTEGER *error, SQLCHAR *msg_buf,
+    SQLSMALLINT msg_buf_len, SQLSMALLINT *msg_res_len) {
     LOG_MSG("SQLError called");
 
     diagnosable *diag = nullptr;
@@ -1114,19 +936,19 @@ SQLRETURN SQLError(SQLHENV      env,
     else
         return SQL_INVALID_HANDLE;
 
-    diagnostic_record_storage& records = diag->get_diagnostic_records();
+    diagnostic_record_storage &records = diag->get_diagnostic_records();
 
     int32_t rec_num = records.get_last_non_retrieved();
 
     if (rec_num < 1 || rec_num > records.get_status_records_number())
         return SQL_NO_DATA;
 
-    diagnostic_record& record = records.get_status_record(rec_num);
+    diagnostic_record &record = records.get_status_record(rec_num);
 
     record.mark_retrieved();
 
     if (state)
-        copy_string_to_buffer(record.get_sql_state(), reinterpret_cast<char*>(state), 6);
+        copy_string_to_buffer(record.get_sql_state(), reinterpret_cast<char *>(state), 6);
 
     if (error)
         *error = 0;
@@ -1142,12 +964,8 @@ SQLRETURN SQLError(SQLHENV      env,
     return SQL_SUCCESS;
 }
 
-SQLRETURN SQL_API SQLGetConnectAttr(SQLHDBC    conn,
-                                    SQLINTEGER attr,
-                                    SQLPOINTER value_buf,
-                                    SQLINTEGER value_buf_len,
-                                    SQLINTEGER* value_res_len)
-{
+SQLRETURN SQL_API SQLGetConnectAttr(
+    SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value_buf, SQLINTEGER value_buf_len, SQLINTEGER *value_res_len) {
     LOG_MSG("SQLGetConnectAttr called");
 
     auto *connection = reinterpret_cast<sql_connection *>(conn);
@@ -1159,11 +977,7 @@ SQLRETURN SQL_API SQLGetConnectAttr(SQLHDBC    conn,
     return connection->get_diagnostic_records().get_return_code();
 }
 
-SQLRETURN SQL_API SQLSetConnectAttr(SQLHDBC    conn,
-                                    SQLINTEGER attr,
-                                    SQLPOINTER value,
-                                    SQLINTEGER value_len)
-{
+SQLRETURN SQL_API SQLSetConnectAttr(SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value, SQLINTEGER value_len) {
     LOG_MSG("SQLSetConnectAttr called(" << attr << ", " << value << ")");
 
     auto *connection = reinterpret_cast<sql_connection *>(conn);
@@ -1175,8 +989,8 @@ SQLRETURN SQL_API SQLSetConnectAttr(SQLHDBC    conn,
     return connection->get_diagnostic_records().get_return_code();
 }
 
-} // namespace ignite;
+} // namespace ignite
 
 #ifdef __JETBRAINS_IDE__
-#   pragma clang diagnostic pop
+# pragma clang diagnostic pop
 #endif

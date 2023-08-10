@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema;
 
 import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.jetbrains.annotations.Nullable;
@@ -36,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  *      beginning.
  * @implSpec Initial schema history MAY be registered without the first outdated versions that could be cleaned up earlier.
  */
-public interface SchemaRegistry {
+public interface SchemaRegistry extends ManuallyCloseable {
     /**
      * Gets schema descriptor for the latest version if initialized.
      *
@@ -97,4 +98,10 @@ public interface SchemaRegistry {
      * @return Schema-aware rows. Contains {@code null} at the same positions as in {@code rows}.
      */
     List<Row> resolve(Collection<BinaryRow> rows);
+
+    /**
+     * Closes the registry freeing any resources it holds.
+     */
+    @Override
+    void close();
 }

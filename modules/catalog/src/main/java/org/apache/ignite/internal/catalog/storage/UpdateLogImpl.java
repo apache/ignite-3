@@ -58,7 +58,7 @@ public class UpdateLogImpl implements UpdateLog {
     private final MetaStorageManager metastore;
 
     private volatile OnUpdateHandler onUpdateHandler;
-    private volatile @Nullable UpdateListener listener = null;
+    private volatile @Nullable UpdateListener listener;
 
     /**
      * Creates the object.
@@ -69,7 +69,6 @@ public class UpdateLogImpl implements UpdateLog {
         this.metastore = metastore;
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
         if (!busyLock.enterBusy()) {
@@ -86,19 +85,17 @@ public class UpdateLogImpl implements UpdateLog {
                 );
             }
 
-            restoreStateFromVault(handler);
+            recoveryStateFromMetastore(handler);
 
             UpdateListener listener = new UpdateListener(onUpdateHandler);
             this.listener = listener;
 
             metastore.registerPrefixWatch(CatalogKey.updatePrefix(), listener);
-
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         if (!stopGuard.compareAndSet(false, true)) {
@@ -115,13 +112,11 @@ public class UpdateLogImpl implements UpdateLog {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void registerUpdateHandler(OnUpdateHandler handler) {
         onUpdateHandler = handler;
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> append(VersionedUpdate update) {
         if (!busyLock.enterBusy()) {
@@ -149,15 +144,19 @@ public class UpdateLogImpl implements UpdateLog {
         }
     }
 
-    private void restoreStateFromVault(OnUpdateHandler handler) {
-        long appliedRevision = metastore.appliedRevision();
+    private void recoveryStateFromMetastore(OnUpdateHandler handler) {
+        CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
+
+        assert recoveryFinishedFuture.isDone();
+
+        long recoveryRevision = recoveryFinishedFuture.join();
 
         int ver = 1;
 
         // TODO: IGNITE-19790 Read range from metastore
         while (true) {
             ByteArray key = CatalogKey.update(ver++);
-            Entry entry = metastore.getLocally(key, appliedRevision);
+            Entry entry = metastore.getLocally(key, recoveryRevision);
 
             if (entry.empty() || entry.tombstone()) {
                 break;

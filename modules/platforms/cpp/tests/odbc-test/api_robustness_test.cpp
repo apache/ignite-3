@@ -45,44 +45,18 @@ public:
     }
 };
 
-std::vector<SQLSMALLINT> unsupported_c_types = {
-    SQL_C_INTERVAL_YEAR,
-    SQL_C_INTERVAL_MONTH,
-    SQL_C_INTERVAL_DAY,
-    SQL_C_INTERVAL_HOUR,
-    SQL_C_INTERVAL_MINUTE,
-    SQL_C_INTERVAL_SECOND,
-    SQL_C_INTERVAL_YEAR_TO_MONTH,
-    SQL_C_INTERVAL_DAY_TO_HOUR,
-    SQL_C_INTERVAL_DAY_TO_MINUTE,
-    SQL_C_INTERVAL_DAY_TO_SECOND,
-    SQL_C_INTERVAL_HOUR_TO_MINUTE,
-    SQL_C_INTERVAL_HOUR_TO_SECOND,
-    SQL_C_INTERVAL_MINUTE_TO_SECOND
-};
+std::vector<SQLSMALLINT> unsupported_c_types = {SQL_C_INTERVAL_YEAR, SQL_C_INTERVAL_MONTH, SQL_C_INTERVAL_DAY,
+    SQL_C_INTERVAL_HOUR, SQL_C_INTERVAL_MINUTE, SQL_C_INTERVAL_SECOND, SQL_C_INTERVAL_YEAR_TO_MONTH,
+    SQL_C_INTERVAL_DAY_TO_HOUR, SQL_C_INTERVAL_DAY_TO_MINUTE, SQL_C_INTERVAL_DAY_TO_SECOND,
+    SQL_C_INTERVAL_HOUR_TO_MINUTE, SQL_C_INTERVAL_HOUR_TO_SECOND, SQL_C_INTERVAL_MINUTE_TO_SECOND};
 
-std::vector<SQLSMALLINT> unsupported_sql_types = {
-    SQL_WVARCHAR,
-    SQL_WLONGVARCHAR,
-    SQL_REAL,
-    SQL_NUMERIC,
-    SQL_INTERVAL_MONTH,
-    SQL_INTERVAL_YEAR,
-    SQL_INTERVAL_YEAR_TO_MONTH,
-    SQL_INTERVAL_DAY,
-    SQL_INTERVAL_HOUR,
-    SQL_INTERVAL_MINUTE,
-    SQL_INTERVAL_SECOND,
-    SQL_INTERVAL_DAY_TO_HOUR,
-    SQL_INTERVAL_DAY_TO_MINUTE,
-    SQL_INTERVAL_DAY_TO_SECOND,
-    SQL_INTERVAL_HOUR_TO_MINUTE,
-    SQL_INTERVAL_HOUR_TO_SECOND,
-    SQL_INTERVAL_MINUTE_TO_SECOND
-};
+std::vector<SQLSMALLINT> unsupported_sql_types = {SQL_WVARCHAR, SQL_WLONGVARCHAR, SQL_REAL, SQL_NUMERIC,
+    SQL_INTERVAL_MONTH, SQL_INTERVAL_YEAR, SQL_INTERVAL_YEAR_TO_MONTH, SQL_INTERVAL_DAY, SQL_INTERVAL_HOUR,
+    SQL_INTERVAL_MINUTE, SQL_INTERVAL_SECOND, SQL_INTERVAL_DAY_TO_HOUR, SQL_INTERVAL_DAY_TO_MINUTE,
+    SQL_INTERVAL_DAY_TO_SECOND, SQL_INTERVAL_HOUR_TO_MINUTE, SQL_INTERVAL_HOUR_TO_SECOND,
+    SQL_INTERVAL_MINUTE_TO_SECOND};
 
-TEST_F(api_robustness_test, sql_driver_connect)
-{
+TEST_F(api_robustness_test, sql_driver_connect) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -94,28 +68,28 @@ TEST_F(api_robustness_test, sql_driver_connect)
     SQLSMALLINT out_str_len{};
 
     // Normal connect.
-    SQLRETURN ret = SQLDriverConnect(m_conn, NULL, connect_str.data(), SQLSMALLINT(connect_str.size()),
-        out_str, sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
+    SQLRETURN ret = SQLDriverConnect(m_conn, NULL, connect_str.data(), SQLSMALLINT(connect_str.size()), out_str,
+        sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_DBC, m_conn);
 
     SQLDisconnect(m_conn);
 
     // Null out string resulting length.
-    SQLDriverConnect(m_conn, NULL, connect_str.data(), SQLSMALLINT(connect_str.size()),
-        out_str, sizeof(out_str), 0, SQL_DRIVER_COMPLETE);
+    SQLDriverConnect(m_conn, NULL, connect_str.data(), SQLSMALLINT(connect_str.size()), out_str, sizeof(out_str), 0,
+        SQL_DRIVER_COMPLETE);
 
     SQLDisconnect(m_conn);
 
     // Null out string buffer length.
-    SQLDriverConnect(m_conn, NULL, connect_str.data(), SQLSMALLINT(connect_str.size()),
-        out_str, 0, &out_str_len, SQL_DRIVER_COMPLETE);
+    SQLDriverConnect(m_conn, NULL, connect_str.data(), SQLSMALLINT(connect_str.size()), out_str, 0, &out_str_len,
+        SQL_DRIVER_COMPLETE);
 
     SQLDisconnect(m_conn);
 
     // Null output string.
-    SQLDriverConnect(m_conn, NULL, connect_str.data(), SQLSMALLINT(connect_str.size()), 0,
-        sizeof(out_str), &out_str_len, SQL_DRIVER_COMPLETE);
+    SQLDriverConnect(m_conn, NULL, connect_str.data(), SQLSMALLINT(connect_str.size()), 0, sizeof(out_str),
+        &out_str_len, SQL_DRIVER_COMPLETE);
 
     SQLDisconnect(m_conn);
 
@@ -125,8 +99,7 @@ TEST_F(api_robustness_test, sql_driver_connect)
     SQLDisconnect(m_conn);
 }
 
-TEST_F(api_robustness_test, sql_get_info)
-{
+TEST_F(api_robustness_test, sql_get_info) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -156,8 +129,7 @@ TEST_F(api_robustness_test, sql_get_info)
     SQLGetInfo(m_conn, SQL_DRIVER_NAME, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_connect_failed_dsn)
-{
+TEST_F(api_robustness_test, sql_connect_failed_dsn) {
     // Tests that SQLConnect using DSN doesn't fail with link error (especially on linux).
     prepare_environment();
 
@@ -169,8 +141,7 @@ TEST_F(api_robustness_test, sql_connect_failed_dsn)
     EXPECT_EQ(get_odbc_error_state(SQL_HANDLE_DBC, m_conn), "IM002");
 }
 
-TEST_F(api_robustness_test, sql_prepare)
-{
+TEST_F(api_robustness_test, sql_prepare) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -201,8 +172,7 @@ TEST_F(api_robustness_test, sql_prepare)
     SQLCloseCursor(m_statement);
 }
 
-TEST_F(api_robustness_test, sql_exec_direct)
-{
+TEST_F(api_robustness_test, sql_exec_direct) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -232,8 +202,7 @@ TEST_F(api_robustness_test, sql_exec_direct)
     SQLCloseCursor(m_statement);
 }
 
-TEST_F(api_robustness_test, sql_tables)
-{
+TEST_F(api_robustness_test, sql_tables) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -245,12 +214,12 @@ TEST_F(api_robustness_test, sql_tables)
     SQLCHAR tableType[] = "";
 
     // Everything is ok.
-    SQLRETURN ret = SQLTables(m_statement, catalogName, sizeof(catalogName), schemaName,
-        sizeof(schemaName), tableName, sizeof(tableName), tableType, sizeof(tableType));
+    SQLRETURN ret = SQLTables(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
+        sizeof(tableName), tableType, sizeof(tableType));
 
     UNUSED_VALUE ret;
     // TODO IGNITE-19214: Uncomment once table metadata is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Sizes are nulls.
     SQLTables(m_conn, catalogName, 0, schemaName, 0, tableName, 0, tableType, 0);
@@ -262,8 +231,7 @@ TEST_F(api_robustness_test, sql_tables)
     SQLTables(m_conn, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_columns)
-{
+TEST_F(api_robustness_test, sql_columns) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -275,12 +243,12 @@ TEST_F(api_robustness_test, sql_columns)
     SQLCHAR columnName[] = "";
 
     // Everything is ok.
-    SQLRETURN ret = SQLColumns(m_statement, catalogName, sizeof(catalogName), schemaName,
-        sizeof(schemaName), tableName, sizeof(tableName), columnName, sizeof(columnName));
+    SQLRETURN ret = SQLColumns(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
+        sizeof(tableName), columnName, sizeof(columnName));
 
     UNUSED_VALUE ret;
     // TODO IGNITE-19214: Uncomment once column metadata is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Sizes are nulls.
     SQLColumns(m_conn, catalogName, 0, schemaName, 0, tableName, 0, columnName, 0);
@@ -292,8 +260,7 @@ TEST_F(api_robustness_test, sql_columns)
     SQLColumns(m_conn, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_bind_col)
-{
+TEST_F(api_robustness_test, sql_bind_col) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -307,9 +274,8 @@ TEST_F(api_robustness_test, sql_bind_col)
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    //Unsupported data types
-    for (short c_type : unsupported_c_types)
-    {
+    // Unsupported data types
+    for (short c_type : unsupported_c_types) {
         ret = SQLBindCol(m_statement, 1, c_type, &ind1, sizeof(ind1), &len1);
         ASSERT_EQ(ret, SQL_ERROR);
         EXPECT_EQ(get_statement_error_state(), "HY003");
@@ -333,8 +299,7 @@ TEST_F(api_robustness_test, sql_bind_col)
     SQLBindCol(m_statement, 4, SQL_C_SLONG, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_bind_parameter)
-{
+TEST_F(api_robustness_test, sql_bind_parameter) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -344,28 +309,26 @@ TEST_F(api_robustness_test, sql_bind_parameter)
     SQLLEN len1 = 0;
 
     // Everything is ok.
-    SQLRETURN ret = SQLBindParameter(m_statement, 1, SQL_PARAM_INPUT,
-        SQL_C_SLONG, SQL_INTEGER, 100, 100, &ind1, sizeof(ind1), &len1);
+    SQLRETURN ret = SQLBindParameter(
+        m_statement, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 100, 100, &ind1, sizeof(ind1), &len1);
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    //Unsupported parameter type: output
-    SQLBindParameter(m_statement, 2, SQL_PARAM_OUTPUT, SQL_C_SLONG, SQL_INTEGER,
-        100, 100, &ind1, sizeof(ind1), &len1);
+    // Unsupported parameter type: output
+    SQLBindParameter(m_statement, 2, SQL_PARAM_OUTPUT, SQL_C_SLONG, SQL_INTEGER, 100, 100, &ind1, sizeof(ind1), &len1);
 
     EXPECT_EQ(get_statement_error_state(), "HY105");
 
-    //Unsupported parameter type: input/output
-    SQLBindParameter(m_statement, 2, SQL_PARAM_INPUT_OUTPUT, SQL_C_SLONG, SQL_INTEGER,
-        100, 100, &ind1, sizeof(ind1), &len1);
+    // Unsupported parameter type: input/output
+    SQLBindParameter(
+        m_statement, 2, SQL_PARAM_INPUT_OUTPUT, SQL_C_SLONG, SQL_INTEGER, 100, 100, &ind1, sizeof(ind1), &len1);
 
     EXPECT_EQ(get_statement_error_state(), "HY105");
 
-    //Unsupported data types
-    for (short sql_type : unsupported_sql_types)
-    {
-        ret = SQLBindParameter(m_statement, 2, SQL_PARAM_INPUT, SQL_C_SLONG,
-            sql_type, 100, 100, &ind1, sizeof(ind1), &len1);
+    // Unsupported data types
+    for (short sql_type : unsupported_sql_types) {
+        ret = SQLBindParameter(
+            m_statement, 2, SQL_PARAM_INPUT, SQL_C_SLONG, sql_type, 100, 100, &ind1, sizeof(ind1), &len1);
 
         ASSERT_EQ(ret, SQL_ERROR);
         EXPECT_EQ(get_statement_error_state(), "HYC00");
@@ -384,8 +347,7 @@ TEST_F(api_robustness_test, sql_bind_parameter)
     SQLBindParameter(m_statement, 5, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 100, 100, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_native_sql)
-{
+TEST_F(api_robustness_test, sql_native_sql) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -419,8 +381,7 @@ TEST_F(api_robustness_test, sql_native_sql)
     SQLNativeSql(m_conn, sql, 0, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_col_attribute)
-{
+TEST_F(api_robustness_test, sql_col_attribute) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -440,14 +401,14 @@ TEST_F(api_robustness_test, sql_col_attribute)
 
     UNUSED_VALUE ret;
     // TODO IGNITE-19214: Uncomment once column metadata is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     // Everything is ok. Numeric attribute.
     ret = SQLColAttribute(m_statement, 1, SQL_DESC_COUNT, buffer, sizeof(buffer), &resLen, &numericAttr);
 
     UNUSED_VALUE ret;
     // TODO IGNITE-19214: Uncomment once column metadata is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLColAttribute(m_statement, 1, SQL_COLUMN_TABLE_NAME, buffer, sizeof(buffer), &resLen, 0);
     SQLColAttribute(m_statement, 1, SQL_COLUMN_TABLE_NAME, buffer, sizeof(buffer), 0, &numericAttr);
@@ -462,8 +423,7 @@ TEST_F(api_robustness_test, sql_col_attribute)
     SQLColAttribute(m_statement, 1, SQL_DESC_COUNT, 0, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_describe_col)
-{
+TEST_F(api_robustness_test, sql_describe_col) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -482,25 +442,30 @@ TEST_F(api_robustness_test, sql_describe_col)
     SQLSMALLINT nullable = 0;
 
     // Everything is ok.
-    ret = SQLDescribeCol(m_statement, 1, columnName, sizeof(columnName),
-        &columnNameLen, &dataType, &columnSize, &decimalDigits, &nullable);
+    ret = SQLDescribeCol(m_statement, 1, columnName, sizeof(columnName), &columnNameLen, &dataType, &columnSize,
+        &decimalDigits, &nullable);
 
     UNUSED_VALUE ret;
     // TODO IGNITE-19214: Uncomment once column metadata is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
-    SQLDescribeCol(m_statement, 1, 0, sizeof(columnName), &columnNameLen, &dataType, &columnSize, &decimalDigits, &nullable);
+    SQLDescribeCol(
+        m_statement, 1, 0, sizeof(columnName), &columnNameLen, &dataType, &columnSize, &decimalDigits, &nullable);
     SQLDescribeCol(m_statement, 1, columnName, 0, &columnNameLen, &dataType, &columnSize, &decimalDigits, &nullable);
-    SQLDescribeCol(m_statement, 1, columnName, sizeof(columnName), 0, &dataType, &columnSize, &decimalDigits, &nullable);
-    SQLDescribeCol(m_statement, 1, columnName, sizeof(columnName), &columnNameLen, 0, &columnSize, &decimalDigits, &nullable);
-    SQLDescribeCol(m_statement, 1, columnName, sizeof(columnName), &columnNameLen, &dataType, 0, &decimalDigits, &nullable);
-    SQLDescribeCol(m_statement, 1, columnName, sizeof(columnName), &columnNameLen, &dataType, &columnSize, 0, &nullable);
-    SQLDescribeCol(m_statement, 1, columnName, sizeof(columnName), &columnNameLen, &dataType, &columnSize, &decimalDigits, 0);
+    SQLDescribeCol(
+        m_statement, 1, columnName, sizeof(columnName), 0, &dataType, &columnSize, &decimalDigits, &nullable);
+    SQLDescribeCol(
+        m_statement, 1, columnName, sizeof(columnName), &columnNameLen, 0, &columnSize, &decimalDigits, &nullable);
+    SQLDescribeCol(
+        m_statement, 1, columnName, sizeof(columnName), &columnNameLen, &dataType, 0, &decimalDigits, &nullable);
+    SQLDescribeCol(
+        m_statement, 1, columnName, sizeof(columnName), &columnNameLen, &dataType, &columnSize, 0, &nullable);
+    SQLDescribeCol(
+        m_statement, 1, columnName, sizeof(columnName), &columnNameLen, &dataType, &columnSize, &decimalDigits, 0);
     SQLDescribeCol(m_statement, 1, 0, 0, 0, 0, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_row_count)
-{
+TEST_F(api_robustness_test, sql_row_count) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -520,8 +485,7 @@ TEST_F(api_robustness_test, sql_row_count)
     SQLRowCount(m_statement, 0);
 }
 
-TEST_F(api_robustness_test, sql_foreign_keys)
-{
+TEST_F(api_robustness_test, sql_foreign_keys) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -533,12 +497,12 @@ TEST_F(api_robustness_test, sql_foreign_keys)
 
     // Everything is ok.
     SQLRETURN ret = SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName),
-        tableName, sizeof(tableName), catalogName, sizeof(catalogName),
-        schemaName, sizeof(schemaName), tableName, sizeof(tableName));
+        tableName, sizeof(tableName), catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
+        sizeof(tableName));
 
     UNUSED_VALUE ret;
     // TODO IGNITE-19217: Uncomment once foreign keys query is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCloseCursor(m_statement);
 
@@ -567,38 +531,38 @@ TEST_F(api_robustness_test, sql_foreign_keys)
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, 0, catalogName,
-        sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, 0,
+        catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName),
-        0, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
+        sizeof(tableName), 0, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName),
-        catalogName, 0, schemaName, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
+        sizeof(tableName), catalogName, 0, schemaName, sizeof(schemaName), tableName, sizeof(tableName));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName),
-        catalogName, sizeof(catalogName), 0, sizeof(schemaName), tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
+        sizeof(tableName), catalogName, sizeof(catalogName), 0, sizeof(schemaName), tableName, sizeof(tableName));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName),
-        catalogName, sizeof(catalogName), schemaName, 0, tableName, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
+        sizeof(tableName), catalogName, sizeof(catalogName), schemaName, 0, tableName, sizeof(tableName));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName),
-        catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), 0, sizeof(tableName));
+    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
+        sizeof(tableName), catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), 0, sizeof(tableName));
 
     SQLCloseCursor(m_statement);
 
-    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName),
-        catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, 0);
+    SQLForeignKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName,
+        sizeof(tableName), catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, 0);
 
     SQLCloseCursor(m_statement);
 
@@ -607,8 +571,7 @@ TEST_F(api_robustness_test, sql_foreign_keys)
     SQLCloseCursor(m_statement);
 }
 
-TEST_F(api_robustness_test, sql_get_stmt_attr)
-{
+TEST_F(api_robustness_test, sql_get_stmt_attr) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -628,8 +591,7 @@ TEST_F(api_robustness_test, sql_get_stmt_attr)
     SQLGetStmtAttr(m_statement, SQL_ATTR_ROW_ARRAY_SIZE, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_set_stmt_attr)
-{
+TEST_F(api_robustness_test, sql_set_stmt_attr) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -638,7 +600,8 @@ TEST_F(api_robustness_test, sql_set_stmt_attr)
     SQLULEN val = 1;
 
     // Everything is ok.
-    SQLRETURN ret = SQLSetStmtAttr(m_statement, SQL_ATTR_ROW_ARRAY_SIZE, reinterpret_cast<SQLPOINTER>(val), sizeof(val));
+    SQLRETURN ret =
+        SQLSetStmtAttr(m_statement, SQL_ATTR_ROW_ARRAY_SIZE, reinterpret_cast<SQLPOINTER>(val), sizeof(val));
 
     ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
@@ -647,8 +610,7 @@ TEST_F(api_robustness_test, sql_set_stmt_attr)
     SQLSetStmtAttr(m_statement, SQL_ATTR_ROW_ARRAY_SIZE, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_primary_keys)
-{
+TEST_F(api_robustness_test, sql_primary_keys) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -659,12 +621,12 @@ TEST_F(api_robustness_test, sql_primary_keys)
     SQLCHAR tableName[] = "TestType";
 
     // Everything is ok.
-    SQLRETURN ret = SQLPrimaryKeys(m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName),
-        tableName, sizeof(tableName));
+    SQLRETURN ret = SQLPrimaryKeys(
+        m_statement, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
 
     UNUSED_VALUE ret;
     // TODO IGNITE-19219: Uncomment once primary keys query execution is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLPrimaryKeys(m_statement, 0, sizeof(catalogName), schemaName, sizeof(schemaName), tableName, sizeof(tableName));
     SQLPrimaryKeys(m_statement, catalogName, 0, schemaName, sizeof(schemaName), tableName, sizeof(tableName));
@@ -675,8 +637,7 @@ TEST_F(api_robustness_test, sql_primary_keys)
     SQLPrimaryKeys(m_statement, 0, 0, 0, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_num_params)
-{
+TEST_F(api_robustness_test, sql_num_params) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -696,13 +657,12 @@ TEST_F(api_robustness_test, sql_num_params)
 
     UNUSED_VALUE ret;
     // TODO IGNITE-19219: Uncomment once query execution is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLNumParams(m_statement, 0);
 }
 
-TEST_F(api_robustness_test, sql_num_params_escaped)
-{
+TEST_F(api_robustness_test, sql_num_params_escaped) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -722,13 +682,12 @@ TEST_F(api_robustness_test, sql_num_params_escaped)
 
     UNUSED_VALUE ret;
     // TODO IGNITE-19219: Uncomment once query execution is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLNumParams(m_statement, 0);
 }
 
-TEST_F(api_robustness_test, sql_get_diag_field)
-{
+TEST_F(api_robustness_test, sql_get_diag_field) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -753,8 +712,7 @@ TEST_F(api_robustness_test, sql_get_diag_field)
     SQLGetDiagField(SQL_HANDLE_STMT, m_statement, 1, SQL_DIAG_MESSAGE_TEXT, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_get_diag_rec)
-{
+TEST_F(api_robustness_test, sql_get_diag_rec) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR state[ODBC_BUFFER_SIZE];
@@ -788,8 +746,7 @@ TEST_F(api_robustness_test, sql_get_diag_rec)
     SQLGetDiagRec(SQL_HANDLE_STMT, m_statement, 1, 0, 0, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_get_env_attr)
-{
+TEST_F(api_robustness_test, sql_get_env_attr) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -809,8 +766,7 @@ TEST_F(api_robustness_test, sql_get_env_attr)
     SQLGetEnvAttr(m_env, SQL_ATTR_ODBC_VERSION, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_special_columns)
-{
+TEST_F(api_robustness_test, sql_special_columns) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
@@ -821,12 +777,12 @@ TEST_F(api_robustness_test, sql_special_columns)
     SQLCHAR tableName[] = "TestType";
 
     // Everything is ok.
-    SQLRETURN ret = SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalogName, sizeof(catalogName),
-        schemaName, sizeof(schemaName), tableName, sizeof(tableName), SQL_SCOPE_CURROW, SQL_NO_NULLS);
+    SQLRETURN ret = SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalogName, sizeof(catalogName), schemaName,
+        sizeof(schemaName), tableName, sizeof(tableName), SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
     UNUSED_VALUE ret;
     // TODO IGNITE-19218: Uncomment once special columns query execution is implemented.
-    //ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
+    // ODBC_FAIL_ON_ERROR(ret, SQL_HANDLE_STMT, m_statement);
 
     SQLCloseCursor(m_statement);
 
@@ -850,8 +806,8 @@ TEST_F(api_robustness_test, sql_special_columns)
 
     SQLCloseCursor(m_statement);
 
-    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName),
-        0, sizeof(tableName), SQL_SCOPE_CURROW, SQL_NO_NULLS);
+    SQLSpecialColumns(m_statement, SQL_BEST_ROWID, catalogName, sizeof(catalogName), schemaName, sizeof(schemaName), 0,
+        sizeof(tableName), SQL_SCOPE_CURROW, SQL_NO_NULLS);
 
     SQLCloseCursor(m_statement);
 
@@ -865,16 +821,15 @@ TEST_F(api_robustness_test, sql_special_columns)
     SQLCloseCursor(m_statement);
 }
 
-TEST_F(api_robustness_test, sql_error)
-{
+TEST_F(api_robustness_test, sql_error) {
     // There are no checks because we do not really care what is the result of these
     // calls as long as they do not cause segmentation fault.
 
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR state[6] = { 0 };
+    SQLCHAR state[6] = {0};
     SQLINTEGER nativeCode = 0;
-    SQLCHAR message[ODBC_BUFFER_SIZE] = { 0 };
+    SQLCHAR message[ODBC_BUFFER_SIZE] = {0};
     SQLSMALLINT messageLen = 0;
 
     // Everything is ok.
@@ -910,8 +865,7 @@ TEST_F(api_robustness_test, sql_error)
     SQLError(0, 0, 0, 0, 0, 0, 0, 0);
 }
 
-TEST_F(api_robustness_test, sql_diagnostic_records)
-{
+TEST_F(api_robustness_test, sql_diagnostic_records) {
     odbc_connect(get_basic_connection_string());
 
     SQLHANDLE hnd;
@@ -925,21 +879,18 @@ TEST_F(api_robustness_test, sql_diagnostic_records)
     EXPECT_EQ(get_statement_error_state(), "HY092");
 }
 
-TEST_F(api_robustness_test, many_fds)
-{
+TEST_F(api_robustness_test, many_fds) {
     enum { FDS_NUM = 2000 };
 
-    std::FILE* fds[FDS_NUM];
+    std::FILE *fds[FDS_NUM];
 
     for (auto &fd : fds)
         fd = tmpfile();
 
     odbc_connect(get_basic_connection_string());
 
-    for (auto fd : fds)
-    {
+    for (auto fd : fds) {
         if (fd)
             fclose(fd);
     }
 }
-

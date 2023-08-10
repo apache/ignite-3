@@ -46,7 +46,6 @@ set(PUBLIC_HEADERS
     ignite_client_authenticator.h
     ignite_client_configuration.h
     ignite_logger.h
-    primitive.h
     type_mapping.h
     compute/compute.h
     compute/deployment_unit.h
@@ -86,5 +85,3 @@ if (${INSTALL_IGNITE_FILES})
 
     ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
 endif()
-
-ignite_test(primitive_test primitive_test.cpp LIBS ${TARGET})

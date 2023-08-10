@@ -252,6 +252,16 @@ public:
     }
 
     /**
+     * Get array element.
+     *
+     * @param idx Index.
+     * @return Element reference.
+     */
+    [[nodiscard]] const msgpack_object &get_array_element(std::uint32_t idx) const {
+        return m_current_val.data.via.array.ptr[idx];
+    }
+
+    /**
      * Read array.
      *
      * @tparam T Value type.
@@ -335,10 +345,10 @@ private:
     msgpack_unpack_return m_move_res;
 
     /** Offset to next value. */
-    size_t m_offset_next{0};
+    std::size_t m_offset_next{0};
 
     /** Offset. */
-    size_t m_offset{0};
+    std::size_t m_offset{0};
 };
 
 } // namespace ignite::protocol

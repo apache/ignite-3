@@ -262,7 +262,7 @@ Gradle build also provides the task that can build docker image. To run this tas
 
 Run docker container with ignite node:
 ```shell
-docker run -it --rm -p 10300:10300 apacheignite/ignite3
+docker run -it --rm -p 10300:10300 -p 10800:10800 apacheignite/ignite3
 ```
 
 There's a sample docker compose file which allows to run 3 nodes in a cluster in the `packaging/docker` directory. You can also use CLI from

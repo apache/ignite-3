@@ -18,13 +18,10 @@
 #include "common_types.h"
 #include "ignite/odbc/system/odbc_constants.h"
 
-namespace ignite
-{
+namespace ignite {
 
-SQLRETURN sql_result_to_return_code(sql_result result)
-{
-    switch (result)
-    {
+SQLRETURN sql_result_to_return_code(sql_result result) {
+    switch (result) {
         case sql_result::AI_SUCCESS:
             return SQL_SUCCESS;
 
@@ -43,10 +40,8 @@ SQLRETURN sql_result_to_return_code(sql_result result)
     }
 }
 
-diagnostic_field diagnostic_field_to_internal(int16_t field)
-{
-    switch (field)
-    {
+diagnostic_field diagnostic_field_to_internal(int16_t field) {
+    switch (field) {
         case SQL_DIAG_CURSOR_ROW_COUNT:
             return diagnostic_field::HEADER_CURSOR_ROW_COUNT;
 
@@ -99,10 +94,8 @@ diagnostic_field diagnostic_field_to_internal(int16_t field)
     return diagnostic_field::UNKNOWN;
 }
 
-environment_attribute environment_attribute_to_internal(int32_t attr)
-{
-    switch (attr)
-    {
+environment_attribute environment_attribute_to_internal(int32_t attr) {
+    switch (attr) {
         case SQL_ATTR_ODBC_VERSION:
             return environment_attribute::ODBC_VERSION;
 
@@ -116,10 +109,8 @@ environment_attribute environment_attribute_to_internal(int32_t attr)
     return environment_attribute::UNKNOWN;
 }
 
-sql_state response_status_to_sql_state(int32_t status)
-{
-    switch (response_status(status))
-    {
+sql_state response_status_to_sql_state(int32_t status) {
+    switch (response_status(status)) {
         case response_status::PARSING_FAILURE:
         case response_status::KEY_UPDATE:
         case response_status::UNEXPECTED_OPERATION:
@@ -174,4 +165,3 @@ sql_state response_status_to_sql_state(int32_t status)
 }
 
 } // namespace ignite
-

@@ -170,8 +170,6 @@ public class ConfigurationAnyListenerTest {
 
         registry.start();
 
-        registry.initializeDefaults();
-
         rootConfig = registry.getConfiguration(RootConfiguration.KEY);
 
         // Add "regular" listeners.

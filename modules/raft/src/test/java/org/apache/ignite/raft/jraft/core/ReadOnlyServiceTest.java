@@ -296,4 +296,52 @@ public class ReadOnlyServiceTest {
         latch.await();
         assertTrue(this.readOnlyServiceImpl.getPendingNotifyStatus().isEmpty());
     }
+
+    @Test
+    public void testOverMaxReadIndexLag() throws Exception {
+        Mockito.when(this.fsmCaller.getLastAppliedIndex()).thenReturn(1L);
+        this.readOnlyServiceImpl.getRaftOptions().setMaxReadIndexLag(50);
+
+        byte[] requestContext = TestUtils.getRandomBytes();
+        CountDownLatch latch = new CountDownLatch(1);
+        final String errMsg =
+                "Fail to run ReadIndex task, the gap of current node's apply index between leader's commit index over maxReadIndexLag";
+        this.readOnlyServiceImpl.addRequest(requestContext, new ReadIndexClosure() {
+
+            @Override
+            public void run(Status status, long index, byte[] reqCtx) {
+                assertFalse(status.isOk());
+                assertEquals(status.getErrorMsg(), errMsg);
+                assertEquals(index, -1);
+                assertArrayEquals(reqCtx, requestContext);
+                latch.countDown();
+            }
+        });
+        this.readOnlyServiceImpl.flush();
+
+        final ArgumentCaptor<RpcResponseClosure> closureCaptor = ArgumentCaptor.forClass(RpcResponseClosure.class);
+
+        Mockito.verify(this.node).handleReadIndexRequest(Mockito.argThat(new ArgumentMatcher<ReadIndexRequest>() {
+
+            @Override
+            public boolean matches(ReadIndexRequest argument) {
+                if (argument != null) {
+                    ReadIndexRequest req = (ReadIndexRequest) argument;
+                    return "test".equals(req.groupId()) && "localhost-8081".equals(req.serverId())
+                            && Utils.size(req.entriesList()) == 1
+                            && Arrays.equals(requestContext, req.entriesList().get(0).toByteArray());
+                }
+                return false;
+            }
+
+        }), closureCaptor.capture());
+
+        RpcResponseClosure closure = closureCaptor.getValue();
+
+        assertNotNull(closure);
+
+        closure.setResponse(msgFactory.readIndexResponse().index(52).success(true).build());
+        closure.run(Status.OK());
+        latch.await();
+    }
 }

@@ -120,6 +120,10 @@ namespace Apache.Ignite.Tests
 
         public int RequestCount { get; set; }
 
+        public long ObservableTimestamp { get; set; }
+
+        public long LastClientObservableTimestamp { get; set; }
+
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
@@ -281,6 +285,9 @@ namespace Apache.Ignite.Tests
                         continue;
 
                     case ClientOp.TxBegin:
+                        reader.Skip(); // Read only.
+                        LastClientObservableTimestamp = reader.ReadInt64();
+
                         Send(handler, requestId, new byte[] { 0 }.AsMemory());
                         continue;
 
@@ -316,10 +323,11 @@ namespace Apache.Ignite.Tests
                 using var errWriter = new PooledArrayBuffer();
                 var w = new MsgPackWriter(errWriter);
                 w.Write(Guid.Empty);
-                w.Write(262147);
+                w.Write(262150);
                 w.Write("org.foo.bar.BazException");
                 w.Write(Err);
                 w.WriteNil(); // Stack trace.
+                w.WriteNil(); // Error extensions.
 
                 Send(handler, requestId, errWriter, isError: true);
             }
@@ -338,6 +346,7 @@ namespace Apache.Ignite.Tests
             writer.Write(0); // Message type.
             writer.Write(requestId);
             writer.Write(PartitionAssignmentChanged ? (int)ResponseFlags.PartitionAssignmentChanged : 0);
+            writer.Write(ObservableTimestamp); // Observable timestamp.
 
             if (!isError)
             {
@@ -408,6 +417,17 @@ namespace Apache.Ignite.Tests
 
             var sql = reader.ReadString();
             props["sql"] = sql;
+
+            if (!reader.TryReadNil())
+            {
+                var argCount = reader.ReadInt32();
+                if (argCount > 0)
+                {
+                    reader.Skip();
+                }
+            }
+
+            LastClientObservableTimestamp = reader.ReadInt64();
 
             LastSql = sql;
             LastSqlPageSize = pageSize;

@@ -20,147 +20,144 @@
 #include <set>
 #include <string>
 
-namespace
-{
-    /** SQLSTATEs defined by Open Group and ISO call-level interface. */
-    const std::string ORIGIN_ISO_9075 = "ISO 9075";
+namespace {
+/** SQLSTATEs defined by Open Group and ISO call-level interface. */
+const std::string ORIGIN_ISO_9075 = "ISO 9075";
 
-    /** ODBC-specific SQLSTATEs (all those whose SQLSTATE class is "IM"). */
-    const std::string ORIGIN_ODBC_3_0 = "ODBC 3.0";
+/** ODBC-specific SQLSTATEs (all those whose SQLSTATE class is "IM"). */
+const std::string ORIGIN_ODBC_3_0 = "ODBC 3.0";
 
-    /** SQL state unknown constant. */
-    const std::string STATE_UNKNOWN;
+/** SQL state unknown constant. */
+const std::string STATE_UNKNOWN;
 
-    /** SQL state 01004 constant. */
-    const std::string STATE_01004 = "01004";
+/** SQL state 01004 constant. */
+const std::string STATE_01004 = "01004";
 
-    /** SQL state 01S00 constant. */
-    const std::string STATE_01S00 = "01S00";
+/** SQL state 01S00 constant. */
+const std::string STATE_01S00 = "01S00";
 
-    /** SQL state 01S01 constant. */
-    const std::string STATE_01S01 = "01S01";
+/** SQL state 01S01 constant. */
+const std::string STATE_01S01 = "01S01";
 
-    /** SQL state 01S02 constant. */
-    const std::string STATE_01S02 = "01S02";
+/** SQL state 01S02 constant. */
+const std::string STATE_01S02 = "01S02";
 
-    /** SQL state 01S07 constant. */
-    const std::string STATE_01S07 = "01S07";
+/** SQL state 01S07 constant. */
+const std::string STATE_01S07 = "01S07";
 
-    /** SQL state 07009 constant. */
-    const std::string STATE_07009 = "07009";
+/** SQL state 07009 constant. */
+const std::string STATE_07009 = "07009";
 
-    /** SQL state 07006 constant. */
-    const std::string STATE_07006 = "07006";
+/** SQL state 07006 constant. */
+const std::string STATE_07006 = "07006";
 
-    /** SQL state 08001 constant. */
-    const std::string STATE_08001 = "08001";
+/** SQL state 08001 constant. */
+const std::string STATE_08001 = "08001";
 
-    /** SQL state 08002 constant. */
-    const std::string STATE_08002 = "08002";
+/** SQL state 08002 constant. */
+const std::string STATE_08002 = "08002";
 
-    /** SQL state 08003 constant. */
-    const std::string STATE_08003 = "08003";
+/** SQL state 08003 constant. */
+const std::string STATE_08003 = "08003";
 
-    /** SQL state 08004 constant. */
-    const std::string STATE_08004 = "08004";
+/** SQL state 08004 constant. */
+const std::string STATE_08004 = "08004";
 
-    /** SQL state 08S01 constant. */
-    const std::string STATE_08S01 = "08S01";
+/** SQL state 08S01 constant. */
+const std::string STATE_08S01 = "08S01";
 
-    /** SQL state 22002 constant. */
-    const std::string STATE_22002 = "22002";
+/** SQL state 22002 constant. */
+const std::string STATE_22002 = "22002";
 
-    /** SQL state 22026 constant. */
-    const std::string STATE_22026 = "22026";
+/** SQL state 22026 constant. */
+const std::string STATE_22026 = "22026";
 
-    /** SQL state 23000 constant. */
-    const std::string STATE_23000 = "23000";
+/** SQL state 23000 constant. */
+const std::string STATE_23000 = "23000";
 
-    /** SQL state 24000 constant. */
-    const std::string STATE_24000 = "24000";
+/** SQL state 24000 constant. */
+const std::string STATE_24000 = "24000";
 
-    /** SQL state 25000 constant. */
-    const std::string STATE_25000 = "25000";
+/** SQL state 25000 constant. */
+const std::string STATE_25000 = "25000";
 
-    /** SQL state 3F000 constant. */
-    const std::string STATE_3F000 = "3F000";
+/** SQL state 3F000 constant. */
+const std::string STATE_3F000 = "3F000";
 
-    /** SQL state 40001 constant. */
-    const std::string STATE_40001 = "40001";
+/** SQL state 40001 constant. */
+const std::string STATE_40001 = "40001";
 
-    /** SQL state 42000 constant. */
-    const std::string STATE_42000 = "42000";
+/** SQL state 42000 constant. */
+const std::string STATE_42000 = "42000";
 
-    /** SQL state 42S01 constant. */
-    const std::string STATE_42S01 = "42S01";
+/** SQL state 42S01 constant. */
+const std::string STATE_42S01 = "42S01";
 
-    /** SQL state 42S02 constant. */
-    const std::string STATE_42S02 = "42S02";
+/** SQL state 42S02 constant. */
+const std::string STATE_42S02 = "42S02";
 
-    /** SQL state 42S11 constant. */
-    const std::string STATE_42S11 = "42S11";
+/** SQL state 42S11 constant. */
+const std::string STATE_42S11 = "42S11";
 
-    /** SQL state 42S12 constant. */
-    const std::string STATE_42S12 = "42S12";
+/** SQL state 42S12 constant. */
+const std::string STATE_42S12 = "42S12";
 
-    /** SQL state 42S21 constant. */
-    const std::string STATE_42S21 = "42S21";
+/** SQL state 42S21 constant. */
+const std::string STATE_42S21 = "42S21";
 
-    /** SQL state 42S22 constant. */
-    const std::string STATE_42S22 = "42S22";
+/** SQL state 42S22 constant. */
+const std::string STATE_42S22 = "42S22";
 
-    /** SQL state HY000 constant. */
-    const std::string STATE_HY000 = "HY000";
+/** SQL state HY000 constant. */
+const std::string STATE_HY000 = "HY000";
 
-    /** SQL state HY001 constant. */
-    const std::string STATE_HY001 = "HY001";
+/** SQL state HY001 constant. */
+const std::string STATE_HY001 = "HY001";
 
-    /** SQL state HY003 constant. */
-    const std::string STATE_HY003 = "HY003";
+/** SQL state HY003 constant. */
+const std::string STATE_HY003 = "HY003";
 
-    /** SQL state HY004 constant. */
-    const std::string STATE_HY004 = "HY004";
+/** SQL state HY004 constant. */
+const std::string STATE_HY004 = "HY004";
 
-    /** SQL state HY009 constant. */
-    const std::string STATE_HY009 = "HY009";
+/** SQL state HY009 constant. */
+const std::string STATE_HY009 = "HY009";
 
-    /** SQL state HY010 constant. */
-    const std::string STATE_HY010 = "HY010";
+/** SQL state HY010 constant. */
+const std::string STATE_HY010 = "HY010";
 
-    /** SQL state HY090 constant. */
-    const std::string STATE_HY090 = "HY090";
+/** SQL state HY090 constant. */
+const std::string STATE_HY090 = "HY090";
 
-    /** SQL state HY092 constant. */
-    const std::string STATE_HY092 = "HY092";
+/** SQL state HY092 constant. */
+const std::string STATE_HY092 = "HY092";
 
-    /** SQL state HY097 constant. */
-    const std::string STATE_HY097 = "HY097";
+/** SQL state HY097 constant. */
+const std::string STATE_HY097 = "HY097";
 
-    /** SQL state HY105 constant. */
-    const std::string STATE_HY105 = "HY105";
+/** SQL state HY105 constant. */
+const std::string STATE_HY105 = "HY105";
 
-    /** SQL state HY106 constant. */
-    const std::string STATE_HY106 = "HY106";
+/** SQL state HY106 constant. */
+const std::string STATE_HY106 = "HY106";
 
-    /** SQL state HYC00 constant. */
-    const std::string STATE_HYC00 = "HYC00";
+/** SQL state HYC00 constant. */
+const std::string STATE_HYC00 = "HYC00";
 
-    /** SQL state HYT00 constant. */
-    const std::string STATE_HYT00 = "HYT00";
+/** SQL state HYT00 constant. */
+const std::string STATE_HYT00 = "HYT00";
 
-    /** SQL state HYT01 constant. */
-    const std::string STATE_HYT01 = "HYT01";
+/** SQL state HYT01 constant. */
+const std::string STATE_HYT01 = "HYT01";
 
-    /** SQL state IM001 constant. */
-    const std::string STATE_IM001 = "IM001";
-}
+/** SQL state IM001 constant. */
+const std::string STATE_IM001 = "IM001";
+} // namespace
 
-namespace ignite
-{
+namespace ignite {
 
-const std::string& diagnostic_record::get_class_origin() const
-{
-    const std::string& state = get_sql_state();
+const std::string &diagnostic_record::get_class_origin() const {
+    const std::string &state = get_sql_state();
 
     if (state[0] == 'I' && state[1] == 'M')
         return ORIGIN_ODBC_3_0;
@@ -168,12 +165,10 @@ const std::string& diagnostic_record::get_class_origin() const
     return ORIGIN_ISO_9075;
 }
 
-const std::string& diagnostic_record::get_subclass_origin() const
-{
+const std::string &diagnostic_record::get_subclass_origin() const {
     static std::set<std::string> odbcSubclasses;
 
-    if (odbcSubclasses.empty())
-    {
+    if (odbcSubclasses.empty()) {
         // This is a fixed list taken from ODBC doc.
         // Please do not add/remove values here.
         odbcSubclasses.insert("01S00");
@@ -220,7 +215,7 @@ const std::string& diagnostic_record::get_subclass_origin() const
         odbcSubclasses.insert("IM012");
     }
 
-    const std::string& state = get_sql_state();
+    const std::string &state = get_sql_state();
 
     if (odbcSubclasses.find(state) != odbcSubclasses.end())
         return ORIGIN_ODBC_3_0;
@@ -228,25 +223,20 @@ const std::string& diagnostic_record::get_subclass_origin() const
     return ORIGIN_ISO_9075;
 }
 
-const std::string& diagnostic_record::get_message_text() const
-{
+const std::string &diagnostic_record::get_message_text() const {
     return m_message;
 }
 
-const std::string& diagnostic_record::get_connection_name() const
-{
+const std::string &diagnostic_record::get_connection_name() const {
     return m_connection_name;
 }
 
-const std::string& diagnostic_record::get_server_name() const
-{
+const std::string &diagnostic_record::get_server_name() const {
     return m_server_name;
 }
 
-const std::string& diagnostic_record::get_sql_state() const
-{
-    switch (m_sql_state)
-    {
+const std::string &diagnostic_record::get_sql_state() const {
+    switch (m_sql_state) {
         case sql_state::S01004_DATA_TRUNCATED:
             return STATE_01004;
 
@@ -374,23 +364,19 @@ const std::string& diagnostic_record::get_sql_state() const
     return STATE_UNKNOWN;
 }
 
-int32_t diagnostic_record::get_row_number() const
-{
+int32_t diagnostic_record::get_row_number() const {
     return m_row_num;
 }
 
-int32_t diagnostic_record::get_column_number() const
-{
+int32_t diagnostic_record::get_column_number() const {
     return m_column_num;
 }
 
-bool diagnostic_record::is_retrieved() const
-{
+bool diagnostic_record::is_retrieved() const {
     return m_retrieved;
 }
 
-void diagnostic_record::mark_retrieved()
-{
+void diagnostic_record::mark_retrieved() {
     m_retrieved = true;
 }
 
