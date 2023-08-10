@@ -167,6 +167,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         var res = await pocoView.GetAsync(null, new Poco(1, string.Empty));
 
         Assert.IsTrue(res.HasValue);
+        Assert.AreEqual(1, res.Value.Id);
         Assert.AreEqual("name1", res.Value.Name);
     }
 
