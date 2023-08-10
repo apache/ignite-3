@@ -400,6 +400,7 @@ namespace Apache.Ignite.Internal
             string? message = reader.ReadStringNullable();
             string? javaStackTrace = reader.ReadStringNullable();
 
+            // TODO: Always read all known extensions here - simplify the code.
             if (code == ErrorGroups.Table.SchemaVersionMismatch)
             {
                 int extSize = reader.TryReadNil() ? 0 : reader.ReadMapHeader();

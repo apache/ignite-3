@@ -464,7 +464,14 @@ namespace Apache.Ignite.Internal.Table
             }
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
             {
-                var schemaVer = e.Data[ErrorExtensions.ExpectedSchemaVersion] as int?;
+                if (e.Data[ErrorExtensions.ExpectedSchemaVersion] is not int schemaVer)
+                {
+                    throw new IgniteException(
+                        e.TraceId,
+                        ErrorGroups.Client.Protocol,
+                        "Expected schema version is not specified in error extension map.",
+                        e);
+                }
 
                 return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVer).ConfigureAwait(false);
             }
