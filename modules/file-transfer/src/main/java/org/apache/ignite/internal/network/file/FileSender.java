@@ -118,7 +118,7 @@ class FileSender {
         return completedFuture(requests.poll())
                 .thenComposeAsync(transfer -> {
                     if (transfer == null) {
-                        return CompletableFuture.<Void>completedFuture(null);
+                        return completedFuture(null);
                     } else {
                         return sendTransfer(transfer).thenCompose(v -> processNextTransfer());
                     }
