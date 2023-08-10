@@ -233,14 +233,9 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = transaction.ToInternal();
+            using var resBuf = await DoTwoRecordOutOpAsync(ClientOp.TupleReplaceExact, transaction, record, newRecord)
+                .ConfigureAwait(false);
 
-            using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = _ser.WriteTwo(writer, tx, schema, record, newRecord);
-            var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
-
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleReplaceExact, tx, writer, preferredNode).ConfigureAwait(false);
             return ReadSchemaAndBoolean(resBuf);
         }
 
@@ -310,7 +305,7 @@ namespace Apache.Ignite.Internal.Table
                         .ConfigureAwait(false);
                 },
                 writer: _ser.Handler,
-                schemaProvider: () => _table.GetLatestSchemaAsync(),
+                schemaProvider: () => _table.GetLatestSchemaAsync(), // TODO IGNITE-19710 retry outdated schema.
                 partitionAssignmentProvider: () => _table.GetPartitionAssignmentAsync(),
                 options ?? DataStreamerOptions.Default,
                 cancellationToken).ConfigureAwait(false);
@@ -438,6 +433,32 @@ namespace Apache.Ignite.Internal.Table
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
             {
                 return await DoRecordOutOpAsync(op, transaction, record, keyOnly, GetExpectedSchemaVersion(e)).ConfigureAwait(false);
+            }
+        }
+
+        private async Task<PooledBuffer> DoTwoRecordOutOpAsync(
+            ClientOp op,
+            ITransaction? transaction,
+            T record,
+            T record2,
+            bool keyOnly = false,
+            int? schemaVersionOverride = null)
+        {
+            try
+            {
+                var schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
+                var tx = transaction.ToInternal();
+
+                using var writer = ProtoCommon.GetMessageWriter();
+                var colocationHash = _ser.WriteTwo(writer, tx, schema, record, record2, keyOnly);
+                var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
+
+                return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
+            }
+            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
+            {
+                return await DoTwoRecordOutOpAsync(op, transaction, record, record2, keyOnly, GetExpectedSchemaVersion(e))
+                    .ConfigureAwait(false);
             }
         }
 

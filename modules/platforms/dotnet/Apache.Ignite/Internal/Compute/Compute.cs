@@ -260,6 +260,7 @@ namespace Apache.Ignite.Internal.Compute
 
             while (true)
             {
+                // TODO: Reuse logic from RecordView? But we have our own retry here.
                 var table = await GetTableAsync(tableName).ConfigureAwait(false);
                 var schema = await table.GetLatestSchemaAsync().ConfigureAwait(false);
 
