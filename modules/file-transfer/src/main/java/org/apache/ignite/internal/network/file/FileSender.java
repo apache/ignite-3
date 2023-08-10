@@ -89,11 +89,26 @@ class FileSender {
                 }))
                 .toArray(CompletableFuture[]::new);
 
-        requests.addAll(transfers);
-
-        processNextTransfer();
+        transfers.forEach(this::processTransfer);
 
         return allOf(results);
+    }
+
+    /**
+     * Processes the given transfer. If the rate limiter is not available, the transfer will be processed later.
+     *
+     * @param transfer The transfer to process.
+     */
+    private void processTransfer(FileTransfer transfer) {
+        if (rateLimiter.tryAcquire()) {
+            sendTransfer(transfer)
+                    .whenComplete((v, e) -> {
+                        rateLimiter.release();
+                    })
+                    .thenCompose(v -> processNextTransfer());
+        } else {
+            requests.add(transfer);
+        }
     }
 
     /**
@@ -104,25 +119,14 @@ class FileSender {
     private CompletableFuture<Void> processNextTransfer() {
         if (rateLimiter.tryAcquire()) {
             return completedFuture(requests.poll())
-                    .thenComposeAsync(request -> {
-                        if (request == null) {
+                    .thenComposeAsync(transfer -> {
+                        if (transfer == null) {
                             return CompletableFuture.<Void>completedFuture(null)
                                     .whenComplete((v, e) -> rateLimiter.release());
                         } else {
-                            return sendFile(request.receiverConsistentId, request.transferId, request.path, request.shouldBeCancelled)
-                                    .handle((v, e) -> {
-                                        try {
-                                            if (e == null) {
-                                                request.result.complete(null);
-                                            } else {
-                                                request.result.completeExceptionally(e);
-                                            }
-
-                                            // We need to return null here because we want to process the next transfer.
-                                            return null;
-                                        } finally {
-                                            rateLimiter.release();
-                                        }
+                            return sendTransfer(transfer)
+                                    .whenComplete((v, e) -> {
+                                        rateLimiter.release();
                                     })
                                     .thenCompose(v -> processNextTransfer());
                         }
@@ -130,6 +134,25 @@ class FileSender {
         } else {
             return completedFuture(null);
         }
+    }
+
+    /**
+     * Sends the file to the node with the given consistent id.
+     *
+     * @param transfer The transfer to send.
+     * @return A future that will be completed when the file is sent. The future will be completed successfully always, even if the file is
+     *         not sent.
+     */
+    private CompletableFuture<Void> sendTransfer(FileTransfer transfer) {
+        return sendFile(transfer.receiverConsistentId, transfer.transferId, transfer.path, transfer.shouldBeCancelled)
+                .handle((v, e) -> {
+                    if (e == null) {
+                        transfer.result.complete(null);
+                    } else {
+                        transfer.result.completeExceptionally(e);
+                    }
+                    return null;
+                });
     }
 
     /**
