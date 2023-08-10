@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -436,7 +437,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         readFirst(queryProc.querySingleAsync(sessionId, context, newTblSql));
 
-        assertEquals(DistributionZoneManager.DEFAULT_ZONE_ID, tblsCfg.tables().get(tableName).zoneId().value());
+        assertEquals(getZoneId(dstZnsCfg, DEFAULT_ZONE_NAME), tblsCfg.tables().get(tableName).zoneId().value());
 
         readFirst(queryProc.querySingleAsync(sessionId, context, "DROP TABLE " + tableName));
 
