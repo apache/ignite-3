@@ -262,7 +262,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     private static class PersonPojo {
         int id;
         String name;
-        Integer salary;
+        Double salary;
 
         @SuppressWarnings("unused") // Required by serializer.
         private PersonPojo() {
@@ -281,7 +281,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     private static class PersonValPojo {
         String name;
-        Integer salary;
+        Double salary;
 
         @SuppressWarnings("unused") // Required by serializer.
         private PersonValPojo() {

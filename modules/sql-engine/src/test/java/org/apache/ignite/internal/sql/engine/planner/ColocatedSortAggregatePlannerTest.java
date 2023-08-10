@@ -20,15 +20,18 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static java.util.function.Predicate.not;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
@@ -335,6 +338,37 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 .and(input(0, subtreePredicate))
                 .and(input(1, subtreePredicate))
         ), disableRules);
+    }
+
+    /**
+     * Validates that single phase COUNT aggregate is used.
+     */
+    @Test
+    public void testCountAgg() throws Exception {
+        Predicate<AggregateCall> countMap = (a) -> {
+            String aggName = a.getAggregation().getName();
+            return Objects.equals(aggName, "COUNT") && a.getArgList().equals(List.of(1));
+        };
+
+        assertPlan(TestCase.CASE_22, isInstanceOf(IgniteColocatedSortAggregate.class)
+                .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(IgniteDistributions.single())))), disableRules);
+    }
+
+    /**
+     * Validates that single phase AVG aggregate is used.
+     */
+    @Test
+    public void testAvgAgg() throws Exception {
+        Predicate<AggregateCall> countMap = (a) -> {
+            return Objects.equals(a.getAggregation().getName(), "AVG") && a.getArgList().equals(List.of(1));
+        };
+
+        assertPlan(TestCase.CASE_23, isInstanceOf(IgniteColocatedSortAggregate.class)
+                .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(IgniteDistributions.single())))), disableRules);
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {

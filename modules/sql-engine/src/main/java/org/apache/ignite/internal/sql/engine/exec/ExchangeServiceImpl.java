@@ -35,11 +35,8 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.sql.SqlException;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.lang.TraceableException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -111,12 +108,16 @@ public class ExchangeServiceImpl implements ExchangeService {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> sendError(String nodeName, UUID queryId, long fragmentId, Throwable error) {
-        IgniteException errorWithCode = wrapIfNecessary(error);
+        Throwable traceableErr = ExceptionUtils.unwrapCause(error);
 
-        if (!(error instanceof ExecutionCancelledException)) {
-            LOG.info(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), errorWithCode);
+        if (!(traceableErr instanceof TraceableException)) {
+            traceableErr = error = new IgniteInternalException(INTERNAL_ERR, error);
+        }
+
+        if (!(traceableErr instanceof ExecutionCancelledException)) {
+            LOG.info(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), error);
         } else if (LOG.isDebugEnabled()) {
-            LOG.debug(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), errorWithCode);
+            LOG.debug(format("Failed to execute query fragment: queryId={}, fragmentId={}", queryId, fragmentId), error);
         }
 
         return messageService.send(
@@ -124,30 +125,11 @@ public class ExchangeServiceImpl implements ExchangeService {
                 FACTORY.errorMessage()
                         .queryId(queryId)
                         .fragmentId(fragmentId)
-                        .traceId(errorWithCode.traceId())
-                        .code(errorWithCode.code())
-                        .message(errorWithCode.getMessage())
+                        .traceId(((TraceableException) traceableErr).traceId())
+                        .code(((TraceableException) traceableErr).code())
+                        .message(traceableErr.getMessage())
                         .build()
         );
-    }
-
-    // TODO https://issues.apache.org/jira/browse/IGNITE-19539
-    private static IgniteException wrapIfNecessary(@NotNull Throwable t) {
-        Throwable cause = ExceptionUtils.unwrapCause(t);
-
-        if (cause instanceof IgniteException) {
-            return cause == t ? (IgniteException) cause : ExceptionUtils.wrap(t);
-        } else if (cause instanceof IgniteInternalException) {
-            IgniteInternalException iex = (IgniteInternalException) cause;
-
-            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
-        } else if (cause instanceof IgniteInternalCheckedException) {
-            IgniteInternalCheckedException iex = (IgniteInternalCheckedException) cause;
-
-            return new SqlException(iex.traceId(), iex.code(), iex.getMessage(), iex);
-        } else {
-            return new SqlException(INTERNAL_ERR, cause);
-        }
     }
 
     private void onMessage(String nodeName, QueryBatchRequestMessage msg) {

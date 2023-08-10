@@ -115,7 +115,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         table.recordView().upsert(null, allColumnsTableVal("foo", false));
 
         var key = new AllColumnsPojo();
-        key.gid = (int) (long) DEFAULT_ID;
+        key.gid = DEFAULT_ID;
         key.id = String.valueOf(DEFAULT_ID);
 
         AllColumnsPojo res = pojoView.get(null, key);
@@ -205,7 +205,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
 
         var rec = new AllColumnsPojoNullable();
         rec.id = "1";
-        rec.gid = 1;
+        rec.gid = 1L;
 
         pojoView.upsert(null, rec);
 

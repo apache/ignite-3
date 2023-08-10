@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -280,10 +281,9 @@ public class KvMarshallerTest {
         TestSimpleObjectVal val = TestSimpleObjectVal.randomObject(rnd);
 
         Throwable ex = assertThrows(MarshallerException.class, () -> marshaller.marshal(key, val)).getCause();
-        assertThat(
-                ex.getMessage(),
-                startsWith("Failed to set column (INT64 was passed, but column is of different type): "
-                        + "Column [schemaIndex=0, columnOrder=-1, name=LONGCOL, type=BitmaskNativeType"));
+        assertThat(ex.getMessage(), startsWith("Column's type mismatch"));
+        assertThat(ex.getMessage(), containsString("name=BITMASK"));
+        assertThat(ex.getMessage(), containsString("name=INT64"));
     }
 
     /**
