@@ -144,7 +144,7 @@ class ItConnectCommandTest extends CliCommandTestInitializedIntegrationBase {
         String promptBefore = Ansi.OFF.string(promptProvider.getPrompt());
         assertThat(promptBefore).isEqualTo("[disconnected]> ");
 
-        // When connect without parameters
+        // When connect with auth parameters
         execute("connect", "--username", "admin", "--password", "password");
 
         // Then
