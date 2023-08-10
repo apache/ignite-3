@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using Compute;
 using Ignite.Compute;
@@ -31,6 +30,8 @@ using NUnit.Framework;
 public class SchemaSynchronizationTest : IgniteTestsBase
 {
     private static readonly TestMode[] TestModes = Enum.GetValues<TestMode>();
+
+    private static readonly TestMode[] ReadTestModes = { TestMode.One, TestMode.Multiple };
 
     public enum TestMode
     {
@@ -92,6 +93,58 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             case TestMode.Compute:
                 await Client.Compute.ExecuteColocatedAsync<string>(
                     table.Name, rec2, Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
+                break;
+
+            default:
+                Assert.Fail("Invalid test mode: " + testMode);
+                break;
+        }
+    }
+
+    [Test]
+    public async Task TestClientUsesLatestSchemaOnRead([ValueSource(nameof(ReadTestModes))] TestMode testMode)
+    {
+        // Create table, insert data.
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (ID INT NOT NULL PRIMARY KEY)");
+
+        var table = await Client.Tables.GetTableAsync(TestTableName);
+        var view = table!.RecordBinaryView;
+
+        var rec = new IgniteTuple { ["ID"] = 1 };
+        await view.InsertAsync(null, rec);
+
+        // Modify table, insert data - client will use old schema, receive error, retry with new schema.
+        // The process is transparent for the user: updated schema is in effect immediately.
+        await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
+
+        switch (testMode)
+        {
+            case TestMode.One:
+            {
+                var res = await view.GetAsync(null, rec);
+
+                Assert.IsTrue(res.HasValue);
+                Assert.AreEqual("name1", res.Value["NAME"]);
+                break;
+            }
+
+            case TestMode.Multiple:
+            {
+                var res = await view.GetAllAsync(null, new[] { rec, rec });
+
+                Assert.AreEqual(2, res.Count);
+
+                foreach (var r in res)
+                {
+                    Assert.IsTrue(r.HasValue);
+                    Assert.AreEqual("name1", r.Value["NAME"]);
+                }
+
+                break;
+            }
+
+            default:
+                Assert.Fail("Invalid test mode: " + testMode);
                 break;
         }
     }
