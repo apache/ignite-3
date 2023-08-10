@@ -25,11 +25,11 @@ import static org.apache.ignite.internal.network.file.Channel.FILE_TRANSFER_CHAN
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -50,7 +50,7 @@ class FileSender {
 
     private final ExecutorService executorService;
 
-    private final Queue<FileTransfer> requests = new ConcurrentLinkedQueue<>();
+    private final Queue<FileTransfer> requests = new LinkedList<>();
 
     FileSender(
             int chunkSize,
