@@ -284,7 +284,6 @@ namespace Apache.Ignite.Internal.Compute
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
                 {
-                    // ReSharper disable once PossibleMultipleEnumeration (we have to retry, but this is very rare)
                     schemaVersion = e.GetExpectedSchemaVersion();
                 }
             }
