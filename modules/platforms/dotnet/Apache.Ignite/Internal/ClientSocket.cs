@@ -404,9 +404,10 @@ namespace Apache.Ignite.Internal
             int extensionCount = reader.TryReadNil() ? 0 : reader.ReadMapHeader();
             for (int i = 0; i < extensionCount; i++)
             {
-                if (reader.ReadString() == ErrorExtensions.ExpectedSchemaVersion)
+                var key = reader.ReadString();
+                if (key == ErrorExtensions.ExpectedSchemaVersion)
                 {
-                    ex.Data[ErrorExtensions.ExpectedSchemaVersion] = reader.ReadInt32();
+                    ex.Data[key] = reader.ReadInt32();
                 }
                 else
                 {
