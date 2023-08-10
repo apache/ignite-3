@@ -257,7 +257,7 @@ public:
         check(m_statement, 5, "CHAR1", SQL_VARCHAR, 3, 0, SQL_NULLABLE);
         check(m_statement, 6, "CHAR2", SQL_VARCHAR, 42, 0, SQL_NULLABLE);
         check(m_statement, 7, "CHAR3", SQL_VARCHAR, 1, 0, SQL_NO_NULLS);
-        check(m_statement, 8, "VCHAR", SQL_VARCHAR, 65535, 0, SQL_NULLABLE);
+        check(m_statement, 8, "VCHAR", SQL_VARCHAR, 65536, 0, SQL_NULLABLE);
     }
 
     void insert_test_string() {

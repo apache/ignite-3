@@ -812,8 +812,8 @@ public class ItSecondaryIndexTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT id FROM Birthday WHERE name BETWEEN 'B' AND 'D' AND name > ?")
                 .withParams("Bach")
                 .matches(containsIndexScan("PUBLIC", "BIRTHDAY", NAME_DATE_IDX))
-                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(_UTF-8'B':VARCHAR(65535) "
-                        + "CHARACTER SET \"UTF-8\", ?0), upperBound=_UTF-8'D':VARCHAR(65535) CHARACTER SET \"UTF-8\""))
+                .matches(containsString("searchBounds=[[RangeBounds [lowerBound=$GREATEST2(_UTF-8'B':VARCHAR(65536) "
+                        + "CHARACTER SET \"UTF-8\", ?0), upperBound=_UTF-8'D':VARCHAR(65536) CHARACTER SET \"UTF-8\""))
                 .returns(2)
                 .returns(6)
                 .check();

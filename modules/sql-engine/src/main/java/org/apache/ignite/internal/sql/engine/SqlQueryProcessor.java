@@ -402,8 +402,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         AtomicReference<InternalTransaction> tx = new AtomicReference<>();
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
-                //TODO: IGNITE-19499 Drop next line. Force direct config lookup on late node to avoid race.
-                .thenCompose(ignored -> tableManager.tablesAsync())
                 .thenCompose(ignored -> {
                     ParsedResult result = parserService.parse(sql);
 

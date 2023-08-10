@@ -129,7 +129,7 @@ public class CatalogUtils {
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 8
      */
-    public static final int DEFAULT_VARLEN_LENGTH = 0xffff;
+    public static final int DEFAULT_VARLEN_LENGTH = 2 << 15;
 
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
@@ -218,7 +218,6 @@ public class CatalogUtils {
      * @param params Parameters.
      * @return Column descriptor.
      */
-    // FIXME: IGNITE-20105 Default values should be taken from the SQL standard
     public static CatalogTableColumnDescriptor fromParams(ColumnParams params) {
         int precision = Objects.requireNonNullElse(params.precision(), defaultPrecision(params.type()));
         int scale = Objects.requireNonNullElse(params.scale(), DEFAULT_SCALE);
