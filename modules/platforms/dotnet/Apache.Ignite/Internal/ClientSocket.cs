@@ -399,49 +399,22 @@ namespace Apache.Ignite.Internal
             string className = reader.ReadString();
             string? message = reader.ReadStringNullable();
             string? javaStackTrace = reader.ReadStringNullable();
+            var ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
 
-            // TODO: Always read all known extensions here - simplify the code.
-            if (code == ErrorGroups.Table.SchemaVersionMismatch)
+            int extensionCount = reader.TryReadNil() ? 0 : reader.ReadMapHeader();
+            for (int i = 0; i < extensionCount; i++)
             {
-                int extSize = reader.TryReadNil() ? 0 : reader.ReadMapHeader();
-                int expectedSchemaVersion = -1;
-
-                for (int i = 0; i < extSize; i++)
+                if (reader.ReadString() == ErrorExtensions.ExpectedSchemaVersion)
                 {
-                    var key = reader.ReadString();
-
-                    if (key == ErrorExtensions.ExpectedSchemaVersion)
-                    {
-                        expectedSchemaVersion = reader.ReadInt32();
-                    }
-                    else
-                    {
-                        // Unknown extension - ignore.
-                        reader.Skip();
-                    }
+                    ex.Data[ErrorExtensions.ExpectedSchemaVersion] = reader.ReadInt32();
                 }
-
-                if (expectedSchemaVersion == -1)
+                else
                 {
-                    return new IgniteException(
-                        traceId,
-                        ErrorGroups.Client.Protocol,
-                        "Expected schema version is not specified in error extension map.",
-                        ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace));
+                    reader.Skip(); // Unknown extension - ignore.
                 }
-
-                var ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
-                ex.Data[ErrorExtensions.ExpectedSchemaVersion] = expectedSchemaVersion;
-
-                return ex;
-            }
-            else
-            {
-                // Ignore unknown extensions.
-                reader.Skip();
             }
 
-            return ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
+            return ex;
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
