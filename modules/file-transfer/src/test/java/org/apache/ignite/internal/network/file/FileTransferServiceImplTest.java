@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.emptyArray;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -149,7 +150,7 @@ class FileTransferServiceImplTest {
         assertThat(transferCanceled, willBe(transferRegistered.join()));
 
         // Check that transfer directory is empty.
-        await().until(() -> transferDir.toFile().listFiles().length == 0);
+        await().untilAsserted(() -> assertThat(transferDir.toFile().listFiles(), emptyArray()));
     }
 
     @Test
@@ -189,6 +190,6 @@ class FileTransferServiceImplTest {
         assertThat(transferCanceled, willBe(transferId.join()));
 
         // Check that transfer directory is empty.
-        await().until(() -> transferDir.toFile().listFiles().length == 0);
+        await().untilAsserted(() -> assertThat(transferDir.toFile().listFiles(), emptyArray()));
     }
 }

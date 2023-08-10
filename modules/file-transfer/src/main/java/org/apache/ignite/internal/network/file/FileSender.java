@@ -100,27 +100,34 @@ class FileSender {
      * @param transfer The transfer to process.
      */
     private void processTransfer(FileTransfer transfer) {
-        if (rateLimiter.tryAcquire()) {
-            sendTransfer(transfer)
-                    .thenCompose(v -> processNextTransfer())
-                    .whenComplete((v, e) -> rateLimiter.release());
-        } else {
-            requests.add(transfer);
+        synchronized (rateLimiter) {
+            if (rateLimiter.tryAcquire()) {
+                processTransferWithNext(transfer);
+            } else {
+                requests.add(transfer);
+            }
         }
     }
 
     /**
-     * Process the next transfer in the queue. If the rate limiter is not available, the transfer will be processed later.
+     * Process the given transfer and then process the next transfer if the rate limiter is available and there is a next transfer.
      *
      * @return A future that will be completed when the request is processed.
      */
-    private CompletableFuture<Void> processNextTransfer() {
-        return completedFuture(requests.poll())
-                .thenComposeAsync(transfer -> {
-                    if (transfer == null) {
-                        return completedFuture(null);
-                    } else {
-                        return sendTransfer(transfer).thenCompose(v -> processNextTransfer());
+    private CompletableFuture<Void> processTransferWithNext(FileTransfer transfer) {
+        return sendTransfer(transfer)
+                .thenComposeAsync(v -> {
+                    synchronized (rateLimiter) {
+                        FileTransfer nextTransfer = requests.poll();
+
+                        // If there is a next transfer, process it.
+                        // Otherwise, release the rate limiter.
+                        if (nextTransfer != null) {
+                            return processTransferWithNext(nextTransfer);
+                        } else {
+                            rateLimiter.release();
+                            return completedFuture(null);
+                        }
                     }
                 }, executorService);
     }
