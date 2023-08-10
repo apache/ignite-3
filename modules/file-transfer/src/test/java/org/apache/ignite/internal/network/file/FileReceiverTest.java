@@ -150,7 +150,7 @@ class FileReceiverTest {
 
     private static void sendFilesToReceiver(FileReceiver receiver, UUID transferId, List<Path> files) {
         files.forEach(file -> {
-            try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
+            try (FileChunkMessagesStream stream = FileChunkMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
                 stream.forEach(receiver::receiveFileChunk);
             } catch (IOException e) {
                 throw new RuntimeException(e);

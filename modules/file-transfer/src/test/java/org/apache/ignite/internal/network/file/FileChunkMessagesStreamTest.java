@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
-class FileTransferMessagesStreamTest {
+class FileChunkMessagesStreamTest {
     private static final int CHUNK_SIZE = 1024;
 
     @WorkDirectory
@@ -45,7 +45,7 @@ class FileTransferMessagesStreamTest {
         Path file = randomFile(workDir, 1024);
         int chunkSize = -1;
 
-        assertThrows(IllegalArgumentException.class, () -> FileTransferMessagesStream.fromPath(chunkSize, transferId, file));
+        assertThrows(IllegalArgumentException.class, () -> FileChunkMessagesStream.fromPath(chunkSize, transferId, file));
     }
 
     @Test
@@ -53,7 +53,7 @@ class FileTransferMessagesStreamTest {
         UUID transferId = UUID.randomUUID();
         Path file = randomFile(workDir, 0);
 
-        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
+        try (FileChunkMessagesStream stream = FileChunkMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
             assertFalse(stream.hasNextMessage());
             assertThrows(IllegalStateException.class, stream::nextMessage);
         }
@@ -65,7 +65,7 @@ class FileTransferMessagesStreamTest {
         int fileSize = CHUNK_SIZE - 1;
         Path file = randomFile(workDir, fileSize);
 
-        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
+        try (FileChunkMessagesStream stream = FileChunkMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
 
             assertTrue(stream.hasNextMessage());
             FileChunkMessage fileChunkMessage = stream.nextMessage();
@@ -83,7 +83,7 @@ class FileTransferMessagesStreamTest {
         int fileSize = CHUNK_SIZE;
         Path file = randomFile(workDir, fileSize);
 
-        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
+        try (FileChunkMessagesStream stream = FileChunkMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
 
             assertTrue(stream.hasNextMessage());
             FileChunkMessage fileChunkMessage = stream.nextMessage();
@@ -101,7 +101,7 @@ class FileTransferMessagesStreamTest {
         int fileSize = CHUNK_SIZE + 1;
         Path file = randomFile(workDir, fileSize);
 
-        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
+        try (FileChunkMessagesStream stream = FileChunkMessagesStream.fromPath(CHUNK_SIZE, transferId, file)) {
 
             assertTrue(stream.hasNextMessage());
             FileChunkMessage fileChunkMessage = stream.nextMessage();

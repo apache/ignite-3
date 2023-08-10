@@ -66,7 +66,7 @@ class ChunkedFileWriterTest {
     void writeWhenLengthIsKnown(int length) throws IOException {
         Path pathToRead = FileGenerator.randomFile(workDir, length);
         Path pathToWrite = writerDir.resolve(pathToRead.getFileName());
-        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromPath(CHUNK_SIZE, UUID.randomUUID(), pathToRead);
+        try (FileChunkMessagesStream stream = FileChunkMessagesStream.fromPath(CHUNK_SIZE, UUID.randomUUID(), pathToRead);
                 ChunkedFileWriter writer = ChunkedFileWriter.open(pathToWrite, length)) {
             while (stream.hasNextMessage()) {
                 writer.write(stream.nextMessage());
@@ -85,7 +85,7 @@ class ChunkedFileWriterTest {
     void writeWhenLengthIsUnknown(int length) throws IOException {
         Path pathToRead = FileGenerator.randomFile(workDir, length);
         Path pathToWrite = writerDir.resolve(pathToRead.getFileName());
-        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromPath(CHUNK_SIZE, UUID.randomUUID(), pathToRead);
+        try (FileChunkMessagesStream stream = FileChunkMessagesStream.fromPath(CHUNK_SIZE, UUID.randomUUID(), pathToRead);
                 ChunkedFileWriter writer = ChunkedFileWriter.open(pathToWrite)) {
             while (stream.hasNextMessage()) {
                 writer.write(stream.nextMessage());
@@ -110,7 +110,7 @@ class ChunkedFileWriterTest {
     void writeChunksInReverseOrder(int length) throws IOException {
         Path pathToRead = FileGenerator.randomFile(workDir, length);
         Path pathToWrite = writerDir.resolve(pathToRead.getFileName());
-        try (FileTransferMessagesStream stream = FileTransferMessagesStream.fromPath(CHUNK_SIZE, UUID.randomUUID(), pathToRead);
+        try (FileChunkMessagesStream stream = FileChunkMessagesStream.fromPath(CHUNK_SIZE, UUID.randomUUID(), pathToRead);
                 ChunkedFileWriter writer = ChunkedFileWriter.open(pathToWrite)) {
 
             List<FileChunkMessage> chunks = new ArrayList<>();

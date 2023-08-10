@@ -109,7 +109,7 @@ class FileSender {
         } else {
             return supplyAsync(() -> {
                 try {
-                    return FileTransferMessagesStream.fromPath(chunkSize, id, path);
+                    return FileChunkMessagesStream.fromPath(chunkSize, id, path);
                 } catch (IOException e) {
                     throw new FileTransferException("Failed to create a file transfer stream", e);
                 }
@@ -134,7 +134,7 @@ class FileSender {
      */
     private CompletableFuture<Void> sendMessagesFromStream(
             String receiverConsistentId,
-            FileTransferMessagesStream stream,
+            FileChunkMessagesStream stream,
             AtomicBoolean shouldBeCancelled
     ) {
         CompletableFuture<Void> future = completedFuture(null);

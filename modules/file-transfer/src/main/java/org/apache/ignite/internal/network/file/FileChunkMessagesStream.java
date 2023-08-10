@@ -30,7 +30,7 @@ import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 /**
  * A stream of messages to send file.
  */
-public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, AutoCloseable {
+public class FileChunkMessagesStream implements Iterable<FileChunkMessage>, AutoCloseable {
     private final UUID transferId;
 
     private final Path path;
@@ -47,7 +47,7 @@ public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, A
      * @param transferId the id of the stream.
      * @param reader the reader of the file to send.
      */
-    private FileTransferMessagesStream(
+    private FileChunkMessagesStream(
             UUID transferId,
             Path path,
             ChunkedFileReader reader
@@ -66,7 +66,7 @@ public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, A
      * @return a new stream of messages to send files.
      * @throws IOException if an I/O error occurs.
      */
-    public static FileTransferMessagesStream fromPath(
+    public static FileChunkMessagesStream fromPath(
             int chunkSize,
             UUID transferId,
             Path path
@@ -75,7 +75,7 @@ public class FileTransferMessagesStream implements Iterable<FileChunkMessage>, A
             throw new IllegalArgumentException("Chunk size must be positive");
         }
 
-        return new FileTransferMessagesStream(transferId, path, ChunkedFileReader.open(path.toFile(), chunkSize));
+        return new FileChunkMessagesStream(transferId, path, ChunkedFileReader.open(path.toFile(), chunkSize));
     }
 
     /**
