@@ -356,6 +356,7 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
         // ignored
         RelDataType numeric = decimalType(4);
 
+        // TODO Align test datasets https://issues.apache.org/jira/browse/IGNITE-20130
         return Stream.of(
                 // String
                 arguments(CaseStatus.RUN, varcharType, "100", decimalType(3), bigDecimalVal("100")),
@@ -498,6 +499,8 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
                 // Decimal
                 arguments(CaseStatus.RUN, decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1")),
                 arguments(CaseStatus.RUN, decimalType(3), new BigDecimal("100"), decimalType(3), bigDecimalVal("100")),
+                // passed with runtime call and failed with parsing substitution
+                arguments(CaseStatus.SKIP, decimalType(5, 2), new BigDecimal("100.16"), decimalType(4, 1), bigDecimalVal("100.2")),
                 arguments(CaseStatus.RUN, decimalType(3), new BigDecimal("100"), decimalType(3, 0), bigDecimalVal("100")),
                 // TODO Uncomment these test cases after https://issues.apache.org/jira/browse/IGNITE-19822 is fixed.
                 arguments(CaseStatus.SKIP, decimalType(3), new BigDecimal("100"), decimalType(4, 1), bigDecimalVal("100.0")),
