@@ -101,6 +101,12 @@ public static class ExtendedChildConfigurationSchema extends ChildConfigurationS
   @Value(hasDefault = true)
   public int intVal = 0;
 }
+
+@ConfigurationExtension(internal = true)
+public static class InternalConfigurationSchema extends ChildConfigurationSchema {
+  @Value(hasDefault = true)
+  public String strVal = "foo";
+}
 ```
 
 * `@ConfigurationRoot` marks the root schema. It contains the following properties:
@@ -115,7 +121,7 @@ public static class ExtendedChildConfigurationSchema extends ChildConfigurationS
    a unique identifier among the inheritors of one polymorphic configuration, used to define the type (schema) of the polymorphic configuration we are dealing with now;
 * `@AbstractConfiguration` is similar to `@PolymorphicConfig` but its type cannot be changed and its inheritors must be annotated with
   either `@Config` or `@ConfigurationRoot`. Configuration schemas with this annotation cannot be used as a nested (sub)configuration;
-* `@ConfigurationExtension` allows to mix-in properties into `@Config` or `@ConfigurationRoot`.
+* `@ConfigurationExtension` allows to extend existing `@Config` or `@ConfigurationRoot` configurations.
 * `@ConfigValue` marks a nested schema field. Cyclic dependencies are not allowed;
 * `@NamedConfigValue` is similar to `@ConfigValue`, but such fields represent a collection of properties, not a single
   instance. Every element of the collection will have a `String` name, similar to a `Map`.
@@ -204,7 +210,8 @@ type, name and fields specific to it.
 
 ### Configuration extension
 
-Allows to add properties into other configurations.
+Sometimes it is necessary to extend a configuration with a new field, 
+but it is not desirable (or possible) to modify the original configuration. 
 
 Suppose we have a `security` module and want to add one more authentication component that is located 
 in a different module that depends on `security`.
@@ -232,7 +239,37 @@ public class UserSecurityConfigurationSchema extends SecurityConfigurationSchema
   public final String user;
 }
 ```
-And the resulting configuration will look as if the field `user` was declared directly in `SecurityConfigurationSchema`.
+And the resulting configuration will look as if the field `user` was declared directly in `SecurityConfigurationSchema`:
+
+```json
+{
+  "security": {
+    "authentication": {
+      "enabled": false
+    },
+    "user": "admin"
+  }
+}
+```
+
+### Internal extensions
+
+Sometimes it's necessary to have configuration values that are hidden form user:
+- these configuration values are available from internal code only
+- they are not accessible in JSON or any other configuration view representation
+- they can't be updated via CLI's HOCON update requests or any other public API calls
+
+To achieve this, one can use `@ConfigurationExtension(internal = true)` annotation on a configuration schema.
+
+Following the previous example with `security` module, let's add an extension to `SecurityConfigurationSchema`:
+
+```java
+@ConfigurationExtension(internal = true)
+public class SecurityUpgradeConfigurationSchema extends SecurityConfigurationSchema {
+  @Value
+  public final String version;
+}
+```
 
 ### Additional annotations
 
