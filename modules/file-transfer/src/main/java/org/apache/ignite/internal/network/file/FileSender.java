@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.network.file;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.network.file.Channel.FILE_TRANSFER_CHANNEL;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,10 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
-import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.network.MessagingService;
 
 /**
@@ -45,8 +42,6 @@ import org.apache.ignite.network.MessagingService;
  * parallel.
  */
 class FileSender {
-    private static final IgniteLogger LOG = Loggers.forClass(FileSender.class);
-
     private final int chunkSize;
 
     private final Semaphore rateLimiter;
@@ -137,24 +132,16 @@ class FileSender {
             FileChunkMessagesStream stream,
             AtomicBoolean shouldBeCancelled
     ) {
-        CompletableFuture<Void> future = completedFuture(null);
-
-        // Generate a stream of futures from the iterator and send them.
-        Iterator<FileChunkMessage> iterator = stream.iterator();
-        while (iterator.hasNext() && !shouldBeCancelled.get()) {
-            FileChunkMessage message = iterator.next();
-            future = future.thenComposeAsync(
-                    ignored -> messagingService.send(receiverConsistentId, FILE_TRANSFER_CHANNEL, message)
-                            .whenComplete((v, e) -> {
-                                if (e != null) {
-                                    LOG.error("Failed to send a file chunk message", e);
-                                    shouldBeCancelled.set(true);
-                                }
-                            })
-            );
+        try {
+            if (stream.hasNextMessage() && !shouldBeCancelled.get()) {
+                return messagingService.send(receiverConsistentId, FILE_TRANSFER_CHANNEL, stream.nextMessage())
+                        .thenCompose(ignored -> sendMessagesFromStream(receiverConsistentId, stream, shouldBeCancelled));
+            } else {
+                return completedFuture(null);
+            }
+        } catch (IOException e) {
+            return failedFuture(e);
         }
-
-        return future;
     }
 
     /**
