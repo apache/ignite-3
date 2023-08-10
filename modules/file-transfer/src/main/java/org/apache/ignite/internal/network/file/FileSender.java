@@ -102,10 +102,8 @@ class FileSender {
     private void processTransfer(FileTransfer transfer) {
         if (rateLimiter.tryAcquire()) {
             sendTransfer(transfer)
-                    .whenComplete((v, e) -> {
-                        rateLimiter.release();
-                    })
-                    .thenCompose(v -> processNextTransfer());
+                    .thenCompose(v -> processNextTransfer())
+                    .whenComplete((v, e) -> rateLimiter.release());
         } else {
             requests.add(transfer);
         }
@@ -117,23 +115,14 @@ class FileSender {
      * @return A future that will be completed when the request is processed.
      */
     private CompletableFuture<Void> processNextTransfer() {
-        if (rateLimiter.tryAcquire()) {
-            return completedFuture(requests.poll())
-                    .thenComposeAsync(transfer -> {
-                        if (transfer == null) {
-                            return CompletableFuture.<Void>completedFuture(null)
-                                    .whenComplete((v, e) -> rateLimiter.release());
-                        } else {
-                            return sendTransfer(transfer)
-                                    .whenComplete((v, e) -> {
-                                        rateLimiter.release();
-                                    })
-                                    .thenCompose(v -> processNextTransfer());
-                        }
-                    }, executorService);
-        } else {
-            return completedFuture(null);
-        }
+        return completedFuture(requests.poll())
+                .thenComposeAsync(transfer -> {
+                    if (transfer == null) {
+                        return CompletableFuture.<Void>completedFuture(null);
+                    } else {
+                        return sendTransfer(transfer).thenCompose(v -> processNextTransfer());
+                    }
+                }, executorService);
     }
 
     /**
