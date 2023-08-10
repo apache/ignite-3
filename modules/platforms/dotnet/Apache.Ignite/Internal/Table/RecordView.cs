@@ -200,26 +200,17 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
-            using var iterator = records.GetEnumerator();
-
-            if (!iterator.MoveNext())
+            using var resBuf = await DoMultiRecordOutOpAsync(ClientOp.TupleInsertAll, transaction, records).ConfigureAwait(false);
+            if (resBuf == null)
             {
                 return Array.Empty<T>();
             }
 
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = transaction.ToInternal();
-
-            using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator);
-            var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
-
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleInsertAll, tx, writer, preferredNode).ConfigureAwait(false);
-            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf.Value).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
             return _ser.ReadMultiple(
-                buf: resBuf,
+                buf: resBuf.Value,
                 schema: resSchema,
                 keyOnly: false,
                 resultFactory: static count => count == 0
