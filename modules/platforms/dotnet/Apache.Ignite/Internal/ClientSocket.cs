@@ -399,11 +399,23 @@ namespace Apache.Ignite.Internal
             string className = reader.ReadString();
             string? message = reader.ReadStringNullable();
             string? javaStackTrace = reader.ReadStringNullable();
+            var ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
 
-            // TODO IGNITE-19838 Retry outdated schema error
-            reader.Skip(); // Error extensions.
+            int extensionCount = reader.TryReadNil() ? 0 : reader.ReadMapHeader();
+            for (int i = 0; i < extensionCount; i++)
+            {
+                var key = reader.ReadString();
+                if (key == ErrorExtensions.ExpectedSchemaVersion)
+                {
+                    ex.Data[key] = reader.ReadInt32();
+                }
+                else
+                {
+                    reader.Skip(); // Unknown extension - ignore.
+                }
+            }
 
-            return ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
+            return ex;
         }
 
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
