@@ -138,7 +138,7 @@ class ItConnectCommandTest extends CliCommandTestInitializedIntegrationBase {
 
     @Test
     @DisplayName("Should throw error if cluster without authentication but command invoked with username/password")
-    void clusterWithoutAuthUsernameButPasswordProvided() throws IOException {
+    void clusterWithoutAuthButUsernamePasswordProvided() throws IOException {
 
         // Given prompt before connect
         String promptBefore = Ansi.OFF.string(promptProvider.getPrompt());

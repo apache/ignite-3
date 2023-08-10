@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.cli.core.repl;
 
-
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /** Representation of session details. */
 public class SessionInfo {

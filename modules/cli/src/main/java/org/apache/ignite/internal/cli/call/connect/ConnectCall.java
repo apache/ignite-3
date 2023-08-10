@@ -130,12 +130,8 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
             ApiClient apiClient = clientFactory.getClientWithoutBasicAuthentication(nodeUrl);
             return constructSessionInfo(apiClient, nodeUrl, null);
         } catch (ApiException e) {
-            if (e.getCause() == null) {
-                if (e.getCode() == HttpStatus.UNAUTHORIZED.getCode()) {
-                    return null;
-                } else {
-                    throw e;
-                }
+            if (e.getCause() == null && e.getCode() == HttpStatus.UNAUTHORIZED.getCode()) {
+                return null;
             } else {
                 throw e;
             }

@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.USERNAME
 import static org.apache.ignite.internal.cli.commands.Options.Constants.USERNAME_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.USERNAME_OPTION_SHORT;
 
-import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.Option;
 
 /**
@@ -40,12 +39,10 @@ public class ConnectOptions {
             PASSWORD_OPTION_SHORT}, description = PASSWORD_OPTION_DESC, required = true)
     private String password;
 
-    @Nullable
     public String username() {
         return username;
     }
 
-    @Nullable
     public String password() {
         return password;
     }

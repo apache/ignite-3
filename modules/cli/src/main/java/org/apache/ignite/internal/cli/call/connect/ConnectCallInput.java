@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.cli.call.connect;
 
-import javax.annotation.Nullable;
 import org.apache.ignite.internal.cli.core.call.CallInput;
+import org.jetbrains.annotations.Nullable;
 
 /** Input for the {@link ConnectCall} call. */
 public class ConnectCallInput implements CallInput {
 
+
     private final String url;
+
     @Nullable
     private final String username;
+
     @Nullable
     private final String password;
 

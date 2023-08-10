@@ -31,7 +31,6 @@ import org.apache.ignite.internal.cli.call.connect.SslConfig;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
-import org.apache.ignite.internal.cli.core.flow.Flowable;
 import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
@@ -132,7 +131,7 @@ public class ConnectToClusterQuestion {
                     configManagerProvider.get().setProperty(BASIC_AUTHENTICATION_USERNAME.value(), username);
                     configManagerProvider.get().setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), password);
                     return "Config saved";
-                }).print().build().start(Flowable.empty());
+                }).print().start();
             }
         }
     }

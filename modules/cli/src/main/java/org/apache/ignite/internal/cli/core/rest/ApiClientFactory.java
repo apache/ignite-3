@@ -82,7 +82,7 @@ public class ApiClientFactory {
      * @return created API client.
      */
     public ApiClient getClient(String path) {
-        return getClientFromSettings(settings(path, true).build());
+        return getClientFromSettings(settingsWithAuth(path));
     }
 
     /**
@@ -92,7 +92,7 @@ public class ApiClientFactory {
      * @return created API client.
      */
     public ApiClient getClient(String path, String username, String password) {
-        ApiClientSettingsBuilder clientSettingsBuilder = settings(path, false);
+        ApiClientSettingsBuilder clientSettingsBuilder = settingsBuilder(path);
         clientSettingsBuilder.basicAuthenticationUsername(username);
         clientSettingsBuilder.basicAuthenticationPassword(password);
         return getClientFromSettings(clientSettingsBuilder.build());
@@ -105,7 +105,7 @@ public class ApiClientFactory {
      * @return created API client.
      */
     public ApiClient getClientWithoutBasicAuthentication(String path) {
-        return getClientFromSettings(settings(path, false).build());
+        return getClientFromSettings(settingsWithoutAuth(path));
     }
 
     private ApiClient getClientFromSettings(ApiClientSettings settings) {
@@ -114,28 +114,40 @@ public class ApiClientFactory {
         return apiClient;
     }
 
-    private ApiClientSettingsBuilder settings(String path, boolean enableBasicAuthentication) {
+    private ApiClientSettings settingsWithAuth(String path) {
+        ApiClientSettingsBuilder builder = settingsBuilder(path);
+        return setupAuthentication(builder).build();
+    }
+
+    private ApiClientSettings settingsWithoutAuth(String path) {
+        ApiClientSettingsBuilder builder = settingsBuilder(path);
+        return builder.build();
+    }
+
+    private ApiClientSettingsBuilder settingsBuilder(String path) {
         ConfigManager configManager = configManagerProvider.get();
-        ApiClientSettingsBuilder builder = ApiClientSettings.builder()
+        return ApiClientSettings.builder()
                 .basePath(path)
                 .keyStorePath(configManager.getCurrentProperty(REST_KEY_STORE_PATH.value()))
                 .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
                 .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
                 .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
+    }
 
-        if (enableBasicAuthentication) {
-            // Use credentials from current session settings if exist
-            ApiClientSettings currentCredentialsSettings = currentSessionSettings();
-            String username = currentCredentialsSettings != null
-                    ? currentCredentialsSettings.basicAuthenticationUsername()
-                    : configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
-            String password = currentCredentialsSettings != null
-                    ? currentCredentialsSettings.basicAuthenticationPassword()
-                    : configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value());
-            builder
-                    .basicAuthenticationUsername(username)
-                    .basicAuthenticationPassword(password);
-        }
+    private ApiClientSettingsBuilder setupAuthentication(ApiClientSettingsBuilder builder) {
+        ConfigManager configManager = configManagerProvider.get();
+
+        // Use credentials from current session settings if exist
+        ApiClientSettings currentCredentialsSettings = currentSessionSettings();
+        String username = currentCredentialsSettings != null
+                ? currentCredentialsSettings.basicAuthenticationUsername()
+                : configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
+        String password = currentCredentialsSettings != null
+                ? currentCredentialsSettings.basicAuthenticationPassword()
+                : configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value());
+        builder
+                .basicAuthenticationUsername(username)
+                .basicAuthenticationPassword(password);
 
         return builder;
     }
