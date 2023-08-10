@@ -65,7 +65,7 @@ public final class FileTransferMessageType {
     public static final short FILE_UPLOAD_RESPONSE = 7;
 
     /**
-     * Type for {@link FileTransferErrorMessage}.
+     * Type for {@link CancelTransferMessage}.
      */
-    public static final short FILE_TRANSFER_ERROR_MESSAGE = 8;
+    public static final short CANCEL_TRANSFER_MESSAGE = 8;
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.file.messages;
 import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * File upload response.
@@ -32,4 +33,12 @@ public interface FileUploadResponse extends NetworkMessage {
      * @return Transfer ID.
      */
     UUID transferId();
+
+    /**
+     * Returns the error.
+     *
+     * @return Error.
+     */
+    @Nullable
+    FileTransferError error();
 }

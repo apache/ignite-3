@@ -31,7 +31,6 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
-import org.apache.ignite.internal.network.file.messages.FileTransferError;
 import org.apache.ignite.internal.util.RefCountedObjectPool;
 
 /**
@@ -120,12 +119,12 @@ class FileReceiver {
      * @param transferId Transfer id.
      * @param error Error message.
      */
-    void cancelTransfer(UUID transferId, FileTransferError error) {
+    void cancelTransfer(UUID transferId, Throwable error) {
         FileTransferMessagesHandler handler = transferIdToHandler.get(transferId);
         if (handler == null) {
             throw new FileTransferException("Handler is not found for unknown transferId: " + transferId);
         } else {
-            handler.handleFileTransferError(new FileTransferException(error.message()));
+            handler.handleFileTransferError(error);
         }
     }
 

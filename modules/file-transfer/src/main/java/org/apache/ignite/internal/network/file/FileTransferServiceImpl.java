@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.file;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.network.file.Channel.FILE_TRANSFER_CHANNEL;
 import static org.apache.ignite.internal.network.file.messages.FileHeader.fromPaths;
 
@@ -36,17 +37,18 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.configuration.FileTransferConfiguration;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
+import org.apache.ignite.internal.network.file.messages.CancelTransferMessage;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
 import org.apache.ignite.internal.network.file.messages.FileDownloadResponse;
 import org.apache.ignite.internal.network.file.messages.FileTransferError;
-import org.apache.ignite.internal.network.file.messages.FileTransferErrorMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.network.file.messages.FileTransferMessageType;
 import org.apache.ignite.internal.network.file.messages.FileUploadRequest;
@@ -70,7 +72,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     /**
      * Response timeout.
      */
-    private final int reponseTimeout;
+    private final int responseTimeout;
 
     /**
      * Topology service.
@@ -174,7 +176,7 @@ public class FileTransferServiceImpl implements FileTransferService {
             FileReceiver fileReceiver,
             ExecutorService executorService
     ) {
-        this.reponseTimeout = responseTimeout;
+        this.responseTimeout = responseTimeout;
         this.topologyService = topologyService;
         this.messagingService = messagingService;
         this.transferDirectory = transferDirectory;
@@ -198,8 +200,8 @@ public class FileTransferServiceImpl implements FileTransferService {
                         processDownloadRequest((FileDownloadRequest) message, senderConsistentId, correlationId);
                     } else if (message instanceof FileUploadRequest) {
                         processUploadRequest((FileUploadRequest) message, senderConsistentId, correlationId);
-                    } else if (message instanceof FileTransferErrorMessage) {
-                        processFileTransferErrorMessage((FileTransferErrorMessage) message);
+                    } else if (message instanceof CancelTransferMessage) {
+                        processCancelTransferMessageMessage((CancelTransferMessage) message);
                     } else if (message instanceof FileChunkMessage) {
                         processFileChunkMessage((FileChunkMessage) message);
                     } else {
@@ -211,43 +213,55 @@ public class FileTransferServiceImpl implements FileTransferService {
     private void processUploadRequest(FileUploadRequest message, String senderConsistentId, long correlationId) {
         UUID transferId = UUID.randomUUID();
 
-        Path directory = createTransferDirectory(transferId);
+        Identifier identifier = message.identifier();
 
-        CompletableFuture<List<Path>> uploadedFiles = fileReceiver.registerTransfer(
+        CompletableFuture<Path> directoryFuture = supplyAsync(() -> createTransferDirectory(transferId), executorService);
+
+        CompletableFuture<List<Path>> uploadedFiles = directoryFuture.thenCompose(directory -> fileReceiver.registerTransfer(
                 senderConsistentId,
                 transferId,
                 directory
-        );
+        )).whenComplete((v, e) -> {
+            if (e != null) {
+                LOG.error("Failed to register file transfer. Transfer ID: {}. Metadata: {}", e, transferId, identifier);
+            }
+        });
 
-        fileReceiver.receiveFileHeaders(transferId, message.headers());
+        runAsync(() -> fileReceiver.receiveFileHeaders(transferId, message.headers()), executorService)
+                .handle((v, e) -> {
+                    FileUploadResponse response = messageFactory.fileUploadResponse()
+                            .transferId(transferId)
+                            .error(e != null ? buildError(new FileTransferException("Failed to receive file headers", e)) : null)
+                            .build();
 
-        FileUploadResponse response = messageFactory.fileUploadResponse()
-                .transferId(transferId)
-                .build();
+                    return messagingService.respond(senderConsistentId, FILE_TRANSFER_CHANNEL, response, correlationId);
+                })
+                .thenCompose(Function.identity())
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error("Failed to send file upload response. Transfer ID: {}. Metadata: {}", e, transferId, identifier);
+                        fileReceiver.cancelTransfer(transferId, e);
+                    }
+                })
+                .thenCompose(ignored -> uploadedFiles)
+                .thenCompose(files -> getFileConsumer(identifier).consume(identifier, files))
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error(
+                                "Failed to handle file upload. Transfer ID: {}. Metadata: {}",
+                                e,
+                                transferId,
+                                identifier
+                        );
+                    }
 
-        Identifier identifier = message.identifier();
-
-        messagingService.respond(senderConsistentId, FILE_TRANSFER_CHANNEL, response, correlationId)
-                .thenComposeAsync(ignored -> {
-                    return uploadedFiles.thenCompose(files -> getFileConsumer(identifier)
-                                    .consume(identifier, files))
-                            .whenComplete((v, e) -> {
-                                if (e != null) {
-                                    LOG.error(
-                                            "Failed to handle file upload. Transfer ID: {}. Metadata: {}",
-                                            e,
-                                            transferId,
-                                            identifier
-                                    );
-                                }
-
-                                IgniteUtils.deleteIfExists(directory);
-                            });
-                }, executorService);
+                    directoryFuture.thenAccept(IgniteUtils::deleteIfExists);
+                });
     }
 
     private void processDownloadRequest(FileDownloadRequest message, String senderConsistentId, Long correlationId) {
-        getFileProvider(message.identifier()).files(message.identifier())
+        supplyAsync(() -> getFileProvider(message.identifier()), executorService)
+                .thenCompose(provider -> provider.files(message.identifier()))
                 .whenComplete((files, e) -> {
                     if (e != null) {
                         LOG.error("Failed to get files for download. Metadata: {}", message.identifier(), e);
@@ -271,21 +285,24 @@ public class FileTransferServiceImpl implements FileTransferService {
                                 .build();
 
                         messagingService.respond(senderConsistentId, FILE_TRANSFER_CHANNEL, response, correlationId)
-                                .thenCompose(v -> sendFiles(senderConsistentId, message.transferId(), files));
+                                .thenComposeAsync(v -> sendFiles(senderConsistentId, message.transferId(), files), executorService);
                     }
                 });
     }
 
     private void processFileChunkMessage(FileChunkMessage message) {
-        runAsync(() -> fileReceiver.receiveFileChunk(message));
+        runAsync(() -> fileReceiver.receiveFileChunk(message), executorService);
     }
 
-    private void processFileTransferErrorMessage(FileTransferErrorMessage message) {
+    private void processCancelTransferMessageMessage(CancelTransferMessage message) {
         LOG.error("Received transfer error message. Transfer will be cancelled. Transfer ID: {}. Error: {}",
                 message.transferId(),
                 message.error()
         );
-        fileReceiver.cancelTransfer(message.transferId(), message.error());
+        runAsync(
+                () -> fileReceiver.cancelTransfer(message.transferId(), buildException(message.error())),
+                executorService
+        );
     }
 
 
@@ -299,7 +316,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                                 transferId
                         );
 
-                        FileTransferErrorMessage message = messageFactory.fileTransferErrorMessage()
+                        CancelTransferMessage message = messageFactory.cancelTransferMessage()
                                 .transferId(transferId)
                                 .error(buildError(e))
                                 .build();
@@ -385,17 +402,18 @@ public class FileTransferServiceImpl implements FileTransferService {
                         IgniteUtils.deleteIfExists(directory);
                     });
 
-            return messagingService.invoke(sourceNodeConsistentId, FILE_TRANSFER_CHANNEL, downloadRequest, reponseTimeout)
+            return messagingService.invoke(sourceNodeConsistentId, FILE_TRANSFER_CHANNEL, downloadRequest, responseTimeout)
                     .thenApply(FileDownloadResponse.class::cast)
-                    .thenComposeAsync(response -> {
-                        if (response.error() != null) {
-                            fileReceiver.cancelTransfer(transferId, response.error());
+                    .whenCompleteAsync((response, e) -> {
+                        if (e != null) {
+                            fileReceiver.cancelTransfer(transferId, e);
+                        } else if (response.error() != null) {
+                            fileReceiver.cancelTransfer(transferId, buildException(response.error()));
                         } else {
                             fileReceiver.receiveFileHeaders(transferId, response.headers());
                         }
-
-                        return downloadedFiles;
-                    }, executorService);
+                    }, executorService)
+                    .thenCompose(v -> downloadedFiles);
         } catch (Exception e) {
             return failedFuture(e);
         }
@@ -413,9 +431,17 @@ public class FileTransferServiceImpl implements FileTransferService {
                     if (files.isEmpty()) {
                         return failedFuture(new FileTransferException("No files to upload"));
                     } else {
-                        return messagingService.invoke(targetNodeConsistentId, FILE_TRANSFER_CHANNEL, message, reponseTimeout)
+                        return messagingService.invoke(targetNodeConsistentId, FILE_TRANSFER_CHANNEL, message, responseTimeout)
                                 .thenApply(FileUploadResponse.class::cast)
-                                .thenCompose(response -> sendFiles(targetNodeConsistentId, response.transferId(), files));
+                                .thenComposeAsync(response -> {
+                                    if (response.error() != null) {
+                                        return failedFuture(
+                                                new FileTransferException("Failed to upload files: " + response.error().message())
+                                        );
+                                    } else {
+                                        return sendFiles(targetNodeConsistentId, response.transferId(), files);
+                                    }
+                                }, executorService);
                     }
                 });
     }
@@ -459,5 +485,9 @@ public class FileTransferServiceImpl implements FileTransferService {
         return messageFactory.fileTransferError()
                 .message(ExceptionUtils.unwrapCause(throwable).getMessage())
                 .build();
+    }
+
+    private Exception buildException(FileTransferError error) {
+        return new FileTransferException(error.message());
     }
 }

@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.testframework.matchers;
 
 import static org.hamcrest.Matchers.both;
+import static org.hamcrest.Matchers.emptyIterable;
 import static org.hamcrest.Matchers.equalTo;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
 
@@ -32,6 +35,39 @@ import org.hamcrest.Matcher;
 public final class PathMatcher {
 
     private PathMatcher() {
+    }
+
+    public static Matcher<Path> isEmptyDirectory() {
+        return isDirectoryWithFiles(emptyIterable());
+    }
+
+    public static Matcher<Path> isDirectoryWithFiles(Matcher<Iterable<? extends String>> matcher) {
+        return both(isDirectory()).and(dirContains(matcher));
+    }
+
+    public static Matcher<Path> isDirectory() {
+        return new FeatureMatcher<>(equalTo(true), "A directory", "directory") {
+            @Override
+            protected Boolean featureValueOf(Path actual) {
+                return Files.isDirectory(actual);
+            }
+        };
+    }
+
+    private static Matcher<Path> dirContains(Matcher<Iterable<? extends String>> matcher) {
+        return new FeatureMatcher<>(matcher, "A directory with files", "files") {
+            @Override
+            protected Iterable<? extends String> featureValueOf(Path actual) {
+                try (Stream<Path> stream = Files.list(actual)) {
+                    return stream
+                            .map(Path::getFileName)
+                            .map(Path::toString)
+                            .collect(Collectors.toList());
+                } catch (IOException e) {
+                    throw new RuntimeException("Could not list directory", e);
+                }
+            }
+        };
     }
 
     /**

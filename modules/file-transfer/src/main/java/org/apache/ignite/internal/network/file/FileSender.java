@@ -109,14 +109,15 @@ class FileSender {
                     throw new FileTransferException("Failed to create a file transfer stream", e);
                 }
             }).thenCompose(stream -> {
-                return sendMessagesFromStream(receiverConsistentId, stream, shouldBeCancelled).thenApply(ignored -> stream);
-            }).whenComplete((stream, e) -> {
-                try {
-                    stream.close();
-                } catch (IOException ex) {
-                    throw new FileTransferException("Failed to close the file transfer stream", ex);
-                }
-            }).thenApply(stream -> null);
+                return sendMessagesFromStream(receiverConsistentId, stream, shouldBeCancelled)
+                        .whenComplete((v, e) -> {
+                            try {
+                                stream.close();
+                            } catch (IOException ex) {
+                                throw new FileTransferException("Failed to close the file transfer stream", ex);
+                            }
+                        });
+            });
         }
     }
 

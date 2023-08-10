@@ -334,7 +334,7 @@ public class ItFileTransferTest {
             });
         }));
 
-        // Upload files on the target node from the source node.
+        // Upload files to the target node from the source node.
         CompletableFuture<Void> upload = sourceNode.fileTransferringService()
                 .upload(targetNode.nodeName(), messageFactory.identifier().build());
 
@@ -363,7 +363,7 @@ public class ItFileTransferTest {
                 req -> completedFuture(List.of())
         );
 
-        // Upload files on the target node from the source node.
+        // Upload files to the target node from the source node.
         Node targetNode = cluster.members.get(1);
         CompletableFuture<Void> uploaded = sourceNode.fileTransferringService()
                 .upload(targetNode.nodeName(), messageFactory.identifier().build());
@@ -407,7 +407,7 @@ public class ItFileTransferTest {
             return completedFuture(null);
         }));
 
-        // Upload files on the target node from the source node.
+        // Upload files to the target node from the source node.
         Identifier identifier = messageFactory.identifier().build();
         CompletableFuture<Void> upload = sourceNode.fileTransferringService().upload(targetNode.nodeName(), identifier);
 
@@ -444,7 +444,7 @@ public class ItFileTransferTest {
             return completedFuture(null);
         }));
 
-        // Upload files on the target node from the source node.
+        // Upload files to the target node from the source node.
         CompletableFuture<Void> uploaded = sourceNode.fileTransferringService()
                 .upload(targetNode.nodeName(), messageFactory.identifier().build());
 
@@ -456,6 +456,42 @@ public class ItFileTransferTest {
 
         // Check the consumer was not called.
         assertFalse(uploadedFilesFuture.isDone());
+
+        // Check temporary files were deleted.
+        assertTemporaryFilesWereDeleted(targetNode);
+    }
+
+    @Test
+    void uploadFilesWhenDoNotHaveAccessToWrite() {
+        // Generate files on the source node.
+        Node sourceNode = cluster.members.get(0);
+
+        int chunkSize = configuration.value().chunkSize();
+        Path file1 = randomFile(sourceDir, 0);
+        Path file2 = randomFile(sourceDir, chunkSize + 1);
+        Path file3 = randomFile(sourceDir, chunkSize * 2);
+        Path file4 = randomFile(sourceDir, chunkSize * 2);
+
+        // Add file provider to the source node.
+        sourceNode.fileTransferringService().addFileProvider(
+                Identifier.class,
+                req -> completedFuture(List.of(file1, file2, file3, file4))
+        );
+
+        // Make work directory not writable on the target node.
+        Node targetNode = cluster.members.get(1);
+        assertTrue(targetNode.workDir().toFile().setWritable(false));
+
+        // Upload files to the target node from the source node.
+        CompletableFuture<Void> uploaded = sourceNode.fileTransferringService().upload(
+                targetNode.nodeName(), messageFactory.identifier().build()
+        );
+
+        // Check that files transfer failed.
+        assertThat(
+                uploaded,
+                willThrow(FileTransferException.class, "Failed to upload files:")
+        );
 
         // Check temporary files were deleted.
         assertTemporaryFilesWereDeleted(targetNode);
