@@ -282,7 +282,11 @@ public class ClientBinaryTupleUtils {
                     throw new IllegalArgumentException("Unsupported type: " + type);
             }
         } catch (ClassCastException e) {
-            throw new IgniteException(PROTOCOL_ERR, "Incorrect value type for column '" + name + "': " + e.getMessage(), e);
+            // Exception message is similar to embedded mode - see o.a.i.i.schema.Column#validate
+            throw new IgniteException(PROTOCOL_ERR, "Column's type mismatch ["
+                    + "column=" + name
+                    + ", expectedType=" + type
+                    + ", actualType=" + v.getClass() + ']', e);
         }
     }
 

@@ -45,7 +45,7 @@ public class ItUuidQueryTest extends BaseQueryDataTypeTest<UUID> {
         String query = format("SELECT * FROM t WHERE test_key {} 1", opSql);
 
         IgniteException t = assertThrows(IgniteException.class, () -> checkQuery(query).check());
-        String error = format("Cannot apply '{}'", opSql);
+        String error = format("Values passed to {} operator must have compatible types", opSql);
         assertThat(t.getMessage(), containsString(error));
     }
 

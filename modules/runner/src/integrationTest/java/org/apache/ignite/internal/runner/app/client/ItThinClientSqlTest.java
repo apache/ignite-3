@@ -517,7 +517,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     private static class Pojo {
-        public long num;
+        public int num;
 
         public String str;
     }

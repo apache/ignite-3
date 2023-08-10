@@ -31,10 +31,9 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateRow;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * SortAggregateNode.
@@ -196,7 +195,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     private void init() {
         // Initializes aggregates for case when no any rows will be added into the aggregate to have 0 as result.
         // Doesn't do it for MAP type due to we don't want send from MAP node zero results because it looks redundant.
-        if ((type == AggregateType.REDUCE || type == AggregateType.SINGLE) && accFactory != null && grpSet.isEmpty()) {
+        if (AggregateRow.addEmptyGroup(grpSet, type)) {
             grp = new Group(OBJECT_EMPTY_ARRAY);
         }
     }
@@ -241,55 +240,24 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     }
 
     private class Group {
-        private final List<AccumulatorWrapper<RowT>> accumWrps;
 
         private final Object[] grpKeys;
+
+        private final AggregateRow<RowT> aggRow;
 
         private Group(Object[] grpKeys) {
             this.grpKeys = grpKeys;
 
-            accumWrps = hasAccumulators() ? accFactory.get() : Collections.emptyList();
+            List<AccumulatorWrapper<RowT>> wrappers = hasAccumulators() ? accFactory.get() : Collections.emptyList();
+            aggRow = new AggregateRow<>(wrappers, type);
         }
 
         private void add(RowT row) {
-            if (type == AggregateType.REDUCE) {
-                addOnReducer(row);
-            } else {
-                addOnMapper(row);
-            }
+            aggRow.update(grpSet, context().rowHandler(), row);
         }
 
         private RowT row() {
-            if (type == AggregateType.MAP) {
-                return rowOnMapper();
-            } else {
-                return rowOnReducer();
-            }
-        }
-
-        private void addOnMapper(RowT row) {
-            for (AccumulatorWrapper<RowT> wrapper : accumWrps) {
-                wrapper.add(row);
-            }
-        }
-
-        private void addOnReducer(RowT row) {
-            RowHandler<RowT> handler = context().rowHandler();
-
-            List<Accumulator> accums = hasAccumulators()
-                    ? (List<Accumulator>) handler.get(handler.columnCount(row) - 1, row) : Collections.emptyList();
-
-            for (int i = 0; i < accums.size(); i++) {
-                AccumulatorWrapper<RowT> wrapper = accumWrps.get(i);
-
-                Accumulator accum = accums.get(i);
-
-                wrapper.apply(accum);
-            }
-        }
-
-        private RowT rowOnMapper() {
-            Object[] fields = new Object[grpSet.cardinality() + (accFactory != null ? 1 : 0)];
+            Object[] fields = aggRow.createOutput(grpSet, AggregateRow.NO_GROUP_ID);
 
             int i = 0;
 
@@ -297,26 +265,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 fields[i++] = grpKey;
             }
 
-            // Last column is the accumulators collection.
-            if (hasAccumulators()) {
-                fields[i] = Commons.transform(accumWrps, AccumulatorWrapper::accumulator);
-            }
-
-            return rowFactory.create(fields);
-        }
-
-        private RowT rowOnReducer() {
-            Object[] fields = new Object[grpSet.cardinality() + accumWrps.size()];
-
-            int i = 0;
-
-            for (Object grpKey : grpKeys) {
-                fields[i++] = grpKey;
-            }
-
-            for (AccumulatorWrapper<RowT> accWrp : accumWrps) {
-                fields[i++] = accWrp.end();
-            }
+            aggRow.writeTo(fields, grpSet, AggregateRow.NO_GROUP_ID);
 
             return rowFactory.create(fields);
         }

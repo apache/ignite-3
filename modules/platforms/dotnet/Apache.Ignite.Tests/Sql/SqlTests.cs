@@ -334,8 +334,12 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public void TestInvalidSqlThrowsException()
         {
-            var ex = Assert.ThrowsAsync<IgniteException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
-            StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", ex!.Message);
+            var ex = Assert.ThrowsAsync<SqlException>(async () => await Client.Sql.ExecuteAsync(null, "select x from bad"));
+            StringAssert.Contains("Invalid query, check inner exceptions for details: select x from bad", ex!.Message);
+
+            var innerEx = ex.InnerException;
+            Assert.IsInstanceOf<SqlException>(innerEx);
+            StringAssert.Contains("From line 1, column 15 to line 1, column 17: Object 'BAD' not found", innerEx!.Message);
         }
 
         [Test]

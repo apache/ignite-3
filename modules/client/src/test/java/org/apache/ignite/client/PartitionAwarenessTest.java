@@ -83,7 +83,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
         server2 = new FakeIgnite("server-2");
-        testServer2 = new TestServer(0, server2, null, null, "server-2", clusterId, null, serverPort + 1);
+        testServer2 = new TestServer(0, server2, null, null, "server-2", clusterId, null, null);
 
         var clientBuilder = IgniteClient.builder()
                 .addresses("127.0.0.1:" + serverPort, "127.0.0.1:" + testServer2.port())

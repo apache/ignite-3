@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -56,6 +58,26 @@ public class SqlTestUtils {
     public static SqlException assertThrowsSqlException(int expectedCode, Executable executable) {
         SqlException ex = assertThrows(SqlException.class, executable);
         assertEquals(expectedCode, ex.code());
+
+        return ex;
+    }
+
+    /**
+     * <em>Assert</em> that execution of the supplied {@code executable} throws
+     * an {@link SqlException} with expected error code and message.
+     *
+     * @param expectedCode Expected error code of {@link SqlException}.
+     * @param expectedMessage Expected error message of {@link SqlException}.
+     * @param executable Supplier to execute and check thrown exception.
+     * @return Thrown the {@link SqlException}.
+     */
+    public static SqlException assertThrowsSqlException(int expectedCode, String expectedMessage, Executable executable) {
+        SqlException ex = assertThrowsSqlException(expectedCode, executable);
+
+        String msg = ex.getMessage();
+
+        assertNotNull(msg, "Error message was null, but expected '" + expectedMessage + "'.");
+        assertTrue(msg.contains(expectedMessage), "Error message '" + ex.getMessage() + "' doesn't contain '" + expectedMessage + "'.");
 
         return ex;
     }

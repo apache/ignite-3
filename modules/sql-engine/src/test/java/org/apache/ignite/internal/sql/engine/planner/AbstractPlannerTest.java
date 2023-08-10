@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -117,6 +116,7 @@ import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -682,11 +682,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             clearHints(expected);
 
             if (!expected.deepEquals(deserialized)) {
-                assertTrue(
-                        expected.deepEquals(deserialized),
-                        "Invalid serialization / deserialization.\n"
-                                + "Expected:\n" + RelOptUtil.toString(expected)
-                                + "Deserialized:\n" + RelOptUtil.toString(deserialized)
+                IgniteStringBuilder sb = new IgniteStringBuilder();
+                fail(
+                        sb.app("Invalid serialization / deserialization.").nl()
+                                .app("Expected:").nl().app(expected).nl()
+                                .app("Deserialized:").nl().app(deserialized).toString()
                 );
             }
         }
