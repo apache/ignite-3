@@ -167,7 +167,7 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <summary>
-        /// Gets the latest schema.
+        /// Gets the schema by version.
         /// </summary>
         /// <param name="version">Schema version; when null, latest is used.</param>
         /// <returns>Schema.</returns>
