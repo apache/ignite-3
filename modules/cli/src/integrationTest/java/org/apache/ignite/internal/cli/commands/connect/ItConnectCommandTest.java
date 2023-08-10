@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import jakarta.inject.Inject;
+import java.io.IOException;
 import org.apache.ignite.internal.cli.commands.CliCommandTestInitializedIntegrationBase;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.core.repl.prompt.PromptProvider;
@@ -133,6 +134,28 @@ class ItConnectCommandTest extends CliCommandTestInitializedIntegrationBase {
         // And prompt is still connected
         String promptAfter = Ansi.OFF.string(promptProvider.getPrompt());
         assertThat(promptAfter).isEqualTo("[" + nodeName() + "]> ");
+    }
+
+    @Test
+    @DisplayName("Should throw error if cluster without authentication but command invoked with username/password")
+    void clusterWithoutAuthUsernameButPasswordProvided() throws IOException {
+
+        // Given prompt before connect
+        String promptBefore = Ansi.OFF.string(promptProvider.getPrompt());
+        assertThat(promptBefore).isEqualTo("[disconnected]> ");
+
+        // When connect without parameters
+        execute("connect", "--username", "admin", "--password", "password");
+
+        // Then
+        assertAll(
+                () -> assertErrOutputIs("Authentication is not enabled on cluster but username or password were provided."
+                        + System.lineSeparator())
+        );
+
+        // And prompt is
+        String prompt = Ansi.OFF.string(promptProvider.getPrompt());
+        assertThat(prompt).isEqualTo("[disconnected]> ");
     }
 
     private String nodeName() {
