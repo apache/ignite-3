@@ -77,7 +77,7 @@ public class ItThinClientSchemaSynchronizationTest extends ItAbstractThinClientT
         Tuple rec = Tuple.create().set("ID", 1);
         recordView.insert(null, rec);
 
-        // Modify table, insert data - client will use old schema, receive error, retry with new schema.
+        // Modify table, read data - client will use old schema, receive error, retry with new schema.
         // The process is transparent for the user: updated schema is in effect immediately.
         ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR DEFAULT 'def_name'");
         assertEquals("def_name", recordView.get(null, rec).stringValue(1));

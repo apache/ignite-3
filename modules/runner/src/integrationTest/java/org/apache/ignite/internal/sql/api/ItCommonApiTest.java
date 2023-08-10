@@ -23,12 +23,14 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.Ignite;
@@ -84,8 +86,9 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         waitForCondition(() -> queryProcessor().liveSessions().size() == 1, 10_000);
 
         // first session should no longer exist for the moment
-        IgniteException err = assertThrows(IgniteException.class, () -> ses1.execute(null, "SELECT 1 + 1"));
-        assertThat(err.getMessage(), containsString("Session not found"));
+        ExecutionException err = assertThrows(ExecutionException.class, () -> ses1.executeAsync(null, "SELECT 1 + 1").get());
+        assertThat(err.getCause(), instanceOf(IgniteException.class));
+        assertThat(err.getCause().getMessage(), containsString("Session not found"));
 
         // already started query should fail due to session has been expired
         assertThrowsWithCause(() -> {

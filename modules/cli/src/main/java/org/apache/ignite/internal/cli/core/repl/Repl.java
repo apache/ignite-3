@@ -55,6 +55,8 @@ public class Repl {
 
     private final Runnable onStart;
 
+    private final EventListeningActivationPoint eventListeningActivationPoint;
+
     /**
      * Constructor.
      *
@@ -68,6 +70,7 @@ public class Repl {
      * @param historyFileName file name for storing commands history.
      * @param tailTipWidgetsEnabled whether tailtip widgets are enabled.
      * @param onStart callback that will run when REPL is started.
+     * @param eventListeningActivationPoint event listening activation point
      */
     public Repl(PromptProvider promptProvider,
             Class<?> commandClass,
@@ -79,7 +82,8 @@ public class Repl {
             String historyFileName,
             boolean tailTipWidgetsEnabled,
             boolean autosuggestionsWidgetsEnabled,
-            Runnable onStart
+            Runnable onStart,
+            EventListeningActivationPoint eventListeningActivationPoint
     ) {
         this.promptProvider = promptProvider;
         this.commandClass = commandClass;
@@ -92,6 +96,7 @@ public class Repl {
         this.tailTipWidgetsEnabled = tailTipWidgetsEnabled;
         this.autosuggestionsWidgetsEnabled = autosuggestionsWidgetsEnabled;
         this.onStart = onStart;
+        this.eventListeningActivationPoint = eventListeningActivationPoint;
     }
 
     /**
@@ -163,5 +168,9 @@ public class Repl {
 
     public void onStart() {
         onStart.run();
+    }
+
+    public EventListeningActivationPoint getEventListeningActivationPoint() {
+        return eventListeningActivationPoint;
     }
 }
