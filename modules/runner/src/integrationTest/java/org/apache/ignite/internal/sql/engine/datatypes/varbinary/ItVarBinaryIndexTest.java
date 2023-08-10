@@ -55,11 +55,12 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
     }
 
     /**
-     * Key lookup
-     *
-     * T.test_key - VARBINARY with default precision.
-     * T2.test_key - VARBINARY with specific precision.
-     * T3.test_key - BINARY with specific precision.
+     * Key lookup.
+     * <ul>
+     *     <li>T.test_key - VARBINARY with default precision.</li>
+     *     <li>T2.test_key - VARBINARY with specific precision.</li>
+     *     <li>T3.test_key - BINARY with specific precision.</li>
+     * </ul>
      */
     @ParameterizedTest
     @MethodSource("indexChecks")
@@ -95,6 +96,9 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
         );
     }
 
+    /**
+     * Value generation mode.
+     */
     public enum ValueMode {
         LITERAL,
         CAST,
