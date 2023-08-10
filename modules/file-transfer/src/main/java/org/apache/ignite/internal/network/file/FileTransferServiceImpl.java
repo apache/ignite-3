@@ -83,9 +83,9 @@ public class FileTransferServiceImpl implements FileTransferService {
     private final MessagingService messagingService;
 
     /**
-     * Temporary directory for saving files.
+     * Transfer directory. All files will be saved here before being moved to their final location.
      */
-    private final Path tempDirectory;
+    private final Path transferDirectory;
 
     /**
      * File sender.
@@ -97,6 +97,9 @@ public class FileTransferServiceImpl implements FileTransferService {
      */
     private final FileReceiver fileReceiver;
 
+    /**
+     * Executor service.
+     */
     private final ExecutorService executorService;
 
     /**
@@ -121,20 +124,20 @@ public class FileTransferServiceImpl implements FileTransferService {
      * @param topologyService Topology service.
      * @param messagingService Messaging service.
      * @param configuration File transfer configuration.
-     * @param tempDirectory Temporary directory.
+     * @param transferDirectory Transfer directory. All files will be saved here before being moved to their final location.
      */
     public FileTransferServiceImpl(
             String nodeName,
             TopologyService topologyService,
             MessagingService messagingService,
             FileTransferConfiguration configuration,
-            Path tempDirectory
+            Path transferDirectory
     ) {
         this(
                 configuration.value().responseTimeout(),
                 topologyService,
                 messagingService,
-                tempDirectory,
+                transferDirectory,
                 new FileSender(
                         configuration.value().chunkSize(),
                         new Semaphore(configuration.value().maxConcurrentRequests()),
@@ -157,15 +160,16 @@ public class FileTransferServiceImpl implements FileTransferService {
      * @param responseTimeout Response timeout.
      * @param topologyService Topology service.
      * @param messagingService Messaging service.
-     * @param tempDirectory Temporary directory.
+     * @param transferDirectory Transfer directory. All files will be saved here before being moved to their final location.
      * @param fileSender File sender.
      * @param fileReceiver File receiver.
+     * @param executorService Executor service.
      */
     FileTransferServiceImpl(
             int responseTimeout,
             TopologyService topologyService,
             MessagingService messagingService,
-            Path tempDirectory,
+            Path transferDirectory,
             FileSender fileSender,
             FileReceiver fileReceiver,
             ExecutorService executorService
@@ -173,7 +177,7 @@ public class FileTransferServiceImpl implements FileTransferService {
         this.reponseTimeout = responseTimeout;
         this.topologyService = topologyService;
         this.messagingService = messagingService;
-        this.tempDirectory = tempDirectory;
+        this.transferDirectory = transferDirectory;
         this.fileSender = fileSender;
         this.fileReceiver = fileReceiver;
         this.executorService = executorService;
@@ -277,7 +281,11 @@ public class FileTransferServiceImpl implements FileTransferService {
     }
 
     private void processFileTransferErrorMessage(FileTransferErrorMessage message) {
-        fileReceiver.receiveFileTransferError(message.transferId(), message.error());
+        LOG.error("Received transfer error message. Transfer will be cancelled. Transfer ID: {}. Error: {}",
+                message.transferId(),
+                message.error()
+        );
+        fileReceiver.cancelTransfer(message.transferId(), message.error());
     }
 
 
@@ -381,7 +389,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                     .thenApply(FileDownloadResponse.class::cast)
                     .thenComposeAsync(response -> {
                         if (response.error() != null) {
-                            fileReceiver.receiveFileTransferError(transferId, response.error());
+                            fileReceiver.cancelTransfer(transferId, response.error());
                         } else {
                             fileReceiver.receiveFileHeaders(transferId, response.headers());
                         }
@@ -441,7 +449,7 @@ public class FileTransferServiceImpl implements FileTransferService {
 
     private Path createTransferDirectory(UUID transferId) {
         try {
-            return Files.createDirectories(tempDirectory.resolve(transferId.toString()));
+            return Files.createDirectories(transferDirectory.resolve(transferId.toString()));
         } catch (IOException e) {
             throw new FileTransferException("Failed to create transfer directory. Transfer id: " + transferId, e);
         }

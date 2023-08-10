@@ -113,6 +113,22 @@ class FileReceiver {
         }
     }
 
+
+    /**
+     * Cancels transfer.
+     *
+     * @param transferId Transfer id.
+     * @param error Error message.
+     */
+    void cancelTransfer(UUID transferId, FileTransferError error) {
+        FileTransferMessagesHandler handler = transferIdToHandler.get(transferId);
+        if (handler == null) {
+            throw new FileTransferException("Handler is not found for unknown transferId: " + transferId);
+        } else {
+            handler.handleFileTransferError(new FileTransferException(error.message()));
+        }
+    }
+
     /**
      * Receives file headers.
      *
@@ -139,20 +155,6 @@ class FileReceiver {
             throw new FileTransferException("Handler is not found for unknown transferId: " + chunk.transferId());
         } else {
             handler.handleFileChunk(chunk);
-        }
-    }
-
-    /**
-     * Receives file transfer error message.
-     *
-     * @param error Error message.
-     */
-    void receiveFileTransferError(UUID transferId, FileTransferError error) {
-        FileTransferMessagesHandler handler = transferIdToHandler.get(transferId);
-        if (handler == null) {
-            throw new FileTransferException("Handler is not found for unknown transferId: " + transferId);
-        } else {
-            handler.handleFileTransferError(new FileTransferException(error.message()));
         }
     }
 
