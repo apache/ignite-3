@@ -25,12 +25,10 @@ import static org.apache.ignite.internal.network.file.Channel.FILE_TRANSFER_CHAN
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
@@ -53,8 +51,6 @@ class FileSender {
 
     private final Queue<FileTransferRequest> requests = new ConcurrentLinkedQueue<>();
 
-    private final Map<FileTransferRequest, CompletableFuture<Void>> results = new ConcurrentHashMap<>();
-
     FileSender(
             int chunkSize,
             Semaphore rateLimiter,
@@ -67,21 +63,65 @@ class FileSender {
         this.executorService = executorService;
     }
 
+    /**
+     * Submit a request to send files to the queue. The request will be processed asynchronously.
+     *
+     * @param targetNodeConsistentId The consistent ID of the node to send the files to.
+     * @param transferId The ID of the transfer.
+     * @param paths The paths of the files to send.
+     * @return A future that will be completed when the transfer is complete.
+     */
     CompletableFuture<Void> send(String targetNodeConsistentId, UUID transferId, List<Path> paths) {
+        FileTransferRequest request = new FileTransferRequest(targetNodeConsistentId, transferId, paths);
+        requests.add(request);
+
+        processNextRequest();
+
+        return request.result;
+    }
+
+    /**
+     * Process the next request in the queue. If the rate limiter is not available, the request will be processed later.
+     *
+     * @return A future that will be completed when the request is processed.
+     */
+    private CompletableFuture<Void> processNextRequest() {
         if (rateLimiter.tryAcquire()) {
-            return send0(targetNodeConsistentId, transferId, paths)
-                    .whenComplete((v, e) -> {
-                        //
-                        processNextRequestFromQueue()
-                                .whenComplete((v1, e1) -> rateLimiter.release());
-                    });
+            return completedFuture(requests.poll())
+                    .thenComposeAsync(request -> {
+                        if (request == null) {
+                            return CompletableFuture.<Void>completedFuture(null)
+                                    .whenComplete((v, e) -> rateLimiter.release());
+                        } else {
+                            return sendFiles(request.receiverConsistentId, request.transferId, request.paths)
+                                    .whenComplete((v, e) -> {
+                                        try {
+                                            if (e == null) {
+                                                request.result.complete(null);
+                                            } else {
+                                                request.result.completeExceptionally(e);
+                                            }
+                                        } finally {
+                                            rateLimiter.release();
+                                        }
+                                    })
+                                    .thenCompose(v -> processNextRequest());
+                        }
+                    }, executorService);
         } else {
-            // If the rate limiter is full, we should place the request in a queue and wait for the rate limiter to be released.
-            return submitRequestToQueue(targetNodeConsistentId, transferId, paths);
+            return completedFuture(null);
         }
     }
 
-    private CompletableFuture<Void> send0(String targetNodeConsistentId, UUID transferId, List<Path> paths) {
+    /**
+     * Sends the files to the node with the given consistent id.
+     *
+     * @param targetNodeConsistentId The consistent id of the node to send the files to.
+     * @param transferId The id of the file transfer.
+     * @param paths The paths of the files to send.
+     * @return A future that will be completed when the files are sent.
+     */
+    private CompletableFuture<Void> sendFiles(String targetNodeConsistentId, UUID transferId, List<Path> paths) {
         // It doesn't make sense to continue file transfer if there is a failure in one of the files.
         AtomicBoolean shouldBeCancelled = new AtomicBoolean(false);
 
@@ -115,16 +155,17 @@ class FileSender {
                 } catch (IOException e) {
                     throw new FileTransferException("Failed to create a file transfer stream", e);
                 }
-            }).thenCompose(stream -> {
-                return sendMessagesFromStream(receiverConsistentId, stream, shouldBeCancelled)
-                        .whenComplete((v, e) -> {
-                            try {
-                                stream.close();
-                            } catch (IOException ex) {
-                                throw new FileTransferException("Failed to close the file transfer stream", ex);
-                            }
-                        });
-            });
+            }, executorService)
+                    .thenCompose(stream -> {
+                        return sendMessagesFromStream(receiverConsistentId, stream, shouldBeCancelled)
+                                .whenComplete((v, e) -> {
+                                    try {
+                                        stream.close();
+                                    } catch (IOException ex) {
+                                        throw new FileTransferException("Failed to close the file transfer stream", ex);
+                                    }
+                                });
+                    });
         }
     }
 
@@ -155,51 +196,11 @@ class FileSender {
         }
     }
 
-    /**
-     * Submits a file transfer request to the queue.
-     */
-    private CompletableFuture<Void> submitRequestToQueue(String targetNodeConsistentId, UUID transferId, List<Path> paths) {
-        FileTransferRequest request = new FileTransferRequest(targetNodeConsistentId, transferId, paths);
-
-        CompletableFuture<Void> result = new CompletableFuture<>();
-        results.put(request, result);
-
-        requests.add(request);
-
-        return result;
-    }
-
-    /**
-     * Processes the next request from the queue. Must be called when the rate limiter is acquired.
-     */
-    private CompletableFuture<Void> processNextRequestFromQueue() {
-        FileTransferRequest request = requests.poll();
-
-        if (request != null) {
-
-            CompletableFuture<Void> result = results.remove(request);
-
-            Objects.requireNonNull(result);
-
-            send0(request.receiverConsistentId, request.transferId, request.paths)
-                    .whenComplete((v, e) -> {
-                        if (e != null) {
-                            result.completeExceptionally(e);
-                        } else {
-                            result.complete(null);
-                        }
-                    });
-
-            return completedFuture(null).thenCompose(ignored -> processNextRequestFromQueue());
-        } else {
-            return failedFuture(new FileTransferException("There are no requests in the queue"));
-        }
-    }
-
     private static class FileTransferRequest {
         private final String receiverConsistentId;
         private final UUID transferId;
         private final List<Path> paths;
+        private final CompletableFuture<Void> result = new CompletableFuture<>();
 
         private FileTransferRequest(String receiverConsistentId, UUID transferId, List<Path> paths) {
             this.receiverConsistentId = receiverConsistentId;
