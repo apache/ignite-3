@@ -385,20 +385,6 @@ namespace Apache.Ignite.Internal.Table
             return reader.ReadBoolean();
         }
 
-        private static int GetExpectedSchemaVersion(IgniteException e)
-        {
-            if (e.Data[ErrorExtensions.ExpectedSchemaVersion] is int schemaVer)
-            {
-                return schemaVer;
-            }
-
-            throw new IgniteException(
-                e.TraceId,
-                ErrorGroups.Client.Protocol,
-                "Expected schema version is not specified in error extension map.",
-                e);
-        }
-
         private async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             Transaction? tx,
@@ -432,7 +418,7 @@ namespace Apache.Ignite.Internal.Table
             }
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
             {
-                return await DoRecordOutOpAsync(op, transaction, record, keyOnly, GetExpectedSchemaVersion(e)).ConfigureAwait(false);
+                return await DoRecordOutOpAsync(op, transaction, record, keyOnly, e.GetExpectedSchemaVersion()).ConfigureAwait(false);
             }
         }
 
@@ -457,7 +443,7 @@ namespace Apache.Ignite.Internal.Table
             }
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
             {
-                return await DoTwoRecordOutOpAsync(op, transaction, record, record2, keyOnly, GetExpectedSchemaVersion(e))
+                return await DoTwoRecordOutOpAsync(op, transaction, record, record2, keyOnly, e.GetExpectedSchemaVersion())
                     .ConfigureAwait(false);
             }
         }
@@ -491,7 +477,7 @@ namespace Apache.Ignite.Internal.Table
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
             {
                 // ReSharper disable once PossibleMultipleEnumeration (we have to retry, but this is very rare)
-                return await DoMultiRecordOutOpAsync(op, transaction, recs, keyOnly, GetExpectedSchemaVersion(e)).ConfigureAwait(false);
+                return await DoMultiRecordOutOpAsync(op, transaction, recs, keyOnly, e.GetExpectedSchemaVersion()).ConfigureAwait(false);
             }
         }
     }
