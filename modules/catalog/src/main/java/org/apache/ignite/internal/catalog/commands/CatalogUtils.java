@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
@@ -201,8 +202,20 @@ public class CatalogUtils {
                 params.dataNodesAutoAdjust(),
                 params.dataNodesAutoAdjustScaleUp(),
                 params.dataNodesAutoAdjustScaleDown(),
-                params.filter()
+                params.filter(),
+                fromParams(params.dataStorage())
         );
+    }
+
+    /**
+     * Converts DataStorageParams to descriptor.
+     *
+     * @param params Parameters.
+     * @return Data storage descriptor.
+     */
+    // TODO: IGNITE-19719 Must be storage engine specific
+    public static CatalogDataStorageDescriptor fromParams(DataStorageParams params) {
+        return new CatalogDataStorageDescriptor(params.engine(), params.dataRegion());
     }
 
     /**
