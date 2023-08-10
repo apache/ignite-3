@@ -39,6 +39,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
@@ -51,7 +52,6 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -271,7 +271,7 @@ public class PlatformTestNodeRunner {
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
         ));
 
-        int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
+        int maxTimePrecision = CatalogUtils.MAX_TIME_PRECISION;
 
         TableDefinition schTblAll = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
