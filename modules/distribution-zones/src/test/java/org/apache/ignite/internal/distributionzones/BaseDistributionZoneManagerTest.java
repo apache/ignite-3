@@ -71,8 +71,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
     protected static final String ZONE_NAME = "zone1";
 
-    protected static final int ZONE_ID = 1;
-
     protected static final long ZONE_MODIFICATION_AWAIT_TIMEOUT = 10_000L;
 
     protected static final int COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS = 10_000;
@@ -96,7 +94,9 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     VaultManager vaultMgr;
 
-    private CatalogManager catalogManager;
+    protected CatalogManager catalogManager;
+
+    private final HybridClock clock = new HybridClockImpl();
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -146,8 +146,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
-
-        HybridClock clock = new HybridClockImpl();
 
         ClockWaiter clockWaiter = new ClockWaiter(nodeName, clock);
         components.add(clockWaiter);
@@ -222,5 +220,9 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     protected void dropZone(String zoneName) {
         DistributionZonesTestUtil.dropZone(catalogManager, zoneName);
+    }
+
+    protected int getZoneId(String zoneName) {
+        return catalogManager.zone(zoneName, clock.nowLong()).id();
     }
 }

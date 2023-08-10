@@ -53,27 +53,27 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
     @Test
     void testFilterOnScaleUp() throws Exception {
-        preparePrerequisites();
+        preparePrerequisites(ZONE_NAME);
 
         topology.putNode(D);
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID,
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), getZoneId(ZONE_NAME),
                 Set.of(A, C, D), ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
     @Test
     void testFilterOnScaleDown() throws Exception {
-        preparePrerequisites();
+        preparePrerequisites(ZONE_NAME);
 
         topology.removeNodes(Set.of(C));
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID, Set.of(A),
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), getZoneId(ZONE_NAME), Set.of(A),
                 ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
     @Test
     void testFilterOnScaleUpWithNewAttributesAfterRestart() throws Exception {
-        preparePrerequisites();
+        preparePrerequisites(ZONE_NAME);
 
         topology.removeNodes(Set.of(B));
 
@@ -84,7 +84,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
 
         topology.putNode(newB);
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID,
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), getZoneId(ZONE_NAME),
                 Set.of(A, newB, C), ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
@@ -94,7 +94,7 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
      *
      * @throws Exception If failed
      */
-    private void preparePrerequisites() throws Exception {
+    private void preparePrerequisites(String zoneName) throws Exception {
         String filter = "$[?(@.storage == 'SSD' || @.region == 'US')]";
 
         startDistributionZoneManager();
@@ -103,9 +103,9 @@ public class DistributionZoneManagerFilterTest extends BaseDistributionZoneManag
         topology.putNode(B);
         topology.putNode(C);
 
-        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter);
+        createZone(zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter);
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), ZONE_ID,
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), getZoneId(zoneName),
                 Set.of(A, C), ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 }

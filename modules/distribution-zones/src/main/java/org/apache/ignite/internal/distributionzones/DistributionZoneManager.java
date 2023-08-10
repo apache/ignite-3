@@ -81,7 +81,6 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.configuration.ConfigurationProperty;
-import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -94,7 +93,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.causalitydatanodes.CausalityDataNodesEngine;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneChange;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -181,11 +179,11 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Vault manager. */
     private final VaultManager vaultMgr;
 
-    /** Busy lock to stop synchronously. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
+    /** Busy lock to stop synchronously. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Logical topology service to track topology changes. */
     private final LogicalTopologyService logicalTopologyService;
@@ -816,24 +814,16 @@ public class DistributionZoneManager implements IgniteComponent {
                                     .map(NodeWithAttributes::node)
                                     .collect(toSet());
 
-                    NamedConfigurationTree<DistributionZoneConfiguration, DistributionZoneView, DistributionZoneChange> zones =
-                            zonesConfiguration.distributionZones();
+                    // It is safe to get the latest version of the catalog as we are in the metastore thread.
+                    int catalogVersion = catalogManager.latestCatalogVersion();
 
                     Set<Integer> zoneIds = new HashSet<>();
 
-                    for (int i = 0; i < zones.value().size(); i++) {
-                        DistributionZoneView zoneView = zones.value().get(i);
+                    for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
+                        scheduleTimers(zone, addedNodes, removedNodes, revision);
 
-                        scheduleTimers(zoneView, addedNodes, removedNodes, revision);
-
-                        zoneIds.add(zoneView.zoneId());
+                        zoneIds.add(zone.id());
                     }
-
-                    DistributionZoneView defaultZoneView = zonesConfiguration.value().defaultDistributionZone();
-
-                    scheduleTimers(defaultZoneView, addedNodes, removedNodes, revision);
-
-                    zoneIds.add(defaultZoneView.zoneId());
 
                     newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
 
@@ -881,19 +871,19 @@ public class DistributionZoneManager implements IgniteComponent {
     /**
      * Schedules scale up and scale down timers.
      *
-     * @param zoneCfg Zone's configuration.
+     * @param zone Zone descriptor.
      * @param addedNodes Nodes that was added to a topology and should be added to zones data nodes.
      * @param removedNodes Nodes that was removed from a topology and should be removed from zones data nodes.
      * @param revision Revision that triggered that event.
      */
     private void scheduleTimers(
-            DistributionZoneView zoneCfg,
+            CatalogZoneDescriptor zone,
             Set<Node> addedNodes,
             Set<Node> removedNodes,
             long revision
     ) {
         scheduleTimers(
-                zoneCfg,
+                zone,
                 addedNodes,
                 removedNodes,
                 revision,
@@ -905,26 +895,26 @@ public class DistributionZoneManager implements IgniteComponent {
     /**
      * Schedules scale up and scale down timers. This method is needed also for test purposes.
      *
-     * @param zoneCfg Zone's configuration.
+     * @param zone Zone descriptor.
      * @param addedNodes Nodes that was added to a topology and should be added to zones data nodes.
      * @param removedNodes Nodes that was removed from a topology and should be removed from zones data nodes.
      * @param revision Revision that triggered that event.
      * @param saveDataNodesOnScaleUp Function that saves nodes to a zone's data nodes in case of scale up was triggered.
      * @param saveDataNodesOnScaleDown Function that saves nodes to a zone's data nodes in case of scale down was triggered.
      */
-    void scheduleTimers(
-            DistributionZoneView zoneCfg,
+    private void scheduleTimers(
+            CatalogZoneDescriptor zone,
             Set<Node> addedNodes,
             Set<Node> removedNodes,
             long revision,
             BiFunction<Integer, Long, CompletableFuture<Void>> saveDataNodesOnScaleUp,
             BiFunction<Integer, Long, CompletableFuture<Void>> saveDataNodesOnScaleDown
     ) {
-        int autoAdjust = zoneCfg.dataNodesAutoAdjust();
-        int autoAdjustScaleDown = zoneCfg.dataNodesAutoAdjustScaleDown();
-        int autoAdjustScaleUp = zoneCfg.dataNodesAutoAdjustScaleUp();
+        int autoAdjust = zone.dataNodesAutoAdjust();
+        int autoAdjustScaleDown = zone.dataNodesAutoAdjustScaleDown();
+        int autoAdjustScaleUp = zone.dataNodesAutoAdjustScaleUp();
 
-        int zoneId = zoneCfg.zoneId();
+        int zoneId = zone.id();
 
         if ((!addedNodes.isEmpty() || !removedNodes.isEmpty()) && autoAdjust != INFINITE_TIMER_VALUE) {
             //TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
@@ -1573,6 +1563,8 @@ public class DistributionZoneManager implements IgniteComponent {
             return supplier.get();
         } catch (Throwable t) {
             return failedFuture(t);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
@@ -30,18 +29,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -78,8 +73,8 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      */
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
-    void testAlterFilter(int zoneId, String zoneName) throws Exception {
-        preparePrerequisites(zoneId);
+    void testAlterFilter(String zoneName) throws Exception {
+        preparePrerequisites(zoneName);
 
         // Change timers to infinite, add new node, alter filter and check that data nodes was changed.
         alterZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, FILTER);
@@ -91,7 +86,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
 
         alterZone(zoneName, null, null, newFilter);
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(C, D),
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), getZoneId(zoneName), Set.of(C, D),
                 ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
@@ -102,8 +97,8 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      */
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
-    void testAlterFilterToEmtpyNodes(int zoneId, String zoneName) throws Exception {
-        preparePrerequisites(zoneId);
+    void testAlterFilterToEmtpyNodes(String zoneName) throws Exception {
+        preparePrerequisites(zoneName);
 
         // Change timers to infinite, add new node, alter filter and check that data nodes was changed.
         alterZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, FILTER);
@@ -115,7 +110,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
 
         alterZone(zoneName, null, null, newFilter);
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(),
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), getZoneId(zoneName), Set.of(),
                 ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
@@ -126,13 +121,15 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      */
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
-    void testAlterFilterDoNotAffectScaleDown(int zoneId, String zoneName) throws Exception {
-        preparePrerequisites(IMMEDIATE_TIMER_VALUE, COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, zoneId);
+    void testAlterFilterDoNotAffectScaleDown(String zoneName) throws Exception {
+        preparePrerequisites(IMMEDIATE_TIMER_VALUE, COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, zoneName);
 
         topology.putNode(D);
 
-        if (zoneId == ZONE_ID) {
-            assertNull(distributionZoneManager.zonesState().get(ZONE_ID).scaleDownTask());
+        int zoneId = getZoneId(zoneName);
+
+        if (ZONE_NAME.equals(zoneName)) {
+            assertNull(distributionZoneManager.zonesState().get(zoneId).scaleDownTask());
         }
 
         topology.removeNodes(Set.of(C));
@@ -172,11 +169,13 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      */
     @ParameterizedTest
     @MethodSource("provideArgumentsForFilterAlteringTests")
-    void testNodeAddedWhileAlteringFilter(int zoneId, String zoneName) throws Exception {
-        preparePrerequisites(COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, INFINITE_TIMER_VALUE, zoneId);
+    void testNodeAddedWhileAlteringFilter(String zoneName) throws Exception {
+        preparePrerequisites(COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, INFINITE_TIMER_VALUE, zoneName);
 
-        if (zoneId == ZONE_ID) {
-            assertNull(distributionZoneManager.zonesState().get(ZONE_ID).scaleUpTask());
+        int zoneId = getZoneId(zoneName);
+
+        if (ZONE_NAME.equals(zoneName)) {
+            assertNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
         }
 
         topology.putNode(D);
@@ -233,8 +232,8 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed
      */
-    private void preparePrerequisites(int zoneId) throws Exception {
-        preparePrerequisites(IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, zoneId);
+    private void preparePrerequisites(String zoneName) throws Exception {
+        preparePrerequisites(IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, zoneName);
     }
 
     /**
@@ -243,29 +242,25 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed
      */
-    private void preparePrerequisites(int scaleUpTimer, int scaleDownTimer, int zoneId) throws Exception {
+    private void preparePrerequisites(int scaleUpTimer, int scaleDownTimer, String zoneName) throws Exception {
         startDistributionZoneManager();
 
         topology.putNode(A);
         topology.putNode(B);
         topology.putNode(C);
 
-        if (zoneId == DEFAULT_ZONE_ID) {
+        if (DEFAULT_ZONE_NAME.equals(zoneName)) {
             alterZone(DEFAULT_ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER);
         } else {
             createZone(ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER);
         }
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), zoneId, Set.of(A, C),
+
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), getZoneId(zoneName), Set.of(A, C),
                 ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }
 
-    private static Stream<Arguments> provideArgumentsForFilterAlteringTests() {
-        List<Arguments> args = new ArrayList<>();
-
-        args.add(Arguments.of(DEFAULT_ZONE_ID, DEFAULT_ZONE_NAME));
-        args.add(Arguments.of(ZONE_ID, ZONE_NAME));
-
-        return args.stream();
+    private static String[] provideArgumentsForFilterAlteringTests() {
+        return new String[]{DEFAULT_ZONE_NAME, ZONE_NAME};
     }
 }
