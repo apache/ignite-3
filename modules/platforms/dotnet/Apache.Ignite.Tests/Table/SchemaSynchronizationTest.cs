@@ -48,7 +48,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         await view.InsertAsync(null, rec);
 
-        // Modify table, insert data - client will use old schema, receive error, retry with new schema, fail due to an extra column.
+        // Modify table, insert data - client will use old schema, receive error, retry with new schema.
         // The process is transparent for the user: updated schema is in effect immediately.
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} DROP COLUMN NAME");
 
@@ -58,6 +58,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             ["NAME"] = "name2"
         };
 
+        // TODO this should fail when we implement IGNITE-19836 Reject Tuples and POCOs with unmapped fields
         await view.InsertAsync(null, rec2);
     }
 }
