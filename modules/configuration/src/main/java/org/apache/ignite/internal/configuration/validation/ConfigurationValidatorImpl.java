@@ -234,10 +234,10 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
 
             // Get parent schema.
             schemaType = schemaType.getSuperclass();
-        } else if (innerNode.internalSchemaTypes() != null) {
+        } else if (innerNode.extensionSchemaTypes() != null) {
             // Linear search to not fight with NoSuchFieldException.
-            for (Class<?> internalSchemaType : innerNode.internalSchemaTypes()) {
-                for (Field field : internalSchemaType.getDeclaredFields()) {
+            for (Class<?> extensionSchemaType : innerNode.extensionSchemaTypes()) {
+                for (Field field : extensionSchemaType.getDeclaredFields()) {
                     if (field.getName().equals(schemaFieldName)) {
                         return field;
                     }
