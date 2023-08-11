@@ -85,7 +85,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 var extraColumns = new HashSet<string>(record.FieldCount);
                 for (int i = 0; i < record.FieldCount; i++)
                 {
-                    extraColumns.Add(record.GetName(i));
+                    var name = record.GetName(i);
+
+                    if (extraColumns.Contains(name))
+                    {
+                        throw new ArgumentException("Duplicate column in Tuple: " + name, nameof(record));
+                    }
+
+                    extraColumns.Add(name);
                 }
 
                 for (var i = 0; i < columnCount; i++)

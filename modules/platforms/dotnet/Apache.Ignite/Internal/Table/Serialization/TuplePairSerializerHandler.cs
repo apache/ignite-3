@@ -103,14 +103,28 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
 
             for (int i = 0; i < record.Key.FieldCount; i++)
             {
-                extraColumns.Add(record.Key.GetName(i));
+                var name = record.Key.GetName(i);
+
+                if (extraColumns.Contains(name))
+                {
+                    throw new ArgumentException("Duplicate column in Key portion of KeyValue pair: " + name, nameof(record));
+                }
+
+                extraColumns.Add(name);
             }
 
             if (record.Val != null)
             {
                 for (int i = 0; i < record.Val.FieldCount; i++)
                 {
-                    extraColumns.Add(record.Val.GetName(i));
+                    var name = record.Val.GetName(i);
+
+                    if (extraColumns.Contains(name))
+                    {
+                        throw new ArgumentException("Duplicate column in Value portion of KeyValue pair: " + name, nameof(record));
+                    }
+
+                    extraColumns.Add(name);
                 }
             }
 
