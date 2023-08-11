@@ -20,11 +20,11 @@ package org.apache.ignite.internal.configuration.processor.internal;
 import java.util.ArrayList;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 
 /**
  * Parent (superclass) must contain either {@link Config} or {@link ConfigurationRoot}.
  */
-@InternalConfiguration
+@ConfigurationExtension(internal = true)
 public class ErrorInternal4ConfigurationSchema extends ArrayList {
 }

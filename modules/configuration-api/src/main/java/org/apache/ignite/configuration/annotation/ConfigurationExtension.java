@@ -28,8 +28,9 @@ import java.lang.annotation.Target;
  * This annotation can only be applied to a class that is either marked with {@link ConfigurationRoot} or the superclass is marked with
  * {@link ConfigurationRoot}, {@link Config}.
  *
- * <p>It indicates that this is an internal configuration that should be hidden from the end user. Any extensions are allowed for any
- * configuration.
+ * <p>It indicates that this is a configuration extension that is used to enrich another {@link ConfigurationRoot} or {@link Config}
+ * with more parameters. Can be used from a different module.
+ * Any extensions are allowed for any configuration.
  *
  * <p>NOTE: Field name collisions are not allowed.
  *
@@ -39,5 +40,10 @@ import java.lang.annotation.Target;
 @Target(TYPE)
 @Retention(RUNTIME)
 @Documented
-public @interface InternalConfiguration {
+public @interface ConfigurationExtension {
+    /**
+     * Controls whether this configuration is part of the public configuration or is hidden from the end user.
+     * An extension is public by default.
+     */
+    boolean internal() default false;
 }
