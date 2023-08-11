@@ -370,7 +370,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         // With aliases, reference columns by table alias.
         sql("MERGE INTO test2 test1 USING test1 test2 ON test1.d = test2.b "
                 + "WHEN MATCHED THEN UPDATE SET a = test1.a + 1 "
-                + "WHEN NOT MATCHED THEN INSERT (a, d, e) VALUES (test2.a, test2.b, test2.c)");
+                + "WHEN NOT MATCHED THEN INSERT (k, a, d, e) VALUES (test2.k, test2.a, test2.b, test2.c)");
 
         assertQuery("SELECT * FROM test2").returns(1, 2, 0, "0").check();
     }
@@ -575,40 +575,45 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testInsertMultipleDefaults() {
-        sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, j INTEGER DEFAULT 2)");
+        sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, col1 INTEGER DEFAULT 200, col2 INTEGER DEFAULT 300)");
 
-        sql("INSERT INTO integers VALUES (1, DEFAULT)");
+        sql("INSERT INTO integers VALUES (1, DEFAULT, DEFAULT)");
+        sql("INSERT INTO integers(i, col2) VALUES (2, DEFAULT), (3, 4), (4, DEFAULT)");
+        sql("INSERT INTO integers (i) VALUES (0)");
+        sql("INSERT INTO integers VALUES (5, DEFAULT, DEFAULT)");
+        sql("INSERT INTO integers VALUES (6, 4, DEFAULT)");
+        sql("INSERT INTO integers VALUES (7, 5, 5)");
 
-        assertQuery("SELECT i, j FROM integers").returns(1, 2).check();
-
-        sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT), (4, 4), (5, DEFAULT)");
-
-        assertQuery("SELECT i, j FROM integers ORDER BY i")
-                .returns(1, 2)
-                .returns(2, 3)
-                .returns(3, 2)
-                .returns(4, 4)
-                .returns(5, 2)
+        assertQuery("SELECT i, col1, col2 FROM integers ORDER BY i")
+                .returns(0, 200, 300)
+                .returns(1, 200, 300)
+                .returns(2, 200, 300)
+                .returns(3, 200, 4)
+                .returns(4, 200, 300)
+                .returns(5, 200, 300)
+                .returns(6, 4, 300)
+                .returns(7, 5, 5)
                 .check();
     }
 
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void testInsertMultipleDefaultsWithImplicitPk() {
-        sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 2)");
+        sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 100)");
 
         sql("INSERT INTO integers VALUES (1, DEFAULT)");
 
-        assertQuery("SELECT i, j FROM integers").returns(1, 2).check();
+        assertQuery("SELECT i, j FROM integers").returns(1, 100).check();
 
         sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT), (4, 4), (5, DEFAULT)");
+        //sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT)");
 
         assertQuery("SELECT i, j FROM integers ORDER BY i")
-                .returns(1, 2)
+                .returns(1, 100)
                 .returns(2, 3)
-                .returns(3, 2)
+                .returns(3, 100)
                 .returns(4, 4)
-                .returns(5, 2)
+                .returns(5, 100)
                 .check();
     }
 
