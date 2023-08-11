@@ -463,17 +463,29 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 throw new IgniteClientException(
                     ErrorGroups.Client.Configuration,
-                    $"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
+                    $"Can't map '{keyType}' and '{valType}' to columns '{columnStr}'. Matching fields not found.");
             }
 
-            var fields = type.GetColumns();
+            var keyFields = keyType.GetColumns();
+            var valFields = valType.GetColumns();
 
-            if (fields.Count > mappedCount)
+            if (keyFields.Count + valFields.Count > mappedCount)
             {
-                var extraColumns = new HashSet<string>(fields.Count);
+                var extraColumns = new HashSet<string>(keyFields.Count + valFields.Count);
 
-                foreach (var field in fields)
+                foreach (var field in keyFields)
                 {
+                    extraColumns.Add(field.Name);
+                }
+
+                foreach (var field in valFields)
+                {
+                    if (extraColumns.Contains(field.Name))
+                    {
+                        throw new ArgumentException(
+                            $"Duplicate field in Value portion of KeyValue pair ({keyType}, {valType}): " + field.Name);
+                    }
+
                     extraColumns.Add(field.Name);
                 }
 
@@ -484,7 +496,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
 
                 throw new ArgumentException(
-                    $"Record of type {type} doesn't match schema: schemaVersion={schema.Version}, extraColumns={extraColumns.StringJoin()}");
+                    $"KeyValue pair of type ({keyType}, {valType}) doesn't match schema: schemaVersion={schema.Version}, " +
+                    $"extraColumns={extraColumns.StringJoin()}");
             }
         }
 
