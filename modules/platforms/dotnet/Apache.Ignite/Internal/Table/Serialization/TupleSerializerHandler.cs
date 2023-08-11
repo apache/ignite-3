@@ -94,7 +94,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
 
                 throw new ArgumentException(
-                    $"Record doesn't match schema: schemaVersion={schema.Version}, extraColumns={extraColumns.StringJoin()}",
+                    $"Tuple doesn't match schema: schemaVersion={schema.Version}, extraColumns={extraColumns.StringJoin()}",
                     nameof(record));
             }
         }
