@@ -532,7 +532,8 @@ public class TypeUtils {
         // Checks for character and binary types should allow comparison
         // between types with precision, types w/o precision, and varying non-varying length variants.
         // Otherwise the optimizer wouldn't pick an index for conditions such as
-        // col (VARCHAR(M)) = CAST(s AS VARCHAR(N) (M != N) , or col (VARCHAR) = CAST(s AS VARCHAR(N)).
+        // col (VARCHAR(M)) = CAST(s AS VARCHAR(N) (M != N) , col (VARCHAR) = CAST(s AS VARCHAR(N)), or
+        // col (BINARY(N) = s (VARBINARY(N)).
 
         // No need to cast between char and varchar.
         if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
