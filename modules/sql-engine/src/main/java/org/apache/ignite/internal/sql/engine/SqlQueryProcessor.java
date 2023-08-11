@@ -115,6 +115,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Size of the table access cache. */
     private static final int TABLE_CACHE_SIZE = 1024;
 
+    /** Size of the schema cache. */
+    private static final int SCHEMA_CACHE_SIZE = 128;
+
     /** Session expiration check period in milliseconds. */
     private static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
 
@@ -217,7 +220,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         sqlSchemaManager = new CatalogSqlSchemaManager(
                 catalogManager,
-                0 // TOOD fix cache size
+                SCHEMA_CACHE_SIZE
         );
     }
 

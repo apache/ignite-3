@@ -64,7 +64,11 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
     /** Constructor. */
     public CatalogSqlSchemaManager(CatalogManager catalogManager, int cacheSize) {
         this.catalogManager = catalogManager;
-        this.cache = Caffeine.newBuilder().maximumSize(cacheSize).<Map.Entry<String, Integer>, SchemaPlus>build().asMap();
+        this.cache = Caffeine.newBuilder()
+                .initialCapacity(cacheSize)
+                .maximumSize(cacheSize)
+                .<Map.Entry<String, Integer>, SchemaPlus>build()
+                .asMap();
     }
 
     /** {@inheritDoc} */
