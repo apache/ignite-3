@@ -85,6 +85,8 @@ public class TestLogChecker {
 
         config = logger.getContext().getConfiguration();
 
+        appender.start();
+
         addAppender(appender, config);
     }
 
@@ -95,6 +97,8 @@ public class TestLogChecker {
         if (config == null) {
             throw new IllegalStateException("TestLogChecker is not started.");
         }
+
+        appender.stop();
 
         removeAppender(appender, config);
     }
