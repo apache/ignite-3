@@ -22,8 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -31,22 +29,39 @@ import org.apache.ignite.internal.sql.engine.exec.AsyncWrapper;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for for {@link JdbcQueryCursor}.
  */
-public class JdbcQueryCursorSelfTest {
-    private static final int TOTAL_ROWS_COUNT = 3;
+public class JdbcQueryCursorTest {
+    private static final List<Integer> ROWS = List.of(1, 2, 3);
 
-    /** Basic test to check corner cases of setting the {@code maxRows} parameter. */
+    private static final int TOTAL_ROWS_COUNT = ROWS.size();
+
+    /** Tests corner cases of setting the {@code maxRows} parameter. */
     @ParameterizedTest(name = "maxRows={0}, fetchSize={1}")
     @MethodSource("maxRowsTestParameters")
     public void testMaxRows(int maxRows, int fetchSize) {
-        List<Integer> rows = IntStream.range(0, TOTAL_ROWS_COUNT).boxed().collect(Collectors.toList());
+        List<Integer> results = fetchFullBatch(maxRows, fetchSize);
+        List<Integer> expected = ROWS.subList(0, Math.min(maxRows, TOTAL_ROWS_COUNT));
 
+        assertEquals(expected, results);
+    }
+
+    /** Tests cursor when the {@code maxRows} parameter is not defined (ie, set to {@code 0}). */
+    @ParameterizedTest
+    @ValueSource(ints = {1, 1024})
+    public void testMaxRowsUndefined(int fetchSize) {
+        List<Integer> results = fetchFullBatch(0, fetchSize);
+
+        assertEquals(ROWS, results);
+    }
+
+    private List<Integer> fetchFullBatch(int maxRows, int fetchSize) {
         JdbcQueryCursor<Integer> cursor = new JdbcQueryCursor<>(maxRows,
                 new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, null,
-                        new AsyncWrapper<>(CompletableFuture.completedFuture(rows.iterator()), Runnable::run)));
+                        new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run)));
 
         List<Integer> results = new ArrayList<>(maxRows);
         BatchedResult<Integer> requestResult;
@@ -57,34 +72,30 @@ public class JdbcQueryCursorSelfTest {
             results.addAll(requestResult.items());
         } while (requestResult.hasMore());
 
-        if (maxRows == 0 || maxRows >= TOTAL_ROWS_COUNT) {
-            assertEquals(rows, results);
-        } else {
-            assertEquals(rows.subList(0, maxRows), results);
-        }
+        return results;
     }
 
     private static List<Arguments> maxRowsTestParameters() {
-        int[] fetchSizes = {1024, 1, 0, -1};
-        int[] maxRowsSizes = {TOTAL_ROWS_COUNT - 1, TOTAL_ROWS_COUNT, TOTAL_ROWS_COUNT + 1};
+        int total = TOTAL_ROWS_COUNT;
+        int bigger = total + 1;
+        int smaller = total - 1;
 
-        List<Arguments> args = new ArrayList<>();
+        return List.of(
+                Arguments.of(smaller, 1024),
+                Arguments.of(total, 1024),
+                Arguments.of(bigger, 1024),
 
-        args.add(Arguments.of(0, 1024));
-        args.add(Arguments.of(0, 1));
+                Arguments.of(smaller, 1),
+                Arguments.of(total, 1),
+                Arguments.of(bigger, 1),
 
-        for (int fetchSize : fetchSizes) {
-            for (int maxRows : maxRowsSizes) {
-                if (fetchSize <= 0) {
-                    args.add(Arguments.of(maxRows, fetchSize == 0 ? maxRows : maxRows + Math.abs(fetchSize)));
+                Arguments.of(smaller, smaller),
+                Arguments.of(total, total),
+                Arguments.of(bigger, bigger),
 
-                    continue;
-                }
-
-                args.add(Arguments.of(maxRows, fetchSize));
-            }
-        }
-
-        return args;
+                Arguments.of(smaller, smaller + 1),
+                Arguments.of(total, total + 1),
+                Arguments.of(bigger, bigger + 1)
+        );
     }
 }
