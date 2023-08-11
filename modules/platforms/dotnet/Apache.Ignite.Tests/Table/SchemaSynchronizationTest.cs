@@ -76,29 +76,35 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         };
 
         // TODO this should fail when we implement IGNITE-19836 Reject Tuples and POCOs with unmapped fields
-        switch (testMode)
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
         {
-            case TestMode.One:
-                await view.InsertAsync(null, rec2);
-                break;
+            switch (testMode)
+            {
+                case TestMode.One:
+                    await view.InsertAsync(null, rec2);
+                    break;
 
-            case TestMode.Two:
-                await view.ReplaceAsync(null, rec2, rec2);
-                break;
+                case TestMode.Two:
+                    await view.ReplaceAsync(null, rec2, rec2);
+                    break;
 
-            case TestMode.Multiple:
-                await view.InsertAllAsync(null, new[] { rec2, rec2, rec2 });
-                break;
+                case TestMode.Multiple:
+                    await view.InsertAllAsync(null, new[] { rec2, rec2, rec2 });
+                    break;
 
-            case TestMode.Compute:
-                await Client.Compute.ExecuteColocatedAsync<string>(
-                    table.Name, rec2, Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
-                break;
+                case TestMode.Compute:
+                    await Client.Compute.ExecuteColocatedAsync<string>(
+                        table.Name, rec2, Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
+                    break;
 
-            default:
-                Assert.Fail("Invalid test mode: " + testMode);
-                break;
-        }
+                default:
+                    Assert.Fail("Invalid test mode: " + testMode);
+                    break;
+            }
+        });
+
+        StringAssert.StartsWith("Record doesn't match schema", ex!.Message);
+        StringAssert.EndsWith("extraColumns=NAME (Parameter 'record')", ex.Message);
     }
 
     [Test]
