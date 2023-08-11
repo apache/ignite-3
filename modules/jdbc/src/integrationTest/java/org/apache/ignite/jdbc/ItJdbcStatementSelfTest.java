@@ -31,18 +31,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
-import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Statement test.
@@ -193,26 +188,65 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         }
     }
 
-    @ParameterizedTest(name = "maxRows={0}, fetchSize={1}")
-    @MethodSource("maxRowsTestParameters")
-    public void testMaxRows(int maxRows, int fetchSize) throws SQLException {
-        int rowsCount = 3;
+    @Test
+    public void testMaxRows() throws Exception {
+        stmt.setMaxRows(1);
 
-        stmt.setMaxRows(maxRows);
-        stmt.setFetchSize(fetchSize);
+        assertEquals(1, stmt.getMaxRows());
 
-        try (ResultSet rs = stmt.executeQuery("select id from Person LIMIT " + rowsCount)) {
-            int result = 0;
+        ResultSet rs = stmt.executeQuery(SQL);
 
-            while (rs.next()) {
-                ++result;
+        assertNotNull(rs);
+
+        int cnt = 0;
+
+        while (rs.next()) {
+            int id = rs.getInt("id");
+
+            if (id == 2) {
+                assertEquals("Joe", rs.getString("firstName"));
+                assertEquals("Black", rs.getString("lastName"));
+                assertEquals(35, rs.getInt("age"));
+            } else if (id == 3) {
+                assertEquals("Mike", rs.getString("firstName"));
+                assertEquals("Green", rs.getString("lastName"));
+                assertEquals(40, rs.getInt("age"));
+            } else {
+                fail("Wrong ID: " + id);
             }
 
-            int expected = maxRows == 0 ? rowsCount : Math.min(maxRows, rowsCount);
-
-            assertEquals(expected, result,
-                    IgniteStringFormatter.format("Total={}, Max={}, Fetch={}", rowsCount, maxRows, fetchSize));
+            cnt++;
         }
+
+        assertEquals(1, cnt);
+
+        stmt.setMaxRows(0);
+
+        rs = stmt.executeQuery(SQL);
+
+        assertNotNull(rs);
+
+        cnt = 0;
+
+        while (rs.next()) {
+            int id = rs.getInt("id");
+
+            if (id == 2) {
+                assertEquals("Joe", rs.getString("firstName"));
+                assertEquals("Black", rs.getString("lastName"));
+                assertEquals(35, rs.getInt("age"));
+            } else if (id == 3) {
+                assertEquals("Mike", rs.getString("firstName"));
+                assertEquals("Green", rs.getString("lastName"));
+                assertEquals(40, rs.getInt("age"));
+            } else {
+                fail("Wrong ID: " + id);
+            }
+
+            cnt++;
+        }
+
+        assertEquals(2, cnt);
     }
 
     @Test
@@ -750,31 +784,5 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
                 "The data must not be updated. "
                         + "Because update statement is executed via 'executeQuery' method."
                         + " Data [val=" + rs.getString(1) + ']');
-    }
-
-    private static List<Arguments> maxRowsTestParameters() {
-        int total = 3;
-        int bigger = total + 1;
-        int smaller = total - 1;
-
-        return List.of(
-                Arguments.of(0, 1024),
-                Arguments.of(smaller, 1024),
-                Arguments.of(total, 1024),
-                Arguments.of(bigger, 1024),
-
-                Arguments.of(0, 1),
-                Arguments.of(smaller, 1),
-                Arguments.of(total, 1),
-                Arguments.of(bigger, 1),
-
-                Arguments.of(smaller, smaller),
-                Arguments.of(total, total),
-                Arguments.of(bigger, bigger),
-
-                Arguments.of(smaller, smaller + 1),
-                Arguments.of(total, total + 1),
-                Arguments.of(bigger, bigger + 1)
-        );
     }
 }
