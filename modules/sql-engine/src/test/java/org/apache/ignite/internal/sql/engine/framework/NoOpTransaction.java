@@ -46,6 +46,10 @@ public final class NoOpTransaction implements InternalTransaction {
 
     private final boolean readOnly;
 
+    private final CompletableFuture<Void> commitFut = new CompletableFuture<>();
+
+    private final CompletableFuture<Void> rollbackFut = new CompletableFuture<>();
+
     /** Creates a read-write transaction. */
     public static NoOpTransaction readWrite(String name) {
         return new NoOpTransaction(name, false);
@@ -84,22 +88,24 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public void commit() throws TransactionException {
-
+        commitAsync().join();
     }
 
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return CompletableFuture.completedFuture(null);
+        commitFut.complete(null);
+        return commitFut;
     }
 
     @Override
     public void rollback() throws TransactionException {
-
+        rollbackAsync().join();
     }
 
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        return CompletableFuture.completedFuture(null);
+        rollbackFut.complete(null);
+        return rollbackFut;
     }
 
     @Override
@@ -154,5 +160,15 @@ public final class NoOpTransaction implements InternalTransaction {
     @Override
     public void enlistResultFuture(CompletableFuture<?> resultFuture) {
         resultFuture.complete(null);
+    }
+
+    /** Returns a {@link CompletableFuture} that completes when this transaction commits. */
+    public CompletableFuture<Void> commitFuture() {
+        return commitFut;
+    }
+
+    /** Returns a {@link CompletableFuture} that completes when this transaction rollbacks. */
+    public CompletableFuture<Void> rollbackFuture() {
+        return rollbackFut;
     }
 }
