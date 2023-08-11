@@ -81,15 +81,15 @@ class FileSender {
                 .map(path -> new FileTransfer(targetNodeConsistentId, transferId, path, shouldBeCancelled))
                 .collect(Collectors.toList());
 
-        CompletableFuture[] results = transfers.stream().map(it -> it.result)
+        CompletableFuture[] results = transfers.stream()
+                .peek(this::processTransferAsync)
+                .map(it -> it.result)
                 .map(it -> it.whenComplete((v, e) -> {
                     if (e != null) {
                         shouldBeCancelled.set(true);
                     }
                 }))
                 .toArray(CompletableFuture[]::new);
-
-        transfers.forEach(this::processTransfer);
 
         return allOf(results);
     }
@@ -99,10 +99,10 @@ class FileSender {
      *
      * @param transfer The transfer to process.
      */
-    private void processTransfer(FileTransfer transfer) {
+    private void processTransferAsync(FileTransfer transfer) {
         synchronized (rateLimiter) {
             if (rateLimiter.tryAcquire()) {
-                processTransferWithNext(transfer);
+                processTransferWithNextAsync(transfer);
             } else {
                 requests.add(transfer);
             }
@@ -114,7 +114,7 @@ class FileSender {
      *
      * @return A future that will be completed when the request is processed.
      */
-    private CompletableFuture<Void> processTransferWithNext(FileTransfer transfer) {
+    private CompletableFuture<Void> processTransferWithNextAsync(FileTransfer transfer) {
         return sendTransfer(transfer)
                 .thenComposeAsync(v -> {
                     synchronized (rateLimiter) {
@@ -123,7 +123,7 @@ class FileSender {
                         // If there is a next transfer, process it.
                         // Otherwise, release the rate limiter.
                         if (nextTransfer != null) {
-                            return processTransferWithNext(nextTransfer);
+                            return processTransferWithNextAsync(nextTransfer);
                         } else {
                             rateLimiter.release();
                             return completedFuture(null);
