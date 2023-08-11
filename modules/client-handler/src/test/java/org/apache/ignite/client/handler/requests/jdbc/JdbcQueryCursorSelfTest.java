@@ -21,9 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -42,7 +42,7 @@ public class JdbcQueryCursorSelfTest {
     @ParameterizedTest(name = "maxRows={0}, fetchSize={1}")
     @MethodSource("maxRowsTestParameters")
     public void testMaxRows(int maxRows, int fetchSize) {
-        List<Integer> rows = new Random().ints(TOTAL_ROWS_COUNT).boxed().collect(Collectors.toList());
+        List<Integer> rows = IntStream.range(0, TOTAL_ROWS_COUNT).boxed().collect(Collectors.toList());
 
         JdbcQueryCursor<Integer> cursor = new JdbcQueryCursor<>(maxRows,
                 new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, null,
