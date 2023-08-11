@@ -28,7 +28,7 @@ import org.apache.ignite.configuration.validation.Range;
 public class FileTransferConfigurationSchema {
     @Range(min = 0)
     @Value(hasDefault = true)
-    public final int responseTimeout = 10_000;
+    public final long responseTimeout = 10_000;
 
     /** Chunk size in bytes. */
     @Range(min = 1)

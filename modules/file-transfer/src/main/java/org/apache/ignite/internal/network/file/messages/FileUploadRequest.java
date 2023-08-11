@@ -22,7 +22,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * File upload request.
+ * File upload request. This message is sent by the sender to the receiver to request a file upload.
  */
 @Transferable(FileTransferMessageType.FILE_UPLOAD_REQUEST)
 public interface FileUploadRequest extends NetworkMessage {

@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.network.file.Channel.FILE_TRANSFER_CHANNEL;
+import static org.apache.ignite.internal.network.file.messages.FileTransferError.toException;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -33,8 +34,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
+import org.apache.ignite.internal.network.file.messages.FileChunkAckMessage;
 import org.apache.ignite.network.MessagingService;
 
 /**
@@ -46,20 +49,31 @@ class FileSender {
 
     private final Semaphore rateLimiter;
 
+    private final long responseTimeout;
+
     private final MessagingService messagingService;
 
     private final ExecutorService executorService;
 
-    private final Queue<FileTransfer> requests = new LinkedList<>();
+    private final Queue<FileTransfer> queue = new LinkedList<>();
+
+    /**
+     * We need this lock to avoid stuck transfers in the queue, when one thread has a permit and sees the queue is empty and another thread
+     * can't acquire a permit and places a transfer in the queue. As a result, the first thread will release the permit and the transfer
+     * will not be sent until the next file transfer.
+     */
+    private final Object lock = new Object();
 
     FileSender(
             int chunkSize,
             Semaphore rateLimiter,
+            long responseTimeout,
             MessagingService messagingService,
             ExecutorService executorService
     ) {
         this.chunkSize = chunkSize;
         this.rateLimiter = rateLimiter;
+        this.responseTimeout = responseTimeout;
         this.messagingService = messagingService;
         this.executorService = executorService;
     }
@@ -82,8 +96,7 @@ class FileSender {
                 .collect(Collectors.toList());
 
         CompletableFuture[] results = transfers.stream()
-                .peek(this::processTransferAsync)
-                .map(it -> it.result)
+                .map(this::processTransferAsync)
                 .map(it -> it.whenComplete((v, e) -> {
                     if (e != null) {
                         shouldBeCancelled.set(true);
@@ -99,26 +112,27 @@ class FileSender {
      *
      * @param transfer The transfer to process.
      */
-    private void processTransferAsync(FileTransfer transfer) {
-        synchronized (rateLimiter) {
+    private CompletableFuture<Void> processTransferAsync(FileTransfer transfer) {
+        synchronized (lock) {
             if (rateLimiter.tryAcquire()) {
                 processTransferWithNextAsync(transfer);
             } else {
-                requests.add(transfer);
+                queue.add(transfer);
             }
         }
+        return transfer.result;
     }
 
     /**
-     * Process the given transfer and then process the next transfer if the rate limiter is available and there is a next transfer.
+     * Process the given transfer and then process the next transfer if there is a next transfer.
      *
-     * @return A future that will be completed when the request is processed.
+     * @return A future that will be completed when the transfer is complete and queued transfers are processed.
      */
     private CompletableFuture<Void> processTransferWithNextAsync(FileTransfer transfer) {
         return sendTransfer(transfer)
                 .thenComposeAsync(v -> {
-                    synchronized (rateLimiter) {
-                        FileTransfer nextTransfer = requests.poll();
+                    synchronized (lock) {
+                        FileTransfer nextTransfer = queue.poll();
 
                         // If there is a next transfer, process it.
                         // Otherwise, release the rate limiter.
@@ -165,21 +179,19 @@ class FileSender {
         } else {
             return supplyAsync(() -> {
                 try {
-                    return FileChunkMessagesStream.fromPath(chunkSize, id, path);
+                    FileChunkMessagesStream stream = FileChunkMessagesStream.fromPath(chunkSize, id, path);
+                    return sendMessagesFromStream(receiverConsistentId, stream, shouldBeCancelled)
+                            .whenComplete((v, e) -> {
+                                try {
+                                    stream.close();
+                                } catch (IOException ex) {
+                                    throw new FileTransferException("Failed to close the file transfer stream", ex);
+                                }
+                            });
                 } catch (IOException e) {
                     throw new FileTransferException("Failed to create a file transfer stream", e);
                 }
-            }, executorService)
-                    .thenCompose(stream -> {
-                        return sendMessagesFromStream(receiverConsistentId, stream, shouldBeCancelled)
-                                .whenComplete((v, e) -> {
-                                    try {
-                                        stream.close();
-                                    } catch (IOException ex) {
-                                        throw new FileTransferException("Failed to close the file transfer stream", ex);
-                                    }
-                                });
-                    });
+            }, executorService).thenCompose(Function.identity());
         }
     }
 
@@ -197,9 +209,16 @@ class FileSender {
     ) {
         try {
             if (stream.hasNextMessage() && !shouldBeCancelled.get()) {
-                return messagingService.send(receiverConsistentId, FILE_TRANSFER_CHANNEL, stream.nextMessage())
+                return messagingService.invoke(receiverConsistentId, FILE_TRANSFER_CHANNEL, stream.nextMessage(), responseTimeout)
+                        .thenApply(FileChunkAckMessage.class::cast)
                         .thenComposeAsync(
-                                ignored -> sendMessagesFromStream(receiverConsistentId, stream, shouldBeCancelled),
+                                ack -> {
+                                    if (ack.error() != null) {
+                                        return failedFuture(toException(ack.error()));
+                                    } else {
+                                        return sendMessagesFromStream(receiverConsistentId, stream, shouldBeCancelled);
+                                    }
+                                },
                                 executorService
                         );
             } else {

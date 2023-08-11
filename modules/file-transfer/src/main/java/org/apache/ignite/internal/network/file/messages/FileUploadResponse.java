@@ -23,15 +23,16 @@ import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * File upload response.
+ * File upload response. This message is sent by the receiver to the sender to respond to a file upload request.
  */
 @Transferable(FileTransferMessageType.FILE_UPLOAD_RESPONSE)
 public interface FileUploadResponse extends NetworkMessage {
     /**
      * Returns the ID of the transfer.
      *
-     * @return Transfer ID.
+     * @return Transfer ID. {@code null} if the transfer failed.
      */
+    @Nullable
     UUID transferId();
 
     /**

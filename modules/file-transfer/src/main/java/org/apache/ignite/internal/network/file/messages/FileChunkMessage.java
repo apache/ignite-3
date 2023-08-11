@@ -23,9 +23,9 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Chunked file.
+ * Chunked file. This message is sent by the sender to the receiver to transfer a file chunk.
  */
-@Transferable(FileTransferMessageType.FILE_CHUNK)
+@Transferable(FileTransferMessageType.FILE_CHUNK_MESSAGE)
 public interface FileChunkMessage extends NetworkMessage {
     Comparator<FileChunkMessage> COMPARATOR = Comparator.comparingLong(FileChunkMessage::offset);
 

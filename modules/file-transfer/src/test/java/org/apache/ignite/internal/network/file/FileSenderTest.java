@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.file;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.network.file.messages.FileTransferError.fromThrowable;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -26,9 +27,9 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.spy;
 
 import java.nio.file.Path;
@@ -38,6 +39,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.network.file.messages.FileChunkAckMessage;
+import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
+import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.MessagingService;
@@ -50,6 +54,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 class FileSenderTest {
+    private static final long RESPONSE_TIMEOUT = 1000;
     private static final int CHUNK_SIZE = 1024;
 
     @WorkDirectory
@@ -58,9 +63,13 @@ class FileSenderTest {
     @Mock
     private MessagingService messagingService;
 
+    private final FileTransferFactory messageFactory = new FileTransferFactory();
+
     @BeforeEach
     void setUp() {
-        doReturn(completedFuture(null)).when(messagingService).send(anyString(), any(), any());
+        lenient().doReturn(completedFuture(messageFactory.fileChunkAckMessage().build()))
+                .when(messagingService)
+                .invoke(anyString(), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileChunkMessage.class), eq(RESPONSE_TIMEOUT));
     }
 
     @Test
@@ -71,9 +80,10 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 new Semaphore(4),
+                RESPONSE_TIMEOUT,
                 messagingService,
                 Executors.newSingleThreadExecutor()
-                );
+        );
 
         // Then - no exception is thrown.
         assertThat(
@@ -94,7 +104,7 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 new Semaphore(4),
-                messagingService,
+                RESPONSE_TIMEOUT, messagingService,
                 Executors.newSingleThreadExecutor()
         );
 
@@ -106,17 +116,18 @@ class FileSenderTest {
     }
 
     @Test
-    void exceptionIsThrownIfFileTransferFailed() {
+    void exceptionIsThrownWhenInvokeReturnException() {
         // Setup messaging service to fail on second file transfer.
         AtomicInteger count = new AtomicInteger();
-        given(messagingService.send(anyString(), any(), any())).will(invocation -> {
+        doAnswer(invocation -> {
             if (count.incrementAndGet() == 2) {
                 return failedFuture(new RuntimeException("Test exception"));
             } else {
-                return completedFuture(null);
+                return completedFuture(messageFactory.fileChunkAckMessage().build());
             }
-
-        });
+        })
+                .when(messagingService)
+                .invoke(anyString(), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileChunkMessage.class), eq(RESPONSE_TIMEOUT));
 
         // When.
         Path randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE * 5);
@@ -124,7 +135,7 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 new Semaphore(4),
-                messagingService,
+                RESPONSE_TIMEOUT, messagingService,
                 Executors.newSingleThreadExecutor()
         );
 
@@ -136,13 +147,49 @@ class FileSenderTest {
     }
 
     @Test
+    void exceptionIsThrownWhenInvokeReturnAckWithError() {
+        // Setup messaging service to fail on second file transfer.
+        AtomicInteger count = new AtomicInteger();
+        doAnswer(invocation -> {
+            if (count.incrementAndGet() == 2) {
+                FileChunkAckMessage ackWithError = messageFactory.fileChunkAckMessage()
+                        .error(fromThrowable(messageFactory, new RuntimeException("Test exception")))
+                        .build();
+
+                return completedFuture(ackWithError);
+            } else {
+                return completedFuture(messageFactory.fileChunkAckMessage().build());
+            }
+        })
+                .when(messagingService)
+                .invoke(anyString(), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileChunkMessage.class), eq(RESPONSE_TIMEOUT));
+
+        // When.
+        Path randomFile = FileGenerator.randomFile(workDir, CHUNK_SIZE * 5);
+        UUID transferId = UUID.randomUUID();
+        FileSender sender = new FileSender(
+                CHUNK_SIZE,
+                new Semaphore(4),
+                RESPONSE_TIMEOUT, messagingService,
+                Executors.newSingleThreadExecutor()
+        );
+
+        // Then - exception is thrown.
+        assertThat(
+                sender.send("node2", transferId, List.of(randomFile)),
+                willThrowWithCauseOrSuppressed(RuntimeException.class)
+        );
+    }
+
+
+    @Test
     void maxConcurrentRequestsLimitIsNotExceeded() {
         // Setup mock messaging service to emulate long processing and count concurrent requests.
         // Max concurrent requests limit is 5. If it is exceeded, exception is thrown.
         int maxConcurrentRequests = 5;
         AtomicInteger concurrentRequests = new AtomicInteger();
 
-        given(messagingService.send(anyString(), any(), any())).will(invocation -> {
+        doAnswer(invocation -> {
             int currentConcurrentRequests = concurrentRequests.incrementAndGet();
             if (currentConcurrentRequests > maxConcurrentRequests) {
                 throw new RuntimeException("Max concurrent requests limit exceeded");
@@ -156,8 +203,10 @@ class FileSenderTest {
             } finally {
                 concurrentRequests.decrementAndGet();
             }
-            return completedFuture(null);
-        });
+            return completedFuture(messageFactory.fileChunkAckMessage().build());
+        })
+                .when(messagingService)
+                .invoke(anyString(), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileChunkMessage.class), eq(RESPONSE_TIMEOUT));
 
         // When.
         List<Path> randomFiles = List.of(
@@ -170,7 +219,7 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 new Semaphore(maxConcurrentRequests),
-                messagingService,
+                RESPONSE_TIMEOUT, messagingService,
                 Executors.newSingleThreadExecutor()
         );
 
@@ -185,14 +234,15 @@ class FileSenderTest {
     void rateLimiterIsReleasedIfSendThrowsException() {
         // Setup messaging service to fail on second file transfer.
         AtomicInteger count = new AtomicInteger();
-        given(messagingService.send(anyString(), any(), any())).will(invocation -> {
+        doAnswer(invocation -> {
             if (count.incrementAndGet() == 2) {
                 return failedFuture(new RuntimeException("Test exception"));
             } else {
-                return completedFuture(null);
+                return completedFuture(messageFactory.fileChunkAckMessage().build());
             }
-
-        });
+        })
+                .when(messagingService)
+                .invoke(anyString(), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileChunkMessage.class), eq(RESPONSE_TIMEOUT));
 
         // Setup rate limiter to count tryAcquire and release calls.
         Semaphore rateLimiter = spy(new Semaphore(4));
@@ -214,7 +264,7 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 rateLimiter,
-                messagingService,
+                RESPONSE_TIMEOUT, messagingService,
                 Executors.newSingleThreadExecutor()
         );
 

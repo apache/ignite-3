@@ -24,8 +24,8 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * File transfer error message.
  */
-@Transferable(FileTransferMessageType.CANCEL_TRANSFER_MESSAGE)
-public interface CancelTransferMessage extends NetworkMessage {
+@Transferable(FileTransferMessageType.FILE_TRANSFER_CANCEL_MESSAGE)
+public interface FileTransferCancelMessage extends NetworkMessage {
     /**
      * Returns transfer ID.
      *

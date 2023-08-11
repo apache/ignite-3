@@ -26,7 +26,7 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * File header.
+ * File header. This message is sent by the sender to the receiver to provide information about the file to be transferred.
  */
 @Transferable(FileTransferMessageType.FILE_HEADER)
 public interface FileHeader extends NetworkMessage {

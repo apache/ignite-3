@@ -17,29 +17,19 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
-import java.util.List;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * File download response. This message is sent by the sender to the receiver to respond to a file download request.
+ * File chunk ack. This message is sent by the receiver to the sender to acknowledge the successful reception of a file chunk.
  */
-@Transferable(FileTransferMessageType.FILE_DOWNLOAD_RESPONSE)
-public interface FileDownloadResponse extends NetworkMessage {
+@Transferable(FileTransferMessageType.FILE_CHUNK_ACK_MESSAGE)
+public interface FileChunkAckMessage extends NetworkMessage {
     /**
-     * Returns the headers of the files that are going to be transferred.
-     * It is possible that the headers are not present if the request was not handled successfully.
+     * Returns the error.
      *
-     * @return Headers of the files that are going to be transferred. {@code null} if the request was not handled successfully.
-     */
-    @Nullable
-    List<FileHeader> headers();
-
-    /**
-     * Returns the error that occurred during the handling file download request.
-     *
-     * @return The error. {@code null} if the request was handled successfully and the files are going to be transferred.
+     * @return Error error.
      */
     @Nullable
     FileTransferError error();

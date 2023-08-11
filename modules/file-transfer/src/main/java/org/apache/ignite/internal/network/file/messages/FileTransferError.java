@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
+import org.apache.ignite.internal.network.file.exception.FileTransferException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -38,4 +40,27 @@ public interface FileTransferError extends NetworkMessage {
      * @return Error message.
      */
     String message();
+
+    /**
+     * Creates a new {@link FileTransferError} instance from the given {@link Throwable}.
+     *
+     * @param factory File transfer factory.
+     * @param throwable Throwable.
+     * @return File transfer error.
+     */
+    static FileTransferError fromThrowable(FileTransferFactory factory, Throwable throwable) {
+        return factory.fileTransferError()
+                .message(ExceptionUtils.unwrapCause(throwable).getMessage())
+                .build();
+    }
+
+    /**
+     * Converts the given {@link FileTransferError} to an {@link Exception}.
+     *
+     * @param error File transfer error.
+     * @return Exception.
+     */
+    static Exception toException(FileTransferError error) {
+        return new FileTransferException(error.message());
+    }
 }
