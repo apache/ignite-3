@@ -45,7 +45,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 class ConfigurationExtensionTest {
     /** Injected field. */
-    @InjectConfiguration(internalExtensions = ExtendedDiscoveryConfigurationSchema.class)
+    @InjectConfiguration(extensions = ExtendedDiscoveryConfigurationSchema.class)
     private DiscoveryConfiguration fieldCfg;
 
     @InjectRevisionListenerHolder
@@ -53,7 +53,7 @@ class ConfigurationExtensionTest {
 
     @BeforeAll
     static void staticParameterInjection(
-            @InjectConfiguration(internalExtensions = ExtendedDiscoveryConfigurationSchema.class) DiscoveryConfiguration paramCfg
+            @InjectConfiguration(extensions = ExtendedDiscoveryConfigurationSchema.class) DiscoveryConfiguration paramCfg
     ) {
         assertThat(paramCfg.joinTimeout().update(100), willCompleteSuccessfully());
 
@@ -115,7 +115,7 @@ class ConfigurationExtensionTest {
     /** Tests that internal configuration extensions work properly on injected configuration instance. */
     @Test
     public void internalConfiguration(
-            @InjectConfiguration(internalExtensions = {ExtendedConfigurationSchema.class}) BasicConfiguration cfg
+            @InjectConfiguration(extensions = {ExtendedConfigurationSchema.class}) BasicConfiguration cfg
     ) throws Exception {
         assertThat(cfg, is(instanceOf(ExtendedConfiguration.class)));
 
@@ -187,7 +187,7 @@ class ConfigurationExtensionTest {
     @Test
     public void testInjectInternalId(
             @InjectConfiguration(
-                    internalExtensions = ExtendedDiscoveryConfigurationSchema.class,
+                    extensions = ExtendedDiscoveryConfigurationSchema.class,
                     name = "test"
             ) DiscoveryConfiguration discoveryConfig
     ) {

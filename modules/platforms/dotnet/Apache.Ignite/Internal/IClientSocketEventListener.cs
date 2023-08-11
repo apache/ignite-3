@@ -15,17 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.injectedname;
+namespace Apache.Ignite.Internal;
 
-import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+/// <summary>
+/// <see cref="ClientSocket"/> event listener.
+/// </summary>
+internal interface IClientSocketEventListener
+{
+    /// <summary>
+    /// Called when partition assignment changes.
+    /// </summary>
+    /// <param name="clientSocket">Source socket.</param>
+    void OnAssignmentChanged(ClientSocket clientSocket);
 
-/**
- * Schema with {@link ConfigurationExtension} cannot have a field with {@link InjectedName}.
- */
-@PolymorphicConfigInstance("error")
-public class ErrorInjectedName5ConfigurationSchema extends PolyConfigurationSchema {
-    @InjectedName
-    public String name2;
+    /// <summary>
+    /// Called when observable timestamp changes.
+    /// </summary>
+    /// <param name="timestamp">Timestamp.</param>
+    void OnObservableTimestampChanged(long timestamp);
 }
