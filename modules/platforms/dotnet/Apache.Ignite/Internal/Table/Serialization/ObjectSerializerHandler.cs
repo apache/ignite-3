@@ -163,7 +163,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
             }
 
-            ValidateMappedCount(mappedCount, type, columns);
+            ValidateMappedCount(mappedCount, type, schema, count);
 
             il.Emit(OpCodes.Ret);
 
@@ -243,7 +243,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
             }
 
-            ValidateMappedCount(mappedCount, type, columns);
+            ValidateMappedCount(mappedCount, type, schema, count);
 
             il.Emit(OpCodes.Ret);
 
@@ -422,21 +422,36 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
         }
 
-        private static void ValidateMappedCount(int mappedCount, Type type, IReadOnlyCollection<Column> columns)
+        private static void ValidateMappedCount(int mappedCount, Type type, Schema schema, int columnCount)
         {
             if (mappedCount == 0)
             {
-                var columnStr = columns.Select(x => x.Type + " " + x.Name).StringJoin();
+                var columnStr = schema.Columns.Select(x => x.Type + " " + x.Name).StringJoin();
 
                 throw new IgniteClientException(
                     ErrorGroups.Client.Configuration,
                     $"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
             }
 
-            // TODO: This is not possible, we should get all fields/properties of the type somehow to validate unmapped columns.
-            if (mappedCount > columns.Count)
+            var fields = type.GetColumns();
+
+            if (fields.Count > mappedCount)
             {
-                var extraColumns = new HashSet<string>(mappedCount);
+                var extraColumns = new HashSet<string>(fields.Count);
+
+                foreach (var field in fields)
+                {
+                    extraColumns.Add(field.Name);
+                }
+
+                for (var index = 0; index < columnCount; index++)
+                {
+                    var column = schema.Columns[index];
+                    extraColumns.Remove(column.Name);
+                }
+
+                throw new ArgumentException(
+                    $"Record of type {type} doesn't match schema: schemaVersion={schema.Version}, extraColumns={extraColumns.StringJoin()}");
             }
         }
 
