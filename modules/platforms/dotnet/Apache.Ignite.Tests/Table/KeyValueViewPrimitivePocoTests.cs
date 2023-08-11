@@ -29,7 +29,7 @@ using NUnit.Framework;
 /// </summary>
 public class KeyValueViewPrimitivePocoTests : IgniteTestsBase
 {
-    private IKeyValueView<long, Poco> KvView => Table.GetKeyValueView<long, Poco>();
+    private IKeyValueView<long, ValPoco> KvView => Table.GetKeyValueView<long, ValPoco>();
 
     [TearDown]
     public async Task CleanTable()
@@ -42,17 +42,16 @@ public class KeyValueViewPrimitivePocoTests : IgniteTestsBase
     {
         await KvView.PutAsync(null, 1L, GetPoco("val"));
 
-        (Poco res, bool hasRes) = await KvView.GetAsync(null, 1L);
+        (ValPoco res, bool hasRes) = await KvView.GetAsync(null, 1L);
 
         Assert.IsTrue(hasRes);
         Assert.AreEqual("val", res.Val);
-        Assert.AreEqual(0, res.Key);
     }
 
     [Test]
     public async Task TestGetNonExistentKeyReturnsEmptyOption()
     {
-        (Poco res, bool hasRes) = await KvView.GetAsync(null, -111L);
+        (ValPoco res, bool hasRes) = await KvView.GetAsync(null, -111L);
 
         Assert.IsFalse(hasRes);
         Assert.IsNull(res);
