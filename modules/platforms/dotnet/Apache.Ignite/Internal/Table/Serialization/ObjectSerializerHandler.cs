@@ -422,18 +422,22 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
         }
 
-        private static void ValidateMappedCount(int mappedCount, Type type, IEnumerable<Column> columns)
+        private static void ValidateMappedCount(int mappedCount, Type type, IReadOnlyCollection<Column> columns)
         {
-            if (mappedCount > 0)
+            if (mappedCount == 0)
             {
-                return;
+                var columnStr = columns.Select(x => x.Type + " " + x.Name).StringJoin();
+
+                throw new IgniteClientException(
+                    ErrorGroups.Client.Configuration,
+                    $"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
             }
 
-            var columnStr = columns.Select(x => x.Type + " " + x.Name).StringJoin();
-
-            throw new IgniteClientException(
-                ErrorGroups.Client.Configuration,
-                $"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
+            // TODO: This is not possible, we should get all fields/properties of the type somehow to validate unmapped columns.
+            if (mappedCount > columns.Count)
+            {
+                var extraColumns = new HashSet<string>(mappedCount);
+            }
         }
 
         private static (Type KeyType, Type ValType, FieldInfo KeyField, FieldInfo ValField) GetKeyValTypes()
