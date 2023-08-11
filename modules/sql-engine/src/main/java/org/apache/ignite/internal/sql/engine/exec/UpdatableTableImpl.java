@@ -26,7 +26,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.plan.RelOptUtil;
@@ -75,9 +74,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final SchemaDescriptor schemaDescriptor;
 
-    private final List<ColumnDescriptor> columnsOrderedByPhysSchema;
+    private final ColumnDescriptor[] columnsOrderedByPhysSchema;
 
-    private final List<ColumnDescriptor> keyColumnsOrderedByPhysSchema;
+    private final ColumnDescriptor[] keyColumnsOrderedByPhysSchema;
 
     /**
      * Mapping of key column indexes to its ordinals in the ordered list.
@@ -111,24 +110,27 @@ public final class UpdatableTableImpl implements UpdatableTable {
         this.schemaDescriptor = schemaDescriptor;
         this.partitionExtractor = (row) -> IgniteUtils.safeAbs(row.colocationHash()) % partitions;
 
-        List<ColumnDescriptor> tmp = new ArrayList<>(desc.columnsCount());
+        ColumnDescriptor[] tmp = new ColumnDescriptor[desc.columnsCount()];
         for (int i = 0; i < desc.columnsCount(); i++) {
-            tmp.add(desc.columnDescriptor(i));
-        }
+            ColumnDescriptor columnDescriptor = desc.columnDescriptor(i);
 
-        tmp.sort(Comparator.comparingInt(ColumnDescriptor::physicalIndex));
+            tmp[columnDescriptor.physicalIndex()] = columnDescriptor;
+        }
 
         columnsOrderedByPhysSchema = tmp;
 
         int keyColumnsCount = schemaDescriptor.keyColumns().length();
 
-        List<ColumnDescriptor> keyCols = new ArrayList<>(keyColumnsCount);
-        List<Integer> keyLogicalIndexes = new ArrayList<>(keyColumnsCount);
+        ColumnDescriptor[] keyCols = new ColumnDescriptor[keyColumnsCount];
+        int[] keyLogicalIndexes = new int[keyColumnsCount];
+        int counter = 0;
 
         for (ColumnDescriptor colDesc : tmp) {
             if (colDesc.key()) {
-                keyCols.add(colDesc);
-                keyLogicalIndexes.add(colDesc.logicalIndex());
+                keyCols[counter] = colDesc;
+                keyLogicalIndexes[counter] = colDesc.logicalIndex();
+
+                counter++;
             }
         }
 
