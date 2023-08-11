@@ -18,6 +18,8 @@
 namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System;
+using System.Collections.Generic;
+using Common;
 using Ignite.Table;
 using Proto.BinaryTuple;
 using Proto.MsgPack;
@@ -68,6 +70,8 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
         int columnCount,
         Span<byte> noValueSet)
     {
+        int written = 0;
+
         for (var index = 0; index < columnCount; index++)
         {
             var col = schema.Columns[index];
@@ -77,11 +81,38 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
             if (colIdx >= 0)
             {
                 tupleBuilder.AppendObject(rec[colIdx], col.Type, col.Scale, col.Precision);
+                written++;
             }
             else
             {
                 tupleBuilder.AppendNoValue(noValueSet);
             }
+        }
+
+        var recordFieldCount = columnCount > schema.KeyColumnCount
+            ? record.Key.FieldCount + record.Val.FieldCount
+            : record.Key.FieldCount;
+
+        if (recordFieldCount > written)
+        {
+            var extraColumns = new HashSet<string>(recordFieldCount);
+            for (int index = 0; index < recordFieldCount; index++)
+            {
+                var name = index < schema.KeyColumnCount
+                    ? record.Key.GetName(index)
+                    : record.Val.GetName(index - schema.KeyColumnCount);
+
+                extraColumns.Add(name);
+            }
+
+            for (var i = 0; i < columnCount; i++)
+            {
+                extraColumns.Remove(schema.Columns[i].Name);
+            }
+
+            throw new ArgumentException(
+                $"Tuple doesn't match schema: schemaVersion={schema.Version}, extraColumns={extraColumns.StringJoin()}",
+                nameof(record));
         }
     }
 }
