@@ -21,7 +21,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -51,7 +50,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
     private final HybridClock clock;
 
-    final ConcurrentMap<CacheKey, CompletableFuture<ExecutableTable>> tableCache;
+    final ConcurrentMap<Long, CompletableFuture<ExecutableTable>> tableCache;
 
     /** Constructor. */
     public ExecutableTableRegistryImpl(TableManager tableManager, SchemaManager schemaManager,
@@ -63,19 +62,19 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         this.clock = clock;
         this.tableCache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
-                .<CacheKey, ExecutableTable>buildAsync().asMap();
+                .<Long, ExecutableTable>buildAsync().asMap();
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId, TableDescriptor tableDescriptor) {
-        return tableCache.computeIfAbsent(new CacheKey(schemaVersion, tableId), (k) -> loadTable(tableId, tableDescriptor));
+        return tableCache.computeIfAbsent(cacheKey(schemaVersion, tableId), (k) -> loadTable(tableId, tableDescriptor));
     }
 
     // TODO IGNITE-19499: Drop this temporal method to get table by name.
     @Override
     public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId, String tableName, TableDescriptor tableDescriptor) {
-        return tableCache.computeIfAbsent(new CacheKey(schemaVersion, tableId), (k) -> loadTable(tableName, tableDescriptor));
+        return tableCache.computeIfAbsent(cacheKey(schemaVersion, tableId), (k) -> loadTable(tableName, tableDescriptor));
     }
 
     /** {@inheritDoc} */
@@ -169,30 +168,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         }
     }
 
-    static class CacheKey {
-        private final int version;
-        private final int tableId;
-
-        CacheKey(int version, int tableId) {
-            this.version = version;
-            this.tableId = tableId;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            CacheKey cacheKey = (CacheKey) o;
-            return version == cacheKey.version && tableId == cacheKey.tableId;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(version, tableId);
-        }
+    private static long cacheKey(int schemaVersion, int tableId) {
+        return (((long) schemaVersion) << 32) | (tableId & 0xffff_ffffL);
     }
 }
