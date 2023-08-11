@@ -501,7 +501,7 @@ public class InternalTableImpl implements InternalTable {
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
             if (full) { // Full txn is already finished remotely. Just update local state.
-                // TODO: IGNITE-17638 TestOnly code, let's consider using Txn state map instead of states.
+                // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
                 txManager.changeState(tx0.id(), PENDING, e == null ? COMMITED : ABORTED);
                 return e != null ? failedFuture(wrapReplicationException(e)) : completedFuture(r);
             }
