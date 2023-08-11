@@ -51,8 +51,8 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      *
      * @param id Id of the distribution zone.
      * @param name Name of the zone.
-     * @param partitions Amount of partitions in distributions zone.
-     * @param replicas Amount of partition replicas.
+     * @param partitions Count of partitions in distributions zone.
+     * @param replicas Count of partition replicas.
      * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
@@ -82,14 +82,14 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
-     * Returns amount of zone partitions.
+     * Returns count of zone partitions.
      */
     public int partitions() {
         return partitions;
     }
 
     /**
-     * Return amount of zone replicas.
+     * Return count of zone replicas.
      */
     public int replicas() {
         return replicas;
