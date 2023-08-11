@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -207,10 +206,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     }
 
     protected int getZoneId(String zoneName) {
-        Integer zoneId = DistributionZonesTestUtil.getZoneId(zonesConfiguration, zoneName);
-
-        assertNotNull(zoneId, zoneName);
-
-        return zoneId;
+        return DistributionZonesTestUtil.getZoneIdStrict(zonesConfiguration, zoneName);
     }
 }

@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
@@ -140,10 +139,6 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     }
 
     private int getZoneId(String zoneName) {
-        Integer zoneId = DistributionZonesTestUtil.getZoneId(zonesConfiguration, zoneName);
-
-        assertNotNull(zoneId, zoneName);
-
-        return zoneId;
+        return DistributionZonesTestUtil.getZoneIdStrict(zonesConfiguration, zoneName);
     }
 }

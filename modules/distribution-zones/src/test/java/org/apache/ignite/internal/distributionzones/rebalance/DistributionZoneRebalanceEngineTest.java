@@ -559,10 +559,6 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     }
 
     private int getZoneId(String zoneName) {
-        Integer zoneId = DistributionZonesTestUtil.getZoneId(zonesConfig, zoneName);
-
-        assertNotNull(zoneId, zoneName);
-
-        return zoneId;
+        return DistributionZonesTestUtil.getZoneIdStrict(zonesConfig, zoneName);
     }
 }

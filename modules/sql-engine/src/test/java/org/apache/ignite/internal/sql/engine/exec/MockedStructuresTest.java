@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -77,7 +77,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -113,7 +112,6 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.SqlException;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -437,7 +435,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         readFirst(queryProc.querySingleAsync(sessionId, context, newTblSql));
 
-        assertEquals(getZoneId(dstZnsCfg, DEFAULT_ZONE_NAME), tblsCfg.tables().get(tableName).zoneId().value());
+        assertEquals(getZoneId(DEFAULT_ZONE_NAME), tblsCfg.tables().get(tableName).zoneId().value());
 
         readFirst(queryProc.querySingleAsync(sessionId, context, "DROP TABLE " + tableName));
 
@@ -629,7 +627,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         return (BatchedResult<T>) await(await(cursors).requestNextAsync(512));
     }
 
-    private @Nullable TableView tableView(String tableName) {
-        return tblsCfg.tables().value().get(tableName.toUpperCase());
+    private int getZoneId(String zoneName) {
+        return getZoneIdStrict(dstZnsCfg, zoneName);
     }
 }

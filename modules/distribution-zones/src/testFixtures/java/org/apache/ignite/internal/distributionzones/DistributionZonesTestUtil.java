@@ -39,6 +39,7 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Map;
@@ -576,5 +577,20 @@ public class DistributionZonesTestUtil {
 
             return zone == null ? null : zone.zoneId();
         }
+    }
+
+    /**
+     * Returns the zone ID from the configuration, {@code null} if the zone was not found.
+     *
+     * @param config Zones configuration.
+     * @param zoneName Zone name.
+     * @throws AssertionError If the zone was not found.
+     */
+    public static int getZoneIdStrict(DistributionZonesConfiguration config, String zoneName) {
+        Integer zoneId = getZoneId(config, zoneName);
+
+        assertNotNull(zoneId, zoneName);
+
+        return zoneId;
     }
 }

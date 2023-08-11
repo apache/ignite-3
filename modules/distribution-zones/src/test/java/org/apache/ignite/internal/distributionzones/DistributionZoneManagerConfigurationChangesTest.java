@@ -34,7 +34,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
@@ -245,10 +244,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     }
 
     private int getZoneId(String zoneName) {
-        Integer zoneId = DistributionZonesTestUtil.getZoneId(zonesConfiguration, zoneName);
-
-        assertNotNull(zoneId, zoneName);
-
-        return zoneId;
+        return DistributionZonesTestUtil.getZoneIdStrict(zonesConfiguration, zoneName);
     }
 }
