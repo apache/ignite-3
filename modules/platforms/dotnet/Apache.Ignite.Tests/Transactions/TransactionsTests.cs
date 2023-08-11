@@ -283,6 +283,33 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.AreEqual($"Transaction {{ Id = {id + 2}, State = Committed, IsReadOnly = False }}", tx3.ToString());
         }
 
+        [Test]
+        public async Task TestObservableTimestampPropagation([Values(true, false)] bool sql)
+        {
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync();
+
+            server.ObservableTimestamp = 123;
+
+            // Non-transactional operations do not propagate timestamp.
+            await client.Tables.GetTablesAsync();
+            await client.Tables.GetTablesAsync();
+
+            Assert.AreEqual(0, server.LastClientObservableTimestamp);
+
+            // Transactional operations propagate timestamp.
+            if (sql)
+            {
+                await client.Sql.ExecuteAsync(null, "select 1");
+            }
+            else
+            {
+                await client.Transactions.BeginAsync();
+            }
+
+            Assert.AreEqual(123, server.LastClientObservableTimestamp);
+        }
+
         private class CustomTx : ITransaction
         {
             public bool IsReadOnly => false;

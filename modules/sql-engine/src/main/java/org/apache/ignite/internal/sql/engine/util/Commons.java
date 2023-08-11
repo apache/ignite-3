@@ -19,7 +19,7 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.EXPRESSION_COMPILATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -64,6 +64,7 @@ import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.type.SqlTypeCoercionRule;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -98,8 +99,8 @@ import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.sql.SqlException;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
@@ -155,6 +156,7 @@ public final class Commons {
                     .withIdentifierExpansion(true)
                     .withDefaultNullCollation(NullCollation.HIGH)
                     .withSqlConformance(IgniteSqlConformance.INSTANCE)
+                    .withTypeCoercionRules(standardCompatibleCoercionRules())
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
             .operatorTable(IgniteSqlOperatorTable.INSTANCE)
@@ -167,6 +169,10 @@ public final class Commons {
             .build();
 
     private Commons() {
+    }
+
+    private static SqlTypeCoercionRule standardCompatibleCoercionRules() {
+        return SqlTypeCoercionRule.instance(IgniteCustomAssigmentsRules.instance().getTypeMapping());
     }
 
     /**
@@ -392,7 +398,7 @@ public final class Commons {
 
             return (T) cbe.createInstance(new StringReader(body));
         } catch (Exception e) {
-            throw new SqlException(EXPRESSION_COMPILATION_ERR, e);
+            throw new IgniteInternalException(INTERNAL_ERR, "Unable to compile expression", e);
         }
     }
 
@@ -494,6 +500,38 @@ public final class Commons {
      */
     public static Mappings.TargetMapping inverseTrimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
         return Mappings.invert(trimmingMapping(sourceSize, requiredElements).inverse());
+    }
+
+    /**
+     * Produces new bitset setting bits according to the given mapping.
+     *
+     * <pre>
+     * bitset:
+     *   [0, 1, 4]
+     * mapping:
+     *   1 -> 0
+     *   0 -> 1
+     *   4 -> 3
+     * result:
+     *   [0, 1, 3]
+     * </pre>
+     *
+     * @param bitset A bitset.
+     * @param mapping Mapping to use.
+     * @return  a transformed bit set.
+     */
+    public static ImmutableBitSet mapBitSet(ImmutableBitSet bitset, Mapping mapping) {
+        ImmutableBitSet.Builder result = ImmutableBitSet.builder();
+
+        int bitPos = bitset.nextSetBit(0);
+
+        while (bitPos != -1) {
+            int target = mapping.getTarget(bitPos);
+            result.set(target);
+            bitPos = bitset.nextSetBit(bitPos + 1);
+        }
+
+        return result.build();
     }
 
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.calcite.sql.type.SqlTypeUtil.isNull;
 import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -34,6 +35,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.SqlAggFunction;
+import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlDelete;
@@ -47,6 +49,7 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlMerge;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
@@ -65,6 +68,7 @@ import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
+import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -220,7 +224,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         final SqlValidatorTable table = getCatalogReader().getTable(targetTable.names);
 
         if (table == null) {
-            // TODO IGNITE-14865 Calcite exception should be converted/wrapped into a public ignite exception.
             throw newValidationError(call.getTargetTable(), RESOURCE.objectNotFound(targetTable.toString()));
         }
 
@@ -267,7 +270,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         final SqlValidatorTable table = getCatalogReader().getTable(targetTable.names);
 
         if (table == null) {
-            // TODO IGNITE-14865 Calcite exception should be converted/wrapped into a public ignite exception.
             throw newValidationError(targetTable, RESOURCE.objectNotFound(targetTable.toString()));
         }
 
@@ -356,13 +358,15 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public RelDataType deriveType(SqlValidatorScope scope, SqlNode expr) {
+        checkTypesInteroperability(scope, expr);
+
         RelDataType dataType = super.deriveType(scope, expr);
 
-        // Dynamic params
-        if (dataType.equals(unknownType) && expr instanceof SqlDynamicParam) {
-            // If type of dynamic parameter has not been inferred, use a type of its value.
-            RelDataType paramType = getDynamicParamType((SqlDynamicParam) expr);
+        // If type of dynamic parameter has not been inferred, use a type of its value.
+        RelDataType paramType = expr instanceof SqlDynamicParam
+                ? getDynamicParamType((SqlDynamicParam) expr) : null;
 
+        if (dataType.equals(unknownType) && expr instanceof SqlDynamicParam) {
             // If paramType is unknown setValidatedNodeType is a no-op.
             setValidatedNodeType(expr, paramType);
             return paramType;
@@ -397,6 +401,63 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
 
         return dataType;
+    }
+
+    /** Check appropriate type cast availability. */
+    private void checkTypesInteroperability(SqlValidatorScope scope, SqlNode expr) {
+        boolean castOp = expr.getKind() == SqlKind.CAST;
+
+        if (castOp || SqlKind.BINARY_COMPARISON.contains(expr.getKind())) {
+            SqlBasicCall expr0 = (SqlBasicCall) expr;
+            SqlNode first = expr0.getOperandList().get(0);
+            SqlNode ret = expr0.getOperandList().get(1);
+
+            RelDataType firstType;
+            RelDataType returnType = super.deriveType(scope, ret);
+
+            if (first instanceof SqlDynamicParam) {
+                firstType = getDynamicParamType((SqlDynamicParam) first);
+            } else {
+                firstType = super.deriveType(scope, first);
+            }
+
+            boolean nullType = isNull(returnType) || isNull(firstType);
+
+            // propagate null type validation
+            if (nullType) {
+                return;
+            }
+
+            RelDataType returnCustomType = returnType instanceof IgniteCustomType ? returnType : null;
+            RelDataType fromCustomType = firstType instanceof IgniteCustomType ? firstType : null;
+
+            IgniteCustomTypeCoercionRules coercionRules = typeFactory().getCustomTypeCoercionRules();
+            boolean check;
+
+            if (fromCustomType != null && returnCustomType != null) {
+                // it`s not allowed to convert between different custom types for now.
+                check = SqlTypeUtil.equalSansNullability(typeFactory, firstType, returnType);
+            } else if (fromCustomType != null) {
+                check = coercionRules.needToCast(returnType, (IgniteCustomType) fromCustomType);
+            } else if (returnCustomType != null) {
+                check = coercionRules.needToCast(firstType, (IgniteCustomType) returnCustomType);
+            } else {
+                check = SqlTypeUtil.canCastFrom(returnType, firstType, true);
+            }
+
+            if (!check) {
+                if (castOp) {
+                    throw newValidationError(expr,
+                            RESOURCE.cannotCastValue(firstType.toString(), returnType.toString()));
+                } else {
+                    SqlBasicCall call = (SqlBasicCall) expr;
+                    SqlOperator operator = call.getOperator();
+
+                    var ex = RESOURCE.incompatibleValueType(operator.getName());
+                    throw SqlUtil.newContextException(expr.getParserPosition(), ex);
+                }
+            }
+        }
     }
 
     /** {@inheritDoc} */

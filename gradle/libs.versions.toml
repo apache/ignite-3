@@ -41,7 +41,7 @@ micronautPicocli = "4.3.0"
 micronautJunit5 = "3.9.0"
 micronautSecurity="3.9.2"
 micronautReactor="2.5.0"
-mockito = "4.3.1"
+mockito = "5.4.0"
 picocli = "4.7.0"
 slf4j = "2.0.7"
 spoon = "8.4.0-beta-18"
@@ -104,7 +104,6 @@ hamcrest-path = { module = "ca.seinesoftware:hamcrest-path", version.ref = "hamc
 
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 mockito-junit = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
-mockito-inline = { module = "org.mockito:mockito-inline", version.ref = "mockito" }
 
 asm-core = { module = "org.ow2.asm:asm", version.ref = "asm" }
 asm-tree = { module = "org.ow2.asm:asm-tree", version.ref = "asm" }

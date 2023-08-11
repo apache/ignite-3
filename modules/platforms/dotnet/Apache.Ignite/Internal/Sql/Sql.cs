@@ -144,27 +144,14 @@ namespace Apache.Ignite.Internal.Sql
                 // ResultSet will dispose the pooled buffer.
                 return new ResultSet<T>(socket, buf, rowReaderFactory);
             }
-            catch (SqlException e) when (e.Code == ErrorGroups.Sql.QueryInvalid)
+            catch (SqlException e) when (e.Code == ErrorGroups.Sql.StmtValidation || e.Code == ErrorGroups.Sql.StmtParse)
             {
                 throw new SqlException(
                     e.TraceId,
-                    ErrorGroups.Sql.QueryInvalid,
+                    ErrorGroups.Sql.StmtValidation,
                     "Invalid query, check inner exceptions for details: " + statement.Query,
                     e);
             }
-#if DEBUG
-            catch (IgniteException e)
-            {
-                // TODO IGNITE-14865 Calcite error handling rework
-                // This should not happen, all parsing errors must be wrapped in SqlException.
-                if ((e.InnerException?.Message ?? e.Message).StartsWith("org.apache.calcite.", StringComparison.Ordinal))
-                {
-                    Console.WriteLine("SQL parsing failed: " + statement.Query);
-                }
-
-                throw;
-            }
-#endif
 
             PooledArrayBuffer Write()
             {
@@ -189,6 +176,8 @@ namespace Apache.Ignite.Internal.Sql
                 w.Write(propTuple.Build().Span);
                 w.Write(statement.Query);
                 w.WriteObjectCollectionAsBinaryTuple(args);
+
+                w.Write(_socket.ObservableTimestamp);
 
                 return writer;
             }

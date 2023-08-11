@@ -17,13 +17,13 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.internal.util.ExceptionUtils.getOrCreateTraceId;
 import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroup.extractGroupCode;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.util.TraceIdUtils.getOrCreateTraceId;
 
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;

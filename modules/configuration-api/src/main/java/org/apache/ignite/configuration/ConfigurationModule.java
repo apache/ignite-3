@@ -21,8 +21,8 @@ import static java.util.Collections.emptySet;
 
 import java.util.Collection;
 import java.util.Set;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.validation.Validator;
 
@@ -41,14 +41,14 @@ import org.apache.ignite.configuration.validation.Validator;
  * <ul>
  *     <li><b>rootKeys</b> ({@link RootKey} instances)</li>
  *     <li><b>validators</b> ({@link Validator} instances)</li>
- *     <li><b>internalSchemaExtensions</b> (classes annotated with {@link InternalConfiguration})</li>
+ *     <li><b>schemaExtensions</b> (classes annotated with {@link ConfigurationExtension})</li>
  *     <li><b>polymorphicSchemaExtensions</b> (classes annotated with {@link PolymorphicConfig})</li>
  * </ul>
  *
  * @see ConfigurationType
  * @see RootKey
  * @see Validator
- * @see InternalConfiguration
+ * @see ConfigurationExtension
  * @see PolymorphicConfig
  */
 public interface ConfigurationModule {
@@ -78,12 +78,10 @@ public interface ConfigurationModule {
     }
 
     /**
-     * Returns classes of internal schema extensions (annotated with {@link InternalConfiguration})
-     * provided by this module.
-     *
-     * @return internal schema extensions' classes
+     * Returns classes of schema extensions (annotated with {@link ConfigurationExtension})
+     * provided by this module, including internal extensions.
      */
-    default Collection<Class<?>> internalSchemaExtensions() {
+    default Collection<Class<?>> schemaExtensions() {
         return emptySet();
     }
 

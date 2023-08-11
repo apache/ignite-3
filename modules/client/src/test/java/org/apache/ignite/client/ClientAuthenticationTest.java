@@ -23,10 +23,10 @@ import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.security.AuthenticationException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,7 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @SuppressWarnings({"resource", "ThrowableNotThrown"})
 @ExtendWith(ConfigurationExtension.class)
-public class ClientAuthenticationTest {
+public class ClientAuthenticationTest extends BaseIgniteAbstractTest {
     @SuppressWarnings("unused")
     @InjectConfiguration
     private AuthenticationConfiguration authenticationConfiguration;
@@ -70,7 +70,7 @@ public class ClientAuthenticationTest {
     public void testAuthnOnClientNoAuthnOnServer() {
         server = startServer(false);
 
-        startClient(BasicAuthenticator.builder().username("u").password("p").build());
+        client = startClient(BasicAuthenticator.builder().username("u").password("p").build());
     }
 
     @Test
@@ -93,7 +93,7 @@ public class ClientAuthenticationTest {
     public void testAuthnOnClientAuthnOnServer() {
         server = startServer(false);
 
-        startClient(BasicAuthenticator.builder().username("usr").password("pwd").build());
+        client = startClient(BasicAuthenticator.builder().username("usr").password("pwd").build());
     }
 
     private IgniteClient startClient(@Nullable IgniteClientAuthenticator authenticator) {
@@ -103,7 +103,6 @@ public class ClientAuthenticationTest {
                 .build();
     }
 
-    @NotNull
     private TestServer startServer(boolean basicAuthn) {
         var server = new TestServer(
                 1000,

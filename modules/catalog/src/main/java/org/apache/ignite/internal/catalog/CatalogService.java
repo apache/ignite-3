@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog;
 
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -40,29 +42,49 @@ public interface CatalogService {
 
     String DEFAULT_ZONE_NAME = "Default";
 
-    CatalogTableDescriptor table(String tableName, long timestamp);
+    @Nullable CatalogTableDescriptor table(String tableName, long timestamp);
 
-    CatalogTableDescriptor table(int tableId, long timestamp);
+    @Nullable CatalogTableDescriptor table(int tableId, long timestamp);
 
-    CatalogTableDescriptor table(int tableId, int catalogVersion);
+    @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion);
 
-    CatalogIndexDescriptor index(String indexName, long timestamp);
+    Collection<CatalogTableDescriptor> tables(int catalogVersion);
 
-    CatalogIndexDescriptor index(int indexId, long timestamp);
+    @Nullable CatalogIndexDescriptor index(String indexName, long timestamp);
 
-    CatalogSchemaDescriptor schema(int version);
+    @Nullable CatalogIndexDescriptor index(int indexId, long timestamp);
 
-    CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
+    @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion);
+
+    Collection<CatalogIndexDescriptor> indexes(int catalogVersion);
+
+    @Nullable CatalogSchemaDescriptor schema(int version);
+
+    @Nullable CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
 
     CatalogZoneDescriptor zone(String zoneName, long timestamp);
 
     CatalogZoneDescriptor zone(int zoneId, long timestamp);
 
-    CatalogSchemaDescriptor activeSchema(long timestamp);
+    @Nullable CatalogSchemaDescriptor activeSchema(long timestamp);
 
-    CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
+    @Nullable CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
 
     int activeCatalogVersion(long timestamp);
+
+    /**
+     * Returns the latest registered version of the catalog.
+     *
+     * <p>NOTE: This method should only be used at the start of components that may be removed or moved in the future.
+     */
+    int latestCatalogVersion();
+
+    /**
+     * Returns a future, which completes, when catalog of given version will be available.
+     *
+     * @param version Catalog version to wait for.
+     */
+    CompletableFuture<Void> catalogReadyFuture(int version);
 
     void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
 }

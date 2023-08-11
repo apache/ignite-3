@@ -18,15 +18,23 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static java.util.function.Predicate.not;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.AggregateCall;
+import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
@@ -168,7 +176,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                 .and(not(hasAggregate()))
                                 .and(hasGroups())
-                                .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                         ))
                 ),
                 disableRules
@@ -182,7 +190,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(not(hasAggregate()))
                                         .and(hasGroups())
-                                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                                 ))
                         ))
                 ),
@@ -218,7 +226,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_16,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                .and(input(isIndexScan("TEST", "val0")))
+                                .and(input(isIndexScan("TEST", "idx_val0")))
                         ))
                 ),
                 ArrayUtils.concat(disableRules, additionalRulesToDisable)
@@ -228,7 +236,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                        .and(input(isIndexScan("TEST", "val0")))
+                                        .and(input(isIndexScan("TEST", "idx_val0")))
                                 ))
                         ))
                 ),
@@ -362,6 +370,43 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         ), disableRules);
     }
 
+    /**
+     * Validates that COUNT aggregate is split into COUNT and COUNT_REDUCE.
+     */
+    @Test
+    public void twoPhaseCountAgg() throws Exception {
+        Predicate<AggregateCall> countMap = (a) -> {
+            SqlAggFunction aggName = a.getAggregation();
+            return Objects.equals(aggName.getName(), "COUNT") && a.getArgList().equals(List.of(1));
+        };
+
+        Predicate<AggregateCall> countReduce = (a) -> {
+            SqlAggFunction aggName = a.getAggregation();
+            return Objects.equals(aggName.getName(), "$SUM0") && a.getArgList().equals(List.of(1));
+        };
+
+        assertPlan(TestCase.CASE_22, hasChildThat(isInstanceOf(IgniteReduceSortAggregate.class)
+                .and(in -> hasAggregates(countReduce).test(in.getAggregateCalls()))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
+                                )
+                        ))
+                )), disableRules);
+    }
+
+    /**
+     * Validates that AVG can not be used as two phase mode.
+     * Should be fixed with TODO https://issues.apache.org/jira/browse/IGNITE-20009
+     */
+    @Test
+    public void testAvgAgg() {
+        RuntimeException e = assertThrows(RuntimeException.class,
+                () -> assertPlan(TestCase.CASE_23, isInstanceOf(IgniteRel.class), disableRules));
+
+        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
+    }
+
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
@@ -447,8 +492,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     }
 
     private void checkDistinctAggHash(TestCase testCase) throws Exception {
-        assertPlan(testCase,
-                isInstanceOf(IgniteReduceSortAggregate.class)
+        assertPlan(testCase, nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(hasAggregate())
                         .and(not(hasDistinctAggregate()))
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
@@ -466,7 +510,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                                 ))
                                         ))
                                 ))
-                        )),
+                        ))),
                 disableRules
         );
     }
@@ -526,7 +570,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                 .and(hasAggregate())
-                                .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                         ))
                 ),
                 disableRules
@@ -539,7 +583,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(hasAggregate())
-                                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                                 ))
                         ))
                 ),
@@ -585,29 +629,32 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
 
     private void checkGroupsWithOrderBySubsetOfGroupColumnsSingle(TestCase testCase, RelCollation collation) throws Exception {
         assertPlan(testCase,
-                isInstanceOf(IgniteReduceSortAggregate.class)
-                        .and(input(isInstanceOf(IgniteMapSortAggregate.class) //TODO: Why can't Map be pushed down to under 'exchange'.
+                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                //TODO: https://issues.apache.org/jira/browse/IGNITE-20095
+                                // Why can't Map be pushed down to under 'exchange'.
                                 .and(input(isInstanceOf(IgniteSort.class)
                                         .and(s -> s.collation().equals(collation))
                                         .and(input(isTableScan("TEST")))
                                 ))
-                        )),
+                        ))),
                 disableRules
         );
     }
 
     private void checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase testCase, RelCollation collation) throws Exception {
         assertPlan(testCase,
-                isInstanceOf(IgniteReduceSortAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                //TODO: Why can't Map be pushed down to under 'exchange'.
+                                //TODO: https://issues.apache.org/jira/browse/IGNITE-20095
+                                // Why can't Map be pushed down to under 'exchange'.
                                 .and(input(isInstanceOf(IgniteExchange.class)
                                         .and(input(isInstanceOf(IgniteSort.class)
                                                 .and(s -> s.collation().equals(collation))
                                                 .and(input(isTableScan("TEST")))
                                         ))
                                 ))
-                        )),
+                        ))),
                 disableRules
         );
     }
@@ -616,15 +663,18 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 isInstanceOf(IgniteSort.class)
                         .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1, 2))))
-                        .and(input(
-                                isInstanceOf(IgniteReduceSortAggregate.class)
-                                        .and(input(isInstanceOf(
-                                                IgniteMapSortAggregate.class) //TODO: Why can't Map be pushed down to under 'exchange'.
+                        .and(input(isInstanceOf(IgniteProject.class)
+                                .and(input(isInstanceOf(IgniteReduceSortAggregate.class)
+                                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                                //TODO: https://issues.apache.org/jira/browse/IGNITE-20095
+                                                // Why can't Map be pushed down to under 'exchange'.
                                                 .and(input(isInstanceOf(IgniteSort.class)
                                                         .and(s -> s.collation().equals(collation))
-                                                        .and(input(isTableScan("TEST")))
+                                                        .and(input(isTableScan("TEST")
+                                                        ))
                                                 ))
                                         ))
+                                ))
                         )),
                 disableRules
         );
@@ -634,17 +684,20 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 isInstanceOf(IgniteSort.class)
                         .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1, 2))))
-                        .and(input(
-                                isInstanceOf(IgniteReduceSortAggregate.class)
+                        .and(input(isInstanceOf(IgniteProject.class)
+                                .and(input(isInstanceOf(IgniteReduceSortAggregate.class)
                                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                                //TODO: Why can't Map be pushed down to under 'exchange'.
+                                                //TODO: https://issues.apache.org/jira/browse/IGNITE-20095
+                                                // Why can't Map be pushed down to under 'exchange'.
                                                 .and(input(isInstanceOf(IgniteExchange.class)
                                                         .and(input(isInstanceOf(IgniteSort.class)
                                                                 .and(s -> s.collation().equals(collation))
-                                                                .and(input(isTableScan("TEST")))
+                                                                .and(input(isTableScan("TEST")
+                                                                ))
                                                         ))
                                                 ))
                                         ))
+                                ))
                         )),
                 disableRules
         );

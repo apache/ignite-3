@@ -25,10 +25,10 @@ import static org.apache.ignite.rest.client.model.DeploymentStatus.UPLOADING;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -363,12 +363,14 @@ public class ItGeneratedRestClientTest {
 
     @Test
     void nodeMetricSourcesList() throws ApiException {
-        List<MetricSource> metricSources = List.of(
+        MetricSource[] expectedMetricSources = {
                 new MetricSource().name("jvm").enabled(false),
-                new MetricSource().name("client.handler").enabled(false)
-        );
+                new MetricSource().name("client.handler").enabled(false),
+                new MetricSource().name("sql.client").enabled(false),
+                new MetricSource().name("sql.plan.cache").enabled(false)
+        };
 
-        assertThat(nodeMetricApi.listNodeMetricSources(), containsInAnyOrder(metricSources.toArray()));
+        assertThat(nodeMetricApi.listNodeMetricSources(), hasItems(expectedMetricSources));
     }
 
     @Test

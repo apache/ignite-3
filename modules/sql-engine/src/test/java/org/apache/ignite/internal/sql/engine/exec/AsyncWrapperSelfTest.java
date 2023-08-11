@@ -33,12 +33,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 /** Test class to verify {@link org.apache.ignite.internal.sql.engine.exec.AsyncWrapper}. */
-public class AsyncWrapperSelfTest {
+public class AsyncWrapperSelfTest extends BaseIgniteAbstractTest {
     /**
      * The very first invocation of {@link AsyncCursor#requestNextAsync requestNext} on the empty cursor should complete normally, follow
      * invocation should be completed exceptionally.

@@ -76,15 +76,6 @@ public class RowAssembler {
     /** Current field index (the field is unset). */
     private int curCol;
 
-    private static boolean hasNulls(Columns columns) {
-        for (int i = 0; i < columns.length(); i++) {
-            if (columns.column(i).nullable()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /**
      * Helper method.
      *
@@ -718,9 +709,12 @@ public class RowAssembler {
 
         Column col = curCols.column(curCol);
 
+        // Column#validate does not work here, because we must tolerate differences in precision, size, etc.
         if (col.type().spec() != type) {
-            throw new SchemaMismatchException("Failed to set column (" + type.name() + " was passed, but column is of different "
-                    + "type): " + col);
+            throw new InvalidTypeException("Column's type mismatch ["
+                    + "column=" + col
+                    + ", expectedType=" + col.type().spec()
+                    + ", actualType=" + type + ']');
         }
     }
 

@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneCatalogDescriptorUtils.toZoneDescriptor;
+import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.ArrayList;
@@ -37,7 +39,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -163,8 +168,14 @@ public class DistributionZoneRebalanceEngine {
 
                     int zoneId = extractZoneId(evt.entryEvent().newEntry().key());
 
-                    DistributionZoneView zoneConfig =
-                            getZoneById(zonesConfiguration, zoneId).value();
+                    DistributionZoneView zoneConfig;
+
+                    try {
+                        zoneConfig = getZoneById(zonesConfiguration, zoneId).value();
+                    } catch (DistributionZoneNotFoundException e) {
+                        //The zone was removed.
+                        return completedFuture(null);
+                    }
 
                     Set<String> filteredDataNodes = filterDataNodes(
                             dataNodes,
@@ -176,10 +187,14 @@ public class DistributionZoneRebalanceEngine {
                         return completedFuture(null);
                     }
 
+                    CatalogZoneDescriptor zoneDescriptor = toZoneDescriptor(zoneConfig);
+
                     for (TableView tableConfig : findTablesByZoneId(zoneId)) {
+                        CatalogTableDescriptor tableDescriptor = toTableDescriptor(tableConfig);
+
                         CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
-                                tableConfig,
-                                zoneConfig,
+                                tableDescriptor,
+                                zoneDescriptor,
                                 filteredDataNodes,
                                 evt.entryEvent().newEntry().revision(),
                                 metaStorageManager
@@ -198,13 +213,13 @@ public class DistributionZoneRebalanceEngine {
                                     // The exception is specific to this partition.
                                     LOG.error(
                                             "Exception on updating assignments for [table={}/{}, partition={}]", e,
-                                            tableConfig.id(), tableConfig.name(), finalPartId
+                                            tableDescriptor.id(), tableDescriptor.name(), finalPartId
                                     );
                                 } else {
                                     // The exception is from upstream and not specific for this partition, so don't log the partition index.
                                     LOG.error(
                                             "Exception on updating assignments for [table={}/{}]", e,
-                                            tableConfig.id(), tableConfig.name()
+                                            tableDescriptor.id(), tableDescriptor.name()
                                     );
                                 }
 
@@ -244,32 +259,37 @@ public class DistributionZoneRebalanceEngine {
 
             DistributionZoneView zoneCfg = replicasCtx.newValue(DistributionZoneView.class);
 
-            Set<String> dataNodes = distributionZoneManager.dataNodes(zoneCfg.zoneId());
+            return distributionZoneManager.dataNodes(replicasCtx.storageRevision(), zoneCfg.zoneId())
+                    .thenCompose(dataNodes -> {
+                        if (dataNodes.isEmpty()) {
+                            return completedFuture(null);
+                        }
 
-            if (dataNodes.isEmpty()) {
-                return completedFuture(null);
-            }
+                        List<TableView> tableViews = findTablesByZoneId(zoneCfg.zoneId());
 
-            List<TableView> tableViews = findTablesByZoneId(zoneCfg.zoneId());
+                        CatalogZoneDescriptor zoneDescriptor = toZoneDescriptor(zoneCfg);
 
-            List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableViews.size());
+                        List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableViews.size());
 
-            for (TableView tableCfg : tableViews) {
-                LOG.info("Received update for replicas number [table={}/{}, oldNumber={}, newNumber={}]",
-                        tableCfg.id(), tableCfg.name(), replicasCtx.oldValue(), replicasCtx.newValue());
+                        for (TableView tableCfg : tableViews) {
+                            CatalogTableDescriptor tableDescriptor = toTableDescriptor(tableCfg);
 
-                CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
-                        tableCfg,
-                        zoneCfg,
-                        dataNodes,
-                        replicasCtx.storageRevision(),
-                        metaStorageManager
-                );
+                            LOG.info("Received update for replicas number [table={}/{}, oldNumber={}, newNumber={}]",
+                                    tableDescriptor.id(), tableDescriptor.name(), replicasCtx.oldValue(), replicasCtx.newValue());
 
-                tableFutures.add(allOf(partitionFutures));
-            }
+                            CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
+                                    tableDescriptor,
+                                    zoneDescriptor,
+                                    dataNodes,
+                                    replicasCtx.storageRevision(),
+                                    metaStorageManager
+                            );
 
-            return allOf(tableFutures.toArray(CompletableFuture[]::new));
+                            tableFutures.add(allOf(partitionFutures));
+                        }
+
+                        return allOf(tableFutures.toArray(CompletableFuture[]::new));
+                    });
         } finally {
             busyLock.leaveBusy();
         }

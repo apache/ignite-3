@@ -648,7 +648,7 @@ connection_info::connection_info(const configuration &config)
 
 #ifdef SQL_SCHEMA_TERM
     // A character string with the data source vendor's name for a schema; for example, "owner",
-    // "Authorization ID", or "Schema".
+    // "Authorization ID", or "Schema"
     m_str_params[SQL_SCHEMA_TERM] = "schema";
 #endif // SQL_SCHEMA_TERM
 
@@ -2267,7 +2267,7 @@ connection_info::connection_info(const configuration &config)
     //
 
 #ifdef SQL_MAX_CONCURRENT_ACTIVITIES
-    // The maximum number of active statements that the driver can  support for a connection. Zero mean no
+    // The maximum number of active statements that the driver can support for a connection. Zero means no
     // limit.
     m_short_params[SQL_MAX_CONCURRENT_ACTIVITIES] = 0;
 #endif // SQL_MAX_CONCURRENT_ACTIVITIES
@@ -2279,7 +2279,7 @@ connection_info::connection_info(const configuration &config)
     // The value of this attribute will reflect the current state of the next setting :
     // SQL_COPT_SS_PRESERVE_CURSORS.
     // SQL_CB_DELETE = Close cursors and delete prepared statements.To use the cursor again, the application
-    //     must reprepare and reexecute the statement.
+    //     must re-prepare and re-execute the statement.
     // SQL_CB_CLOSE = Close cursors. For prepared statements, the application can call SQLExecute on the
     //     statement without calling SQLPrepare again. The default for the SQL ODBC driver is SQL_CB_CLOSE.
     //     This means that the SQL ODBC driver will close your cursor(s) when you commit a transaction.
@@ -2291,20 +2291,20 @@ connection_info::connection_info(const configuration &config)
 #endif // SQL_CURSOR_COMMIT_BEHAVIOR
 
 #ifdef SQL_CURSOR_ROLLBACK_BEHAVIOR
-    // Indicates how a ROLLBACK  operation affects cursors and prepared statements in the data source:
+    // Indicates how a ROLLBACK operation affects cursors and prepared statements in the data source:
     // SQL_CB_DELETE = Close cursors and delete prepared statements. To use the cursor again, the
-    //     application must reprepare and reexecute the statement.
+    //     application must re-prepare and re-execute the statement.
     // SQL_CB_CLOSE = Close cursors. For prepared statements, the application can call SQLExecute on the
     //     statement without calling SQLPrepare again.
     // SQL_CB_PRESERVE = Preserve cursors in the same position as before the ROLLBACK operation. The
     //     application can continue to fetch data, or it can close the cursor and re-execute the statement
-    //     without repreparing it.
+    //     without re-preparing it.
     m_short_params[SQL_CURSOR_ROLLBACK_BEHAVIOR] = SQL_CB_PRESERVE;
 #endif // SQL_CURSOR_ROLLBACK_BEHAVIOR
 
 #ifdef SQL_TXN_CAPABLE
-    // Describs the transaction support in the driver or data source.
-    m_short_params[SQL_TXN_CAPABLE] = SQL_TC_DDL_COMMIT;
+    // Describes the transaction support in the driver or data source.
+    m_short_params[SQL_TXN_CAPABLE] = SQL_TC_DML;
 #endif // SQL_TXN_CAPABLE
 
 #ifdef SQL_QUOTED_IDENTIFIER_CASE
@@ -2322,7 +2322,7 @@ connection_info::connection_info(const configuration &config)
     // Indicates how the data source handles the concatenation of NULL valued character data type columns
     // with non-NULL valued character data type columns:
     // SQL_CB_NULL = Result is NULL valued.
-    // SQL_CB_NON_NULL = Result is concatenation of non - NULL valued column or columns.
+    // SQL_CB_NON_NULL = Result is concatenation of non - NULL-valued column or columns.
     // An SQL - 92 Entry level-conformant driver will always return SQL_CB_NULL.
     m_short_params[SQL_CONCAT_NULL_BEHAVIOR] = SQL_CB_NULL;
 #endif // SQL_CONCAT_NULL_BEHAVIOR
@@ -2359,18 +2359,18 @@ connection_info::connection_info(const configuration &config)
 
 #ifdef SQL_GROUP_BY
     // Value that specifies the relationship between the columns in the GROUP BY clause and the
-    // nonaggregated columns in the select list:
+    // non-aggregated columns in the select list:
     //
     // SQL_GB_COLLATE = A COLLATE clause can be specified at the end of each grouping column. (ODBC 3.0)
     // SQL_GB_NOT_SUPPORTED = GROUP BY clauses are not supported. (ODBC 2.0)
-    // SQL_GB_GROUP_BY_EQUALS_SELECT = The GROUP BY clause must contain all nonaggregated columns in the
+    // SQL_GB_GROUP_BY_EQUALS_SELECT = The GROUP BY clause must contain all non-aggregated columns in the
     //     select list. It cannot contain any other columns.
     //     For example, SELECT DEPT, MAX(SALARY) FROM EMPLOYEE GROUP BY DEPT. (ODBC 2.0)
-    // SQL_GB_GROUP_BY_CONTAINS_SELECT = The GROUP BY clause must contain all nonaggregated columns in the
+    // SQL_GB_GROUP_BY_CONTAINS_SELECT = The GROUP BY clause must contain all non-aggregated columns in the
     //     select list. It can contain columns that are not in the select list.
     //     For example, SELECT DEPT, MAX(SALARY) FROM EMPLOYEE GROUP BY DEPT, AGE. (ODBC 2.0)
     // SQL_GB_NO_RELATION = The columns in the GROUP BY clause and the select list are not related.
-    //     The meaning of nongrouped, nonaggregated columns in the select list is data source-dependent.
+    //     The meaning of non-grouped, non-aggregated columns in the select list is data source-dependent.
     //     For example, SELECT DEPT, SALARY FROM EMPLOYEE GROUP BY DEPT, AGE. (ODBC 2.0)
     //
     // An SQL-92 Entry level-conformant driver will always return the SQL_GB_GROUP_BY_EQUALS_SELECT option
@@ -2387,7 +2387,7 @@ connection_info::connection_info(const configuration &config)
     //     catalog.
     // SQL_IC_LOWER = Identifiers in SQL are not case-sensitive and are stored in lowercase in system
     //     catalog.
-    // SQL_IC_SENSITIVE = Identifiers in SQL are case sensitive and are stored in mixed case in system
+    // SQL_IC_SENSITIVE = Identifiers in SQL are case-sensitive and are stored in mixed case in system
     //     catalog.
     // SQL_IC_MIXED = Identifiers in SQL are not case-sensitive and are stored in mixed case in system
     //     catalog.

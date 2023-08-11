@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
@@ -93,8 +94,6 @@ public class LocalFileConfigurationStorageTest {
                 treeGenerator,
                 new ConfigurationValidatorImpl(treeGenerator, Set.of())
         );
-
-        changer.start();
     }
 
     @AfterEach
@@ -125,6 +124,9 @@ public class LocalFileConfigurationStorageTest {
         // And
         var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
 
+        changer.start();
+        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
+
         topConfiguration.namedList().change(b -> b.create("name1", x -> {
             x.changeStrVal("strVal1");
             x.changeIntVal(-1);
@@ -141,12 +143,21 @@ public class LocalFileConfigurationStorageTest {
         // top.namedList.<ids>.name1             -> "<generatedUUID>"
         // top.namedList.<generatedUUID>.<order> -> 0
 
-        assertThat(storageValues, allOf(aMapWithSize(5), hasValue(-1)));
-        assertThat(storageValues, allOf(aMapWithSize(5), hasValue("strVal1")));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue(-1)));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue("strVal1")));
 
         // And
+        // Enriched with the defaults
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
+                        + "    inner {\n"
+                        + "        boolVal=false\n"
+                        + "        someConfigurationValue {\n"
+                        + "            intVal=1\n"
+                        + "            strVal=foo\n"
+                        + "        }\n"
+                        + "        strVal=foo\n"
+                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=-1\n"
@@ -154,6 +165,7 @@ public class LocalFileConfigurationStorageTest {
                         + "            strVal=strVal1\n"
                         + "        }\n"
                         + "    ]\n"
+                        + "    shortVal=1\n"
                         + "}"
         ));
 
@@ -166,14 +178,22 @@ public class LocalFileConfigurationStorageTest {
         storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(10), hasValue(-2)));
-        assertThat(storageValues, allOf(aMapWithSize(10), hasValue("strVal2")));
+        assertThat(storageValues, allOf(aMapWithSize(15), hasValue(-2)));
+        assertThat(storageValues, allOf(aMapWithSize(15), hasValue("strVal2")));
         // And
-        assertThat(storageValues, allOf(aMapWithSize(10), hasValue(-1)));
-        assertThat(storageValues, allOf(aMapWithSize(10), hasValue("strVal1")));
+        assertThat(storageValues, allOf(aMapWithSize(15), hasValue(-1)));
+        assertThat(storageValues, allOf(aMapWithSize(15), hasValue("strVal1")));
         // And
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
+                        + "    inner {\n"
+                        + "        boolVal=false\n"
+                        + "        someConfigurationValue {\n"
+                        + "            intVal=1\n"
+                        + "            strVal=foo\n"
+                        + "        }\n"
+                        + "        strVal=foo\n"
+                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=-1\n"
@@ -186,6 +206,7 @@ public class LocalFileConfigurationStorageTest {
                         + "            strVal=strVal2\n"
                         + "        }\n"
                         + "    ]\n"
+                        + "    shortVal=1\n"
                         + "}\n"
         ));
     }
@@ -199,15 +220,26 @@ public class LocalFileConfigurationStorageTest {
         // When
         var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
 
+        changer.start();
+        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
+
         topConfiguration.shortVal().update((short) 3).get();
         // And
         var storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(1), hasValue((short) 3)));
+        assertThat(storageValues, allOf(aMapWithSize(5), hasValue((short) 3)));
         // And
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
+                        + "    inner {\n"
+                        + "        boolVal=false\n"
+                        + "        someConfigurationValue {\n"
+                        + "            intVal=1\n"
+                        + "            strVal=foo\n"
+                        + "        }\n"
+                        + "        strVal=foo\n"
+                        + "    }\n"
                         + "    shortVal=3\n"
                         + "}\n"
         ));
@@ -219,11 +251,19 @@ public class LocalFileConfigurationStorageTest {
         storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(6), hasValue(1)));
-        assertThat(storageValues, allOf(aMapWithSize(6), hasValue("foo")));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue(1)));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue("foo")));
         // And
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
+                        + "    inner {\n"
+                        + "        boolVal=false\n"
+                        + "        someConfigurationValue {\n"
+                        + "            intVal=1\n"
+                        + "            strVal=foo\n"
+                        + "        }\n"
+                        + "        strVal=foo\n"
+                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=1\n"
@@ -244,11 +284,19 @@ public class LocalFileConfigurationStorageTest {
         storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(6), hasValue(-1)));
-        assertThat(storageValues, allOf(aMapWithSize(6), hasValue("strVal1")));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue(-1)));
+        assertThat(storageValues, allOf(aMapWithSize(10), hasValue("strVal1")));
         // And
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
+                        + "    inner {\n"
+                        + "        boolVal=false\n"
+                        + "        someConfigurationValue {\n"
+                        + "            intVal=1\n"
+                        + "            strVal=foo\n"
+                        + "        }\n"
+                        + "        strVal=foo\n"
+                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=-1\n"
@@ -267,6 +315,9 @@ public class LocalFileConfigurationStorageTest {
         // Given
         var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
 
+        changer.start();
+        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
+
         topConfiguration.namedList().change(b -> {
             b.create("name1", x -> {
                 x.changeStrVal("strVal1");
@@ -282,6 +333,14 @@ public class LocalFileConfigurationStorageTest {
         // And values are saved to file
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
+                        + "    inner {\n"
+                        + "        boolVal=false\n"
+                        + "        someConfigurationValue {\n"
+                        + "            intVal=1\n"
+                        + "            strVal=foo\n"
+                        + "        }\n"
+                        + "        strVal=foo\n"
+                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=-1\n"
@@ -304,10 +363,18 @@ public class LocalFileConfigurationStorageTest {
         var storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(6), Matchers.not(hasValue("strVal1"))));
+        assertThat(storageValues, allOf(aMapWithSize(10), Matchers.not(hasValue("strVal1"))));
         // And entity removed from file
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
+                        + "    inner {\n"
+                        + "        boolVal=false\n"
+                        + "        someConfigurationValue {\n"
+                        + "            intVal=1\n"
+                        + "            strVal=foo\n"
+                        + "        }\n"
+                        + "        strVal=foo\n"
+                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=-2\n"
@@ -325,10 +392,18 @@ public class LocalFileConfigurationStorageTest {
         storageValues = readAllLatest();
 
         // Then
-        assertThat(storageValues, allOf(aMapWithSize(1), hasValue((short) 3)));
+        assertThat(storageValues, allOf(aMapWithSize(5), hasValue((short) 3)));
         // And entity removed from file
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
+                        + "    inner {\n"
+                        + "        boolVal=false\n"
+                        + "        someConfigurationValue {\n"
+                        + "            intVal=1\n"
+                        + "            strVal=foo\n"
+                        + "        }\n"
+                        + "        strVal=foo\n"
+                        + "    }\n"
                         + "    shortVal=3\n"
                         + "}\n"
         ));
@@ -389,6 +464,9 @@ public class LocalFileConfigurationStorageTest {
         assertThat(Files.exists(getConfigFile()), is(false));
 
         // When update configuration
+        changer.start();
+        assertThat(changer.onDefaultsPersisted(), willCompleteSuccessfully());
+
         var topConfiguration = (TopConfiguration) treeGenerator.instantiateCfg(TopConfiguration.KEY, changer);
         topConfiguration.namedList().change(b -> b.create("name1", x -> {
             x.changeStrVal("strVal1");
@@ -398,6 +476,14 @@ public class LocalFileConfigurationStorageTest {
         // Then file is created
         assertThat(configFileContent(), equalToCompressingWhiteSpace(
                 "top {\n"
+                        + "    inner {\n"
+                        + "        boolVal=false\n"
+                        + "        someConfigurationValue {\n"
+                        + "            intVal=1\n"
+                        + "            strVal=foo\n"
+                        + "        }\n"
+                        + "        strVal=foo\n"
+                        + "    }\n"
                         + "    namedList=[\n"
                         + "        {\n"
                         + "            intVal=-1\n"
@@ -405,6 +491,7 @@ public class LocalFileConfigurationStorageTest {
                         + "            strVal=strVal1\n"
                         + "        }\n"
                         + "    ]\n"
+                        + "    shortVal=1\n"
                         + "}\n"
         ));
     }

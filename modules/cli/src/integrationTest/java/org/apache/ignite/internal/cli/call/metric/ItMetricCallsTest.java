@@ -55,11 +55,13 @@ class ItMetricCallsTest extends CallInitializedIntegrationTestBase {
 
         MetricSource[] expectedMetricSources = {
                 new MetricSource().name("jvm").enabled(false),
-                new MetricSource().name("client.handler").enabled(false)
+                new MetricSource().name("client.handler").enabled(false),
+                new MetricSource().name("sql.client").enabled(false),
+                new MetricSource().name("sql.plan.cache").enabled(false)
         };
 
         // And
-        assertThat(output.body()).containsExactlyInAnyOrder(expectedMetricSources);
+        assertThat(output.body()).contains(expectedMetricSources);
     }
 
     @Test

@@ -44,6 +44,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -52,7 +53,7 @@ import org.junit.jupiter.api.Test;
  * Tests repeated commit/rollback operations.
  */
 public class RepeatedFinishReadWriteTransactionTest {
-    private final ClusterNode clusterNode = new ClusterNode("test", "test", new NetworkAddress("test", 1000));
+    private final ClusterNode clusterNode = new ClusterNodeImpl("test", "test", new NetworkAddress("test", 1000));
 
     @Test
     public void testRepeatedCommitRollbackAfterCommit() throws Exception {
@@ -236,7 +237,7 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
-        public InternalTransaction begin(boolean readOnly) {
+        public InternalTransaction begin(boolean readOnly, HybridTimestamp observableTimestamp) {
             return null;
         }
 

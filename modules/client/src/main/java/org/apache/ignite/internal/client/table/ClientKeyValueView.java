@@ -439,8 +439,8 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
         try {
-            s.getMarshaller(keySer.mapper(), TuplePart.KEY).writeObject(key, writer);
-            s.getMarshaller(valSer.mapper(), TuplePart.VAL).writeObject(val, writer);
+            s.getMarshaller(keySer.mapper(), TuplePart.KEY, false).writeObject(key, writer);
+            s.getMarshaller(valSer.mapper(), TuplePart.VAL, false).writeObject(val, writer);
         } catch (MarshallerException e) {
             throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }

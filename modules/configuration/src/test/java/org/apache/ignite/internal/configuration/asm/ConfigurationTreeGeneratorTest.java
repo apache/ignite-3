@@ -43,9 +43,9 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
@@ -75,11 +75,13 @@ public class ConfigurationTreeGeneratorTest {
     private static ConfigurationTreeGenerator generator;
 
 
-    private static Collection<Class<?>> internalExtensions = List.of(
+    private static Collection<Class<?>> extensions = List.of(
             ExtendedTestRootConfigurationSchema.class,
             ExtendedSecondTestRootConfigurationSchema.class,
             ExtendedTestConfigurationSchema.class,
-            ExtendedSecondTestConfigurationSchema.class
+            ExtendedSecondTestConfigurationSchema.class,
+            ExtendedPublicTestRootConfigurationSchema.class,
+            ExtendedPublicTestConfigurationSchema.class
     );
 
     private static Collection<Class<?>> polymorphicExtensions = List.of(
@@ -103,7 +105,7 @@ public class ConfigurationTreeGeneratorTest {
 
     @BeforeAll
     public static void beforeAll() {
-        generator = new ConfigurationTreeGenerator(rootKeys, internalExtensions, polymorphicExtensions);
+        generator = new ConfigurationTreeGenerator(rootKeys, extensions, polymorphicExtensions);
     }
 
     @AfterAll
@@ -121,7 +123,6 @@ public class ConfigurationTreeGeneratorTest {
         );
 
         changer.start();
-        changer.initializeDefaults();
     }
 
     @AfterEach
@@ -250,7 +251,7 @@ public class ConfigurationTreeGeneratorTest {
     }
 
     @Test
-    void testConstructInternalConfig() {
+    void testConstructExtendedConfig() {
         InnerNode innerNode = generator.instantiateNode(TestRootConfiguration.KEY.schemaClass());
 
         addDefaults(innerNode);
@@ -265,6 +266,9 @@ public class ConfigurationTreeGeneratorTest {
         assertThrows(NoSuchElementException.class, () -> subInnerNode.construct("str3", null, false));
         assertThrows(NoSuchElementException.class, () -> subInnerNode.construct("i1", null, false));
 
+        // Check that public extensions will not lead to an exception
+        innerNode.construct("pub1", null, false);
+
         // Check that fields for internal configuration will be changed.
 
         innerNode.construct("str1", null, true);
@@ -272,6 +276,7 @@ public class ConfigurationTreeGeneratorTest {
 
         subInnerNode.construct("str3", null, true);
         subInnerNode.construct("i1", null, true);
+        subInnerNode.construct("pub2", null, true);
     }
 
     @Test
@@ -738,7 +743,7 @@ public class ConfigurationTreeGeneratorTest {
     /**
      * Extending the {@link TestRootConfigurationSchema}.
      */
-    @InternalConfiguration
+    @ConfigurationExtension(internal = true)
     public static class ExtendedTestRootConfigurationSchema extends TestRootConfigurationSchema {
         /** String field. */
         @Value(hasDefault = true)
@@ -748,11 +753,21 @@ public class ConfigurationTreeGeneratorTest {
     /**
      * Extending the {@link TestRootConfigurationSchema}.
      */
-    @InternalConfiguration
+    @ConfigurationExtension(internal = true)
     public static class ExtendedSecondTestRootConfigurationSchema extends TestRootConfigurationSchema {
         /** Integer field. */
         @Value(hasDefault = true)
         public int i1 = 0;
+    }
+
+    /**
+     * Extending the {@link TestRootConfigurationSchema}  with a public extension.
+     */
+    @ConfigurationExtension
+    public static class ExtendedPublicTestRootConfigurationSchema extends TestRootConfigurationSchema {
+        /** Integer field. */
+        @Value(hasDefault = true)
+        public int pub1 = 42;
     }
 
     /**
@@ -776,7 +791,7 @@ public class ConfigurationTreeGeneratorTest {
     /**
      * Extending the {@link TestConfigurationSchema}.
      */
-    @InternalConfiguration
+    @ConfigurationExtension(internal = true)
     public static class ExtendedTestConfigurationSchema extends TestConfigurationSchema {
         /** String field. */
         @Value(hasDefault = true)
@@ -786,11 +801,21 @@ public class ConfigurationTreeGeneratorTest {
     /**
      * Extending the {@link TestConfigurationSchema}.
      */
-    @InternalConfiguration
+    @ConfigurationExtension(internal = true)
     public static class ExtendedSecondTestConfigurationSchema extends TestConfigurationSchema {
         /** Integer field. */
         @Value(hasDefault = true)
         public int i1 = 0;
+    }
+
+    /**
+     * Extending the {@link TestConfigurationSchema} with a public extension.
+     */
+    @ConfigurationExtension
+    public static class ExtendedPublicTestConfigurationSchema extends TestConfigurationSchema {
+        /** Integer field. */
+        @Value(hasDefault = true)
+        public int pub2 = 22;
     }
 
     /**

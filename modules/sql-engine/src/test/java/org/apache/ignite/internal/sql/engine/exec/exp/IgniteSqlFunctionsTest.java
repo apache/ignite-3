@@ -146,6 +146,19 @@ public class IgniteSqlFunctionsTest {
         );
     }
 
+    @Test
+    public void testFractionsToDecimal() {
+        assertEquals(
+                new BigDecimal("0.0101"),
+                IgniteSqlFunctions.toBigDecimal(Float.valueOf(0.0101f), 3, 4)
+        );
+
+        assertEquals(
+                new BigDecimal("0.0101"),
+                IgniteSqlFunctions.toBigDecimal(Double.valueOf(0.0101d), 3, 4)
+        );
+    }
+
     /** Access of dynamic parameter value - parameter is not transformed. */
     @Test
     public void testToBigDecimalFromObject() {
@@ -170,13 +183,30 @@ public class IgniteSqlFunctionsTest {
 
             "0.1, 1, 1, 0.1",
 
+            "0.0101, 3, 4, 0.0101",
+            "0.1234, 2, 1, 0.1",
+            "0.1234, 5, 4, 0.1234",
+            "0.123, 5, 4, 0.1230",
+
             "0.12, 2, 1, 0.1",
             "0.12, 2, 2, 0.12",
+            "0.12, 2, 3, overflow",
+            "0.12, 3, 3, 0.120",
+            "0.12, 3, 2, 0.12",
+
             "0.123, 2, 2, 0.12",
             "0.123, 2, 1, 0.1",
             "0.123, 5, 5, 0.12300",
+            "1.123, 4, 3, 1.123",
+            "1.123, 4, 4, overflow",
 
-            "1.23, 2, 1, 1.2",
+            "0.0011, 1, 3, 0.001",
+            "0.0016, 1, 3, 0.002",
+            "-0.0011, 1, 3, -0.001",
+            "-0.0011, 1, 4, overflow",
+            "-0.0011, 2, 4, -0.0011",
+            "-0.0011, 3, 4, -0.0011",
+            "-0.0011, 2, 5, overflow",
 
             "10, 2, 0, 10",
             "10.0, 2, 0, 10",
@@ -202,7 +232,7 @@ public class IgniteSqlFunctionsTest {
             "-10.1, 2, 1, overflow",
     })
     public void testConvertDecimal(String input, int precision, int scale, String result) {
-        Supplier<BigDecimal> convert = () -> IgniteSqlFunctions.convertDecimal(new BigDecimal(input), precision, scale);
+        Supplier<BigDecimal> convert = () -> IgniteSqlFunctions.toBigDecimal(new BigDecimal(input), precision, scale);
 
         if (!"overflow".equalsIgnoreCase(result)) {
             BigDecimal expected = convert.get();

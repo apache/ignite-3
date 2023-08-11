@@ -75,8 +75,8 @@ public class LeaseUpdater {
     /** Lease holding interval. */
     private static final long LEASE_INTERVAL = 10 * UPDATE_LEASE_MS;
 
-    /** The lock is available when the actor is active. */
-    private final IgniteSpinBusyLock stateActorLock = new IgniteSpinBusyLock();
+    /** The lock is available when the actor is changing state. */
+    private final IgniteSpinBusyLock stateChangingLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean active = new AtomicBoolean();
 
@@ -169,40 +169,53 @@ public class LeaseUpdater {
      * Activates a lease updater to renew leases.
      */
     public void activate() {
-        if (!active.compareAndSet(false, true)) {
+        if (active()) {
             return;
         }
 
-        if (stateActorLock.blockedByCurrentThread()) {
-            stateActorLock.unblock();
+        stateChangingLock.block();
+
+        try {
+            if (!active.compareAndSet(false, true)) {
+                return;
+            }
+
+            leaseNegotiator = new LeaseNegotiator(clusterService);
+
+            updaterTread = new Thread(updater, NamedThreadFactory.threadPrefix(nodeName, "lease-updater") + '0');
+
+            updaterTread.start();
+        } finally {
+            stateChangingLock.unblock();
         }
-
-        leaseNegotiator = new LeaseNegotiator(clusterService);
-
-        //TODO: IGNITE-18879 Implement lease maintenance.
-        updaterTread = new Thread(updater, NamedThreadFactory.threadPrefix(nodeName, "lease-updater"));
-
-        updaterTread.start();
     }
 
     /**
      * Stops a dedicated thread to renew or assign leases.
      */
     public void deactivate() {
-        if (!active.compareAndSet(true, false)) {
+        if (!active()) {
             return;
         }
 
-        stateActorLock.block();
+        stateChangingLock.block();
 
-        //TODO: IGNITE-18879 Implement lease maintenance.
-        if (updaterTread != null) {
-            updaterTread.interrupt();
+        try {
+            if (!active.compareAndSet(true, false)) {
+                return;
+            }
 
-            updaterTread = null;
+            leaseNegotiator = null;
+
+            if (updaterTread != null) {
+                updaterTread.interrupt();
+
+                updaterTread = null;
+            }
+
+        } finally {
+            stateChangingLock.unblock();
         }
-
-        leaseNegotiator = null;
     }
 
     /**
@@ -271,86 +284,30 @@ public class LeaseUpdater {
     }
 
     /**
+     * Whether is active.
+     *
+     * @return Whether is active.
+     */
+    public boolean active() {
+        return active.get();
+    }
+
+    /**
      * Runnable to update lease in Meta storage.
      */
     private class Updater implements Runnable {
         @Override
         public void run() {
             while (updaterTread != null && !updaterTread.isInterrupted()) {
-                long outdatedLeaseThreshold = clock.now().getPhysical() + LEASE_INTERVAL / 2;
-
-                IgniteBiTuple<Map<ReplicationGroupId, Lease>, byte[]> leasesCurrent = leaseTracker.leasesCurrent();
-                Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
-                Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.getKey());
-
-                for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
-                    ReplicationGroupId grpId = entry.getKey();
-
-                    Lease lease = leaseTracker.getLease(grpId);
-
-                    if (!lease.isAccepted()) {
-                        LeaseAgreement agreement = leaseNegotiator.negotiated(grpId);
-
-                        if (agreement.isAccepted()) {
-                            publishLease(grpId, lease, renewedLeases);
-
-                            continue;
-                        } else if (agreement.ready()) {
-                            ClusterNode candidate = nextLeaseHolder(entry.getValue(), agreement.getRedirectTo());
-
-                            if (candidate == null) {
-                                continue;
-                            }
-
-                            // New lease is granting.
-                            writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
-
-                            continue;
-                        }
-                    }
-
-                    // The lease is expired or close to this.
-                    if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
-                        ClusterNode candidate = nextLeaseHolder(
-                                entry.getValue(),
-                                lease.isProlongable() ? lease.getLeaseholder() : null
-                        );
-
-                        if (candidate == null) {
-                            continue;
-                        }
-
-                        // We can't prolong the expired lease because we already have an interval of time when the lease was not active,
-                        // so we must start a negotiation round from the beginning; the same we do for the groups that don't have
-                        // leaseholders at all.
-                        if (isLeaseOutdated(lease)) {
-                            // New lease is granting.
-                            writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
-                        } else if (lease.isProlongable() && candidate.name().equals(lease.getLeaseholder())) {
-                            // Old lease is renewing.
-                            prolongLease(grpId, lease, renewedLeases);
-                        }
-                    }
+                if (!active() || !stateChangingLock.enterBusy()) {
+                    return;
                 }
 
-                byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
-
-                var key = PLACEMENTDRIVER_LEASES_KEY;
-
-                msManager.invoke(
-                        or(notExists(key), value(key).eq(leasesCurrent.getValue())),
-                        put(key, renewedValue),
-                        noop()
-                ).thenAccept(success -> {
-                    if (success) {
-                        for (Map.Entry<ReplicationGroupId, Boolean> e : toBeNegotiated.entrySet()) {
-                            Lease lease = renewedLeases.get(e.getKey());
-                            boolean force = e.getValue();
-
-                            leaseNegotiator.negotiate(lease, force);
-                        }
-                    }
-                });
+                try {
+                    updateLeaseBatchInternal();
+                } finally {
+                    stateChangingLock.leaveBusy();
+                }
 
                 try {
                     Thread.sleep(UPDATE_LEASE_MS);
@@ -358,6 +315,86 @@ public class LeaseUpdater {
                     LOG.warn("Lease updater is interrupted");
                 }
             }
+        }
+
+        /**
+         * Updates leases in Meta storage. This method is supposed to be used in the busy lock.
+         */
+        private void updateLeaseBatchInternal() {
+            long outdatedLeaseThreshold = clock.now().getPhysical() + LEASE_INTERVAL / 2;
+
+            IgniteBiTuple<Map<ReplicationGroupId, Lease>, byte[]> leasesCurrent = leaseTracker.leasesCurrent();
+            Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
+            Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.getKey());
+
+            for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : assignmentsTracker.assignments().entrySet()) {
+                ReplicationGroupId grpId = entry.getKey();
+
+                Lease lease = leaseTracker.getLease(grpId);
+
+                if (!lease.isAccepted()) {
+                    LeaseAgreement agreement = leaseNegotiator.negotiated(grpId);
+
+                    if (agreement.isAccepted()) {
+                        publishLease(grpId, lease, renewedLeases);
+
+                        continue;
+                    } else if (agreement.ready()) {
+                        ClusterNode candidate = nextLeaseHolder(entry.getValue(), agreement.getRedirectTo());
+
+                        if (candidate == null) {
+                            continue;
+                        }
+
+                        // New lease is granting.
+                        writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
+
+                        continue;
+                    }
+                }
+
+                // The lease is expired or close to this.
+                if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
+                    ClusterNode candidate = nextLeaseHolder(
+                            entry.getValue(),
+                            lease.isProlongable() ? lease.getLeaseholder() : null
+                    );
+
+                    if (candidate == null) {
+                        continue;
+                    }
+
+                    // We can't prolong the expired lease because we already have an interval of time when the lease was not active,
+                    // so we must start a negotiation round from the beginning; the same we do for the groups that don't have
+                    // leaseholders at all.
+                    if (isLeaseOutdated(lease)) {
+                        // New lease is granting.
+                        writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
+                    } else if (lease.isProlongable() && candidate.name().equals(lease.getLeaseholder())) {
+                        // Old lease is renewing.
+                        prolongLease(grpId, lease, renewedLeases);
+                    }
+                }
+            }
+
+            byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
+
+            var key = PLACEMENTDRIVER_LEASES_KEY;
+
+            msManager.invoke(
+                    or(notExists(key), value(key).eq(leasesCurrent.getValue())),
+                    put(key, renewedValue),
+                    noop()
+            ).thenAccept(success -> {
+                if (success) {
+                    for (Map.Entry<ReplicationGroupId, Boolean> e : toBeNegotiated.entrySet()) {
+                        Lease lease = renewedLeases.get(e.getKey());
+                        boolean force = e.getValue();
+
+                        leaseNegotiator.negotiate(lease, force);
+                    }
+                }
+            });
         }
 
         /**
@@ -435,14 +472,14 @@ public class LeaseUpdater {
 
             var msg = (PlacementDriverActorMessage) msg0;
 
-            if (!stateActorLock.enterBusy()) {
+            if (!active() || !stateChangingLock.enterBusy()) {
                 return;
             }
 
             try {
                 processMessageInternal(sender, msg);
             } finally {
-                stateActorLock.leaveBusy();
+                stateChangingLock.leaveBusy();
             }
         }
 

@@ -19,26 +19,28 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
-import java.io.Serializable;
 import java.util.Arrays;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * GroupKey.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * A fixed length group key used by execution node.
  */
-public class GroupKey implements Serializable {
+public class GroupKey {
     public static final GroupKey EMPTY_GRP_KEY = new GroupKey(OBJECT_EMPTY_ARRAY);
 
     private final Object[] fields;
 
+    /** Constructor. */
     public GroupKey(Object[] fields) {
         this.fields = fields;
     }
 
+    /** Returns {@code idx}-th} field of this key.*/
     public Object field(int idx) {
         return fields[idx];
     }
 
+    /** The number of fields in this key. */
     public int fieldsCount() {
         return fields.length;
     }
@@ -75,8 +77,7 @@ public class GroupKey implements Serializable {
     }
 
     /**
-     * Builder.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Builder for a group key.
      */
     public static class Builder {
         private final Object[] fields;
@@ -88,10 +89,9 @@ public class GroupKey implements Serializable {
         }
 
         /**
-         * Add.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+         * Add a key to this group key builder.
          */
-        public Builder add(Object val) {
+        public Builder add(@Nullable Object val) {
             if (idx == fields.length) {
                 throw new IndexOutOfBoundsException();
             }
@@ -102,8 +102,7 @@ public class GroupKey implements Serializable {
         }
 
         /**
-         * Build.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+         * Builds a group key.
          */
         public GroupKey build() {
             assert idx == fields.length;

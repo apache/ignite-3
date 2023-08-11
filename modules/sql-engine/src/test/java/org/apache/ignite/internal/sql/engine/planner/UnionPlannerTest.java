@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import java.util.function.UnaryOperator;
 import org.apache.calcite.rel.core.Union;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
+import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
-import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -42,15 +43,16 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                 + "UNION "
                 + "SELECT * FROM table3 ";
 
-        assertPlan(sql, publicSchema, isInstanceOf(IgniteReduceAggregateBase.class)
-                .and(hasChildThat(isInstanceOf(Union.class)
-                )));
-        assertPlan(sql, publicSchema, isInstanceOf(IgniteReduceAggregateBase.class)
-                .and(hasChildThat(isInstanceOf(Union.class)
-                        .and(input(0, isTableScan("TABLE1")))
-                        .and(input(1, isTableScan("TABLE2")))
-                        .and(input(2, isTableScan("TABLE3")))
-                )));
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
+                .and(hasDistribution(IgniteDistributions.single()))
+                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasChildThat(isInstanceOf(Union.class)
+                                .and(input(0, isTableScan("TABLE1")))
+                                .and(input(1, isTableScan("TABLE2")))
+                                .and(input(2, isTableScan("TABLE3")))
+                        ))
+                ))
+        );
     }
 
     @Test
@@ -75,41 +77,20 @@ public class UnionPlannerTest extends AbstractPlannerTest {
      *
      * @return Ignite schema.
      */
-    private IgniteSchema prepareSchema() {
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
-
-        IgniteTypeFactory f = Commons.typeFactory();
-
-        createTable(publicSchema,
-                "TABLE1",
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("SALARY", f.createJavaType(Double.class))
-                        .build(),
-                IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)
+    private static IgniteSchema prepareSchema() {
+        return createSchemaFrom(
+                createTestTable("TABLE1"),
+                createTestTable("TABLE2"),
+                createTestTable("TABLE3")
         );
+    }
 
-        createTable(publicSchema,
-                "TABLE2",
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("SALARY", f.createJavaType(Double.class))
-                        .build(),
-                IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)
-        );
-
-        createTable(publicSchema,
-                "TABLE3",
-                new RelDataTypeFactory.Builder(f)
-                        .add("ID", f.createJavaType(Integer.class))
-                        .add("NAME", f.createJavaType(String.class))
-                        .add("SALARY", f.createJavaType(Double.class))
-                        .build(),
-                IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)
-        );
-
-        return publicSchema;
+    private static UnaryOperator<TableBuilder> createTestTable(String tableName) {
+        return tableBuilder -> tableBuilder
+                .name(tableName)
+                .distribution(someAffinity())
+                .addColumn("ID", NativeTypes.INT32)
+                .addColumn("NAME", NativeTypes.STRING)
+                .addColumn("SALARY", NativeTypes.DOUBLE);
     }
 }

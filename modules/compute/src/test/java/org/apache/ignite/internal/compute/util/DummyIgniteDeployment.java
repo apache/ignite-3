@@ -50,7 +50,7 @@ public class DummyIgniteDeployment implements IgniteDeployment {
             String id,
             Version version,
             boolean force,
-            CompletableFuture<DeploymentUnit> deploymentUnit,
+            DeploymentUnit deploymentUnit,
             NodesToDeploy nodesToDeploy) {
         throw new UnsupportedOperationException("Not implemented");
     }

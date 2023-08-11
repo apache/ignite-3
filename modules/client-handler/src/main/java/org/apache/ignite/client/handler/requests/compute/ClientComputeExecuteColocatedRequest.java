@@ -55,7 +55,7 @@ public class ClientComputeExecuteColocatedRequest {
             String jobClassName = in.unpackString();
             Object[] args = unpackArgs(in);
 
-            return compute.executeColocated(table.name(), keyTuple, deploymentUnits, jobClassName, args).thenAccept(val -> {
+            return compute.executeColocatedAsync(table.name(), keyTuple, deploymentUnits, jobClassName, args).thenAccept(val -> {
                 out.packInt(table.schemaView().lastSchemaVersion());
                 out.packObjectAsBinaryTuple(val);
             });

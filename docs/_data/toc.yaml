@@ -33,6 +33,15 @@
       url: sql/calcite-based-sql-engine
     - title: JDBC Driver
       url: sql/jdbc-driver
+    - title: ODBC Driver
+      url: sql/odbc/odbc-driver
+      items:
+        - title: ODBC Driver
+          url: sql/odbc/odbc-driver
+        - title: Connection String
+          url: sql/odbc/connection-string
+        - title: Querying and Modifying Data
+          url: sql/odbc/querying-modifying-data
     - title: Java API
       url: sql/java
 - title: SQL Reference
