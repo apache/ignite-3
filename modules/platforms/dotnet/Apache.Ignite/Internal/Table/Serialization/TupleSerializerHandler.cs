@@ -18,6 +18,8 @@
 namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
+    using System.Collections.Generic;
+    using Common;
     using Ignite.Table;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
@@ -60,6 +62,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <inheritdoc/>
         public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, int columnCount, Span<byte> noValueSet)
         {
+            int written = 0;
+
             for (var index = 0; index < columnCount; index++)
             {
                 var col = schema.Columns[index];
@@ -68,11 +72,30 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 if (colIdx >= 0)
                 {
                     tupleBuilder.AppendObject(record[colIdx], col.Type, col.Scale, col.Precision);
+                    written++;
                 }
                 else
                 {
                     tupleBuilder.AppendNoValue(noValueSet);
                 }
+            }
+
+            if (record.FieldCount > written)
+            {
+                var extraColumns = new HashSet<string>(record.FieldCount);
+                for (int i = 0; i < record.FieldCount; i++)
+                {
+                    extraColumns.Add(record.GetName(i));
+                }
+
+                for (var i = 0; i < columnCount; i++)
+                {
+                    extraColumns.Remove(schema.Columns[i].Name);
+                }
+
+                throw new ArgumentException(
+                    $"Record doesn't match schema: schemaVersion={schema.Version}, extraColumns={extraColumns.StringJoin()}",
+                    nameof(record));
             }
         }
     }
