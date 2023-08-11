@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.rule;
 
 import com.google.common.collect.ImmutableList;
-import java.util.BitSet;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +52,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 
 /**
  * TableModifyConverterRule.
@@ -82,17 +81,19 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
             // To perform the delete, we need a row with key fields only.
             // Input distribution contains the indexes of the key columns according to the schema (i.e. for the full row).
             // Here we adjusting distribution keys so that a row containing only the key fields can be read.
-            BitSet keyFields = new BitSet();
+            List<Integer> keyFields = new ArrayList<>();
 
             for (int i = 0; i < igniteTable.descriptor().columnsCount(); i++) {
                 ColumnDescriptor column = igniteTable.descriptor().columnDescriptor(i);
 
                 if (column.key()) {
-                    keyFields.set(column.logicalIndex());
+                    keyFields.add(column.logicalIndex());
                 }
             }
 
-            distribution = distribution.apply(PlanUtils.sortedValuesIndexMapping(keyFields));
+            ImmutableBitSet keysBitSet = ImmutableBitSet.of(keyFields);
+
+            distribution = distribution.apply(Commons.trimmingMapping(keysBitSet.size(), keysBitSet));
         }
 
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)

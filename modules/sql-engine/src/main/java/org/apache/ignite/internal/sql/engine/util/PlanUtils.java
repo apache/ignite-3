@@ -144,33 +144,14 @@ public class PlanUtils {
             }
         }
 
-        return sortedValuesIndexMapping(fieldIndices);
-    }
-
-    /**
-     * Creates a mapping such that each value is replaced by its position in the ordered list.
-     *
-     * <p>For example, for the following values {@code [2, 3, 5, 7, 9]} the sorting positions
-     * will be {@code [0, 1, 2, 3, 4]}, the resulting mapping will be:
-     * <pre>
-     *  2 -> 0
-     *  3 -> 1
-     *  5 -> 2
-     *  7 -> 3
-     *  9 -> 4
-     * </pre>
-     *
-     * @param values Values to be mapped to its position in the ordered list.
-     */
-    public static Mapping sortedValuesIndexMapping(BitSet values) {
-        Mapping mapping = Mappings.create(MappingType.INVERSE_SURJECTION, values.length(), values.cardinality());
+        Mapping mapping = Mappings.create(MappingType.INVERSE_SURJECTION, fieldIndices.length(), fieldIndices.cardinality());
 
         int i = 0;
-        int bitPos = values.nextSetBit(0);
+        int bitPos = fieldIndices.nextSetBit(0);
 
         while (bitPos != -1) {
             mapping.set(bitPos, i);
-            bitPos = values.nextSetBit(bitPos + 1);
+            bitPos = fieldIndices.nextSetBit(bitPos + 1);
             i++;
         }
 

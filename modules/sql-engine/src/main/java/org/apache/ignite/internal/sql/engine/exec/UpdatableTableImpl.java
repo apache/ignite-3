@@ -24,12 +24,12 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.calcite.util.mapping.Mapping;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.mapping.Mappings.TargetMapping;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -46,7 +46,7 @@ import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.PlanUtils;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
@@ -76,8 +76,12 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final List<ColumnDescriptor> keyColumnsOrderedByPhysSchema;
 
-    /** Mapping of column indexes for a row containing only primary key columns. */
-    private final Mapping columnsMappingForKeyOnlyRow;
+    /**
+     * Mapping of key column indexes to its ordinals in the ordered list.
+     * It is used during a delete operation to assemble key-only binary row from
+     * "truncated" relational node row containing only primary key columns.
+     */
+    private final TargetMapping columnsMappingForKeyOnlyRow;
 
     private final PartitionExtractor partitionExtractor;
 
@@ -113,18 +117,22 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         columnsOrderedByPhysSchema = tmp;
 
-        List<ColumnDescriptor> keyCols = new ArrayList<>(schemaDescriptor.keyColumns().length());
-        BitSet keyLogicalIndexes = new BitSet();
+        int keyColumnsCount = schemaDescriptor.keyColumns().length();
+
+        List<ColumnDescriptor> keyCols = new ArrayList<>(keyColumnsCount);
+        List<Integer> keyLogicalIndexes = new ArrayList<>(keyColumnsCount);
 
         for (ColumnDescriptor colDesc : tmp) {
             if (colDesc.key()) {
                 keyCols.add(colDesc);
-                keyLogicalIndexes.set(colDesc.logicalIndex());
+                keyLogicalIndexes.add(colDesc.logicalIndex());
             }
         }
 
         keyColumnsOrderedByPhysSchema = keyCols;
-        columnsMappingForKeyOnlyRow = PlanUtils.sortedValuesIndexMapping(keyLogicalIndexes);
+
+        ImmutableBitSet keysBitSet = ImmutableBitSet.of(keyLogicalIndexes);
+        columnsMappingForKeyOnlyRow = Commons.trimmingMapping(keysBitSet.size(), keysBitSet);
 
         this.rowConverter = rowConverter;
     }
