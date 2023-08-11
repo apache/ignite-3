@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -195,13 +196,12 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
     }
 
     /**
-     * Grouping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Grouping provides base driver code to implement a set operator.
+     * The basic idea is to store the number of distinct rows per input set and use these numbers to calculate
+     * the number of rows an operator should produce.
      */
     protected abstract static class Grouping<RowT> {
         protected final Map<GroupKey, int[]> groups = new HashMap<>();
-
-        protected final RowHandler<RowT> hnd;
 
         protected final AggregateType type;
 
@@ -209,17 +209,19 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
         protected final RowFactory<RowT> rowFactory;
 
-        /** Processed rows count in current set. */
-        protected int rowsCnt = 0;
+        private final RowHandler<RowT> hnd;
 
-        protected Grouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory, AggregateType type, boolean all) {
+        private final int columnNum;
+
+        protected Grouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory,  int columnNum, AggregateType type, boolean all) {
             hnd = ctx.rowHandler();
+            this.columnNum = columnNum;
             this.type = type;
             this.all = all;
             this.rowFactory = rowFactory;
         }
 
-        private void add(RowT row, int setIdx) {
+        protected void add(RowT row, int setIdx) {
             if (type == AggregateType.REDUCE) {
                 assert setIdx == 0 : "Unexpected set index: " + setIdx;
 
@@ -229,16 +231,13 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
             } else {
                 addOnSingle(row, setIdx);
             }
-
-            rowsCnt++;
         }
 
         /**
-         * Get rows.
-         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+         * Returns a list of rows produced by the given operator.
          *
-         * @param cnt Number of rows.
-         * @return Actually sent rows number.
+         * @param cnt Number of rows to return.
+         * @return A list of rows to send.
          */
         private List<RowT> getRows(int cnt) {
             if (nullOrEmpty(groups)) {
@@ -246,11 +245,11 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
             } else if (type == AggregateType.MAP) {
                 return getOnMapper(cnt);
             } else {
-                return getOnSingleOrReducer(cnt);
+                return getResultRows(cnt);
             }
         }
 
-        protected GroupKey key(RowT row) {
+        protected GroupKey createKey(RowT row) {
             int size = hnd.columnCount(row);
 
             Object[] fields = new Object[size];
@@ -263,27 +262,37 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         }
 
         protected void endOfSet(int setIdx) {
-            rowsCnt = 0;
+
         }
 
+        /** Implementation of colocated version of this operator.*/
         protected abstract void addOnSingle(RowT row, int setIdx);
 
+        /** Adds a the given row produced by {@code setIdx}. */
         protected abstract void addOnMapper(RowT row, int setIdx);
 
-        protected void addOnReducer(RowT row) {
-            GroupKey grpKey = (GroupKey) hnd.get(0, row);
-            int[] cntrsMap = (int[]) hnd.get(1, row);
+        /** Returns the number of inputs of this operator. */
+        protected abstract int getCounterFieldsCount();
 
-            int[] cntrs = groups.computeIfAbsent(grpKey, k -> new int[cntrsMap.length]);
+        private void addOnReducer(RowT row) {
+            GroupKey.Builder grpKeyBuilder = GroupKey.builder(columnNum);
 
-            assert cntrs.length == cntrsMap.length;
+            for (int i = 0; i < columnNum; i++) {
+                Object field = hnd.get(i, row);
+                grpKeyBuilder.add(field);
+            }
 
-            for (int i = 0; i < cntrsMap.length; i++) {
-                cntrs[i] += cntrsMap[i];
+            GroupKey grpKey = grpKeyBuilder.build();
+
+            int inputsCnt = getCounterFieldsCount();
+            int[] cntrs = groups.computeIfAbsent(grpKey, k -> new int[inputsCnt]);
+
+            for (int i = 0; i < inputsCnt; i++) {
+                cntrs[i] += (int) hnd.get(i + columnNum, row);
             }
         }
 
-        protected List<RowT> getOnMapper(int cnt) {
+        private List<RowT> getOnMapper(int cnt) {
             Iterator<Map.Entry<GroupKey, int[]>> it = groups.entrySet().iterator();
 
             int amount = Math.min(cnt, groups.size());
@@ -294,7 +303,8 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
                 // Skip row if it doesn't affect the final result.
                 if (affectResult(entry.getValue())) {
-                    res.add(rowFactory.create(entry.getKey(), entry.getValue()));
+                    RowT row = createOutputRow(entry);
+                    res.add(row);
 
                     amount--;
                 }
@@ -305,40 +315,29 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
             return res;
         }
 
-        protected List<RowT> getOnSingleOrReducer(int cnt) {
+        private List<RowT> getResultRows(int cnt) {
             Iterator<Map.Entry<GroupKey, int[]>> it = groups.entrySet().iterator();
-
             List<RowT> res = new ArrayList<>(cnt);
 
             while (it.hasNext() && cnt > 0) {
                 Map.Entry<GroupKey, int[]> entry = it.next();
-
-                GroupKey key = entry.getKey();
-
-                Object[] fields = new Object[key.fieldsCount()];
-
-                for (int i = 0; i < fields.length; i++) {
-                    fields[i] = key.field(i);
-                }
-
-                RowT row = rowFactory.create(fields);
-
-                int[] cntrs = entry.getValue();
-
+                RowT row = createOutputRow(entry);
                 int availableRows = availableRows(entry.getValue());
+
+                updateAvailableRows(entry.getValue(), availableRows);
 
                 if (availableRows <= cnt) {
                     it.remove();
-
-                    if (availableRows == 0) {
-                        continue;
-                    }
 
                     cnt -= availableRows;
                 } else {
                     availableRows = cnt;
 
-                    decrementAvailableRows(cntrs, availableRows);
+                    assert availableRows > 0;
+                    assert all : "This branch should only be accessible for non distinct variant of a set operator";
+
+                    int[] cntrs = entry.getValue();
+                    cntrs[0] -= availableRows;
 
                     cnt = 0;
                 }
@@ -356,12 +355,44 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
          */
         protected abstract boolean affectResult(int[] cntrs);
 
+        /** Calculates the number of rows to return. */
         protected abstract int availableRows(int[] cntrs);
 
-        protected abstract void decrementAvailableRows(int[] cntrs, int amount);
+        /** Updates the counters after calculating the number of available rows. */
+        protected abstract void updateAvailableRows(int[] cntrs, int availableRows);
 
         private boolean isEmpty() {
             return groups.isEmpty();
+        }
+
+        private RowT createOutputRow(Map.Entry<GroupKey, int[]> entry) {
+            GroupKey groupKey = entry.getKey();
+            int[] cnts = entry.getValue();
+
+            assert groupKey.fieldsCount() == columnNum : format("Invalid key {} columnNum: {}", groupKey, columnNum);
+
+            // Append counts on MAP phase.
+            boolean appendCounts = type == AggregateType.MAP;
+            int countsNum;
+            Object[] fields;
+
+            if (appendCounts) {
+                countsNum = cnts.length;
+                fields = new Object[columnNum + countsNum];
+            } else {
+                countsNum = 0;
+                fields = new Object[columnNum];
+            }
+
+            for (int i = 0; i < groupKey.fieldsCount(); i++) {
+                fields[i] = groupKey.field(i);
+            }
+
+            for (int j = 0; j < countsNum; j++) {
+                fields[columnNum + j] = cnts[j];
+            }
+
+            return rowFactory.create(fields);
         }
     }
 }

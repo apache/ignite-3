@@ -26,20 +26,59 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
  * Execution node for INTERSECT operator.
  */
 public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
-    public IntersectNode(ExecutionContext<RowT> ctx, AggregateType type, boolean all,
+    public IntersectNode(ExecutionContext<RowT> ctx, int columnNum, AggregateType type, boolean all,
             RowFactory<RowT> rowFactory, int inputsCnt) {
-        super(ctx, type, all, rowFactory, new IntersectGrouping<>(ctx, rowFactory, type, all, inputsCnt));
+        super(ctx, type, all, rowFactory, new IntersectGrouping<>(ctx, rowFactory, columnNum, type, all,  inputsCnt));
     }
 
+    /**
+     * Implementation of INTERSECT (INTERSECT DISTINCT) / INTERSECT ALL operators.
+     *
+     * <pre>
+     *     Given sets A, B, and C operator returns elements that present in all sets.
+     *
+     *     MAP:
+     *       for each distinct row count the number of such rows in every input
+     *       return: row_col1.., row_colN, (rows_A, rows_B, rows_C)
+     *
+     *     REDUCE:
+     *       Group inputs by row and sum all row counts elements:
+     *       row_cols, c1, c2
+     *       row_cols, c3, c4
+     *       ->
+     *       row_cols, c1+c3, c2+c4
+     *
+     *       return:
+     *        INTERCEPT ALL: for each distinct row return the smallest number of rows across rows_*.
+     *        INTERCEPT DISTINCT: for each distinct row return a single row if all inputs has such rows.
+     *
+     *     COLOCATED:
+     *       for each distinct row count the number of such rows in every input
+     *       return: the same as REDUCE
+     * </pre>
+     *
+     * @param <RowT> Type of row.
+     */
     private static class IntersectGrouping<RowT> extends Grouping<RowT> {
-        /** Inputs count. */
-        private final int inputsCnt;
+        /** The number of inputs. */
+        private final int inputsNum;
 
-        private IntersectGrouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory, AggregateType type,
-                boolean all, int inputsCnt) {
-            super(ctx, rowFactory, type, all);
+        /** Processed rows count in current set. */
+        private int rowsCnt = 0;
 
-            this.inputsCnt = inputsCnt;
+        private IntersectGrouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory, int columnNum,
+                AggregateType type, boolean all, int inputsNum) {
+            super(ctx, rowFactory, columnNum, type, all);
+
+            this.inputsNum = inputsNum;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected void add(RowT row, int setIdx) {
+            rowsCnt++;
+
+            super.add(row, setIdx);
         }
 
         /** {@inheritDoc} */
@@ -49,7 +88,7 @@ public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
                 groups.clear();
             }
 
-            super.endOfSet(setIdx);
+            rowsCnt = 0;
         }
 
         /** {@inheritDoc} */
@@ -57,10 +96,10 @@ public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
         protected void addOnSingle(RowT row, int setIdx) {
             int[] cntrs;
 
-            GroupKey key = key(row);
+            GroupKey key = createKey(row);
 
             if (setIdx == 0) {
-                cntrs = groups.computeIfAbsent(key, k -> new int[inputsCnt]);
+                cntrs = groups.computeIfAbsent(key, k -> new int[inputsNum]);
 
                 cntrs[0]++;
             } else {
@@ -78,8 +117,15 @@ public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
 
         /** {@inheritDoc} */
         @Override
+        protected int getCounterFieldsCount() {
+            return inputsNum;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         protected void addOnMapper(RowT row, int setIdx) {
-            int[] cntrs = groups.computeIfAbsent(key(row), k -> new int[inputsCnt]);
+            GroupKey key = createKey(row);
+            int[] cntrs = groups.computeIfAbsent(key, k -> new int[inputsNum]);
 
             cntrs[setIdx]++;
         }
@@ -93,6 +139,13 @@ public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected int availableRows(int[] cntrs) {
+            // Find the smallest number of rows across all inputs and use it as the number of rows to return.
+            // if the number is zero there is no intersection.
+            //
+            // In case of INTERSECT ALL return the smallest number of rows.
+            // In case of INTERSECT DISTINCT return at most one row because if cnt is positive
+            // (because it means that every input has at least one row thus intersection exists).
+            //
             int cnt = cntrs[0];
 
             for (int i = 1; i < cntrs.length; i++) {
@@ -102,8 +155,6 @@ public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
             }
 
             if (all) {
-                cntrs[0] = cnt; // Whith this we can decrement only the first element to get the same result.
-
                 return cnt;
             } else {
                 return cnt == 0 ? 0 : 1;
@@ -112,11 +163,10 @@ public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
 
         /** {@inheritDoc} */
         @Override
-        protected void decrementAvailableRows(int[] cntrs, int amount) {
-            assert amount > 0;
-            assert all;
-
-            cntrs[0] -= amount;
+        protected void updateAvailableRows(int[] cntrs, int availableRows) {
+            if (all) {
+                cntrs[0] = availableRows;
+            }
         }
     }
 }

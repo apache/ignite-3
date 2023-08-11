@@ -30,6 +30,15 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * Physical node for MINUS (EXCEPT) operator which inputs are colocated.
  */
 public class IgniteColocatedMinus extends IgniteMinus implements IgniteColocatedSetOp {
+
+    /**
+     * Constructor.
+     *
+     * @param cluster   Cluster that this relational expression belongs to.
+     * @param traitSet    The traits of this rel.
+     * @param inputs     Input relational expressions.
+     * @param all   Whether this operator should return all rows or only distinct rows.
+     */
     public IgniteColocatedMinus(
             RelOptCluster cluster,
             RelTraitSet traitSet,

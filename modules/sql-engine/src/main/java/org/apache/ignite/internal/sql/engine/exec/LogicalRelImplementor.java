@@ -33,7 +33,6 @@ import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.Intersect;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Minus;
 import org.apache.calcite.rel.core.Spool;
@@ -101,6 +100,8 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
+import org.apache.ignite.internal.sql.engine.rel.set.IgniteIntersect;
+import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapSetOp;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -540,15 +541,23 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
 
         List<Node<RowT>> inputs = Commons.transform(rel.getInputs(), this::visit);
+        int columnNum;
+
+        if (rel instanceof IgniteMapSetOp) {
+            columnNum = rel.getInput(0).getRowType().getFieldCount();
+        } else {
+            columnNum = rowType.getFieldCount();
+        }
 
         AbstractSetOpNode<RowT> node;
 
         if (rel instanceof Minus) {
-            node = new MinusNode<>(ctx, rel.aggregateType(), rel.all(), rowFactory);
-        } else if (rel instanceof Intersect) {
-            node = new IntersectNode<>(ctx, rel.aggregateType(), rel.all(), rowFactory, rel.getInputs().size());
+            node = new MinusNode<>(ctx, columnNum, rel.aggregateType(), rel.all(), rowFactory);
+        } else if (rel instanceof IgniteIntersect) {
+            int inputsNum = ((IgniteIntersect) rel).inputsNum();
+            node = new IntersectNode<>(ctx, columnNum, rel.aggregateType(), rel.all(), rowFactory, inputsNum);
         } else {
-            throw new AssertionError();
+            throw new AssertionError("Unexpected set node: " + rel);
         }
 
         node.register(inputs);

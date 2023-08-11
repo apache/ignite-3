@@ -30,6 +30,14 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * Physical node for INTERSECT operator which inputs are colocated.
  */
 public class IgniteColocatedIntersect extends IgniteIntersect implements IgniteColocatedSetOp {
+    /**
+     * Constructor.
+     *
+     * @param cluster   Cluster that this relational expression belongs to.
+     * @param traitSet    The traits of this rel.
+     * @param inputs     Input relational expressions.
+     * @param all   Whether this operator should return all rows or only distinct rows.
+     */
     public IgniteColocatedIntersect(
             RelOptCluster cluster,
             RelTraitSet traitSet,
@@ -70,5 +78,11 @@ public class IgniteColocatedIntersect extends IgniteIntersect implements IgniteC
     @Override
     public int aggregateFieldsCount() {
         return getInput(0).getRowType().getFieldCount() + getInputs().size();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int inputsNum() {
+        return inputs.size();
     }
 }
