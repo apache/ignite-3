@@ -28,7 +28,7 @@ public class BaseTypeSpec extends TypeSpec {
 
     private final NativeType nativeType;
 
-    /** Creates a basic type with the given nullability. */
+    /** Creates a basic type with default nullability (non-nullable). */
     BaseTypeSpec(NativeType nativeType) {
         super(false);
         this.nativeType = nativeType;
