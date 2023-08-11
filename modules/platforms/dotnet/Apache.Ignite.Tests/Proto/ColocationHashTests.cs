@@ -180,7 +180,7 @@ public class ColocationHashTests : IgniteTestsBase
         // Perform get to populate schema.
         var table = await Client.Tables.GetTableAsync(tableName);
         var view = table!.RecordBinaryView;
-        await view.GetAsync(null, new IgniteTuple{["id"] = 1, ["id0"] = 2L, ["id1"] = "3", ["v"] = 4});
+        await view.GetAsync(null, new IgniteTuple{["id"] = 1, ["id0"] = 2L, ["id1"] = "3"});
 
         var ser = view.GetFieldValue<RecordSerializer<IIgniteTuple>>("_ser");
         var schemas = table.GetFieldValue<IDictionary<int, Task<Schema>>>("_schemas");
@@ -189,7 +189,7 @@ public class ColocationHashTests : IgniteTestsBase
 
         for (int i = 0; i < 100; i++)
         {
-            var key = new IgniteTuple { ["id"] = 1 + i, ["id0"] = 2L + i, ["id1"] = "3" + i, ["v"] = 4 + i };
+            var key = new IgniteTuple { ["id"] = 1 + i, ["id0"] = 2L + i, ["id1"] = "3" + i };
 
             using var writer = ProtoCommon.GetMessageWriter();
             var clientColocationHash = ser.Write(writer, null, schema, key);
