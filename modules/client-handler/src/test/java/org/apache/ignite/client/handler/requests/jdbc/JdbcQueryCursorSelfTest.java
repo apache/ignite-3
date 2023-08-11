@@ -48,7 +48,6 @@ public class JdbcQueryCursorSelfTest {
                 new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, null,
                         new AsyncWrapper<>(CompletableFuture.completedFuture(rows.iterator()), Runnable::run)));
 
-
         List<Integer> results = new ArrayList<>(maxRows);
         BatchedResult<Integer> requestResult;
 
