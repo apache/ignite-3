@@ -139,7 +139,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItTxDistributedTestSingleNode extends TxAbstractTest {
-    @InjectConfiguration
+    @InjectConfiguration("mock: { fsync: false }")
     private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration

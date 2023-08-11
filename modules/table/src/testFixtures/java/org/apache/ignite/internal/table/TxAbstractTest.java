@@ -1223,7 +1223,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16700")
     public void testBalance() throws InterruptedException {
         doTestSingleKeyMultithreaded(5_000, false);
     }
@@ -1501,16 +1500,18 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         Thread[] threads = new Thread[threadsCnt];
 
-        final double initial = 1000;
-        final double total = threads.length * initial;
+        final int accountsCount = threads.length * 10;
 
-        for (int i = 0; i < threads.length; i++) {
+        final double initial = 1000;
+        final double total = accountsCount * initial;
+
+        for (int i = 0; i < accountsCount; i++) {
             accounts.recordView().upsert(null, makeValue(i, 1000));
         }
 
         double total0 = 0;
 
-        for (long i = 0; i < threads.length; i++) {
+        for (long i = 0; i < accountsCount; i++) {
             double balance = accounts.recordView().get(null, makeKey(i)).doubleValue("balance");
 
             total0 += balance;
@@ -1530,7 +1531,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         AtomicReference<Throwable> firstErr = new AtomicReference<>();
 
         for (int i = 0; i < threads.length; i++) {
-            long finalI = i;
             threads[i] = new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -1546,7 +1546,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                         var table = accounts.recordView();
 
                         try {
-                            long acc1 = finalI;
+                            long acc1 = r.nextInt(accountsCount);
 
                             double amount = 100 + r.nextInt(500);
 
@@ -1559,7 +1559,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                             long acc2 = acc1;
 
                             while (acc1 == acc2) {
-                                acc2 = r.nextInt(threads.length);
+                                acc2 = r.nextInt(accountsCount);
                             }
 
                             if (verbose) {
@@ -1618,7 +1618,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         total0 = 0;
 
-        for (long i = 0; i < threads.length; i++) {
+        for (long i = 0; i < accountsCount; i++) {
             double balance = accounts.recordView().get(null, makeKey(i)).doubleValue("balance");
 
             total0 += balance;
