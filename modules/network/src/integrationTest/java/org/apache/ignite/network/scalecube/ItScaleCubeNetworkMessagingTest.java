@@ -34,6 +34,7 @@ import io.scalecube.cluster.ClusterImpl;
 import io.scalecube.cluster.transport.api.Transport;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -44,9 +45,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.messages.TestMessage;
@@ -56,7 +55,7 @@ import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
-import org.apache.ignite.internal.testframework.jul.NoOpHandler;
+import org.apache.ignite.internal.testframework.log4j2.TestLogChecker;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -87,10 +86,15 @@ class ItScaleCubeNetworkMessagingTest {
     /** Message factory. */
     private final TestMessagesFactory messageFactory = new TestMessagesFactory();
 
+    /** List of test loggers. */
+    private final List<TestLogChecker> loggers = new ArrayList<>();
+
     /** Tear down method. */
     @AfterEach
     public void tearDown() {
         testCluster.shutdown();
+        loggers.forEach(TestLogChecker::stop);
+        loggers.clear();
     }
 
     /**
@@ -412,20 +416,19 @@ class ItScaleCubeNetworkMessagingTest {
             }
         });
 
-        Handler rejectedHandshakeHandler = new NoOpHandler() {
-            @Override
-            public void publish(LogRecord record) {
-                if (record.getMessage().startsWith("Handshake rejected by ")) {
-                    ready.countDown();
-                }
-            }
-        };
+        Predicate<String> matcher = msg -> msg.startsWith("Handshake rejected by ");
 
-        Logger clientHandshakeManagerLogger = Logger.getLogger(RecoveryClientHandshakeManager.class.getName());
-        clientHandshakeManagerLogger.addHandler(rejectedHandshakeHandler);
+        loggers.add(new TestLogChecker(
+                RecoveryClientHandshakeManager.class.getName(),
+                matcher,
+                ready::countDown));
 
-        Logger serverHandshakeManagerLogger = Logger.getLogger(RecoveryServerHandshakeManager.class.getName());
-        serverHandshakeManagerLogger.addHandler(rejectedHandshakeHandler);
+        loggers.add(new TestLogChecker(
+                RecoveryServerHandshakeManager.class.getName(),
+                matcher,
+                ready::countDown));
+
+        loggers.forEach(TestLogChecker::start);
 
         testCluster.members.stream()
                 .filter(service -> !outcastName.equals(service.nodeName()))
