@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.DEFAULT_VALUE_PLACEHOLDER;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 
@@ -28,6 +29,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -40,6 +42,7 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -195,6 +198,10 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         int batchNum = 0;
 
+        IgniteTypeFactory typeFactory = ectx.getTypeFactory();
+        RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(desc.insertRowType(typeFactory)));
+        RowHandler.RowFactory<RowT> rowFactory = handler.factory(rowSchema);
+
         for (Int2ObjectMap.Entry<List<BinaryRow>> partToRows : rowsByPartition.int2ObjectEntrySet()) {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
             NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
@@ -218,11 +225,6 @@ public final class UpdatableTableImpl implements UpdatableTable {
                         }
 
                         List<RowT> conflictRows = new ArrayList<>(binaryRows.size());
-                        IgniteTypeFactory typeFactory = ectx.getTypeFactory();
-                        RowHandler.RowFactory<RowT> rowFactory = handler.factory(
-                                ectx.getTypeFactory(),
-                                desc.insertRowType(typeFactory)
-                        );
 
                         for (BinaryRow row : binaryRows) {
                             conflictRows.add(rowConverter.toRow(ectx, row, rowFactory, null));
