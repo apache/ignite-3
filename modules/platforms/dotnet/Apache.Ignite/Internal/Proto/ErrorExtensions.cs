@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.injectedname;
+namespace Apache.Ignite.Internal.Proto;
 
-import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-
-/**
- * Schema with {@link ConfigurationExtension} cannot have a field with {@link InjectedName}.
- */
-@PolymorphicConfigInstance("error")
-public class ErrorInjectedName5ConfigurationSchema extends PolyConfigurationSchema {
-    @InjectedName
-    public String name2;
+/// <summary>
+/// Error data extensions. When the server returns an error response, it may contain additional data in a map. Keys are defined here.
+/// </summary>
+internal static class ErrorExtensions
+{
+    /// <summary>
+    /// Expected schema version for <see cref="ErrorGroups.Table.SchemaVersionMismatch"/> error.
+    /// </summary>
+    public const string ExpectedSchemaVersion = "expected-schema-ver";
 }

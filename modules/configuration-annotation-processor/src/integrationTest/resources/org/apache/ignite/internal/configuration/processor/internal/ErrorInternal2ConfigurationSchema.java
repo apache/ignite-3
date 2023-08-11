@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.configuration.processor.internal;
 
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 
 /**
- * If {@link InternalConfiguration} is present and {@link ConfigurationRoot} is absent, the class must have a parent (superclass).
+ * If {@link ConfigurationExtension} is present and {@link ConfigurationRoot} is absent, the class must have a parent (superclass).
  */
-@InternalConfiguration
+@ConfigurationExtension(internal = true)
 public class ErrorInternal2ConfigurationSchema {
 }
