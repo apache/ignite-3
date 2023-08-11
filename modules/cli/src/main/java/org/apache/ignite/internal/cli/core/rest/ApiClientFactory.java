@@ -92,10 +92,7 @@ public class ApiClientFactory {
      * @return created API client.
      */
     public ApiClient getClient(String path, String username, String password) {
-        ApiClientSettingsBuilder clientSettingsBuilder = settingsBuilder(path);
-        clientSettingsBuilder.basicAuthenticationUsername(username);
-        clientSettingsBuilder.basicAuthenticationPassword(password);
-        return getClientFromSettings(clientSettingsBuilder.build());
+        return getClientFromSettings(settingsWithAuth(path, username, password));
     }
 
     /**
@@ -117,6 +114,13 @@ public class ApiClientFactory {
     private ApiClientSettings settingsWithAuth(String path) {
         ApiClientSettingsBuilder builder = settingsBuilder(path);
         return setupAuthentication(builder).build();
+    }
+
+    private ApiClientSettings settingsWithAuth(String path, String username, String password) {
+        ApiClientSettingsBuilder clientSettingsBuilder = settingsBuilder(path);
+        clientSettingsBuilder.basicAuthenticationUsername(username);
+        clientSettingsBuilder.basicAuthenticationPassword(password);
+        return clientSettingsBuilder.build();
     }
 
     private ApiClientSettings settingsWithoutAuth(String path) {
