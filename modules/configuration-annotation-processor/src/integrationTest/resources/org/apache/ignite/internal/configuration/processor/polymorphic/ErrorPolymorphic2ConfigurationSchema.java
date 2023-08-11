@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.configuration.processor.polymorphic;
 
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 
 /**
- * Class cannot have {@link PolymorphicConfig} and {@link InternalConfiguration}.
+ * Class cannot have {@link PolymorphicConfig} and {@link ConfigurationExtension}.
  */
 @PolymorphicConfig
-@InternalConfiguration
+@ConfigurationExtension(internal = true)
 public class ErrorPolymorphic2ConfigurationSchema {
 }

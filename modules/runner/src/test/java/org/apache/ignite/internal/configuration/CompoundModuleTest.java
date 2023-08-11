@@ -99,10 +99,10 @@ class CompoundModuleTest {
 
     @Test
     void returnsUnionOfInternalSchemaExtensionsOfItsModules() {
-        when(moduleA.internalSchemaExtensions()).thenReturn(Set.of(ExtensionA.class));
-        when(moduleB.internalSchemaExtensions()).thenReturn(Set.of(ExtensionB.class));
+        when(moduleA.schemaExtensions()).thenReturn(Set.of(ExtensionA.class));
+        when(moduleB.schemaExtensions()).thenReturn(Set.of(ExtensionB.class));
 
-        assertThat(compound.internalSchemaExtensions(), containsInAnyOrder(ExtensionA.class, ExtensionB.class));
+        assertThat(compound.schemaExtensions(), containsInAnyOrder(ExtensionA.class, ExtensionB.class));
     }
 
     @Test
