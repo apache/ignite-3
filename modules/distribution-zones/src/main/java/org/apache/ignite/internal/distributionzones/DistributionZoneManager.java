@@ -141,7 +141,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * Default filter value for a distribution zone,
      * which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of nodes.
      */
-    public static final String DEFAULT_FILTER = "$..*";
+    public static final String DEFAULT_FILTER = "$.+";
 
     /** Default number of zone replicas. */
     public static final int DEFAULT_REPLICA_COUNT = 1;
@@ -283,10 +283,9 @@ public class DistributionZoneManager implements IgniteComponent {
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 stopGuard,
                 busyLock,
-                zonesConfiguration,
-                tablesConfiguration,
                 metaStorageManager,
-                this
+                this,
+                catalogManager
         );
 
         //noinspection ThisEscapedInObjectConstruction

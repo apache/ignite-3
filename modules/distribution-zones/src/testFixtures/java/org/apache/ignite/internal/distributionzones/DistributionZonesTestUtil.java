@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Map;
@@ -52,10 +53,13 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
@@ -566,26 +570,61 @@ public class DistributionZonesTestUtil {
         assertThat(catalogManager.dropZone(DropZoneParams.builder().zoneName(zoneName).build()), willCompleteSuccessfully());
     }
 
-    private static DistributionZoneConfigurationParameters createParameters(
-            String zoneName,
-            @Nullable Integer dataNodesAutoAdjustScaleUp,
-            @Nullable Integer dataNodesAutoAdjustScaleDown,
-            @Nullable String filter
-    ) {
-        DistributionZoneConfigurationParameters.Builder builder = new DistributionZoneConfigurationParameters.Builder(zoneName);
+    /**
+     * Returns distributed zone ID form catalog, {@code null} if zone is absent.
+     *
+     * @param catalogService Catalog service.
+     * @param zoneName Distributed zone name.
+     * @param timestamp Timestamp.
+     */
+    public static @Nullable Integer getZoneId(CatalogService catalogService, String zoneName, long timestamp) {
+        CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
 
-        if (dataNodesAutoAdjustScaleUp != null) {
-            builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
-        }
+        return zone == null ? null : zone.id();
+    }
 
-        if (dataNodesAutoAdjustScaleDown != null) {
-            builder.dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
-        }
+    /**
+     * Returns distributed zone ID form catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param zoneName Distributed zone name.
+     * @param timestamp Timestamp.
+     * @throws AssertionError If zone is absent.
+     */
+    public static int getZoneIdStrict(CatalogService catalogService, String zoneName, long timestamp) {
+        Integer zoneId = getZoneId(catalogService, zoneName, timestamp);
 
-        if (filter != null) {
-            builder.filter(filter);
-        }
+        assertNotNull(zoneId, "zoneName=" + zoneName + ", timestamp=" + timestamp);
 
-        return builder.build();
+        return zoneId;
+    }
+
+    /**
+     * Returns table ID form catalog, {@code null} if table is absent.
+     *
+     * @param catalogService Catalog service.
+     * @param tableName Table name.
+     * @param timestamp Timestamp.
+     */
+    public static @Nullable Integer getTableId(CatalogService catalogService, String tableName, long timestamp) {
+        CatalogTableDescriptor table = catalogService.table(tableName, timestamp);
+
+        return table == null ? null : table.id();
+    }
+
+    /**
+     * Returns table ID form catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param tableName Table name.
+     * @param timestamp Timestamp.
+     * @throws AssertionError If table is absent.
+     */
+    public static int getTableIdStrict(CatalogService catalogService, String tableName, long timestamp) {
+        Integer tableId = getTableId(catalogService, tableName, timestamp);
+
+        assertNotNull(tableId, "tableName=" + tableName + ", timestamp=" + timestamp);
+
+        return tableId;
     }
 }
