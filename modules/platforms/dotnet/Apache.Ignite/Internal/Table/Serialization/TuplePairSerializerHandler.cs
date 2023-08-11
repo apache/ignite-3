@@ -89,20 +89,29 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
             }
         }
 
-        var recordFieldCount = columnCount > schema.KeyColumnCount
-            ? record.Key.FieldCount + record.Val.FieldCount
-            : record.Key.FieldCount;
+        var recordFieldCount = record.Key.FieldCount;
+
+        // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+        if (record.Val != null)
+        {
+            recordFieldCount += record.Val.FieldCount;
+        }
 
         if (recordFieldCount > written)
         {
             var extraColumns = new HashSet<string>(recordFieldCount);
-            for (int index = 0; index < recordFieldCount; index++)
-            {
-                var name = index < schema.KeyColumnCount
-                    ? record.Key.GetName(index)
-                    : record.Val.GetName(index - schema.KeyColumnCount);
 
-                extraColumns.Add(name);
+            for (int i = 0; i < record.Key.FieldCount; i++)
+            {
+                extraColumns.Add(record.Key.GetName(i));
+            }
+
+            if (record.Val != null)
+            {
+                for (int i = 0; i < record.Val.FieldCount; i++)
+                {
+                    extraColumns.Add(record.Val.GetName(i));
+                }
             }
 
             for (var i = 0; i < columnCount; i++)
