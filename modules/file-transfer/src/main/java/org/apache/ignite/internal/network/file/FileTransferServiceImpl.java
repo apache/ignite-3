@@ -128,22 +128,36 @@ public class FileTransferServiceImpl implements FileTransferService {
      * @param configuration File transfer configuration.
      * @param transferDirectory Transfer directory. All files will be saved here before being moved to their final location.
      */
-    public static FileTransferServiceImpl create(
+    FileTransferServiceImpl(
             String nodeName,
             TopologyService topologyService,
             MessagingService messagingService,
             FileTransferConfiguration configuration,
             Path transferDirectory
     ) {
-        ExecutorService executor = new ThreadPoolExecutor(
-                0,
-                configuration.value().threadPoolSize(),
-                0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "file-transfer", LOG)
+        this(
+                topologyService,
+                messagingService,
+                configuration,
+                transferDirectory,
+                new ThreadPoolExecutor(
+                        0,
+                        configuration.value().threadPoolSize(),
+                        0L, TimeUnit.MILLISECONDS,
+                        new LinkedBlockingQueue<>(),
+                        NamedThreadFactory.create(nodeName, "file-transfer", LOG)
+                )
         );
+    }
 
-        return new FileTransferServiceImpl(
+    private FileTransferServiceImpl(
+            TopologyService topologyService,
+            MessagingService messagingService,
+            FileTransferConfiguration configuration,
+            Path transferDirectory,
+            ExecutorService executorService
+    ) {
+        this(
                 configuration.value().responseTimeout(),
                 topologyService,
                 messagingService,
@@ -152,10 +166,10 @@ public class FileTransferServiceImpl implements FileTransferService {
                         configuration.value().chunkSize(),
                         new Semaphore(configuration.value().maxConcurrentRequests()),
                         messagingService,
-                        executor
+                        executorService
                 ),
                 new FileReceiver(),
-                executor
+                executorService
         );
     }
 

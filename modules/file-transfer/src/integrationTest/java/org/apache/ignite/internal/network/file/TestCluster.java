@@ -105,7 +105,7 @@ public class TestCluster {
 
         try {
             Path nodeDir = Files.createDirectory(workDir.resolve("node-" + clusterSvc.nodeName()));
-            FileTransferServiceImpl fileTransferringService = FileTransferServiceImpl.create(
+            FileTransferServiceImpl fileTransferringService = new FileTransferServiceImpl(
                     clusterSvc.nodeName(),
                     clusterSvc.topologyService(),
                     clusterSvc.messagingService(),
