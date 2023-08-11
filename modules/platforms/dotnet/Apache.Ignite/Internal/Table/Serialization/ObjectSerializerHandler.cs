@@ -172,7 +172,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private static WriteDelegate<T> EmitKvWriter(Schema schema, int count, DynamicMethod method)
         {
-            var type = typeof(T);
             var (keyType, valType, keyField, valField) = GetKeyValTypes();
 
             var keyWriteMethod = BinaryTupleMethods.GetWriteMethodOrNull(keyType);
