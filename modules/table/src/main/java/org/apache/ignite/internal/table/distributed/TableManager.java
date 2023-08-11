@@ -27,10 +27,8 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.getZoneById;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneCatalogDescriptorUtils.toZoneDescriptor;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
@@ -98,7 +96,6 @@ import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -232,9 +229,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
 
-    /** Distribution zones configuration. */
-    private final DistributionZonesConfiguration zonesConfig;
-
     /** Garbage collector configuration. */
     private final GcConfiguration gcConfig;
 
@@ -289,7 +283,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
-     * Only explicitly updated in {@link #createTablePartitionsLocally(long, List, int, TableImpl)}.
+     * Only explicitly updated in {@link #createTablePartitionsLocally(long, CompletableFuture, TableImpl)}.
      * Completed strictly after {@link #localPartsByTableIdVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
@@ -386,7 +380,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param nodeName Node name.
      * @param registry Registry for versioned values.
      * @param tablesCfg Tables configuration.
-     * @param zonesConfig Distribution zones configuration.
      * @param gcConfig Garbage collector configuration.
      * @param raftMgr Raft manager.
      * @param replicaMgr Replica manager.
@@ -406,7 +399,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             String nodeName,
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             TablesConfiguration tablesCfg,
-            DistributionZonesConfiguration zonesConfig,
             GcConfiguration gcConfig,
             ClusterService clusterService,
             RaftManager raftMgr,
@@ -430,7 +422,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             CatalogManager catalogManager
     ) {
         this.tablesCfg = tablesCfg;
-        this.zonesConfig = zonesConfig;
         this.gcConfig = gcConfig;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -608,7 +599,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         try {
             CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.newValue());
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
+            // TODO: IGNITE-19499 It is now safe to get the latest version of the catalog since we are in the metasore thread, we need to
+            //  change to the version from the catalog listener
+            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId(), catalogManager.latestCatalogVersion());
 
             CompletableFuture<List<Set<Assignment>>> assignmentsFuture;
 
@@ -627,7 +620,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         ));
             }
 
-            CompletableFuture<?> createTableFut = createTableLocally(
+            return createTableLocally(
                     ctx.storageRevision(),
                     tableDescriptor,
                     zoneDescriptor,
@@ -639,8 +632,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
                 }
             }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
-
-            return createTableFut;
         } finally {
             busyLock.leaveBusy();
         }
@@ -693,7 +684,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         try {
             CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.oldValue());
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
+            // TODO: IGNITE-19499 It is now safe to get the latest version of the catalog since we are in the metasore thread, we need to
+            //  change to the version from the catalog listener
+            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId(), catalogManager.latestCatalogVersion());
 
             dropTableLocally(ctx.storageRevision(), tableDescriptor, zoneDescriptor);
         } finally {
@@ -708,14 +701,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param causalityToken Causality token.
      * @param assignmentsFuture Table assignments.
-     * @param zoneId Distributed zone ID.
      * @param table Initialized table entity.
      * @return future, which will be completed when the partitions creations done.
      */
     private CompletableFuture<?> createTablePartitionsLocally(
             long causalityToken,
             CompletableFuture<List<Set<Assignment>>> assignmentsFuture,
-            int zoneId,
             TableImpl table
     ) {
         int tableId = table.tableId();
@@ -1286,7 +1277,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
         }));
 
-        CompletableFuture<?> createPartsFut = createTablePartitionsLocally(causalityToken, assignmentsFuture, zoneDescriptor.id(), table);
+        CompletableFuture<?> createPartsFut = createTablePartitionsLocally(causalityToken, assignmentsFuture, table);
 
         pendingTables.put(tableId, table);
         startedTables.put(tableId, table);
@@ -1472,7 +1463,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 we must use distribution zone keys here
                 baselineMgr.nodes().stream().map(ClusterNode::name).collect(toList()),
                 tablePartitionId.partitionId(),
-                getZoneDescriptor(tableDescriptor.zoneId()).replicas()
+                getZoneDescriptor(tableDescriptor.zoneId(), catalogManager.latestCatalogVersion()).replicas()
         );
     }
 
@@ -2445,6 +2436,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionId);
 
+                    // It's safe to get the latest version of the catalog since we're in the metastore thread.
+                    int catalogVersion = catalogManager.latestCatalogVersion();
+
                     return tablesById(evt.revision())
                             .thenCompose(tables -> {
                                 if (!busyLock.enterBusy()) {
@@ -2460,7 +2454,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             .thenCompose(dataNodes -> RebalanceUtil.handleReduceChanged(
                                                     metaStorageMgr,
                                                     dataNodes,
-                                                    getZoneDescriptor(tableDescriptor.zoneId()).replicas(),
+                                                    getZoneDescriptor(tableDescriptor.zoneId(), catalogVersion).replicas(),
                                                     replicaGrpId,
                                                     evt
                                             ));
@@ -2755,8 +2749,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return tableView == null ? null : toTableDescriptor(tableView);
     }
 
-    private CatalogZoneDescriptor getZoneDescriptor(int id) {
-        return toZoneDescriptor(getZoneById(zonesConfig, id).value());
+    private @Nullable CatalogZoneDescriptor getZoneDescriptor(int zoneId, int catalogVersion) {
+        return catalogManager.zone(zoneId, catalogVersion);
     }
 
     private static @Nullable TableImpl findTableImplByName(Collection<TableImpl> tables, String name) {

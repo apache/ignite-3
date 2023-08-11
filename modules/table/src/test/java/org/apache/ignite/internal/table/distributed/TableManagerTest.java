@@ -870,7 +870,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 "test",
                 revisionUpdater,
                 tblsCfg,
-                distributionZonesConfiguration,
                 gcConfig,
                 clusterService,
                 rm,

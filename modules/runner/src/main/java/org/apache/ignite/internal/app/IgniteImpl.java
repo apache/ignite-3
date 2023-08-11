@@ -525,7 +525,6 @@ public class IgniteImpl implements Ignite {
                 name,
                 registry,
                 tablesConfig,
-                zonesConfig,
                 gcConfig,
                 clusterSvc,
                 raftMgr,
