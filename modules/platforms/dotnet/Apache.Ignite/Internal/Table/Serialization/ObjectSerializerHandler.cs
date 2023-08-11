@@ -25,6 +25,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
+    using Common;
     using Ignite.Sql;
     using Proto.BinaryTuple;
     using Proto.MsgPack;
@@ -428,7 +429,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 return;
             }
 
-            var columnStr = string.Join(", ", columns.Select(x => x.Type + " " + x.Name));
+            var columnStr = columns.Select(x => x.Type + " " + x.Name).StringJoin();
 
             throw new IgniteClientException(
                 ErrorGroups.Client.Configuration,

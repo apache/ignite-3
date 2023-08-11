@@ -29,6 +29,7 @@ using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
 using Internal.Buffers;
+using Internal.Common;
 using Internal.Proto;
 using Internal.Proto.BinaryTuple;
 using Internal.Proto.MsgPack;
@@ -307,7 +308,7 @@ public class ColocationHashTests : IgniteTestsBase
 
         var serverHash = await GetServerHash(bytes, keys.Length, timePrecision, timestampPrecision);
 
-        var msg = $"Time precision: {timePrecision}, timestamp precision: {timestampPrecision}, keys: {string.Join(", ", keys)}";
+        var msg = $"Time precision: {timePrecision}, timestamp precision: {timestampPrecision}, keys: {keys.StringJoin()}";
 
         Assert.AreEqual(serverHash, clientHash, $"Server hash mismatch. {msg}");
         Assert.AreEqual(clientHash, clientHash2, $"IgniteTuple hash mismatch. {msg}");
