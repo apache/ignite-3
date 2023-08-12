@@ -58,7 +58,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         assertAll(
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
-                        + "Could not connect to node with URL http://localhost:10300. Check authentication configuration"
+                        + "Could not connect to node with URL http://localhost:10300. "
+                        + "Check authentication configuration or provided username/password"
                         + System.lineSeparator())
         );
         // And prompt is still disconnected
@@ -103,7 +104,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         assertAll(
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
-                        + "Could not connect to node with URL http://localhost:10300. Check authentication configuration"
+                        + "Could not connect to node with URL http://localhost:10300. "
+                        + "Check authentication configuration or provided username/password"
                         + System.lineSeparator())
         );
         // And prompt is still disconnected
@@ -148,7 +150,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         assertAll(
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
-                        + "Could not connect to node with URL http://localhost:10300. Check authentication configuration"
+                        + "Could not connect to node with URL http://localhost:10300. "
+                        + "Check authentication configuration or provided username/password"
                         + System.lineSeparator())
         );
         // And prompt is still disconnected
@@ -170,7 +173,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         assertAll(
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
-                        + "Could not connect to node with URL http://localhost:10300. Check authentication configuration"
+                        + "Could not connect to node with URL http://localhost:10300. "
+                        + "Check authentication configuration or provided username/password"
                         + System.lineSeparator())
         );
         // And prompt is still disconnected
@@ -221,7 +225,8 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         assertAll(
                 this::assertOutputIsEmpty,
                 () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
-                        + "Could not connect to node with URL http://localhost:10300. Check authentication configuration"
+                        + "Could not connect to node with URL http://localhost:10300. "
+                        + "Check authentication configuration or provided username/password"
                         + System.lineSeparator())
         );
         // And prompt is still disconnected

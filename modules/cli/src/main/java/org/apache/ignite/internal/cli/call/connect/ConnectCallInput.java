@@ -23,7 +23,6 @@ import org.jetbrains.annotations.Nullable;
 /** Input for the {@link ConnectCall} call. */
 public class ConnectCallInput implements CallInput {
 
-
     private final String url;
 
     @Nullable

@@ -141,7 +141,7 @@ public class ApiClientFactory {
     private ApiClientSettingsBuilder setupAuthentication(ApiClientSettingsBuilder builder) {
         ConfigManager configManager = configManagerProvider.get();
 
-        // Use credentials from current session settings if exist
+        // Use credentials from current session settings if exist.
         ApiClientSettings currentCredentialsSettings = currentSessionSettings();
         String username = currentCredentialsSettings != null
                 ? currentCredentialsSettings.basicAuthenticationUsername()

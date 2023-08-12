@@ -124,7 +124,7 @@ public class ConnectToClusterQuestion {
             String storedUsername = configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
             String storedPassword = configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value());
 
-            //Ask question only if cli config has different values
+            // Ask question only if cli config has different values.
             if (!username.equals(storedUsername) || !password.equals(storedPassword)) {
                 QuestionUiComponent question = fromYesNoQuestion("Remember current credentials?");
                 Flows.acceptQuestion(question, () -> {
