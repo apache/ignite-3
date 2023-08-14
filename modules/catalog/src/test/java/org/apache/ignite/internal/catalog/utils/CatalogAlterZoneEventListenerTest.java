@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.BaseCatalogManagerTest;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.junit.jupiter.api.Test;
@@ -251,6 +252,41 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
 
         assertThat(onZoneUpdateFuture, willCompleteSuccessfully());
         assertThat(onAutoAdjustScaleDownUpdateFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    void testOnZoneRename() {
+        CompletableFuture<Void> onZoneUpdateFuture = new CompletableFuture<>();
+        CompletableFuture<Void> onZoneRenameFuture = new CompletableFuture<>();
+
+        String newZoneName = ZONE_NAME + "_new";
+
+        listenAlterZone(new CatalogAlterZoneEventListener(manager) {
+            @Override
+            protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
+                onZoneUpdateFuture.complete(null);
+
+                return completedFuture(null);
+            }
+
+            @Override
+            protected CompletableFuture<Void> onZoneRename(AlterZoneEventParameters parameters, String oldName) {
+                assertNotEquals(newZoneName, oldName);
+
+                onZoneRenameFuture.complete(null);
+
+                return completedFuture(null);
+            }
+        });
+
+        assertThat(manager.createZone(createZoneBuilder().build()), willCompleteSuccessfully());
+        assertThat(
+                manager.renameZone(RenameZoneParams.builder().zoneName(ZONE_NAME).newZoneName(newZoneName).build()),
+                willCompleteSuccessfully()
+        );
+
+        assertThat(onZoneUpdateFuture, willCompleteSuccessfully());
+        assertThat(onZoneRenameFuture, willCompleteSuccessfully());
     }
 
     private void listenAlterZone(CatalogAlterZoneEventListener listener) {

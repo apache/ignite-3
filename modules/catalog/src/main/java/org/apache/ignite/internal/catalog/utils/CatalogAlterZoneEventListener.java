@@ -27,13 +27,15 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.manager.EventListener;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Event listener for changing the distribution zone and its fields via {@link CatalogManager#alterZone(AlterZoneParams)}.
+ * Event listener for changing the distribution zone and its fields via {@link CatalogManager#alterZone(AlterZoneParams)} or
+ * {@link CatalogManager#renameZone(RenameZoneParams)}.
  *
  * <p>To listen for changes to the distribution zone and / or any of the fields, you need to override the methods:</p>
  * <ul>
@@ -45,6 +47,15 @@ import org.jetbrains.annotations.Nullable;
  *     <li>{@link #onAutoAdjustScaleUpUpdate(AlterZoneEventParameters, int)};</li>
  *     <li>{@link #onAutoAdjustScaleDownUpdate(AlterZoneEventParameters, int)}.</li>
  * </ul>
+ *
+ * <p>For example, if you change the count of partitions and replicas for a zone, the following methods will be called:
+ * {@link #onZoneUpdate(AlterZoneEventParameters, CatalogZoneDescriptor) onZoneUpdate},
+ * {@link #onPartitionsUpdate(AlterZoneEventParameters, int) onPartitionsUpdate} and
+ * {@link #onReplicasUpdate(AlterZoneEventParameters, int) onReplicasUpdate} (order of calling methods may change in the future).</p>
+ *
+ * <p>If you need more complex processing, such as calling a listener when only the count of partitions and replicas (or one of them) has
+ * changed, then you need to either override {@link #onZoneUpdate(AlterZoneEventParameters, CatalogZoneDescriptor) onZoneUpdate} or write
+ * your own implementation of {@link EventListener}.</p>
  */
 public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEventParameters> {
     private final CatalogService catalogService;
@@ -86,6 +97,10 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
 
         addFuture(futures, onZoneUpdate(parameters, oldZone));
 
+        if (!newZone.name().equals(oldZone.name())) {
+            addFuture(futures, onZoneRename(parameters, oldZone.name()));
+        }
+
         if (newZone.partitions() != oldZone.partitions()) {
             addFuture(futures, onPartitionsUpdate(parameters, oldZone.partitions()));
         }
@@ -121,6 +136,17 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
      * @return Future that signifies the end of the callback execution.
      */
     protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
+        return completedFuture(null);
+    }
+
+    /**
+     * Called when a zone change via {@link CatalogManager#renameZone(RenameZoneParams)}}.
+     *
+     * @param parameters Zone update parameters.
+     * @param oldName Old value.
+     * @return Future that signifies the end of the callback execution.
+     */
+    protected CompletableFuture<Void> onZoneRename(AlterZoneEventParameters parameters, String oldName) {
         return completedFuture(null);
     }
 
