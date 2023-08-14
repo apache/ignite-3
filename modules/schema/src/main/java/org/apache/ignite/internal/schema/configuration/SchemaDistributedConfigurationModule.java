@@ -71,7 +71,7 @@ public class SchemaDistributedConfigurationModule implements ConfigurationModule
     }
 
     @Override
-    public Collection<Class<?>> internalSchemaExtensions() {
+    public Collection<Class<?>> schemaExtensions() {
         return List.of(ExtendedTableConfigurationSchema.class);
     }
 }

@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.configuration.processor.injectedname;
 
 import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 
 /**
- * Schema with {@link InternalConfiguration} cannot have a field with {@link InjectedName}.
+ * Schema with {@link ConfigurationExtension} cannot have a field with {@link InjectedName}.
  */
-@InternalConfiguration
+@ConfigurationExtension(internal = true)
 public class ErrorInjectedName4ConfigurationSchema extends SimpleConfigurationSchema {
     @InjectedName
     public String name2;

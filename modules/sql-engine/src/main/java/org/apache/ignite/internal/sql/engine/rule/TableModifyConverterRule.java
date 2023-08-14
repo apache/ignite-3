@@ -30,6 +30,7 @@ import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
+import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.logical.LogicalTableModify;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
@@ -44,10 +45,13 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.util.IgniteIntList;
 
 /**
  * TableModifyConverterRule.
@@ -71,8 +75,29 @@ public class TableModifyConverterRule extends AbstractIgniteConverterRule<Logica
         IgniteTable igniteTable = relTable.unwrap(IgniteTable.class);
         assert igniteTable != null;
 
+        IgniteDistribution distribution = igniteTable.distribution();
+
+        if (rel.getOperation() == Operation.DELETE) {
+            // To perform the delete, we need a row with key fields only.
+            // Input distribution contains the indexes of the key columns according to the schema (i.e. for the full row).
+            // Here we adjusting distribution keys so that a row containing only the key fields can be read.
+            IgniteIntList keyFields = new IgniteIntList();
+
+            for (int i = 0; i < igniteTable.descriptor().columnsCount(); i++) {
+                ColumnDescriptor column = igniteTable.descriptor().columnDescriptor(i);
+
+                if (column.key()) {
+                    keyFields.add(column.logicalIndex());
+                }
+            }
+
+            ImmutableBitSet keysBitSet = ImmutableBitSet.of(keyFields.array());
+
+            distribution = distribution.apply(Commons.trimmingMapping(keysBitSet.size(), keysBitSet));
+        }
+
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
-                .replace(igniteTable.distribution())
+                .replace(distribution)
                 .replace(RelCollations.EMPTY);
 
         RelNode input = convert(rel.getInput(), traits);

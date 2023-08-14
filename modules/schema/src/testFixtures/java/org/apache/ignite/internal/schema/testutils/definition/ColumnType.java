@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.testutils.definition;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
+
 import java.util.Objects;
 
 /**
@@ -258,10 +260,10 @@ public class ColumnType {
      */
     public static class VarLenColumnType extends ColumnType {
         /** String varlen type of unlimited length. */
-        private static final VarLenColumnType UNLIMITED_STRING = new VarLenColumnType(ColumnTypeSpec.STRING, 0);
+        private static final VarLenColumnType UNLIMITED_STRING = new VarLenColumnType(ColumnTypeSpec.STRING, DEFAULT_VARLEN_LENGTH);
 
         /** Blob varlen type of unlimited length. */
-        private static final VarLenColumnType UNLIMITED_BLOB = new VarLenColumnType(ColumnTypeSpec.BYTES, 0);
+        private static final VarLenColumnType UNLIMITED_BLOB = new VarLenColumnType(ColumnTypeSpec.BYTES, DEFAULT_VARLEN_LENGTH);
 
         /** Max length. */
         private final int length;

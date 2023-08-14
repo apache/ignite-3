@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.sql.api.ItSqlAsynchronousApiTest.assertThrowsPublicException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_CLOSED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.QUERY_NO_RESULT_SET_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
@@ -49,6 +50,7 @@ import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.CursorClosedException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
@@ -306,15 +308,14 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
             assertThrowsPublicException(rs::next, NoRowSetExpectedException.class, QUERY_NO_RESULT_SET_ERR, "Query has no result set");
         }
 
-        // TODO unmute after https://issues.apache.org/jira/browse/IGNITE-19919
         // Cursor closed error.
-        // {
-        //     ResultSet rs = ses.execute(null, "SELECT * FROM TEST");
-        //     Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
-        //     rs.close();
-        //     assertThrowsPublicException(() -> rs.forEachRemaining(Object::hashCode),
-        //             CursorClosedException.class, CURSOR_CLOSED_ERR, null);
-        // }
+        {
+            ResultSet rs = ses.execute(null, "SELECT * FROM TEST");
+            Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
+            rs.close();
+            assertThrowsPublicException(() -> rs.forEachRemaining(Object::hashCode),
+                    CursorClosedException.class, CURSOR_CLOSED_ERR, null);
+        }
     }
 
     /**
@@ -415,6 +416,42 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         assertEquals(Sql.CONSTRAINT_VIOLATION_ERR, batchEx.code());
         assertEquals(err, batchEx.updateCounters().length);
         IntStream.range(0, batchEx.updateCounters().length).forEach(i -> assertEquals(1, batchEx.updateCounters()[i]));
+    }
+
+    @Test
+    public void resultSetCloseShouldFinishImplicitTransaction() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
+        IgniteSql sql = igniteSql();
+        Session ses = sql.sessionBuilder().defaultPageSize(2).build();
+
+        ResultSet<?> rs = ses.execute(null, "SELECT * FROM TEST");
+        assertEquals(1, txManager().pending());
+        rs.close();
+        assertEquals(0, txManager().pending(), "Expected no pending transactions");
+    }
+
+    @Test
+    public void resultSetFullReadShouldFinishImplicitTransaction() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
+        IgniteSql sql = igniteSql();
+
+        // Fetch all data in one read.
+        Session ses = sql.sessionBuilder().defaultPageSize(100).build();
+        ResultSet<SqlRow> rs = ses.execute(null, "SELECT * FROM TEST");
+
+        while (rs.hasNext()) {
+            rs.next();
+        }
+
+        assertEquals(0, txManager().pending(), "Expected no pending transactions");
     }
 
     private static void checkDdl(boolean expectedApplied, Session ses, String sql) {

@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.configuration.processor.internal;
 
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 
 /**
- * Parent (superclass) must not contain {@link InternalConfiguration}.
+ * Parent (superclass) must not contain {@link ConfigurationExtension}.
  */
-@InternalConfiguration
+@ConfigurationExtension(internal = true)
 public class ErrorInternal3ConfigurationSchema extends ExtendedSimpleRootConfigurationSchema {
 }
