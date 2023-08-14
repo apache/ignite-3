@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using Common;
     using Ignite.Table;
     using Proto.BinaryTuple;
@@ -78,6 +79,20 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     tupleBuilder.AppendNoValue(noValueSet);
                 }
+            }
+
+            ValidateMappedCount(record, schema, columnCount, written);
+        }
+
+        private static void ValidateMappedCount(IIgniteTuple record, Schema schema, int columnCount, int written)
+        {
+            if (written == 0)
+            {
+                var columnStr = schema.Columns.Select(x => x.Type + " " + x.Name).StringJoin();
+
+                throw new IgniteClientException(
+                    ErrorGroups.Client.Configuration,
+                    $"Can't map '{record}' to columns '{columnStr}'. Matching fields not found.");
             }
 
             if (record.FieldCount > written)

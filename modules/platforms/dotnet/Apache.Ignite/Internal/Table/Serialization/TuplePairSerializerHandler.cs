@@ -19,6 +19,8 @@ namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using Common;
 using Ignite.Table;
 using Proto.BinaryTuple;
@@ -89,6 +91,20 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
             }
         }
 
+        ValidateMappedCount(record, schema, columnCount, written);
+    }
+
+    private static void ValidateMappedCount(KvPair<IIgniteTuple, IIgniteTuple> record, Schema schema, int columnCount, int written)
+    {
+        if (written == 0)
+        {
+            var columnStr = schema.Columns.Select(x => x.Type + " " + x.Name).StringJoin();
+
+            throw new IgniteClientException(
+                ErrorGroups.Client.Configuration,
+                $"Can't map '{record}' to columns '{columnStr}'. Matching fields not found.");
+        }
+
         var recordFieldCount = record.Key.FieldCount;
 
         // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
@@ -132,6 +148,8 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
             {
                 extraColumns.Remove(schema.Columns[i].Name);
             }
+
+            Debug.Assert(extraColumns.Count > 0, "extraColumns.Count > 0");
 
             throw new ArgumentException(
                 $"Tuple pair doesn't match schema: schemaVersion={schema.Version}, extraColumns={extraColumns.StringJoin()}",
