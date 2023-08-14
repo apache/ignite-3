@@ -17,17 +17,20 @@
 
 package org.apache.ignite.internal.cli.commands.questions;
 
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
+import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.internal.cli.core.style.component.QuestionUiComponent.fromYesNoQuestion;
+import static org.apache.ignite.lang.util.StringUtils.nullOrBlank;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.Objects;
+import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.call.connect.ConnectSslCall;
 import org.apache.ignite.internal.cli.call.connect.SslConfig;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.config.StateConfigProvider;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.apache.ignite.internal.cli.core.flow.question.QuestionAskerFactory;
@@ -74,7 +77,8 @@ public class ConnectToClusterQuestion {
                 UiElements.url(defaultUrl)
         );
 
-        return Flows.<Void, UrlCallInput>acceptQuestion(questionUiComponent, () -> new UrlCallInput(defaultUrl))
+        return Flows.<Void, ConnectCallInput>acceptQuestion(questionUiComponent,
+                        () -> ConnectCallInput.builder().url(defaultUrl).build())
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .map(ignored -> sessionNodeUrl());
@@ -110,6 +114,29 @@ public class ConnectToClusterQuestion {
     }
 
     /**
+     * Ask if the user wants to store credentials in config.
+     *
+     * @param username username.
+     * @param password password
+     */
+    public void askQuestionToStoreCredentials(@Nullable String username, @Nullable String password) {
+        if (!nullOrBlank(username) && !nullOrBlank(password)) {
+            String storedUsername = configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
+            String storedPassword = configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value());
+
+            // Ask question only if cli config has different values.
+            if (!username.equals(storedUsername) || !password.equals(storedPassword)) {
+                QuestionUiComponent question = fromYesNoQuestion("Remember current credentials?");
+                Flows.acceptQuestion(question, () -> {
+                    configManagerProvider.get().setProperty(BASIC_AUTHENTICATION_USERNAME.value(), username);
+                    configManagerProvider.get().setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), password);
+                    return "Config saved";
+                }).print().start();
+            }
+        }
+    }
+
+    /**
      * Ask for connect to the cluster and suggest to save the last connected URL as default.
      */
     public void askQuestionOnReplStart() {
@@ -136,7 +163,7 @@ public class ConnectToClusterQuestion {
             return;
         }
 
-        Flows.acceptQuestion(question, () -> new UrlCallInput(clusterUrl))
+        Flows.acceptQuestion(question, () -> ConnectCallInput.builder().url(clusterUrl).build())
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .ifThen(s -> !Objects.equals(clusterUrl, defaultUrl) && session.info() != null,

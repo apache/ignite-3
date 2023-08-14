@@ -26,10 +26,11 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.mapping.Mappings.TargetMapping;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
@@ -72,7 +74,16 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final SchemaDescriptor schemaDescriptor;
 
-    private final List<ColumnDescriptor> columnsOrderedByPhysSchema;
+    private final ColumnDescriptor[] columnsOrderedByPhysSchema;
+
+    private final ColumnDescriptor[] keyColumnsOrderedByPhysSchema;
+
+    /**
+     * Mapping of key column indexes to its ordinals in the ordered list.
+     * It is used during a delete operation to assemble key-only binary row from
+     * "truncated" relational node row containing only primary key columns.
+     */
+    private final TargetMapping columnsMappingForKeyOnlyRow;
 
     private final PartitionExtractor partitionExtractor;
 
@@ -99,14 +110,35 @@ public final class UpdatableTableImpl implements UpdatableTable {
         this.schemaDescriptor = schemaDescriptor;
         this.partitionExtractor = (row) -> IgniteUtils.safeAbs(row.colocationHash()) % partitions;
 
-        List<ColumnDescriptor> tmp = new ArrayList<>(desc.columnsCount());
+        ColumnDescriptor[] tmp = new ColumnDescriptor[desc.columnsCount()];
         for (int i = 0; i < desc.columnsCount(); i++) {
-            tmp.add(desc.columnDescriptor(i));
+            ColumnDescriptor columnDescriptor = desc.columnDescriptor(i);
+
+            tmp[columnDescriptor.physicalIndex()] = columnDescriptor;
         }
 
-        tmp.sort(Comparator.comparingInt(ColumnDescriptor::physicalIndex));
-
         columnsOrderedByPhysSchema = tmp;
+
+        int keyColumnsCount = schemaDescriptor.keyColumns().length();
+
+        ColumnDescriptor[] keyCols = new ColumnDescriptor[keyColumnsCount];
+        int[] keyLogicalIndexes = new int[keyColumnsCount];
+        int counter = 0;
+
+        for (ColumnDescriptor colDesc : tmp) {
+            if (colDesc.key()) {
+                keyCols[counter] = colDesc;
+                keyLogicalIndexes[counter] = colDesc.logicalIndex();
+
+                counter++;
+            }
+        }
+
+        keyColumnsOrderedByPhysSchema = keyCols;
+
+        ImmutableBitSet keysBitSet = ImmutableBitSet.of(keyLogicalIndexes);
+        columnsMappingForKeyOnlyRow = Commons.trimmingMapping(keysBitSet.size(), keysBitSet);
+
         this.rowConverter = rowConverter;
     }
 
@@ -124,7 +156,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(row, ectx, false);
+            BinaryRowEx binaryRow = convertRow(row, ectx.rowHandler());
 
             rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
@@ -189,7 +221,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(row, ectx, false);
+            BinaryRowEx binaryRow = convertRow(row, ectx.rowHandler());
 
             rowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
@@ -251,7 +283,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
         Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
 
         for (RowT row : rows) {
-            BinaryRowEx binaryRow = convertRow(row, ectx, true);
+            BinaryRowEx binaryRow = convertKeyOnlyRow(row, ectx.rowHandler());
 
             keyRowsByPartition.computeIfAbsent(partitionExtractor.fromRow(binaryRow), k -> new ArrayList<>()).add(binaryRow);
         }
@@ -280,41 +312,39 @@ public final class UpdatableTableImpl implements UpdatableTable {
         return CompletableFuture.allOf(futures);
     }
 
-    private <RowT> BinaryRowEx convertRow(RowT row, ExecutionContext<RowT> ectx, boolean keyOnly) {
-        RowHandler<RowT> hnd = ectx.rowHandler();
+    private <RowT> BinaryRowEx convertRow(RowT row, RowHandler<RowT> hnd) {
+        RowAssembler rowAssembler = new RowAssembler(schemaDescriptor);
 
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (keyOnly && !colDesc.key()) {
-                continue;
-            }
-
-            Object value = hnd.get(colDesc.logicalIndex(), row);
-
-            // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-            assert value != DEFAULT_VALUE_PLACEHOLDER;
-
-            if (value == null) {
-                break;
-            }
-        }
-
-        RowAssembler rowAssembler = keyOnly ? RowAssembler.keyAssembler(schemaDescriptor) : new RowAssembler(schemaDescriptor);
-
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (keyOnly && !colDesc.key()) {
-                continue;
-            }
-
             Object val = hnd.get(colDesc.logicalIndex(), row);
 
-            val = TypeUtils.fromInternal(val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
-
-            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
+            appendValue(rowAssembler, colDesc, val);
         }
 
         BinaryRow binaryRow = rowAssembler.build();
 
         return keyOnly ? Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow) : Row.wrapBinaryRow(schemaDescriptor, binaryRow);
+    }
+
+    private <RowT> BinaryRowEx convertKeyOnlyRow(RowT row, RowHandler<RowT> hnd) {
+        RowAssembler rowAssembler = RowAssembler.keyAssembler(schemaDescriptor);
+
+        for (ColumnDescriptor colDesc : keyColumnsOrderedByPhysSchema) {
+            Object val = hnd.get(columnsMappingForKeyOnlyRow.getTarget(colDesc.logicalIndex()), row);
+
+            appendValue(rowAssembler, colDesc, val);
+        }
+
+        return new Row(schemaDescriptor, rowAssembler.build());
+    }
+
+    private static void appendValue(RowAssembler rowAssembler, ColumnDescriptor colDesc, Object val) {
+        // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
+        assert val != DEFAULT_VALUE_PLACEHOLDER;
+
+        val = TypeUtils.fromInternal(val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
+
+        RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
     }
 
     private static <RowT> CompletableFuture<List<RowT>> handleInsertResults(

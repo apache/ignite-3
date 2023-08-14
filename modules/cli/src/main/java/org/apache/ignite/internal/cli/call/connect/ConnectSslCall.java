@@ -23,7 +23,6 @@ import javax.net.ssl.SSLException;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.flow.Flowable;
 import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.rest.client.invoker.ApiException;
@@ -32,7 +31,7 @@ import org.apache.ignite.rest.client.invoker.ApiException;
  * Call which tries to connect to the Ignite 3 node and in case of SSL error asks the user for the SSL configuration and tries again.
  */
 @Singleton
-public class ConnectSslCall implements Call<UrlCallInput, String> {
+public class ConnectSslCall implements Call<ConnectCallInput, String> {
     @Inject
     private ConnectCall connectCall;
 
@@ -40,7 +39,7 @@ public class ConnectSslCall implements Call<UrlCallInput, String> {
     private ConnectSslConfigCall connectSslConfigCall;
 
     @Override
-    public CallOutput<String> execute(UrlCallInput input) {
+    public CallOutput<String> execute(ConnectCallInput input) {
         CallOutput<String> output = connectCall.execute(input);
         if (output.hasError()) {
             if (output.errorCause().getCause() instanceof ApiException) {
@@ -50,7 +49,7 @@ public class ConnectSslCall implements Call<UrlCallInput, String> {
                     FlowBuilder<Void, SslConfig> flowBuilder = ConnectToClusterQuestion.askQuestionOnSslError();
                     Flowable<SslConfig> result = flowBuilder.build().start(Flowable.empty());
                     if (result.hasResult()) {
-                        return connectSslConfigCall.execute(new ConnectSslConfigCallInput(input.getUrl(), result.value()));
+                        return connectSslConfigCall.execute(new ConnectSslConfigCallInput(input.url(), result.value()));
                     }
                 }
             }
