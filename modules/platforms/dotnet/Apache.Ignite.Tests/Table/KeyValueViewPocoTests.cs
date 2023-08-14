@@ -294,6 +294,6 @@ public class KeyValueViewPocoTests : IgniteTestsBase
     [Test]
     public void TestToString()
     {
-        StringAssert.StartsWith("KeyValueView`2[Poco, Poco] { Table = Table { Name = TBL1, Id =", KvView.ToString());
+        StringAssert.StartsWith("KeyValueView`2[KeyPoco, ValPoco] { Table = Table { Name = TBL1, Id =", KvView.ToString());
     }
 }
