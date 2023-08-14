@@ -21,6 +21,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -50,7 +51,8 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
     private final HybridClock clock;
 
-    final ConcurrentMap<Long, CompletableFuture<ExecutableTable>> tableCache;
+    /** Executable tables cache. */
+    final ConcurrentMap<CacheKey, CompletableFuture<ExecutableTable>> tableCache;
 
     /** Constructor. */
     public ExecutableTableRegistryImpl(TableManager tableManager, SchemaManager schemaManager,
@@ -62,7 +64,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         this.clock = clock;
         this.tableCache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
-                .<Long, ExecutableTable>buildAsync().asMap();
+                .<CacheKey, ExecutableTable>buildAsync().asMap();
     }
 
     /** {@inheritDoc} */
@@ -168,7 +170,34 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         }
     }
 
-    private static long cacheKey(int schemaVersion, int tableId) {
-        return (((long) schemaVersion) << 32) | (tableId & 0xffff_ffffL);
+    private static CacheKey cacheKey(int schemaVersion, int tableId) {
+        return new CacheKey(schemaVersion, tableId);
+    }
+
+    private static class CacheKey {
+        private final int schemaVersion;
+        private final int tableId;
+
+        public CacheKey(int schemaVersion, int tableId) {
+            this.schemaVersion = schemaVersion;
+            this.tableId = tableId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            CacheKey cacheKey = (CacheKey) o;
+            return schemaVersion == cacheKey.schemaVersion && tableId == cacheKey.tableId;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(schemaVersion, tableId);
+        }
     }
 }

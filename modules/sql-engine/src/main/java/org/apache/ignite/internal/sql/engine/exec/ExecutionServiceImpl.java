@@ -641,7 +641,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private AsyncCursor<List<Object>> execute(InternalTransaction tx, MultiStepPlan notMappedPlan) {
-            Iterable<IgniteRel> fragmentRoots = TransformingIterator.newIterable(notMappedPlan.fragments(), (f) -> f.root());
+            Iterable<IgniteRel> fragmentRoots = TransformingIterator.newIterable(notMappedPlan.fragments(), Fragment::root);
 
             CompletableFuture<ResolvedDependencies> depsFut = dependencyResolver.resolveDependencies(fragmentRoots, ctx.schemaVersion());
 
