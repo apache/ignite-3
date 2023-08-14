@@ -40,8 +40,8 @@ class ChunkedFileWriter implements AutoCloseable {
     private int expectedNextChunkNumber = 0;
 
     /**
-     * Lock to synchronize access to the file. We don't write to the file simultaneously, but the next chunk number and bytes written are
-     * updated can be updated from different threads.
+     * Lock to synchronize access to the file. We don't write to the file simultaneously, but the next chunk number and bytes written can be
+     * updated from different threads.
      */
     private final Lock lock = new ReentrantLock();
 
