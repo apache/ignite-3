@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAM
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -363,7 +364,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(DefaultValue.Type.CONSTANT, column.defaultValue().type());
         assertEquals("Ignite!", ((DefaultValue.ConstantValue) column.defaultValue()).value());
 
-        assertEquals(Integer.MAX_VALUE, column.length());
+        assertEquals(DEFAULT_VARLEN_LENGTH, column.length());
         assertEquals(0, column.precision());
         assertEquals(0, column.scale());
     }
