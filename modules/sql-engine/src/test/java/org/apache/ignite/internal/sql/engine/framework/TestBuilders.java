@@ -671,6 +671,16 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
+        public ChildT addKeyColumn(String name, NativeType type) {
+            columns.add(new ColumnDescriptorImpl(
+                    name, true, false, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+            ));
+
+            return self();
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public ChildT addColumn(String name, NativeType type) {
             return addColumn(name, type, true);
         }
@@ -779,6 +789,9 @@ public class TestBuilders {
 
         /** Sets the distribution of the table. */
         ChildT distribution(IgniteDistribution distribution);
+
+        /** Adds a key column to the table. */
+        ChildT addKeyColumn(String name, NativeType type);
 
         /** Adds a column to the table. */
         ChildT addColumn(String name, NativeType type);

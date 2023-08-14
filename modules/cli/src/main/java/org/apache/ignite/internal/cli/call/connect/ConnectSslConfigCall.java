@@ -25,7 +25,6 @@ import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.rest.ApiClientSettings;
@@ -50,7 +49,7 @@ public class ConnectSslConfigCall implements Call<ConnectSslConfigCallInput, Str
         try {
             checkConnection(input);
             saveConfig(input.getConfig());
-            return connectCall.execute(new UrlCallInput(input.getUrl()));
+            return connectCall.execute(ConnectCallInput.builder().url(input.getUrl()).build());
         } catch (ApiException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getUrl()));
         }
