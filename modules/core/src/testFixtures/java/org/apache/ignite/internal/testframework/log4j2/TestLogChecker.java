@@ -58,7 +58,19 @@ public class TestLogChecker {
      * @return New instance of {@link TestLogChecker}.
      **/
     public static TestLogChecker create(String loggerName) {
-        return new TestLogChecker(loggerName);
+        return create(loggerName, false);
+    }
+
+    /**
+     * Creates a new instance of {@link TestLogChecker} for the given {@code loggerName}.
+     *
+     * @param started Whether the checker should be started.
+     * @return New instance of {@link TestLogChecker}.
+     **/
+    public static TestLogChecker create(String loggerName, boolean started) {
+        TestLogChecker checker = new TestLogChecker(loggerName);
+        checker.start();
+        return checker;
     }
 
     /**
@@ -67,7 +79,17 @@ public class TestLogChecker {
      * @return New instance of {@link TestLogChecker}.
      **/
     public static TestLogChecker create(Class<?> clazz) {
-        return new TestLogChecker(clazz.getName());
+        return create(clazz, false);
+    }
+
+    /**
+     * Creates a new instance of {@link TestLogChecker} for the given {@code clazz}.
+     *
+     * @param started Whether the checker should be started.
+     * @return New instance of {@link TestLogChecker}.
+     **/
+    public static TestLogChecker create(Class<?> clazz, boolean started) {
+        return create(clazz.getName(), started);
     }
 
     /**
