@@ -32,7 +32,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Tests for for {@link JdbcQueryCursor}.
+ * Test class for {@link JdbcQueryCursor}.
  */
 public class JdbcQueryCursorTest {
     private static final List<Integer> ROWS = List.of(1, 2, 3);
