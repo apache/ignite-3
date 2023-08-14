@@ -50,9 +50,9 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
@@ -523,7 +523,7 @@ public class ConfigurationUtil {
 
             if (!cls.isAnnotationPresent(ConfigurationRoot.class)
                     && !cls.isAnnotationPresent(Config.class)
-                    && !cls.isAnnotationPresent(InternalConfiguration.class)
+                    && !cls.isAnnotationPresent(ConfigurationExtension.class)
                     && !cls.isAnnotationPresent(PolymorphicConfig.class)
                     && !cls.isAnnotationPresent(PolymorphicConfigInstance.class)
                     && !cls.isAnnotationPresent(AbstractConfiguration.class)
@@ -532,7 +532,7 @@ public class ConfigurationUtil {
                         "Configuration schema must contain one of @%s, @%s, @%s, @%s, @%s, @%s: %s",
                         ConfigurationRoot.class.getSimpleName(),
                         Config.class.getSimpleName(),
-                        InternalConfiguration.class.getSimpleName(),
+                        ConfigurationExtension.class.getSimpleName(),
                         PolymorphicConfig.class.getSimpleName(),
                         PolymorphicConfigInstance.class.getSimpleName(),
                         AbstractConfiguration.class.getSimpleName(),
@@ -570,18 +570,6 @@ public class ConfigurationUtil {
     }
 
     /**
-     * Get configuration schemas and their validated internal extensions.
-     *
-     * @param extensions Schema extensions with {@link InternalConfiguration}.
-     * @return Mapping: original of the scheme -> internal schema extensions.
-     * @throws IllegalArgumentException If the schema extension is invalid.
-     * @see InternalConfiguration
-     */
-    public static Map<Class<?>, Set<Class<?>>> internalSchemaExtensions(Collection<Class<?>> extensions) {
-        return schemaExtensions(extensions, InternalConfiguration.class);
-    }
-
-    /**
      * Get polymorphic extensions of configuration schemas.
      *
      * @param extensions Schema extensions with {@link PolymorphicConfigInstance}.
@@ -592,6 +580,18 @@ public class ConfigurationUtil {
      */
     public static Map<Class<?>, Set<Class<?>>> polymorphicSchemaExtensions(Collection<Class<?>> extensions) {
         return schemaExtensions(extensions, PolymorphicConfigInstance.class);
+    }
+
+    /**
+     * Get configuration schemas and their validated extensions.
+     *
+     * @param extensions Schema extensions with {@link ConfigurationExtension}.
+     * @return Mapping: original of the scheme -> schema extensions.
+     * @throws IllegalArgumentException If the schema extension is invalid.
+     * @see ConfigurationExtension
+     */
+    public static Map<Class<?>, Set<Class<?>>> schemaExtensions(Collection<Class<?>> extensions) {
+        return schemaExtensions(extensions, ConfigurationExtension.class);
     }
 
     /**
@@ -675,6 +675,28 @@ public class ConfigurationUtil {
                     .filter(f -> isValue(f) || isConfigValue(f) || isNamedConfigValue(f) || isPolymorphicId(f))
                     .collect(toList());
         }
+    }
+
+    /**
+     * Checks whether configuration schema is annotated with {@link ConfigurationExtension}
+     * and {@link ConfigurationExtension#internal()} is {@code true}.
+     *
+     * @param schemaClass Configuration schema class.
+     */
+    public static boolean isInternalExtension(Class<?> schemaClass) {
+        ConfigurationExtension ext = schemaClass.getAnnotation(ConfigurationExtension.class);
+        return ext != null && ext.internal();
+    }
+
+    /**
+     * Checks whether configuration schema is annotated with {@link ConfigurationExtension}
+     *      * and {@link ConfigurationExtension#internal()} is {@code false}.
+     *
+     * @param schemaClass Configuration schema class.
+     */
+    public static boolean isPublicExtension(Class<?> schemaClass) {
+        ConfigurationExtension ext = schemaClass.getAnnotation(ConfigurationExtension.class);
+        return ext != null && !ext.internal();
     }
 
     /**

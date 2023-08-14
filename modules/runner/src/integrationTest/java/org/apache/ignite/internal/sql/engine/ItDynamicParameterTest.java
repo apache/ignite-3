@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -35,7 +37,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
@@ -159,8 +160,8 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
      */
     @Test
     public void testWithDifferentParametersTypesMismatch() {
-        assertThrows(IgniteException.class, () -> assertQuery("SELECT COALESCE(12.2, ?)").withParams("b").check());
-        assertThrows(IgniteException.class, () -> assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").check());
+        assertThrowsSqlException(STMT_VALIDATION_ERR, () -> assertQuery("SELECT COALESCE(12.2, ?)").withParams("b").check());
+        assertThrowsSqlException(STMT_VALIDATION_ERR, () -> assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").check());
     }
 
     @Test

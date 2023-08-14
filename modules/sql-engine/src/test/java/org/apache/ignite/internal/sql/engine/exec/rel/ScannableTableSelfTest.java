@@ -59,6 +59,7 @@ import org.apache.ignite.internal.index.SortedIndex;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.exec.ScannableTableImpl;
 import org.apache.ignite.internal.sql.engine.exec.TableRowConverter;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
@@ -94,10 +96,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ScannableTableSelfTest {
-
-    private static final NoOpTransaction RO_TX = NoOpTransaction.readOnly("RO");
-
-    private static final NoOpTransaction RW_TX = NoOpTransaction.readWrite("RW");
 
     private static final IgniteTypeFactory TYPE_FACTORY = Commons.typeFactory();
 
@@ -567,7 +565,7 @@ public class ScannableTableSelfTest {
     private static Stream<Arguments> transactions() {
         return Stream.of(
                 Arguments.of(Named.of("Read-only transaction", NoOpTransaction.readOnly("RO"))),
-                Arguments.of(Named.of("Read-write transaction", NoOpTransaction.readOnly("RW")))
+                Arguments.of(Named.of("Read-write transaction", NoOpTransaction.readWrite("RW")))
         );
     }
 
@@ -603,7 +601,7 @@ public class ScannableTableSelfTest {
             }
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, input.rowType);
+            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
 
             Publisher<Object[]> publisher = scannableTable.scan(ctx, new PartitionWithTerm(partitionId, term), rowFactory, null);
 
@@ -639,7 +637,7 @@ public class ScannableTableSelfTest {
             }
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, input.rowType);
+            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
             RangeCondition<Object[]> rangeCondition = condition.asRangeCondition();
             List<String> indexColumns = input.getIndexColumns();
 
@@ -674,7 +672,7 @@ public class ScannableTableSelfTest {
             }
 
             RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
-            RowFactory<Object[]> rowFactory = rowHandler.factory(TYPE_FACTORY, input.rowType);
+            RowFactory<Object[]> rowFactory = rowHandler.factory(input.rowSchema);
             List<String> indexColumns = input.getIndexColumns();
 
             Publisher<Object[]> publisher = scannableTable.indexLookup(ctx, new PartitionWithTerm(partitionId, term), rowFactory,
@@ -695,6 +693,8 @@ public class ScannableTableSelfTest {
 
         final RelDataType rowType;
 
+        final RowSchema rowSchema;
+
         final BitSet indexColumns = new BitSet();
 
         TestInput() {
@@ -703,14 +703,17 @@ public class ScannableTableSelfTest {
 
         TestInput(int columnCount) {
             Builder builder = new Builder(TYPE_FACTORY);
+            RowSchema.Builder rowSchema = RowSchema.builder();
 
             for (int i = 1; i <= columnCount; i++) {
                 builder.add("C" + i, SqlTypeName.INTEGER);
+                rowSchema.addField(NativeTypes.INT32);
             }
 
             indexColumns.set(0);
 
             rowType = builder.build();
+            this.rowSchema = rowSchema.build();
         }
 
         void addRow(BinaryRow row) {

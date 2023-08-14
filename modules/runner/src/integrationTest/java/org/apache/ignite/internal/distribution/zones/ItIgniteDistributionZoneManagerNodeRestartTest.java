@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
@@ -51,7 +53,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.stream.Collectors;
@@ -71,7 +72,6 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
-import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
@@ -154,7 +154,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         var localConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.local().rootKeys(),
-                modules.local().internalSchemaExtensions(),
+                modules.local().schemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
 
@@ -197,7 +197,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
-                modules.distributed().internalSchemaExtensions(),
+                modules.distributed().schemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
@@ -283,12 +283,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         partialNode.logicalTopology().putNode(B);
         partialNode.logicalTopology().putNode(C);
 
-        distributionZoneManager.createZone(
-                new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        createZone(distributionZoneManager, ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, (String) null);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), 1,
                 Set.of(A, B, C), TIMEOUT_MILLIS);
@@ -451,12 +446,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(distributionZoneManager, zoneName, INFINITE_TIMER_VALUE, null, null);
 
         partialNode.logicalTopology().putNode(B);
 
@@ -469,12 +459,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Only Node B passes the filter
         String filter = "$[?(@.dataRegionSize > 10)]";
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .filter(filter)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(distributionZoneManager, zoneName, null, null, filter);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
@@ -505,12 +490,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         blockUpdate(metaStorageManager, zoneScaleUpChangeTriggerKey(zoneId));
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .dataNodesAutoAdjustScaleUp(100)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(distributionZoneManager, zoneName, 100, null, null);
 
         partialNode.logicalTopology().putNode(B);
 
@@ -519,12 +499,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Only Node B and C passes the filter
         String filter = "$[?(@.dataRegionSize > 10)]";
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .filter(filter)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(distributionZoneManager, zoneName, null, null, filter);
 
         partialNode.logicalTopology().putNode(C);
 
@@ -546,12 +521,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Timer scheduled after join of the node C
         assertNotNull(zoneState.scaleUpTask());
 
-        distributionZoneManager.alterZone(
-                zoneName,
-                new DistributionZoneConfigurationParameters.Builder(zoneName)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                        .build()
-        ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        alterZone(distributionZoneManager, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(B, C), TIMEOUT_MILLIS);
     }
@@ -609,13 +579,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             int scaleDown
     ) throws Exception {
         if (zoneName.equals(DEFAULT_ZONE_NAME)) {
-            distributionZoneManager.alterZone(
-                    DEFAULT_ZONE_NAME,
-                    new DistributionZoneConfigurationParameters.Builder(DEFAULT_ZONE_NAME)
-                            .dataNodesAutoAdjustScaleUp(scaleUp)
-                            .dataNodesAutoAdjustScaleDown(scaleDown)
-                            .build()
-            ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            alterZone(distributionZoneManager, DEFAULT_ZONE_NAME, scaleUp, scaleDown, null);
 
             ZoneState zoneState = distributionZoneManager.zonesState().get(DEFAULT_ZONE_ID);
 
@@ -628,12 +592,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 assertTrue(waitForCondition(() -> zoneState.scaleDownTask().isDone(), TIMEOUT_MILLIS));
             }
         } else {
-            distributionZoneManager.createZone(
-                    new DistributionZoneConfigurationParameters.Builder(ZONE_NAME)
-                            .dataNodesAutoAdjustScaleUp(scaleUp)
-                            .dataNodesAutoAdjustScaleDown(scaleDown)
-                            .build()
-            ).get(TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            createZone(distributionZoneManager, ZONE_NAME, scaleUp, scaleDown, (String) null);
         }
     }
 

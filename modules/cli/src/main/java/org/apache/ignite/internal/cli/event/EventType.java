@@ -15,29 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.annotation;
-
-import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+package org.apache.ignite.internal.cli.event;
 
 /**
- * This annotation can only be applied to a class that is either marked with {@link ConfigurationRoot} or the superclass is marked with
- * {@link ConfigurationRoot}, {@link Config}.
- *
- * <p>It indicates that this is an internal configuration that should be hidden from the end user. Any extensions are allowed for any
- * configuration.
- *
- * <p>NOTE: Field name collisions are not allowed.
- *
- * @see ConfigurationRoot
- * @see Config
+ * Types of cli events.
  */
-@Target(TYPE)
-@Retention(RUNTIME)
-@Documented
-public @interface InternalConfiguration {
+public enum EventType {
+    CONNECTION_RESTORED,
+    CONNECTION_LOST,
+    CONNECT,
+    DISCONNECT
 }

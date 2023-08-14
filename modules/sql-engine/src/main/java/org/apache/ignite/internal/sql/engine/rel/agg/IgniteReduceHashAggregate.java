@@ -21,7 +21,6 @@ import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelInput;
@@ -35,7 +34,6 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * IgniteReduceHashAggregate.
@@ -56,9 +54,6 @@ public class IgniteReduceHashAggregate extends IgniteReduceAggregateBase impleme
             RelDataType rowType
     ) {
         super(cluster, traits, input, groupSet, groupSets, aggCalls, rowType);
-
-        assert RelOptUtil.areRowTypesEqual(input.getRowType(),
-                IgniteMapHashAggregate.rowType(Commons.typeFactory(cluster), !aggCalls.isEmpty()), true);
     }
 
     /**

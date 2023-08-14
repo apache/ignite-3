@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.type;
 
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.lang.reflect.Type;
@@ -260,12 +261,12 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             case VARCHAR:
             case CHAR:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED
-                        ? NativeTypes.stringOf(Integer.MAX_VALUE)
+                        ? NativeTypes.stringOf(DEFAULT_VARLEN_LENGTH)
                         : NativeTypes.stringOf(relType.getPrecision());
             case BINARY:
             case VARBINARY:
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED
-                        ? NativeTypes.blobOf(Integer.MAX_VALUE)
+                        ? NativeTypes.blobOf(DEFAULT_VARLEN_LENGTH)
                         : NativeTypes.blobOf(relType.getPrecision());
             case ANY:
                 if (relType instanceof IgniteCustomType) {

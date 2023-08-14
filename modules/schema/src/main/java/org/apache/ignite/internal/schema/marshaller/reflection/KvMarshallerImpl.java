@@ -51,8 +51,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /**
      * Creates KV marshaller.
      *
-     * @param schema      Schema descriptor.
-     * @param keyMapper   Mapper for key objects.
+     * @param schema Schema descriptor.
+     * @param keyMapper Mapper for key objects.
      * @param valueMapper Mapper for value objects.
      */
     public KvMarshallerImpl(SchemaDescriptor schema, @NotNull Mapper<K> keyMapper, @NotNull Mapper<V> valueMapper) {
@@ -137,7 +137,11 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
      * @throws MarshallerException If failed to read key or value object content.
      */
     private RowAssembler createAssembler(Object key) throws MarshallerException {
-        return ObjectStatistics.createAssembler(schema, keyMarsh, key);
+        try {
+            return ObjectStatistics.createAssembler(schema, keyMarsh, key);
+        } catch (Throwable e) {
+            throw new MarshallerException(e.getMessage(), e);
+        }
     }
 
     /**
@@ -149,6 +153,10 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
      * @throws MarshallerException If failed to read key or value object content.
      */
     private RowAssembler createAssembler(Object key, Object val) throws MarshallerException {
-        return ObjectStatistics.createAssembler(schema, keyMarsh, valMarsh, key, val);
+        try {
+            return ObjectStatistics.createAssembler(schema, keyMarsh, valMarsh, key, val);
+        } catch (Throwable e) {
+            throw new MarshallerException(e.getMessage(), e);
+        }
     }
 }

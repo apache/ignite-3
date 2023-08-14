@@ -38,11 +38,13 @@ public class SqlBatchException extends SqlException {
     /**
      * Creates a grid exception with the given throwable as a cause and source of error message.
      *
+     * @param traceId Unique identifier of the exception.
+     * @param code Full error code.
      * @param updCntrs Array that describes the outcome of a batch execution.
      * @param cause Non-null throwable cause.
      */
-    public SqlBatchException(int code, long[] updCntrs, Throwable cause) {
-        super(code, cause.getMessage(), cause);
+    public SqlBatchException(UUID traceId, int code, long[] updCntrs, Throwable cause) {
+        super(traceId, code, cause.getMessage(), cause);
 
         this.updCntrs = updCntrs != null ? updCntrs : LONG_EMPTY_ARRAY;
     }

@@ -72,6 +72,7 @@ abstract class FieldAccessor {
     static FieldAccessor create(Class<?> type, String fldName, MarshallerColumn col, int colIdx) {
         try {
             final Field field = type.getDeclaredField(fldName);
+            MarshallerUtil.validateColumnType(col, field.getType());
 
             BinaryMode mode = MarshallerUtil.mode(field.getType());
             final MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());

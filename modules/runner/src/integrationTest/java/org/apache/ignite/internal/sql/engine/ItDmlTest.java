@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -539,11 +540,9 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
         sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
 
-        var e = assertThrows(IgniteException.class,
-                () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+        var expectedMessage = "Failed to validate query. From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
 
-        var expectedMessage = "From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
-        assertEquals(expectedMessage, e.getMessage(), "error message");
+        assertThrowsSqlException(STMT_VALIDATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
     }
 
     private void checkQueryResult(String sql, List<Object> expectedVals) {
@@ -553,7 +552,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     private void checkWrongDefault(String sqlType, String sqlVal) {
         try {
             assertThrows(
-                    IgniteException.class,
+                    SqlException.class,
                     () -> sql("CREATE TABLE test (val " + sqlType + " DEFAULT " + sqlVal + ")"),
                     "Cannot convert literal"
             );
@@ -611,6 +610,25 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(4, 4)
                 .returns(5, 2)
                 .check();
+    }
+
+    @Test
+    public void testDeleteUsingCompositePk() {
+        sql("CREATE TABLE test (a INT, b VARCHAR NOT NULL, c INT NOT NULL, d INT NOT NULL, PRIMARY KEY(d, b)) COLOCATE BY (d)");
+        sql("INSERT INTO test VALUES "
+                + "(0, '3', 0, 1),"
+                + "(0, '3', 0, 2),"
+                + "(0, '4', 0, 2)");
+
+        // Use PK index.
+        sql("DELETE FROM test WHERE b = '3' and d = 2");
+        assertQuery("SELECT d FROM test").returns(1).returns(2).check();
+
+        sql("DELETE FROM test WHERE d = 1");
+        assertQuery("SELECT b FROM test").returns("4").check();
+
+        sql("DELETE FROM test WHERE a = 0");
+        assertQuery("SELECT d FROM test").returnNothing();
     }
 
     private static void checkDuplicatePk(IgniteException ex) {

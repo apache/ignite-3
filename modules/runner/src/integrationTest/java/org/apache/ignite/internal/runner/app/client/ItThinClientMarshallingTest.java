@@ -18,12 +18,17 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.math.BigDecimal;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -36,7 +41,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testUnmappedPojoFieldsAreRejected() {
+    public void testUnmappedPojoFields() {
         Table table = ignite().tables().table(TABLE_NAME);
         var pojoView = table.recordView(TestPojo2.class);
 
@@ -53,7 +58,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testKvUnmappedKeyPojoFieldsAreRejected() {
+    public void testKvUnmappedKeyPojoFields() {
         Table table = ignite().tables().table(TABLE_NAME);
         var kvPojoView = table.keyValueView(TestPojo.class, TestPojo.class);
 
@@ -67,7 +72,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testKvUnmappedValPojoFieldsAreRejected() {
+    public void testKvUnmappedValPojoFields() {
         Table table = ignite().tables().table(TABLE_NAME);
         var kvPojoView = table.keyValueView(Integer.class, TestPojo.class);
 
@@ -81,7 +86,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testUnmappedTupleFieldsAreRejected() {
+    public void testUnmappedTupleFields() {
         Table table = ignite().tables().table(TABLE_NAME);
         var tupleView = table.recordView();
 
@@ -92,7 +97,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testKvUnmappedKeyTupleFieldsAreRejected() {
+    public void testKvUnmappedKeyTupleFields() {
         Table table = ignite().tables().table(TABLE_NAME);
         var tupleView = table.keyValueView();
 
@@ -103,7 +108,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    public void testKvUnmappedValTupleFieldsAreRejected() {
+    public void testKvUnmappedValTupleFields() {
         Table table = ignite().tables().table(TABLE_NAME);
         var tupleView = table.keyValueView();
 
@@ -114,6 +119,155 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         assertEquals("Value tuple doesn't match schema: schemaVersion=1, extraColumns=[KEY]", ex.getMessage());
     }
 
+    @Test
+    public void testMissingPojoFields() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var pojoView = table.recordView(MissingFieldPojo.class);
+
+        Throwable ex = assertThrowsWithCause(() -> pojoView.upsert(null, new MissingFieldPojo()), IllegalArgumentException.class);
+        assertEquals("No field found for column KEY", ex.getMessage());
+    }
+
+    @Test
+    public void testKvMissingKeyPojoFields() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var kvPojoView = table.keyValueView(MissingFieldPojo.class, String.class);
+
+        Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, new MissingFieldPojo(), ""), IllegalArgumentException.class);
+        assertEquals("No field found for column KEY", ex.getMessage());
+    }
+
+    @Test
+    public void testKvMissingValPojoFields() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var kvPojoView = table.keyValueView(Integer.class, MissingFieldPojo.class);
+
+        Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, 1, new MissingFieldPojo()), IllegalArgumentException.class);
+        assertEquals("No field found for column VAL", ex.getMessage());
+    }
+
+    @Test
+    public void testMissingKeyTupleFields() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var tupleView = table.recordView();
+
+        Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, Tuple.create()), IgniteException.class);
+        assertEquals("Missed key column: KEY", ex.getMessage());
+    }
+
+    @Test
+    public void testMissingValTupleFields() {
+        var tableName = "testMissingValTupleFields";
+        ignite().sql().createSession().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+
+        Table table = ignite().tables().table(tableName);
+        var tupleView = table.recordView();
+
+        Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, Tuple.create().set("KEY", 1)), IgniteException.class);
+        assertThat(ex.getMessage(), startsWith(
+                "Failed to set column (null was passed, but column is not nullable): [col=Column [schemaIndex=1, columnOrder=1, name=VAL"));
+    }
+
+    @Test
+    public void testKvMissingKeyTupleFields() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var tupleView = table.keyValueView();
+
+        Throwable ex = assertThrowsWithCause(() -> tupleView.put(null, Tuple.create(), Tuple.create()), IgniteException.class);
+        assertEquals("Missed key column: KEY", ex.getMessage());
+    }
+
+    @Test
+    public void testKvMissingValTupleFields() {
+        var tableName = "testKvMissingValTupleFields";
+        ignite().sql().createSession().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+
+        Table table = ignite().tables().table(tableName);
+        var tupleView = table.keyValueView();
+
+        Throwable ex = assertThrowsWithCause(
+                () -> tupleView.put(null, Tuple.create().set("KEY", 1), Tuple.create()),
+                IgniteException.class);
+
+        assertThat(ex.getMessage(), startsWith(
+                "Failed to set column (null was passed, but column is not nullable): [col=Column [schemaIndex=1, columnOrder=1, name=VAL"));
+    }
+
+    @Test
+    public void testMissingTupleFieldsWithDefaultValue() {
+        var tableName = "testMissingTupleFieldsWithDefaultValue";
+        ignite().sql().createSession().execute(null,
+                "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL DEFAULT 'def')");
+
+        Table table = ignite().tables().table(tableName);
+        var tupleView = table.recordView();
+
+        tupleView.upsert(null, Tuple.create().set("KEY", 1));
+        assertEquals("def", tupleView.get(null, Tuple.create().set("KEY", 1)).value("VAL"));
+    }
+
+    @Test
+    public void testIncompatiblePojoFieldType() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var pojoView = table.recordView(Mapper.of(IncompatibleFieldPojo.class));
+
+        IncompatibleFieldPojo rec = new IncompatibleFieldPojo();
+        rec.key = "1";
+        rec.val = BigDecimal.ONE;
+
+        Throwable ex = assertThrows(IgniteException.class, () -> pojoView.upsert(null, rec));
+        assertThat(ex.getMessage(), startsWith("Column's type mismatch"));
+    }
+
+    @Test
+    public void testIncompatiblePojoFieldType2() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var pojoView = table.recordView(Mapper.of(IncompatibleFieldPojo2.class));
+
+        IncompatibleFieldPojo2 rec = new IncompatibleFieldPojo2();
+        rec.key = -1;
+        rec.val = "f";
+
+        Throwable ex = assertThrows(IgniteException.class, () -> pojoView.upsert(null, rec));
+        assertThat(ex.getMessage(), startsWith("Column's type mismatch"));
+    }
+
+    @Test
+    public void testIncompatibleTupleElementType() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var tupleView = table.recordView();
+
+        Tuple rec = Tuple.create().set("KEY", "1").set("VAL", BigDecimal.ONE);
+
+        Throwable ex = assertThrows(IgniteException.class, () -> tupleView.upsert(null, rec));
+        assertThat(ex.getMessage(), startsWith("Column's type mismatch"));
+    }
+
+    @Test
+    public void testBoxedPrimitivePojo() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var pojoView = table.recordView(Mapper.of(BoxedPrimitivePojo.class));
+
+        BoxedPrimitivePojo rec = new BoxedPrimitivePojo();
+        rec.key = -1;
+        rec.val = "f";
+
+        pojoView.upsert(null, rec);
+        assertEquals("f", pojoView.get(null, rec).val);
+    }
+
+    @Test
+    public void testBoxedPrimitiveTuple() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var tupleView = table.recordView();
+
+        Integer key = -1;
+        Tuple rec = Tuple.create().set("KEY", key).set("VAL", "v");
+
+        tupleView.upsert(null, rec);
+        assertEquals("v", tupleView.get(null, Tuple.create().set("KEY", key)).value("VAL"));
+    }
+
     private static class TestPojo2 {
         public int key;
 
@@ -122,5 +276,24 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         public String unmapped;
 
         public String unmapped2;
+    }
+
+    private static class MissingFieldPojo {
+        public int unknown;
+    }
+
+    private static class IncompatibleFieldPojo {
+        public String key; // Must be int.
+        public BigDecimal val;
+    }
+
+    private static class IncompatibleFieldPojo2 {
+        public short key; // Must be int.
+        public String val;
+    }
+
+    private static class BoxedPrimitivePojo {
+        public Integer key;
+        public String val;
     }
 }

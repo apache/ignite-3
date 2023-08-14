@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
-import java.io.Serializable;
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -25,10 +24,8 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 /**
  * Accumulator interface.
  */
-public interface Accumulator extends Serializable {
+public interface Accumulator {
     void add(Object... args);
-
-    void apply(Accumulator other);
 
     Object end();
 
