@@ -17,29 +17,34 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
+import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * File upload response. This message is sent by the receiver to the sender to respond to a file upload request.
+ * File transfer init message. This message is sent by the sender to the receiver to initiate a file transfer.
  */
-@Transferable(FileTransferMessageType.FILE_UPLOAD_RESPONSE)
-public interface FileUploadResponse extends NetworkMessage {
+@Transferable(FileTransferMessageType.FILE_TRANSFER_INIT_MESSAGE)
+public interface FileTransferInitMessage extends NetworkMessage {
     /**
-     * Returns the ID of the transfer.
+     * Returns the identifier of the file transfer.
      *
-     * @return Transfer ID. {@code null} if the transfer failed.
+     * @return Identifier of the file transfer.
      */
-    @Nullable
     UUID transferId();
 
     /**
-     * Returns the error.
+     * Returns the identifier of the files that are going to be transferred.
      *
-     * @return Error.
+     * @return Identifier of the files.
      */
-    @Nullable
-    FileTransferError error();
+    Identifier identifier();
+
+    /**
+     * Returns the headers of the files that are going to be transferred.
+     *
+     * @return Headers of the files.
+     */
+    List<FileHeader> headers();
 }

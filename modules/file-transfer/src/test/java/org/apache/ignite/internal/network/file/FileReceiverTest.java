@@ -56,9 +56,13 @@ class FileReceiverTest {
 
         Path path = Files.createDirectory(workDir.resolve(transferId.toString()));
 
-        CompletableFuture<List<Path>> receivedFiles = receiver.registerTransfer("node2", transferId, path);
+        CompletableFuture<List<Path>> receivedFiles = receiver.registerTransfer(
+                "node2",
+                transferId,
+                fromPaths(messageFactory, filesToSend),
+                path
+        );
 
-        receiver.receiveFileHeaders(transferId, fromPaths(messageFactory, filesToSend));
         sendFilesToReceiver(receiver, transferId, filesToSend);
 
         // Then the file is received.
@@ -81,9 +85,13 @@ class FileReceiverTest {
 
         Path path = Files.createDirectory(workDir.resolve(transferId.toString()));
 
-        CompletableFuture<List<Path>> receivedFiles = receiver.registerTransfer("node2", transferId, path);
+        CompletableFuture<List<Path>> receivedFiles = receiver.registerTransfer(
+                "node2",
+                transferId,
+                fromPaths(messageFactory, filesToSend),
+                path
+        );
 
-        receiver.receiveFileHeaders(transferId, fromPaths(messageFactory, filesToSend));
         sendFilesToReceiver(receiver, transferId, filesToSend);
 
         // Then the files are received.
@@ -104,16 +112,19 @@ class FileReceiverTest {
 
         Path path1 = Files.createDirectory(workDir.resolve(transferId1.toString()));
 
-        CompletableFuture<List<Path>> receivedFiles1 = receiver.registerTransfer("node2", transferId1, path1);
-
-        receiver.receiveFileHeaders(transferId1, fromPaths(messageFactory, filesToSend1));
+        CompletableFuture<List<Path>> receivedFiles1 = receiver.registerTransfer(
+                "node2",
+                transferId1,
+                fromPaths(messageFactory, filesToSend1),
+                path1
+        );
 
         // And the second file transfer is registered.
         UUID transferId2 = UUID.randomUUID();
 
         Path path2 = Files.createDirectory(workDir.resolve(transferId2.toString()));
 
-        CompletableFuture<List<Path>> receivedFiles2 = receiver.registerTransfer("node2", transferId2, path2);
+        CompletableFuture<List<Path>> receivedFiles2 = receiver.registerTransfer("node2", transferId2, List.of(), path2);
 
         // And the third file transfer from another node is started.
         UUID transferId3 = UUID.randomUUID();
@@ -121,9 +132,13 @@ class FileReceiverTest {
 
         Path path3 = Files.createDirectory(workDir.resolve(transferId3.toString()));
 
-        CompletableFuture<List<Path>> receivedFiles3 = receiver.registerTransfer("node3", transferId3, path3);
+        CompletableFuture<List<Path>> receivedFiles3 = receiver.registerTransfer(
+                "node3",
+                transferId3,
+                fromPaths(messageFactory, filesToSend3),
+                path3
+        );
 
-        receiver.receiveFileHeaders(transferId3, fromPaths(messageFactory, filesToSend3));
         sendFilesToReceiver(receiver, transferId3, filesToSend3);
 
         // All transfers from node2 are canceled.

@@ -17,25 +17,15 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
-import java.util.List;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * File download response. This message is sent by the sender to the receiver to respond to a file download request.
+ * File download response. This message is sent by the sender to the receiver to confirm the file download request or to reject it.
  */
 @Transferable(FileTransferMessageType.FILE_DOWNLOAD_RESPONSE)
 public interface FileDownloadResponse extends NetworkMessage {
-    /**
-     * Returns the headers of the files that are going to be transferred.
-     * It is possible that the headers are not present if the request was not handled successfully.
-     *
-     * @return Headers of the files that are going to be transferred. {@code null} if the request was not handled successfully.
-     */
-    @Nullable
-    List<FileHeader> headers();
-
     /**
      * Returns the error that occurred during the handling file download request.
      *

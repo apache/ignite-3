@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyArray;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -43,9 +44,9 @@ import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
 import org.apache.ignite.internal.network.file.messages.FileDownloadResponse;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
+import org.apache.ignite.internal.network.file.messages.FileTransferInitMessage;
+import org.apache.ignite.internal.network.file.messages.FileTransferInitResponse;
 import org.apache.ignite.internal.network.file.messages.FileTransferMessageType;
-import org.apache.ignite.internal.network.file.messages.FileUploadRequest;
-import org.apache.ignite.internal.network.file.messages.FileUploadResponse;
 import org.apache.ignite.internal.network.file.messages.Identifier;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -125,12 +126,12 @@ class FileTransferServiceImplTest {
     @Test
     void uploadFailsWhenInvokeReturnsResponseWithErrorOnFileUploadRequest() {
         // Set messaging service to fail to send upload response.
-        FileUploadResponse response = messageFactory.fileUploadResponse()
+        FileTransferInitResponse response = messageFactory.fileTransferInitResponse()
                 .error(fromThrowable(messageFactory, new RuntimeException("Test exception")))
                 .build();
         doReturn(completedFuture(response))
                 .when(messagingService)
-                .invoke(eq(TARGET_CONSISTENT_ID), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileUploadRequest.class), anyLong());
+                .invoke(eq(TARGET_CONSISTENT_ID), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileTransferInitMessage.class), anyLong());
 
         // Set file provider to provide a file.
         Path path1 = FileGenerator.randomFile(workDir, 100);
@@ -146,10 +147,10 @@ class FileTransferServiceImplTest {
     @Test
     void uploadFailsWhenSenderReturnsException() {
         // Set messaging service to fail to send upload response.
-        FileUploadResponse fileUploadResponse = messageFactory.fileUploadResponse().transferId(UUID.randomUUID()).build();
-        doReturn(completedFuture(fileUploadResponse))
+        FileTransferInitResponse fileTransferInitResponse = messageFactory.fileTransferInitResponse().build();
+        doReturn(completedFuture(fileTransferInitResponse))
                 .when(messagingService)
-                .invoke(eq(TARGET_CONSISTENT_ID), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileUploadRequest.class), anyLong());
+                .invoke(eq(TARGET_CONSISTENT_ID), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileTransferInitMessage.class), anyLong());
 
         doReturn(failedFuture(new RuntimeException("Test exception")))
                 .when(fileSender)
@@ -174,14 +175,15 @@ class FileTransferServiceImplTest {
         RuntimeException testException = new RuntimeException("Test exception");
         doReturn(failedFuture(testException))
                 .when(messagingService)
-                .respond(eq(TARGET_CONSISTENT_ID), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileUploadResponse.class), eq(correlationId));
+                .respond(eq(TARGET_CONSISTENT_ID), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileTransferInitResponse.class),
+                        eq(correlationId));
 
         // Set file receiver to complete transfer registration.
         CompletableFuture<UUID> transferRegistered = new CompletableFuture<>();
         doAnswer(invocation -> {
             transferRegistered.complete(invocation.getArgument(1, UUID.class));
             return new CompletableFuture<>();
-        }).when(fileReceiver).registerTransfer(eq(TARGET_CONSISTENT_ID), any(UUID.class), any(Path.class));
+        }).when(fileReceiver).registerTransfer(eq(TARGET_CONSISTENT_ID), any(UUID.class), anyList(), any(Path.class));
 
         // Set file receiver to complete transfer cancellation.
         CompletableFuture<UUID> transferCanceled = new CompletableFuture<>();
@@ -193,7 +195,8 @@ class FileTransferServiceImplTest {
         Path path1 = FileGenerator.randomFile(workDir, 0);
         List<Path> paths = List.of(path1);
 
-        FileUploadRequest uploadRequest = messageFactory.fileUploadRequest()
+        FileTransferInitMessage uploadRequest = messageFactory.fileTransferInitMessage()
+                .transferId(UUID.randomUUID())
                 .identifier(messageFactory.identifier().build())
                 .headers(FileHeader.fromPaths(messageFactory, paths))
                 .build();
@@ -216,21 +219,6 @@ class FileTransferServiceImplTest {
                 .when(messagingService)
                 .invoke(eq(SOURCE_CONSISTENT_ID), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileDownloadRequest.class), any(Long.class));
 
-        // Set file receiver to complete transfer registration.
-        CompletableFuture<List<Path>> registeredTransfer = new CompletableFuture<>();
-        CompletableFuture<UUID> transferId = new CompletableFuture<>();
-        doAnswer(invocation -> {
-            transferId.complete(invocation.getArgument(1, UUID.class));
-            return registeredTransfer;
-        }).when(fileReceiver).registerTransfer(eq(SOURCE_CONSISTENT_ID), any(UUID.class), any(Path.class));
-
-        // Set file receiver to complete transfer cancellation.
-        CompletableFuture<UUID> transferCanceled = new CompletableFuture<>();
-        doAnswer(invocation -> {
-            transferCanceled.complete(invocation.getArgument(0, UUID.class));
-            registeredTransfer.completeExceptionally(invocation.getArgument(1, Exception.class));
-            return null;
-        }).when(fileReceiver).cancelTransfer(any(UUID.class), any(RuntimeException.class));
 
         CompletableFuture<List<Path>> downloaded = fileTransferService.download(SOURCE_CONSISTENT_ID, messageFactory.identifier().build(),
                 workDir.resolve("download"));
@@ -238,12 +226,8 @@ class FileTransferServiceImplTest {
         // Check that download future is completed exceptionally.
         assertThat(downloaded, willThrow(RuntimeException.class, "Test exception"));
 
-        // Check that transfer was registered and canceled.
-        assertThat(transferId, willCompleteSuccessfully());
-        assertThat(transferCanceled, willBe(transferId.join()));
-
         // Check that transfer directory is empty.
-        await().untilAsserted(() -> assertThat(transferDir.toFile().listFiles(), emptyArray()));
+        await().untilAsserted(() -> assertThat(transferDir.toFile().listFiles(), nullValue()));
     }
 
     @Test
@@ -256,33 +240,13 @@ class FileTransferServiceImplTest {
                 .when(messagingService)
                 .invoke(eq(SOURCE_CONSISTENT_ID), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileDownloadRequest.class), any(Long.class));
 
-        // Set file receiver to complete transfer registration.
-        CompletableFuture<List<Path>> registeredTransfer = new CompletableFuture<>();
-        CompletableFuture<UUID> transferId = new CompletableFuture<>();
-        doAnswer(invocation -> {
-            transferId.complete(invocation.getArgument(1, UUID.class));
-            return registeredTransfer;
-        }).when(fileReceiver).registerTransfer(eq(SOURCE_CONSISTENT_ID), any(UUID.class), any(Path.class));
-
-        // Set file receiver to complete transfer cancellation.
-        CompletableFuture<UUID> transferCanceled = new CompletableFuture<>();
-        doAnswer(invocation -> {
-            transferCanceled.complete(invocation.getArgument(0, UUID.class));
-            registeredTransfer.completeExceptionally(invocation.getArgument(1, Exception.class));
-            return null;
-        }).when(fileReceiver).cancelTransfer(any(UUID.class), any(RuntimeException.class));
-
         CompletableFuture<List<Path>> downloaded = fileTransferService.download(SOURCE_CONSISTENT_ID, messageFactory.identifier().build(),
                 workDir.resolve("download"));
 
         // Check that download future is completed exceptionally.
         assertThat(downloaded, willThrow(RuntimeException.class, "Test exception"));
 
-        // Check that transfer was registered and canceled.
-        assertThat(transferId, willCompleteSuccessfully());
-        assertThat(transferCanceled, willBe(transferId.join()));
-
         // Check that transfer directory is empty.
-        await().untilAsserted(() -> assertThat(transferDir.toFile().listFiles(), emptyArray()));
+        await().untilAsserted(() -> assertThat(transferDir.toFile().listFiles(), nullValue()));
     }
 }

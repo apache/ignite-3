@@ -60,14 +60,14 @@ public final class FileTransferMessageType {
     public static final short FILE_DOWNLOAD_RESPONSE = 6;
 
     /**
-     * Type for {@link FileUploadRequest}.
+     * Type for {@link FileTransferInitMessage}.
      */
-    public static final short FILE_UPLOAD_REQUEST = 7;
+    public static final short FILE_TRANSFER_INIT_MESSAGE = 7;
 
     /**
-     * Type for {@link FileUploadResponse}.
+     * Type for {@link FileTransferInitResponse}.
      */
-    public static final short FILE_UPLOAD_RESPONSE = 8;
+    public static final short FILE_TRANSFER_INIT_RESPONSE = 8;
 
     /**
      * Type for {@link FileTransferErrorMessage}.

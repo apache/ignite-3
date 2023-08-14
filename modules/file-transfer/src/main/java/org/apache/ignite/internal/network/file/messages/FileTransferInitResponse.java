@@ -17,26 +17,20 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
-import java.util.List;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * File upload request. This message is sent by the sender to the receiver to request a file upload.
+ * File transfer init response message. This message is sent by the receiver to the sender to confirm the file transfer or to reject it.
  */
-@Transferable(FileTransferMessageType.FILE_UPLOAD_REQUEST)
-public interface FileUploadRequest extends NetworkMessage {
+@Transferable(FileTransferMessageType.FILE_TRANSFER_INIT_RESPONSE)
+public interface FileTransferInitResponse extends NetworkMessage {
     /**
-     * Returns the identifier of the files that are going to be uploaded.
+     * Returns the error.
      *
-     * @return Identifier of the files.
+     * @return Error.
      */
-    Identifier identifier();
-
-    /**
-     * Returns the headers of the files that are going to be uploaded.
-     *
-     * @return Headers of the files.
-     */
-    List<FileHeader> headers();
+    @Nullable
+    FileTransferError error();
 }

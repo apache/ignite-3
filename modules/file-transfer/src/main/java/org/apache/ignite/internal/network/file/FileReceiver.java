@@ -50,12 +50,24 @@ class FileReceiver {
      * @param transferId Transfer id.
      * @return Future that will be completed when file transfer is finished.
      */
-    CompletableFuture<List<Path>> registerTransfer(String senderConsistentId, UUID transferId, Path handlerDir) {
-        return doInLock(senderConsistentId, () -> registerTransfer0(senderConsistentId, transferId, handlerDir));
+    CompletableFuture<List<Path>> registerTransfer(
+            String senderConsistentId,
+            UUID transferId,
+            List<FileHeader> headers,
+            Path handlerDir
+    ) {
+        return doInLock(senderConsistentId, () -> registerTransfer0(senderConsistentId, transferId, headers, handlerDir));
     }
 
-    private CompletableFuture<List<Path>> registerTransfer0(String senderConsistentId, UUID transferId, Path handlerDir) {
+    private CompletableFuture<List<Path>> registerTransfer0(
+            String senderConsistentId,
+            UUID transferId,
+            List<FileHeader> headers,
+            Path handlerDir
+    ) {
         FileTransferMessagesHandler handler = new FileTransferMessagesHandler(handlerDir);
+        handler.handleFileHeaders(headers);
+
         transferIdToHandler.put(transferId, handler);
 
         senderConsistentIdToTransferIds.compute(senderConsistentId, (k, v) -> {
@@ -125,21 +137,6 @@ class FileReceiver {
             throw new FileTransferException("Handler is not found for unknown transferId: " + transferId);
         } else {
             handler.handleFileTransferError(error);
-        }
-    }
-
-    /**
-     * Receives file headers.
-     *
-     * @param transferId Transfer id.
-     * @param headers File headers.
-     */
-    void receiveFileHeaders(UUID transferId, List<FileHeader> headers) {
-        FileTransferMessagesHandler handler = transferIdToHandler.get(transferId);
-        if (handler == null) {
-            throw new FileTransferException("Handler is not found for unknown transferId: " + transferId);
-        } else {
-            handler.handleFileHeaders(headers);
         }
     }
 
