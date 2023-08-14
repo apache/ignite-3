@@ -189,14 +189,16 @@ public class SchemaValidationTest : IgniteTestsBase
         var tuple = new DuplicateFieldTuple();
 
         var ex = Assert.ThrowsAsync<ArgumentException>(async () => await Table.RecordBinaryView.UpsertAsync(null, tuple));
-
-        Assert.AreEqual("TODO", ex!.Message);
+        StringAssert.StartsWith("Duplicate column in Tuple: KEY", ex!.Message);
     }
 
     [Test]
     public void TestKvDuplicateTupleFields()
     {
-        Assert.Fail("TODO");
+        var tuple = new DuplicateFieldTuple();
+
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () => await Table.KeyValueBinaryView.PutAsync(null, tuple, tuple));
+        StringAssert.StartsWith("Duplicate column in Tuple: KEY", ex!.Message);
     }
 
     [Test]
@@ -317,7 +319,7 @@ public class SchemaValidationTest : IgniteTestsBase
 
     private class DuplicateFieldTuple : IIgniteTuple
     {
-        public int FieldCount => 2;
+        public int FieldCount => 3;
 
         public object? this[int ordinal]
         {
@@ -327,12 +329,12 @@ public class SchemaValidationTest : IgniteTestsBase
 
         public object? this[string name]
         {
-            get => name == "key" ? 1L : "1";
+            get => name == "KEY" ? 1L : "1";
             set {}
         }
 
-        public string GetName(int ordinal) => ordinal == 0 ? "key" : "val";
+        public string GetName(int ordinal) => "KEY";
 
-        public int GetOrdinal(string name) => 1;
+        public int GetOrdinal(string name) => name == "KEY" ? 0 : 1;
     }
 }
