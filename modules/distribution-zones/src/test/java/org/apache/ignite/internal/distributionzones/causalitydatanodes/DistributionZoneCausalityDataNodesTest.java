@@ -54,12 +54,12 @@ import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.BaseDistributionZoneManagerTest;
-import org.apache.ignite.internal.distributionzones.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -1287,21 +1287,15 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         catalogManager.listen(ZONE_ALTER, new CatalogAlterZoneEventListener(catalogManager) {
             @Override
-            protected CompletableFuture<Void> onDataNodesAutoAdjustScaleUpUpdate(
-                    AlterZoneEventParameters parameters,
-                    int oldDataNodesAutoAdjustScaleUp
-            ) {
+            protected CompletableFuture<Void> onAutoAdjustScaleUpUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleUp) {
                 completeRevisionFuture(zoneScaleUpRevisions.remove(parameters.zoneDescriptor().id()), parameters.causalityToken());
 
                 return completedFuture(null);
             }
 
             @Override
-            protected CompletableFuture<Void> onDataNodesAutoAdjustScaleDownUpdate(
-                    AlterZoneEventParameters parameters,
-                    int oldDataNodesAutoAdjustScaleDown
-            ) {
-                completeRevisionFuture(zoneScaleDownRevisions.remove(parameters.zoneDescriptor().id()), parameters.causalityToken());
+            protected CompletableFuture<Void> onAutoAdjustScaleDownUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleDown) {
+                completeRevisionFuture(zoneScaleUpRevisions.remove(parameters.zoneDescriptor().id()), parameters.causalityToken());
 
                 return completedFuture(null);
             }

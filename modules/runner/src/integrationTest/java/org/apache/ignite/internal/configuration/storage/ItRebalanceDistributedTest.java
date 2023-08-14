@@ -824,7 +824,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     name,
                     registry,
                     tablesCfg,
-                    zonesCfg,
                     gcConfig,
                     clusterService,
                     raftManager,

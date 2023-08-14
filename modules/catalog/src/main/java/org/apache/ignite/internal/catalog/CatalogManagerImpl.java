@@ -618,11 +618,6 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         });
     }
 
-    @Override
-    public void listen(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure) {
-        super.listen(evt, (EventListener<CatalogEventParameters>) closure);
-    }
-
     private void registerCatalog(Catalog newCatalog) {
         catalogByVer.put(newCatalog.version(), newCatalog);
         catalogByTs.put(newCatalog.time(), newCatalog);

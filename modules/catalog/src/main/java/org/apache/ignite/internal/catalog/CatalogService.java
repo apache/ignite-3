@@ -70,10 +70,6 @@ public interface CatalogService {
 
     Collection<CatalogZoneDescriptor> zones(int catalogVersion);
 
-    @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion);
-
-    Collection<CatalogZoneDescriptor> zones(int catalogVersion);
-
     @Nullable CatalogSchemaDescriptor activeSchema(long timestamp);
 
     @Nullable CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);

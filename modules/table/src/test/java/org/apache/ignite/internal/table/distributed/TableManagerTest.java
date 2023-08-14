@@ -367,7 +367,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private @Nullable String getZoneDataStorage(int zoneId) {
         CatalogZoneDescriptor zoneDescriptor = DistributionZonesTestUtil.getZoneById(catalogManager, zoneId, clock.nowLong());
 
-        return zoneDescriptor == null ? null : zoneDescriptor.getDataStorage().getEngine();
+        return zoneDescriptor == null ? null : zoneDescriptor.dataStorage().engine();
     }
 
     /**

@@ -97,6 +97,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
+import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -1605,18 +1606,12 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         @Override
-        protected CompletableFuture<Void> onDataNodesAutoAdjustScaleUpUpdate(
-                AlterZoneEventParameters parameters,
-                int oldDataNodesAutoAdjustScaleUp
-        ) {
+        protected CompletableFuture<Void> onAutoAdjustScaleUpUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleUp) {
             return inBusyLock(() -> onUpdateScaleUpBusy(parameters));
         }
 
         @Override
-        protected CompletableFuture<Void> onDataNodesAutoAdjustScaleDownUpdate(
-                AlterZoneEventParameters parameters,
-                int oldDataNodesAutoAdjustScaleDown
-        ) {
+        protected CompletableFuture<Void> onAutoAdjustScaleDownUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleDown) {
             return inBusyLock(() -> onUpdateScaleDownBusy(parameters));
         }
 
