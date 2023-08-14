@@ -152,6 +152,18 @@ public class SchemaValidationTest : IgniteTestsBase
     }
 
     [Test]
+    public void TestMissingAllFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestKvMissingAllFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
     public void TestUnmappedPocoFields()
     {
         Assert.Fail("TODO");
@@ -189,6 +201,18 @@ public class SchemaValidationTest : IgniteTestsBase
 
     [Test]
     public void TestKvMissingValPocoFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestMissingAllPocoFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestKvMissingAllPocoFields()
     {
         Assert.Fail("TODO");
     }
