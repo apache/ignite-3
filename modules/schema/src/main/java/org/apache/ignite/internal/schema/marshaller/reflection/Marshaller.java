@@ -53,7 +53,16 @@ public abstract class Marshaller {
             boolean requireAllFields,
             boolean allowUnmappedFields) {
         if (mapper instanceof OneColumnMapper) {
-            return simpleMarshaller(cols, (OneColumnMapper<T>) mapper);
+            // Check a special case for key-only tables (i.e. views with Void value types)
+            if (cols.length == 0) {
+                if (mapper.targetType() == Void.class) {
+                    return new NoOpMarshaller();
+                } else {
+                    throw new SchemaMismatchException("Table is defined as key-only");
+                }
+            } else {
+                return simpleMarshaller(cols, (OneColumnMapper<T>) mapper);
+            }
         } else if (mapper instanceof PojoMapper) {
             return pojoMarshaller(cols, (PojoMapper<T>) mapper, requireAllFields, allowUnmappedFields);
         } else {
@@ -271,6 +280,22 @@ public abstract class Marshaller {
             } catch (Throwable e) {
                 throw new MarshallerException("Failed to write row. ", e);
             }
+        }
+    }
+
+    private static class NoOpMarshaller extends Marshaller {
+        @Override
+        public @Nullable Object value(Object obj, int fldIdx) {
+            return null;
+        }
+
+        @Override
+        public @Nullable Object readObject(Row reader) {
+            return null;
+        }
+
+        @Override
+        public void writeObject(Object obj, RowAssembler writer) {
         }
     }
 }
