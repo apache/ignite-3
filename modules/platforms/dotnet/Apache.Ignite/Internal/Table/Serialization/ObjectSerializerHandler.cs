@@ -432,6 +432,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     $"Can't map '{type}' to columns '{columnStr}'. Matching fields not found.");
             }
 
+            if (columnCount < schema.Columns.Count)
+            {
+                // Key-only mode - skip "all fields are mapped" validation.
+                // It will be performed anyway when using the whole schema.
+                return;
+            }
+
             var fields = type.GetColumns();
 
             if (fields.Count > mappedCount)
