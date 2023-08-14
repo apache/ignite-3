@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -182,7 +183,6 @@ import org.mockito.Mockito;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
 public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
@@ -191,9 +191,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private static final String ZONE_1_NAME = "zone1";
 
-    public static final int BASE_PORT = 20_000;
+    private static final int BASE_PORT = 20_000;
 
-    public static final String HOST = "localhost";
+    private static final String HOST = "localhost";
+
+    private static final int ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS = 10_000;
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
@@ -246,12 +248,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         nodes.get(0).cmgManager.initCluster(List.of(nodes.get(2).name), List.of(nodes.get(2).name), "cluster");
 
+        nodes.stream().forEach(Node::waitWatches);
+
         assertThat(
                 allOf(nodes.get(0).cmgManager.onJoinReady(), nodes.get(1).cmgManager.onJoinReady(), nodes.get(2).cmgManager.onJoinReady()),
                 willCompleteSuccessfully()
         );
 
-        nodes.stream().forEach(Node::waitWatches);
+        assertTrue(waitForCondition(() -> nodes.get(0).cmgManager.logicalTopology().join().nodes().size() == 3, 10_000));
     }
 
     @AfterEach
@@ -262,8 +266,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testOneRebalance() {
-        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1).join();
+    void testOneRebalance() throws InterruptedException {
+        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1);
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -276,7 +280,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
         ));
 
-        assertEquals(1, getPartitionClusterNodes(0, 0).size());
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(0, 0).size() == 1, ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS));
 
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
 
@@ -288,8 +292,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testTwoQueuedRebalances() {
-        await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
+    void testTwoQueuedRebalances() throws InterruptedException {
+        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1);
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -302,7 +306,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
         ));
 
-        assertEquals(1, getPartitionClusterNodes(0, 0).size());
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(0, 0).size() == 1, ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS));
 
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 3));
@@ -315,8 +319,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testThreeQueuedRebalances() {
-        await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
+    void testThreeQueuedRebalances() throws InterruptedException {
+        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1);
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -328,7 +332,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 ZONE_1_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
 
-        assertEquals(1, getPartitionClusterNodes(0, 0).size());
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(0, 0).size() == 1, ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS));
 
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 2));
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 3));
@@ -345,7 +349,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     void testOnLeaderElectedRebalanceRestart() throws Exception {
         String zoneName = "zone2";
 
-        await(createZone(nodes.get(0).distributionZoneManager, zoneName, 1, 2));
+        createZone(nodes.get(0).distributionZoneManager, zoneName, 1, 2);
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "TBL1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -357,6 +361,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 "TBL1",
                 zoneName,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
+
+        waitPartitionAssignmentsSyncedToExpected(0, 2);
 
         Set<String> partitionNodesConsistentIds = getPartitionClusterNodes(0, 0).stream()
                 .map(Assignment::consistentId)
@@ -408,8 +414,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testRebalanceRetryWhenCatchupFailed() {
-        await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
+    void testRebalanceRetryWhenCatchupFailed() throws InterruptedException {
+        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1);
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -421,7 +427,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 ZONE_1_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
 
-        assertEquals(1, getPartitionClusterNodes(0, 0).size());
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(0, 0).size() == 1, ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS));
 
         await(alterZoneReplicas(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1));
 
@@ -463,11 +469,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     void testDestroyPartitionStoragesOnEvictNode() {
         createTableWithOnePartition(TABLE_1_NAME, ZONE_1_NAME, 3, true);
 
+        waitPartitionAssignmentsSyncedToExpected(0, 3);
+
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
 
         nodes.forEach(node -> prepareFinishHandleChangeStableAssignmentEventFuture(node, TABLE_1_NAME, 0));
 
         changeTableReplicasForSinglePartition(ZONE_1_NAME, 2);
+
+        waitPartitionAssignmentsSyncedToExpected(0, 2);
 
         Set<Assignment> assignmentsAfterChangeReplicas = getPartitionClusterNodes(0, 0);
 
@@ -488,12 +498,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         checkInvokeDestroyedPartitionStorages(evictedNode, TABLE_1_NAME, 0);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19506")
     @Test
     @UseTestTxStateStorage
     @UseRocksMetaStorage
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20187")
     void testDestroyPartitionStoragesOnRestartEvictedNode(TestInfo testInfo) throws Exception {
         createTableWithOnePartition(TABLE_1_NAME, ZONE_1_NAME, 3, true);
+
+        waitPartitionAssignmentsSyncedToExpected(0, 3);
 
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(0, 0);
 
@@ -504,6 +516,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         });
 
         changeTableReplicasForSinglePartition(ZONE_1_NAME, 2);
+
+        waitPartitionAssignmentsSyncedToExpected(0, 2);
 
         Assignment evictedAssignment = first(getEvictedAssignments(assignmentsBeforeChangeReplicas, getPartitionClusterNodes(0, 0)));
 
@@ -795,6 +809,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
             distributionZoneManager = new DistributionZoneManager(
+                    registry,
                     zonesCfg,
                     tablesCfg,
                     metaStorageManager,
@@ -876,7 +891,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     vaultManager,
                     nodeCfgMgr,
                     clusterService,
-                    raftManager
+                    raftManager,
+                    cmgManager
             );
 
             firstComponents.forEach(IgniteComponent::start);
@@ -885,7 +901,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             deployWatchesFut = CompletableFuture.supplyAsync(() -> {
                 List<IgniteComponent> secondComponents = List.of(
-                        cmgManager,
                         metaStorageManager,
                         clusterCfgMgr,
                         clockWaiter,
@@ -1000,11 +1015,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private void createTableWithOnePartition(String tableName, String zoneName, int replicas, boolean testDataStorage) {
-        await(
-                createZone(
-                        nodes.get(0).distributionZoneManager,
-                        zoneName, 1, replicas,
-                        testDataStorage ? (dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class)) : null));
+        createZone(
+                nodes.get(0).distributionZoneManager,
+                zoneName,
+                1,
+                replicas,
+                testDataStorage ? (dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class)) : null
+        );
 
         assertThat(
                 nodes.get(0).tableManager.createTableAsync(
@@ -1016,6 +1033,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 ),
                 willCompleteSuccessfully()
         );
+
+        waitPartitionAssignmentsSyncedToExpected(0, replicas);
 
         assertEquals(replicas, getPartitionClusterNodes(0, 0).size());
         assertEquals(replicas, getPartitionClusterNodes(1, 0).size());

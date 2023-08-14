@@ -22,8 +22,8 @@ import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier.notifyListeners;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.findEx;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.internalSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.touch;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -31,6 +31,7 @@ import static org.mockito.Mockito.withSettings;
 
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
@@ -46,7 +47,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.configuration.ConfigurationListenerHolder;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
@@ -97,8 +97,8 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
     /** Key to store {@link StorageRevisionListenerHolderImpl} in {@link ExtensionContext.Store} for each test. */
     private static final Object REVISION_LISTENER_PER_TEST_HOLDER_KEY = new Object();
 
-    /** All {@link InternalConfiguration} classes in classpath. */
-    private static final List<Class<?>> INTERNAL_EXTENSIONS;
+    /** All {@link ConfigurationExtension} classes in classpath. */
+    private static final List<Class<?>> EXTENSIONS;
 
     /** All {@link PolymorphicConfigInstance} classes in classpath. */
     private static final List<Class<?>> POLYMORPHIC_EXTENSIONS;
@@ -108,15 +108,15 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         // to avoid configuring extensions manually in every test.
         ServiceLoader<ConfigurationModule> modules = ServiceLoader.load(ConfigurationModule.class);
 
-        List<Class<?>> internalExtensions = new ArrayList<>();
+        List<Class<?>> extensions = new ArrayList<>();
         List<Class<?>> polymorphicExtensions = new ArrayList<>();
 
         modules.forEach(configurationModule -> {
-            internalExtensions.addAll(configurationModule.internalSchemaExtensions());
+            extensions.addAll(configurationModule.schemaExtensions());
             polymorphicExtensions.addAll(configurationModule.polymorphicSchemaExtensions());
         });
 
-        INTERNAL_EXTENSIONS = List.copyOf(internalExtensions);
+        EXTENSIONS = List.copyOf(extensions);
         POLYMORPHIC_EXTENSIONS = List.copyOf(polymorphicExtensions);
     }
 
@@ -205,17 +205,23 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
             ParameterContext parameterContext,
             ExtensionContext extensionContext
     ) throws ParameterResolutionException {
+        Store store = extensionContext.getStore(NAMESPACE);
+
+        StorageRevisionListenerHolderImpl revisionListenerHolder;
+
+        if (isStaticExecutable(parameterContext.getDeclaringExecutable())) {
+            revisionListenerHolder = store.get(REVISION_LISTENER_ALL_TEST_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
+        } else {
+            revisionListenerHolder = store.get(REVISION_LISTENER_PER_TEST_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
+        }
+
         if (parameterContext.isAnnotated(InjectConfiguration.class)) {
             Parameter parameter = parameterContext.getParameter();
 
-            ConfigurationAsmGenerator cgen =
-                    extensionContext.getStore(NAMESPACE).get(CGEN_KEY, ConfigurationAsmGenerator.class);
-
-            StorageRevisionListenerHolderImpl revisionListenerHolder = extensionContext.getStore(NAMESPACE)
-                    .get(REVISION_LISTENER_PER_TEST_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
+            ConfigurationAsmGenerator cgen = store.get(CGEN_KEY, ConfigurationAsmGenerator.class);
 
             try {
-                ExecutorService pool = extensionContext.getStore(NAMESPACE).get(POOL_KEY, ExecutorService.class);
+                ExecutorService pool = store.get(POOL_KEY, ExecutorService.class);
 
                 return cfgValue(parameter.getType(), parameter.getAnnotation(InjectConfiguration.class), cgen, pool,
                         revisionListenerHolder);
@@ -226,10 +232,14 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
                 );
             }
         } else if (parameterContext.isAnnotated(InjectRevisionListenerHolder.class)) {
-            return extensionContext.getStore(NAMESPACE).get(REVISION_LISTENER_PER_TEST_HOLDER_KEY, StorageRevisionListenerHolderImpl.class);
+            return revisionListenerHolder;
         } else {
             throw new ParameterResolutionException("Unknown parameter:" + parameterContext.getParameter());
         }
+    }
+
+    private static boolean isStaticExecutable(Executable executable) {
+        return isStatic(executable.getModifiers());
     }
 
     /**
@@ -254,12 +264,12 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         // classes, extension is designed to mock actual configurations from public API to configure Ignite components.
         Class<?> schemaClass = Class.forName(type.getCanonicalName() + "Schema");
 
-        List<Class<?>> internalExtensions = INTERNAL_EXTENSIONS;
+        List<Class<?>> extensions = EXTENSIONS;
         List<Class<?>> polymorphicExtensions = POLYMORPHIC_EXTENSIONS;
 
-        if (annotation.internalExtensions().length > 0) {
-            internalExtensions = new ArrayList<>(internalExtensions);
-            internalExtensions.addAll(List.of(annotation.internalExtensions()));
+        if (annotation.extensions().length > 0) {
+            extensions = new ArrayList<>(extensions);
+            extensions.addAll(List.of(annotation.extensions()));
         }
 
         if (annotation.polymorphicExtensions().length > 0) {
@@ -269,7 +279,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
         cgen.compileRootSchema(
                 schemaClass,
-                internalSchemaExtensions(internalExtensions),
+                schemaExtensions(extensions),
                 polymorphicSchemaExtensions(polymorphicExtensions)
         );
 

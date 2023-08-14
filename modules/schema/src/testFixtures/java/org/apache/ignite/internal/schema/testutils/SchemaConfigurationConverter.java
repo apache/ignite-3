@@ -38,10 +38,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.schema.configuration.ColumnChange;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeChange;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeView;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
+import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.PrimaryKeyView;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
@@ -231,7 +233,7 @@ public class SchemaConfigurationConverter {
                     int length = ((ColumnType.VarLenColumnType) colType).length();
 
                     if (length == 0) {
-                        length = Integer.MAX_VALUE;
+                        length = CatalogUtils.DEFAULT_VARLEN_LENGTH;
                     }
 
                     colTypeChg.changeLength(length);
@@ -411,6 +413,8 @@ public class SchemaConfigurationConverter {
                 colsChg.create(col.name(), colChg -> convert(col, colChg));
             }
         });
+
+        ((ExtendedTableChange) tblChg).changeSchemaId(1);
 
         tblChg.changePrimaryKey(pkCng -> pkCng.changeColumns(tbl.keyColumns().toArray(String[]::new))
                 .changeColocationColumns(tbl.colocationColumns().toArray(String[]::new)));

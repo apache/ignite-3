@@ -25,4 +25,8 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(TableMessageGroup.RW_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST)
 public interface ReadWriteScanRetrieveBatchReplicaRequest extends ScanRetrieveBatchReplicaRequest, ReadWriteReplicaRequest {
+    /**
+     * Return {@code true} if this is a full transaction.
+     */
+    boolean full();
 }

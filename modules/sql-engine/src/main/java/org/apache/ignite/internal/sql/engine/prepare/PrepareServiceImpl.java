@@ -21,15 +21,13 @@ import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -37,7 +35,6 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainLevel;
@@ -45,19 +42,25 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
+import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -68,6 +71,11 @@ import org.jetbrains.annotations.Nullable;
 public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener {
     private static final IgniteLogger LOG = Loggers.forClass(PrepareServiceImpl.class);
 
+    /** DML metadata holder. */
+    private static final ResultSetMetadata DML_METADATA = new ResultSetMetadataImpl(List.of(
+            new ColumnMetadataImpl("ROWCOUNT", ColumnType.INT64,
+                    ColumnMetadata.UNDEFINED_PRECISION, ColumnMetadata.UNDEFINED_SCALE, false, null)));
+
     /** Default planner timeout, in ms. */
     public static final long DEFAULT_PLANNER_TIMEOUT = 15000L;
 
@@ -77,13 +85,17 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     private final DdlSqlToCommandConverter ddlConverter;
 
-    private final ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> cache;
+    private final Cache<CacheKey, CompletableFuture<QueryPlan>> cache;
 
     private final String nodeName;
 
     private volatile ThreadPoolExecutor planningPool;
 
     private final long plannerTimeout;
+
+    private final MetricManager metricManager;
+
+    private final SqlPlanCacheMetricSource sqlPlanCacheMetricSource;
 
     /**
      * Factory method.
@@ -92,18 +104,21 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
      * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param dataStorageManager Data storage manager.
      * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
+     * @param metricManager Metric manager.
      */
     public static PrepareServiceImpl create(
             String nodeName,
             int cacheSize,
             DataStorageManager dataStorageManager,
-            Map<String, Map<String, Class<?>>> dataStorageFields
+            Map<String, Map<String, Class<?>>> dataStorageFields,
+            MetricManager metricManager
     ) {
         return new PrepareServiceImpl(
                 nodeName,
                 cacheSize,
                 new DdlSqlToCommandConverter(dataStorageFields, dataStorageManager::defaultDataStorage),
-                DEFAULT_PLANNER_TIMEOUT
+                DEFAULT_PLANNER_TIMEOUT,
+                metricManager
         );
     }
 
@@ -114,21 +129,23 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
      * @param cacheSize Size of the cache of query plans. Should be non negative.
      * @param ddlConverter A converter of the DDL-related AST to the actual command.
      * @param plannerTimeout Timeout in milliseconds to planning.
+     * @param metricManager Metric manager.
      */
     public PrepareServiceImpl(
             String nodeName,
             int cacheSize,
             DdlSqlToCommandConverter ddlConverter,
-            long plannerTimeout
+            long plannerTimeout,
+            MetricManager metricManager
     ) {
         this.nodeName = nodeName;
         this.ddlConverter = ddlConverter;
         this.plannerTimeout = plannerTimeout;
+        this.metricManager = metricManager;
 
-        cache = Caffeine.newBuilder()
-                .maximumSize(cacheSize)
-                .<CacheKey, CompletableFuture<QueryPlan>>build()
-                .asMap();
+        sqlPlanCacheMetricSource = new SqlPlanCacheMetricSource();
+        cache = CaffeineCacheFactory.INSTANCE.create(cacheSize, sqlPlanCacheMetricSource);
+
     }
 
     /** {@inheritDoc} */
@@ -144,12 +161,15 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         );
 
         planningPool.allowCoreThreadTimeOut(true);
+
+        metricManager.registerSource(sqlPlanCacheMetricSource);
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         planningPool.shutdownNow();
+        metricManager.unregisterSource(sqlPlanCacheMetricSource);
     }
 
     /** {@inheritDoc} */
@@ -171,27 +191,23 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                         throw new SqlException(PLANNING_TIMEOUT_ERR);
                     }
 
-                    throw new IgniteException(th);
+                    throw new CompletionException(IgniteExceptionMapperUtil.mapToPublicException(th));
                 }
         );
     }
 
     private CompletableFuture<QueryPlan> prepareAsync0(ParsedResult parsedResult, PlanningContext planningContext) {
-        try {
-            switch (parsedResult.queryType()) {
-                case QUERY:
-                    return prepareQuery(parsedResult, planningContext);
-                case DDL:
-                    return prepareDdl(parsedResult, planningContext);
-                case DML:
-                    return prepareDml(parsedResult, planningContext);
-                case EXPLAIN:
-                    return prepareExplain(parsedResult, planningContext);
-                default:
-                    throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
-            }
-        } catch (CalciteContextException e) {
-            throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. " + e.getMessage(), e);
+        switch (parsedResult.queryType()) {
+            case QUERY:
+                return prepareQuery(parsedResult, planningContext);
+            case DDL:
+                return prepareDdl(parsedResult, planningContext);
+            case DML:
+                return prepareDml(parsedResult, planningContext);
+            case EXPLAIN:
+                return prepareExplain(parsedResult, planningContext);
+            default:
+                throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
         }
     }
 
@@ -239,7 +255,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     private CompletableFuture<QueryPlan> prepareQuery(ParsedResult parsedResult, PlanningContext ctx) {
         CacheKey key = createCacheKey(parsedResult, ctx);
 
-        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             SqlNode sqlNode = parsedResult.parsedTree();
@@ -256,9 +272,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             // Split query plan to query fragments.
             List<Fragment> fragments = new Splitter().go(igniteRel);
 
-            QueryTemplate template = new QueryTemplate(fragments);
-
-            return new MultiStepQueryPlan(template, resultSetMetadata(validated.dataType(), validated.origins()));
+            return new MultiStepPlan(SqlQueryType.QUERY, fragments, resultSetMetadata(validated.dataType(), validated.origins()));
         }, planningPool));
 
         return planFut.thenApply(QueryPlan::copy);
@@ -267,7 +281,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
         var key = createCacheKey(parsedResult, ctx);
 
-        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
             IgnitePlanner planner = ctx.planner();
 
             SqlNode sqlNode = parsedResult.parsedTree();
@@ -283,9 +297,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
             // Split query plan to query fragments.
             List<Fragment> fragments = new Splitter().go(igniteRel);
 
-            QueryTemplate template = new QueryTemplate(fragments);
-
-            return new MultiStepDmlPlan(template);
+            return new MultiStepPlan(SqlQueryType.DML, fragments, DML_METADATA);
         }, planningPool));
 
         return planFut.thenApply(QueryPlan::copy);
@@ -293,12 +305,13 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     private static CacheKey createCacheKey(ParsedResult parsedResult, PlanningContext ctx) {
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
+        long catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
 
         Class[] paramTypes = ctx.parameters().length == 0
                 ? EMPTY_CLASS_ARRAY :
                 Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
 
-        return new CacheKey(ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
+        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
     }
 
     private ResultSetMetadata resultSetMetadata(

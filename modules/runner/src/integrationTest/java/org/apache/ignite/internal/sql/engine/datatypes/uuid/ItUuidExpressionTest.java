@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseExpressionDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +49,20 @@ public class ItUuidExpressionTest extends BaseExpressionDataTypeTest<UUID> {
     public void testRandomUuidComparison() {
         assertQuery("SELECT RAND_UUID() = RAND_UUID()").returns(false).check();
         assertQuery("SELECT RAND_UUID() != RAND_UUID()").returns(true).check();
+    }
+
+    /** Invalid {@code UUID} string in literal parameter. */
+    @Test
+    public void testInvalidUuidString() {
+        IgniteException t = assertThrows(IgniteException.class, () -> runSql("SELECT '000000'::UUID"));
+        assertThat(t.getMessage(), containsString("Invalid UUID string"));
+    }
+
+    /** Invalid {@code UUID} string in dynamic parameter. */
+    @Test
+    public void testInvalidUuidStringInDynamicParams() {
+        IgniteException t = assertThrows(IgniteException.class, () -> runSql("SELECT ?::UUID", "00000"));
+        assertThat(t.getMessage(), containsString("Invalid UUID string"));
     }
 
     /** {@inheritDoc} **/

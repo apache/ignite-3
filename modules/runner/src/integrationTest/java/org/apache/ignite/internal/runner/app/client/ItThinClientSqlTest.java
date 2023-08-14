@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -289,7 +290,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(ColumnType.STRING, columns.get(0).type());
 
         assertEquals(ColumnMetadata.UNDEFINED_SCALE, columns.get(0).scale());
-        assertEquals(2 << 15, columns.get(0).precision());
+        assertEquals(CatalogUtils.DEFAULT_VARLEN_LENGTH, columns.get(0).precision());
 
         assertEquals("ID", columns.get(1).name());
         assertEquals("ID", columns.get(1).origin().columnName());
@@ -427,11 +428,11 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     void testResultSetMappingColumnNameMismatch() {
         String query = "select 1 as foo, 2 as bar";
 
-        ResultSet<Pojo> resultSet = client().sql().createSession().execute(null, Mapper.of(Pojo.class), query);
-        Pojo row = resultSet.next();
+        IgniteException e = assertThrows(
+                IgniteException.class,
+                () -> client().sql().createSession().execute(null, Mapper.of(Pojo.class), query));
 
-        assertEquals(0, row.num);
-        assertNull(row.str);
+        assertEquals("Failed to deserialize server response: No field found for column FOO", e.getMessage());
     }
 
     @Test
@@ -516,7 +517,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     private static class Pojo {
-        public long num;
+        public int num;
 
         public String str;
     }

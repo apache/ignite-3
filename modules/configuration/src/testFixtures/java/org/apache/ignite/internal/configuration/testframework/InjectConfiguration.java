@@ -21,7 +21,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
@@ -66,12 +66,12 @@ public @interface InjectConfiguration {
     String name() default "";
 
     /**
-     * Array of configuration schema extensions. Every class in the array must be annotated with {@link InternalConfiguration} and extend
+     * Array of configuration schema extensions. Every class in the array must be annotated with {@link ConfigurationExtension} and extend
      * some public configuration.
      *
      * @return Array of configuration schema extensions.
      */
-    Class<?>[] internalExtensions() default {};
+    Class<?>[] extensions() default {};
 
     /**
      * Array of configuration schema extensions. Every class in the array must be annotated with

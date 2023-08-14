@@ -39,7 +39,6 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Map;
@@ -48,15 +47,17 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
@@ -71,7 +72,6 @@ import org.jetbrains.annotations.Nullable;
  * Utils to manage distribution zones inside tests.
  */
 public class DistributionZonesTestUtil {
-
     /**
      * Creates distribution zone.
      *
@@ -80,14 +80,14 @@ public class DistributionZonesTestUtil {
      * @param partitions Zone number of partitions.
      * @param replicas Zone number of replicas.
      * @param dataStorageChangeConsumer Consumer of {@link DataStorageChange}, which sets the right data storage options.
-     * @return A future, which will be completed, when create operation finished.
      */
-    public static CompletableFuture<Integer> createZone(
+    public static void createZone(
             DistributionZoneManager zoneManager,
             String zoneName,
             int partitions,
             int replicas,
-            Consumer<DataStorageChange> dataStorageChangeConsumer) {
+            Consumer<DataStorageChange> dataStorageChangeConsumer
+    ) {
         var distributionZoneCfgBuilder = new Builder(zoneName)
                 .replicas(replicas)
                 .partitions(partitions)
@@ -95,11 +95,10 @@ public class DistributionZonesTestUtil {
                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
 
         if (dataStorageChangeConsumer != null) {
-            distributionZoneCfgBuilder
-                    .dataStorageChangeConsumer(dataStorageChangeConsumer);
+            distributionZoneCfgBuilder.dataStorageChangeConsumer(dataStorageChangeConsumer);
         }
 
-        return zoneManager.createZone(distributionZoneCfgBuilder.build());
+        assertThat(zoneManager.createZone(distributionZoneCfgBuilder.build()), willCompleteSuccessfully());
     }
 
     /**
@@ -109,12 +108,40 @@ public class DistributionZonesTestUtil {
      * @param zoneName Zone name.
      * @param partitions Zone number of partitions.
      * @param replicas Zone number of replicas.
-     * @return A future, which will be completed, when create operation finished.
      */
-    public static CompletableFuture<Integer> createZone(
-            DistributionZoneManager zoneManager, String zoneName,
-            int partitions, int replicas) {
-        return createZone(zoneManager, zoneName, partitions, replicas, null);
+    public static void createZone(
+            DistributionZoneManager zoneManager,
+            String zoneName,
+            int partitions,
+            int replicas
+    ) {
+        createZone(zoneManager, zoneName, partitions, replicas, null);
+    }
+
+    /**
+     * Creates a distribution zone in the configuration.
+     *
+     * @param distributionZoneManager Distributed zone manager.
+     * @param zoneName Zone name.
+     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param filter Nodes filter, {@code null} if not set.
+     */
+    public static void createZone(
+            DistributionZoneManager distributionZoneManager,
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        assertThat(
+                distributionZoneManager.createZone(
+                        createParameters(zoneName, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter)
+                ),
+                willCompleteSuccessfully()
+        );
     }
 
     /**
@@ -308,33 +335,6 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * This method is used to initialize the meta storage revision before starting the distribution zone manager.
-     * TODO: IGNITE-19403 Watch listeners must be deployed after the zone manager starts.
-     *
-     * @param metaStorageManager Meta storage manager.
-     * @throws InterruptedException If thread was interrupted.
-     */
-    public static void deployWatchesAndUpdateMetaStorageRevision(MetaStorageManager metaStorageManager) throws InterruptedException {
-        // Watches are deployed before distributionZoneManager start in order to update Meta Storage revision before
-        // distributionZoneManager's recovery.
-        CompletableFuture<Void> deployWatchesFut = metaStorageManager.deployWatches();
-
-        // Bump Meta Storage applied revision by modifying a fake key. DistributionZoneManager breaks on start if Vault is not empty, but
-        // Meta Storage revision is equal to 0.
-        var fakeKey = new ByteArray("foobar");
-
-        CompletableFuture<Boolean> invokeFuture = deployWatchesFut.thenCompose(unused -> metaStorageManager.invoke(
-                Conditions.notExists(fakeKey),
-                Operations.put(fakeKey, fakeKey.bytes()),
-                Operations.noop()
-        ));
-
-        assertThat(invokeFuture, willBe(true));
-
-        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() > 0, 10_000));
-    }
-
-    /**
      * Sets logical topology to Vault.
      *
      * @param nodes Logical topology
@@ -465,25 +465,93 @@ public class DistributionZonesTestUtil {
      */
     public static void assertDataNodesFromManager(
             DistributionZoneManager distributionZoneManager,
+            Supplier<Long> causalityToken,
             int zoneId,
             @Nullable Set<LogicalNode> expectedValue,
             long timeoutMillis
-    ) throws InterruptedException {
+    ) throws InterruptedException, ExecutionException, TimeoutException {
         Set<String> expectedValueNames =
                 expectedValue == null ? null : expectedValue.stream().map(ClusterNode::name).collect(Collectors.toSet());
 
         boolean success = waitForCondition(() -> {
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-19506 change this to the causality versioned call to dataNodes.
-            Set<String> dataNodes = distributionZoneManager.dataNodes(zoneId);
+            Set<String> dataNodes = null;
+            try {
+                dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), zoneId).get(5, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                // Ignore
+            }
 
             return Objects.equals(dataNodes, expectedValueNames);
         }, timeoutMillis);
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
-            Set<String> dataNodes = distributionZoneManager.dataNodes(zoneId);
+            Set<String> dataNodes = distributionZoneManager.dataNodes(causalityToken.get(), zoneId).get(5, TimeUnit.SECONDS);
 
             assertThat(dataNodes, is(expectedValueNames));
         }
+    }
+
+    /**
+     * Alters a distribution zone in the configuration.
+     *
+     * @param distributionZoneManager Distributed zone manager.
+     * @param zoneName Zone name.
+     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param filter Nodes filter, {@code null} if not set.
+     */
+    public static void alterZone(
+            DistributionZoneManager distributionZoneManager,
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        assertThat(
+                distributionZoneManager.alterZone(
+                        zoneName,
+                        createParameters(zoneName, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter)
+                ),
+                willCompleteSuccessfully()
+        );
+    }
+
+    /**
+     * Drops a distribution zone in the configuration.
+     *
+     * @param distributionZoneManager Distributed zone manager.
+     * @param zoneName Zone name.
+     */
+    public static void dropZone(
+            DistributionZoneManager distributionZoneManager,
+            String zoneName
+    ) {
+        assertThat(distributionZoneManager.dropZone(zoneName), willCompleteSuccessfully());
+    }
+
+    private static DistributionZoneConfigurationParameters createParameters(
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        DistributionZoneConfigurationParameters.Builder builder = new DistributionZoneConfigurationParameters.Builder(zoneName);
+
+        if (dataNodesAutoAdjustScaleUp != null) {
+            builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
+        }
+
+        if (dataNodesAutoAdjustScaleDown != null) {
+            builder.dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
+        }
+
+        if (filter != null) {
+            builder.filter(filter);
+        }
+
+        return builder.build();
     }
 }

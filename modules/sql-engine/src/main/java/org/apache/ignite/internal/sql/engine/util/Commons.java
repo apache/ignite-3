@@ -64,6 +64,7 @@ import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.type.SqlTypeCoercionRule;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -155,6 +156,7 @@ public final class Commons {
                     .withIdentifierExpansion(true)
                     .withDefaultNullCollation(NullCollation.HIGH)
                     .withSqlConformance(IgniteSqlConformance.INSTANCE)
+                    .withTypeCoercionRules(standardCompatibleCoercionRules())
                     .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
             .operatorTable(IgniteSqlOperatorTable.INSTANCE)
@@ -167,6 +169,10 @@ public final class Commons {
             .build();
 
     private Commons() {
+    }
+
+    private static SqlTypeCoercionRule standardCompatibleCoercionRules() {
+        return SqlTypeCoercionRule.instance(IgniteCustomAssigmentsRules.instance().getTypeMapping());
     }
 
     /**
@@ -494,6 +500,38 @@ public final class Commons {
      */
     public static Mappings.TargetMapping inverseTrimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
         return Mappings.invert(trimmingMapping(sourceSize, requiredElements).inverse());
+    }
+
+    /**
+     * Produces new bitset setting bits according to the given mapping.
+     *
+     * <pre>
+     * bitset:
+     *   [0, 1, 4]
+     * mapping:
+     *   1 -> 0
+     *   0 -> 1
+     *   4 -> 3
+     * result:
+     *   [0, 1, 3]
+     * </pre>
+     *
+     * @param bitset A bitset.
+     * @param mapping Mapping to use.
+     * @return  a transformed bit set.
+     */
+    public static ImmutableBitSet mapBitSet(ImmutableBitSet bitset, Mapping mapping) {
+        ImmutableBitSet.Builder result = ImmutableBitSet.builder();
+
+        int bitPos = bitset.nextSetBit(0);
+
+        while (bitPos != -1) {
+            int target = mapping.getTarget(bitPos);
+            result.set(target);
+            bitPos = bitset.nextSetBit(bitPos + 1);
+        }
+
+        return result.build();
     }
 
 

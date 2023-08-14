@@ -149,9 +149,29 @@ NULL	false
 3	false
 
 query IR
-SELECT (SELECT MAX(i) FROM integers) AS k, SUM(i) FROM integers GROUP BY 1;
+SELECT (SELECT MAX(i) FROM integers) AS k, SUM(i) FROM integers GROUP BY k;
 ----
 3	6.000000
+
+# subqueries in GROUP BY clause
+query TR
+SELECT i >= ALL(SELECT i FROM integers WHERE i IS NOT NULL) AS k, SUM(i) FROM integers GROUP BY k ORDER BY k NULLS FIRST;
+----
+NULL	NULL
+false	3.000000
+true	3.000000
+
+query TR
+SELECT i >= ALL(SELECT MIN(i) FROM integers WHERE i IS NOT NULL) AS k, SUM(i) FROM integers GROUP BY k ORDER BY k NULLS FIRST;
+----
+NULL	NULL
+true	6.000000
+
+# subquery in HAVING
+query IR
+SELECT i % 2 AS k, SUM(i) FROM integers GROUP BY k HAVING SUM(i) > (SELECT MAX(i) FROM integers)
+----
+1	4.000000
 
 # nested uncorrelated subqueries
 query I

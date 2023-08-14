@@ -410,9 +410,7 @@ public class ClientTableTest extends AbstractClientTableTest {
         var tuple = Tuple.create().set("id", "str");
 
         var ex = assertThrows(IgniteException.class, () -> defaultTable().recordView().upsert(null, tuple));
-
-        String expectedErr = "Incorrect value type for column 'ID': class java.lang.String cannot be cast to class java.lang.Long";
-        assertThat(ex.getMessage(), containsString(expectedErr));
+        assertEquals("Column's type mismatch [column=ID, expectedType=INT64, actualType=class java.lang.String]", ex.getMessage());
     }
 
     @Test

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.schema.testutils.builder;
 
 import java.util.Collections;
 import java.util.Map;
-import org.apache.ignite.internal.util.IgniteNameUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 
 /**
  * Index base class.

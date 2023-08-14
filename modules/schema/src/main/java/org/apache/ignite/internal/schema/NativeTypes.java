@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.BitSet;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.jetbrains.annotations.Contract;
 
 /**
@@ -151,7 +152,7 @@ public class NativeTypes {
      * @see #time(int)
      */
     public static NativeType time() {
-        return TemporalNativeType.time(TemporalNativeType.DEFAULT_TIME_PRECISION);
+        return TemporalNativeType.time(CatalogUtils.DEFAULT_TIME_PRECISION);
     }
 
     /**
@@ -171,7 +172,7 @@ public class NativeTypes {
      * @see #datetime(int)
      */
     public static NativeType datetime() {
-        return TemporalNativeType.datetime(TemporalNativeType.DEFAULT_TIMESTAMP_PRECISION);
+        return TemporalNativeType.datetime(CatalogUtils.DEFAULT_TIMESTAMP_PRECISION);
     }
 
     /**
@@ -191,7 +192,7 @@ public class NativeTypes {
      * @see #timestamp(int)
      */
     public static NativeType timestamp() {
-        return TemporalNativeType.timestamp(TemporalNativeType.DEFAULT_TIMESTAMP_PRECISION);
+        return TemporalNativeType.timestamp(CatalogUtils.DEFAULT_TIMESTAMP_PRECISION);
     }
 
     /**

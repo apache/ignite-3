@@ -34,9 +34,9 @@ import java.util.Set;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
@@ -138,7 +138,7 @@ public class ConfigurationValidatorImplTest {
     /**
      * Child internal extension configuration schema.
      */
-    @InternalConfiguration
+    @ConfigurationExtension(internal = true)
     public static class InternalValidatedChildConfigurationSchema extends ValidatedChildConfigurationSchema {
         @LeafValidation
         @Value(hasDefault = true)

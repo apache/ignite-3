@@ -57,8 +57,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
@@ -112,7 +112,7 @@ public class ConfigurationListenerTest {
     /**
      * Internal extension of {@link ChildConfigurationSchema}.
      */
-    @InternalConfiguration
+    @ConfigurationExtension(internal = true)
     public static class InternalChildConfigurationSchema extends ChildConfigurationSchema {
         @Value(hasDefault = true)
         public int intVal = 0;

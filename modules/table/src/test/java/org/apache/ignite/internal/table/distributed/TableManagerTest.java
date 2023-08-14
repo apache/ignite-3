@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -121,6 +122,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
@@ -241,7 +243,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private DistributionZoneManager distributionZoneManager;
 
     /** Test node. */
-    private final ClusterNode node = new ClusterNode(
+    private final ClusterNode node = new ClusterNodeImpl(
             UUID.randomUUID().toString(),
             NODE_NAME,
             new NetworkAddress("127.0.0.1", 2245)
@@ -283,6 +285,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         when(distributionZoneManager.getZoneId(ZONE_NAME)).thenReturn(ZONE_ID);
         when(distributionZoneManager.zoneIdAsyncInternal(ZONE_NAME)).thenReturn(completedFuture(ZONE_ID));
+
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(completedFuture(emptySet()));
 
         when(replicaMgr.stopReplica(any())).thenReturn(completedFuture(true));
 
@@ -766,7 +770,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             return completedFuture(raftGrpSrvcMock);
         });
 
-        when(ts.getByConsistentId(any())).thenReturn(new ClusterNode(
+        when(ts.getByConsistentId(any())).thenReturn(new ClusterNodeImpl(
                 UUID.randomUUID().toString(),
                 consistentId,
                 new NetworkAddress("localhost", 47500)

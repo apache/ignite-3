@@ -20,15 +20,18 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static java.util.function.Predicate.not;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
@@ -164,7 +167,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(not(hasAggregate()))
                         .and(hasGroups())
-                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                 ),
                 disableRules
         );
@@ -174,7 +177,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(not(hasAggregate()))
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                         ))
                 ),
                 disableRules
@@ -209,7 +212,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_16,
                 not(nodeOrAnyChild(isInstanceOf(IgniteSort.class)))
                         .and(nodeOrAnyChild(input(1, isInstanceOf(IgniteColocatedSortAggregate.class))
-                                .and(input(isIndexScan("TEST", "val0")))
+                                .and(input(isIndexScan("TEST", "idx_val0")))
                         )),
                 ArrayUtils.concat(disableRules, additionalRulesToDisable)
         );
@@ -218,7 +221,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 not(nodeOrAnyChild(isInstanceOf(IgniteSort.class)))
                         .and(nodeOrAnyChild(input(1, isInstanceOf(IgniteColocatedSortAggregate.class)
                                         .and(input(isInstanceOf(IgniteExchange.class)
-                                                .and(input(isIndexScan("TEST", "val0")))
+                                                .and(input(isIndexScan("TEST", "idx_val0")))
                                         ))
                                 ))
                         ),
@@ -337,6 +340,37 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         ), disableRules);
     }
 
+    /**
+     * Validates that single phase COUNT aggregate is used.
+     */
+    @Test
+    public void testCountAgg() throws Exception {
+        Predicate<AggregateCall> countMap = (a) -> {
+            String aggName = a.getAggregation().getName();
+            return Objects.equals(aggName, "COUNT") && a.getArgList().equals(List.of(1));
+        };
+
+        assertPlan(TestCase.CASE_22, isInstanceOf(IgniteColocatedSortAggregate.class)
+                .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(IgniteDistributions.single())))), disableRules);
+    }
+
+    /**
+     * Validates that single phase AVG aggregate is used.
+     */
+    @Test
+    public void testAvgAgg() throws Exception {
+        Predicate<AggregateCall> countMap = (a) -> {
+            return Objects.equals(a.getAggregation().getName(), "AVG") && a.getArgList().equals(List.of(1));
+        };
+
+        assertPlan(TestCase.CASE_23, isInstanceOf(IgniteColocatedSortAggregate.class)
+                .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(IgniteDistributions.single())))), disableRules);
+    }
+
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
@@ -443,7 +477,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(hasAggregate())
-                        .and(input(isIndexScan("TEST", "grp0_grp1")))
+                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                 ),
                 disableRules
         );
@@ -454,7 +488,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(hasAggregate())
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isIndexScan("TEST", "grp0_grp1")))
+                                .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                         ))
                 ),
                 disableRules

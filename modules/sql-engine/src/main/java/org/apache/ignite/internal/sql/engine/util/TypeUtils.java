@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -44,8 +45,11 @@ import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeFactoryImpl.JavaType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.SqlFunctions;
+import org.apache.calcite.sql.type.BasicSqlType;
+import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -57,6 +61,11 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
+import org.apache.ignite.internal.sql.engine.exec.row.RowType;
+import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -185,7 +194,8 @@ public class TypeUtils {
         if (hasConvertableFields(resultType)) {
             RowHandler<RowT> handler = ectx.rowHandler();
             List<RelDataType> types = RelOptUtil.getFieldTypeList(resultType);
-            RowHandler.RowFactory<RowT> factory = handler.factory(ectx.getTypeFactory(), types);
+            RowSchema rowSchema = rowSchemaFromRelTypes(types);
+            RowHandler.RowFactory<RowT> factory = handler.factory(rowSchema);
             List<Function<Object, Object>> converters = transform(types, t -> fieldConverter(ectx, t));
             return r -> {
                 RowT newRow = factory.create();
@@ -482,7 +492,7 @@ public class TypeUtils {
     }
 
     /** Converts {@link ColumnType} to corresponding {@link NativeType}. */
-    public static NativeType columnType2NativeType(ColumnType columnType, int precision, int scale) {
+    public static NativeType columnType2NativeType(ColumnType columnType, int precision, int scale, int length) {
         switch (columnType) {
             case BOOLEAN:
                 return NativeTypes.BOOLEAN;
@@ -511,11 +521,11 @@ public class TypeUtils {
             case UUID:
                 return NativeTypes.UUID;
             case BITMASK:
-                return NativeTypes.bitmaskOf(precision);
+                return NativeTypes.bitmaskOf(length);
             case STRING:
-                return NativeTypes.stringOf(precision);
+                return NativeTypes.stringOf(length);
             case BYTE_ARRAY:
-                return NativeTypes.blobOf(precision);
+                return NativeTypes.blobOf(length);
             case NUMBER:
                 return NativeTypes.numberOf(precision);
                 // fallthrough
@@ -600,6 +610,69 @@ public class TypeUtils {
             return SqlTypeUtil.canAssignFrom(fromType, toType);
         } else {
             return false;
+        }
+    }
+
+    /** Creates an instance of {@link RowSchema} from a list of the given {@link RelDataType}s. */
+    public static RowSchema rowSchemaFromRelTypes(List<RelDataType> types) {
+        RowSchema.Builder fieldTypes = RowSchema.builder();
+
+        for (RelDataType relType : types) {
+            TypeSpec typeSpec = convertToTypeSpec(relType);
+            fieldTypes.addField(typeSpec);
+        }
+
+        return fieldTypes.build();
+    }
+
+    private static TypeSpec convertToTypeSpec(RelDataType type) {
+        boolean simpleType = type instanceof BasicSqlType;
+        boolean nullable = type.isNullable();
+
+        if (type instanceof IgniteCustomType) {
+            NativeType nativeType = IgniteTypeFactory.relDataTypeToNative(type);
+            return RowSchemaTypes.nativeTypeWithNullability(nativeType, nullable);
+        } else if (SqlTypeName.ANY == type.getSqlTypeName()) {
+            // TODO: After https://issues.apache.org/jira/browse/IGNITE-19096 is fixed
+            //  it should be possible to remove branch.
+            // TODO Some JSON functions that return ANY as well : https://issues.apache.org/jira/browse/IGNITE-20163
+            return new BaseTypeSpec(null, nullable);
+        } else if (SqlTypeUtil.isNull(type)) {
+            return RowSchemaTypes.NULL;
+        } else if (simpleType) {
+            NativeType nativeType = IgniteTypeFactory.relDataTypeToNative(type);
+            return RowSchemaTypes.nativeTypeWithNullability(nativeType, nullable);
+        } else if (type instanceof IntervalSqlType) {
+            IntervalSqlType intervalType = (IntervalSqlType) type;
+            boolean yearMonth = intervalType.getIntervalQualifier().isYearMonth();
+
+            if (yearMonth) {
+                // YEAR MONTH interval is stored as number of days in ints.
+                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.INT32, nullable);
+            } else {
+                // DAY interval is stored as time as long.
+                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.INT64, nullable);
+            }
+        } else if (SqlTypeUtil.isRow(type)) {
+            List<TypeSpec> fields = new ArrayList<>();
+
+            for (RelDataTypeField field : type.getFieldList()) {
+                TypeSpec fieldTypeSpec = convertToTypeSpec(field.getType());
+                fields.add(fieldTypeSpec);
+            }
+
+            return new RowType(fields, type.isNullable());
+
+        } else if (SqlTypeUtil.isMap(type) || SqlTypeUtil.isMultiset(type))  {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-20162
+            //  Add collection types support
+            throw new IllegalArgumentException("Collection types is not supported: " + type);
+        } else if (SqlTypeUtil.isArray(type) || type instanceof JavaType) {
+            // TODO Remove after is fixed https://issues.apache.org/jira/browse/IGNITE-19992
+            //  Move SqlTypeUtil.isArray(type) to collections type support branch.
+            return new BaseTypeSpec(null, true);
+        } else {
+            throw new IllegalArgumentException("Unexpected type: " + type);
         }
     }
 }

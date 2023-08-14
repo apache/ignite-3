@@ -26,6 +26,7 @@ import io.netty.channel.ChannelHandlerContext;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -44,7 +45,6 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeStartRespons
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Recovery protocol handshake manager for a server.
@@ -90,6 +90,8 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** Used to detect that a peer uses a stale ID. */
     private final StaleIdDetector staleIdDetector;
 
+    private final AtomicBoolean stopping;
+
     /** Recovery descriptor. */
     private RecoveryDescriptor recoveryDescriptor;
 
@@ -102,6 +104,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
      * @param consistentId Consistent id.
      * @param messageFactory Message factory.
      * @param recoveryDescriptorProvider Recovery descriptor provider.
+     * @param stopping Defines whether the corresponding connection manager is stopping.
      */
     public RecoveryServerHandshakeManager(
             UUID launchId,
@@ -109,13 +112,15 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             NetworkMessagesFactory messageFactory,
             RecoveryDescriptorProvider recoveryDescriptorProvider,
             StaleIdDetector staleIdDetector,
-            ChannelCreationListener channelCreationListener
+            ChannelCreationListener channelCreationListener,
+            AtomicBoolean stopping
     ) {
         this.launchId = launchId;
         this.consistentId = consistentId;
         this.messageFactory = messageFactory;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
         this.staleIdDetector = staleIdDetector;
+        this.stopping = stopping;
 
         this.handshakeCompleteFuture.whenComplete((nettySender, throwable) -> {
             if (throwable != null) {
@@ -177,12 +182,20 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         if (message instanceof HandshakeRejectedMessage) {
             HandshakeRejectedMessage msg = (HandshakeRejectedMessage) message;
 
-            LOG.warn("Handshake rejected by client: {}", msg.reason());
+            boolean ignorable = stopping.get() || !msg.critical();
+
+            if (ignorable) {
+                LOG.debug("Handshake rejected by client: {}", msg.reason());
+            } else {
+                LOG.warn("Handshake rejected by client: {}", msg.reason());
+            }
 
             handshakeCompleteFuture.completeExceptionally(new HandshakeException(msg.reason()));
 
-            // TODO: IGNITE-16899 Perhaps we need to fail the node by FailureHandler
-            failureHandler.handleFailure(new IgniteException("Handshake rejected by client: " + msg.reason()));
+            if (!ignorable) {
+                // TODO: IGNITE-16899 Perhaps we need to fail the node by FailureHandler
+                failureHandler.handleFailure(new IgniteException("Handshake rejected by client: " + msg.reason()));
+            }
 
             return;
         }
@@ -204,6 +217,12 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
 
         if (staleIdDetector.isIdStale(remoteLaunchId.toString())) {
             handleStaleClientId(message);
+
+            return;
+        }
+
+        if (stopping.get()) {
+            handleRefusalToEstablishConnectionDueToStopping(message);
 
             return;
         }
@@ -247,9 +266,25 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     private void handleStaleClientId(HandshakeStartResponseMessage msg) {
         String reason = msg.consistentId() + ":" + msg.launchId() + " is stale, client should be restarted to be allowed to connect";
         HandshakeRejectedMessage rejectionMessage = messageFactory.handshakeRejectedMessage()
+                .critical(true)
                 .reason(reason)
                 .build();
 
+        sendHandshakeRejectedMessage(rejectionMessage, reason);
+    }
+
+    private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartResponseMessage msg) {
+        String reason = msg.consistentId() + ":" + msg.launchId() + " tried to establish a connection with " + consistentId
+                + ", but it's stopping";
+        HandshakeRejectedMessage rejectionMessage = messageFactory.handshakeRejectedMessage()
+                .critical(false)
+                .reason(reason)
+                .build();
+
+        sendHandshakeRejectedMessage(rejectionMessage, reason);
+    }
+
+    private void sendHandshakeRejectedMessage(HandshakeRejectedMessage rejectionMessage, String reason) {
         ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(rejectionMessage, emptyList(), false));
 
         NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
@@ -330,10 +365,5 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         this.ctx.pipeline().remove(this.handler);
 
         handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, remoteChannelId));
-    }
-
-    @TestOnly
-    public RecoveryDescriptor recoveryDescriptor() {
-        return recoveryDescriptor;
     }
 }

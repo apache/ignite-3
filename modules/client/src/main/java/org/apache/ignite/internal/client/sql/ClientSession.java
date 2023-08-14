@@ -34,8 +34,8 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
+import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -47,7 +47,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client SQL session.
  */
-public class ClientSession implements Session {
+public class ClientSession implements AbstractSession {
     private static final Mapper<SqlRow> sqlRowMapper = () -> SqlRow.class;
 
     private final ReliableChannel ch;
@@ -158,6 +158,8 @@ public class ClientSession implements Session {
             w.out().packString(clientStatement.query());
 
             w.out().packObjectArrayAsBinaryTuple(arguments);
+
+            w.out().packLong(ch.observableTimestamp());
         };
 
         PayloadReader<AsyncResultSet<T>> payloadReader = r -> new ClientAsyncResultSet<>(r.clientChannel(), r.in(), mapper);

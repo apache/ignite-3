@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -57,17 +58,17 @@ public interface CatalogService {
 
     Collection<CatalogIndexDescriptor> indexes(int catalogVersion);
 
-    CatalogSchemaDescriptor schema(int version);
+    @Nullable CatalogSchemaDescriptor schema(int version);
 
-    CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
+    @Nullable CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
 
     CatalogZoneDescriptor zone(String zoneName, long timestamp);
 
     CatalogZoneDescriptor zone(int zoneId, long timestamp);
 
-    CatalogSchemaDescriptor activeSchema(long timestamp);
+    @Nullable CatalogSchemaDescriptor activeSchema(long timestamp);
 
-    CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
+    @Nullable CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
 
     int activeCatalogVersion(long timestamp);
 
@@ -77,6 +78,13 @@ public interface CatalogService {
      * <p>NOTE: This method should only be used at the start of components that may be removed or moved in the future.
      */
     int latestCatalogVersion();
+
+    /**
+     * Returns a future, which completes, when catalog of given version will be available.
+     *
+     * @param version Catalog version to wait for.
+     */
+    CompletableFuture<Void> catalogReadyFuture(int version);
 
     void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
 }

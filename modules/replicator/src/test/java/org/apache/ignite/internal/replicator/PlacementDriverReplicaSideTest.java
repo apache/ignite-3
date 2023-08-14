@@ -50,6 +50,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,8 +62,8 @@ import org.junit.jupiter.api.Test;
 public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     private static final ReplicationGroupId GRP_ID = new TestReplicationGroupId("group_1");
 
-    private static final ClusterNode LOCAL_NODE = new ClusterNode("id0", "name0", new NetworkAddress("localhost", 1234));
-    private static final ClusterNode ANOTHER_NODE = new ClusterNode("id1", "name`", new NetworkAddress("localhost", 2345));
+    private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id0", "name0", new NetworkAddress("localhost", 1234));
+    private static final ClusterNode ANOTHER_NODE = new ClusterNodeImpl("id1", "name`", new NetworkAddress("localhost", 2345));
 
     private static final PlacementDriverMessagesFactory MSG_FACTORY = new PlacementDriverMessagesFactory();
 
