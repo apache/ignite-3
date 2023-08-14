@@ -184,6 +184,18 @@ public class SchemaValidationTest : IgniteTestsBase
     }
 
     [Test]
+    public void TestDuplicateTupleFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestKvDuplicateTupleFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
     public void TestUnmappedPocoFields()
     {
         var poco = new PocoUnmapped(1, "x", "y");
@@ -286,6 +298,12 @@ public class SchemaValidationTest : IgniteTestsBase
             "and 'Apache.Ignite.Tests.Table.SchemaValidationTest+PocoNoMatchingFields' to columns 'Int64 KEY, String VAL'. " +
             "Matching fields not found.",
             ex!.Message);
+    }
+
+    [Test]
+    public void TestKvDuplicatePocoFields()
+    {
+        Assert.Fail("TODO");
     }
 
     // ReSharper disable NotAccessedPositionalProperty.Local
