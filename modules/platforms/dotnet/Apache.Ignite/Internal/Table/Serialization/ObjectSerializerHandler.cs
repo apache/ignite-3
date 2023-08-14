@@ -436,7 +436,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (fields.Count > mappedCount)
             {
-                var extraColumns = new HashSet<string>(fields.Count);
+                var extraColumns = new HashSet<string>(fields.Count, StringComparer.OrdinalIgnoreCase);
 
                 foreach (var field in fields)
                 {
@@ -470,7 +470,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (keyFields.Count + valFields.Count > mappedCount)
             {
-                var extraColumns = new HashSet<string>(keyFields.Count + valFields.Count);
+                var extraColumns = new HashSet<string>(keyFields.Count + valFields.Count, StringComparer.OrdinalIgnoreCase);
 
                 foreach (var field in keyFields)
                 {
