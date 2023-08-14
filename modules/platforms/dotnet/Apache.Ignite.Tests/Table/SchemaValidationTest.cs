@@ -17,10 +17,95 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using NUnit.Framework;
+
 /// <summary>
 /// Tests client-side schema validation.
 /// Client is responsible for unmapped column checks.
 /// </summary>
 public class SchemaValidationTest
 {
+    [Test]
+    public void TestUnmappedTupleFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestKvUnmappedKeyTupleFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestKvUnmappedValTupleFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestMissingKeyTupleFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestMissingValTupleFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestKvMissingKeyTupleFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestKvMissingValTupleFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestUnmappedPocoFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestKvUnmappedKeyPocoFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestKvUnmappedValPocoFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestMissingKeyPocoFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestMissingValPocoFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestKvMissingKeyPocoFields()
+    {
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public void TestKvMissingValPocoFields()
+    {
+        Assert.Fail("TODO");
+    }
 }
