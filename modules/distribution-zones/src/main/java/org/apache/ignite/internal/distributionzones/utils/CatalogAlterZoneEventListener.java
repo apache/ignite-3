@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.utils;
+package org.apache.ignite.internal.distributionzones.utils;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -97,10 +97,6 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
 
         addFuture(futures, onZoneUpdate(parameters, oldZone));
 
-        if (!newZone.name().equals(oldZone.name())) {
-            addFuture(futures, onZoneRename(parameters, oldZone.name()));
-        }
-
         if (newZone.partitions() != oldZone.partitions()) {
             addFuture(futures, onPartitionsUpdate(parameters, oldZone.partitions()));
         }
@@ -136,17 +132,6 @@ public class CatalogAlterZoneEventListener implements EventListener<AlterZoneEve
      * @return Future that signifies the end of the callback execution.
      */
     protected CompletableFuture<Void> onZoneUpdate(AlterZoneEventParameters parameters, CatalogZoneDescriptor oldZone) {
-        return completedFuture(null);
-    }
-
-    /**
-     * Called when a zone change via {@link CatalogManager#renameZone(RenameZoneParams)}}.
-     *
-     * @param parameters Zone update parameters.
-     * @param oldName Old value.
-     * @return Future that signifies the end of the callback execution.
-     */
-    protected CompletableFuture<Void> onZoneRename(AlterZoneEventParameters parameters, String oldName) {
         return completedFuture(null);
     }
 
