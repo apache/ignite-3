@@ -116,9 +116,9 @@ public class FileTransferServiceImpl implements FileTransferService {
     private final Map<Short, FileConsumer<Identifier>> metadataToConsumer = new ConcurrentHashMap<>();
 
     /**
-     * Map of download requests.
+     * Map of download requests consumers.
      */
-    private final Map<UUID, DownloadRequestConsumer> downloadRequests = new ConcurrentHashMap<>();
+    private final Map<UUID, DownloadRequestConsumer> transferIdToConsumer = new ConcurrentHashMap<>();
 
     /**
      * File transfer factory.
@@ -268,12 +268,13 @@ public class FileTransferServiceImpl implements FileTransferService {
                 })
                 .thenComposeAsync(ignored -> uploadedFiles, executorService)
                 .handleAsync((files, e) -> {
-                    if (e != null && downloadRequests.containsKey(transferId)) {
-                        downloadRequests.get(transferId).onError(e);
+                    if (e != null && transferIdToConsumer.containsKey(transferId)) {
+                        transferIdToConsumer.get(transferId).onError(e);
                         return failedFuture(e);
                     } else {
-                        FileConsumer<Identifier> consumer =
-                                downloadRequests.containsKey(transferId) ? downloadRequests.get(transferId) : getFileConsumer(identifier);
+                        FileConsumer<Identifier> consumer = transferIdToConsumer.containsKey(transferId)
+                                ? transferIdToConsumer.get(transferId)
+                                : getFileConsumer(identifier);
                         return consumer.consume(identifier, files);
                     }
                 }, executorService)
@@ -424,9 +425,9 @@ public class FileTransferServiceImpl implements FileTransferService {
                 .build();
 
         CompletableFuture<List<Path>> downloadedFiles = new CompletableFuture<List<Path>>()
-                .whenComplete((v, e) -> downloadRequests.remove(transferId));
+                .whenComplete((v, e) -> transferIdToConsumer.remove(transferId));
 
-        downloadRequests.put(transferId, new DownloadRequestConsumer(downloadedFiles, targetDir));
+        transferIdToConsumer.put(transferId, new DownloadRequestConsumer(downloadedFiles, targetDir));
 
         messagingService.invoke(sourceNodeConsistentId, FILE_TRANSFER_CHANNEL, downloadRequest, responseTimeout)
                 .thenApply(FileDownloadResponse.class::cast)
