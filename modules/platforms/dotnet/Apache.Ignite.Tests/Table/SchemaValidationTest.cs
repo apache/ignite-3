@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Table;
 
 using System;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Ignite.Table;
 using NUnit.Framework;
@@ -342,6 +343,7 @@ public class SchemaValidationTest : IgniteTestsBase
         public int GetOrdinal(string name) => name == "KEY" ? 0 : 1;
     }
 
+    [SuppressMessage("ReSharper", "UnusedMember.Local", Justification = "Reviewed")]
     private class DuplicateFieldPoco
     {
         public long Key { get; set; }
