@@ -186,7 +186,14 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestUnmappedPocoFields()
     {
-        Assert.Fail("TODO");
+        var poco = new PocoUnmapped(1, "x", "y");
+
+        var ex = Assert.ThrowsAsync<ArgumentException>(
+            async () => await Table.GetRecordView<PocoUnmapped>().UpsertAsync(null, poco));
+        StringAssert.StartsWith(
+            "Record of type Apache.Ignite.Tests.Table.SchemaValidationTest+PocoUnmapped doesn't match schema: " +
+            "schemaVersion=1, extraColumns=Foo, Bar",
+            ex!.Message);
     }
 
     [Test]
@@ -236,4 +243,6 @@ public class SchemaValidationTest : IgniteTestsBase
     {
         Assert.Fail("TODO");
     }
+
+    private record PocoUnmapped(long Key, string? Foo, string? Bar);
 }
