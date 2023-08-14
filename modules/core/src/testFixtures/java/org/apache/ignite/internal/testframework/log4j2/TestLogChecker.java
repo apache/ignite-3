@@ -69,7 +69,11 @@ public class TestLogChecker {
      **/
     public static TestLogChecker create(String loggerName, boolean started) {
         TestLogChecker checker = new TestLogChecker(loggerName);
-        checker.start();
+
+        if (started) {
+            checker.start();
+        }
+
         return checker;
     }
 

@@ -136,9 +136,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     void createCluster(TestInfo testInfo) {
         cluster = new Cluster(testInfo, workDir, NODE_BOOTSTRAP_CFG);
 
-        replicatorLogger = TestLogChecker.create(Replicator.class);
-
-        replicatorLogger.start();
+        replicatorLogger = TestLogChecker.create(Replicator.class, true);
     }
 
     @AfterEach
