@@ -134,7 +134,7 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
             }
 
             throw new ArgumentException(
-                $"Tuple doesn't match schema: schemaVersion={schema.Version}, extraColumns={extraColumns.StringJoin()}",
+                $"Tuple pair doesn't match schema: schemaVersion={schema.Version}, extraColumns={extraColumns.StringJoin()}",
                 nameof(record));
         }
     }
