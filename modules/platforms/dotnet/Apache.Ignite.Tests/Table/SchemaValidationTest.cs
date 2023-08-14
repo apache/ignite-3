@@ -265,7 +265,14 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestMissingAllPocoFields()
     {
-        Assert.Fail("TODO");
+        var ex = Assert.ThrowsAsync<ArgumentException>(
+            async () => await TableRequiredVal.GetRecordView<PocoNoMatchingFields>()
+                .UpsertAsync(null, new PocoNoMatchingFields("x", 1)));
+
+        Assert.AreEqual(
+            "Can't map 'Apache.Ignite.Tests.Table.SchemaValidationTest+PocoNoMatchingFields' to columns 'Int64 KEY, String VAL'. " +
+            "Matching fields not found.",
+            ex!.Message);
     }
 
     [Test]
@@ -276,4 +283,6 @@ public class SchemaValidationTest : IgniteTestsBase
 
     // ReSharper disable NotAccessedPositionalProperty.Local
     private record PocoUnmapped(long Key, string? Foo, string? Bar);
+
+    private record PocoNoMatchingFields(string Name, int Age);
 }
