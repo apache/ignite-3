@@ -34,7 +34,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Test class for {@link JdbcQueryCursor}.
  */
-public class JdbcQueryCursorTest {
+public class JdbcQueryCursorSelfTest {
     private static final List<Integer> ROWS = List.of(1, 2, 3);
 
     private static final int TOTAL_ROWS_COUNT = ROWS.size();
@@ -58,7 +58,7 @@ public class JdbcQueryCursorTest {
         assertEquals(ROWS, results);
     }
 
-    private List<Integer> fetchFullBatch(int maxRows, int fetchSize) {
+    private static List<Integer> fetchFullBatch(int maxRows, int fetchSize) {
         JdbcQueryCursor<Integer> cursor = new JdbcQueryCursor<>(maxRows,
                 new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, null,
                         new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run)));
