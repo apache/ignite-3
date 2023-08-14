@@ -296,7 +296,7 @@ public class PlatformTestNodeRunner {
                 .tableName(TABLE_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name(keyCol).type(org.apache.ignite.sql.ColumnType.INT64).build(),
-                        ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.STRING).length(0).nullable(true).build()
+                        ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.STRING).nullable(true).build()
                 ))
                 .primaryKeyColumns(List.of(keyCol))
                 .build();
