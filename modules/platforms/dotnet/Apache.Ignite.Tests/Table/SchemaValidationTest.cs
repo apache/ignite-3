@@ -124,9 +124,7 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestKvMissingKeyTupleFields()
     {
-        var keyTuple = new IgniteTuple
-        {
-        };
+        var keyTuple = new IgniteTuple();
 
         var valTuple = new IgniteTuple
         {
@@ -140,7 +138,17 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestKvMissingValTupleFields()
     {
-        Assert.Fail("TODO");
+        var keyTuple = new IgniteTuple
+        {
+            [KeyCol] = 1L
+        };
+
+        var valTuple = new IgniteTuple();
+
+        var ex = Assert.ThrowsAsync<IgniteException>(
+            async () => await TableRequiredVal.KeyValueBinaryView.PutAsync(null, keyTuple, valTuple));
+        StringAssert.StartsWith("Failed to set column (null was passed, but column is not null", ex!.Message);
+        StringAssert.Contains("name=VAL", ex.Message);
     }
 
     [Test]
