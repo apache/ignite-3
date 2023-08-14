@@ -47,17 +47,10 @@ public abstract class Marshaller {
             @NotNull Mapper<T> mapper,
             boolean requireAllFields,
             boolean allowUnmappedFields) {
-        if (mapper instanceof OneColumnMapper) {
-            // Check a special case for key-only tables (i.e. views with Void value types)
-            if (cols.length == 0) {
-                if (mapper.targetType() == Void.class) {
-                    return new NoOpMarshaller();
-                } else {
-                    throw new IllegalArgumentException("Table is declared as key-only");
-                }
-            } else {
-                return simpleMarshaller(cols, (OneColumnMapper<T>) mapper);
-            }
+        if (mapper.targetType() == Void.class) {
+            return new NoOpMarshaller();
+        } else if (mapper instanceof OneColumnMapper) {
+            return simpleMarshaller(cols, (OneColumnMapper<T>) mapper);
         } else if (mapper instanceof PojoMapper) {
             return pojoMarshaller(cols, (PojoMapper<T>) mapper, requireAllFields, allowUnmappedFields);
         } else {
