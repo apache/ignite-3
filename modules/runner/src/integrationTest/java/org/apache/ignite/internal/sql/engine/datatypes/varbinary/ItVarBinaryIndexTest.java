@@ -31,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.util.VarBinary;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -104,9 +105,10 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
 
     private static Stream<Arguments> indexChecks() {
         return Stream.of(
-                Arguments.of("T", ValueMode.LITERAL),
-                //Arguments.of("T", ValueMode.CAST), duplicates a test case defined in the base class.
-                Arguments.of("T", ValueMode.CAST_WITH_PRECISION),
+                Arguments.of(Named.of("VARBINARY_DEFAULT_LENGTH", "T"), ValueMode.LITERAL),
+                //Arguments.of(Named.of("VARBINARY_DEFAULT_LENGTH", "T"), ValueMode.CAST),
+                // duplicates a test case defined in the base class.
+                Arguments.of(Named.of("VARBINARY_DEFAULT_LENGTH", "T"), ValueMode.CAST_WITH_PRECISION),
 
                 Arguments.of("VARBINARY_FIXED_LENGTH", ValueMode.LITERAL),
                 Arguments.of("VARBINARY_FIXED_LENGTH", ValueMode.CAST),
