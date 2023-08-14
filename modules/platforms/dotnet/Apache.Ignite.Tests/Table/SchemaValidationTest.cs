@@ -17,18 +17,30 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System;
+using System.Threading.Tasks;
+using Ignite.Table;
 using NUnit.Framework;
 
 /// <summary>
 /// Tests client-side schema validation.
 /// Client is responsible for unmapped column checks.
 /// </summary>
-public class SchemaValidationTest
+public class SchemaValidationTest : IgniteTestsBase
 {
     [Test]
     public void TestUnmappedTupleFields()
     {
-        Assert.Fail("TODO");
+        var igniteTuple = new IgniteTuple
+        {
+            [KeyCol] = 1L,
+            [ValCol] = "v",
+            ["foo"] = "abc",
+            ["bar"] = null
+        };
+
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () => await TupleView.UpsertAsync(null, igniteTuple));
+        StringAssert.StartsWith("Tuple doesn't match schema: schemaVersion=1, extraColumns=FOO, BAR ", ex!.Message);
     }
 
     [Test]
