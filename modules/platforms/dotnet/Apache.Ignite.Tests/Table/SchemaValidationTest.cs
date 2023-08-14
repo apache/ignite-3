@@ -186,7 +186,11 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestDuplicateTupleFields()
     {
-        Assert.Fail("TODO");
+        var tuple = new DuplicateFieldTuple();
+
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () => await Table.RecordBinaryView.UpsertAsync(null, tuple));
+
+        Assert.AreEqual("TODO", ex!.Message);
     }
 
     [Test]
@@ -310,4 +314,25 @@ public class SchemaValidationTest : IgniteTestsBase
     private record PocoUnmapped(long Key, string? Foo, string? Bar);
 
     private record PocoNoMatchingFields(string Name, int Age);
+
+    private class DuplicateFieldTuple : IIgniteTuple
+    {
+        public int FieldCount => 2;
+
+        public object? this[int ordinal]
+        {
+            get => ordinal == 0 ? 1L : "1";
+            set {}
+        }
+
+        public object? this[string name]
+        {
+            get => name == "key" ? 1L : "1";
+            set {}
+        }
+
+        public string GetName(int ordinal) => ordinal == 0 ? "key" : "val";
+
+        public int GetOrdinal(string name) => 1;
+    }
 }
