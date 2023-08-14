@@ -198,7 +198,7 @@ public class SchemaValidationTest : IgniteTestsBase
         var tuple = new DuplicateFieldTuple();
 
         var ex = Assert.ThrowsAsync<ArgumentException>(async () => await Table.KeyValueBinaryView.PutAsync(null, tuple, tuple));
-        StringAssert.StartsWith("Duplicate column in Tuple: KEY", ex!.Message);
+        StringAssert.StartsWith("Duplicate column in Key portion of KeyValue pair: KEY", ex!.Message);
     }
 
     [Test]
