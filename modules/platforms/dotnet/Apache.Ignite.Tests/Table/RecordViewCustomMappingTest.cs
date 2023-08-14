@@ -21,6 +21,7 @@
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Local
 namespace Apache.Ignite.Tests.Table;
 
+using System;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Threading.Tasks;
 using Ignite.Table;
@@ -79,15 +80,13 @@ public class RecordViewCustomMappingTest : IgniteTestsBase
     [Test]
     public void TestComputedPropertyMappingThrowsException()
     {
-        var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
             await Table.GetRecordView<ComputedPropertyMapping>().GetAsync(null, new ComputedPropertyMapping { Id = Key }));
-
-        Assert.AreEqual(ErrorGroups.Client.Configuration, ex!.Code);
 
         Assert.AreEqual(
             "Can't map 'Apache.Ignite.Tests.Table.RecordViewCustomMappingTest+ComputedPropertyMapping' to columns" +
             " 'Int64 KEY, String VAL'. Matching fields not found.",
-            ex.Message);
+            ex!.Message);
     }
 
     [Test]
