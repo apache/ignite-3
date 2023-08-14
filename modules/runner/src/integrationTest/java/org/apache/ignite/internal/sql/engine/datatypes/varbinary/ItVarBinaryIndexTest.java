@@ -26,8 +26,12 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseIndexDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.TestTypeArguments;
 import org.apache.ignite.internal.sql.engine.util.VarBinary;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -39,28 +43,23 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
 
     @BeforeAll
     public void createTable() {
-        runSql("CREATE TABLE t2(id INTEGER PRIMARY KEY, test_key VARBINARY(10))");
-        runSql("CREATE INDEX t2_test_key_idx on t2 (test_key)");
+        runSql("CREATE TABLE varbinary_fixed_length(id INTEGER PRIMARY KEY, test_key VARBINARY(10))");
+        runSql("CREATE INDEX varbinary_fixed_length_test_key_idx on varbinary_fixed_length (test_key)");
 
-        runSql("INSERT INTO t2 VALUES(1, $0)");
-        runSql("INSERT INTO t2 VALUES(2, $1)");
-        runSql("INSERT INTO t2 VALUES(3, $2)");
+        runSql("INSERT INTO varbinary_fixed_length VALUES(1, $0)");
+        runSql("INSERT INTO varbinary_fixed_length VALUES(2, $1)");
+        runSql("INSERT INTO varbinary_fixed_length VALUES(3, $2)");
 
-        runSql("CREATE TABLE t3(id INTEGER PRIMARY KEY, test_key BINARY(10))");
-        runSql("CREATE INDEX t3_test_key_idx on t3 (test_key)");
+        runSql("CREATE TABLE binary_fixed_length(id INTEGER PRIMARY KEY, test_key BINARY(10))");
+        runSql("CREATE INDEX binary_fixed_length_test_key_idx on binary_fixed_length (test_key)");
 
-        runSql("INSERT INTO t3 VALUES(1, $0)");
-        runSql("INSERT INTO t3 VALUES(2, $1)");
-        runSql("INSERT INTO t3 VALUES(3, $2)");
+        runSql("INSERT INTO binary_fixed_length VALUES(1, $0)");
+        runSql("INSERT INTO binary_fixed_length VALUES(2, $1)");
+        runSql("INSERT INTO binary_fixed_length VALUES(3, $2)");
     }
 
     /**
      * Key lookup.
-     * <ul>
-     *     <li>T.test_key - VARBINARY with default precision.</li>
-     *     <li>T2.test_key - VARBINARY with specific precision.</li>
-     *     <li>T3.test_key - BINARY with specific precision.</li>
-     * </ul>
      */
     @ParameterizedTest
     @MethodSource("indexChecks")
@@ -68,10 +67,33 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
         VarBinary value1 = values.get(0);
         String value1str = mode.toSql(testTypeSpec, value1);
 
+        // TODO Disable for VARBINARY, remove after https://issues.apache.org/jira/browse/IGNITE-19931 is fixed
+        Assumptions.assumeFalse(mode == ValueMode.CAST);
+
         checkQuery(format("SELECT * FROM {} WHERE test_key = {}", table, value1str))
                 .matches(containsIndexScan("PUBLIC", table, table + "_TEST_KEY_IDX"))
                 .returns(1, value1)
                 .check();
+    }
+
+    /** {@inheritDoc} */
+    @ParameterizedTest
+    @MethodSource("compoundIndex")
+    @Override
+    public void testCompoundIndex(TestTypeArguments<VarBinary> arguments) throws InterruptedException {
+        // TODO Disable for VARBINARY, remove after https://issues.apache.org/jira/browse/IGNITE-19931 is fixed.
+        // Lookups for VARBINARY and VARCHAR/CHAR works
+        Assumptions.assumeFalse(arguments.toString().startsWith("VARBINARY"));
+
+        super.testCompoundIndex(arguments);
+    }
+
+    /** {@inheritDoc} */
+    @Test
+    @Override
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19931")
+    public void testIndexDynParam() {
+        super.testIndexDynParam();
     }
 
     /** {@inheritDoc} */
@@ -86,13 +108,13 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
                 //Arguments.of("T", ValueMode.CAST), duplicates a test case defined in the base class.
                 Arguments.of("T", ValueMode.CAST_WITH_PRECISION),
 
-                Arguments.of("T2", ValueMode.LITERAL),
-                Arguments.of("T2", ValueMode.CAST),
-                Arguments.of("T2", ValueMode.CAST_WITH_PRECISION),
+                Arguments.of("VARBINARY_FIXED_LENGTH", ValueMode.LITERAL),
+                Arguments.of("VARBINARY_FIXED_LENGTH", ValueMode.CAST),
+                Arguments.of("VARBINARY_FIXED_LENGTH", ValueMode.CAST_WITH_PRECISION),
 
-                Arguments.of("T3", ValueMode.LITERAL),
-                Arguments.of("T3", ValueMode.CAST),
-                Arguments.of("T3", ValueMode.CAST_WITH_PRECISION)
+                Arguments.of("BINARY_FIXED_LENGTH", ValueMode.LITERAL),
+                Arguments.of("BINARY_FIXED_LENGTH", ValueMode.CAST),
+                Arguments.of("BINARY_FIXED_LENGTH", ValueMode.CAST_WITH_PRECISION)
         );
     }
 

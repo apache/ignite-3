@@ -25,6 +25,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -231,7 +232,7 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
                 .check();
     }
 
-    private Stream<TestTypeArguments<T>> compoundIndex() {
+    public Stream<TestTypeArguments<T>> compoundIndex() {
         return TestTypeArguments.unary(testTypeSpec, dataSamples, values.get(0));
     }
 }
