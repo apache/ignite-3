@@ -237,7 +237,11 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestMissingValPocoFields()
     {
-        Assert.Fail("TODO");
+        var ex = Assert.ThrowsAsync<IgniteException>(
+            async () => await TableRequiredVal.GetKeyValueView<long, KeyPoco>().PutAsync(null, 1L, new KeyPoco()));
+
+        StringAssert.StartsWith("Failed to set column (null was passed, but column is not null", ex!.Message);
+        StringAssert.Contains("name=VAL", ex.Message);
     }
 
     [Test]
