@@ -154,13 +154,33 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestMissingAllFields()
     {
-        Assert.Fail("TODO");
+        var igniteTuple = new IgniteTuple
+        {
+            ["abc"] = "v"
+        };
+
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () => await TupleView.UpsertAsync(null, igniteTuple));
+        Assert.AreEqual("Can't map 'IgniteTuple { ABC = v }' to columns 'Int64 KEY, String VAL'. Matching fields not found.", ex!.Message);
     }
 
     [Test]
     public void TestKvMissingAllFields()
     {
-        Assert.Fail("TODO");
+        var keyTuple = new IgniteTuple
+        {
+            ["abc"] = "v"
+        };
+
+        var valTuple = new IgniteTuple
+        {
+            ["x"] = "y"
+        };
+
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () => await Table.KeyValueBinaryView.PutAsync(null, keyTuple, valTuple));
+        Assert.AreEqual(
+            "Can't map 'KvPair { Key = IgniteTuple { ABC = v }, Val = IgniteTuple { X = y } }' to columns 'Int64 KEY, String VAL'. " +
+            "Matching fields not found.",
+            ex!.Message);
     }
 
     [Test]
