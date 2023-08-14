@@ -228,8 +228,7 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestMissingKeyPocoFields()
     {
-        var ex = Assert.ThrowsAsync<IgniteException>(
-            async () => await Table.GetKeyValueView<ValPoco, string>().PutAsync(null, new ValPoco(), "x"));
+        var ex = Assert.ThrowsAsync<IgniteException>(async () => await Table.GetRecordView<ValPoco>().UpsertAsync(null, new ValPoco()));
 
         Assert.AreEqual("Missed key column: KEY", ex!.Message);
     }
@@ -238,7 +237,7 @@ public class SchemaValidationTest : IgniteTestsBase
     public void TestMissingValPocoFields()
     {
         var ex = Assert.ThrowsAsync<IgniteException>(
-            async () => await TableRequiredVal.GetKeyValueView<long, KeyPoco>().PutAsync(null, 1L, new KeyPoco()));
+            async () => await TableRequiredVal.GetRecordView<KeyPoco>().UpsertAsync(null, new KeyPoco()));
 
         StringAssert.StartsWith("Failed to set column (null was passed, but column is not null", ex!.Message);
         StringAssert.Contains("name=VAL", ex.Message);
@@ -247,13 +246,20 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestKvMissingKeyPocoFields()
     {
-        Assert.Fail("TODO");
+        var ex = Assert.ThrowsAsync<IgniteException>(
+            async () => await Table.GetKeyValueView<ValPoco, string>().PutAsync(null, new ValPoco(), "x"));
+
+        Assert.AreEqual("Missed key column: KEY", ex!.Message);
     }
 
     [Test]
     public void TestKvMissingValPocoFields()
     {
-        Assert.Fail("TODO");
+        var ex = Assert.ThrowsAsync<IgniteException>(
+            async () => await TableRequiredVal.GetKeyValueView<long, KeyPoco>().PutAsync(null, 1L, new KeyPoco()));
+
+        StringAssert.StartsWith("Failed to set column (null was passed, but column is not null", ex!.Message);
+        StringAssert.Contains("name=VAL", ex.Message);
     }
 
     [Test]
