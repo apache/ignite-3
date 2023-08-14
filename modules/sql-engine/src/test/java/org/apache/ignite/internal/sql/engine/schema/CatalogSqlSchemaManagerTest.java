@@ -178,7 +178,7 @@ public class CatalogSqlSchemaManagerTest {
 
         if (hasNativeType) {
             NativeType nativeType = c1.physicalType();
-            NativeType expectedNativeType = TypeUtils.columnType2NativeType(columnType, precision, scale);
+            NativeType expectedNativeType = TypeUtils.columnType2NativeType(columnType, precision, scale, precision);
 
             assertEquals(expectedNativeType, nativeType);
         } else {

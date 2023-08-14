@@ -91,6 +91,10 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
+        // Commit implicit transaction, if any.
+        if (implicitTx != null) {
+            implicitTx.commit();
+        }
         return dataCursor.closeAsync();
     }
 

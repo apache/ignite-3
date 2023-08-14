@@ -35,8 +35,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
@@ -256,7 +256,7 @@ public class ConfigurationRegistryTest {
     /**
      * First extended root configuration.
      */
-    @InternalConfiguration
+    @ConfigurationExtension(internal = true)
     public static class ExtendedFirstRootConfigurationSchema extends FirstRootConfigurationSchema {
         @Value(hasDefault = true)
         public String strEx = "str";
