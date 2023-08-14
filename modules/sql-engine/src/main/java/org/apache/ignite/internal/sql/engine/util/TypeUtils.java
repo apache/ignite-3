@@ -492,7 +492,7 @@ public class TypeUtils {
     }
 
     /** Converts {@link ColumnType} to corresponding {@link NativeType}. */
-    public static NativeType columnType2NativeType(ColumnType columnType, int precision, int scale) {
+    public static NativeType columnType2NativeType(ColumnType columnType, int precision, int scale, int length) {
         switch (columnType) {
             case BOOLEAN:
                 return NativeTypes.BOOLEAN;
@@ -521,11 +521,11 @@ public class TypeUtils {
             case UUID:
                 return NativeTypes.UUID;
             case BITMASK:
-                return NativeTypes.bitmaskOf(precision);
+                return NativeTypes.bitmaskOf(length);
             case STRING:
-                return NativeTypes.stringOf(precision);
+                return NativeTypes.stringOf(length);
             case BYTE_ARRAY:
-                return NativeTypes.blobOf(precision);
+                return NativeTypes.blobOf(length);
             case NUMBER:
                 return NativeTypes.numberOf(precision);
                 // fallthrough
