@@ -54,7 +54,7 @@ public class SchemaValidationTest : IgniteTestsBase
 
         var valTuple = new IgniteTuple
         {
-            [ValCol] = "v",
+            [ValCol] = "v"
         };
 
         var kvView = Table.KeyValueBinaryView;
@@ -65,7 +65,20 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestKvUnmappedValTupleFields()
     {
-        Assert.Fail("TODO");
+        var keyTuple = new IgniteTuple
+        {
+            [KeyCol] = 1L
+        };
+
+        var valTuple = new IgniteTuple
+        {
+            [ValCol] = "v",
+            ["baz"] = 0
+        };
+
+        var kvView = Table.KeyValueBinaryView;
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () => await kvView.PutAsync(null, keyTuple, valTuple));
+        StringAssert.StartsWith("Tuple pair doesn't match schema: schemaVersion=1, extraColumns=BAZ ", ex!.Message);
     }
 
     [Test]
