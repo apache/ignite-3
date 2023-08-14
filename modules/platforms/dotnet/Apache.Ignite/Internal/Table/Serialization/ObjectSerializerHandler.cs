@@ -471,8 +471,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 throw new ArgumentException($"Can't map '{keyType}' and '{valType}' to columns '{columnStr}'. Matching fields not found.");
             }
 
-            // TODO: Don't use Empty, pass single column for primitives?
-            // We need to validate <int, Poco> and similar scenarios
             var keyFields = keyType?.GetColumns() ?? Array.Empty<ReflectionUtils.ColumnInfo>();
             var valFields = valType != null && columnCount > schema.KeyColumnCount
                 ? valType.GetColumns()
