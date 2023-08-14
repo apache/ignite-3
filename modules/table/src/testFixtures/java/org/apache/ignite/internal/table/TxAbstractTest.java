@@ -1586,6 +1586,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                         } catch (Exception e) {
                             assertTrue(e.getMessage().contains("Failed to acquire a lock"), e.getMessage());
 
+                            tx.rollback();
+
                             fails.increment();
                         }
                     }
