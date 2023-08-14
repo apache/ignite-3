@@ -23,11 +23,26 @@ using Ignite.Table;
 using NUnit.Framework;
 
 /// <summary>
-/// Tests client-side schema validation.
-/// Client is responsible for unmapped column checks.
+/// Tests schema validation.
+/// <para>Client checks unmapped columns.</para>
+/// <para>Server checks missing columns.</para>
 /// </summary>
 public class SchemaValidationTest : IgniteTestsBase
 {
+    private const string TableNameRequiredVal = nameof(SchemaValidationTest);
+
+    private ITable TableRequiredVal { get; set; } = null!;
+
+    [OneTimeSetUp]
+    public async Task CreateTable()
+    {
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TableNameRequiredVal} (KEY BIGINT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+        TableRequiredVal = (await Client.Tables.GetTableAsync(TableNameRequiredVal))!;
+    }
+
+    [OneTimeTearDown]
+    public async Task DropTable() => await Client.Sql.ExecuteAsync(null, $"DROP TABLE {TableNameRequiredVal}");
+
     [Test]
     public void TestUnmappedTupleFields()
     {
@@ -84,13 +99,26 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestMissingKeyTupleFields()
     {
-        Assert.Fail("TODO");
+        var igniteTuple = new IgniteTuple
+        {
+            [ValCol] = "v"
+        };
+
+        var ex = Assert.ThrowsAsync<IgniteException>(async () => await TupleView.UpsertAsync(null, igniteTuple));
+        Assert.AreEqual("Missed key column: KEY", ex!.Message);
     }
 
     [Test]
     public void TestMissingValTupleFields()
     {
-        Assert.Fail("TODO");
+        var igniteTuple = new IgniteTuple
+        {
+            [KeyCol] = 1L
+        };
+
+        var ex = Assert.ThrowsAsync<IgniteException>(async () => await TableRequiredVal.RecordBinaryView.UpsertAsync(null, igniteTuple));
+        StringAssert.StartsWith("Failed to set column (null was passed, but column is not null", ex!.Message);
+        StringAssert.Contains("name=VAL", ex.Message);
     }
 
     [Test]
