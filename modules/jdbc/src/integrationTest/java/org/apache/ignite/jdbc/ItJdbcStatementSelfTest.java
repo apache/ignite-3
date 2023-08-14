@@ -487,7 +487,8 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
     @Test
     public void testExecuteUpdateOnDdl() throws SQLException {
-        String tableName = "\"test_" + UUID.randomUUID().toString() + "\"";
+        //TODO: IGNITE-19499 Remove conversion to uppercase.
+        String tableName = ("\"test_" + UUID.randomUUID() + "\"").toUpperCase();
 
         stmt.executeUpdate("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, val VARCHAR)");
 
