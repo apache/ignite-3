@@ -191,7 +191,7 @@ public class SchemaValidationTest : IgniteTestsBase
         var ex = Assert.ThrowsAsync<ArgumentException>(
             async () => await Table.GetRecordView<PocoUnmapped>().UpsertAsync(null, poco));
 
-        StringAssert.StartsWith(
+        Assert.AreEqual(
             "Record of type Apache.Ignite.Tests.Table.SchemaValidationTest+PocoUnmapped doesn't match schema: " +
             "schemaVersion=1, extraColumns=Foo, Bar",
             ex!.Message);
@@ -205,7 +205,7 @@ public class SchemaValidationTest : IgniteTestsBase
         var ex = Assert.ThrowsAsync<ArgumentException>(
             async () => await Table.GetKeyValueView<PocoUnmapped, string>().PutAsync(null, poco, "x"));
 
-        StringAssert.StartsWith(
+        Assert.AreEqual(
             "KeyValue pair of type (Apache.Ignite.Tests.Table.SchemaValidationTest+PocoUnmapped, ) doesn't match schema: " +
             "schemaVersion=1, extraColumns=Foo, Bar",
             ex!.Message);
@@ -214,13 +214,24 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestKvUnmappedValPocoFields()
     {
-        Assert.Fail("TODO");
+        var poco = new PocoUnmapped(1, "x", "y");
+
+        var ex = Assert.ThrowsAsync<ArgumentException>(
+            async () => await Table.GetKeyValueView<long, PocoUnmapped>().PutAsync(null, 1, poco));
+
+        Assert.AreEqual(
+            "KeyValue pair of type (, Apache.Ignite.Tests.Table.SchemaValidationTest+PocoUnmapped) doesn't match schema: " +
+            "schemaVersion=1, extraColumns=Foo, Bar",
+            ex!.Message);
     }
 
     [Test]
     public void TestMissingKeyPocoFields()
     {
-        Assert.Fail("TODO");
+        var ex = Assert.ThrowsAsync<IgniteException>(
+            async () => await Table.GetKeyValueView<ValPoco, string>().PutAsync(null, new ValPoco(), "x"));
+
+        Assert.AreEqual("Missed key column: KEY", ex!.Message);
     }
 
     [Test]
@@ -253,5 +264,6 @@ public class SchemaValidationTest : IgniteTestsBase
         Assert.Fail("TODO");
     }
 
+    // ReSharper disable NotAccessedPositionalProperty.Local
     private record PocoUnmapped(long Key, string? Foo, string? Bar);
 }
