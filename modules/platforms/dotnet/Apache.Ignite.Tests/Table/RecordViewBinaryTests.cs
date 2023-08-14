@@ -78,11 +78,8 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestUpsertEmptyTupleThrowsException()
         {
-            var ex = Assert.ThrowsAsync<IgniteException>(async () => await TupleView.UpsertAsync(null, new IgniteTuple()));
-
-            StringAssert.Contains(
-                "Missed key column: KEY",
-                ex!.Message);
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () => await TupleView.UpsertAsync(null, new IgniteTuple()));
+            StringAssert.Contains("Matching fields not found.", ex!.Message);
         }
 
         [Test]
