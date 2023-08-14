@@ -17,135 +17,63 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.TestOnly;
 
 /**
- * Ignite schema.
+ * Schema adapter for apache calcite.
  */
 public class IgniteSchema extends AbstractSchema {
-    static final int INITIAL_VERSION = -1;
 
-    private final String schemaName;
+    private final String name;
 
-    private final Map<String, Table> tblMap;
+    private final int version;
 
-    private final Map<Integer, IgniteIndex> idxMap;
+    private final Map<String, IgniteTable> tableMapByName;
+    private final Int2ObjectMap<IgniteTable> tableMapById;
 
-    private final int schemaVersion;
-
-    /**
-     * Creates a Schema with given tables and indexes.
-     *
-     * @param schemaName A name of the schema to create.
-     * @param tableMap A collection of a tables belonging to the schema.
-     * @param indexMap A collection of an indexes belonging to the schema.
-     */
-    public IgniteSchema(
-            String schemaName,
-            @Nullable Map<String, Table> tableMap,
-            @Nullable Map<Integer, IgniteIndex> indexMap,
-            int schemaVersion
-    ) {
-        this.schemaName = schemaName;
-        this.tblMap = tableMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(tableMap);
-        this.idxMap = indexMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(indexMap);
-        this.schemaVersion = schemaVersion;
+    /** Constructor. */
+    public IgniteSchema(String name, int version, Collection<IgniteTable> tables) {
+        this.name = name;
+        this.version = version;
+        this.tableMapByName = tables.stream().collect(Collectors.toMap(t -> t.name().toUpperCase(), Function.identity()));
+        this.tableMapById = tables.stream().collect(CollectionUtils.toIntMapCollector(IgniteTable::id, Function.identity()));
     }
 
-    /**
-     * Creates an empty Schema.
-     *
-     * @param schemaName A name of the schema to create.
-     */
-    public IgniteSchema(String schemaName) {
-        this(schemaName, null, null, INITIAL_VERSION);
+    /** Constructor. */
+    @TestOnly
+    public IgniteSchema(String name) {
+        this(name, 0, List.of());
     }
 
-    /**
-     * Creates an empty Schema.
-     *
-     * @param schemaName A name of the schema to create.
-     */
-    public IgniteSchema(String schemaName, int schemaVersion) {
-        this(schemaName, null, null, schemaVersion);
-    }
 
-    public static IgniteSchema copy(IgniteSchema old, int schemaVersion) {
-        return new IgniteSchema(old.schemaName, old.tblMap, old.idxMap, schemaVersion);
-    }
-
-    /**
-     * Get schema name.
-     *
-     * @return Schema name.
-     */
+    /** Schema name. */
     public String getName() {
-        return schemaName;
+        return name;
+    }
+
+    /** Schema version. */
+    public int version() {
+        return version;
     }
 
     /** {@inheritDoc} */
     @Override
     protected Map<String, Table> getTableMap() {
-        return Collections.unmodifiableMap(tblMap);
+        return Collections.unmodifiableMap(tableMapByName);
     }
 
-    /**
-     * Add table.
-     *
-     * @param tbl Table.
-     */
-    public void addTable(IgniteTable tbl) {
-        tblMap.put(tbl.name(), tbl);
-    }
-
-    /**
-     * Remove table.
-     *
-     * @param tblName Table name.
-     */
-    public void removeTable(String tblName) {
-        tblMap.remove(tblName);
-    }
-
-    /**
-     * Add index.
-     *
-     * @param indexId Index id.
-     * @param index Index.
-     */
-    public void addIndex(int indexId, IgniteIndex index) {
-        idxMap.put(indexId, index);
-    }
-
-    /**
-     * Remove index.
-     *
-     * @param indexId Index id.
-     * @return Removed index.
-     */
-    public IgniteIndex removeIndex(int indexId) {
-        return idxMap.remove(indexId);
-    }
-
-    /**
-     * Gets index by id.
-     *
-     * @param indexId Index id.
-     * @return Index.
-     */
-    public IgniteIndex index(int indexId) {
-        return idxMap.get(indexId);
-    }
-
-    /**
-     * Return actual schema version.
-     */
-    public int schemaVersion() {
-        return schemaVersion;
+    /** Returns table by given id. */
+    public IgniteTable getTable(int tableId) {
+        return tableMapById.get(tableId);
     }
 }

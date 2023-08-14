@@ -370,7 +370,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         // With aliases, reference columns by table alias.
         sql("MERGE INTO test2 test1 USING test1 test2 ON test1.d = test2.b "
                 + "WHEN MATCHED THEN UPDATE SET a = test1.a + 1 "
-                + "WHEN NOT MATCHED THEN INSERT (a, d, e) VALUES (test2.a, test2.b, test2.c)");
+                + "WHEN NOT MATCHED THEN INSERT (k, a, d, e) VALUES (test2.k, test2.a, test2.b, test2.c)");
 
         assertQuery("SELECT * FROM test2").returns(1, 2, 0, "0").check();
     }

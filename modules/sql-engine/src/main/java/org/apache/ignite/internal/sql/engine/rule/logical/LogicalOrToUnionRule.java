@@ -39,7 +39,6 @@ import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -139,8 +138,7 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
         BitSet idxsFirstFields = new BitSet(fieldCnt);
 
         for (IgniteIndex idx : tbl.indexes().values()) {
-            List<RelFieldCollation> fieldCollations = TraitUtils.createCollation(idx.columns(), idx.collations(), tbl.descriptor())
-                    .getFieldCollations();
+            List<RelFieldCollation> fieldCollations = idx.collation().getFieldCollations();
 
             if (!CollectionUtils.nullOrEmpty(fieldCollations)) {
                 idxsFirstFields.set(fieldCollations.get(0).getFieldIndex());

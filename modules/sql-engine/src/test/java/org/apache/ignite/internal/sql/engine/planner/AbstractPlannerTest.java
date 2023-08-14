@@ -75,6 +75,7 @@ import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.index.Index;
@@ -616,13 +617,18 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * @return Public schema.
      */
     protected static IgniteSchema createSchema(IgniteTable... tbls) {
-        IgniteSchema schema = new IgniteSchema("PUBLIC");
+        return createSchema(CatalogService.DEFAULT_SCHEMA_NAME, tbls);
+    }
 
-        for (IgniteTable tbl : tbls) {
-            schema.addTable(tbl);
-        }
-
-        return schema;
+    /**
+     * Creates schema with given name from provided tables.
+     *
+     * @param schemaName Schema name.
+     * @param tbls Tables to create schema for.
+     * @return Schema with given name.
+     */
+    protected static IgniteSchema createSchema(String schemaName, IgniteTable... tbls) {
+        return new IgniteSchema(schemaName, 0, Arrays.asList(tbls));
     }
 
     protected void checkSplitAndSerialization(IgniteRel rel, IgniteSchema publicSchema) {
@@ -700,7 +706,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                         return false;
                     }
 
-                    if (!idxName.equals(n.indexName())) {
+                    if (!idxName.equalsIgnoreCase(n.indexName())) {
                         lastErrorMsg = "Unexpected index name [exp=" + idxName + ", act=" + n.indexName() + ']';
 
                         return false;
@@ -857,12 +863,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public int logicalIndex() {
-            return idx;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int physicalIndex() {
             return idx;
         }
 

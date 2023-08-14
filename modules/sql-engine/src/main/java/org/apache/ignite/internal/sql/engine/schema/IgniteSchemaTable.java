@@ -34,7 +34,6 @@ import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -55,11 +54,11 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
 
     private final IgniteStatistic statistic;
 
-    private final Map<String, IgniteSchemaIndex> indexMap;
+    private final Map<String, IgniteIndex> indexMap;
 
     /** Constructor. */
     public IgniteSchemaTable(String name, int tableId,  int version, TableDescriptor desc,
-            IgniteStatistic statistic, Map<String, IgniteSchemaIndex> indexMap) {
+            IgniteStatistic statistic, Map<String, IgniteIndex> indexMap) {
 
         this.id = tableId;
         this.name = name;
@@ -119,12 +118,6 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
 
     /** {@inheritDoc} */
     @Override
-    public IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
-        return toRel(cluster, relOptTbl, idxName, null, null, null);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public IgniteLogicalTableScan toRel(
             RelOptCluster cluster,
             RelOptTable relOptTbl,
@@ -136,20 +129,6 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
         RelTraitSet traitSet = cluster.traitSetOf(distribution());
 
         return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, proj, cond, requiredColumns);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteLogicalIndexScan toRel(
-            RelOptCluster cluster,
-            RelOptTable relOptTable,
-            String idxName,
-            List<RexNode> proj,
-            RexNode condition,
-            ImmutableBitSet requiredCols
-    ) {
-        // index related methods should only be present on index object.
-        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -186,7 +165,7 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
 
     /** {@inheritDoc} */
     @Override
-    public  <C> @Nullable C unwrap(Class<C> cls) {
+    public <C> @Nullable C unwrap(Class<C> cls) {
         if (cls.isInstance(desc)) {
             return cls.cast(desc);
         }
@@ -197,29 +176,6 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
     /** {@inheritDoc} */
     @Override
     public Map<String, IgniteIndex> indexes() {
-        throw new UnsupportedOperationException("getIndexes() should be used instead");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void addIndex(IgniteIndex idxTbl) {
-        throw new UnsupportedOperationException("IndexMap is not modifiable");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteIndex getIndex(String idxName) {
-        throw new UnsupportedOperationException("getIndexes(name) should be used instead");
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void removeIndex(String idxName) {
-        throw new UnsupportedOperationException("IndexMap is not modifiable");
-    }
-
-    /** Returns a map of indexes defined for this table. */
-    public Map<String, IgniteSchemaIndex> getIndexes() {
         return indexMap;
     }
 }

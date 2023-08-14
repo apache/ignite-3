@@ -35,7 +35,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -220,12 +219,6 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         @Override
         public @Nullable SchemaPlus schema(@Nullable String name, long timestamp) {
             return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public IgniteTable tableById(int id) {
-            throw new UnsupportedOperationException();
         }
 
         /** {@inheritDoc} */

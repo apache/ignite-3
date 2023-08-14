@@ -28,7 +28,7 @@ import java.util.Objects;
 public class CacheKey {
     static final Class<?>[] EMPTY_CLASS_ARRAY = {};
 
-    private final long catalogVersion;
+    private final int catalogVersion;
 
     private final String schemaName;
 
@@ -48,7 +48,7 @@ public class CacheKey {
      *                   LOCAL flag)
      * @param paramTypes Types of all dynamic parameters, no any type can be {@code null}.
      */
-    public CacheKey(long catalogVersion, String schemaName, String query, Object contextKey, Class<?>[] paramTypes) {
+    public CacheKey(int catalogVersion, String schemaName, String query, Object contextKey, Class<?>[] paramTypes) {
         this.catalogVersion = catalogVersion;
         this.schemaName = schemaName;
         this.query = query;
@@ -86,7 +86,7 @@ public class CacheKey {
 
     @Override
     public int hashCode() {
-        int result = Long.hashCode(catalogVersion);
+        int result = catalogVersion;
         result = 31 * result + schemaName.hashCode();
         result = 31 * result + query.hashCode();
         result = 31 * result + (contextKey != null ? contextKey.hashCode() : 0);

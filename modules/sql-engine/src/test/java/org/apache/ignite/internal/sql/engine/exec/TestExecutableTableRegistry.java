@@ -40,8 +40,13 @@ public final class TestExecutableTableRegistry implements ExecutableTableRegistr
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor) {
+    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId, TableDescriptor tableDescriptor) {
         return CompletableFuture.completedFuture(new TestExecutableTable(tableId, colocationGroupProvider));
+    }
+
+    @Override
+    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId, String tableName, TableDescriptor tableDescriptor) {
+        return this.getTable(schemaVersion, tableId, tableDescriptor);
     }
 
     private static final class TestExecutableTable implements ExecutableTable {

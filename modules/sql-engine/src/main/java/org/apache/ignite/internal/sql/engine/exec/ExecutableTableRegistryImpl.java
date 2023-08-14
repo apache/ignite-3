@@ -50,7 +50,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
     private final HybridClock clock;
 
-    final ConcurrentMap<Integer, CompletableFuture<ExecutableTable>> tableCache;
+    final ConcurrentMap<Long, CompletableFuture<ExecutableTable>> tableCache;
 
     /** Constructor. */
     public ExecutableTableRegistryImpl(TableManager tableManager, SchemaManager schemaManager,
@@ -62,19 +62,41 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         this.clock = clock;
         this.tableCache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
-                .<Integer, ExecutableTable>buildAsync().asMap();
+                .<Long, ExecutableTable>buildAsync().asMap();
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, TableDescriptor tableDescriptor) {
-        return tableCache.computeIfAbsent(tableId, (k) -> loadTable(k, tableDescriptor));
+    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId, TableDescriptor tableDescriptor) {
+        return tableCache.computeIfAbsent(cacheKey(schemaVersion, tableId), (k) -> loadTable(tableId, tableDescriptor));
+    }
+
+    // TODO IGNITE-19499: Drop this temporal method to get table by name.
+    @Override
+    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId, String tableName, TableDescriptor tableDescriptor) {
+        return tableCache.computeIfAbsent(cacheKey(schemaVersion, tableId), (k) -> loadTable(tableName, tableDescriptor));
     }
 
     /** {@inheritDoc} */
     @Override
     public void onSchemaUpdated() {
         tableCache.clear();
+    }
+
+    private CompletableFuture<ExecutableTable> loadTable(String tableName, TableDescriptor tableDescriptor) {
+        return tableManager.tableAsyncInternal(tableName.toUpperCase())
+                .thenApply(table -> {
+                    InternalTable internalTable = table.internalTable();
+                    SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(table.tableId());
+                    SchemaDescriptor schemaDescriptor = schemaRegistry.schema();
+                    TableRowConverter rowConverter = new TableRowConverterImpl(schemaRegistry, schemaDescriptor, tableDescriptor);
+                    ScannableTable scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
+
+                    UpdatableTableImpl updatableTable = new UpdatableTableImpl(table.tableId(), tableDescriptor, internalTable.partitions(),
+                            replicaService, clock, rowConverter, schemaDescriptor);
+
+                    return new ExecutableTableImpl(internalTable, scannableTable, updatableTable);
+                });
     }
 
     private CompletableFuture<ExecutableTable> loadTable(int tableId, TableDescriptor tableDescriptor) {
@@ -113,6 +135,13 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
             this.updatableTable = updatableTable;
         }
 
+        // TODO IGNITE-19499: Drop this.
+        @Deprecated(forRemoval = true)
+        @Override
+        public InternalTable internalTable() {
+            return internalTable;
+        }
+
         /** {@inheritDoc} */
         @Override
         public ScannableTable scannableTable() {
@@ -137,5 +166,9 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
                 return ColocationGroup.forAssignments(assignments);
             });
         }
+    }
+
+    private static long cacheKey(int schemaVersion, int tableId) {
+        return (((long) schemaVersion) << 32) | (tableId & 0xffff_ffffL);
     }
 }

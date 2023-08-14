@@ -222,7 +222,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
     }
 
     public int schemaVersion() {
-        return Objects.requireNonNull(schema().unwrap(IgniteSchema.class)).schemaVersion();
+        return Objects.requireNonNull(schema().unwrap(IgniteSchema.class)).version();
     }
 
     /**

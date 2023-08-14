@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -142,7 +143,7 @@ public class ExecutionServiceImplTest {
     private final TestTable table = createTable("TEST_TBL", 1_000_000, IgniteDistributions.random(),
             "ID", NativeTypes.INT32, "VAL", NativeTypes.INT32);
 
-    private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(table.name(), table), null, SCHEMA_VERSION);
+    private final IgniteSchema schema = new IgniteSchema(DEFAULT_SCHEMA_NAME, SCHEMA_VERSION, List.of(table));
 
     private final List<CapturingMailboxRegistry> mailboxes = new ArrayList<>();
 
@@ -592,8 +593,6 @@ public class ExecutionServiceImplTest {
 
         when(topologyService.localMember()).thenReturn(clusterNode);
 
-        when(schemaManagerMock.tableById(anyInt())).thenReturn(table);
-
         when(schemaManagerMock.schemaReadyFuture(isA(int.class))).thenReturn(CompletableFuture.completedFuture(null));
 
         TestExecutableTableRegistry executableTableRegistry = new TestExecutableTableRegistry();
@@ -787,7 +786,9 @@ public class ExecutionServiceImplTest {
                     MailboxRegistry mailboxRegistry,
                     ExchangeService exchangeService,
                     ResolvedDependencies deps) {
-                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(mock(SqlSchemaManager.class), ctx.rowHandler());
+                IgniteSchema schema = ctx.getRootSchema().unwrap(IgniteSchema.class);
+
+                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(schema, ctx.rowHandler());
 
                 return new LogicalRelImplementor<>(ctx, funcFactory, mailboxRegistry, exchangeService, deps) {
                     @Override
@@ -861,8 +862,7 @@ public class ExecutionServiceImplTest {
      *               String.class)}.
      * @return Instance of the {@link TestTable}.
      */
-    // TODO: copy-pasted from AbstractPlannerTest. Should be derived to an independent class.
-    protected TestTable createTable(String name, int size, IgniteDistribution distr, Object... fields) {
+    private static TestTable createTable(String name, int size, IgniteDistribution distr, Object... fields) {
         if (ArrayUtils.nullOrEmpty(fields) || fields.length % 2 != 0) {
             throw new IllegalArgumentException("'fields' should be non-null array with even number of elements");
         }
@@ -872,7 +872,7 @@ public class ExecutionServiceImplTest {
         for (int i = 0; i < fields.length; i += 2) {
             columns.add(
                     new ColumnDescriptorImpl(
-                            (String) fields[i], false, true, i, i,
+                            (String) fields[i], false, true, i,
                             (NativeType) fields[i + 1], DefaultValueStrategy.DEFAULT_NULL, null
                     )
             );
@@ -881,10 +881,9 @@ public class ExecutionServiceImplTest {
         return new TestTable(
                 new TableDescriptorImpl(columns, distr),
                 name,
-                size
-        ) {
-
-        };
+                size,
+                List.of()
+        );
     }
 
     private static class CapturingMailboxRegistry implements MailboxRegistry {

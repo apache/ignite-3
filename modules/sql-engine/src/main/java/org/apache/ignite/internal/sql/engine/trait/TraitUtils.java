@@ -58,7 +58,6 @@ import org.apache.calcite.rex.RexSlot;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -468,21 +467,6 @@ public class TraitUtils {
      */
     public static RelFieldCollation createFieldCollation(int fieldIdx) {
         return new RelFieldCollation(fieldIdx, Direction.ASCENDING, NullDirection.LAST);
-    }
-
-    /**
-     * Creates field collation.
-     */
-    public static RelFieldCollation createFieldCollation(int fieldIdx, ColumnCollation collation) {
-        RelFieldCollation.Direction direction = collation.asc()
-                ? RelFieldCollation.Direction.ASCENDING
-                : RelFieldCollation.Direction.DESCENDING;
-
-        RelFieldCollation.NullDirection nullDirection = collation.nullsFirst()
-                ? RelFieldCollation.NullDirection.FIRST
-                : RelFieldCollation.NullDirection.LAST;
-
-        return new RelFieldCollation(fieldIdx, direction, nullDirection);
     }
 
     /** Creates field collation. */
