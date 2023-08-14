@@ -15,11 +15,22 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table;
+namespace Apache.Ignite.Internal.Common;
 
-using System.ComponentModel.DataAnnotations.Schema;
+using System.Collections.Generic;
 
 /// <summary>
-/// Test user struct.
+/// Collection extensions.
 /// </summary>
-public record struct PocoStruct(long Key, string? Val, [property:NotMapped] string? UnmappedStr = null);
+internal static class CollectionExtensions
+{
+    /// <summary>
+    /// Shortcut extension method for string.Join.
+    /// </summary>
+    /// <param name="source">Source collection.</param>
+    /// <param name="separator">Separator.</param>
+    /// <typeparam name="T">Element type.</typeparam>
+    /// <returns>Resulting string.</returns>
+    public static string StringJoin<T>(this IEnumerable<T> source, string separator = ", ") =>
+        string.Join(separator, source);
+}

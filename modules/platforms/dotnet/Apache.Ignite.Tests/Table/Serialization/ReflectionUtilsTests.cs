@@ -63,8 +63,8 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestGetFieldByColumnNameThrowsExceptionForDuplicateColumnName()
         {
-            var ex1 = Assert.Throws<IgniteClientException>(() => typeof(DuplicateColumn1).GetFieldByColumnName("foo"));
-            var ex2 = Assert.Throws<IgniteClientException>(() => typeof(DuplicateColumn2).GetFieldByColumnName("foo"));
+            var ex1 = Assert.Throws<ArgumentException>(() => typeof(DuplicateColumn1).GetFieldByColumnName("foo"));
+            var ex2 = Assert.Throws<ArgumentException>(() => typeof(DuplicateColumn2).GetFieldByColumnName("foo"));
 
             var expected1 = "Column 'MyCol' maps to more than one field of type " +
                             "Apache.Ignite.Tests.Table.Serialization.ReflectionUtilsTests+DuplicateColumn1: " +

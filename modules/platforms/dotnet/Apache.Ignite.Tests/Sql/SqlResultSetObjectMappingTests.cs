@@ -222,7 +222,7 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     [Test]
     public void TestDuplicateColumnNameMappingThrowsException()
     {
-        var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
             await Client.Sql.ExecuteAsync<DuplicateColumnRec>(null, "select * from TBL_ALL_COLUMNS_SQL where key = 3"));
 
         var expected = "Column 'KEY' maps to more than one field of type " +
