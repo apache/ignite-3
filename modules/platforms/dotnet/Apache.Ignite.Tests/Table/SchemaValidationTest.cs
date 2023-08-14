@@ -129,7 +129,10 @@ public class SchemaValidationTest : IgniteTestsBase
             [ValCol] = "v"
         };
 
-        var valTuple = new IgniteTuple();
+        var valTuple = new IgniteTuple
+        {
+            ["foo"] = "v"
+        };
 
         var ex = Assert.ThrowsAsync<ArgumentException>(async () => await Table.KeyValueBinaryView.PutAsync(null, keyTuple, valTuple));
         Assert.AreEqual("Missed key column: KEY", ex!.Message);

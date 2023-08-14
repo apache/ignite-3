@@ -89,10 +89,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             if (written == 0)
             {
                 var columnStr = schema.Columns.Select(x => x.Type + " " + x.Name).StringJoin();
-
-                throw new IgniteClientException(
-                    ErrorGroups.Client.Configuration,
-                    $"Can't map '{record}' to columns '{columnStr}'. Matching fields not found.");
+                throw new ArgumentException($"Can't map '{record}' to columns '{columnStr}'. Matching fields not found.");
             }
 
             if (record.FieldCount > written)
