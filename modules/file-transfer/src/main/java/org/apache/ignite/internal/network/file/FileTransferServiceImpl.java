@@ -115,6 +115,9 @@ public class FileTransferServiceImpl implements FileTransferService {
      */
     private final Map<Short, FileConsumer<Identifier>> metadataToConsumer = new ConcurrentHashMap<>();
 
+    /**
+     * Map of download requests.
+     */
     private final Map<UUID, DownloadRequestConsumer> downloadRequests = new ConcurrentHashMap<>();
 
     /**
