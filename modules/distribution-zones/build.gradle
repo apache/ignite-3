@@ -61,6 +61,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-vault')))
     testImplementation(testFixtures(project(':ignite-storage-page-memory')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
+    testImplementation(testFixtures(project(':ignite-catalog')))
 
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.mockito.core
