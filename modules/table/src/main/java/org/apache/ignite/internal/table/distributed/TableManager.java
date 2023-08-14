@@ -1312,14 +1312,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param zoneDescriptor Catalog distributed zone descriptor.
      */
     protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-        CatalogDataStorageDescriptor dataStorage = zoneDescriptor.getDataStorage();
+        CatalogDataStorageDescriptor dataStorage = zoneDescriptor.dataStorage();
 
-        StorageEngine engine = dataStorageMgr.engine(dataStorage.getEngine());
+        StorageEngine engine = dataStorageMgr.engine(dataStorage.engine());
 
-        assert engine != null : "tableId=" + tableDescriptor.id() + ", engine=" + dataStorage.getEngine();
+        assert engine != null : "tableId=" + tableDescriptor.id() + ", engine=" + dataStorage.engine();
 
         MvTableStorage tableStorage = engine.createMvTable(
-                new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.getDataRegion()),
+                new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.dataRegion()),
                 new StorageIndexDescriptorSupplier(catalogManager)
         );
 

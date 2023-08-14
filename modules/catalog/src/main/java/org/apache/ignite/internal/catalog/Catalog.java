@@ -132,11 +132,11 @@ public class Catalog {
         return indexesById.values();
     }
 
-    public CatalogZoneDescriptor zone(String name) {
+    public @Nullable CatalogZoneDescriptor zone(String name) {
         return zonesByName.get(name);
     }
 
-    public CatalogZoneDescriptor zone(int zoneId) {
+    public @Nullable CatalogZoneDescriptor zone(int zoneId) {
         return zonesById.get(zoneId);
     }
 
