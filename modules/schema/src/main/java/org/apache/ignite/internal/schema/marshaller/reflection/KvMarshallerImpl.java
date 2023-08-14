@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
@@ -62,7 +63,34 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         valClass = valueMapper.targetType();
 
         keyMarsh = Marshaller.createMarshaller(schema.keyColumns().columns(), keyMapper, true, false);
-        valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), valueMapper, true, false);
+
+        if (schema.valueColumns().columns().length == 0) {
+            if (valClass != Void.class) {
+                throw new SchemaMismatchException("Table is defined as key-only");
+            }
+
+            valMarsh = noOpMarshaller();
+        } else {
+            valMarsh = Marshaller.createMarshaller(schema.valueColumns().columns(), valueMapper, true, false);
+        }
+    }
+
+    private static Marshaller noOpMarshaller() {
+        return new Marshaller() {
+            @Override
+            public @Nullable Object value(Object obj, int fldIdx) {
+                return null;
+            }
+
+            @Override
+            public @Nullable Object readObject(Row reader) {
+                return null;
+            }
+
+            @Override
+            public void writeObject(Object obj, RowAssembler writer) {
+            }
+        };
     }
 
     /** {@inheritDoc} */

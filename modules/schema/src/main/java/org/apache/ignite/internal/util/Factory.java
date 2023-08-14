@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.util;
 
-import org.jetbrains.annotations.Nullable;
-
 /**
  * Factory interface.
  *
@@ -30,5 +28,5 @@ public interface Factory<T> {
      *
      * @return Object.
      */
-    @Nullable T create();
+    public T create();
 }

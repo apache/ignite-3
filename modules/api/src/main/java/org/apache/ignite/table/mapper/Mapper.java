@@ -179,6 +179,7 @@ public interface Mapper<T> {
                                    || LocalTime.class == type
                                    || LocalDateTime.class == type
                                    || Instant.class == type
+                                   || Void.class == type
                                    || Number.class
                                               .isAssignableFrom(type)); // Byte, Short, Integer, Long, Float, Double, BigInteger, BigDecimal
     }

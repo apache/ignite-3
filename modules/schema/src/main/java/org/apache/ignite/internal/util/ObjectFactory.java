@@ -20,14 +20,13 @@ package org.apache.ignite.internal.util;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Object factory.
  */
 public class ObjectFactory<T> implements Factory<T> {
     /** Class default constructor. */
-    private final @Nullable Constructor<T> cnstr;
+    private final Constructor<T> cnstr;
 
     /**
      * Constructor.
@@ -36,25 +35,19 @@ public class ObjectFactory<T> implements Factory<T> {
      * @throws IllegalArgumentException If no default constructor found.
      */
     public ObjectFactory(Class<T> clazz) {
-        if (clazz == Void.class) {
-            cnstr = null;
-        } else {
-            try {
-                cnstr = clazz.getDeclaredConstructor();
-                cnstr.setAccessible(true);
-            } catch (NoSuchMethodException e) {
-                throw new IllegalArgumentException("Class has no default constructor: class=" + clazz.getName(), e);
-            }
+        assert clazz != Void.class;
+
+        try {
+            cnstr = clazz.getDeclaredConstructor();
+            cnstr.setAccessible(true);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("Class has no default constructor: class=" + clazz.getName(), e);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable T create() throws IgniteInternalException {
-        if (cnstr == null) {
-            return null;
-        }
-
+    public T create() throws IgniteInternalException {
         try {
             return cnstr.newInstance();
         } catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
