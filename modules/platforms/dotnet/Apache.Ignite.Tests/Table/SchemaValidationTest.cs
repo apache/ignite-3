@@ -124,7 +124,15 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestKvMissingKeyTupleFields()
     {
-        Assert.Fail("TODO");
+        var keyTuple = new IgniteTuple
+        {
+            [ValCol] = "v"
+        };
+
+        var valTuple = new IgniteTuple();
+
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () => await Table.KeyValueBinaryView.PutAsync(null, keyTuple, valTuple));
+        Assert.AreEqual("Missed key column: KEY", ex!.Message);
     }
 
     [Test]
