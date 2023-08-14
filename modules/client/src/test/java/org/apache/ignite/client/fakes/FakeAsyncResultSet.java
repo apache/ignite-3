@@ -90,7 +90,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
             var props = ((FakeSession) session).properties();
 
             for (var e : props.entrySet()) {
-                rows.add(getRow(e.getKey(), e.getValue()));
+                rows.add(getRow(e.getKey(), String.valueOf(e.getValue())));
             }
 
             columns = new ArrayList<>();

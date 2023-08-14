@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteExceptionMapperUtil;
@@ -96,6 +97,11 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
             implicitTx.commit();
         }
         return dataCursor.closeAsync();
+    }
+
+    @Override
+    public @Nullable HybridTimestamp observableTimestamp() {
+        return implicitTx != null && implicitTx.isReadOnly() ? implicitTx.readTimestamp() : null;
     }
 
     private static Throwable wrapIfNecessary(Throwable t) {

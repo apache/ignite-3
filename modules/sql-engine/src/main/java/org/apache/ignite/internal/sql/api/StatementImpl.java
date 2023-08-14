@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.api;
 
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.sql.Statement;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -29,6 +30,8 @@ class StatementImpl implements Statement {
     /** Query. */
     private final String query;
 
+//    private final HybridTimestamp ts;
+
     /**
      * Constructor.
      *
@@ -37,6 +40,11 @@ class StatementImpl implements Statement {
     public StatementImpl(String query) {
         this.query = query;
     }
+
+//    public StatementImpl(String query, HybridTimestamp ts) {
+//        this.query = query;
+//        this.ts = ts;
+//    }
 
     /** {@inheritDoc} */
     @Override

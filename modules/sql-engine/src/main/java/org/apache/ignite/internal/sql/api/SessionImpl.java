@@ -35,6 +35,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
@@ -172,7 +173,7 @@ public class SessionImpl implements AbstractSession {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction);
+            QueryContext ctx = QueryContext.create(SqlQueryType.ALL, props.getOrDefault(QueryProperty.OBSERVABLE_TIMESTAMP, null), transaction);
 
             result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
@@ -181,7 +182,8 @@ public class SessionImpl implements AbstractSession {
                                             cur,
                                             batchRes,
                                             pageSize,
-                                            () -> {}
+                                            () -> {},
+                                            cur.observableTimestamp()
                                     )
                             )
             );

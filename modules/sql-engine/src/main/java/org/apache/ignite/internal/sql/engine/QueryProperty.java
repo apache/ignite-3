@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.property.PropertiesHelper.createPropsByNameMap;
 
 import java.util.Map;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.property.Property;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,6 +30,8 @@ import org.jetbrains.annotations.Nullable;
 public final class QueryProperty {
     public static final Property<Long> QUERY_TIMEOUT = new Property<>("query_timeout", Long.class);
     public static final Property<String> DEFAULT_SCHEMA = new Property<>("default_schema", String.class);
+
+    public static final Property<HybridTimestamp> OBSERVABLE_TIMESTAMP = new Property<>("observable_timestamp", HybridTimestamp.class);
 
     private static final Map<String, Property<?>> propsByName = createPropsByNameMap(QueryProperty.class);
 

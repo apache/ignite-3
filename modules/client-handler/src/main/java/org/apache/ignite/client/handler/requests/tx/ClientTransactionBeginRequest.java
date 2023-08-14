@@ -61,6 +61,10 @@ public class ClientTransactionBeginRequest {
         }
 
         // NOTE: we don't use beginAsync here because it is synchronous anyway.
+        if (observableTs != null) {
+            System.out.println(">xxx> apply observable ts on the server side " + observableTs.longValue());
+        }
+
         var tx = transactions.begin(options, observableTs);
 
         if (readOnly) {

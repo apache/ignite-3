@@ -480,7 +480,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             if (fut == null) {
                 // Operation completed synchronously.
                 in.close();
-                out.setLong(observableTimestampIdx, observableTimestamp(out));
+                long ts = observableTimestamp(out);
+                System.out.println(">xxx> pack obs ts " + ts);
+                out.setLong(observableTimestampIdx, ts);
                 write(out, ctx);
 
                 if (LOG.isTraceEnabled()) {
@@ -504,7 +506,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                         metrics.requestsFailedIncrement();
                     } else {
-                        out.setLong(observableTimestampIdx, observableTimestamp(out));
+                        long ts = observableTimestamp(out);
+                        System.out.println(">xxx> pack obs ts " + ts);
+
+                        out.setLong(observableTimestampIdx, ts);
                         write(out, ctx);
 
                         metrics.requestsProcessedIncrement();
