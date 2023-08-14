@@ -172,6 +172,7 @@ public class PendingComparableValuesTrackerTest {
 
     @ParameterizedTest
     @MethodSource("hybridTimestampTrackerGenerator")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19995")
     public void testMultithreadedWaitForWithValue(PendingComparableValuesTracker trackerParam) throws Exception {
         HybridClock clock = new HybridClockImpl();
 
