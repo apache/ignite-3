@@ -291,10 +291,12 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public void TestExecuteColocatedThrowsWhenKeyColumnIsMissing()
         {
-            var ex = Assert.ThrowsAsync<IgniteException>(async () =>
-                await Client.Compute.ExecuteColocatedAsync<string>(TableName, new IgniteTuple(), Units, EchoJob));
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
+                await Client.Compute.ExecuteColocatedAsync<string>(TableName, new IgniteTuple { ["VAL"] = "1" }, Units, EchoJob));
 
-            StringAssert.Contains("Missed key column: KEY", ex!.Message);
+            Assert.AreEqual(
+                "Can't map 'IgniteTuple { VAL = 1 }' to columns 'Int64 KEY, String VAL'. Matching fields not found.",
+                ex!.Message);
         }
 
         [Test]
