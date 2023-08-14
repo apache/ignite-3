@@ -70,7 +70,7 @@ class FileChunkMessagesStreamTest {
             assertTrue(stream.hasNextMessage());
             FileChunkMessage fileChunkMessage = stream.nextMessage();
             assertEquals(transferId, fileChunkMessage.transferId());
-            assertEquals(0, fileChunkMessage.offset());
+            assertEquals(0, fileChunkMessage.number());
             assertEquals(fileSize, fileChunkMessage.data().length);
 
             assertFalse(stream.hasNextMessage());
@@ -88,7 +88,7 @@ class FileChunkMessagesStreamTest {
             assertTrue(stream.hasNextMessage());
             FileChunkMessage fileChunkMessage = stream.nextMessage();
             assertEquals(transferId, fileChunkMessage.transferId());
-            assertEquals(0, fileChunkMessage.offset());
+            assertEquals(0, fileChunkMessage.number());
             assertEquals(fileSize, fileChunkMessage.data().length);
 
             assertFalse(stream.hasNextMessage());
@@ -106,13 +106,13 @@ class FileChunkMessagesStreamTest {
             assertTrue(stream.hasNextMessage());
             FileChunkMessage fileChunkMessage = stream.nextMessage();
             assertEquals(transferId, fileChunkMessage.transferId());
-            assertEquals(0, fileChunkMessage.offset());
+            assertEquals(0, fileChunkMessage.number());
             assertEquals(CHUNK_SIZE, fileChunkMessage.data().length);
 
             assertTrue(stream.hasNextMessage());
             fileChunkMessage = stream.nextMessage();
             assertEquals(transferId, fileChunkMessage.transferId());
-            assertEquals(CHUNK_SIZE, fileChunkMessage.offset());
+            assertEquals(1, fileChunkMessage.number());
             assertEquals(1, fileChunkMessage.data().length);
 
             assertFalse(stream.hasNextMessage());

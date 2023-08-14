@@ -18,17 +18,13 @@
 package org.apache.ignite.internal.network.file;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.matchers.PathMatcher;
@@ -67,70 +63,13 @@ class ChunkedFileWriterTest {
         Path pathToRead = FileGenerator.randomFile(workDir, length);
         Path pathToWrite = writerDir.resolve(pathToRead.getFileName());
         try (FileChunkMessagesStream stream = FileChunkMessagesStream.fromPath(CHUNK_SIZE, UUID.randomUUID(), pathToRead);
-                ChunkedFileWriter writer = ChunkedFileWriter.open(pathToWrite, length)) {
+                ChunkedFileWriter writer = ChunkedFileWriter.open(pathToWrite.toFile(), length)) {
             while (stream.hasNextMessage()) {
                 writer.write(stream.nextMessage());
             }
 
             // The writer is finished.
-            assertTrue(writer.isFinished());
-
-            // The file should be written.
-            assertThat(pathToWrite, PathMatcher.hasSameContentAndName(pathToRead));
-        }
-    }
-
-    @ParameterizedTest
-    @MethodSource("fileLengths")
-    void writeWhenLengthIsUnknown(int length) throws IOException {
-        Path pathToRead = FileGenerator.randomFile(workDir, length);
-        Path pathToWrite = writerDir.resolve(pathToRead.getFileName());
-        try (FileChunkMessagesStream stream = FileChunkMessagesStream.fromPath(CHUNK_SIZE, UUID.randomUUID(), pathToRead);
-                ChunkedFileWriter writer = ChunkedFileWriter.open(pathToWrite)) {
-            while (stream.hasNextMessage()) {
-                writer.write(stream.nextMessage());
-            }
-
-            // We don't know the length of the file, so we need to write the file size after all the chunks are written.
-            assertFalse(writer.isFinished());
-
-            // Write the file size.
-            writer.fileSize(length);
-
-            // Now the writer is finished.
-            assertTrue(writer.isFinished());
-
-            // The file should be written.
-            assertThat(pathToWrite, PathMatcher.hasSameContentAndName(pathToRead));
-        }
-    }
-
-    @ParameterizedTest
-    @MethodSource("fileLengths")
-    void writeChunksInReverseOrder(int length) throws IOException {
-        Path pathToRead = FileGenerator.randomFile(workDir, length);
-        Path pathToWrite = writerDir.resolve(pathToRead.getFileName());
-        try (FileChunkMessagesStream stream = FileChunkMessagesStream.fromPath(CHUNK_SIZE, UUID.randomUUID(), pathToRead);
-                ChunkedFileWriter writer = ChunkedFileWriter.open(pathToWrite)) {
-
-            List<FileChunkMessage> chunks = new ArrayList<>();
-            while (stream.hasNextMessage()) {
-                chunks.add(stream.nextMessage());
-            }
-
-            // Write chunks in reverse order.
-            for (int i = chunks.size() - 1; i >= 0; i--) {
-                writer.write(chunks.get(i));
-            }
-
-            // We don't know the length of the file, so we need to write the file size after all the chunks are written.
-            assertFalse(writer.isFinished());
-
-            // Write the file size.
-            writer.fileSize(length);
-
-            // Now the writer is finished.
-            assertTrue(writer.isFinished());
+            assertTrue(writer.isComplete());
 
             // The file should be written.
             assertThat(pathToWrite, PathMatcher.hasSameContentAndName(pathToRead));

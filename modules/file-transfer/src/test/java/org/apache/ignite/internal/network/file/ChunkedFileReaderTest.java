@@ -41,7 +41,7 @@ class ChunkedFileReaderTest {
         Path empty = FileGenerator.randomFile(workDir, 0);
         try (ChunkedFileReader reader = ChunkedFileReader.open(empty.toFile(), CHUNK_SIZE)) {
             assertFalse(reader.hasNextChunk());
-            IOException exception = assertThrows(IOException.class, reader::readNextChunk);
+            IllegalStateException exception = assertThrows(IllegalStateException.class, reader::readNextChunk);
             assertEquals("No more chunks to read", exception.getMessage());
         }
     }
@@ -53,7 +53,7 @@ class ChunkedFileReaderTest {
             assertTrue(reader.hasNextChunk());
             assertEquals(CHUNK_SIZE - 1, reader.readNextChunk().length);
             assertFalse(reader.hasNextChunk());
-            IOException exception = assertThrows(IOException.class, reader::readNextChunk);
+            IllegalStateException exception = assertThrows(IllegalStateException.class, reader::readNextChunk);
             assertEquals("No more chunks to read", exception.getMessage());
         }
     }
@@ -65,7 +65,7 @@ class ChunkedFileReaderTest {
             assertTrue(reader.hasNextChunk());
             assertEquals(CHUNK_SIZE, reader.readNextChunk().length);
             assertFalse(reader.hasNextChunk());
-            IOException exception = assertThrows(IOException.class, reader::readNextChunk);
+            IllegalStateException exception = assertThrows(IllegalStateException.class, reader::readNextChunk);
             assertEquals("No more chunks to read", exception.getMessage());
         }
     }
@@ -79,7 +79,7 @@ class ChunkedFileReaderTest {
             assertTrue(reader.hasNextChunk());
             assertEquals(1, reader.readNextChunk().length);
             assertFalse(reader.hasNextChunk());
-            IOException exception = assertThrows(IOException.class, reader::readNextChunk);
+            IllegalStateException exception = assertThrows(IllegalStateException.class, reader::readNextChunk);
             assertEquals("No more chunks to read", exception.getMessage());
         }
     }

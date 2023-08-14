@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.network.file.messages;
 
-import java.util.Comparator;
 import java.util.UUID;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
@@ -27,8 +26,6 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(FileTransferMessageType.FILE_CHUNK_MESSAGE)
 public interface FileChunkMessage extends NetworkMessage {
-    Comparator<FileChunkMessage> COMPARATOR = Comparator.comparingLong(FileChunkMessage::offset);
-
     /**
      * Returns transfer ID.
      *
@@ -44,11 +41,11 @@ public interface FileChunkMessage extends NetworkMessage {
     String fileName();
 
     /**
-     * Returns offset.
+     * Returns number of the chunk.
      *
-     * @return Offset.
+     * @return Number of the chunk.
      */
-    long offset();
+    int number();
 
     /**
      * Returns data.

@@ -17,99 +17,78 @@
 
 package org.apache.ignite.internal.network.file;
 
+import java.io.BufferedOutputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.nio.file.Path;
-import java.util.PriorityQueue;
-import java.util.Queue;
 import org.apache.ignite.internal.network.file.exception.FileValidationException;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 
 /**
- * Chunked file writer. Writes chunks in order. If a chunk is not in order, it is stored in a queue. When the next chunk is written, the
- * queues are checked for the next chunk. If the next chunk is found, it is written to the file and removed from the queue. If the next
- * chunk is not found, the file is not written to. The writer is not thread-safe.
+ * Chunked file writer. Writes chunks to a file. The writer is not thread-safe.
  */
 class ChunkedFileWriter implements AutoCloseable {
-    private static final int UNKNOWN_FILE_SIZE = -1;
+    private final BufferedOutputStream stream;
 
-    private final RandomAccessFile raf;
+    private final long expectedFileSize;
 
-    private long fileSize;
+    private long bytesWritten = 0;
 
-    private final Queue<FileChunkMessage> chunks = new PriorityQueue<>(FileChunkMessage.COMPARATOR);
+    private int nextChunkNumber = 0;
 
-    private ChunkedFileWriter(RandomAccessFile raf, long fileSize) {
-        if (fileSize < UNKNOWN_FILE_SIZE) {
-            throw new IllegalArgumentException("File size must be non-negative");
-        }
-
-        this.raf = raf;
-        this.fileSize = fileSize;
-    }
-
-    /**
-     * Opens a file with unknown size for writing.
-     *
-     * @param path File path.
-     * @return Chunked file writer.
-     * @throws FileNotFoundException If the file is not found.
-     */
-    static ChunkedFileWriter open(Path path) throws FileNotFoundException {
-        return new ChunkedFileWriter(new RandomAccessFile(path.toFile(), "rw"), UNKNOWN_FILE_SIZE);
+    private ChunkedFileWriter(BufferedOutputStream stream, long expectedFileSize) {
+        this.stream = stream;
+        this.expectedFileSize = expectedFileSize;
     }
 
     /**
      * Opens a file with known size for writing.
      *
-     * @param path File path.
-     * @param fileSize File size. If the file size is unknown, pass {@link #UNKNOWN_FILE_SIZE}.
+     * @param file File path.
+     * @param expectedFileSize Expected file size.
      * @return Chunked file writer.
      * @throws FileNotFoundException If the file is not found.
      */
-    static ChunkedFileWriter open(Path path, long fileSize) throws FileNotFoundException {
-        return new ChunkedFileWriter(new RandomAccessFile(path.toFile(), "rw"), fileSize);
+    static ChunkedFileWriter open(File file, long expectedFileSize) throws IOException {
+        return new ChunkedFileWriter(new BufferedOutputStream(new FileOutputStream(file)), expectedFileSize);
     }
 
     /**
-     * Writes a chunk to the file.
+     * Writes a chunk to the file. The chunk number must be equal to the next expected chunk number. Closes the file if the last chunk is
+     * written.
      *
-     * @param chunk Chunk.
+     * @param chunk Chunk to write.
      * @throws IOException If an I/O error occurs.
+     * @throws FileValidationException If the chunk number or file size is invalid or expected file size is exceeded.
      */
     void write(FileChunkMessage chunk) throws IOException {
-        chunks.add(chunk);
-        while (!chunks.isEmpty() && chunks.peek().offset() == raf.getFilePointer()) {
-            raf.write(chunks.poll().data());
+        if (chunk.number() != nextChunkNumber) {
+            throw new FileValidationException("Chunk number mismatch: expected " + nextChunkNumber + ", actual " + chunk.number());
         }
 
-        if (fileSize != UNKNOWN_FILE_SIZE && raf.getFilePointer() > fileSize) {
-            throw new FileValidationException("File size exceeded: expected " + fileSize + ", actual " + raf.getFilePointer());
+        stream.write(chunk.data());
+        nextChunkNumber++;
+        bytesWritten += chunk.data().length;
+
+        if (bytesWritten > expectedFileSize) {
+            throw new FileValidationException("File size mismatch: expected " + expectedFileSize + ", actual " + bytesWritten);
+        }
+
+        if (bytesWritten == expectedFileSize) {
+            stream.flush();
+            close();
         }
     }
 
     /**
-     * Checks if the file is finished.
+     * Checks if the file is complete. The file is complete if all chunks have been written to the file.
      *
-     * @return {@code True} if the file is finished.
+     * @return {@code true} if the file is complete, {@code false} otherwise.
      * @throws IOException If an I/O error occurs.
      */
-    boolean isFinished() throws IOException {
-        return raf.length() == fileSize;
-    }
-
-    /**
-     * Sets the file size.
-     *
-     * @param fileSize File size.
-     */
-    void fileSize(long fileSize) {
-        if (fileSize < 0) {
-            throw new IllegalArgumentException("File size must be non-negative");
-        }
-
-        this.fileSize = fileSize;
+    boolean isComplete() throws IOException {
+        return bytesWritten == expectedFileSize;
     }
 
     /**
@@ -119,6 +98,6 @@ class ChunkedFileWriter implements AutoCloseable {
      */
     @Override
     public void close() throws IOException {
-        raf.close();
+        stream.close();
     }
 }

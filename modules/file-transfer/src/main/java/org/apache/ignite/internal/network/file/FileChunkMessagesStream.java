@@ -22,7 +22,6 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
@@ -37,9 +36,10 @@ public class FileChunkMessagesStream implements Iterable<FileChunkMessage>, Auto
 
     private final ChunkedFileReader reader;
 
-    private final AtomicBoolean closed = new AtomicBoolean(false);
+    private boolean closed = false;
 
     private final FileTransferFactory messageFactory = new FileTransferFactory();
+
 
     /**
      * Creates a new stream of messages to send files.
@@ -85,7 +85,7 @@ public class FileChunkMessagesStream implements Iterable<FileChunkMessage>, Auto
      */
     boolean hasNextMessage() throws IOException {
         // Check that the stream is not closed and the reader has more chunks.
-        return !closed.get() && reader.hasNextChunk();
+        return !closed && reader.hasNextChunk();
     }
 
     /**
@@ -113,8 +113,8 @@ public class FileChunkMessagesStream implements Iterable<FileChunkMessage>, Auto
     private FileChunkMessage nextChunk() throws IOException {
         return messageFactory.fileChunkMessage()
                 .transferId(transferId)
-                .fileName(reader.fileName())
-                .offset(reader.offset())
+                .fileName(path.getFileName().toString())
+                .number(reader.nextChunkNumber())
                 .data(reader.readNextChunk())
                 .build();
     }
@@ -128,7 +128,8 @@ public class FileChunkMessagesStream implements Iterable<FileChunkMessage>, Auto
      */
     @Override
     public void close() throws IOException {
-        if (closed.compareAndSet(false, true)) {
+        if (!closed) {
+            closed = true;
             reader.close();
         }
     }

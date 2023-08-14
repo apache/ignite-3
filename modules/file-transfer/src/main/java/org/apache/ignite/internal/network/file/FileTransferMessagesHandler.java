@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.file;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -93,24 +94,11 @@ class FileTransferMessagesHandler {
      * @param header File header.
      */
     private void handleFileHeader0(FileHeader header) {
-        ChunkedFileWriter writer = fileNameToWriter.compute(header.name(), (k, v) -> {
-            if (v == null) {
-                return writer(header.name(), header.length());
-            } else {
-                v.fileSize(header.length());
-                return v;
-            }
-        });
-
-        try {
-            if (writer.isFinished()) {
-                writer.close();
-                filesFinished.incrementAndGet();
-
-                completeIfAllFilesFinished();
-            }
-        } catch (IOException e) {
-            handleFileTransferError(e);
+        File file = createFile(header.name());
+        if (header.length() == 0) {
+            filesFinished.incrementAndGet();
+        } else {
+            fileNameToWriter.put(header.name(), createFileWriter(file, header.length()));
         }
     }
 
@@ -134,11 +122,13 @@ class FileTransferMessagesHandler {
      */
     private void handleFileChunk0(FileChunkMessage fileChunk) {
         try {
-            ChunkedFileWriter writer = fileNameToWriter.computeIfAbsent(fileChunk.fileName(), this::writer);
+            ChunkedFileWriter writer = fileNameToWriter.get(fileChunk.fileName());
+
+            assert writer != null : "Received file chunk for unknown file: " + fileChunk.fileName();
 
             writer.write(fileChunk);
 
-            if (writer.isFinished()) {
+            if (writer.isComplete()) {
                 writer.close();
                 fileNameToWriter.remove(fileChunk.fileName());
                 filesFinished.incrementAndGet();
@@ -212,33 +202,27 @@ class FileTransferMessagesHandler {
     }
 
     /**
-     * Creates file writer with unknown file size.
+     * Creates file writer with known file size.
      *
-     * @param fileName File name.
+     * @param file File to write to.
+     * @param expectedFileSize Expected file size.
      * @return File writer.
      */
-    private ChunkedFileWriter writer(String fileName) {
+    private ChunkedFileWriter createFileWriter(File file, long expectedFileSize) {
         try {
-            return ChunkedFileWriter.open(dir.resolve(fileName));
+            return ChunkedFileWriter.open(file, expectedFileSize);
         } catch (IOException e) {
             handleFileTransferError(e);
             throw new FileTransferException("Failed to open file writer", e);
         }
     }
 
-    /**
-     * Creates file writer with known file size.
-     *
-     * @param fileName File name.
-     * @param fileSize File size.
-     * @return File writer.
-     */
-    private ChunkedFileWriter writer(String fileName, long fileSize) {
+    private File createFile(String fileName) {
         try {
-            return ChunkedFileWriter.open(dir.resolve(fileName), fileSize);
+            return Files.createFile(dir.resolve(fileName)).toFile();
         } catch (IOException e) {
             handleFileTransferError(e);
-            throw new FileTransferException("Failed to open file writer", e);
+            throw new FileTransferException("Failed to create file", e);
         }
     }
 }
