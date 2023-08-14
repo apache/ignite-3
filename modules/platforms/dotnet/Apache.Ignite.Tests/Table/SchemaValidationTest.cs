@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Threading.Tasks;
 using Ignite.Table;
 using NUnit.Framework;
@@ -309,7 +310,10 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestKvDuplicatePocoFields()
     {
-        Assert.Fail("TODO");
+        var ex = Assert.ThrowsAsync<ArgumentException>(
+            async () => await Table.GetRecordView<DuplicateFieldPoco>().UpsertAsync(null, new DuplicateFieldPoco()));
+
+        StringAssert.StartsWith("Column 'VAL' maps to more than one field", ex!.Message);
     }
 
     // ReSharper disable NotAccessedPositionalProperty.Local
@@ -336,5 +340,16 @@ public class SchemaValidationTest : IgniteTestsBase
         public string GetName(int ordinal) => "KEY";
 
         public int GetOrdinal(string name) => name == "KEY" ? 0 : 1;
+    }
+
+    private class DuplicateFieldPoco
+    {
+        public long Key { get; set; }
+
+        [Column("VAL")]
+        public string? Val { get; set; }
+
+        [Column("VAL")]
+        public string? Val2 { get; set; }
     }
 }
