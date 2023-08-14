@@ -266,8 +266,7 @@ public class SchemaValidationTest : IgniteTestsBase
     public void TestMissingAllPocoFields()
     {
         var ex = Assert.ThrowsAsync<ArgumentException>(
-            async () => await TableRequiredVal.GetRecordView<PocoNoMatchingFields>()
-                .UpsertAsync(null, new PocoNoMatchingFields("x", 1)));
+            async () => await Table.GetRecordView<PocoNoMatchingFields>().UpsertAsync(null, new PocoNoMatchingFields("x", 1)));
 
         Assert.AreEqual(
             "Can't map 'Apache.Ignite.Tests.Table.SchemaValidationTest+PocoNoMatchingFields' to columns 'Int64 KEY, String VAL'. " +
@@ -278,7 +277,15 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestKvMissingAllPocoFields()
     {
-        Assert.Fail("TODO");
+        var poco = new PocoNoMatchingFields("x", 1);
+        var ex = Assert.ThrowsAsync<ArgumentException>(
+            async () => await Table.GetKeyValueView<PocoNoMatchingFields, PocoNoMatchingFields>().PutAsync(null, poco, poco));
+
+        Assert.AreEqual(
+            "Can't map 'Apache.Ignite.Tests.Table.SchemaValidationTest+PocoNoMatchingFields' " +
+            "and 'Apache.Ignite.Tests.Table.SchemaValidationTest+PocoNoMatchingFields' to columns 'Int64 KEY, String VAL'. " +
+            "Matching fields not found.",
+            ex!.Message);
     }
 
     // ReSharper disable NotAccessedPositionalProperty.Local

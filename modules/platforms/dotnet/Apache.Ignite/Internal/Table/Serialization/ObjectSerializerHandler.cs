@@ -468,10 +468,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             if (mappedCount == 0)
             {
                 var columnStr = schema.Columns.Select(x => x.Type + " " + x.Name).StringJoin();
-
-                throw new IgniteClientException(
-                    ErrorGroups.Client.Configuration,
-                    $"Can't map '{keyType}' and '{valType}' to columns '{columnStr}'. Matching fields not found.");
+                throw new ArgumentException($"Can't map '{keyType}' and '{valType}' to columns '{columnStr}'. Matching fields not found.");
             }
 
             // TODO: Don't use Empty, pass single column for primitives?
