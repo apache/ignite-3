@@ -270,13 +270,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     void testOneRebalance() {
         createZone(nodes.get(0).catalogManager, ZONE_1_NAME, 1, 1);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, "tbl1").columns(
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_1_NAME).columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
         await(nodes.get(0).tableManager.createTableAsync(
-                "TBL1",
+                TABLE_1_NAME,
                 ZONE_1_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
         ));
@@ -296,13 +296,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     void testTwoQueuedRebalances() {
         createZone(nodes.get(0).catalogManager, ZONE_1_NAME, 1, 1);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, "tbl1").columns(
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_1_NAME).columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
         await(nodes.get(0).tableManager.createTableAsync(
-                "TBL1",
+                TABLE_1_NAME,
                 ZONE_1_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
         ));
@@ -323,13 +323,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     void testThreeQueuedRebalances() throws InterruptedException {
         createZone(nodes.get(0).catalogManager, ZONE_1_NAME, 1, 1);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, "tbl1").columns(
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_1_NAME).columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
         await(nodes.get(0).tableManager.createTableAsync(
-                "TBL1",
+                TABLE_1_NAME,
                 ZONE_1_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
 
@@ -352,14 +352,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createZone(nodes.get(0).catalogManager, zoneName, 1, 2);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, "TBL1").columns(
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_1_NAME).columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
         // Tests that the distribution zone created on node0 is available on node1.
         TableImpl table = (TableImpl) await(nodes.get(1).tableManager.createTableAsync(
-                "TBL1",
+                TABLE_1_NAME,
                 zoneName,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
 
@@ -376,7 +376,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .findFirst()
                 .orElseThrow();
 
-        TableImpl nonLeaderTable = (TableImpl) findNodeByConsistentId(nonLeaderNodeConsistentId).tableManager.table("TBL1");
+        TableImpl nonLeaderTable = (TableImpl) findNodeByConsistentId(nonLeaderNodeConsistentId).tableManager.table(TABLE_1_NAME);
 
         var countDownLatch = new CountDownLatch(1);
 
@@ -416,13 +416,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     void testRebalanceRetryWhenCatchupFailed() {
         createZone(nodes.get(0).catalogManager, ZONE_1_NAME, 1, 1);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, "tbl1").columns(
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_1_NAME).columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
 
         await(nodes.get(0).tableManager.createTableAsync(
-                "TBL1",
+                TABLE_1_NAME,
                 ZONE_1_NAME,
                 tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
 
@@ -560,7 +560,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private Set<Assignment> getPartitionClusterNodes(int nodeNum, int partNum) {
         var table = ((ExtendedTableConfiguration) nodes.get(nodeNum).clusterCfgMgr.configurationRegistry()
-                .getConfiguration(TablesConfiguration.KEY).tables().get("TBL1"));
+                .getConfiguration(TablesConfiguration.KEY).tables().get(TABLE_1_NAME));
 
         if (table != null) {
             Set<Assignment> assignments =
@@ -802,7 +802,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     name,
                     registry,
                     zonesCfg,
-                    tablesCfg,
                     metaStorageManager,
                     logicalTopologyService,
                     vaultManager,
@@ -998,7 +997,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static TableDefinition createTableDefinition(String tableName) {
-        return SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
+        return SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, tableName).columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();

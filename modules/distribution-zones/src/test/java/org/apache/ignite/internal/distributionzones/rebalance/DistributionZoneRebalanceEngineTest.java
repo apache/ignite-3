@@ -60,15 +60,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.TestCatalogManager;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -95,7 +92,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
@@ -131,31 +127,14 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
-    private VaultManager catalogVault;
-
-    private MetaStorageManager catalogMetastore;
-
-    private ClockWaiter clockWaiter;
-
-    private CatalogManager catalogManager;
+    private TestCatalogManager catalogManager;
 
     @BeforeEach
     public void setUp() {
         String nodeName = "test";
 
-        catalogVault = new VaultManager(new InMemoryVaultService());
-        catalogVault.start();
-
-        catalogMetastore = StandaloneMetaStorageManager.create(catalogVault, new SimpleInMemoryKeyValueStorage(nodeName));
-        catalogMetastore.start();
-
-        clockWaiter = new ClockWaiter(nodeName, clock);
-        clockWaiter.start();
-
-        catalogManager = new CatalogManagerImpl(new UpdateLogImpl(catalogMetastore), clockWaiter);
-        catalogManager.start();
-
-        assertThat(catalogMetastore.deployWatches(), willCompleteSuccessfully());
+        catalogManager = new TestCatalogManager(nodeName, clock);
+        catalogManager.startAllAndWithDeployWatches();
 
         createZone(ZONE_NAME_0, 1, 128);
         createZone(ZONE_NAME_1, 2, 128);
@@ -253,10 +232,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     @AfterEach
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                catalogManager == null ? null : catalogManager::stop,
-                clockWaiter == null ? null : clockWaiter::stop,
-                catalogMetastore == null ? null : catalogMetastore::stop,
-                catalogVault == null ? null : catalogVault::stop,
+                catalogManager == null ? null : catalogManager::stopAll,
                 keyValueStorage == null ? null : keyValueStorage::close,
                 rebalanceEngine == null ? null : rebalanceEngine::stop
         );

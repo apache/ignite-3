@@ -28,7 +28,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,7 +46,6 @@ public class DistributionZoneMockTest {
                 "",
                 null,
                 zonesConfiguration,
-                mock(TablesConfiguration.class),
                 mock(MetaStorageManager.class),
                 mock(LogicalTopologyService.class),
                 mock(VaultManager.class),

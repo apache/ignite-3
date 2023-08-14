@@ -514,7 +514,6 @@ public class IgniteImpl implements Ignite {
                 name,
                 registry,
                 zonesConfig,
-                tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
                 vaultMgr,

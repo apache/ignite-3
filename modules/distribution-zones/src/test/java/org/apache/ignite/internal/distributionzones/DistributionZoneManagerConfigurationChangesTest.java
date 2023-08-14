@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesForZoneWithAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
@@ -43,35 +43,23 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.ClockWaiter;
-import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.catalog.TestCatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
-import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -91,45 +79,21 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     private static final String NEW_ZONE_NAME = "zone2";
 
-    private static final Set<NodeWithAttributes> nodes = Set.of(new NodeWithAttributes("name1", "name1", Collections.emptyMap()));
+    private static final Set<NodeWithAttributes> nodes = Set.of(new NodeWithAttributes("name1", "name1", emptyMap()));
 
     private DistributionZoneManager distributionZoneManager;
 
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
-    private ConfigurationTreeGenerator generator;
-
-    private ConfigurationManager clusterCfgMgr;
-
     private VaultManager vaultMgr;
 
     private StandaloneMetaStorageManager metaStorageManager;
 
-    @InjectConfiguration
-    private TablesConfiguration tablesConfiguration;
-
-    private ClockWaiter clockWaiter;
-
-    private CatalogManager catalogManager;
+    private TestCatalogManager catalogManager;
 
     @BeforeEach
-    public void setUp() {
+    public void setUp(@InjectConfiguration DistributionZonesConfiguration zonesConfig) {
         String nodeName = "test";
-
-        generator = new ConfigurationTreeGenerator(
-                List.of(DistributionZonesConfiguration.KEY),
-                List.of(),
-                List.of(TestPersistStorageConfigurationSchema.class)
-        );
-        clusterCfgMgr = new ConfigurationManager(
-                List.of(DistributionZonesConfiguration.KEY),
-                new TestConfigurationStorage(DISTRIBUTED),
-                generator,
-                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of())
-        );
-
-        DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
-                .getConfiguration(DistributionZonesConfiguration.KEY);
 
         // Mock logical topology for distribution zone.
         vaultMgr = new VaultManager(new InMemoryVaultService());
@@ -160,17 +124,12 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
 
-        HybridClock clock = new HybridClockImpl();
-
-        clockWaiter = new ClockWaiter(nodeName, clock);
-
-        catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageManager), clockWaiter);
+        catalogManager = new TestCatalogManager(nodeName, new HybridClockImpl(), vaultMgr, metaStorageManager);
 
         distributionZoneManager = new DistributionZoneManager(
                 nodeName,
                 revisionUpdater,
-                zonesConfiguration,
-                tablesConfiguration,
+                zonesConfig,
                 metaStorageManager,
                 logicalTopologyService,
                 vaultMgr,
@@ -178,13 +137,11 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         );
 
         vaultMgr.start();
-        clusterCfgMgr.start();
         metaStorageManager.start();
-        clockWaiter.start();
         catalogManager.start();
         distributionZoneManager.start();
 
-        metaStorageManager.deployWatches();
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
         clearInvocations(keyValueStorage);
     }
@@ -194,11 +151,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         IgniteUtils.closeAll(
                 distributionZoneManager == null ? null : distributionZoneManager::stop,
                 catalogManager == null ? null : catalogManager::stop,
-                clockWaiter == null ? null : clockWaiter::stop,
                 metaStorageManager == null ? null : metaStorageManager::stop,
-                clusterCfgMgr == null ? null : clusterCfgMgr::stop,
-                vaultMgr == null ? null : vaultMgr::stop,
-                generator == null ? null : generator::close
+                vaultMgr == null ? null : vaultMgr::stop
         );
     }
 
