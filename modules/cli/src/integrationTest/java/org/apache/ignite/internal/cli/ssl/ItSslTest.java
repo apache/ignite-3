@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.NodeConfig;
 import org.apache.ignite.internal.cli.call.connect.ConnectCall;
-import org.apache.ignite.internal.cli.core.call.UrlCallInput;
+import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,7 +36,7 @@ public class ItSslTest extends CliSslNotInitializedIntegrationTestBase {
      * wouldn't help because it will start to ask questions.
      */
     private void connect(String url) {
-        Flows.from(new UrlCallInput(url))
+        Flows.from(ConnectCallInput.builder().url(url).build())
                 .then(Flows.fromCall(connectCall))
                 .print()
                 .start();

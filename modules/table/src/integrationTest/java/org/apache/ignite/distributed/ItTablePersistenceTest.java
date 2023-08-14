@@ -33,6 +33,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -218,7 +219,21 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 ReadWriteSingleRowReplicaRequest req0 = (ReadWriteSingleRowReplicaRequest) req;
 
                 if (req0.requestType() == RequestType.RW_GET) {
-                    int storageIndex = stoppedNodeIndex == 0 ? 1 : 0;
+                    List<JraftServerImpl> servers = servers();
+
+                    JraftServerImpl leader = servers.stream()
+                            .filter(server -> server.localPeers(raftGroupId()).contains(service.leader()))
+                            .findFirst().orElseThrow();
+
+                    // We only read from the leader, every other node may not have the latest data.
+                    int storageIndex = servers.indexOf(leader);
+
+                    // Here we must account for the stopped node, index in "servers" and index in "mvPartitionStorages" will differ
+                    // for "serverIndex >= stoppedNodeIndex".
+                    if (storageIndex >= stoppedNodeIndex) {
+                        storageIndex++;
+                    }
+
                     MvPartitionStorage partitionStorage = mvPartitionStorages.get(storageIndex);
 
                     Map<BinaryRow, RowId> primaryIndex = rowsToRowIds(partitionStorage);

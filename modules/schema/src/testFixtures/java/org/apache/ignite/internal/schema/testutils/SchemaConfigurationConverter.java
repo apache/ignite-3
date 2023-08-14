@@ -38,6 +38,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.schema.configuration.ColumnChange;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeChange;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeView;
@@ -232,7 +233,7 @@ public class SchemaConfigurationConverter {
                     int length = ((ColumnType.VarLenColumnType) colType).length();
 
                     if (length == 0) {
-                        length = Integer.MAX_VALUE;
+                        length = CatalogUtils.DEFAULT_VARLEN_LENGTH;
                     }
 
                     colTypeChg.changeLength(length);

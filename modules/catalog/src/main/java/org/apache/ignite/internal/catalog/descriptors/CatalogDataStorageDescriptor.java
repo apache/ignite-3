@@ -44,14 +44,14 @@ public class CatalogDataStorageDescriptor implements Serializable {
     /**
      * Returns the storage engine name.
      */
-    public String getEngine() {
+    public String engine() {
         return engine;
     }
 
     /**
      * Returns the data region name within the storage engine.
      */
-    public String getDataRegion() {
+    public String dataRegion() {
         return dataRegion;
     }
 

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.api;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SESSION_CLOSED_ERR;
+import static org.apache.ignite.lang.IgniteExceptionMapperUtil.mapToPublicException;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
@@ -29,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
@@ -47,8 +49,8 @@ import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
@@ -167,13 +169,15 @@ public class SessionImpl implements AbstractSession {
             return CompletableFuture.failedFuture(new SqlException(SESSION_CLOSED_ERR, "Session is closed."));
         }
 
+        CompletableFuture<AsyncResultSet<SqlRow>> result;
+
         try {
             QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction);
 
-            CompletableFuture<AsyncResultSet<SqlRow>> result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
+            result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
                             .thenApply(
-                                    batchRes -> new AsyncResultSetImpl(
+                                    batchRes -> new AsyncResultSetImpl<>(
                                             cur,
                                             batchRes,
                                             pageSize,
@@ -181,19 +185,22 @@ public class SessionImpl implements AbstractSession {
                                     )
                             )
             );
-
-            result.whenComplete((rs, th) -> {
-                if (th instanceof SessionNotFoundException) {
-                    closeInternal();
-                }
-            });
-
-            return result;
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(e);
+            return CompletableFuture.failedFuture(mapToPublicException(e));
         } finally {
             busyLock.leaveBusy();
         }
+
+        // Closing a session must be done outside of the lock.
+        return result.exceptionally((th) -> {
+            Throwable cause = ExceptionUtils.unwrapCause(th);
+
+            if (cause instanceof SessionNotFoundException) {
+                closeInternal();
+            }
+
+            throw new CompletionException(mapToPublicException(cause));
+        });
     }
 
     /** {@inheritDoc} */
@@ -253,7 +260,7 @@ public class SessionImpl implements AbstractSession {
                             counters.add((long) page.items().get(0).get(0));
                         })
                         .whenComplete((v, ex) -> {
-                            if (ex instanceof CancellationException) {
+                            if (ExceptionUtils.unwrapCause(ex) instanceof CancellationException) {
                                 qryFut.cancel(false);
                             }
                         });
@@ -265,22 +272,34 @@ public class SessionImpl implements AbstractSession {
                     .exceptionally((ex) -> {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
-                        throw new SqlBatchException(
-                                cause instanceof IgniteException ? ((IgniteException) cause).code() : INTERNAL_ERR,
-                                counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY),
-                                ex);
+                        if (cause instanceof CancellationException) {
+                            throw (CancellationException) cause;
+                        }
+
+                        Throwable t = mapToPublicException(cause);
+
+                        if (t instanceof TraceableException) {
+                            throw new SqlBatchException(
+                                    ((TraceableException) t).traceId(),
+                                    ((TraceableException) t).code(),
+                                    counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY),
+                                    t);
+                        }
+
+                        // JVM error.
+                        throw new CompletionException(cause);
                     })
                     .thenApply(v -> counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY));
 
             resFut.whenComplete((cur, ex) -> {
-                if (ex instanceof CancellationException) {
+                if (ExceptionUtils.unwrapCause(ex) instanceof CancellationException) {
                     batchFuts.forEach(f -> f.cancel(false));
                 }
             });
 
             return resFut;
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(e);
+            return CompletableFuture.failedFuture(mapToPublicException(e));
         } finally {
             busyLock.leaveBusy();
         }
@@ -326,7 +345,7 @@ public class SessionImpl implements AbstractSession {
     @Override
     public void close() {
         try {
-            closeAsync().toCompletableFuture().get();
+            closeAsync().get();
         } catch (ExecutionException e) {
             sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         } catch (InterruptedException e) {
@@ -337,9 +356,13 @@ public class SessionImpl implements AbstractSession {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        closeInternal();
+        try {
+            closeInternal();
 
-        return qryProc.closeSession(sessionId);
+            return qryProc.closeSession(sessionId);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(mapToPublicException(e));
+        }
     }
 
     /** {@inheritDoc} */

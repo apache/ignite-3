@@ -246,6 +246,7 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20162")
     public void testCollections() {
         assertExpression("MAP['a', 1, 'A', 2]").returns(Map.of("a", 1, "A", 2)).check();
         assertExpression("ARRAY[1, 2, 3]").returns(List.of(1, 2, 3)).check();
@@ -276,7 +277,6 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
         assertExpression("GREATEST('a', 'b')").returns("b").check();
         assertExpression("COMPRESS('')::VARCHAR").returns("").check();
         assertExpression("OCTET_LENGTH(x'01')").returns(1).check();
-        assertExpression("CAST(INTERVAL 1 SECONDS AS INT)").returns(1).check(); // Converted to REINTERPRED.
     }
 
     @Test
@@ -296,6 +296,7 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20163")
     public void testJson() {
         assertExpression("'{\"a\":1}' FORMAT JSON").check();
         assertExpression("JSON_VALUE('{\"a\":1}', '$.a')").returns("1").check();

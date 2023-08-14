@@ -17,6 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
@@ -59,6 +65,46 @@ public class DdlToCatalogCommandConverterTest {
         assertEquals("filter", params.filter());
         assertEquals("test_engine", params.dataStorage().engine());
         assertEquals("test_region", params.dataStorage().dataRegion());
+    }
+
+    @Test
+    void testConvertCreateZoneCommandWithDefaults() {
+        CreateZoneCommand cmd = new CreateZoneCommand();
+        cmd.zoneName(ZONE_NAME);
+
+        CreateZoneParams params = DdlToCatalogCommandConverter.convert(cmd);
+
+        assertEquals(ZONE_NAME, params.zoneName());
+        assertEquals(DEFAULT_PARTITION_COUNT, params.partitions());
+        assertEquals(DEFAULT_REPLICA_COUNT, params.replicas());
+        assertEquals(INFINITE_TIMER_VALUE, params.dataNodesAutoAdjust());
+        assertEquals(INFINITE_TIMER_VALUE, params.dataNodesAutoAdjustScaleUp());
+        assertEquals(INFINITE_TIMER_VALUE, params.dataNodesAutoAdjustScaleDown());
+        assertEquals(DEFAULT_FILTER, params.filter());
+        assertEquals(DEFAULT_STORAGE_ENGINE, params.dataStorage().engine());
+        assertEquals(DEFAULT_DATA_REGION, params.dataStorage().dataRegion());
+    }
+
+    @Test
+    void testConvertCreateZoneCommandWithMissingDataRegion() {
+        CreateZoneCommand cmd = new CreateZoneCommand();
+        cmd.zoneName(ZONE_NAME);
+        cmd.dataStorage("test_storage");
+
+        CreateZoneParams params = DdlToCatalogCommandConverter.convert(cmd);
+
+        assertEquals(DEFAULT_DATA_REGION, params.dataStorage().dataRegion());
+    }
+
+    @Test
+    void testConvertCreateZoneCommandWithWrongDataRegionParam() {
+        CreateZoneCommand cmd = new CreateZoneCommand();
+        cmd.zoneName(ZONE_NAME);
+        cmd.addDataStorageOption("wrongDataRegionParam", "test_region");
+
+        CreateZoneParams params = DdlToCatalogCommandConverter.convert(cmd);
+
+        assertEquals(DEFAULT_DATA_REGION, params.dataStorage().dataRegion());
     }
 
     @Test

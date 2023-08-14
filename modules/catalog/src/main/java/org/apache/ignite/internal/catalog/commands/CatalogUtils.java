@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
@@ -49,7 +50,7 @@ public class CatalogUtils {
      * Default filter of distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of
      * nodes.
      */
-    public static final String DEFAULT_FILTER = "$.+";
+    public static final String DEFAULT_FILTER = "$..*";
 
     /** Default distribution zone storage engine. */
     // TODO: IGNITE-19719 Should be defined differently
@@ -123,6 +124,13 @@ public class CatalogUtils {
      * <p>SQL`16 part 2 section 6.1 syntax rule 5
      */
     public static final int DEFAULT_LENGTH = 1;
+
+    /**
+     * Max length for VARCHAR and VARBINARY is implementation defined.
+     *
+     * <p>SQL`16 part 2 section 6.1 syntax rule 8
+     */
+    public static final int DEFAULT_VARLEN_LENGTH = 2 << 15;
 
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 
@@ -201,8 +209,20 @@ public class CatalogUtils {
                 params.dataNodesAutoAdjust(),
                 params.dataNodesAutoAdjustScaleUp(),
                 params.dataNodesAutoAdjustScaleDown(),
-                params.filter()
+                params.filter(),
+                fromParams(params.dataStorage())
         );
+    }
+
+    /**
+     * Converts DataStorageParams to descriptor.
+     *
+     * @param params Parameters.
+     * @return Data storage descriptor.
+     */
+    // TODO: IGNITE-19719 Must be storage engine specific
+    public static CatalogDataStorageDescriptor fromParams(DataStorageParams params) {
+        return new CatalogDataStorageDescriptor(params.engine(), params.dataRegion());
     }
 
     /**
@@ -258,7 +278,7 @@ public class CatalogUtils {
             case BITMASK:
             case STRING:
             case BYTE_ARRAY:
-                return Integer.MAX_VALUE;
+                return DEFAULT_VARLEN_LENGTH;
             default:
                 return Math.max(DEFAULT_LENGTH, defaultPrecision(columnType));
         }

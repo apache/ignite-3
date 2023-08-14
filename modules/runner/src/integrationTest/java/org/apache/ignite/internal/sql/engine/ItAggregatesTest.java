@@ -22,13 +22,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,8 +42,14 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Group of tests to verify aggregation functions.
  */
 public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
-    private static final String[] disabledRules = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
+    private static final String[] DISABLED_RULES = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
             "ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"};
+
+    private static final List<String> MAP_REDUCE_RULES = List.of("MapReduceHashAggregateConverterRule",
+            "MapReduceSortAggregateConverterRule");
+
+    private static final List<String> COLO_RULES = Arrays.stream(DISABLED_RULES).filter(r -> !MAP_REDUCE_RULES.contains(r))
+            .collect(Collectors.toList());
 
     private static final int ROWS = 103;
 
@@ -190,21 +199,23 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
                 .returns(0L, null)
                 .check();
 
-        assertQuery("select avg(salary) from person")
-                .disableRules(rules)
-                .returns(12.0)
-                .check();
+        if (Arrays.stream(rules).noneMatch(MAP_REDUCE_RULES::contains)) {
+            assertQuery("select avg(salary) from person")
+                    .disableRules(rules)
+                    .returns(12.0)
+                    .check();
 
-        assertQuery("select name, salary from person where person.salary > (select avg(person.salary) from person)")
-                .disableRules(rules)
-                .returns(null, 15d)
-                .returns("Ilya", 15d)
-                .check();
+            assertQuery("select name, salary from person where person.salary > (select avg(person.salary) from person)")
+                    .disableRules(rules)
+                    .returns(null, 15d)
+                    .returns("Ilya", 15d)
+                    .check();
 
-        assertQuery("select avg(salary) from (select avg(salary) as salary from person union all select salary from person)")
-                .disableRules(rules)
-                .returns(12d)
-                .check();
+            assertQuery("select avg(salary) from (select avg(salary) as salary from person union all select salary from person)")
+                    .disableRules(rules)
+                    .returns(12d)
+                    .check();
+        }
     }
 
     @ParameterizedTest
@@ -413,23 +424,26 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
                     .returns(3L, "world")
                     .check();
 
-            assertQuery("SELECT COUNT(a) as a, AVG(a) as b, MIN(a), MIN(b), s FROM testMe GROUP BY s ORDER BY a, b")
-                    .disableRules(rules)
-                    .returns(1L, 10, 10, 5, "ahello")
-                    .returns(1L, 11, 11, 3, null)
-                    .returns(2L, 11, 11, 1, "hello")
-                    .returns(3L, 12, 12, 2, "world")
-                    .check();
+            if (Arrays.stream(rules).noneMatch(MAP_REDUCE_RULES::contains)) {
+                assertQuery("SELECT COUNT(a) as a, AVG(a) as b, MIN(a), MIN(b), s FROM testMe GROUP BY s ORDER BY a, b")
+                        .disableRules(rules)
+                        .returns(1L, 10, 10, 5, "ahello")
+                        .returns(1L, 11, 11, 3, null)
+                        .returns(2L, 11, 11, 1, "hello")
+                        .returns(3L, 12, 12, 2, "world")
+                        .check();
 
-            assertQuery("SELECT COUNT(a) as a, AVG(a) as bb, MIN(a), MIN(b), s FROM testMe GROUP BY s, b ORDER BY a, s")
-                    .disableRules(rules)
-                    .returns(1L, 10, 10, 5, "ahello")
-                    .returns(1L, 11, 11, 1, "hello")
-                    .returns(1L, 11, 11, 3, "hello")
-                    .returns(1L, 13, 13, 6, "world")
-                    .returns(1L, 11, 11, 3, null)
-                    .returns(2L, 12, 12, 2, "world")
-                    .check();
+                assertQuery("SELECT COUNT(a) as a, AVG(a) as bb, MIN(a), MIN(b), s FROM testMe GROUP BY s, b ORDER BY a, s")
+                        .disableRules(rules)
+                        .returns(1L, 10, 10, 5, "ahello")
+                        .returns(1L, 11, 11, 1, "hello")
+                        .returns(1L, 11, 11, 3, "hello")
+                        .returns(1L, 13, 13, 6, "world")
+                        .returns(1L, 11, 11, 3, null)
+                        .returns(2L, 12, 12, 2, "world")
+                        .check();
+            }
+
 
             assertQuery("SELECT COUNT(a) FROM testMe")
                     .disableRules(rules)
@@ -446,10 +460,12 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
                     .returns(7L, 6L, 7L)
                     .check();
 
-            assertQuery("SELECT AVG(a) FROM testMe")
-                    .disableRules(rules)
-                    .returns(11)
-                    .check();
+            if (Arrays.stream(rules).noneMatch(MAP_REDUCE_RULES::contains)) {
+                assertQuery("SELECT AVG(a) FROM testMe")
+                        .disableRules(rules)
+                        .returns(11)
+                        .check();
+            }
 
             assertQuery("SELECT MIN(a) FROM testMe")
                     .disableRules(rules)
@@ -485,16 +501,112 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("rulesForGroupingSets")
+    public void testGroupingSets(String[] rules) {
+        try {
+            sql("CREATE TABLE test1 (id INTEGER PRIMARY KEY, str_col VARCHAR, int_col INTEGER);");
+            sql("INSERT INTO test1 VALUES (1, 's1', 10)");
+            sql("INSERT INTO test1 VALUES (2, 's1', 20)");
+            sql("INSERT INTO test1 VALUES (3, 's2', 10)");
+            sql("INSERT INTO test1 VALUES (4, 's3', 40)");
+
+            assertQuery("SELECT str_col, SUM(int_col), COUNT(str_col) FROM test1 GROUP BY GROUPING SETS "
+                    + "( (str_col, int_col), (str_col), (int_col), () ) HAVING SUM(int_col) > 0")
+                    .disableRules(rules)
+                    .returns(null, 80L, 4L)
+                    .returns("s1", 10L, 1L)
+                    .returns("s3", 40L, 1L)
+                    .returns("s1", 20L, 1L)
+                    .returns("s2", 10L, 1L)
+                    .returns("s2", 10L, 1L)
+                    .returns("s3", 40L, 1L)
+                    .returns("s1", 30L, 2L)
+                    .returns(null, 40L, 1L)
+                    .returns(null, 20L, 2L)
+                    .returns(null, 20L, 1L)
+                    .check();
+
+        } finally {
+            sql("DROP TABLE test1");
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("rulesForGroupingSets")
+    public void testDuplicateGroupingSets(String[] rules) {
+        try {
+            sql("CREATE TABLE test1 (id INTEGER PRIMARY KEY, str_col VARCHAR, int_col INTEGER);");
+            sql("INSERT INTO test1 VALUES (1, 's1', 10)");
+            sql("INSERT INTO test1 VALUES (2, 's1', 20)");
+            sql("INSERT INTO test1 VALUES (3, 's2', 10)");
+
+            assertQuery("SELECT str_col  FROM test1 GROUP BY GROUPING SETS ((str_col), (), (str_col), ()) ORDER BY str_col")
+                    .disableRules(rules)
+                    .returns("s1")
+                    .returns("s2")
+                    .returns(null)
+                    .returns("s1")
+                    .returns("s2")
+                    .returns(null)
+                    .check();
+        } finally {
+            sql("DROP TABLE test1");
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideRules")
+    public void testAvgOnEmptyGroup(String[] rules) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20009
+        //  Remove after is fixed.
+        Assumptions.assumeFalse(Arrays.stream(rules)
+                .filter(COLO_RULES::contains).count() == COLO_RULES.size(), "AVG is disabled for MAP/REDUCE");
+
+        try {
+            sql("CREATE TABLE test1 (id INTEGER PRIMARY KEY, str_col VARCHAR, int_col INTEGER, real_col REAL, dec_col DECIMAL);");
+
+            assertQuery("SELECT AVG(int_col) FROM test1")
+                    .disableRules(rules)
+                    .returns(new Object[]{null})
+                    .check();
+
+            assertQuery("SELECT AVG(real_col) FROM test1")
+                    .disableRules(rules)
+                    .returns(new Object[]{null})
+                    .check();
+
+            assertQuery("SELECT AVG(dec_col) FROM test1")
+                    .disableRules(rules)
+                    .returns(new Object[]{null})
+                    .check();
+        } finally {
+            sql("DROP TABLE test1");
+        }
+    }
+
+    private static Stream<Arguments> rulesForGroupingSets() {
+        List<Object[]> rules = Arrays.asList(
+                // Use map/reduce aggregates for grouping sets
+                new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"},
+
+                // Use colocated aggregates grouping sets
+                new String[]{"MapReduceHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"}
+        );
+
+        return rules.stream().map(Object.class::cast).map(Arguments::of);
+    }
+
     static String[][] makePermutations(String[] rules) {
         String[][] out = new String[rules.length][rules.length - 1];
 
-        for (int i = 0; i < disabledRules.length; ++i) {
+        for (int i = 0; i < rules.length; ++i) {
             int pos = 0;
-            for (int ruleIdx = 0; ruleIdx < disabledRules.length; ++ruleIdx) {
+            for (int ruleIdx = 0; ruleIdx < rules.length; ++ruleIdx) {
                 if (ruleIdx == i) {
                     continue;
                 }
-                out[i][pos++] = disabledRules[ruleIdx];
+                out[i][pos++] = rules[ruleIdx];
             }
         }
 
@@ -502,7 +614,7 @@ public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
     }
 
     private static Stream<Arguments> provideRules() {
-        return Arrays.stream(makePermutations(disabledRules)).map(k -> Arguments.of((Object) k));
+        return Arrays.stream(makePermutations(DISABLED_RULES)).map(Object.class::cast).map(Arguments::of);
     }
 
     private String appendDisabledRules(String sql, String[] rules) {

@@ -50,9 +50,6 @@ dependencies {
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.mockito.junit
     testFixturesImplementation libs.hamcrest.core
-    testFixturesImplementation project(':ignite-core')
-    testFixturesImplementation project(':ignite-vault')
-    testFixturesImplementation project(':ignite-metastorage-api')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-vault')))
     testFixturesImplementation(testFixtures(project(':ignite-metastorage')))

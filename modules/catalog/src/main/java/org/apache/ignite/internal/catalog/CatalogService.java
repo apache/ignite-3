@@ -62,9 +62,13 @@ public interface CatalogService {
 
     @Nullable CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
 
-    CatalogZoneDescriptor zone(String zoneName, long timestamp);
+    @Nullable CatalogZoneDescriptor zone(String zoneName, long timestamp);
 
-    CatalogZoneDescriptor zone(int zoneId, long timestamp);
+    @Nullable CatalogZoneDescriptor zone(int zoneId, long timestamp);
+
+    @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion);
+
+    Collection<CatalogZoneDescriptor> zones(int catalogVersion);
 
     @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion);
 
