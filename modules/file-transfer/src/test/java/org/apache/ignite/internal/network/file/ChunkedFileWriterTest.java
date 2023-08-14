@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -59,17 +60,18 @@ class ChunkedFileWriterTest {
 
     @ParameterizedTest
     @MethodSource("fileLengths")
-    void writeWhenLengthIsKnown(int length) throws IOException {
+    void write(int length) throws IOException {
         Path pathToRead = FileGenerator.randomFile(workDir, length);
         Path pathToWrite = writerDir.resolve(pathToRead.getFileName());
         try (FileChunkMessagesStream stream = FileChunkMessagesStream.fromPath(CHUNK_SIZE, UUID.randomUUID(), pathToRead);
                 ChunkedFileWriter writer = ChunkedFileWriter.open(pathToWrite.toFile(), length)) {
-            while (stream.hasNextMessage()) {
-                writer.write(stream.nextMessage());
-            }
 
-            // The writer is finished.
-            assertTrue(writer.isComplete());
+            AtomicBoolean isComplete = new AtomicBoolean(false);
+            while (stream.hasNextMessage()) {
+                if (writer.write(stream.nextMessage())) {
+                    assertTrue(isComplete.compareAndSet(false, true));
+                }
+            }
 
             // The file should be written.
             assertThat(pathToWrite, PathMatcher.hasSameContentAndName(pathToRead));

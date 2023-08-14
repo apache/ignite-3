@@ -320,17 +320,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                         messagingService.respond(senderConsistentId, FILE_TRANSFER_CHANNEL, response, correlationId)
                                 .thenComposeAsync(v -> {
                                     return transferFilesToNode(senderConsistentId, message.transferId(), message.identifier(), files);
-                                }, executorService)
-                                .whenComplete((v, e2) -> {
-                                    if (e2 != null) {
-                                        LOG.error(
-                                                "Failed to send files. Transfer ID: {}. Metadata: {}",
-                                                e2,
-                                                message.transferId(),
-                                                message.identifier()
-                                        );
-                                    }
-                                });
+                                }, executorService);
                     }
                 });
     }

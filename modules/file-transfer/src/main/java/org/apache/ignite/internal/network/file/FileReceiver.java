@@ -65,8 +65,7 @@ class FileReceiver {
             List<FileHeader> headers,
             Path handlerDir
     ) {
-        FileTransferMessagesHandler handler = new FileTransferMessagesHandler(handlerDir);
-        handler.handleFileHeaders(headers);
+        FileTransferMessagesHandler handler = new FileTransferMessagesHandler(headers, handlerDir);
 
         transferIdToHandler.put(transferId, handler);
 

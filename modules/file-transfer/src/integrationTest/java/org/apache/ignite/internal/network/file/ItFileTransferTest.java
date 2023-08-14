@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.file;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.file.FileGenerator.randomFile;
 import static org.apache.ignite.internal.network.file.PathAssertions.namesAndContentEquals;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -38,7 +39,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -179,7 +179,7 @@ public class ItFileTransferTest {
         try (Stream<Path> stream = Files.list(targetNodeDownloadsDir)) {
             List<String> filesInDownloadsDir = stream.map(Path::getFileName)
                     .map(Path::toString)
-                    .collect(Collectors.toList());
+                    .collect(toList());
             assertThat(filesInDownloadsDir, not(containsInAnyOrder(file5.getFileName().toString(), file6.getFileName().toString())));
         }
     }
@@ -500,7 +500,7 @@ public class ItFileTransferTest {
                 return stream.map(Path::getFileName)
                         .map(Path::toString)
                         .filter(path -> !path.equals(DOWNLOADS_DIR))
-                        .collect(Collectors.toList());
+                        .collect(toList());
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -509,8 +509,7 @@ public class ItFileTransferTest {
 
     private static void assertDownloadsDirContainsFiles(Node node, List<Path> expectedFiles) {
         try (Stream<Path> stream = Files.list(node.workDir().resolve(DOWNLOADS_DIR))) {
-            List<Path> files = stream.collect(Collectors.toList());
-            assertThat(files, namesAndContentEquals(expectedFiles));
+            assertThat(stream.collect(toList()), namesAndContentEquals(expectedFiles));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

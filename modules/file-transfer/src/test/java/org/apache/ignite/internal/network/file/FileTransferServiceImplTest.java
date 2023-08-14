@@ -124,8 +124,8 @@ class FileTransferServiceImplTest {
     }
 
     @Test
-    void uploadFailsWhenInvokeReturnsResponseWithErrorOnFileUploadRequest() {
-        // Set messaging service to fail to send upload response.
+    void uploadFailsWhenInvokeReturnsResponseWithErrorOnFileTransferInitMessage() {
+        // Set messaging service to fail to invoke.
         FileTransferInitResponse response = messageFactory.fileTransferInitResponse()
                 .error(fromThrowable(messageFactory, new RuntimeException("Test exception")))
                 .build();
@@ -146,7 +146,7 @@ class FileTransferServiceImplTest {
 
     @Test
     void uploadFailsWhenSenderReturnsException() {
-        // Set messaging service to fail to send upload response.
+        // Set messaging service to fail to invoke.
         FileTransferInitResponse fileTransferInitResponse = messageFactory.fileTransferInitResponse().build();
         doReturn(completedFuture(fileTransferInitResponse))
                 .when(messagingService)
@@ -168,7 +168,7 @@ class FileTransferServiceImplTest {
     }
 
     @Test
-    void uploadFailsWhenInvokeReturnsExceptionOnFileUploadResponse() {
+    void uploadFailsWhenInvokeReturnsExceptionOnFileTransferInitResponse() {
         long correlationId = 1L;
 
         // Set messaging service to fail to send upload response.

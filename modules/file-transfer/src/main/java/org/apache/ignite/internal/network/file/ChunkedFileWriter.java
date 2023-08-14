@@ -22,73 +22,82 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.network.file.exception.FileValidationException;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 
 /**
- * Chunked file writer. Writes chunks to a file. The writer is not thread-safe.
+ * Chunked file writer. Writes chunks to a file. Checks that the file size and chunk numbers are valid.
  */
 class ChunkedFileWriter implements AutoCloseable {
     private final BufferedOutputStream stream;
 
-    private final long expectedFileSize;
+    private final long expectedFileLength;
 
     private long bytesWritten = 0;
 
-    private int nextChunkNumber = 0;
+    private int expectedNextChunkNumber = 0;
 
-    private ChunkedFileWriter(BufferedOutputStream stream, long expectedFileSize) {
+    /**
+     * Lock to synchronize access to the file. We don't write to the file simultaneously, but the next chunk number and bytes written are
+     * updated can be updated from different threads.
+     */
+    private final Lock lock = new ReentrantLock();
+
+    private ChunkedFileWriter(BufferedOutputStream stream, long expectedFileLength) {
         this.stream = stream;
-        this.expectedFileSize = expectedFileSize;
+        this.expectedFileLength = expectedFileLength;
     }
 
     /**
      * Opens a file with known size for writing.
      *
      * @param file File path.
-     * @param expectedFileSize Expected file size.
+     * @param expectedFileLength Expected file size.
      * @return Chunked file writer.
      * @throws FileNotFoundException If the file is not found.
      */
-    static ChunkedFileWriter open(File file, long expectedFileSize) throws IOException {
-        return new ChunkedFileWriter(new BufferedOutputStream(new FileOutputStream(file)), expectedFileSize);
+    static ChunkedFileWriter open(File file, long expectedFileLength) throws IOException {
+        return new ChunkedFileWriter(new BufferedOutputStream(new FileOutputStream(file)), expectedFileLength);
     }
 
     /**
      * Writes a chunk to the file. The chunk number must be equal to the next expected chunk number. Closes the file if the last chunk is
-     * written.
+     * written. Returns true if the last chunk is written.
      *
      * @param chunk Chunk to write.
+     * @return True if the last chunk is written. False otherwise.
      * @throws IOException If an I/O error occurs.
      * @throws FileValidationException If the chunk number or file size is invalid or expected file size is exceeded.
      */
-    void write(FileChunkMessage chunk) throws IOException {
-        if (chunk.number() != nextChunkNumber) {
-            throw new FileValidationException("Chunk number mismatch: expected " + nextChunkNumber + ", actual " + chunk.number());
+    boolean write(FileChunkMessage chunk) throws IOException {
+        if (chunk.number() != expectedNextChunkNumber) {
+            throw new FileValidationException("Chunk number mismatch: expected " + expectedNextChunkNumber + ", actual " + chunk.number());
         }
 
-        stream.write(chunk.data());
-        nextChunkNumber++;
-        bytesWritten += chunk.data().length;
+        lock.lock();
+        try {
+            stream.write(chunk.data());
+            expectedNextChunkNumber++;
+            bytesWritten += chunk.data().length;
 
-        if (bytesWritten > expectedFileSize) {
-            throw new FileValidationException("File size mismatch: expected " + expectedFileSize + ", actual " + bytesWritten);
+            if (bytesWritten > expectedFileLength) {
+                throw new FileValidationException("File size mismatch: expected " + expectedFileLength + ", actual " + bytesWritten);
+            }
+
+            if (bytesWritten == expectedFileLength) {
+                stream.flush();
+
+                close();
+
+                return true;
+            } else {
+                return false;
+            }
+        } finally {
+            lock.unlock();
         }
-
-        if (bytesWritten == expectedFileSize) {
-            stream.flush();
-            close();
-        }
-    }
-
-    /**
-     * Checks if the file is complete. The file is complete if all chunks have been written to the file.
-     *
-     * @return {@code true} if the file is complete, {@code false} otherwise.
-     * @throws IOException If an I/O error occurs.
-     */
-    boolean isComplete() throws IOException {
-        return bytesWritten == expectedFileSize;
     }
 
     /**
