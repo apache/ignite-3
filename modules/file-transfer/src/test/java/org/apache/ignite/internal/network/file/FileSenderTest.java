@@ -39,8 +39,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.internal.network.file.messages.FileChunkAckMessage;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
+import org.apache.ignite.internal.network.file.messages.FileChunkResponse;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -67,7 +67,7 @@ class FileSenderTest {
 
     @BeforeEach
     void setUp() {
-        lenient().doReturn(completedFuture(messageFactory.fileChunkAckMessage().build()))
+        lenient().doReturn(completedFuture(messageFactory.fileChunkResponse().build()))
                 .when(messagingService)
                 .invoke(anyString(), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileChunkMessage.class), eq(RESPONSE_TIMEOUT));
     }
@@ -123,7 +123,7 @@ class FileSenderTest {
             if (count.incrementAndGet() == 2) {
                 return failedFuture(new RuntimeException("Test exception"));
             } else {
-                return completedFuture(messageFactory.fileChunkAckMessage().build());
+                return completedFuture(messageFactory.fileChunkResponse().build());
             }
         })
                 .when(messagingService)
@@ -152,13 +152,13 @@ class FileSenderTest {
         AtomicInteger count = new AtomicInteger();
         doAnswer(invocation -> {
             if (count.incrementAndGet() == 2) {
-                FileChunkAckMessage ackWithError = messageFactory.fileChunkAckMessage()
+                FileChunkResponse ackWithError = messageFactory.fileChunkResponse()
                         .error(fromThrowable(messageFactory, new RuntimeException("Test exception")))
                         .build();
 
                 return completedFuture(ackWithError);
             } else {
-                return completedFuture(messageFactory.fileChunkAckMessage().build());
+                return completedFuture(messageFactory.fileChunkResponse().build());
             }
         })
                 .when(messagingService)
@@ -203,7 +203,7 @@ class FileSenderTest {
             } finally {
                 concurrentRequests.decrementAndGet();
             }
-            return completedFuture(messageFactory.fileChunkAckMessage().build());
+            return completedFuture(messageFactory.fileChunkResponse().build());
         })
                 .when(messagingService)
                 .invoke(anyString(), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileChunkMessage.class), eq(RESPONSE_TIMEOUT));
@@ -238,7 +238,7 @@ class FileSenderTest {
             if (count.incrementAndGet() == 2) {
                 return failedFuture(new RuntimeException("Test exception"));
             } else {
-                return completedFuture(messageFactory.fileChunkAckMessage().build());
+                return completedFuture(messageFactory.fileChunkResponse().build());
             }
         })
                 .when(messagingService)

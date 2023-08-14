@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
-import org.apache.ignite.internal.network.file.messages.FileChunkAckMessage;
+import org.apache.ignite.internal.network.file.messages.FileChunkResponse;
 import org.apache.ignite.network.MessagingService;
 
 /**
@@ -210,7 +210,7 @@ class FileSender {
         try {
             if (stream.hasNextMessage() && !shouldBeCancelled.get()) {
                 return messagingService.invoke(receiverConsistentId, FILE_TRANSFER_CHANNEL, stream.nextMessage(), responseTimeout)
-                        .thenApply(FileChunkAckMessage.class::cast)
+                        .thenApply(FileChunkResponse.class::cast)
                         .thenComposeAsync(
                                 ack -> {
                                     if (ack.error() != null) {

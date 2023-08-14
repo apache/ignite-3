@@ -46,11 +46,11 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.configuration.FileTransferConfiguration;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
-import org.apache.ignite.internal.network.file.messages.FileChunkAckMessage;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
+import org.apache.ignite.internal.network.file.messages.FileChunkResponse;
 import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
 import org.apache.ignite.internal.network.file.messages.FileDownloadResponse;
-import org.apache.ignite.internal.network.file.messages.FileTransferCancelMessage;
+import org.apache.ignite.internal.network.file.messages.FileTransferErrorMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.network.file.messages.FileTransferMessageType;
 import org.apache.ignite.internal.network.file.messages.FileUploadRequest;
@@ -221,8 +221,8 @@ public class FileTransferServiceImpl implements FileTransferService {
                         processUploadRequest((FileUploadRequest) message, senderConsistentId, correlationId);
                     } else if (message instanceof FileChunkMessage) {
                         processFileChunkMessage((FileChunkMessage) message, senderConsistentId, correlationId);
-                    } else if (message instanceof FileTransferCancelMessage) {
-                        processFileTransferCancelMessage((FileTransferCancelMessage) message);
+                    } else if (message instanceof FileTransferErrorMessage) {
+                        processFileTransferErrorMessage((FileTransferErrorMessage) message);
                     } else {
                         LOG.error("Unexpected message received: {}", message);
                     }
@@ -333,7 +333,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                         LOG.error("Failed to receive file chunk. Transfer ID: {}", e, message.transferId());
                     }
 
-                    FileChunkAckMessage ack = messageFactory.fileChunkAckMessage()
+                    FileChunkResponse ack = messageFactory.fileChunkResponse()
                             .error(e != null ? fromThrowable(messageFactory, e) : null)
                             .build();
 
@@ -341,8 +341,8 @@ public class FileTransferServiceImpl implements FileTransferService {
                 });
     }
 
-    private void processFileTransferCancelMessage(FileTransferCancelMessage message) {
-        LOG.error("Received file transfer cancel message. Transfer will be cancelled. Transfer ID: {}. Error: {}",
+    private void processFileTransferErrorMessage(FileTransferErrorMessage message) {
+        LOG.error("Received file transfer error message. Transfer will be cancelled. Transfer ID: {}. Error: {}",
                 message.transferId(),
                 message.error()
         );
@@ -363,7 +363,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                                 transferId
                         );
 
-                        FileTransferCancelMessage message = messageFactory.fileTransferCancelMessage()
+                        FileTransferErrorMessage message = messageFactory.fileTransferErrorMessage()
                                 .transferId(transferId)
                                 .error(fromThrowable(messageFactory, e))
                                 .build();

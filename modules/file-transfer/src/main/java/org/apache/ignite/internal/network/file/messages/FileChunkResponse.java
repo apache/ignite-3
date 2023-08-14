@@ -24,8 +24,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * File chunk ack. This message is sent by the receiver to the sender to acknowledge the successful reception of a file chunk.
  */
-@Transferable(FileTransferMessageType.FILE_CHUNK_ACK_MESSAGE)
-public interface FileChunkAckMessage extends NetworkMessage {
+@Transferable(FileTransferMessageType.FILE_CHUNK_RESPONSE)
+public interface FileChunkResponse extends NetworkMessage {
     /**
      * Returns the error.
      *

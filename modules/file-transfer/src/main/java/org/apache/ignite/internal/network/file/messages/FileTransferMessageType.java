@@ -40,9 +40,9 @@ public final class FileTransferMessageType {
     public static final short FILE_CHUNK_MESSAGE = 2;
 
     /**
-     * Type for {@link FileChunkAckMessage}.
+     * Type for {@link FileChunkResponse}.
      */
-    public static final short FILE_CHUNK_ACK_MESSAGE = 3;
+    public static final short FILE_CHUNK_RESPONSE = 3;
 
     /**
      * Type for {@link FileTransferError}.
@@ -70,7 +70,7 @@ public final class FileTransferMessageType {
     public static final short FILE_UPLOAD_RESPONSE = 8;
 
     /**
-     * Type for {@link FileTransferCancelMessage}.
+     * Type for {@link FileTransferErrorMessage}.
      */
-    public static final short FILE_TRANSFER_CANCEL_MESSAGE = 9;
+    public static final short FILE_TRANSFER_ERROR_MESSAGE = 9;
 }
