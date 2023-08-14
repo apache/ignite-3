@@ -60,7 +60,7 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
     }
 
     /**
-     * Key lookup.
+     * Key lookup. Literal, cast, cast with precision against different column types.
      */
     @ParameterizedTest
     @MethodSource("indexChecks")
@@ -83,7 +83,7 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
     @Override
     public void testCompoundIndex(TestTypeArguments<VarBinary> arguments) throws InterruptedException {
         // TODO Disable for VARBINARY, remove after https://issues.apache.org/jira/browse/IGNITE-19931 is fixed.
-        // Lookups for VARBINARY and VARCHAR/CHAR works
+        // Lookups for VARBINARY and VARCHAR/CHAR work
         Assumptions.assumeFalse(arguments.toString().startsWith("VARBINARY"));
 
         super.testCompoundIndex(arguments);
