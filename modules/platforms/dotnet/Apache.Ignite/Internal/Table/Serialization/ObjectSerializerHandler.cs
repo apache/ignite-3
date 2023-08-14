@@ -466,7 +466,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
 
             var keyFields = keyType.GetColumns();
-            var valFields = valType.GetColumns();
+            var valFields = columnCount > schema.KeyColumnCount ? valType.GetColumns() : Array.Empty<ReflectionUtils.ColumnInfo>();
 
             if (keyFields.Count + valFields.Count > mappedCount)
             {
