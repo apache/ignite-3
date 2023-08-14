@@ -594,7 +594,7 @@ public class ExecutionServiceImplTest {
 
         when(schemaManagerMock.tableById(anyInt())).thenReturn(table);
 
-        when(schemaManagerMock.schemaReadyFuture(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
+        when(schemaManagerMock.schemaReadyFuture(isA(int.class))).thenReturn(CompletableFuture.completedFuture(null));
 
         TestExecutableTableRegistry executableTableRegistry = new TestExecutableTableRegistry();
         executableTableRegistry.setColocatioGroupProvider((tableId) -> {

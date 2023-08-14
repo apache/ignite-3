@@ -230,7 +230,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Void> schemaReadyFuture(long version) {
+        public CompletableFuture<Void> schemaReadyFuture(int version) {
             throw new UnsupportedOperationException();
         }
     }

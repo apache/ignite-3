@@ -221,7 +221,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         return rexBuilder;
     }
 
-    public long schemaVersion() {
+    public int schemaVersion() {
         return Objects.requireNonNull(schema().unwrap(IgniteSchema.class)).schemaVersion();
     }
 

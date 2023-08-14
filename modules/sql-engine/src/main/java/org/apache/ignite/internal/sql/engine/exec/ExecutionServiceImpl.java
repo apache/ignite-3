@@ -239,13 +239,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return queryManager.execute(tx, plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, long schemaVersion, @Nullable String schema, Object[] params) {
+    private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, @Nullable String schema, Object[] params) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
                 .parameters(params)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(sqlSchemaManager.schema(schema, (int) schemaVersion))
+                                .defaultSchema(sqlSchemaManager.schema(schema, schemaVersion))
                                 .build()
                 )
                 .logger(LOG)
@@ -606,7 +606,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             start.thenCompose(none -> {
                 IgniteRel treeRoot = relationalTreeFromJsonString(fragmentString, ctx);
-                long schemaVersion = ctx.schemaVersion();
+                int schemaVersion = ctx.schemaVersion();
 
                 return dependencyResolver.resolveDependencies(List.of(treeRoot), schemaVersion).thenComposeAsync(deps -> {
                     return executeFragment(treeRoot, deps, context);

@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  * Ignite schema.
  */
 public class IgniteSchema extends AbstractSchema {
-    static final long INITIAL_VERSION = -1;
+    static final int INITIAL_VERSION = -1;
 
     private final String schemaName;
 
@@ -36,7 +36,7 @@ public class IgniteSchema extends AbstractSchema {
 
     private final Map<Integer, IgniteIndex> idxMap;
 
-    private final long schemaVersion;
+    private final int schemaVersion;
 
     /**
      * Creates a Schema with given tables and indexes.
@@ -49,7 +49,7 @@ public class IgniteSchema extends AbstractSchema {
             String schemaName,
             @Nullable Map<String, Table> tableMap,
             @Nullable Map<Integer, IgniteIndex> indexMap,
-            long schemaVersion
+            int schemaVersion
     ) {
         this.schemaName = schemaName;
         this.tblMap = tableMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(tableMap);
@@ -71,11 +71,11 @@ public class IgniteSchema extends AbstractSchema {
      *
      * @param schemaName A name of the schema to create.
      */
-    public IgniteSchema(String schemaName, long schemaVersion) {
+    public IgniteSchema(String schemaName, int schemaVersion) {
         this(schemaName, null, null, schemaVersion);
     }
 
-    public static IgniteSchema copy(IgniteSchema old, long schemaVersion) {
+    public static IgniteSchema copy(IgniteSchema old, int schemaVersion) {
         return new IgniteSchema(old.schemaName, old.tblMap, old.idxMap, schemaVersion);
     }
 
@@ -145,7 +145,7 @@ public class IgniteSchema extends AbstractSchema {
     /**
      * Return actual schema version.
      */
-    public long schemaVersion() {
+    public int schemaVersion() {
         return schemaVersion;
     }
 }

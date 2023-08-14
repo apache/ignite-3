@@ -98,9 +98,9 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> schemaReadyFuture(long version) {
+    public CompletableFuture<Void> schemaReadyFuture(int version) {
         // SqlSchemaManager creates SQL schema lazily on-demand, thus waiting for Catalog version is enough.
-        return catalogManager.catalogReadyFuture((int) version);
+        return catalogManager.catalogReadyFuture(version);
     }
 
     private static SchemaPlus createSqlSchema(int version, CatalogSchemaDescriptor schemaDescriptor) {
