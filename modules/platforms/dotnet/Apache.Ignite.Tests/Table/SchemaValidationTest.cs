@@ -190,6 +190,7 @@ public class SchemaValidationTest : IgniteTestsBase
 
         var ex = Assert.ThrowsAsync<ArgumentException>(
             async () => await Table.GetRecordView<PocoUnmapped>().UpsertAsync(null, poco));
+
         StringAssert.StartsWith(
             "Record of type Apache.Ignite.Tests.Table.SchemaValidationTest+PocoUnmapped doesn't match schema: " +
             "schemaVersion=1, extraColumns=Foo, Bar",
@@ -199,7 +200,15 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestKvUnmappedKeyPocoFields()
     {
-        Assert.Fail("TODO");
+        var poco = new PocoUnmapped(1, "x", "y");
+
+        var ex = Assert.ThrowsAsync<ArgumentException>(
+            async () => await Table.GetKeyValueView<PocoUnmapped, string>().PutAsync(null, poco, "x"));
+
+        StringAssert.StartsWith(
+            "KeyValue pair of type (Apache.Ignite.Tests.Table.SchemaValidationTest+PocoUnmapped, ) doesn't match schema: " +
+            "schemaVersion=1, extraColumns=Foo, Bar",
+            ex!.Message);
     }
 
     [Test]
