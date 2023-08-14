@@ -242,7 +242,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
             }
 
-            ValidateMappedCount(mappedCount, keyType, valType, schema, count);
+            ValidateKvMappedCount(
+                mappedCount,
+                keyWriteMethod != null ? null : keyType,
+                valWriteMethod != null ? null : valType,
+                schema,
+                count);
 
             il.Emit(OpCodes.Ret);
 
@@ -461,7 +466,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
         }
 
-        private static void ValidateMappedCount(int mappedCount, Type keyType, Type valType, Schema schema, int columnCount)
+        private static void ValidateKvMappedCount(int mappedCount, Type? keyType, Type? valType, Schema schema, int columnCount)
         {
             if (mappedCount == 0)
             {
@@ -472,8 +477,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     $"Can't map '{keyType}' and '{valType}' to columns '{columnStr}'. Matching fields not found.");
             }
 
-            var keyFields = keyType.GetColumns();
-            var valFields = columnCount > schema.KeyColumnCount ? valType.GetColumns() : Array.Empty<ReflectionUtils.ColumnInfo>();
+            // TODO: Don't use Empty, pass single column for primitives?
+            // We need to validate <int, Poco> and similar scenarios
+            var keyFields = keyType?.GetColumns() ?? Array.Empty<ReflectionUtils.ColumnInfo>();
+            var valFields = valType != null && columnCount > schema.KeyColumnCount
+                ? valType.GetColumns()
+                : Array.Empty<ReflectionUtils.ColumnInfo>();
 
             if (keyFields.Count + valFields.Count > mappedCount)
             {
