@@ -80,11 +80,11 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
                     Problem problem = extractProblem(cause.getResponseBody());
                     renderProblem(errorComponentBuilder, problem);
                 } else {
-                    errorComponentBuilder.header(e.getCause() != e ? e.getCause().getMessage() : e.getMessage());
+                    errorComponentBuilder.header(header(e));
                 }
             }
         } else {
-            errorComponentBuilder.header(e.getCause() != e ? e.getCause().getMessage() : e.getMessage());
+            errorComponentBuilder.header(header(e));
         }
 
         ErrorUiComponent errorComponent = errorComponentBuilder.build();
@@ -94,6 +94,10 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
         err.write(errorComponent.render());
 
         return 1;
+    }
+
+    private static String header(IgniteCliApiException e) {
+        return e.getCause() == e ? e.getMessage() : e.getCause().getMessage();
     }
 
     /**
