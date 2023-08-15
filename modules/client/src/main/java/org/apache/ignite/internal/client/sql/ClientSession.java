@@ -20,7 +20,6 @@ package org.apache.ignite.internal.client.sql;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -154,25 +153,13 @@ public class ClientSession implements AbstractSession {
 
             w.out().packLongNullable(defaultSessionTimeout);
 
-            w.out().packLong(ch.observableTimestamp());
-
             packProperties(w, clientStatement.properties());
-
-//            Map<String, Object> props = clientStatement.properties();
-//            if (props != null) {
-//                props = new HashMap<>(clientStatement.properties());
-//                props.put("observable_timestamp", ch.observableTimestamp())
-//            } else {
-//                props = Map.of("observable_timestamp", ch.observableTimestamp());
-//            }
-
-
 
             w.out().packString(clientStatement.query());
 
             w.out().packObjectArrayAsBinaryTuple(arguments);
 
-//            w.out().packLong(ch.observableTimestamp());
+            w.out().packLong(ch.observableTimestamp());
         };
 
         PayloadReader<AsyncResultSet<T>> payloadReader = r -> new ClientAsyncResultSet<>(r.clientChannel(), r.in(), mapper);

@@ -35,8 +35,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -66,7 +66,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Embedded implementation of the SQL session.
  */
-public class SessionImpl implements AbstractSession {
+public class SessionImpl implements SessionEx {
     /** Busy lock for close synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -166,43 +166,8 @@ public class SessionImpl implements AbstractSession {
             @Nullable Transaction transaction,
             String query,
             @Nullable Object... arguments) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new SqlException(SESSION_CLOSED_ERR, "Session is closed."));
-        }
 
-        CompletableFuture<AsyncResultSet<SqlRow>> result;
-
-        try {
-            QueryContext ctx = QueryContext.create(SqlQueryType.ALL, props.getOrDefault(QueryProperty.OBSERVABLE_TIMESTAMP, null), transaction);
-
-            result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
-                    .thenCompose(cur -> cur.requestNextAsync(pageSize)
-                            .thenApply(
-                                    batchRes -> new AsyncResultSetImpl<>(
-                                            cur,
-                                            batchRes,
-                                            pageSize,
-                                            () -> {},
-                                            cur.observableTimestamp()
-                                    )
-                            )
-            );
-        } catch (Exception e) {
-            return CompletableFuture.failedFuture(mapToPublicException(e));
-        } finally {
-            busyLock.leaveBusy();
-        }
-
-        // Closing a session must be done outside of the lock.
-        return result.exceptionally((th) -> {
-            Throwable cause = ExceptionUtils.unwrapCause(th);
-
-            if (cause instanceof SessionNotFoundException) {
-                closeInternal();
-            }
-
-            throw new CompletionException(mapToPublicException(cause));
-        });
+        return executeAsyncInternal(transaction, null, query, arguments).thenApply(Function.identity());
     }
 
     /** {@inheritDoc} */
@@ -233,6 +198,71 @@ public class SessionImpl implements AbstractSession {
             @Nullable Object... arguments) {
         // TODO: IGNITE-18695.
         throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncResultSetEx<SqlRow>> executeAsyncInternal(
+            HybridTimestamp observableTimestamp,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
+        return executeAsyncInternal(null, observableTimestamp, statement.query(), arguments);
+    }
+
+    /**
+     * Executes SQL query in an asynchronous way.
+     *
+     * @param transaction Transaction to execute the query within or {@code null}.
+     * @param observableTimestamp Observable timestamp.
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    private CompletableFuture<AsyncResultSetEx<SqlRow>> executeAsyncInternal(
+            @Nullable Transaction transaction,
+            @Nullable HybridTimestamp observableTimestamp,
+            String query,
+            @Nullable Object... arguments
+    ) {
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.failedFuture(new SqlException(SESSION_CLOSED_ERR, "Session is closed."));
+        }
+
+        CompletableFuture<AsyncResultSetEx<SqlRow>> result;
+
+        try {
+            QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction == null ? observableTimestamp : transaction);
+
+            result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
+                    .thenCompose(cur -> cur.requestNextAsync(pageSize)
+                            .thenApply(
+                                    batchRes -> new AsyncResultSetImpl<>(
+                                            cur,
+                                            batchRes,
+                                            pageSize,
+                                            () -> {},
+                                            cur.implicitTxReadTimestamp()
+                                    )
+                            )
+                    );
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(mapToPublicException(e));
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        // Closing a session must be done outside of the lock.
+        return result.exceptionally((th) -> {
+            Throwable cause = ExceptionUtils.unwrapCause(th);
+
+            if (cause instanceof SessionNotFoundException) {
+                closeInternal();
+            }
+
+            throw new CompletionException(mapToPublicException(cause));
+        });
     }
 
     /** {@inheritDoc} */

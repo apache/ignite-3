@@ -34,9 +34,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
-import org.apache.ignite.internal.sql.api.SessionImpl;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.api.SessionEx;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -73,7 +71,7 @@ public class ClientSqlExecuteRequest {
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics) {
         var tx = readTx(in, out, resources);
-        Session session = readSession(in, sql);
+        SessionEx session = (SessionEx) readSession(in, sql);
         Statement statement = readStatement(in, sql);
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
@@ -82,21 +80,21 @@ public class ClientSqlExecuteRequest {
             arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
         }
 
-        // TODO IGNITE-19898 SQL implicit RO transaction should use observation timestamp.
-//        HybridTimestamp unused = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+        HybridTimestamp observableTimestamp = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
 
-//        SessionBuilder buidler = session0.toBuilder().property(QueryProperty.OBSERVABLE_TIMESTAMP.name, unused);
-
-//        Session session = buidler.build();
+        if (observableTimestamp == null) {
+            return session
+                    .executeAsync(tx, statement, arguments)
+                    .thenCompose(asyncResultSet -> writeResultSetAsync(out, resources, asyncResultSet, session, metrics));
+        }
 
         return session
-                .executeAsync(tx, statement, arguments)
+                .executeAsyncInternal(observableTimestamp, statement, arguments)
                 .thenCompose(asyncResultSet -> {
-                    if (tx == null) {
-                        // TODO IGNITE-19898 Return readTimestamp from implicit RO TX to the client
-                        if (asyncResultSet instanceof AsyncResultSetImpl) {
-                            out.meta(((AsyncResultSetImpl) asyncResultSet).implicitTxTimestamp());
-                        }
+                    HybridTimestamp readTs = asyncResultSet.implicitTxReadTimestamp();
+
+                    if (readTs != null) {
+                        out.meta(readTs);
                     }
 
                     return writeResultSetAsync(out, resources, asyncResultSet, session, metrics);
@@ -177,8 +175,6 @@ public class ClientSqlExecuteRequest {
         if (!in.tryUnpackNil()) {
             sessionBuilder.idleTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
         }
-
-        sessionBuilder.property(QueryProperty.OBSERVABLE_TIMESTAMP.name, in.unpackLong());
 
         var propCount = in.unpackInt();
         var reader = new BinaryTupleReader(propCount * 4, in.readBinaryUnsafe());

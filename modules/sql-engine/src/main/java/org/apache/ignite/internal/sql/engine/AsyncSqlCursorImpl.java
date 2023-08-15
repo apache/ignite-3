@@ -100,7 +100,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     }
 
     @Override
-    public @Nullable HybridTimestamp observableTimestamp() {
+    public @Nullable HybridTimestamp implicitTxReadTimestamp() {
         return implicitTx != null && implicitTx.isReadOnly() ? implicitTx.readTimestamp() : null;
     }
 

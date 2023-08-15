@@ -46,7 +46,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Asynchronous result set implementation.
  */
-public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
+public class AsyncResultSetImpl<T> implements AsyncResultSetEx<T> {
     private static final CompletableFuture<? extends AsyncResultSet> HAS_NO_MORE_PAGE_FUTURE =
             CompletableFuture.failedFuture(new SqlException(CURSOR_NO_MORE_PAGES_ERR, "There are no more pages."));
 
@@ -65,11 +65,13 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
      *
      * @param cur Asynchronous query cursor.
      */
-    public AsyncResultSetImpl(AsyncSqlCursor<List<Object>> cur, BatchedResult<List<Object>> page, int pageSize, Runnable closeRun) {
-        this(cur, page, pageSize, closeRun, null);
-    }
-
-    public AsyncResultSetImpl(AsyncSqlCursor<List<Object>> cur, BatchedResult<List<Object>> page, int pageSize, Runnable closeRun, HybridTimestamp readTs) {
+    public AsyncResultSetImpl(
+            AsyncSqlCursor<List<Object>> cur,
+            BatchedResult<List<Object>> page,
+            int pageSize,
+            Runnable closeRun,
+            @Nullable HybridTimestamp readTs
+    ) {
         this.cur = cur;
         this.curPage = page;
         this.pageSize = pageSize;
@@ -162,7 +164,8 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         return cur.closeAsync().thenRun(closeRun);
     }
 
-    public HybridTimestamp implicitTxTimestamp() {
+    @Override
+    public HybridTimestamp implicitTxReadTimestamp() {
         return readTs;
     }
 

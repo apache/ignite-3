@@ -15,30 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.api;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.sql.ResultSetMetadata;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.sql.async.AsyncResultSet;
 
 /**
- * Sql query cursor.
- *
- * @param <T> Type of elements.
+ * Provides extended internal API for {@link AsyncResultSet}.
  */
-public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
-    /**
-     * Returns query type.
-     */
-    SqlQueryType queryType();
-
-    /**
-     * Returns column metadata.
-     */
-    ResultSetMetadata metadata();
-
+public interface AsyncResultSetEx<T> extends AsyncResultSet<T> {
     /**
      * Returns read timestamp of the implicit read-only transaction, if any has been started.
      */
-    @Nullable HybridTimestamp implicitTxReadTimestamp();
+    HybridTimestamp implicitTxReadTimestamp();
 }

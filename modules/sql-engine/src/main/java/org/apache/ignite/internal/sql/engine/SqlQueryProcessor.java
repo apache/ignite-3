@@ -444,10 +444,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     boolean implicitTxRequired = outerTx == null;
 
-//                    assert context.observableTimestamp() == null;
-
                     InternalTransaction currentTx = implicitTxRequired
-                            ? txManager.begin(!rwOp, rwOp ? null : context.observableTimestamp())
+                            ? txManager.begin(!rwOp, rwOp ? null : context.unwrap(HybridTimestamp.class))
                             : outerTx;
 
                     tx.set(currentTx);

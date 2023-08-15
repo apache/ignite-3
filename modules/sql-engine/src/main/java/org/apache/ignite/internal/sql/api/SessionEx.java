@@ -15,30 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.api;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.internal.sql.AbstractSession;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Sql query cursor.
- *
- * @param <T> Type of elements.
+ * Provides extended internal API for {@link Session}.
  */
-public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
+public interface SessionEx extends AbstractSession {
     /**
-     * Returns query type.
+     * Executes an SQL statement asynchronously.
+     *
+     * @param observableTimestamp Observable timestamp.
+     * @param statement SQL statement to execute.
+     * @param arguments Arguments for the statement.
+     * @return Operation future.
+     * @throws SqlException If failed.
      */
-    SqlQueryType queryType();
-
-    /**
-     * Returns column metadata.
-     */
-    ResultSetMetadata metadata();
-
-    /**
-     * Returns read timestamp of the implicit read-only transaction, if any has been started.
-     */
-    @Nullable HybridTimestamp implicitTxReadTimestamp();
+    CompletableFuture<AsyncResultSetEx<SqlRow>> executeAsyncInternal(
+            HybridTimestamp observableTimestamp,
+            Statement statement,
+            @Nullable Object... arguments
+    );
 }

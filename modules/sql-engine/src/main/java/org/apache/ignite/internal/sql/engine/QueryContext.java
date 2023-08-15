@@ -22,7 +22,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import org.apache.calcite.plan.Context;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,10 +52,6 @@ public class QueryContext implements Context {
         return allowedQueries;
     }
 
-    public @Nullable HybridTimestamp observableTimestamp() {
-        return unwrap(HybridTimestamp.class);
-    }
-
     /** {@inheritDoc} */
     @Override
     public <C> @Nullable C unwrap(Class<C> cls) {
@@ -74,18 +69,7 @@ public class QueryContext implements Context {
      * @return Query context.
      */
     public static QueryContext create(Set<SqlQueryType> allowedQueries) {
-        return create(allowedQueries, null, null, ArrayUtils.OBJECT_EMPTY_ARRAY);
-    }
-
-    /**
-     * Creates a context that allows the given query types and includes an optional parameter.
-     *
-     * @param allowedQueries A set of allowed query types.
-     * @param param A context parameter.
-     * @return Query context.
-     */
-    public static QueryContext create(Set<SqlQueryType> allowedQueries, @Nullable HybridTimestamp observableTimestamp, @Nullable Object param) {
-        return create(allowedQueries, observableTimestamp, param, ArrayUtils.OBJECT_EMPTY_ARRAY);
+        return create(allowedQueries, null, ArrayUtils.OBJECT_EMPTY_ARRAY);
     }
 
     /**
@@ -96,7 +80,7 @@ public class QueryContext implements Context {
      * @return Query context.
      */
     public static QueryContext create(Set<SqlQueryType> allowedQueries, @Nullable Object param) {
-        return create(allowedQueries, null, param, ArrayUtils.OBJECT_EMPTY_ARRAY);
+        return create(allowedQueries, param, ArrayUtils.OBJECT_EMPTY_ARRAY);
     }
 
     /**
@@ -107,14 +91,13 @@ public class QueryContext implements Context {
      * @param params Optional array of additional parameters.
      * @return Query context.
      */
-    public static QueryContext create(Set<SqlQueryType> allowedQueries, @Nullable HybridTimestamp observableTimestamp, @Nullable Object param, Object... params) {
+    public static QueryContext create(Set<SqlQueryType> allowedQueries, @Nullable Object param, Object... params) {
         Object[] paramsArray = params == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : params;
 
         if (param == null && paramsArray.length == 0) {
             return new QueryContext(allowedQueries, ArrayUtils.OBJECT_EMPTY_ARRAY);
         } else {
             ArrayList<Object> dst = new ArrayList<>();
-            build(dst, observableTimestamp);
             build(dst, param);
             build(dst, paramsArray);
             return new QueryContext(allowedQueries, dst.toArray());

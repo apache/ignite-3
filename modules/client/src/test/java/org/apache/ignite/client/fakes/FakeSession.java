@@ -25,7 +25,10 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.sql.AbstractSession;
+import java.util.function.Function;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.sql.api.AsyncResultSetEx;
+import org.apache.ignite.internal.sql.api.SessionEx;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
@@ -39,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client SQL session.
  */
-public class FakeSession implements AbstractSession {
+public class FakeSession implements SessionEx {
     public static final String FAILED_SQL = "SELECT FAIL";
 
     @Nullable
@@ -94,13 +97,7 @@ public class FakeSession implements AbstractSession {
             @Nullable Transaction transaction,
             Statement statement,
             @Nullable Object... arguments) {
-        Objects.requireNonNull(statement);
-
-        if (FAILED_SQL.equals(statement.query())) {
-            return CompletableFuture.failedFuture(new SqlException(STMT_VALIDATION_ERR, "Query failed"));
-        }
-
-        return CompletableFuture.completedFuture(new FakeAsyncResultSet(this, transaction, statement, arguments));
+        return executeAsync0(transaction, statement, arguments).thenApply(Function.identity());
     }
 
     /** {@inheritDoc} */
@@ -118,6 +115,27 @@ public class FakeSession implements AbstractSession {
             Statement statement,
             @Nullable Object... arguments) {
         throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncResultSetEx<SqlRow>> executeAsyncInternal(HybridTimestamp observableTimestamp, Statement statement,
+            @Nullable Object... arguments) {
+        return executeAsync0(null, statement, arguments);
+    }
+
+    private CompletableFuture<AsyncResultSetEx<SqlRow>> executeAsync0(
+            Transaction transaction,
+            Statement statement,
+            @Nullable Object... arguments
+    ) {
+        Objects.requireNonNull(statement);
+
+        if (FAILED_SQL.equals(statement.query())) {
+            return CompletableFuture.failedFuture(new SqlException(STMT_VALIDATION_ERR, "Query failed"));
+        }
+
+        return CompletableFuture.completedFuture(new FakeAsyncResultSet(this, transaction, statement, arguments));
     }
 
     /** {@inheritDoc} */
