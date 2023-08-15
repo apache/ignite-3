@@ -41,6 +41,6 @@ public class TestTransactionIds {
      * @return New transaction ID.
      */
     public static UUID newTransactionId() {
-        return TRANSACTION_ID_GENERATOR.transactionIdFor(GLOBAL_CLOCK.now());
+        return TRANSACTION_ID_GENERATOR.transactionIdFor(GLOBAL_CLOCK.now(), true);
     }
 }

@@ -26,6 +26,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  * Collection of utils to generate and pick apart transaction IDs.
  */
 public class TransactionIds {
+    /** The flag distinguishes locally initiated transactions. */
+    private static long LOCAL = 1L << 33;
+
     /**
      * Creates a transaction ID from the given begin timestamp and nodeId.
      *
@@ -33,8 +36,20 @@ public class TransactionIds {
      * @param nodeId Unique ID of the current node used to make generated transaction IDs globally unique.
      * @return Transaction ID corresponding to the provided values.
      */
-    public static UUID transactionId(HybridTimestamp beginTimestamp, int nodeId) {
-        return new UUID(beginTimestamp.longValue(), Integer.toUnsignedLong(nodeId));
+    public static UUID transactionId(HybridTimestamp beginTimestamp, int nodeId, boolean local) {
+        long leastSigBits =  Integer.toUnsignedLong(nodeId) | (local ? LOCAL : 0L);
+
+        return new UUID(beginTimestamp.longValue(), leastSigBits);
+    }
+
+    /**
+     * Extracts the local flag from transaction ID.
+     *
+     * @param transactionId Transaction ID.
+     * @return Local flag.
+     */
+    public static boolean isLocal(UUID transactionId) {
+        return (transactionId.getLeastSignificantBits() & LOCAL) == LOCAL;
     }
 
     /**

@@ -444,7 +444,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     boolean implicitTxRequired = outerTx == null;
 
-                    InternalTransaction currentTx = implicitTxRequired ? txManager.begin(!rwOp, null) : outerTx;
+                    InternalTransaction currentTx = implicitTxRequired ? txManager.beginImplicit(!rwOp) : outerTx;
 
                     tx.set(currentTx);
 

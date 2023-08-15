@@ -232,7 +232,7 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
-        public InternalTransaction begin() {
+        public InternalTransaction beginLocal(boolean readOnly) {
             return null;
         }
 

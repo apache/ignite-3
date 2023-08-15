@@ -100,9 +100,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testBegin() {
-        InternalTransaction tx0 = txManager.begin();
-        InternalTransaction tx1 = txManager.begin(false, null);
-        InternalTransaction tx2 = txManager.begin(true, null);
+        InternalTransaction tx0 = txManager.beginImplicit(false);
+        InternalTransaction tx1 = txManager.beginLocal(false);
+        InternalTransaction tx2 = txManager.beginLocal(true);
 
         assertNotNull(tx0.id());
         assertNotNull(tx1.id());
@@ -115,7 +115,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         assertEquals(ADDR, addr);
 
-        InternalTransaction tx = txManager.begin();
+        InternalTransaction tx = txManager.beginImplicit(false);
 
         TablePartitionId tablePartitionId = new TablePartitionId(1, 0);
 
@@ -148,7 +148,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertThat(txManager.updateLowWatermark(new HybridTimestamp(10_000, 11)), willSucceedFast());
 
         IgniteInternalException exception =
-                assertThrows(IgniteInternalException.class, () -> txManager.begin(true, null));
+                assertThrows(IgniteInternalException.class, () -> txManager.beginLocal(true));
 
         assertEquals(Transactions.TX_READ_ONLY_TOO_OLD_ERR, exception.code());
     }
@@ -158,10 +158,10 @@ public class TxManagerTest extends IgniteAbstractTest {
         // Let's check the absence of transactions.
         assertThat(txManager.updateLowWatermark(clock.now()), willSucceedFast());
 
-        InternalTransaction rwTx0 = txManager.begin(false, null);
+        InternalTransaction rwTx0 = txManager.beginLocal(false);
 
-        InternalTransaction roTx0 = txManager.begin(true, null);
-        InternalTransaction roTx1 = txManager.begin(true, null);
+        InternalTransaction roTx0 = txManager.begin(true, clock.now());
+        InternalTransaction roTx1 = txManager.begin(true, clock.now());
 
         CompletableFuture<Void> readOnlyTxsFuture = txManager.updateLowWatermark(roTx1.readTimestamp());
         assertFalse(readOnlyTxsFuture.isDone());
@@ -189,7 +189,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertEquals(0, txManager.finished());
 
         // Start transaction.
-        InternalTransaction tx = txManager.begin(true, null);
+        InternalTransaction tx = txManager.beginLocal(true);
         assertEquals(1, txManager.pending());
         assertEquals(0, txManager.finished());
 
@@ -216,7 +216,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertEquals(0, txManager.finished());
 
         // Start transaction.
-        InternalTransaction tx = txManager.begin(startReadOnlyTransaction, null);
+        InternalTransaction tx = txManager.beginLocal(startReadOnlyTransaction);
         assertEquals(1, txManager.pending());
         assertEquals(0, txManager.finished());
 
@@ -246,7 +246,8 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         InternalTransaction tx = txManager.begin(true, null);
 
-        assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) < compareThreshold);
+        assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) < compareThreshold
+                + IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + CLOCK_SKEW);
         tx.commit();
 
         tx = txManager.begin(true, now);
@@ -265,5 +266,32 @@ public class TxManagerTest extends IgniteAbstractTest {
         tx.commit();
 
         assertThrows(AssertionError.class, () -> txManager.begin(false, now));
+    }
+
+    @Test
+    public void testObservableTimestampLocally() {
+        long compareThreshold = 50;
+        // Check that idle safe time propagation period is significantly greater than compareThreshold.
+        assertTrue(IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + CLOCK_SKEW > compareThreshold * 5);
+
+        HybridTimestamp now = clock.now();
+
+        InternalTransaction tx = txManager.beginLocal(true);
+
+        HybridTimestamp firstReadTs = tx.readTimestamp();
+
+        assertTrue(firstReadTs.compareTo(now) < 0);
+
+        assertTrue(now.getPhysical() - firstReadTs.getPhysical() < compareThreshold
+                + IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + CLOCK_SKEW);
+        tx.commit();
+
+        tx = txManager.beginLocal(true);
+
+        assertTrue(firstReadTs.compareTo(tx.readTimestamp()) <= 0);
+
+        assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) < compareThreshold
+                + IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + CLOCK_SKEW);
+        tx.commit();
     }
 }

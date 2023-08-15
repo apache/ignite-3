@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -32,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -42,6 +45,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
@@ -91,6 +95,8 @@ public class TxManagerImpl implements TxManager {
     /** Lock to update and read the low watermark. */
     private final ReadWriteLock lowWatermarkReadWriteLock = new ReentrantReadWriteLock();
 
+    private volatile AtomicLong localObservableTimestamp = new AtomicLong(NULL_HYBRID_TIMESTAMP);
+
     /**
      * The constructor.
      *
@@ -112,25 +118,54 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public InternalTransaction begin() {
-        return begin(false, null);
+    public InternalTransaction beginLocal(boolean readOnly) {
+        if (!readOnly) {
+            return beginInternal(null, true);
+        }
+
+        HybridTimestamp localObservableTimestamp0 = nullableHybridTimestamp(localObservableTimestamp.get());
+
+        HybridTimestamp currentReadTs = currentReadTimestamp();
+
+        HybridTimestamp readTimestamp = localObservableTimestamp0 != null
+                ? HybridTimestamp.max(localObservableTimestamp0, currentReadTs)
+                : currentReadTs;
+
+        return beginInternal(readTimestamp, true);
     }
 
     @Override
     public InternalTransaction begin(boolean readOnly, @Nullable HybridTimestamp observableTimestamp) {
         assert readOnly || observableTimestamp == null : "Observable timestamp is applicable just for read-only transactions.";
 
-        HybridTimestamp beginTimestamp = clock.now();
-        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
-        changeState(txId, null, PENDING);
-
         if (!readOnly) {
-            return new ReadWriteTransactionImpl(this, txId);
+            return beginInternal(null, false);
         }
 
+        HybridTimestamp currentReadTs = currentReadTimestamp();
+
         HybridTimestamp readTimestamp = observableTimestamp != null
-                ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
-                : clock.now();
+                ? HybridTimestamp.max(observableTimestamp, currentReadTs)
+                : currentReadTs;
+
+        return beginInternal(readTimestamp, false);
+    }
+
+    /**
+     * Starts a transaction internal.
+     *
+     * @param readTimestamp Read timestamp. It can be {@code null} for RW transactions.
+     * @param local The flag determines whether the transaction is initiated locally or not.
+     * @return The started transaction.
+     */
+    private InternalTransaction beginInternal(@Nullable HybridTimestamp readTimestamp, boolean local) {
+        HybridTimestamp beginTimestamp = clock.now();
+        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, local);
+        changeState(txId, null, PENDING);
+
+        if (readTimestamp == null) {
+            return new ReadWriteTransactionImpl(this, txId);
+        }
 
         lowWatermarkReadWriteLock.readLock().lock();
 
@@ -215,6 +250,11 @@ public class TxManagerImpl implements TxManager {
                 .build();
 
         return replicaService.invoke(recipientNode, req)
+                .thenRun(() -> {
+                    if (commit && TransactionIds.isLocal(txId)) {
+                        localObservableTimestamp.updateAndGet(x -> Math.max(x, commitTimestamp.longValue()));
+                    }
+                })
                 // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
                 .thenRun(() -> changeState(txId, PENDING, commit ? COMMITED : ABORTED));
     }

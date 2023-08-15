@@ -50,7 +50,7 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
 
     @Override
     protected InternalTransaction startTx() {
-        InternalTransaction tx = internalTbl.txManager().begin();
+        InternalTransaction tx = internalTbl.txManager().beginLocal(false);
 
         TablePartitionId tblPartId = new TablePartitionId(internalTbl.tableId(), ((TablePartitionId) internalTbl.groupId()).partitionId());
         RaftGroupService raftSvc = internalTbl.partitionRaftGroupService(tblPartId.partitionId());

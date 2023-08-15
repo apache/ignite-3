@@ -41,7 +41,7 @@ class ReadWriteTransactionImplTest {
     @Test
     void effectiveSchemaTimestampIsBeginTimestamp() {
         HybridTimestamp beginTs = clock.now();
-        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs, true);
 
         var tx = new ReadWriteTransactionImpl(txManager, txId);
 

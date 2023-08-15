@@ -40,9 +40,10 @@ public class TransactionIdGenerator {
      * Creates a transaction ID with the given begin timestamp.
      *
      * @param beginTimestamp Transaction begin timestamp.
+     * @param local Local flag.
      * @return Transaction ID.
      */
-    public UUID transactionIdFor(HybridTimestamp beginTimestamp) {
-        return TransactionIds.transactionId(beginTimestamp, nodeIdSupplier.nodeId());
+    public UUID transactionIdFor(HybridTimestamp beginTimestamp, boolean local) {
+        return TransactionIds.transactionId(beginTimestamp, nodeIdSupplier.nodeId(), local);
     }
 }

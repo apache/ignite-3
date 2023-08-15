@@ -243,7 +243,7 @@ public class InternalTableImpl implements InternalTable {
 
         boolean implicit = tx == null;
 
-        InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+        InternalTransaction tx0 = implicit ? txManager.beginImplicit(false) : tx;
 
         int partId = partitionId(row);
 
@@ -307,7 +307,7 @@ public class InternalTableImpl implements InternalTable {
                     "The operation is attempted for completed transaction"));
         }
 
-        InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+        InternalTransaction tx0 = implicit ? txManager.beginImplicit(false) : tx;
 
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
@@ -679,7 +679,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
-        InternalTransaction tx = txManager.begin();
+        InternalTransaction tx = txManager.beginImplicit(false);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
         CompletableFuture<Void> fut = enlistWithRetry(
@@ -1023,7 +1023,7 @@ public class InternalTableImpl implements InternalTable {
 
         boolean implicit = tx == null;
 
-        InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+        InternalTransaction tx0 = implicit ? txManager.beginImplicit(false) : tx;
 
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> enlistCursorInTx(

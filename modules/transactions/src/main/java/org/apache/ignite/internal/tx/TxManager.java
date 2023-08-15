@@ -36,14 +36,7 @@ import org.jetbrains.annotations.TestOnly;
  */
 public interface TxManager extends IgniteComponent {
     /**
-     * Starts a read-write transaction coordinated by a local node.
-     *
-     * @return The transaction.
-     */
-    InternalTransaction begin();
-
-    /**
-     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
+     * Starts either a read-write or read-only transaction, depending on {@code readOnly} parameter value.
      *
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
      *      Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
@@ -56,6 +49,25 @@ public interface TxManager extends IgniteComponent {
      *      in the tables.
      */
     InternalTransaction begin(boolean readOnly, @Nullable HybridTimestamp observableTimestamp);
+
+    /**
+     * Starts either a read-write or read-only locally initiated transaction, depending on {@code readOnly} parameter value.
+     *
+     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
+     * @return The started transaction.
+     */
+    InternalTransaction beginLocal(boolean readOnly);
+
+    /**
+     * TODO: The method should be replaced with the correct one that will be considered with the local flag and RO configuration.
+     * Start an implicit transaction.
+     *
+     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
+     * @return The started transaction.
+     */
+    default InternalTransaction beginImplicit(boolean readOnly) {
+        return beginLocal(readOnly);
+    }
 
     /**
      * Returns a transaction state.

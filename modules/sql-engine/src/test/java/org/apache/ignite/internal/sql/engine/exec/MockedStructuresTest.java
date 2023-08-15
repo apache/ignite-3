@@ -584,7 +584,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         InternalTransaction tx = mock(InternalTransaction.class);
         when(tx.startTimestamp()).thenReturn(HybridTimestamp.MAX_VALUE);
-        when(tm.begin(anyBoolean(), any())).thenReturn(tx);
+        when(tm.beginImplicit(anyBoolean())).thenReturn(tx);
 
         when(replicaManager.stopReplica(any())).thenReturn(completedFuture(true));
 

@@ -29,11 +29,13 @@ class TransactionIdsTest {
     void transactionIdIsBuiltCorrectly() {
         HybridTimestamp beginTs = new HybridTimestamp(123L, 456);
 
-        UUID txId = TransactionIds.transactionId(beginTs, 0xdeadbeef);
+        UUID txId = TransactionIds.transactionId(beginTs, 0xdeadbeef, false);
 
         HybridTimestamp extractedTs = TransactionIds.beginTimestamp(txId);
+        boolean local = TransactionIds.isLocal(txId);
 
         assertThat(extractedTs, is(beginTs));
+        assertThat(local, is(false));
         assertThat((int) txId.getLeastSignificantBits(), is(0xdeadbeef));
     }
 }
