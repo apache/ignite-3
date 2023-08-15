@@ -65,6 +65,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -147,6 +148,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -801,12 +803,17 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             clockWaiter = new ClockWaiter("test", hybridClock);
 
+            LongSupplier delayDurationMsSupplier = () -> 10L;
+
             catalogManager = new CatalogManagerImpl(
                     new UpdateLogImpl(metaStorageManager),
-                    clockWaiter
+                    clockWaiter,
+                    delayDurationMsSupplier
             );
 
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
+
+            var schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), catalogManager, delayDurationMsSupplier);
 
             distributionZoneManager = new DistributionZoneManager(
                     registry,
@@ -817,7 +824,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     vaultManager,
                     name
             );
-
 
             tableManager = new TableManager(
                     name,
@@ -843,7 +849,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     topologyAwareRaftGroupServiceFactory,
                     vaultManager,
                     cmgManager,
-                    distributionZoneManager
+                    distributionZoneManager,
+                    schemaSyncService,
+                    catalogManager
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

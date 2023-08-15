@@ -74,8 +74,10 @@ import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.rpc.impl.AppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.rpc.impl.NullAppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.StableClosureEvent;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -125,7 +127,9 @@ public class JraftServerImpl implements RaftServer {
     private final Marshaller commandsMarshaller;
 
     /** Raft service event interceptor. */
-    private RaftServiceEventInterceptor serviceEventInterceptor;
+    private final RaftServiceEventInterceptor serviceEventInterceptor;
+
+    private AppendEntriesRequestInterceptor appendEntriesRequestInterceptor = new NullAppendEntriesRequestInterceptor();
 
     /** The number of parallel raft groups starts. */
     private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
@@ -193,6 +197,15 @@ public class JraftServerImpl implements RaftServer {
         serviceEventInterceptor = new RaftServiceEventInterceptor();
     }
 
+    /**
+     * Sets {@link AppendEntriesRequestInterceptor} to use.
+     *
+     * @param appendEntriesRequestInterceptor Interceptor to use.
+     */
+    public void appendEntriesRequestInterceptor(AppendEntriesRequestInterceptor appendEntriesRequestInterceptor) {
+        this.appendEntriesRequestInterceptor = appendEntriesRequestInterceptor;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() {
@@ -239,7 +252,9 @@ public class JraftServerImpl implements RaftServer {
                 opts.getRaftMessagesFactory(),
                 requestExecutor,
                 serviceEventInterceptor,
-                raftGroupEventsClientListener
+                raftGroupEventsClientListener,
+                commandsMarshaller,
+                appendEntriesRequestInterceptor
         );
 
         if (opts.getfSMCallerExecutorDisruptor() == null) {

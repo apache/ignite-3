@@ -17,26 +17,12 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
-
 /**
- * Partition transactional command.
+ * A command that requires certain level of catalog version to be locally available just to be accepted on the node.
  */
-public interface PartitionCommand extends SafeTimePropagatingCommand, CatalogLevelAware {
-    /**
-     * Returns a transaction id.
-     */
-    UUID txId();
-
-    /**
-     * Returns {@code true} if a command represents a full (including all keys) transaction.
-     */
-    boolean full();
-
+public interface CatalogLevelAware {
     /**
      * Returns version that the Catalog must have locally for the node to be allowed to accept this command via replication.
      */
-    @Override
     int requiredCatalogVersion();
 }

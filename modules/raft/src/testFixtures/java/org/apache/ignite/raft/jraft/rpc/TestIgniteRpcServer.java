@@ -18,7 +18,9 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.raft.jraft.rpc.impl.NullAppendEntriesRequestInterceptor;
 import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -44,7 +46,9 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
                 nodeOptions.getRaftMessagesFactory(),
                 requestExecutor,
                 new RaftServiceEventInterceptor(),
-                new RaftGroupEventsClientListener()
+                new RaftGroupEventsClientListener(),
+                new ThreadLocalOptimizedMarshaller(clusterService.serializationRegistry()),
+                new NullAppendEntriesRequestInterceptor()
         );
 
         clusterService.messagingService().addMessageHandler(TestMessageGroup.class, new RpcMessageHandler());

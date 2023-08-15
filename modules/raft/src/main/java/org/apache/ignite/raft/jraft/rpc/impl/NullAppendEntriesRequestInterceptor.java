@@ -15,28 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.raft.jraft.rpc.impl;
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
+import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftServerService;
+import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
+import org.apache.ignite.raft.jraft.util.Marshaller;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Partition transactional command.
+ * An {@link AppendEntriesRequestInterceptor} that never intercepts anything and always asks the standard handling
+ * to be used.
  */
-public interface PartitionCommand extends SafeTimePropagatingCommand, CatalogLevelAware {
-    /**
-     * Returns a transaction id.
-     */
-    UUID txId();
-
-    /**
-     * Returns {@code true} if a command represents a full (including all keys) transaction.
-     */
-    boolean full();
-
-    /**
-     * Returns version that the Catalog must have locally for the node to be allowed to accept this command via replication.
-     */
+public class NullAppendEntriesRequestInterceptor implements AppendEntriesRequestInterceptor {
     @Override
-    int requiredCatalogVersion();
+    public @Nullable Message intercept(RaftServerService service, AppendEntriesRequest request, Marshaller commandsMarshaller,
+            RpcRequestClosure done) {
+        return null;
+    }
 }

@@ -53,10 +53,9 @@ import java.util.stream.IntStream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.ReplicationGroupsUtils;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -75,10 +74,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
-import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.Replicator;
-import org.apache.ignite.raft.jraft.entity.PeerId;
-import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotExecutorImpl;
 import org.apache.ignite.sql.ResultSet;
@@ -373,7 +369,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         BooleanSupplier tableStarted = () -> {
             int numberOfStartedRaftNodes = cluster.runningNodes()
-                    .map(ItTableRaftSnapshotsTest::tablePartitionIds)
+                    .map(ReplicationGroupsUtils::tablePartitionIds)
                     .mapToInt(List::size)
                     .sum();
             return numberOfStartedRaftNodes == 3;
@@ -398,31 +394,9 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * Causes a RAFT snapshot to be taken on the RAFT leader of the sole table partition that exists in the cluster.
      */
     private void doSnapshotOnSolePartitionLeader(int expectedLeaderNodeIndex) throws InterruptedException {
-        TablePartitionId tablePartitionId = solePartitionId();
+        TablePartitionId tablePartitionId = cluster.solePartitionId();
 
         doSnapshotOn(tablePartitionId, expectedLeaderNodeIndex);
-    }
-
-    /**
-     * Returns the ID of the sole table partition that exists in the cluster.
-     */
-    private TablePartitionId solePartitionId() {
-        List<TablePartitionId> tablePartitionIds = tablePartitionIds(cluster.aliveNode());
-
-        assertThat(tablePartitionIds.size(), is(1));
-
-        return tablePartitionIds.get(0);
-    }
-
-    /**
-     * Returns the IDs of all table partitions that exist on the given node.
-     */
-    private static List<TablePartitionId> tablePartitionIds(IgniteImpl node) {
-        return node.raftManager().localNodes().stream()
-                .map(RaftNodeId::groupId)
-                .filter(TablePartitionId.class::isInstance)
-                .map(TablePartitionId.class::cast)
-                .collect(toList());
     }
 
     /**
@@ -489,52 +463,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     private void transferLeadershipOnSolePartitionTo(int nodeIndex) throws InterruptedException {
-        String nodeConsistentId = cluster.node(nodeIndex).node().name();
-
-        int maxAttempts = 3;
-
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            boolean transferred = tryTransferLeadershipOnSolePartitionTo(nodeConsistentId);
-
-            if (transferred) {
-                break;
-            }
-
-            if (attempt < maxAttempts) {
-                LOG.info("Did not transfer leadership after " + attempt + " attempts, going to retry...");
-            } else {
-                fail("Did not transfer leadership in time after " + maxAttempts + " attempts");
-            }
-        }
-    }
-
-    private boolean tryTransferLeadershipOnSolePartitionTo(String targetLeaderConsistentId) throws InterruptedException {
-        NodeImpl leaderBeforeTransfer = (NodeImpl) cluster.leaderServiceFor(solePartitionId()).getRaftNode();
-
-        initiateLeadershipTransferTo(targetLeaderConsistentId, leaderBeforeTransfer);
-
-        BooleanSupplier leaderTransferred = () -> {
-            PeerId leaderId = leaderBeforeTransfer.getLeaderId();
-            return leaderId != null && leaderId.getConsistentId().equals(targetLeaderConsistentId);
-        };
-
-        return waitForCondition(leaderTransferred, 10_000);
-    }
-
-    private static void initiateLeadershipTransferTo(String targetLeaderConsistentId, NodeImpl leaderBeforeTransfer) {
-        long startedMillis = System.currentTimeMillis();
-
-        while (true) {
-            Status status = leaderBeforeTransfer.transferLeadershipTo(new PeerId(targetLeaderConsistentId));
-
-            if (status.getRaftError() != RaftError.EBUSY) {
-                break;
-            }
-
-            if (System.currentTimeMillis() - startedMillis > 10_000) {
-                throw new IllegalStateException("Could not initiate leadership transfer to " + targetLeaderConsistentId + " in time");
-            }
-        }
+        cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId());
     }
 
     /**

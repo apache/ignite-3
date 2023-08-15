@@ -25,7 +25,6 @@ import java.util.concurrent.RejectedExecutionException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.server.impl.RaftServiceEventInterceptor;
-import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -58,6 +57,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcesso
 import org.apache.ignite.raft.jraft.rpc.impl.core.ReadIndexRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.RequestVoteRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
+import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -89,7 +89,9 @@ public class IgniteRpcServer implements RpcServer<Void> {
             RaftMessagesFactory raftMessagesFactory,
             Executor rpcExecutor,
             RaftServiceEventInterceptor serviceEventInterceptor,
-            RaftGroupEventsClientListener raftGroupEventsClientListener
+            RaftGroupEventsClientListener raftGroupEventsClientListener,
+            Marshaller commandsMarshaller,
+            AppendEntriesRequestInterceptor appendEntriesRequestFilter
     ) {
         this.service = service;
         this.nodeManager = nodeManager;
@@ -97,7 +99,9 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
         // raft server RPC
         AppendEntriesRequestProcessor appendEntriesRequestProcessor =
-            new AppendEntriesRequestProcessor(rpcExecutor, raftMessagesFactory);
+            new InterceptingAppendEntriesRequestProcessor(
+                    rpcExecutor, raftMessagesFactory, commandsMarshaller, appendEntriesRequestFilter
+            );
         registerConnectionClosedEventListener(appendEntriesRequestProcessor);
         registerProcessor(appendEntriesRequestProcessor);
         registerProcessor(new GetFileRequestProcessor(rpcExecutor, raftMessagesFactory));
@@ -120,7 +124,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new RemoveLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ResetLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         // common client integration
-        var commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
         registerProcessor(new ActionRequestProcessor(rpcExecutor, raftMessagesFactory, commandsMarshaller));
         registerProcessor(new NotifyElectProcessor(raftMessagesFactory, serviceEventInterceptor));
         registerProcessor(new RaftGroupEventsProcessor(raftGroupEventsClientListener));

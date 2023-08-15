@@ -15,28 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.internal;
 
-import java.util.UUID;
-import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
+import static java.util.stream.Collectors.toList;
+
+import java.util.List;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /**
- * Partition transactional command.
+ * Utilities used to obtain replication groups from a running Ignite instance.
  */
-public interface PartitionCommand extends SafeTimePropagatingCommand, CatalogLevelAware {
+public class ReplicationGroupsUtils {
     /**
-     * Returns a transaction id.
+     * Returns the IDs of all table partitions that exist on the given node.
      */
-    UUID txId();
-
-    /**
-     * Returns {@code true} if a command represents a full (including all keys) transaction.
-     */
-    boolean full();
-
-    /**
-     * Returns version that the Catalog must have locally for the node to be allowed to accept this command via replication.
-     */
-    @Override
-    int requiredCatalogVersion();
+    public static List<TablePartitionId> tablePartitionIds(IgniteImpl node) {
+        return node.raftManager().localNodes().stream()
+                .map(RaftNodeId::groupId)
+                .filter(TablePartitionId.class::isInstance)
+                .map(TablePartitionId.class::cast)
+                .collect(toList());
+    }
 }

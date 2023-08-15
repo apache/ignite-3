@@ -47,6 +47,7 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.rpc.impl.AppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
@@ -74,7 +75,7 @@ public class Loza implements RaftManager {
     private final ClusterService clusterNetSvc;
 
     /** Raft server. */
-    private final RaftServer raftServer;
+    private final JraftServerImpl raftServer;
 
     /** Executor for raft group services. */
     private final ScheduledExecutorService executor;
@@ -144,6 +145,16 @@ public class Loza implements RaftManager {
                 clock,
                 new RaftGroupEventsClientListener()
         );
+    }
+
+    /**
+     * Sets {@link AppendEntriesRequestInterceptor} to use.
+     *
+     * @param appendEntriesRequestInterceptor Interceptor to use.
+     */
+    public void appendEntriesRequestInterceptor(AppendEntriesRequestInterceptor appendEntriesRequestInterceptor) {
+
+        raftServer.appendEntriesRequestInterceptor(appendEntriesRequestInterceptor);
     }
 
     /** {@inheritDoc} */

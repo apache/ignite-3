@@ -88,6 +88,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -165,6 +166,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Snaps
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -343,6 +345,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final DistributionZoneManager distributionZoneManager;
 
+    private final SchemaSyncService schemaSyncService;
+
+    private final CatalogService catalogService;
+
     /** Partitions storage path. */
     private final Path storagePath;
 
@@ -419,7 +425,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             VaultManager vaultManager,
             ClusterManagementGroupManager cmgMgr,
-            DistributionZoneManager distributionZoneManager
+            DistributionZoneManager distributionZoneManager,
+            SchemaSyncService schemaSyncService,
+            CatalogService catalogService
     ) {
         this.tablesCfg = tablesCfg;
         this.zonesConfig = zonesConfig;
@@ -442,6 +450,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.cmgMgr = cmgMgr;
         this.distributionZoneManager = distributionZoneManager;
+        this.schemaSyncService = schemaSyncService;
+        this.catalogService = catalogService;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -997,6 +1007,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 localNode(),
                 table.internalTable().storage(),
                 indexBuilder,
+                schemaSyncService,
+                catalogService,
                 tablesCfg
         );
     }
