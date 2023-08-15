@@ -676,6 +676,19 @@ public class DistributionZonesTestUtil {
     }
 
     /**
+     * Returns distributed zone ID form catalog, {@code null} if zone is absent.
+     *
+     * @param catalogService Catalog service.
+     * @param zoneName Distributed zone name.
+     * @param timestamp Timestamp.
+     */
+    public static @Nullable Integer getZoneId(CatalogService catalogService, String zoneName, long timestamp) {
+        CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
+
+        return zone == null ? null : zone.id();
+    }
+
+    /**
      * Returns the zone ID from the configuration, {@code null} if the zone was not found.
      *
      * @param config Zones configuration.
@@ -708,19 +721,6 @@ public class DistributionZonesTestUtil {
         assertNotNull(zoneId, zoneName);
 
         return zoneId;
-    }
-
-    /**
-     * Returns distributed zone ID form catalog, {@code null} if zone is absent.
-     *
-     * @param catalogService Catalog service.
-     * @param zoneName Distributed zone name.
-     * @param timestamp Timestamp.
-     */
-    public static @Nullable Integer getZoneId(CatalogService catalogService, String zoneName, long timestamp) {
-        CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
-
-        return zone == null ? null : zone.id();
     }
 
     /**
