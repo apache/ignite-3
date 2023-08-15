@@ -106,7 +106,7 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
      * @param responseBody response body of exception returned from the API call.
      * @return Extracted {@link Problem}
      */
-    public static Problem extractProblem(String responseBody) {
+    private static Problem extractProblem(String responseBody) {
         try {
             return objectMapper.readValue(responseBody, Problem.class);
         } catch (JsonProcessingException ex) {
