@@ -82,7 +82,7 @@ public class ClientSqlExecuteRequest {
 
         HybridTimestamp observableTimestamp = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
 
-        if (observableTimestamp == null) {
+        if (tx != null) {
             return session
                     .executeAsync(tx, statement, arguments)
                     .thenCompose(asyncResultSet -> writeResultSetAsync(out, resources, asyncResultSet, session, metrics));
