@@ -91,6 +91,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -115,6 +116,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
+import org.apache.ignite.internal.schema.CatalogDescriptorUtils;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
@@ -1979,5 +1981,18 @@ public class DistributionZoneManager implements IgniteComponent {
                 .map(DistributionZoneView::name)
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * Returns the table descriptor from the configuration, {@code null} if the table is absent.
+     *
+     * @param tableName Table name.
+     */
+    // TODO: IGNITE-20114 Get rid of
+    @Deprecated(forRemoval = true)
+    public @Nullable CatalogTableDescriptor getTableFromConfig(String tableName) {
+        TableConfiguration tableConfig = tablesConfiguration.tables().get(tableName);
+
+        return tableConfig == null ? null : CatalogDescriptorUtils.toTableDescriptor(tableConfig.value());
     }
 }
