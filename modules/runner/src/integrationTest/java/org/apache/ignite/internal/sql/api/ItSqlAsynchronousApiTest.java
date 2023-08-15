@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_CLOSED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
@@ -53,6 +54,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
@@ -499,7 +501,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkMetadata(new ColumnMetadataImpl(
                         "COL1",
                         ColumnType.STRING,
-                        2 << 15,
+                        CatalogUtils.DEFAULT_VARLEN_LENGTH,
                         ColumnMetadata.UNDEFINED_SCALE,
                         false,
                         new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
@@ -764,6 +766,46 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(err, ex.updateCounters().length);
         IntStream.range(0, ex.updateCounters().length).forEach(i -> assertEquals(1, ex.updateCounters()[i]));
+    }
+
+    @Test
+    public void resultSetCloseShouldFinishImplicitTransaction() throws InterruptedException {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
+        IgniteSql sql = igniteSql();
+
+        Session ses = sql.sessionBuilder().defaultPageSize(2).build();
+        CompletableFuture<AsyncResultSet<SqlRow>> f = ses.executeAsync(null, "SELECT * FROM TEST");
+
+        AsyncResultSet<SqlRow> ars = f.join();
+        // There should be a pending transaction since not all data was read.
+        boolean txStarted = waitForCondition(() -> txManager().pending() == 1, 5000);
+        assertTrue(txStarted, "No pending transactions");
+
+        ars.closeAsync().join();
+        assertEquals(0, txManager().pending(), "Expected no pending transactions");
+    }
+
+    @Test
+    public void resultSetFullReadShouldFinishImplicitTransaction() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
+        IgniteSql sql = igniteSql();
+
+        // Fetch all data in one read.
+        Session ses = sql.sessionBuilder().defaultPageSize(100).build();
+        CompletableFuture<AsyncResultSet<SqlRow>> f = ses.executeAsync(null, "SELECT * FROM TEST");
+
+        AsyncResultSet<SqlRow> ars = f.join();
+        assertFalse(ars.hasMorePages());
+
+        assertEquals(0, txManager().pending(), "Expected no pending transactions");
     }
 
     private static void checkDdl(boolean expectedApplied, Session ses, String sql, Transaction tx) {

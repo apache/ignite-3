@@ -26,15 +26,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
@@ -97,13 +96,13 @@ public abstract class BaseMvStoragesTest {
                 })
                 .toArray();
 
-        Function<BinaryRow, BinaryTuple> converter = BinaryRowConverter.columnsExtractor(schemaDescriptor, columnIndexes);
-        return new IndexRowImpl(converter.apply(binaryRow), rowId);
+        ColumnsExtractor converter = BinaryRowConverter.columnsExtractor(schemaDescriptor, columnIndexes);
+        return new IndexRowImpl(converter.extractColumns(binaryRow), rowId);
     }
 
     protected static TestKey key(BinaryRow binaryRow) {
         try {
-            return kvMarshaller.unmarshalKey(new Row(schemaDescriptor, binaryRow));
+            return kvMarshaller.unmarshalKey(Row.wrapBinaryRow(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
@@ -112,7 +111,7 @@ public abstract class BaseMvStoragesTest {
     @Nullable
     protected static TestValue value(BinaryRow binaryRow) {
         try {
-            return kvMarshaller.unmarshalValue(new Row(schemaDescriptor, binaryRow));
+            return kvMarshaller.unmarshalValue(Row.wrapBinaryRow(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
@@ -146,10 +145,9 @@ public abstract class BaseMvStoragesTest {
         }
     }
 
-    protected final void assertRowMatches(@Nullable BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
+    protected static void assertRowMatches(@Nullable BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
         assertThat(rowUnderQuestion, is(notNullValue()));
         assertThat(rowUnderQuestion.schemaVersion(), is(expectedRow.schemaVersion()));
-        assertThat(rowUnderQuestion.hasValue(), is(expectedRow.hasValue()));
         assertThat(rowUnderQuestion.tupleSlice(), is(expectedRow.tupleSlice()));
     }
 

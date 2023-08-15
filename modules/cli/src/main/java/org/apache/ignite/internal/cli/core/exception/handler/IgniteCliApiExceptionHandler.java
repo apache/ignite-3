@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cli.core.exception.handler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micronaut.http.HttpStatus;
 import java.net.ConnectException;
 import java.net.UnknownHostException;
 import java.util.List;
@@ -68,20 +69,19 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
                         .verbose(apiCause.getMessage());
             } else if (apiCause != null) {
                 errorComponentBuilder.header(apiCause.getMessage());
-            } else if (cause.getResponseBody() != null) {
-                Problem problem = extractProblem(cause.getResponseBody());
-
-                if (problem.getStatus() == 401) {
+            } else {
+                if (cause.getCode() == HttpStatus.UNAUTHORIZED.getCode()) {
                     errorComponentBuilder
                             .header("Authentication error")
                             .details("Could not connect to node with URL %s. "
-                                    + "Check authentication configuration", UiElements.url(e.getUrl()))
+                                    + "Check authentication configuration or provided username/password", UiElements.url(e.getUrl()))
                             .verbose(e.getMessage());
-                } else {
+                } else if (cause.getResponseBody() != null) {
+                    Problem problem = extractProblem(cause.getResponseBody());
                     renderProblem(errorComponentBuilder, problem);
+                } else {
+                    errorComponentBuilder.header(e.getCause() != e ? e.getCause().getMessage() : e.getMessage());
                 }
-            } else {
-                errorComponentBuilder.header(e.getCause() != e ? e.getCause().getMessage() : e.getMessage());
             }
         } else {
             errorComponentBuilder.header(e.getCause() != e ? e.getCause().getMessage() : e.getMessage());

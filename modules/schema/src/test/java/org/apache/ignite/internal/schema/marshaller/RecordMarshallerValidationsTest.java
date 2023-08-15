@@ -66,7 +66,7 @@ public class RecordMarshallerValidationsTest {
 
         BinaryRow row = marshaller.marshal(rec);
 
-        TruncatedRecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TruncatedRecClass restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertTrue(rec.getClass().isInstance(restoredRec));
 
@@ -92,7 +92,7 @@ public class RecordMarshallerValidationsTest {
 
         BinaryRow row = marshaller.marshal(rec);
 
-        TruncatedRecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TruncatedRecClass restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertTrue(rec.getClass().isInstance(restoredRec));
 
@@ -121,7 +121,7 @@ public class RecordMarshallerValidationsTest {
 
         RecordMarshaller<TruncatedRecClass> marshaller = factory.create(schema, TruncatedRecClass.class);
 
-        TruncatedRecClass restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TruncatedRecClass restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertEquals(rec.id, restoredRec.id);
         assertEquals(rec.fbyte1, restoredRec.fbyte1);
@@ -143,7 +143,7 @@ public class RecordMarshallerValidationsTest {
 
         BinaryRow row = marshallerFull.marshal(fullRec);
 
-        Object restoredRec = marshallerFull.unmarshal(new Row(schema, row));
+        Object restoredRec = marshallerFull.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertTrue(fullRec.getClass().isInstance(restoredRec));
 
@@ -239,4 +239,3 @@ public class RecordMarshallerValidationsTest {
         }
     }
 }
-
