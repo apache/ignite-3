@@ -70,7 +70,7 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
 
         rule.clear();
         rule.addAll(EXACT_TYPES);
-        rule.addAll(APPROX_TYPES);
+        rule.addAll(FRACTIONAL_TYPES);
         rule.addAll(CHAR_TYPES);
 
         // FLOAT (up to 64 bit floating point) is assignable from...
@@ -92,30 +92,17 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
             rules.add(type, rule);
         }
 
-        // VARBINARY is assignable from...
+        // BINARY, VARBINARY is assignable from...
         rule.clear();
         rule.addAll(BINARY_TYPES);
-        rule.addAll(CHAR_TYPES);
-        rules.add(SqlTypeName.VARBINARY, rule);
+        for (SqlTypeName type : BINARY_TYPES) {
+            rules.add(type, rule);
+        }
 
         // CHAR is assignable from...
-        rule.clear();
-        rule.addAll(CHAR_TYPES);
-        rule.addAll(BINARY_TYPES);
-        rule.addAll(EXACT_TYPES);
-        rule.addAll(APPROX_TYPES);
-        rule.addAll(DAY_INTERVAL_TYPES);
-        rule.addAll(YEAR_INTERVAL_TYPES);
-        rule.add(SqlTypeName.BOOLEAN);
-        rule.add(SqlTypeName.DATE);
-        rule.add(SqlTypeName.TIME);
-        rule.add(SqlTypeName.TIMESTAMP);
-        rules.add(SqlTypeName.CHAR, rule);
-
         // VARCHAR is assignable from...
         rule.clear();
         rule.addAll(CHAR_TYPES);
-        rule.addAll(BINARY_TYPES);
         rule.addAll(EXACT_TYPES);
         rule.addAll(APPROX_TYPES);
         rule.addAll(DAY_INTERVAL_TYPES);
@@ -124,16 +111,12 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
         rule.add(SqlTypeName.DATE);
         rule.add(SqlTypeName.TIME);
         rule.add(SqlTypeName.TIMESTAMP);
+
+        rules.add(SqlTypeName.CHAR, rule);
         rules.add(SqlTypeName.VARCHAR, rule);
 
         // BOOLEAN is assignable from...
         rules.add(SqlTypeName.BOOLEAN, EnumSet.of(SqlTypeName.BOOLEAN, SqlTypeName.CHAR, SqlTypeName.VARCHAR));
-
-        // BINARY is assignable from...
-        rule.clear();
-        rule.addAll(BINARY_TYPES);
-        rule.addAll(CHAR_TYPES);
-        rules.add(SqlTypeName.BINARY, rule);
 
         // DATE is assignable from...
         rule.clear();
