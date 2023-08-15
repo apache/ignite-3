@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.mock;
 
-import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -40,17 +42,18 @@ public class DistributionZoneMockTest {
     private DistributionZonesConfiguration zonesConfiguration;
 
     @Test
-    void getNonExistingZoneFromDirectProxy() throws Exception {
+    void getNonExistingZoneFromDirectProxy() {
         DistributionZoneManager zoneMgr = new DistributionZoneManager(
+                "",
                 null,
                 zonesConfiguration,
                 mock(TablesConfiguration.class),
                 mock(MetaStorageManager.class),
                 mock(LogicalTopologyService.class),
                 mock(VaultManager.class),
-                ""
+                mock(CatalogManager.class)
         );
 
-        assertNull(zoneMgr.zoneIdAsyncInternal("non-exist-zone").get(3, TimeUnit.SECONDS));
+        assertThat(zoneMgr.zoneIdAsyncInternal("non-exist-zone"), willBe(nullValue()));
     }
 }

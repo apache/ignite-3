@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -140,13 +141,14 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
 
         distributionZoneManager = new DistributionZoneManager(
+                nodeName,
                 revisionUpdater,
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 vaultMgr,
-                nodeName
+                mock(CatalogManager.class)
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.

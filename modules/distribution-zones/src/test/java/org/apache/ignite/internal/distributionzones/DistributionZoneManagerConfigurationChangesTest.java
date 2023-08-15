@@ -51,6 +51,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -151,13 +152,14 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
 
         distributionZoneManager = new DistributionZoneManager(
+                nodeName,
                 revisionUpdater,
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageManager,
                 logicalTopologyService,
                 vaultMgr,
-                nodeName
+                mock(CatalogManager.class)
         );
 
         vaultMgr.start();
@@ -165,7 +167,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         metaStorageManager.start();
         distributionZoneManager.start();
 
-        metaStorageManager.deployWatches();
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
         clearInvocations(keyValueStorage);
     }

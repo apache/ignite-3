@@ -80,7 +80,6 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -238,11 +237,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new VaultStateIds(vault)
         );
 
-        HybridClock hybridClock = new HybridClockImpl();
+        var clock = new HybridClockImpl();
 
         var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-        var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
+        var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, clock, raftGroupEventsClientListener);
 
         var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
 
@@ -262,17 +261,17 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 name,
                 clusterSvc,
                 cmgManager,
-                hybridClock,
+                clock,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class)
         );
 
-        var replicaService = new ReplicaService(clusterSvc.messagingService(), hybridClock);
+        var replicaService = new ReplicaService(clusterSvc.messagingService(), clock);
 
         var lockManager = new HeapLockManager();
 
-        ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), hybridClock);
+        ReplicaService replicaSvc = new ReplicaService(clusterSvc.messagingService(), clock);
 
-        var txManager = new TxManagerImpl(replicaService, lockManager, hybridClock, new TransactionIdGenerator(idx));
+        var txManager = new TxManagerImpl(replicaService, lockManager, clock, new TransactionIdGenerator(idx));
 
         var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
@@ -290,7 +289,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 raftMgr,
                 new RocksDbKeyValueStorage(name, dir.resolve("metastorage")),
-                hybridClock,
+                clock,
                 topologyAwareRaftGroupServiceFactory,
                 metaStorageConfiguration
         );
@@ -342,24 +341,19 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
-        Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
-                metaStorageMgr.registerRevisionUpdateListener(function::apply);
+        var clockWaiter = new ClockWaiter(name, clock);
+
+        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageMgr), clockWaiter);
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
-                null,
+                name,
+                registry,
                 zonesConfig,
                 tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
                 vault,
-                name
-        );
-
-        var clockWaiter = new ClockWaiter("test", hybridClock);
-
-        var catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageMgr),
-                clockWaiter
+                catalogManager
         );
 
         TableManager tableManager = new TableManager(
@@ -381,7 +375,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metaStorageMgr,
                 schemaManager,
                 view -> new LocalLogStorageFactory(),
-                hybridClock,
+                clock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 topologyAwareRaftGroupServiceFactory,
                 vault,
@@ -405,7 +399,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
                 replicaSvc,
-                hybridClock,
+                clock,
                 catalogManager,
                 metricManager
         );

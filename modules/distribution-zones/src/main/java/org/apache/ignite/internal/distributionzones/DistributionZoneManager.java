@@ -89,6 +89,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -136,8 +137,6 @@ import org.jetbrains.annotations.TestOnly;
 public class DistributionZoneManager implements IgniteComponent {
     /** Name of the default distribution zone. */
     public static final String DEFAULT_ZONE_NAME = "Default";
-
-    private static final String DISTRIBUTION_ZONE_MANAGER_POOL_NAME = "dst-zones-scheduler";
 
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
@@ -202,7 +201,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * Map with states for distribution zones. States are needed to track nodes that we want to add or remove from the data nodes,
      * schedule and stop scale up and scale down processes.
      */
-    private final Map<Integer, ZoneState> zonesState;
+    private final Map<Integer, ZoneState> zonesState = new ConcurrentHashMap<>();
 
     /** Listener for a topology events. */
     private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
@@ -226,7 +225,7 @@ public class DistributionZoneManager implements IgniteComponent {
      * The logical topology on the last watch event.
      * It's enough to mark this field by volatile because we don't update the collection after it is assigned to the field.
      */
-    private volatile Set<NodeWithAttributes> logicalTopology;
+    private volatile Set<NodeWithAttributes> logicalTopology = emptySet();
 
     /**
      * Local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
@@ -235,7 +234,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
      */
-    private Map<String, Map<String, String>> nodesAttributes;
+    private Map<String, Map<String, String>> nodesAttributes = new ConcurrentHashMap<>();
 
     /** Watch listener for logical topology keys. */
     private final WatchListener topologyWatchListener;
@@ -258,13 +257,14 @@ public class DistributionZoneManager implements IgniteComponent {
      * @param nodeName Node name.
      */
     public DistributionZoneManager(
+            String nodeName,
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             DistributionZonesConfiguration zonesConfiguration,
             TablesConfiguration tablesConfiguration,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             VaultManager vaultMgr,
-            String nodeName
+            CatalogManager catalogManager
     ) {
         this.zonesConfiguration = zonesConfiguration;
         this.tablesConfiguration = tablesConfiguration;
@@ -274,27 +274,19 @@ public class DistributionZoneManager implements IgniteComponent {
 
         this.topologyWatchListener = createMetastorageTopologyListener();
 
-        zonesState = new ConcurrentHashMap<>();
-
-        logicalTopology = emptySet();
-
-        nodesAttributes = new ConcurrentHashMap<>();
-
         executor = createZoneManagerExecutor(
                 Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
-                new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, DISTRIBUTION_ZONE_MANAGER_POOL_NAME), LOG)
+                NamedThreadFactory.create(nodeName, "dst-zones-scheduler", LOG)
         );
 
         // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
         // meta storage notification thread that won't start before all components start.
         //noinspection ThisEscapedInObjectConstruction
         rebalanceEngine = new DistributionZoneRebalanceEngine(
-                stopGuard,
                 busyLock,
-                zonesConfiguration,
-                tablesConfiguration,
                 metaStorageManager,
-                this
+                this,
+                catalogManager
         );
 
         //noinspection ThisEscapedInObjectConstruction

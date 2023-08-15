@@ -95,13 +95,14 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         when(value.namedListKeys()).thenReturn(new ArrayList<>());
 
         distributionZoneManager = new DistributionZoneManager(
+                "node",
                 null,
                 zonesConfiguration,
                 null,
                 null,
                 null,
                 null,
-                "node"
+                mock(CatalogManager.class)
         );
 
         commandHandler = new DdlCommandHandler(
