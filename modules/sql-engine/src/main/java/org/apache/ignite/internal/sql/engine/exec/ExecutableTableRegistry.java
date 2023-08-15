@@ -29,12 +29,13 @@ public interface ExecutableTableRegistry {
      * Returns an table that can be used for both read and write operations.
      *
      * @param tableId Table Id.
+     * @param tableVersion Table version.
      * @param tableDescriptor Table descriptor.
      * @return An operation that returns executable table.
      */
-    CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId, TableDescriptor tableDescriptor);
+    CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, TableDescriptor tableDescriptor);
 
     // TODO IGNITE-19499 use tableId instead of name.
     @Deprecated(forRemoval = true)
-    CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId, String tableName, TableDescriptor tableDescriptor);
+    CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, String tableName, TableDescriptor tableDescriptor);
 }

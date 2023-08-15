@@ -103,8 +103,8 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         tester.checkDependencies(deps, t1Id);
         tester.checkDependencies(deps, t2Id);
 
-        verify(registry, times(1)).getTable(anyInt(), eq(t1Id), anyString(), same(td1));
-        verify(registry, times(1)).getTable(anyInt(), eq(t2Id), anyString(), same(td2));
+        verify(registry, times(1)).getTable(eq(t1Id), anyInt(), anyString(), same(td1));
+        verify(registry, times(1)).getTable(eq(t2Id), anyInt(), anyString(), same(td2));
     }
 
     /**
@@ -123,7 +123,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         CompletableFuture<ResolvedDependencies> f = tester.resolveDependencies("SELECT * FROM test1 WHERE id=1");
         tester.checkDependencies(f.join(), t1Id);
 
-        verify(registry, times(1)).getTable(anyInt(), eq(t1Id), anyString(), same(td1));
+        verify(registry, times(1)).getTable(eq(t1Id), anyInt(), anyString(), same(td1));
     }
 
     /**
@@ -151,8 +151,8 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         tester.checkDependencies(deps, t1Id);
         tester.checkDependencies(deps, t2Id);
 
-        verify(registry, times(1)).getTable(anyInt(), eq(t1Id), anyString(), same(td1));
-        verify(registry, times(1)).getTable(anyInt(), eq(t2Id), anyString(), same(td2));
+        verify(registry, times(1)).getTable(eq(t1Id), anyInt(), anyString(), same(td1));
+        verify(registry, times(1)).getTable(eq(t2Id), anyInt(), anyString(), same(td2));
     }
 
     /**
@@ -261,14 +261,14 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
 
             CompletableFuture<ExecutableTable> f = CompletableFuture.completedFuture(executableTable);
 
-            when(registry.getTable(anyInt(), eq(tableId), anyString(), any(TableDescriptor.class))).thenReturn(f);
+            when(registry.getTable(eq(tableId), anyInt(), anyString(), any(TableDescriptor.class))).thenReturn(f);
         }
 
         void setError(int tableId, Throwable err) {
             CompletableFuture<ExecutableTable> f = new CompletableFuture<>();
             f.completeExceptionally(err);
 
-            when(registry.getTable(anyInt(), eq(tableId), anyString(), any(TableDescriptor.class))).thenReturn(f);
+            when(registry.getTable(eq(tableId), anyInt(), anyString(), any(TableDescriptor.class))).thenReturn(f);
         }
 
         void setColocationGroup(int tableId, CompletableFuture<ColocationGroup> group) {

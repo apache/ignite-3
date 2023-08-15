@@ -69,14 +69,14 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId, TableDescriptor tableDescriptor) {
-        return tableCache.computeIfAbsent(cacheKey(schemaVersion, tableId), (k) -> loadTable(tableId, tableDescriptor));
+    public CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, TableDescriptor tableDescriptor) {
+        return tableCache.computeIfAbsent(cacheKey(tableId, tableVersion), (k) -> loadTable(tableId, tableDescriptor));
     }
 
     // TODO IGNITE-19499: Drop this temporal method to get table by name.
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int schemaVersion, int tableId, String tableName, TableDescriptor tableDescriptor) {
-        return tableCache.computeIfAbsent(cacheKey(schemaVersion, tableId), (k) -> loadTable(tableName, tableDescriptor));
+    public CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, String tableName, TableDescriptor tableDescriptor) {
+        return tableCache.computeIfAbsent(cacheKey(tableId, tableVersion), (k) -> loadTable(tableName, tableDescriptor));
     }
 
     /** {@inheritDoc} */
@@ -170,16 +170,16 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         }
     }
 
-    private static CacheKey cacheKey(int schemaVersion, int tableId) {
-        return new CacheKey(schemaVersion, tableId);
+    private static CacheKey cacheKey(int tableId, int version) {
+        return new CacheKey(tableId, version);
     }
 
     private static class CacheKey {
-        private final int schemaVersion;
+        private final int version;
         private final int tableId;
 
-        public CacheKey(int schemaVersion, int tableId) {
-            this.schemaVersion = schemaVersion;
+        public CacheKey(int tableId, int version) {
+            this.version = version;
             this.tableId = tableId;
         }
 
@@ -192,12 +192,12 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
                 return false;
             }
             CacheKey cacheKey = (CacheKey) o;
-            return schemaVersion == cacheKey.schemaVersion && tableId == cacheKey.tableId;
+            return version == cacheKey.version && tableId == cacheKey.tableId;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(schemaVersion, tableId);
+            return Objects.hash(version, tableId);
         }
     }
 }
