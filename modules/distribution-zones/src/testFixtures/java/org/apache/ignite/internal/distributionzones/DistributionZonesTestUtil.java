@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
@@ -53,7 +54,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
@@ -278,7 +278,7 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         Set<Node> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new Node(n.name(), n.id())).collect(Collectors.toSet());
+                : clusterNodes.stream().map(n -> new Node(n.name(), n.id())).collect(toSet());
 
         assertValueInStorage(
                 keyValueStorage,
@@ -408,7 +408,7 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         Set<NodeWithAttributes> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes())).collect(Collectors.toSet());
+                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes())).collect(toSet());
 
         assertValueInStorage(
                 keyValueStorage,
@@ -445,7 +445,7 @@ public class DistributionZonesTestUtil {
     public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr, long appliedRevision) {
         Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
                 .map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes()))
-                .collect(Collectors.toSet());
+                .collect(toSet());
 
         byte[] newLogicalTopology = toBytes(nodesWithAttributes);
 
@@ -573,7 +573,7 @@ public class DistributionZonesTestUtil {
             long timeoutMillis
     ) throws InterruptedException, ExecutionException, TimeoutException {
         Set<String> expectedValueNames =
-                expectedValue == null ? null : expectedValue.stream().map(ClusterNode::name).collect(Collectors.toSet());
+                expectedValue == null ? null : expectedValue.stream().map(ClusterNode::name).collect(toSet());
 
         boolean success = waitForCondition(() -> {
             Set<String> dataNodes = null;

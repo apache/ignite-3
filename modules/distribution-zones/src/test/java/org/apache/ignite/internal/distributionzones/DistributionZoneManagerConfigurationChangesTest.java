@@ -49,6 +49,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -101,6 +103,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     private TablesConfiguration tablesConfiguration;
 
     private DistributionZonesConfiguration zonesConfiguration;
+
+    private CatalogManager catalogManager;
 
     @BeforeEach
     public void setUp() {
@@ -149,6 +153,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
 
+        catalogManager = CatalogTestUtils.createTestCatalogManager(nodeName, new HybridClockImpl(), metaStorageManager);
+
         distributionZoneManager = new DistributionZoneManager(
                 nodeName,
                 revisionUpdater,
@@ -157,12 +163,13 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 metaStorageManager,
                 logicalTopologyService,
                 vaultMgr,
-                mock(CatalogManager.class)
+                catalogManager
         );
 
         vaultMgr.start();
         clusterCfgMgr.start();
         metaStorageManager.start();
+        catalogManager.start();
         distributionZoneManager.start();
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
@@ -174,6 +181,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 distributionZoneManager == null ? null : distributionZoneManager::stop,
+                catalogManager == null ? null : catalogManager::stop,
                 metaStorageManager == null ? null : metaStorageManager::stop,
                 clusterCfgMgr == null ? null : clusterCfgMgr::stop,
                 vaultMgr == null ? null : vaultMgr::stop,
@@ -238,10 +246,14 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     }
 
     private void createZone(String zoneName) {
+        DistributionZonesTestUtil.createZone(catalogManager, zoneName, null, null, null);
+
         DistributionZonesTestUtil.createZone(distributionZoneManager, zoneName, null, null, null);
     }
 
     private void dropZone(String zoneName) {
+        DistributionZonesTestUtil.dropZone(catalogManager, zoneName);
+
         DistributionZonesTestUtil.dropZone(distributionZoneManager, zoneName);
     }
 
