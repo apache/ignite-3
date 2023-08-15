@@ -33,6 +33,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -132,6 +134,8 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             TableDescriptor descriptor = tableDescriptorMap.get(tableId);
             assert descriptor != null;
 
+            //TODO IGNITE-19558: The table is not available at planning stage.
+            // Let's fix table statistics keeping in mind IGNITE-19558 issue.
             IgniteStatistic statistic = new IgniteStatistic(() -> 0.0d, descriptor.distribution());
             Map<String, IgniteIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyMap());
 
@@ -156,8 +160,8 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             throw new IllegalArgumentException("Unexpected index type: " + indexDescriptor);
         }
 
-        RelCollation indexCollation = IgniteIndex.createIndexCollation(indexDescriptor, tableDescriptor);
-        return new IgniteIndex(indexDescriptor.id(), indexDescriptor.name(), type, tableDescriptor.distribution(), indexCollation);
+        RelCollation outputCollation = IgniteIndex.createIndexCollation(indexDescriptor, tableDescriptor);
+        return new IgniteIndex(indexDescriptor.id(), indexDescriptor.name(), type, tableDescriptor.distribution(), outputCollation);
     }
 
     private static TableDescriptor createTableDescriptor(CatalogTableDescriptor descriptor) {

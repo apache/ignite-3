@@ -398,22 +398,6 @@ public class TraitUtils {
     }
 
     /**
-     * Creates {@link RelCollation} object from a given collations.
-     *
-     * @param collations Original collation.
-     * @return a {@link RelCollation} object.
-     */
-    public static RelCollation trimmedCollation(List<RelFieldCollation> collations) {
-        int i = 0;
-        List<RelFieldCollation> result = new ArrayList<>(collations.size());
-        for (RelFieldCollation fieldCollation : collations) {
-            result.add(fieldCollation.withFieldIndex(i++));
-        }
-
-        return RelCollations.of(result);
-    }
-
-    /**
      * Creates collations from provided keys.
      *
      * @param keys The keys to create collation from.

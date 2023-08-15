@@ -30,7 +30,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Schema adapter for apache calcite.
+ * Schema implementation for sql engine.
  */
 public class IgniteSchema extends AbstractSchema {
 

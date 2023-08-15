@@ -807,6 +807,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     tableId = deps.internalTable(tableId).tableId();
                     List<NodeWithTerm> assignments = fragment.mapping().updatingTableAssignments();
 
+                    assert assignments != null : "Table assignments must be available";
+
                     enlist(tableId, assignments);
 
                     return super.visit(rel);

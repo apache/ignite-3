@@ -40,7 +40,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Table for calcite schema.
+ * Table implementation for sql engine.
  */
 public final class IgniteTableImpl extends AbstractTable implements IgniteTable {
 
