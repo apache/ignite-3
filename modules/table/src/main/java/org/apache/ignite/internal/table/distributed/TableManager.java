@@ -129,7 +129,6 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableChange;
@@ -896,8 +895,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         partitionStorage,
                                         txStateStorage,
                                         partitionUpdateHandlers,
-                                        updatedRaftGroupService,
-                                        schemaManager.schemaRegistry(causalityToken, tableId)
+                                        updatedRaftGroupService
                                 );
                             } catch (NodeStoppingException ex) {
                                 throw new AssertionError("Loza was stopped before Table manager", ex);
@@ -955,8 +953,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvPartitionStorage mvPartitionStorage,
             TxStateStorage txStatePartitionStorage,
             PartitionUpdateHandlers partitionUpdateHandlers,
-            TopologyAwareRaftGroupService raftGroupService,
-            CompletableFuture<SchemaRegistry> schemaRegistryFuture
+            TopologyAwareRaftGroupService raftGroupService
     ) throws NodeStoppingException {
         PartitionReplicaListener listener = createReplicaListener(
                 replicaGrpId,
@@ -965,8 +962,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 mvPartitionStorage,
                 txStatePartitionStorage,
                 partitionUpdateHandlers,
-                raftGroupService,
-                schemaRegistryFuture
+                raftGroupService
         );
 
         replicaMgr.startReplica(
@@ -988,8 +984,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvPartitionStorage mvPartitionStorage,
             TxStateStorage txStatePartitionStorage,
             PartitionUpdateHandlers partitionUpdateHandlers,
-            RaftGroupService raftClient,
-            CompletableFuture<SchemaRegistry> schemaRegistryFuture
+            RaftGroupService raftClient
     ) {
         int tableId = tablePartitionId.tableId();
         int partId = tablePartitionId.partitionId();
@@ -1011,7 +1006,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 placementDriver,
                 partitionUpdateHandlers.storageUpdateHandler,
                 new NonHistoricSchemas(schemaManager),
-                schemaRegistryFuture,
                 localNode(),
                 table.internalTable().storage(),
                 indexBuilder,
@@ -2307,8 +2301,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 mvPartitionStorage,
                                 txStatePartitionStorage,
                                 partitionUpdateHandlers,
-                                (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
-                                completedFuture(schemaManager.schemaRegistry(tableId))
+                                (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId)
                         );
                     } catch (NodeStoppingException ignored) {
                         // No-op.

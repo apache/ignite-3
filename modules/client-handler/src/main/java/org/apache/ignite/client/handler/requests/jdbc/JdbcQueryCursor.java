@@ -60,12 +60,13 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
                 return batch;
             }
 
-            if (fetched0 - rows < maxRows) {
-                return new BatchedResult<>(batch.items()
-                        .subList(0, (int) (maxRows - fetched0 + rows)), false);
-            }
+            int remainCnt = (int) (maxRows - fetched0 + rows);
 
-            return new BatchedResult<>(List.of(), false);
+            List<T> remainItems = remainCnt < batch.items().size()
+                    ? batch.items().subList(0, remainCnt)
+                    : batch.items();
+
+            return new BatchedResult<>(remainItems, false);
         });
     }
 

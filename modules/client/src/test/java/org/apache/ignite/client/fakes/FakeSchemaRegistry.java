@@ -119,18 +119,27 @@ public class FakeSchemaRegistry implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor desc) {
-        return new Row(desc, row);
+        return Row.wrapBinaryRow(desc, row);
     }
 
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row) {
-        return new Row(schema(row.schemaVersion()), row);
+        return Row.wrapBinaryRow(schema(row.schemaVersion()), row);
     }
 
     @Override
     public List<Row> resolve(Collection<BinaryRow> rows) {
-        return rows.stream().map(binaryRow -> binaryRow == null ? null : resolve(binaryRow)).collect(toList());
+        return rows.stream()
+                .map(row -> row == null ? null : Row.wrapBinaryRow(schema(row.schemaVersion()), row))
+                .collect(toList());
+    }
+
+    @Override
+    public List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows) {
+        return keyOnlyRows.stream()
+                .map(row -> row == null ? null : Row.wrapKeyOnlyBinaryRow(schema(row.schemaVersion()), row))
+                .collect(toList());
     }
 
     @Override
