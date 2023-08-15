@@ -84,7 +84,7 @@ public class IndexUpdateHandler {
         for (int i = 0; i < indexes.length; i++) {
             TableSchemaAwareIndexStorage index = indexes[i];
 
-            indexValues[i] = index.resolveIndexRow(rowToRemove).byteBuffer();
+            indexValues[i] = index.indexRowResolver().extractColumns(rowToRemove).byteBuffer();
         }
 
         while (previousValues.hasNext()) {
@@ -103,7 +103,7 @@ public class IndexUpdateHandler {
 
                     // If any of the previous versions' index value equals the index value of
                     // the row to remove, then we can't remove that index as it can still be used.
-                    BinaryTuple previousRowIndex = index.resolveIndexRow(previousRow);
+                    BinaryTuple previousRowIndex = index.indexRowResolver().extractColumns(previousRow);
 
                     if (indexValues[i].equals(previousRowIndex.byteBuffer())) {
                         indexes[i] = null;

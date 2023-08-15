@@ -17,18 +17,23 @@
 
 package org.apache.ignite.internal.schema;
 
-import java.nio.ByteBuffer;
-
 /**
- * Binary row interface. Data layout is described in packages' {@code README.md}.
+ * Class for extracting a subset of columns from {@code BinaryRow}s.
  */
-public interface BinaryRow {
-    /** Get row schema version. */
-    int schemaVersion();
+public interface ColumnsExtractor {
+    /**
+     * Extracts a subset of columns from a given {@code BinaryRow}, that only contains a key.
+     *
+     * @param keyOnlyRow Row that only contains a key.
+     * @return Subset of columns, packed into a {@code BinaryTuple}.
+     */
+    BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow);
 
-    /** Length of the {@link #tupleSlice}. */
-    int tupleSliceLength();
-
-    /** Get ByteBuffer slice representing the binary tuple. */
-    ByteBuffer tupleSlice();
+    /**
+     * Extracts a subset of columns from a given {@code BinaryRow}.
+     *
+     * @param row Row with data (both key and value).
+     * @return Subset of columns, packed into a {@code BinaryTuple}.
+     */
+    BinaryTuple extractColumns(BinaryRow row);
 }

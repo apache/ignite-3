@@ -92,12 +92,20 @@ public interface SchemaRegistry extends ManuallyCloseable {
     Row resolve(BinaryRow row);
 
     /**
-     * Resolves batch of binary row against the latest schema.
+     * Resolves batch of binary rows against the latest schema.
      *
      * @param rows Binary rows.
      * @return Schema-aware rows. Contains {@code null} at the same positions as in {@code rows}.
      */
     List<Row> resolve(Collection<BinaryRow> rows);
+
+    /**
+     * Resolves batch of binary rows, that only contain the key component, against the latest schema.
+     *
+     * @param keyOnlyRows Binary rows that only contain the key component.
+     * @return Schema-aware rows. Contains {@code null} at the same positions as in {@code keyOnlyRows}.
+     */
+    List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows);
 
     /**
      * Closes the registry freeing any resources it holds.
