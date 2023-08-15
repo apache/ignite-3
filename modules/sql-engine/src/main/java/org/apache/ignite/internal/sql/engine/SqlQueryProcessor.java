@@ -439,7 +439,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                             .build();
 
                     return prepareSvc.prepareAsync(result, ctx)
-                            .thenApply(plan -> {
+                            .thenApplyAsync(plan -> {
                                 var dataCursor = executionSrvc.executePlan(tx.get(), plan, ctx);
 
                                 SqlQueryType queryType = plan.type();
@@ -468,7 +468,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                             }
                                         }
                                 );
-                            });
+                            }, taskExecutor);
                 });
 
         stage.whenComplete((cur, ex) -> {

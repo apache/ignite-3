@@ -344,11 +344,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RangeIterable<RowT> ranges = null;
 
         if (searchBounds != null) {
-            Comparator<RowT> searchRowComparator = null;
-
-            if (idx.type() == Type.SORTED) {
-                searchRowComparator = expressionFactory.comparator(IgniteIndex.deriveCollations(idx, tbl.descriptor().columnsCount()));
-            }
+            Comparator<RowT> searchRowComparator = IgniteIndex.createComparator(expressionFactory, idx);
 
             ranges = expressionFactory.ranges(searchBounds, idx.rowType(typeFactory, tbl.descriptor()), searchRowComparator);
         }
