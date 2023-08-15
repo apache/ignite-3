@@ -76,11 +76,11 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     public Row marshal(@NotNull K key) throws MarshallerException {
         assert keyClass.isInstance(key);
 
-        final RowAssembler asm = createAssembler(key);
+        RowAssembler asm = createAssembler(key);
 
         keyMarsh.writeObject(key, asm);
 
-        return new Row(schema, asm.build());
+        return Row.wrapKeyOnlyBinaryRow(schema, asm.build());
     }
 
     /** {@inheritDoc} */
@@ -89,17 +89,18 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         assert keyClass.isInstance(key);
         assert val == null || valClass.isInstance(val);
 
-        final RowAssembler asm = createAssembler(key, val);
+        RowAssembler asm = createAssembler(key, val);
         keyMarsh.writeObject(key, asm);
         valMarsh.writeObject(val, asm);
-        return new Row(schema, asm.build());
+
+        return Row.wrapBinaryRow(schema, asm.build());
     }
 
     /** {@inheritDoc} */
     @NotNull
     @Override
     public K unmarshalKey(@NotNull Row row) throws MarshallerException {
-        final Object o = keyMarsh.readObject(row);
+        Object o = keyMarsh.readObject(row);
 
         assert keyClass.isInstance(o);
 
@@ -110,11 +111,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     @Nullable
     @Override
     public V unmarshalValue(@NotNull Row row) throws MarshallerException {
-        if (!row.hasValue()) {
-            return null;
-        }
-
-        final Object o = valMarsh.readObject(row);
+        Object o = valMarsh.readObject(row);
 
         assert o == null || valClass.isInstance(o);
 

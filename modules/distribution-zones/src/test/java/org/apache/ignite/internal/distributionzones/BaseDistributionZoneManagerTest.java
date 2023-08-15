@@ -66,8 +66,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstractTest {
     protected static final String ZONE_NAME = "zone1";
 
-    protected static final int ZONE_ID = 1;
-
     protected static final long ZONE_MODIFICATION_AWAIT_TIMEOUT = 10_000L;
 
     protected static final int COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS = 10_000;
@@ -207,5 +205,9 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     protected void dropZone(String zoneName) {
         DistributionZonesTestUtil.dropZone(distributionZoneManager, zoneName);
+    }
+
+    protected int getZoneId(String zoneName) {
+        return DistributionZonesTestUtil.getZoneIdStrict(zonesConfiguration, zoneName);
     }
 }

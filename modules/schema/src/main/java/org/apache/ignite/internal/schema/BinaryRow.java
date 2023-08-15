@@ -26,9 +26,6 @@ public interface BinaryRow {
     /** Get row schema version. */
     int schemaVersion();
 
-    /** Get has value flag: {@code true} if row has non-null value, {@code false} otherwise. */
-    boolean hasValue();
-
     /** Length of the {@link #tupleSlice}. */
     int tupleSliceLength();
 
