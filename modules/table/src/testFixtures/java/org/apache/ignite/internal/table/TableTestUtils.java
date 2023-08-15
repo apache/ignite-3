@@ -75,7 +75,7 @@ public class TableTestUtils {
     }
 
     /**
-     * Returns table ID form catalog.
+     * Returns table ID from catalog.
      *
      * @param catalogService Catalog service.
      * @param tableName Table name.

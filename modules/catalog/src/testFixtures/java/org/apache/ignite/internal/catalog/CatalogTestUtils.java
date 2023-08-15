@@ -35,7 +35,7 @@ public class CatalogTestUtils {
     /**
      * Creates a test implementation of {@link CatalogManager}.
      *
-     * <p>NOTE: Uses {@link CatalogManagerImpl} under the hood and creates the internals he needs, may change in the future.
+     * <p>NOTE: Uses {@link CatalogManagerImpl} under the hood and creates the internals it needs, may change in the future.
      *
      * @param nodeName Node name.
      * @param clock Hybrid clock.
@@ -82,7 +82,7 @@ public class CatalogTestUtils {
     /**
      * Creates a test implementation of {@link CatalogManager}.
      *
-     * <p>NOTE: Uses {@link CatalogManagerImpl} under the hood and creates the internals he needs, may change in the future.
+     * <p>NOTE: Uses {@link CatalogManagerImpl} under the hood and creates the internals it needs, may change in the future.
      *
      * @param nodeName Node name.
      * @param clock Hybrid clock.

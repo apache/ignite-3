@@ -177,7 +177,7 @@ public class DistributionZoneRebalanceEngine {
                         // This set is used to deduplicate exceptions (if there is an exception from upstream, for instance,
                         // when reading from MetaStorage, it will be encountered by every partition future) to avoid noise
                         // in the logs.
-                        Set<Throwable> exceptions = ConcurrentHashMap.newKeySet();
+                        Set<Throwable> unwrappedCauses = ConcurrentHashMap.newKeySet();
 
                         for (int partId = 0; partId < partitionFutures.length; partId++) {
                             int finalPartId = partId;
@@ -185,7 +185,7 @@ public class DistributionZoneRebalanceEngine {
                             partitionFutures[partId].exceptionally(e -> {
                                 Throwable cause = ExceptionUtils.unwrapCause(e);
 
-                                if (exceptions.add(cause)) {
+                                if (unwrappedCauses.add(cause)) {
                                     // The exception is specific to this partition.
                                     LOG.error(
                                             "Exception on updating assignments for [table={}, partition={}]",
