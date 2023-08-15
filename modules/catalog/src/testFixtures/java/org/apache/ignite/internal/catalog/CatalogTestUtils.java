@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -74,6 +75,42 @@ public class CatalogTestUtils {
                 clockWaiter.stop();
                 metastore.stop();
                 vault.stop();
+            }
+        };
+    }
+
+    /**
+     * Creates a test implementation of {@link CatalogManager}.
+     *
+     * <p>NOTE: Uses {@link CatalogManagerImpl} under the hood and creates the internals he needs, may change in the future.
+     *
+     * @param nodeName Node name.
+     * @param clock Hybrid clock.
+     * @param metastore Meta storage manager.
+     */
+    public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock, MetaStorageManager metastore) {
+        var clockWaiter = new ClockWaiter(nodeName, clock);
+
+        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
+            @Override
+            public void start() {
+                clockWaiter.start();
+
+                super.start();
+            }
+
+            @Override
+            public void beforeNodeStop() {
+                super.beforeNodeStop();
+
+                clockWaiter.beforeNodeStop();
+            }
+
+            @Override
+            public void stop() throws Exception {
+                super.stop();
+
+                clockWaiter.stop();
             }
         };
     }

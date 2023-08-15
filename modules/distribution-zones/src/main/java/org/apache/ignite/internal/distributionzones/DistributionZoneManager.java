@@ -78,6 +78,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
 import org.apache.ignite.configuration.ConfigurationNodeDoesNotExistException;
@@ -99,6 +100,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesView;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -1960,5 +1962,22 @@ public class DistributionZoneManager implements IgniteComponent {
     @TestOnly
     public Set<NodeWithAttributes> logicalTopology() {
         return logicalTopology;
+    }
+
+    /**
+     * Returns the distribution zone name from the configuration, {@code null} if the zone is absent.
+     *
+     * @param configZoneId Distribution zone id from configuration.
+     */
+    // TODO: IGNITE-20114 Get rid of
+    @Deprecated(forRemoval = true)
+    public @Nullable String getZoneName(int configZoneId) {
+        DistributionZonesView zonesView = zonesConfiguration.value();
+
+        return Stream.concat(Stream.of(zonesView.defaultDistributionZone()), zonesView.distributionZones().stream())
+                .filter(zoneView -> zoneView.zoneId() == configZoneId)
+                .map(DistributionZoneView::name)
+                .findFirst()
+                .orElse(null);
     }
 }

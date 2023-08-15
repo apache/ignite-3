@@ -141,7 +141,17 @@ public class DistributionZoneRebalanceEngine {
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
                     int catalogVersion = catalogService.latestCatalogVersion();
 
-                    CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
+                    // TODO: IGNITE-20114 Should be get from the catalog directly
+                    // CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
+
+                    String zoneName = distributionZoneManager.getZoneName(zoneId);
+
+                    assert zoneName != null : zoneId;
+
+                    CatalogZoneDescriptor zoneDescriptor = catalogService.zones(catalogVersion).stream()
+                            .filter(zone -> zoneName.equalsIgnoreCase(zone.name()))
+                            .findFirst()
+                            .orElse(null);
 
                     assert zoneDescriptor != null : zoneId;
 
