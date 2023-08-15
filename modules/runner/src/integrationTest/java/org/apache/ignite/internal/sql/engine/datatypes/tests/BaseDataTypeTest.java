@@ -57,7 +57,6 @@ import org.junit.jupiter.params.provider.Arguments;
  *     <li>{@code <type>} - an SQL name of a data type.</li>
  *     <li>{@code $N} - the {@code N-th} value from sample values (0-based), converted to an SQL expression by
  *     {@link DataTypeTestSpec#toValueExpr(Comparable)} call (0-based)</li>
- *     <li>{@code $N_lit} - the {@code N-th} value from sample values (0-based) in form of an SQL literal.</li>
  * </ul>
  *
  * <p>{@link QueryChecker} is automatically checks columns named {@code test_key}
@@ -145,7 +144,7 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
 
     /**
      * Use this method instead of {@link #sql(String, Object...)} because it replaces every {@code <type>} with the name of a data
-     * type under test, and {@code $N} with corresponding values, where {@code N} is 1-indexed.
+     * type under test, and {@code $N} with corresponding values, where {@code N} is 0-indexed.
      *
      * @param query A query.
      * @return A {@code QueryChecker}.
@@ -167,7 +166,7 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
      *     depending on whether type supports literals or not}. {@code N} is 0-indexed.</li>
      * </ul>
      */
-    protected QueryTemplate createQueryTemplate(String query) {
+    private QueryTemplate createQueryTemplate(String query) {
         boolean useLiterals = testTypeSpec.hasLiterals();
         QueryTemplate parameterProvidingTemplate = new ParameterReplacingTemplate<>(testTypeSpec, query, values, useLiterals);
         return createQueryTemplate(parameterProvidingTemplate, testTypeSpec.typeName());
