@@ -135,7 +135,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
             IgniteStatistic statistic = new IgniteStatistic(() -> 0.0d, descriptor.distribution());
             Map<String, IgniteIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyMap());
 
-            IgniteSchemaTable schemaTable = new IgniteSchemaTable(tableName, tableId, version, descriptor, statistic, tableIndexMap);
+            IgniteTable schemaTable = new IgniteTableImpl(tableName, tableId, version, descriptor, statistic, tableIndexMap);
 
             schemaTables.add(schemaTable);
         }

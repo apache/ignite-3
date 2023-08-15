@@ -42,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Table for calcite schema.
  */
-public final class IgniteSchemaTable extends AbstractTable implements IgniteTable {
+public final class IgniteTableImpl extends AbstractTable implements IgniteTable {
 
     private final String name;
 
@@ -57,7 +57,7 @@ public final class IgniteSchemaTable extends AbstractTable implements IgniteTabl
     private final Map<String, IgniteIndex> indexMap;
 
     /** Constructor. */
-    public IgniteSchemaTable(String name, int tableId,  int version, TableDescriptor desc,
+    public IgniteTableImpl(String name, int tableId,  int version, TableDescriptor desc,
             IgniteStatistic statistic, Map<String, IgniteIndex> indexMap) {
 
         this.id = tableId;

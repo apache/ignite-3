@@ -159,7 +159,7 @@ public class CatalogSqlSchemaManagerTest {
         SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
         IgniteSchema schema = unwrapSchema(schemaPlus);
 
-        IgniteSchemaTable table = getTable(schema, testTable);
+        IgniteTable table = getTable(schema, testTable);
 
         assertEquals(testTable.id, table.id());
         assertEquals(schema.version(), table.version());
@@ -370,7 +370,7 @@ public class CatalogSqlSchemaManagerTest {
         SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
         IgniteSchema schema = unwrapSchema(schemaPlus);
 
-        IgniteSchemaTable table = (IgniteSchemaTable) schema.getTable(testTable.name);
+        IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
 
         IgniteIndex testIdx = table.indexes().get(testIndex.name);
@@ -414,7 +414,7 @@ public class CatalogSqlSchemaManagerTest {
         SchemaPlus schemaPlus = sqlSchemaManager.schema(testSchema.name, testSchema.timestamp);
         IgniteSchema schema = unwrapSchema(schemaPlus);
 
-        IgniteSchemaTable table = (IgniteSchemaTable) schema.getTable(testTable.name);
+        IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
 
         IgniteIndex testIdx = table.indexes().get(testIndex.name);
@@ -439,10 +439,10 @@ public class CatalogSqlSchemaManagerTest {
         return igniteSchema;
     }
 
-    private static IgniteSchemaTable getTable(IgniteSchema schema, TestTable testTable) {
+    private static IgniteTable getTable(IgniteSchema schema, TestTable testTable) {
         IgniteTable table = (IgniteTable) schema.getTable(testTable.name);
         assertNotNull(table);
-        return (IgniteSchemaTable) table;
+        return table;
     }
 
     private static final class TestSchema {
