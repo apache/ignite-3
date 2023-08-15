@@ -97,10 +97,10 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
         }
     }
 
-    private static final DefaultChecker checker = new DefaultChecker();
-
     @Override public RelNode convertValues(SqlCall values, RelDataType targetRowType) {
         boolean defaultValueFound = false;
+
+        DefaultChecker checker = new DefaultChecker();
 
         try {
             values.accept(checker);
