@@ -267,8 +267,6 @@ public class PlatformTestNodeRunner {
     private static void createTables(Ignite node) {
         var keyCol = "KEY";
 
-        createZone(((IgniteImpl) node).distributionZoneManager(), ZONE_NAME, 10, 1);
-
         IgniteImpl ignite = ((IgniteImpl) node);
 
         CreateZoneParams createZoneParams = CreateZoneParams.builder()
@@ -280,6 +278,8 @@ public class PlatformTestNodeRunner {
                 .build();
 
         assertThat(ignite.catalogManager().createZone(createZoneParams), willBe(nullValue()));
+
+        createZone(((IgniteImpl) node).distributionZoneManager(), ZONE_NAME, 10, 1);
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),

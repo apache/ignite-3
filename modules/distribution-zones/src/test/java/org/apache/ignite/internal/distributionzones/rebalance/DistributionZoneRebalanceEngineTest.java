@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
@@ -57,7 +58,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -222,6 +222,15 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
+
+        // TODO: IGNITE-20114 Get rid of
+        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+        int zoneId0 = getZoneId(ZONE_NAME_0);
+        int zoneId1 = getZoneId(ZONE_NAME_1);
+
+        when(distributionZoneManager.getZoneName(defaultZoneId)).thenReturn(DEFAULT_ZONE_NAME);
+        when(distributionZoneManager.getZoneName(zoneId0)).thenReturn(ZONE_NAME_0);
+        when(distributionZoneManager.getZoneName(zoneId1)).thenReturn(ZONE_NAME_1);
     }
 
     @AfterEach
@@ -457,12 +466,12 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
                 if (expectedNodes != null) {
                     Set<String> expectedAssignments =
                             calculateAssignmentForPartition(expectedNodes, j, zoneDescriptor.replicas())
-                                    .stream().map(Assignment::consistentId).collect(Collectors.toSet());
+                                    .stream().map(Assignment::consistentId).collect(toSet());
 
                     assertNotNull(actualAssignmentsBytes);
 
                     Set<String> actualAssignments = ((Set<Assignment>) fromBytes(actualAssignmentsBytes))
-                            .stream().map(Assignment::consistentId).collect(Collectors.toSet());
+                            .stream().map(Assignment::consistentId).collect(toSet());
 
                     assertTrue(expectedAssignments.containsAll(actualAssignments));
 
@@ -480,7 +489,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         if (nodes != null) {
             newLogicalTopology = toBytes(toDataNodesMap(nodes.stream()
                     .map(n -> new Node(n, n))
-                    .collect(Collectors.toSet())));
+                    .collect(toSet())));
         } else {
             newLogicalTopology = null;
         }
