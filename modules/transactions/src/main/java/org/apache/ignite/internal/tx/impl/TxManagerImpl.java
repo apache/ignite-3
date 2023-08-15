@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
@@ -95,7 +96,7 @@ public class TxManagerImpl implements TxManager {
     /** Lock to update and read the low watermark. */
     private final ReadWriteLock lowWatermarkReadWriteLock = new ReentrantReadWriteLock();
 
-    private volatile AtomicLong localObservableTimestamp = new AtomicLong(NULL_HYBRID_TIMESTAMP);
+    private final AtomicLong localObservableTimestamp = new AtomicLong(NULL_HYBRID_TIMESTAMP);
 
     /**
      * The constructor.
@@ -257,6 +258,15 @@ public class TxManagerImpl implements TxManager {
                 })
                 // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
                 .thenRun(() -> changeState(txId, PENDING, commit ? COMMITED : ABORTED));
+    }
+
+    @Override
+    public void finishFull(InternalTransaction tx, boolean commit) {
+        if (commit && TransactionIds.isLocal(tx.id()) && !tx.isReadOnly()) {
+            localObservableTimestamp.updateAndGet(x -> Math.max(x, clock.nowLong() + CLOCK_SKEW));
+        }
+
+        changeState(tx.id(), PENDING, commit ? COMMITED : ABORTED);
     }
 
     @Override

@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -42,7 +42,7 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.IgniteLocalTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
@@ -73,7 +73,7 @@ public class TxLocalTest extends TxAbstractTest {
 
         ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
 
-        TestHybridClock localClock = new TestHybridClock(() -> 1);
+        HybridClockImpl localClock = new HybridClockImpl();
         MessagingService msgSvc = mock(MessagingService.class, RETURNS_DEEP_STUBS);
         ReplicaService replicaSvc = new ReplicaService(msgSvc, localClock);
 
@@ -119,7 +119,7 @@ public class TxLocalTest extends TxAbstractTest {
 
         txManager = new TxManagerImpl(replicaSvc, lockManager, localClock, new TransactionIdGenerator(0xdeadbeef));
 
-        igniteTransactions = new IgniteTransactionsImpl(txManager);
+        igniteTransactions = new IgniteLocalTransactionsImpl(txManager);
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(replicaSvc, txManager, true, placementDriver, ACCOUNTS_SCHEMA);
 

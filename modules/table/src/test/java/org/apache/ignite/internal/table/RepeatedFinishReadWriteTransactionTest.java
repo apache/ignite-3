@@ -257,6 +257,11 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
+        public void finishFull(InternalTransaction tx, boolean commit) {
+
+        }
+
+        @Override
         public CompletableFuture<Void> finish(TablePartitionId commitPartition, ClusterNode recipientNode, Long term, boolean commit,
                 Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups, UUID txId) {
             txFinishStartedLatch.countDown();

@@ -106,7 +106,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.impl.IgniteLocalTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -369,7 +369,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         assertNotNull(clientTxManager);
 
-        igniteTransactions = new IgniteTransactionsImpl(clientTxManager);
+        igniteTransactions = new IgniteLocalTransactionsImpl(clientTxManager);
 
         this.accounts = new TableImpl(new InternalTableImpl(
                 accountsName,

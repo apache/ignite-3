@@ -61,6 +61,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -320,6 +321,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     /**
      * DDL is non-transactional.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19889")
     @Test
     public void ddlInTransaction() {
         Session ses = igniteSql().createSession();

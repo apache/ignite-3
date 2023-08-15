@@ -100,6 +100,14 @@ public interface TxManager extends IgniteComponent {
     public LockManager lockManager();
 
     /**
+     * Fixes a one-path committed transaction.
+     *
+     * @param tx Transaction.
+     * @param commit {@code True} if a commit requested.
+     */
+    void finishFull(InternalTransaction tx, boolean commit);
+
+    /**
      * Finishes a dependant transactions.
      *
      * @param commitPartition Partition to store a transaction state.

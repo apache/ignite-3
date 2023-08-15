@@ -21,9 +21,6 @@ import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
-import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -501,8 +498,8 @@ public class InternalTableImpl implements InternalTable {
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
             if (full) { // Full txn is already finished remotely. Just update local state.
-                // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
-                txManager.changeState(tx0.id(), PENDING, e == null ? COMMITED : ABORTED);
+                txManager.finishFull(tx0, e == null);
+
                 return e != null ? failedFuture(wrapReplicationException(e)) : completedFuture(r);
             }
 
