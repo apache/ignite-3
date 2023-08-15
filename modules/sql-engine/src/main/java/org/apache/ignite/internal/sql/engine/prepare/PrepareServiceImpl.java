@@ -21,13 +21,13 @@ import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -35,7 +35,6 @@ import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainLevel;
@@ -59,7 +58,7 @@ import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -192,27 +191,23 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                         throw new SqlException(PLANNING_TIMEOUT_ERR);
                     }
 
-                    throw new IgniteException(th);
+                    throw new CompletionException(IgniteExceptionMapperUtil.mapToPublicException(th));
                 }
         );
     }
 
     private CompletableFuture<QueryPlan> prepareAsync0(ParsedResult parsedResult, PlanningContext planningContext) {
-        try {
-            switch (parsedResult.queryType()) {
-                case QUERY:
-                    return prepareQuery(parsedResult, planningContext);
-                case DDL:
-                    return prepareDdl(parsedResult, planningContext);
-                case DML:
-                    return prepareDml(parsedResult, planningContext);
-                case EXPLAIN:
-                    return prepareExplain(parsedResult, planningContext);
-                default:
-                    throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
-            }
-        } catch (CalciteContextException e) {
-            throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. " + e.getMessage(), e);
+        switch (parsedResult.queryType()) {
+            case QUERY:
+                return prepareQuery(parsedResult, planningContext);
+            case DDL:
+                return prepareDdl(parsedResult, planningContext);
+            case DML:
+                return prepareDml(parsedResult, planningContext);
+            case EXPLAIN:
+                return prepareExplain(parsedResult, planningContext);
+            default:
+                throw new AssertionError("Unexpected queryType=" + parsedResult.queryType());
         }
     }
 
@@ -310,12 +305,13 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     private static CacheKey createCacheKey(ParsedResult parsedResult, PlanningContext ctx) {
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
+        long catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
 
         Class[] paramTypes = ctx.parameters().length == 0
                 ? EMPTY_CLASS_ARRAY :
                 Arrays.stream(ctx.parameters()).map(p -> (p != null) ? p.getClass() : Void.class).toArray(Class[]::new);
 
-        return new CacheKey(ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
+        return new CacheKey(catalogVersion, ctx.schemaName(), parsedResult.normalizedQuery(), distributed, paramTypes);
     }
 
     private ResultSetMetadata resultSetMetadata(

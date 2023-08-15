@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -29,17 +29,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
-import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
+import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.schema.configuration.TableChange;
@@ -51,33 +49,15 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.lang.DistributionZoneAlreadyExistsException;
-import org.apache.ignite.lang.DistributionZoneNotFoundException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 /**
  * Tests distribution zone command exception handling.
  */
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
-    @Mock
-    private TableManager tableManager;
-
-    @Mock
-    private IndexManager indexManager;
-
-    @Mock
-    private DataStorageManager dataStorageManager;
-
     private DdlCommandHandler commandHandler;
 
     private static final String ZONE_NAME = "zone1";
@@ -124,7 +104,12 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
                 "node"
         );
 
-        commandHandler = new DdlCommandHandler(distributionZoneManager, tableManager, indexManager, dataStorageManager);
+        commandHandler = new DdlCommandHandler(
+                distributionZoneManager,
+                mock(TableManager.class),
+                mock(IndexManager.class),
+                mock(DataStorageManager.class)
+        );
     }
 
     @AfterEach
@@ -138,33 +123,13 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testZoneAlreadyExistsOnCreate1() throws ExecutionException, InterruptedException, TimeoutException {
-        CompletableFuture<Boolean> fut = handleCreateZoneCommand(false);
-
-        Exception e = null;
-
-        try {
-            fut.get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null, "Expected exception was not thrown.");
-        assertTrue(
-                e.getCause() instanceof DistributionZoneAlreadyExistsException,
-                "Unexpected type of exception (requires DistributionZoneAlreadyExistsException): " + e
-        );
+    public void testZoneAlreadyExistsOnCreate1() {
+        assertThat(handleCreateZoneCommand(false), willThrow(DistributionZoneAlreadyExistsException.class));
     }
 
     @Test
-    public void testZoneAlreadyExistsOnCreate2() throws ExecutionException, InterruptedException, TimeoutException {
-        CompletableFuture<Boolean> fut = handleCreateZoneCommand(true);
-
-        try {
-            fut.get(5, TimeUnit.SECONDS);
-        } catch (Throwable e) {
-            fail("Expected no exception but was: " + e);
-        }
+    public void testZoneAlreadyExistsOnCreate2() {
+        assertThat(handleCreateZoneCommand(true), willCompleteSuccessfully());
     }
 
     @Test
@@ -172,21 +137,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         DropZoneCommand cmd = new DropZoneCommand();
         cmd.zoneName(ZONE_NAME);
 
-        CompletableFuture<Boolean> fut = commandHandler.handle(cmd);
-
-        Exception e = null;
-
-        try {
-            fut.get(5, TimeUnit.SECONDS);
-        } catch (Exception e0) {
-            e = e0;
-        }
-
-        assertTrue(e != null, "Expected exception was not thrown.");
-        assertTrue(
-                e.getCause() instanceof DistributionZoneNotFoundException,
-                "Unexpected type of exception (requires DistributionZoneNotFoundException): " + e
-        );
+        assertThat(commandHandler.handle(cmd), willThrow(DistributionZoneNotFoundException.class));
     }
 
     @Test
@@ -195,21 +146,11 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         cmd.zoneName(ZONE_NAME);
         cmd.ifExists(true);
 
-        CompletableFuture<Boolean> fut = commandHandler.handle(cmd);
-
-        try {
-            fut.get(5, TimeUnit.SECONDS);
-        } catch (Throwable e) {
-            fail("Expected no exception but was: " + e);
-        }
+        assertThat(commandHandler.handle(cmd), willCompleteSuccessfully());
     }
 
-    private CompletableFuture<Boolean> handleCreateZoneCommand(boolean ifNotExists)
-            throws ExecutionException, InterruptedException, TimeoutException {
-        distributionZoneManager.createZone(
-                        new DistributionZoneConfigurationParameters.Builder(ZONE_NAME).build()
-                )
-                .get(5, TimeUnit.SECONDS);
+    private CompletableFuture<Boolean> handleCreateZoneCommand(boolean ifNotExists) {
+        createZone(distributionZoneManager, ZONE_NAME, null, null, null);
 
         CreateZoneCommand cmd = new CreateZoneCommand();
         cmd.zoneName(ZONE_NAME);

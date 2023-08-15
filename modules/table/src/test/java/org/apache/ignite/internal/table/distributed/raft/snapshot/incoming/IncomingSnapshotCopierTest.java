@@ -44,7 +44,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -85,6 +84,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMvDataResponse.ResponseEntry;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -352,7 +352,7 @@ public class IncomingSnapshotCopierTest {
 
             Collections.reverse(readResults);
 
-            List<ByteBuffer> rowVersions = new ArrayList<>();
+            List<BinaryRowMessage> rowVersions = new ArrayList<>();
             long[] timestamps = new long[readResults.size() + (readResults.get(0).isWriteIntent() ? -1 : 0)];
 
             UUID txId = null;
@@ -361,7 +361,12 @@ public class IncomingSnapshotCopierTest {
 
             int j = 0;
             for (ReadResult readResult : readResults) {
-                rowVersions.add(readResult.binaryRow().byteBuffer());
+                BinaryRowMessage rowMessage = TABLE_MSG_FACTORY.binaryRowMessage()
+                        .binaryTuple(readResult.binaryRow().tupleSlice())
+                        .schemaVersion(readResult.binaryRow().schemaVersion())
+                        .build();
+
+                rowVersions.add(rowMessage);
 
                 if (readResult.isWriteIntent()) {
                     txId = readResult.transactionId();

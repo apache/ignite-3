@@ -31,11 +31,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
+import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -95,9 +96,16 @@ import org.jetbrains.annotations.Nullable;
  * Dummy table storage implementation.
  */
 public class DummyInternalTableImpl extends InternalTableImpl {
-    private static final IgniteLogger LOG = Loggers.forClass(DummyInternalTableImpl.class);
+    public static final IgniteLogger LOG = Loggers.forClass(DummyInternalTableImpl.class);
 
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
+
+    public static final HybridClock CLOCK = new TestHybridClock(new LongSupplier() {
+        @Override
+        public long getAsLong() {
+            return 0;
+        }
+    });
 
     private static final int PART_ID = 0;
 
@@ -106,8 +114,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             new Column[]{new Column("key", NativeTypes.INT64, false)},
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
-
-    private static final HybridClock CLOCK = new HybridClockImpl();
 
     private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(333, 0);
 
@@ -118,7 +124,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private final ReplicationGroupId groupId;
 
     /** The thread updates safe time on the dummy replica. */
-    private Thread safeTimeUpdaterThread;
+    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
 
@@ -131,6 +137,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         this(replicaSvc, SCHEMA);
     }
 
+    /**
+     * Creates a new local table.
+     *
+     * @param replicaSvc Replica service.
+     * @param schema Schema.
+     */
     public DummyInternalTableImpl(ReplicaService replicaSvc, SchemaDescriptor schema) {
         this(replicaSvc, new TestMvPartitionStorage(0), schema);
     }
@@ -273,8 +285,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
 
-        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
-                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+        safeTime = mock(PendingComparableValuesTracker.class);
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
@@ -320,6 +331,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(TablesConfiguration.class)
         );
 
+        lenient().when(safeTime.waitFor(any())).thenReturn(completedFuture(null));
+        lenient().when(safeTime.current()).thenReturn(new HybridTimestamp(1, 0));
+
         partitionListener = new PartitionListener(
                 new TestPartitionDataStorage(mvPartStorage),
                 storageUpdateHandler,
@@ -327,34 +341,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 safeTime,
                 new PendingComparableValuesTracker<>(0L)
         );
-
-        safeTimeUpdaterThread = new Thread(new SafeTimeUpdater(safeTime), "safe-time-updater");
-
-        safeTimeUpdaterThread.start();
-    }
-
-    /**
-     * A process to update safe time periodically.
-     */
-    private static class SafeTimeUpdater implements Runnable {
-        PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
-
-        public SafeTimeUpdater(PendingComparableValuesTracker<HybridTimestamp, Void> safeTime) {
-            this.safeTime = safeTime;
-        }
-
-        @Override
-        public void run() {
-            while (true) {
-                safeTime.update(CLOCK.now(), null);
-
-                try {
-                    Thread.sleep(1_000);
-                } catch (InterruptedException e) {
-                    LOG.warn("The sfe time updater thread is interrupted");
-                }
-            }
-        }
     }
 
     /**
@@ -386,12 +372,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull String name() {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
         return super.get(keyRow, tx);
     }
@@ -412,17 +392,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     @Override
     public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
         return completedFuture(mock(ClusterNode.class));
-    }
-
-    @Override
-    public void close() {
-        super.close();
-
-        if (safeTimeUpdaterThread != null) {
-            safeTimeUpdaterThread.interrupt();
-
-            safeTimeUpdaterThread = null;
-        }
     }
 
     /**

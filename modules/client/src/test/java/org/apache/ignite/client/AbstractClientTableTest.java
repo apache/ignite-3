@@ -109,10 +109,8 @@ public class AbstractClientTableTest extends AbstractClientTest {
         return Tuple.create().set("gid", id).set("id", String.valueOf(id));
     }
 
-    protected static Tuple allColumnsTableVal(String name) {
-        return Tuple.create()
-                .set("gid", DEFAULT_ID)
-                .set("id", String.valueOf(DEFAULT_ID))
+    protected static Tuple allColumnsTableVal(String name, boolean skipKey) {
+        var tuple = Tuple.create()
                 .set("zboolean", true)
                 .set("zbyte", (byte) 11)
                 .set("zshort", (short) 12)
@@ -129,6 +127,14 @@ public class AbstractClientTableTest extends AbstractClientTest {
                 .set("zdecimal", BigDecimal.valueOf(21))
                 .set("znumber", BigInteger.valueOf(22))
                 .set("zuuid", uuid);
+
+        if (!skipKey) {
+            tuple
+                    .set("gid", DEFAULT_ID)
+                    .set("id", String.valueOf(DEFAULT_ID));
+        }
+
+        return tuple;
     }
 
     protected Table fullTable() {
@@ -171,6 +177,19 @@ public class AbstractClientTableTest extends AbstractClientTest {
         }
     }
 
+    /** Person without key. */
+    protected static class PersonValPojo {
+        public String name;
+
+        public PersonValPojo() {
+            // No-op.
+        }
+
+        public PersonValPojo(String name) {
+            this.name = name;
+        }
+    }
+
     /** Name column. */
     protected static class NamePojo {
         public String name;
@@ -180,27 +199,20 @@ public class AbstractClientTableTest extends AbstractClientTest {
     protected static class IncompletePojo {
         public byte zbyte;
         public String id;
-        public int gid;
+        public long gid;
         public String zstring;
         public byte[] zbytes;
     }
 
-    /** Partial column set. */
-    protected static class IncompletePojoNullable {
-        public int gid;
+    /** Composite key. */
+    protected static class CompositeKeyPojo {
         public String id;
-        public Boolean zboolean;
-        public Byte zbyte;
-        public Short zshort;
-        public Integer zint;
-        public Long zlong;
-        public Float zfloat;
-        public Double zdouble;
+        public long gid;
     }
 
     /** Columns of all types. */
     protected static class AllColumnsPojo {
-        public int gid;
+        public long gid;
         public String id;
         public boolean zboolean;
         public byte zbyte;
@@ -220,10 +232,80 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public BigInteger znumber;
     }
 
+    /** Columns of all types. */
+    protected static class AllColumnsPojoNullable {
+        public Long gid;
+        public String id;
+        public Boolean zboolean;
+        public Byte zbyte;
+        public Short zshort;
+        public Integer zint;
+        public Long zlong;
+        public Float zfloat;
+        public Double zdouble;
+        public LocalDate zdate;
+        public LocalTime ztime;
+        public Instant ztimestamp;
+        public String zstring;
+        public byte[] zbytes;
+        public UUID zuuid;
+        public BitSet zbitmask;
+        public BigDecimal zdecimal;
+        public BigInteger znumber;
+    }
+
+    /** Columns of all types. */
+    protected static class AllColumnsValPojo {
+        public boolean zboolean;
+        public byte zbyte;
+        public short zshort;
+        public int zint;
+        public long zlong;
+        public float zfloat;
+        public double zdouble;
+        public LocalDate zdate;
+        public LocalTime ztime;
+        public Instant ztimestamp;
+        public String zstring;
+        public byte[] zbytes;
+        public UUID zuuid;
+        public BitSet zbitmask;
+        public BigDecimal zdecimal;
+        public BigInteger znumber;
+    }
+
+    /** Columns of all types. */
+    protected static class AllColumnsValPojoNullable {
+        public Boolean zboolean;
+        public Byte zbyte;
+        public Short zshort;
+        public Integer zint;
+        public Long zlong;
+        public Float zfloat;
+        public Double zdouble;
+        public LocalDate zdate;
+        public LocalTime ztime;
+        public Instant ztimestamp;
+        public String zstring;
+        public byte[] zbytes;
+        public UUID zuuid;
+        public BitSet zbitmask;
+        public BigDecimal zdecimal;
+        public BigInteger znumber;
+    }
+
     /** Columns with default values. */
     protected static class DefaultValuesPojo {
         public int id;
         public String str;
         public String strNonNull;
+        public Byte num;
+    }
+
+    /** Columns with default values. */
+    protected static class DefaultValuesValPojo {
+        public String str;
+        public String strNonNull;
+        public Byte num;
     }
 }

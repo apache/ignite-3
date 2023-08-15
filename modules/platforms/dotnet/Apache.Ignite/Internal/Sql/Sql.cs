@@ -152,19 +152,6 @@ namespace Apache.Ignite.Internal.Sql
                     "Invalid query, check inner exceptions for details: " + statement.Query,
                     e);
             }
-#if DEBUG
-            catch (IgniteException e)
-            {
-                // TODO IGNITE-14865 Calcite error handling rework
-                // This should not happen, all parsing errors must be wrapped in SqlException.
-                if ((e.InnerException?.Message ?? e.Message).StartsWith("org.apache.calcite.", StringComparison.Ordinal))
-                {
-                    Console.WriteLine("SQL parsing failed: " + statement.Query);
-                }
-
-                throw;
-            }
-#endif
 
             PooledArrayBuffer Write()
             {
@@ -190,8 +177,7 @@ namespace Apache.Ignite.Internal.Sql
                 w.Write(statement.Query);
                 w.WriteObjectCollectionAsBinaryTuple(args);
 
-                // TODO IGNITE-20056 .NET: Thin 3.0: Track observable timestamp
-                w.Write(0);
+                w.Write(_socket.ObservableTimestamp);
 
                 return writer;
             }

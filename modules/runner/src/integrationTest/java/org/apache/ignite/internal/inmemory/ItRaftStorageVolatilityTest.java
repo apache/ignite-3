@@ -23,7 +23,6 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
@@ -40,6 +39,7 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.raft.configuration.EntryCountBudgetChange;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
@@ -48,6 +48,7 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageChange;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.junit.jupiter.api.Test;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -240,18 +241,32 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTableWithMaxOneInMemoryEntryAllowed(String tableName) {
-        int zoneId = await(createZone(
-                node(0).distributionZoneManager(), "zone1", 1, DEFAULT_PARTITION_COUNT,
-                dataStorageChange -> dataStorageChange.convert(VolatilePageMemoryDataStorageChange.class)));
+        DistributionZoneManager distributionZoneManager = node(0).distributionZoneManager();
+
+        String zoneName = "zone1";
+
+        createZone(
+                distributionZoneManager,
+                zoneName,
+                1,
+                DEFAULT_PARTITION_COUNT,
+                dataStorageChange -> dataStorageChange.convert(VolatilePageMemoryDataStorageChange.class)
+        );
+
+        int zoneId = distributionZoneManager.getZoneId(zoneName);
 
         TableDefinition tableDef = SchemaBuilders.tableBuilder("PUBLIC", tableName).columns(
                 SchemaBuilders.column("ID", ColumnType.INT32).build(),
                 SchemaBuilders.column("NAME", ColumnType.string()).asNullable(true).build()
         ).withPrimaryKey("ID").build();
 
-        await(((TableManager) node(0).tables()).createTableAsync(tableName, DEFAULT_ZONE_NAME, tableChange -> {
-            SchemaConfigurationConverter.convert(tableDef, tableChange)
-                    .changeZoneId(zoneId);
-        }));
+        assertThat(
+                ((TableManager) node(0).tables()).createTableAsync(
+                        tableName,
+                        DEFAULT_ZONE_NAME,
+                        tableChange -> SchemaConfigurationConverter.convert(tableDef, tableChange).changeZoneId(zoneId)
+                ),
+                CompletableFutureMatcher.willCompleteSuccessfully()
+        );
     }
 }

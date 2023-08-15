@@ -266,7 +266,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @Test
     void testOneRebalance() {
-        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1).join();
+        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1);
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -292,7 +292,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @Test
     void testTwoQueuedRebalances() {
-        await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
+        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1);
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -319,7 +319,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @Test
     void testThreeQueuedRebalances() throws InterruptedException {
-        await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
+        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1);
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -348,7 +348,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     void testOnLeaderElectedRebalanceRestart() throws Exception {
         String zoneName = "zone2";
 
-        await(createZone(nodes.get(0).distributionZoneManager, zoneName, 1, 2));
+        createZone(nodes.get(0).distributionZoneManager, zoneName, 1, 2);
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "TBL1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -412,7 +412,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @Test
     void testRebalanceRetryWhenCatchupFailed() {
-        await(createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1));
+        createZone(nodes.get(0).distributionZoneManager, ZONE_1_NAME, 1, 1);
 
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -1003,11 +1003,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private void createTableWithOnePartition(String tableName, String zoneName, int replicas, boolean testDataStorage) {
-        await(
-                createZone(
-                        nodes.get(0).distributionZoneManager,
-                        zoneName, 1, replicas,
-                        testDataStorage ? (dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class)) : null));
+        createZone(
+                nodes.get(0).distributionZoneManager,
+                zoneName,
+                1,
+                replicas,
+                testDataStorage ? (dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class)) : null
+        );
 
         assertThat(
                 nodes.get(0).tableManager.createTableAsync(
