@@ -19,7 +19,9 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -56,7 +58,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Converts a SQL parse tree into a relational algebra operators. */
 public class IgniteSqlToRelConvertor extends SqlToRelConverter {
-    private @Nullable SqlInsert insertOp;
+    private final Deque<SqlCall> datasetStack = new ArrayDeque<>();
 
     private RelBuilder relBuilder;
 
@@ -82,9 +84,13 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
     }
 
     @Override protected RelNode convertInsert(SqlInsert call) {
-        insertOp = call;
+        datasetStack.push(call);
 
-        return super.convertInsert(call);
+        RelNode rel = super.convertInsert(call);
+
+        datasetStack.pop();
+
+        return rel;
     }
 
     private static class DefaultChecker extends SqlShuttle {
@@ -122,11 +128,10 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
     }
 
     private void convertValuesImplEx(Blackboard bb, SqlCall values, RelDataType targetRowType) {
-        assert insertOp != null;
-        assert values == insertOp.getSource();
+        SqlCall insertOp = datasetStack.peek();
+        assert insertOp instanceof SqlInsert;
+        assert values == ((SqlInsert) insertOp).getSource();
         RelOptTable targetTable = getTargetTable(insertOp);
-        // no need any more
-        insertOp = null;
         assert targetTable != null;
 
         IgniteTable ignTable = targetTable.unwrap(IgniteTable.class);
