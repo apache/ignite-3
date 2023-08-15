@@ -219,7 +219,9 @@ public class DistributionZoneRebalanceEngine {
 
     private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters, int oldReplicas) {
         return IgniteUtils.inBusyLockAsync(busyLock, () -> {
-            int zoneId = parameters.zoneDescriptor().id();
+            // TODO: IGNITE-20114 Should be get from the catalog event parameters
+            // int zoneId = parameters.zoneDescriptor().id();
+            int zoneId = distributionZoneManager.getZoneId(parameters.zoneDescriptor().name());
             long causalityToken = parameters.causalityToken();
 
             return distributionZoneManager.dataNodes(causalityToken, zoneId)
