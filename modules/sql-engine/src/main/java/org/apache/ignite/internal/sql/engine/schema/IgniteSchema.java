@@ -20,14 +20,12 @@ package org.apache.ignite.internal.sql.engine.schema;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Schema implementation for sql engine.
@@ -48,13 +46,6 @@ public class IgniteSchema extends AbstractSchema {
         this.tableMapByName = tables.stream().collect(Collectors.toMap(t -> t.name().toUpperCase(), Function.identity()));
         this.tableMapById = tables.stream().collect(CollectionUtils.toIntMapCollector(IgniteTable::id, Function.identity()));
     }
-
-    /** Constructor. */
-    @TestOnly
-    public IgniteSchema(String name) {
-        this(name, 0, List.of());
-    }
-
 
     /** Schema name. */
     public String getName() {
