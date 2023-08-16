@@ -49,7 +49,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     public async Task DeleteTable() => await Client.Sql.ExecuteAsync(null, $"DROP TABLE {TestTableName}");
 
     [Test]
-    public async Task TestClientUsesLatestSchemaOnWrite([ValueSource(nameof(TestModes))] TestMode testMode)
+    public async Task TestClientUsesLatestSchemaOnWriteDropColumn([ValueSource(nameof(TestModes))] TestMode testMode)
     {
         // Create table, insert data.
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (ID INT NOT NULL PRIMARY KEY, NAME VARCHAR NOT NULL)");
@@ -107,6 +107,13 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestClientUsesLatestSchemaOnWriteAddColumn([ValueSource(nameof(TestModes))] TestMode testMode)
+    {
+        // TODO: Similar to above.
+        await Task.Delay(1);
+    }
+
+    [Test]
     public async Task TestClientUsesLatestSchemaOnRead([ValueSource(nameof(ReadTestModes))] TestMode testMode)
     {
         // Create table, insert data.
@@ -155,7 +162,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestClientUsesLatestSchemaOnReadPoco()
+    public async Task TestClientUsesLatestSchemaOnReadPoco([ValueSource(nameof(ReadTestModes))] TestMode testMode)
     {
         // Create table, insert data.
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (ID INT NOT NULL PRIMARY KEY)");
@@ -169,15 +176,43 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
 
         var pocoView = table.GetRecordView<Poco>();
-        var res = await pocoView.GetAsync(null, new Poco(1, string.Empty));
+        var poco = new Poco(1, string.Empty);
 
-        Assert.IsTrue(res.HasValue);
-        Assert.AreEqual(1, res.Value.Id);
-        Assert.AreEqual("name1", res.Value.Name);
+        switch (testMode)
+        {
+            case TestMode.One:
+            {
+                var res = await pocoView.GetAsync(null, new Poco(1, string.Empty));
+
+                Assert.IsTrue(res.HasValue);
+                Assert.AreEqual(1, res.Value.Id);
+                Assert.AreEqual("name1", res.Value.Name);
+                break;
+            }
+
+            case TestMode.Multiple:
+            {
+                var res = await pocoView.GetAllAsync(null, new[] { poco, poco });
+
+                Assert.AreEqual(2, res.Count);
+
+                foreach (var r in res)
+                {
+                    Assert.IsTrue(r.HasValue);
+                    Assert.AreEqual("name1", r.Value.Name);
+                }
+
+                break;
+            }
+
+            default:
+                Assert.Fail("Invalid test mode: " + testMode);
+                break;
+        }
     }
 
     [Test]
-    public async Task TestClientUsesLatestSchemaOnWritePoco()
+    public async Task TestClientUsesLatestSchemaOnWritePoco([ValueSource(nameof(TestModes))] TestMode testMode)
     {
         // Create table, insert data.
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (ID INT NOT NULL PRIMARY KEY)");
@@ -190,7 +225,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
 
-        // TODO: Test 2-key and multi-key operations to cover all code paths.
+        // TODO: switch testMode
         var pocoView = table.GetRecordView<Poco>();
         await pocoView.UpsertAsync(null, new Poco(1, "foo"));
 
