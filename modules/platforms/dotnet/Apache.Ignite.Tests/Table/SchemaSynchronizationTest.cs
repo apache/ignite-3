@@ -258,13 +258,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestClientUsesLatestSchemaOnReadPocoKv([ValueSource(nameof(ReadTestModes))] TestMode testMode)
-    {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
-    }
-
-    [Test]
     public async Task TestClientUsesLatestSchemaOnWritePoco([ValueSource(nameof(TestModes))] TestMode testMode)
     {
         // Create table, insert data.
@@ -301,7 +294,8 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 break;
 
             default:
-                throw new ArgumentOutOfRangeException(nameof(testMode), testMode, null);
+                Assert.Fail("Invalid test mode: " + testMode);
+                break;
         }
 
         if (testMode is TestMode.One or TestMode.Multiple)
@@ -309,13 +303,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             var res = await view.GetAsync(null, rec);
             Assert.AreEqual("foo", res.Value["NAME"]);
         }
-    }
-
-    [Test]
-    public async Task TestClientUsesLatestSchemaOnWritePocoKv([ValueSource(nameof(TestModes))] TestMode testMode)
-    {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
     }
 
     [Test]
