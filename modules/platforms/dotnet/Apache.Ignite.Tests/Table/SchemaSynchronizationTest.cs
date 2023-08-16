@@ -117,8 +117,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         var rec = new IgniteTuple
         {
-            ["ID"] = 1,
-            ["NAME"] = "name"
+            ["ID"] = 1
         };
 
         await view.InsertAsync(null, rec);
