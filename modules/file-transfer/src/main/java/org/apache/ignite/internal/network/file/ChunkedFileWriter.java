@@ -72,12 +72,14 @@ class ChunkedFileWriter implements AutoCloseable {
      * @throws FileValidationException If the chunk number or file size is invalid or expected file size is exceeded.
      */
     boolean write(FileChunkMessage chunk) throws IOException {
-        if (chunk.number() != expectedNextChunkNumber) {
-            throw new FileValidationException("Chunk number mismatch: expected " + expectedNextChunkNumber + ", actual " + chunk.number());
-        }
-
         lock.lock();
         try {
+            if (chunk.number() != expectedNextChunkNumber) {
+                throw new FileValidationException(
+                        "Chunk number mismatch: expected " + expectedNextChunkNumber + ", actual " + chunk.number()
+                );
+            }
+
             stream.write(chunk.data());
             expectedNextChunkNumber++;
             bytesWritten += chunk.data().length;
@@ -87,8 +89,6 @@ class ChunkedFileWriter implements AutoCloseable {
             }
 
             if (bytesWritten == expectedFileLength) {
-                stream.flush();
-
                 close();
 
                 return true;

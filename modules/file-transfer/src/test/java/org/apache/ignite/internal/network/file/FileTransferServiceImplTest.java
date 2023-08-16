@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.file;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.network.file.Channel.FILE_TRANSFER_CHANNEL;
 import static org.apache.ignite.internal.network.file.messages.FileTransferError.fromThrowable;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -31,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
@@ -43,6 +45,7 @@ import java.util.concurrent.Executors;
 import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
 import org.apache.ignite.internal.network.file.messages.FileDownloadResponse;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
+import org.apache.ignite.internal.network.file.messages.FileTransferErrorMessageImpl;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.network.file.messages.FileTransferInitMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferInitResponse;
@@ -165,6 +168,12 @@ class FileTransferServiceImplTest {
 
         // Check that upload failed.
         assertThat(uploaded, willThrow(RuntimeException.class, "Test exception"));
+
+        // Check that error message was sent.
+        await().untilAsserted(() -> {
+            verify(messagingService, atLeastOnce())
+                    .send(eq(TARGET_CONSISTENT_ID), eq(FILE_TRANSFER_CHANNEL), any(FileTransferErrorMessageImpl.class));
+        });
     }
 
     @Test

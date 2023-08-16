@@ -488,7 +488,7 @@ public class ItFileTransferTest {
         );
 
         // Check that files transfer failed.
-        assertThat(uploaded, willThrow(FileTransferException.class));
+        assertThat(uploaded, willThrow(FileTransferException.class, "Failed to upload files:"));
 
         // Check temporary files were deleted.
         assertTemporaryFilesWereDeleted(targetNode);

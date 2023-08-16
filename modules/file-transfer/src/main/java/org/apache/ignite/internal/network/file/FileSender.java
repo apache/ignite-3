@@ -47,6 +47,10 @@ import org.apache.ignite.network.MessagingService;
 class FileSender {
     private final int chunkSize;
 
+    /**
+     * Limits the bandwidth used to send files. The rate limiter is acquired for each file. If the rate limiter is not available, the file
+     * is placed in the {@link FileSender#queue}.
+     */
     private final Semaphore rateLimiter;
 
     private final long responseTimeout;
@@ -55,6 +59,10 @@ class FileSender {
 
     private final ExecutorService executorService;
 
+    /**
+     * A queue of files to send. The files are placed in the queue when the rate limiter is not available. The files are sent when the rate
+     * limiter is available.
+     */
     private final Queue<FileTransfer> queue = new LinkedList<>();
 
     /**

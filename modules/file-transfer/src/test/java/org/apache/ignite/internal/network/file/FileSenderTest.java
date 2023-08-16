@@ -35,6 +35,7 @@ import static org.mockito.Mockito.spy;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -44,7 +45,9 @@ import org.apache.ignite.internal.network.file.messages.FileChunkResponse;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.MessagingService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -63,6 +66,8 @@ class FileSenderTest {
     @Mock
     private MessagingService messagingService;
 
+    private ExecutorService executorService = Executors.newSingleThreadExecutor();
+
     private final FileTransferFactory messageFactory = new FileTransferFactory();
 
     @BeforeEach
@@ -70,6 +75,11 @@ class FileSenderTest {
         lenient().doReturn(completedFuture(messageFactory.fileChunkResponse().build()))
                 .when(messagingService)
                 .invoke(anyString(), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileChunkMessage.class), eq(RESPONSE_TIMEOUT));
+    }
+
+    @AfterEach
+    void tearDown() {
+        IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
     }
 
     @Test
@@ -82,7 +92,7 @@ class FileSenderTest {
                 new Semaphore(4),
                 RESPONSE_TIMEOUT,
                 messagingService,
-                Executors.newSingleThreadExecutor()
+                executorService
         );
 
         // Then - no exception is thrown.
@@ -104,8 +114,9 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 new Semaphore(4),
-                RESPONSE_TIMEOUT, messagingService,
-                Executors.newSingleThreadExecutor()
+                RESPONSE_TIMEOUT,
+                messagingService,
+                executorService
         );
 
         // Then - no exception is thrown.
@@ -135,8 +146,9 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 new Semaphore(4),
-                RESPONSE_TIMEOUT, messagingService,
-                Executors.newSingleThreadExecutor()
+                RESPONSE_TIMEOUT,
+                messagingService,
+                executorService
         );
 
         // Then - exception is thrown.
@@ -170,8 +182,9 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 new Semaphore(4),
-                RESPONSE_TIMEOUT, messagingService,
-                Executors.newSingleThreadExecutor()
+                RESPONSE_TIMEOUT,
+                messagingService,
+                executorService
         );
 
         // Then - exception is thrown.
@@ -219,8 +232,9 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 new Semaphore(maxConcurrentRequests),
-                RESPONSE_TIMEOUT, messagingService,
-                Executors.newSingleThreadExecutor()
+                RESPONSE_TIMEOUT,
+                messagingService,
+                executorService
         );
 
         // Then - no exception is thrown.
@@ -264,8 +278,9 @@ class FileSenderTest {
         FileSender sender = new FileSender(
                 CHUNK_SIZE,
                 rateLimiter,
-                RESPONSE_TIMEOUT, messagingService,
-                Executors.newSingleThreadExecutor()
+                RESPONSE_TIMEOUT,
+                messagingService,
+                executorService
         );
 
         // Then - exception is thrown.

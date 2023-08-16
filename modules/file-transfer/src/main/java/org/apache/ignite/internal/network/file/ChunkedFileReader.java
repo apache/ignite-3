@@ -68,7 +68,7 @@ class ChunkedFileReader implements AutoCloseable {
     }
 
     /**
-     * Returns {@code false} if there are no more chunks to read. Otherwise, returns {@code true}.
+     * Returns {@code false} if there are no more chunks to read. Otherwise, returns {@code true}. Does not change the state of the reader.
      *
      * @return {@code false} if there are no more chunks to read. Otherwise, returns {@code true}.
      */
@@ -81,17 +81,21 @@ class ChunkedFileReader implements AutoCloseable {
      * file.
      *
      * @return Chunk data.
-     * @throws IllegalStateException If there are no more chunks to read.
      * @throws IOException If an I/O error occurs.
      */
     byte[] readNextChunk() throws IOException {
         if (!hasNextChunk()) {
-            throw new IllegalStateException("No more chunks to read");
+            throw new IOException("No more chunks to read");
         }
 
         int toRead = (int) Math.min(chunkSize, length - offset);
         byte[] data = new byte[toRead];
-        stream.read(data);
+        int read = stream.read(data);
+
+        if (read != toRead) {
+            throw new IOException("Failed to read chunk data from file [expected=" + toRead + ", actual=" + read + "]");
+        }
+
         offset += toRead;
         nextChunkNumber++;
 
@@ -103,14 +107,14 @@ class ChunkedFileReader implements AutoCloseable {
     }
 
     /**
-     * Returns the number of the next chunk to read.
+     * Returns the number of the next chunk to read. Does not change the state of the reader.
      *
      * @return The number of the next chunk to read.
-     * @throws IllegalStateException If there are no more chunks to read.
+     * @throws IOException If there are no more chunks to read.
      */
-    int nextChunkNumber() {
+    int nextChunkNumber() throws IOException {
         if (!hasNextChunk()) {
-            throw new IllegalStateException("No more chunks to read");
+            throw new IOException("No more chunks to read");
         }
 
         return nextChunkNumber;
