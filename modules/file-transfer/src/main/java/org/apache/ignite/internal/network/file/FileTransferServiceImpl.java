@@ -269,17 +269,9 @@ public class FileTransferServiceImpl implements FileTransferService {
 
         // Check that directory was created successfully and send response to the sender.
         directoryFuture.handle((directory, e) -> {
-            FileTransferInitResponse response;
-
-            if (e != null) {
-                LOG.error("Failed to create transfer directory [transferId={}, identifier={}]", e, transferId, identifier);
-                response = messageFactory.fileTransferInitResponse()
-                        .error(fromThrowable(messageFactory, e))
-                        .build();
-            } else {
-                response = messageFactory.fileTransferInitResponse().build();
-            }
-
+            FileTransferInitResponse response = messageFactory.fileTransferInitResponse()
+                    .error(e != null ? fromThrowable(messageFactory, e) : null)
+                    .build();
             return messagingService.respond(senderConsistentId, FILE_TRANSFER_CHANNEL, response, correlationId);
         })
                 // Wait for the response to be sent.
@@ -310,7 +302,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                 .thenComposeAsync(Function.identity(), executorService)
                 .whenCompleteAsync((v, e) -> {
                     if (e != null) {
-                        LOG.error("Failed to handle file transfer [transferId={}, identifier={}]",
+                        LOG.error("Failed to process file transfer [transferId={}, identifier={}]",
                                 e,
                                 transferId,
                                 identifier
