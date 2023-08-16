@@ -25,12 +25,20 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.junit.jupiter.api.Test;
 
 class ErrorGroupTest {
     @Test
     void extractsCauseMessageFromIgniteExceptionMessage() {
+        IgniteLogger l = Loggers.forClass(ErrorGroupTest.class);
+        l.debug("debug");
+        l.info("info");
+        l.warn("warn");
+        l.error("error");
+        l.trace("trace");
         // Given
         String igniteExceptionMessage = "IGN-CMN-65535 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the reason";
 

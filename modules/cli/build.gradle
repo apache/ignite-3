@@ -52,6 +52,7 @@ dependencies {
     implementation libs.picocli.core
     implementation libs.jackson.databind
     implementation libs.typesafe.config
+    implementation libs.slf4j.jdk14
     implementation libs.gson.core
     implementation libs.gson.fire
     implementation libs.jsr305
