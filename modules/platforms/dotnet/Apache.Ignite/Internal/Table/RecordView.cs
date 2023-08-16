@@ -449,11 +449,17 @@ namespace Apache.Ignite.Internal.Table
 
                 return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
             }
-            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
+            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
+                                            schemaVersionOverride != e.GetExpectedSchemaVersion())
             {
-                // TODO: Handle unmapped
-                return await DoTwoRecordOutOpAsync(op, transaction, record, record2, keyOnly, e.GetExpectedSchemaVersion())
-                    .ConfigureAwait(false);
+                schemaVersionOverride = e.GetExpectedSchemaVersion();
+                return await DoTwoRecordOutOpAsync(op, transaction, record, record2, keyOnly, schemaVersionOverride).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e.CausedByUnmappedColumns() &&
+                                      schemaVersionOverride == null)
+            {
+                schemaVersionOverride = Table.SchemaVersionForceLatest;
+                return await DoTwoRecordOutOpAsync(op, transaction, record, record2, keyOnly, schemaVersionOverride).ConfigureAwait(false);
             }
         }
 
@@ -483,11 +489,21 @@ namespace Apache.Ignite.Internal.Table
 
                 return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
             }
-            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
+            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
+                                            schemaVersionOverride != e.GetExpectedSchemaVersion())
             {
-                // TODO: Handle unmapped
+                schemaVersionOverride = e.GetExpectedSchemaVersion();
+
                 // ReSharper disable once PossibleMultipleEnumeration (we have to retry, but this is very rare)
-                return await DoMultiRecordOutOpAsync(op, transaction, recs, keyOnly, e.GetExpectedSchemaVersion()).ConfigureAwait(false);
+                return await DoMultiRecordOutOpAsync(op, transaction, recs, keyOnly, schemaVersionOverride).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e.CausedByUnmappedColumns() &&
+                                      schemaVersionOverride == null)
+            {
+                schemaVersionOverride = Table.SchemaVersionForceLatest;
+
+                // ReSharper disable once PossibleMultipleEnumeration (we have to retry, but this is very rare)
+                return await DoMultiRecordOutOpAsync(op, transaction, recs, keyOnly, schemaVersionOverride).ConfigureAwait(false);
             }
         }
     }
