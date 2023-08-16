@@ -18,8 +18,8 @@
 -->
 <Configuration>
   <Properties>
-    <!-- Set the `IGNITE_NO_LOG_COLOR` environment variable to completely disable colors in the console output. -->
-    <Property name="disableAnsi">${sys:IGNITE_NO_LOG_COLOR:-false}</Property>
+    <!-- Set the `IGNITE_CI` environment variable to completely disable colors in the console output. -->
+    <Property name="disableAnsi">${env:IGNITE_CI:-false}</Property>
   </Properties>
 
   <Appenders>
