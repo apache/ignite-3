@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides extended internal API for {@link AsyncResultSet}.
@@ -27,5 +28,5 @@ public interface AsyncResultSetEx<T> extends AsyncResultSet<T> {
     /**
      * Returns read timestamp of the implicit read-only transaction, if any has been started.
      */
-    HybridTimestamp implicitTxReadTimestamp();
+    @Nullable HybridTimestamp implicitTxReadTimestamp();
 }
