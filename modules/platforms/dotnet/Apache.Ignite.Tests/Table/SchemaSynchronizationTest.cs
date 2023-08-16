@@ -71,6 +71,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         // Modify table, insert data - client will use old schema, receive error, retry with new schema.
         // The process is transparent for the user: updated schema is in effect immediately.
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} DROP COLUMN NAME");
+        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         var rec2 = new IgniteTuple
         {
@@ -178,6 +179,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         // Modify table, insert data - client will use old schema, receive error, retry with new schema.
         // The process is transparent for the user: updated schema is in effect immediately.
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
+        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         switch (testMode)
         {
@@ -224,6 +226,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         await view.InsertAsync(null, rec);
 
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
+        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         var pocoView = table.GetRecordView<Poco>();
         var poco = new Poco(1, string.Empty);
@@ -323,6 +326,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         await view.InsertAsync(null, rec);
 
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
+        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         var pocoView = table.GetKeyValueView<int, string>();
         var res = await pocoView.GetAsync(null, 1);
