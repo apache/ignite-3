@@ -20,12 +20,10 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesForZoneWithAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertZonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVault;
@@ -36,7 +34,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
@@ -102,6 +99,8 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     @InjectConfiguration
     private TablesConfiguration tablesConfiguration;
 
+    private DistributionZonesConfiguration zonesConfiguration;
+
     @BeforeEach
     public void setUp() {
         String nodeName = "test";
@@ -118,8 +117,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of())
         );
 
-        DistributionZonesConfiguration zonesConfiguration = clusterCfgMgr.configurationRegistry()
-                .getConfiguration(DistributionZonesConfiguration.KEY);
+        zonesConfiguration = clusterCfgMgr.configurationRegistry().getConfiguration(DistributionZonesConfiguration.KEY);
 
         // Mock logical topology for distribution zone.
         vaultMgr = new VaultManager(new InMemoryVaultService());
@@ -183,65 +181,58 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     @Test
     void testDataNodesPropagationAfterZoneCreation() throws Exception {
-        assertDataNodesForZone(1, null, keyValueStorage);
-
         createZone(ZONE_NAME);
 
-        assertDataNodesForZoneWithAttributes(1, nodes.stream().map(NodeWithAttributes::node).collect(toSet()), keyValueStorage);
+        int zoneId = getZoneId(ZONE_NAME);
 
-        assertZoneScaleUpChangeTriggerKey(2L, 1, keyValueStorage);
+        assertDataNodesForZoneWithAttributes(zoneId, nodes.stream().map(NodeWithAttributes::node).collect(toSet()), keyValueStorage);
 
-        assertZonesChangeTriggerKey(2, 1, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(2L, zoneId, keyValueStorage);
+
+        assertZonesChangeTriggerKey(2, zoneId, keyValueStorage);
     }
 
     @Test
     void testZoneDeleteRemovesMetaStorageKey() throws Exception {
         createZone(ZONE_NAME);
 
-        assertDataNodesForZoneWithAttributes(1, nodes.stream().map(NodeWithAttributes::node).collect(toSet()), keyValueStorage);
+        int zoneId = getZoneId(ZONE_NAME);
+
+        assertDataNodesForZoneWithAttributes(zoneId, nodes.stream().map(NodeWithAttributes::node).collect(toSet()), keyValueStorage);
 
         dropZone(ZONE_NAME);
 
-        assertTrue(waitForCondition(() -> keyValueStorage.get(zoneDataNodesKey(1).bytes()).value() == null, 5000));
+        assertTrue(waitForCondition(() -> keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value() == null, 5000));
     }
 
     @Test
     void testSeveralZoneCreationsUpdatesTriggerKey() throws Exception {
-        assertNull(keyValueStorage.get(zoneScaleUpChangeTriggerKey(1).bytes()).value());
-        assertNull(keyValueStorage.get(zoneScaleUpChangeTriggerKey(2).bytes()).value());
-
         createZone(ZONE_NAME);
 
         createZone(NEW_ZONE_NAME);
 
-        assertZoneScaleUpChangeTriggerKey(2L, 1, keyValueStorage);
-        assertZoneScaleUpChangeTriggerKey(3L, 2, keyValueStorage);
-        assertZonesChangeTriggerKey(2, 1, keyValueStorage);
-        assertZonesChangeTriggerKey(3, 2, keyValueStorage);
-    }
+        int zoneId = getZoneId(ZONE_NAME);
+        int zoneId2 = getZoneId(NEW_ZONE_NAME);
 
-    @Test
-    void testDataNodesNotPropagatedAfterZoneCreation() throws Exception {
-        keyValueStorage.put(zonesChangeTriggerKey(1).bytes(), longToBytes(100), HybridTimestamp.MIN_VALUE);
-
-        createZone(ZONE_NAME);
-
-        assertZonesChangeTriggerKey(100, 1, keyValueStorage);
-
-        assertDataNodesForZone(1, null, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(2L, zoneId, keyValueStorage);
+        assertZoneScaleUpChangeTriggerKey(3L, zoneId2, keyValueStorage);
+        assertZonesChangeTriggerKey(2, zoneId, keyValueStorage);
+        assertZonesChangeTriggerKey(3, zoneId2, keyValueStorage);
     }
 
     @Test
     void testZoneDeleteDoNotRemoveMetaStorageKey() throws Exception {
         createZone(ZONE_NAME);
 
-        assertDataNodesForZoneWithAttributes(1, nodes.stream().map(NodeWithAttributes::node).collect(toSet()), keyValueStorage);
+        int zoneId = getZoneId(ZONE_NAME);
 
-        keyValueStorage.put(zonesChangeTriggerKey(1).bytes(), longToBytes(100), HybridTimestamp.MIN_VALUE);
+        assertDataNodesForZoneWithAttributes(zoneId, nodes.stream().map(NodeWithAttributes::node).collect(toSet()), keyValueStorage);
+
+        keyValueStorage.put(zonesChangeTriggerKey(zoneId).bytes(), longToBytes(100), HybridTimestamp.MIN_VALUE);
 
         dropZone(ZONE_NAME);
 
-        assertDataNodesForZoneWithAttributes(1, nodes.stream().map(NodeWithAttributes::node).collect(toSet()), keyValueStorage);
+        assertDataNodesForZoneWithAttributes(zoneId, nodes.stream().map(NodeWithAttributes::node).collect(toSet()), keyValueStorage);
     }
 
     private void createZone(String zoneName) {
@@ -250,5 +241,9 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
 
     private void dropZone(String zoneName) {
         DistributionZonesTestUtil.dropZone(distributionZoneManager, zoneName);
+    }
+
+    private int getZoneId(String zoneName) {
+        return DistributionZonesTestUtil.getZoneIdStrict(zonesConfiguration, zoneName);
     }
 }

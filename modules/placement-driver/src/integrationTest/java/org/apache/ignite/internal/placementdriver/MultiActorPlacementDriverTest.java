@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -75,6 +75,7 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.lang.ByteArray;
@@ -95,7 +96,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * There are tests of muti-nodes for placement driver.
  */
-@ExtendWith({ConfigurationExtension.class})
+@ExtendWith(ConfigurationExtension.class)
 public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     public static final int BASE_PORT = 1234;
 
@@ -109,7 +110,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.distributionZones {zone1 = { partitions = 1, replicas = 2, zoneId = 1}}")
     private DistributionZonesConfiguration dstZnsCfg;
 
     @InjectConfiguration
@@ -168,9 +169,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     @AfterEach
     public void afterTest() throws Exception {
-        for (Closeable cl : servicesToClose) {
-            cl.close();
-        }
+        IgniteUtils.closeAll(servicesToClose);
     }
 
     /**
@@ -604,15 +603,13 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(nodeNames, 1, nodeNames.size());
 
-        int zoneId = createZone();
-
         tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
             tableViewTableChangeNamedListChange.create("test-table-" + tableId, tableChange -> {
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
                 extConfCh.changeId(tableId);
 
-                extConfCh.changeZoneId(zoneId);
+                extConfCh.changeZoneId(getZoneId(dstZnsCfg, "zone1"));
             });
         }).thenCompose(v -> {
             Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
@@ -634,27 +631,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
         log.info("Fake table created [id={}, repGrp={}]", tableId, grpPart0);
 
         return grpPart0;
-    }
-
-    /**
-     * Creates a distribution zone.
-     *
-     * @return Id of created distribution zone.
-     */
-    private int createZone() {
-        if (dstZnsCfg.distributionZones().get("zone1") != null) {
-            return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
-        }
-
-        dstZnsCfg.distributionZones().change(zones -> {
-            zones.create("zone1", ch -> {
-                ch.changePartitions(1);
-                ch.changeReplicas(2);
-                ch.changeZoneId(DEFAULT_ZONE_ID + 1);
-            });
-        }).join();
-
-        return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
     }
 
     private Lease leaseFromBytes(byte[] bytes, ReplicationGroupId groupId) {
