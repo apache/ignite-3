@@ -112,7 +112,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     private final Map<Short, FileProvider<Identifier>> identifierToProvider = new ConcurrentHashMap<>();
 
     /**
-     * Map of file handlers.
+     * Map of file consumers.
      */
     private final Map<Short, FileConsumer<Identifier>> identifierToConsumer = new ConcurrentHashMap<>();
 
