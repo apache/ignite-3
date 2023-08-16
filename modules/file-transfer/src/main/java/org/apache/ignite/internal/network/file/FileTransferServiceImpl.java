@@ -266,11 +266,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                 transferId,
                 message.headers(),
                 directory
-        )).whenComplete((v, e) -> {
-            if (e != null) {
-                LOG.error("Failed to register file transfer [transferId={}, identifier={}]", e, transferId, identifier);
-            }
-        });
+        ));
 
         // Check that directory was created successfully and send response to the sender.
         directoryFuture.handle((directory, e) -> {
