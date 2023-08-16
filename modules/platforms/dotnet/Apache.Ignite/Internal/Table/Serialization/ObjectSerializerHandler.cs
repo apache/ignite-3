@@ -458,8 +458,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     extraColumns.Remove(column.Name);
                 }
 
-                throw new ArgumentException(
-                    $"Record of type {type} doesn't match schema: schemaVersion={schema.Version}, extraColumns={extraColumns.StringJoin()}");
+                throw SerializerExceptionExtensions.GetUnmappedColumnsException($"Record of type {type}", schema, extraColumns);
             }
         }
 
@@ -502,9 +501,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     extraColumns.Remove(column.Name);
                 }
 
-                throw new ArgumentException(
-                    $"KeyValue pair of type ({keyType}, {valType}) doesn't match schema: schemaVersion={schema.Version}, " +
-                    $"extraColumns={extraColumns.StringJoin()}");
+                throw SerializerExceptionExtensions.GetUnmappedColumnsException(
+                    $"KeyValue pair of type ({keyType}, {valType})", schema, extraColumns);
             }
         }
 

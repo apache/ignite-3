@@ -112,9 +112,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     extraColumns.Remove(schema.Columns[i].Name);
                 }
 
-                throw new ArgumentException(
-                    $"Tuple doesn't match schema: schemaVersion={schema.Version}, extraColumns={extraColumns.StringJoin()}",
-                    nameof(record));
+                throw SerializerExceptionExtensions.GetUnmappedColumnsException("Tuple", schema, extraColumns);
             }
         }
     }
