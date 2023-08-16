@@ -681,7 +681,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
      * @return String representation.
      */
     private static String rowToString(BinaryRow binaryRow) {
-        var row = new Row(SCHEMA, binaryRow);
+        Row row = Row.wrapBinaryRow(SCHEMA, binaryRow);
 
         return IgniteStringFormatter.format("[{}, {}, {}]", row.intValue(0), row.intValue(1), row.stringValue(2));
     }
@@ -829,7 +829,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         rowBuilder.appendInt(id);
         rowBuilder.appendString("StrNew_" + id);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        return Row.wrapBinaryRow(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -845,7 +845,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         rowBuilder.appendInt(id);
         rowBuilder.appendString("Str_" + id);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        return Row.wrapBinaryRow(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -859,7 +859,7 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
 
         rowBuilder.appendInt(id);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        return Row.wrapKeyOnlyBinaryRow(SCHEMA, rowBuilder.build());
     }
 
     /**

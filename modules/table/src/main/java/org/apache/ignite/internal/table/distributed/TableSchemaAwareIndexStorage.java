@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
@@ -33,13 +33,13 @@ import org.apache.ignite.internal.util.Cursor;
 public class TableSchemaAwareIndexStorage {
     private final int indexId;
     private final IndexStorage storage;
-    private final Function<BinaryRow, BinaryTuple> indexRowResolver;
+    private final ColumnsExtractor indexRowResolver;
 
     /** Constructs the object. */
     public TableSchemaAwareIndexStorage(
             int indexId,
             IndexStorage storage,
-            Function<BinaryRow, BinaryTuple> indexRowResolver
+            ColumnsExtractor indexRowResolver
     ) {
         this.indexId = indexId;
         this.storage = storage;
@@ -53,7 +53,7 @@ public class TableSchemaAwareIndexStorage {
 
     /** Returns a cursor over {@code RowId}s associated with the given key. */
     public Cursor<RowId> get(BinaryRow binaryRow) throws StorageException {
-        BinaryTuple tuple = indexRowResolver.apply(binaryRow);
+        BinaryTuple tuple = indexRowResolver.extractColumns(binaryRow);
 
         return storage.get(tuple);
     }
@@ -65,7 +65,7 @@ public class TableSchemaAwareIndexStorage {
      * @param rowId An identifier of a row in a main storage.
      */
     public void put(BinaryRow binaryRow, RowId rowId) {
-        BinaryTuple tuple = indexRowResolver.apply(binaryRow);
+        BinaryTuple tuple = indexRowResolver.extractColumns(binaryRow);
 
         storage.put(new IndexRowImpl(tuple, rowId));
     }
@@ -77,19 +77,16 @@ public class TableSchemaAwareIndexStorage {
      * @param rowId An identifier of a row in a main storage.
      */
     public void remove(BinaryRow binaryRow, RowId rowId) {
-        BinaryTuple tuple = indexRowResolver.apply(binaryRow);
+        BinaryTuple tuple = indexRowResolver.extractColumns(binaryRow);
 
         storage.remove(new IndexRowImpl(tuple, rowId));
     }
 
     /**
-     * Resolves index row value.
-     *
-     * @param row Full row.
-     * @return A tuple that represents indexed columns of a row.
+     * Returns a {@link ColumnsExtractor} for extracting index keys from given rows.
      */
-    public BinaryTuple resolveIndexRow(BinaryRow row) {
-        return indexRowResolver.apply(row);
+    public ColumnsExtractor indexRowResolver() {
+        return indexRowResolver;
     }
 
     /** Returns underlying index storage. */

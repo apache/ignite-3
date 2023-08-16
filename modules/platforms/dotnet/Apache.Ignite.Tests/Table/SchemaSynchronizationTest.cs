@@ -75,30 +75,35 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             ["NAME"] = "name2"
         };
 
-        // TODO this should fail when we implement IGNITE-19836 Reject Tuples and POCOs with unmapped fields
-        switch (testMode)
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
         {
-            case TestMode.One:
-                await view.InsertAsync(null, rec2);
-                break;
+            switch (testMode)
+            {
+                case TestMode.One:
+                    await view.InsertAsync(null, rec2);
+                    break;
 
-            case TestMode.Two:
-                await view.ReplaceAsync(null, rec2, rec2);
-                break;
+                case TestMode.Two:
+                    await view.ReplaceAsync(null, rec2, rec2);
+                    break;
 
-            case TestMode.Multiple:
-                await view.InsertAllAsync(null, new[] { rec2, rec2, rec2 });
-                break;
+                case TestMode.Multiple:
+                    await view.InsertAllAsync(null, new[] { rec2, rec2, rec2 });
+                    break;
 
-            case TestMode.Compute:
-                await Client.Compute.ExecuteColocatedAsync<string>(
-                    table.Name, rec2, Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
-                break;
+                case TestMode.Compute:
+                    await Client.Compute.ExecuteColocatedAsync<string>(
+                        table.Name, rec2, Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
+                    break;
 
-            default:
-                Assert.Fail("Invalid test mode: " + testMode);
-                break;
-        }
+                default:
+                    Assert.Fail("Invalid test mode: " + testMode);
+                    break;
+            }
+        });
+
+        StringAssert.StartsWith("Tuple doesn't match schema", ex!.Message);
+        StringAssert.EndsWith("extraColumns=NAME (Parameter 'record')", ex.Message);
     }
 
     [Test]
@@ -150,6 +155,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     [Test]
+    [Ignore("IGNITE-19840")]
     public async Task TestClientUsesLatestSchemaOnReadPoco()
     {
         // Create table, insert data.
@@ -163,6 +169,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
 
+        // TODO IGNITE-19840 Reload schema when unmapped POCO column is detected
         var pocoView = table.GetRecordView<Poco>();
         var res = await pocoView.GetAsync(null, new Poco(1, string.Empty));
 

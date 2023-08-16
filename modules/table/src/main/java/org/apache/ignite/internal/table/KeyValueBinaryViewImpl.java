@@ -411,7 +411,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param row Binary row.
      * @return Value tuple.
      */
-    private Tuple unmarshalValue(BinaryRow row) {
+    private @Nullable Tuple unmarshalValue(BinaryRow row) {
         if (row == null) {
             return null;
         }
@@ -469,9 +469,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         List<Tuple> tuples = new ArrayList<>(rows.size());
 
-        for (Row row : schemaReg.resolve(rows)) {
-            assert !row.hasValue();
-
+        for (Row row : schemaReg.resolveKeys(rows)) {
             tuples.add(TableRow.keyTuple(row));
         }
 

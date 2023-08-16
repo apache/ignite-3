@@ -478,7 +478,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         List<K> keys = new ArrayList<>(rows.size());
 
         try {
-            for (Row row : schemaReg.resolve(rows)) {
+            for (Row row : schemaReg.resolveKeys(rows)) {
                 if (row != null) {
                     keys.add(marsh.unmarshalKey(row));
                 }
@@ -497,7 +497,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Value object or {@code null} if not exists.
      */
     private @Nullable V unmarshalNullableValue(@Nullable BinaryRow binaryRow) {
-        if (binaryRow == null || !binaryRow.hasValue()) {
+        if (binaryRow == null) {
             return null;
         }
 

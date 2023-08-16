@@ -15,18 +15,21 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Common;
+namespace Apache.Ignite.Tests.Table;
 
 using System;
-using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
-public static class CollectionExtensions
+/// <summary>
+/// Test user object.
+/// </summary>
+public class KeyPoco
 {
-    public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
-    {
-        foreach (var item in source)
-        {
-            action(item);
-        }
-    }
+    public long Key { get; set; }
+
+    [NotMapped]
+    public Guid UnmappedId { get; set; }
+
+    [NotMapped]
+    public string? UnmappedStr { get; set; }
 }
