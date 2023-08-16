@@ -24,8 +24,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.apache.calcite.rel.RelDistribution;
+import org.apache.calcite.rel.RelDistribution.Type;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -70,8 +72,8 @@ public abstract class DistributionFunction {
      * Creates a destination based on this function algorithm, given nodes mapping and given distribution keys.
      *
      * @param hashFuncFactory Factory to create a hash function for the row, from which the destination nodes are calculated.
-     * @param group           Target mapping.
-     * @param keys            Distribution keys.
+     * @param group Target mapping.
+     * @param keys Distribution keys.
      * @return Destination function.
      */
     abstract <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup group, ImmutableIntList keys);
@@ -123,6 +125,10 @@ public abstract class DistributionFunction {
 
     public static DistributionFunction hash() {
         return HashDistribution.INSTANCE;
+    }
+
+    public static DistributionFunction identity() {
+        return IdentityDistribution.INSTANCE;
     }
 
     /**
@@ -252,7 +258,7 @@ public abstract class DistributionFunction {
          * Constructor.
          *
          * @param tableId Table ID.
-         * @param zoneId  Distribution zone ID.
+         * @param zoneId Distribution zone ID.
          */
         private AffinityDistribution(int tableId, Object zoneId) {
             this.zoneId = zoneId;
@@ -282,6 +288,47 @@ public abstract class DistributionFunction {
         @Override
         protected String name0() {
             return "affinity[tableId=" + tableId + ", zoneId=" + zoneId + ']';
+        }
+    }
+
+    /**
+     * Affinity distribution function, which treats column value as valid destination.
+     */
+    public static final class IdentityDistribution extends DistributionFunction {
+        public static final DistributionFunction INSTANCE = new IdentityDistribution();
+
+        /** {@inheritDoc} */
+        @Override
+        public Type type() {
+            return Type.HASH_DISTRIBUTED;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected String name0() {
+            return "identity";
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup group, ImmutableIntList keys) {
+            //TODO: IGNITE-20246 Fix method signature.
+            throw new UnsupportedOperationException("Not implemented yet.");
+        }
+
+        /**
+         * Creates a destination based on column raw value, given nodes mapping and given distribution keys.
+         *
+         * @param rowHandler Handler to access row values.
+         * @param group Target mapping.
+         * @param keys Distribution keys. Single key is expected.
+         * @return Destination function.
+         */
+        public <RowT> Destination<RowT> destination(RowHandler<RowT> rowHandler, ColocationGroup group, ImmutableIntList keys) {
+            assert keys.size() == 1;
+            int key = keys.getInt(0);
+
+            return new Identity(rowHandler, key, group.nodeNames());
         }
     }
 }

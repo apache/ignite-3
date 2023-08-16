@@ -109,6 +109,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
+import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.IdentityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -159,12 +160,22 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         expressionFactory = ctx.expressionFactory();
     }
 
+    private Destination<RowT> getDestination(IgniteDistribution distribution) {
+        //TODO: IGNITE-20246 Drop this hack
+        if (distribution.function() instanceof IdentityDistribution) {
+            IdentityDistribution function = (IdentityDistribution) distribution.function();
+            return function.destination(ctx.rowHandler(), ctx.target(), distribution.getKeys());
+        }
+
+        return distribution.destination(hashFuncFactory, ctx.target());
+    }
+
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteSender rel) {
         IgniteDistribution distribution = rel.distribution();
 
-        Destination<RowT> dest = distribution.destination(hashFuncFactory, ctx.target());
+        Destination<RowT> dest = getDestination(distribution);
 
         // Outbox fragment ID is used as exchange ID as well.
         Outbox<RowT> outbox = new Outbox<>(ctx, exchangeSvc, mailboxRegistry, rel.exchangeId(), rel.targetFragmentId(), dest);
@@ -195,10 +206,11 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteTrimExchange rel) {
-        assert TraitUtils.distribution(rel).getType() == HASH_DISTRIBUTED;
+        IgniteDistribution distribution = rel.distribution();
 
-        IgniteDistribution distr = rel.distribution();
-        Destination<RowT> dest = distr.destination(hashFuncFactory, ctx.group(rel.sourceId()));
+        assert distribution.getType() == HASH_DISTRIBUTED;
+
+        Destination<RowT> dest = getDestination(distribution);
         String localNodeName = ctx.localNode().name();
 
         FilterNode<RowT> node = new FilterNode<>(ctx, r -> Objects.equals(localNodeName, first(dest.targets(r))));

@@ -110,6 +110,16 @@ public class IgniteDistributions {
     }
 
     /**
+     * Creates an identity distribution that calculates destinations based on a raw value of the row field.
+     *
+     * @param key     Distribution key ordinal.
+     * @return Identity distribution.
+     */
+    public static IgniteDistribution identity(int key) {
+        return canonize(new DistributionTrait(List.of(key), DistributionFunction.identity()));
+    }
+
+    /**
      * See {@link RelTraitDef#canonize(org.apache.calcite.plan.RelTrait)}.
      */
     private static IgniteDistribution canonize(IgniteDistribution distr) {
