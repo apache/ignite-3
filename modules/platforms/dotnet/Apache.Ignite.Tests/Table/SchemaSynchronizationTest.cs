@@ -177,6 +177,28 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestClientUsesLatestSchemaOnWritePoco()
+    {
+        // Create table, insert data.
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (ID INT NOT NULL PRIMARY KEY)");
+
+        var table = await Client.Tables.GetTableAsync(TestTableName);
+        var view = table!.RecordBinaryView;
+
+        var rec = new IgniteTuple { ["ID"] = 1 };
+        await view.InsertAsync(null, rec);
+
+        await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
+
+        // TODO: Test 2-key and multi-key operations to cover all code paths.
+        var pocoView = table.GetRecordView<Poco>();
+        await pocoView.UpsertAsync(null, new Poco(1, "foo"));
+
+        var res = await view.GetAsync(null, rec);
+        Assert.AreEqual("foo", res.Value["NAME"]);
+    }
+
+    [Test]
     public async Task TestClientUsesLatestSchemaOnReadKv()
     {
         // Create table, insert data.
