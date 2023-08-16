@@ -28,13 +28,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelCollations;
-import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -61,7 +59,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
 
     private final CatalogManager catalogManager;
 
-    private final ConcurrentMap<Map.Entry<String, Integer>, SchemaPlus> cache;
+    private final ConcurrentMap<CacheKey, SchemaPlus> cache;
 
     /** Constructor. */
     public CatalogSqlSchemaManager(CatalogManager catalogManager, int cacheSize) {
@@ -69,18 +67,19 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         this.cache = Caffeine.newBuilder()
                 .initialCapacity(cacheSize)
                 .maximumSize(cacheSize)
-                .<Map.Entry<String, Integer>, SchemaPlus>build()
+                .<CacheKey, SchemaPlus>build()
                 .asMap();
     }
 
     /** {@inheritDoc} */
     @Override
-    public SchemaPlus schema(@Nullable String name, int version) {
+    public SchemaPlus schema(@Nullable String name, int schemaVersion) {
         String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
 
-        Entry<String, Integer> entry = Map.entry(schemaName, version);
-        return cache.computeIfAbsent(entry, (e) -> createSqlSchema(e.getValue(), catalogManager.schema(e.getKey(), e.getValue())));
+        return cache.computeIfAbsent(cacheKey(schemaVersion, schemaName),
+                (e) -> createSqlSchema(e.schemaVersion(), catalogManager.schema(e.schemaName(), e.schemaVersion())));
     }
+
 
     /** {@inheritDoc} */
     @Override
@@ -231,5 +230,44 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, tableId, tableId);
 
         return new TableDescriptorImpl(colDescriptors, distribution);
+    }
+
+    private static CacheKey cacheKey(int schemaVersion, String schemaName) {
+        return new CacheKey(schemaVersion, schemaName);
+    }
+
+    private static class CacheKey {
+        private final int schemaVersion;
+        private final String schemaName;
+
+        CacheKey(int schemaVersion, String schemaName) {
+            this.schemaVersion = schemaVersion;
+            this.schemaName = schemaName;
+        }
+
+        public int schemaVersion() {
+            return schemaVersion;
+        }
+
+        public String schemaName() {
+            return schemaName;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            CacheKey cacheKey = (CacheKey) o;
+            return schemaVersion == cacheKey.schemaVersion && Objects.equals(schemaName, cacheKey.schemaName);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(schemaVersion, schemaName);
+        }
     }
 }

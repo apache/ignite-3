@@ -175,12 +175,12 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
     }
 
     private static class CacheKey {
-        private final int version;
         private final int tableId;
+        private final int tableVersion;
 
-        public CacheKey(int tableId, int version) {
-            this.version = version;
+        CacheKey(int tableId, int tableVersion) {
             this.tableId = tableId;
+            this.tableVersion = tableVersion;
         }
 
         @Override
@@ -192,12 +192,12 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
                 return false;
             }
             CacheKey cacheKey = (CacheKey) o;
-            return version == cacheKey.version && tableId == cacheKey.tableId;
+            return tableVersion == cacheKey.tableVersion && tableId == cacheKey.tableId;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(version, tableId);
+            return Objects.hash(tableVersion, tableId);
         }
     }
 }

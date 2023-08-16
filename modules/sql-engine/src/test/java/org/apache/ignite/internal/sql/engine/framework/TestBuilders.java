@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
@@ -350,12 +351,13 @@ public class TestBuilders {
                 }
             }
 
-            Map<String, IgniteTable> tableMap = tableBuilders.stream()
+            Map<String, IgniteTable> tableByName = tableBuilders.stream()
                     .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
-            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", SCHEMA_VERSION, tableMap.values()));
-            var colocationGroupProvider = new TestColocationGroupProvider(tableBuilders, tableMap, nodeNames);
+            IgniteSchema schema = new IgniteSchema(DEFAULT_SCHEMA_NAME, SCHEMA_VERSION, tableByName.values());
+            var schemaManager = new PredefinedSchemaManager(schema);
+            var colocationGroupProvider = new TestColocationGroupProvider(tableBuilders, tableByName, nodeNames);
 
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager, colocationGroupProvider))
@@ -426,7 +428,7 @@ public class TestBuilders {
 
             TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
 
-            List<IgniteIndex> indexMap = indexBuilders.stream()
+            List<IgniteIndex> indexes = indexBuilders.stream()
                     .map(idx -> idx.build(tableDescriptor))
                     .collect(Collectors.toList());
 
@@ -434,7 +436,7 @@ public class TestBuilders {
                     tableDescriptor,
                     Objects.requireNonNull(name),
                     size,
-                    indexMap
+                    indexes
             );
         }
 
@@ -879,11 +881,11 @@ public class TestBuilders {
 
         private final Map<Integer, CompletableFuture<ColocationGroup>> groups = new HashMap<>();
 
-        TestColocationGroupProvider(List<ClusterTableBuilderImpl> tableBuilders, Map<String, IgniteTable> tableMap,
+        TestColocationGroupProvider(List<ClusterTableBuilderImpl> tableBuilders, Map<String, IgniteTable> tableByName,
                 List<String> nodeNames) {
 
             for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
-                IgniteTable table = tableMap.get(tableBuilder.name);
+                IgniteTable table = tableByName.get(tableBuilder.name);
                 CompletableFuture<ColocationGroup> f;
 
                 if (!tableBuilder.dataProviders.isEmpty()) {

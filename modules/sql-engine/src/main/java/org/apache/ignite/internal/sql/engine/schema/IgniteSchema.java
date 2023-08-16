@@ -36,15 +36,15 @@ public class IgniteSchema extends AbstractSchema {
 
     private final int version;
 
-    private final Map<String, IgniteTable> tableMapByName;
-    private final Int2ObjectMap<IgniteTable> tableMapById;
+    private final Map<String, IgniteTable> tableByName;
+    private final Int2ObjectMap<IgniteTable> tableById;
 
     /** Constructor. */
     public IgniteSchema(String name, int version, Collection<IgniteTable> tables) {
         this.name = name;
         this.version = version;
-        this.tableMapByName = tables.stream().collect(Collectors.toMap(t -> t.name().toUpperCase(), Function.identity()));
-        this.tableMapById = tables.stream().collect(CollectionUtils.toIntMapCollector(IgniteTable::id, Function.identity()));
+        this.tableByName = tables.stream().collect(Collectors.toMap(t -> t.name().toUpperCase(), Function.identity()));
+        this.tableById = tables.stream().collect(CollectionUtils.toIntMapCollector(IgniteTable::id, Function.identity()));
     }
 
     /** Schema name. */
@@ -60,11 +60,11 @@ public class IgniteSchema extends AbstractSchema {
     /** {@inheritDoc} */
     @Override
     protected Map<String, Table> getTableMap() {
-        return Collections.unmodifiableMap(tableMapByName);
+        return Collections.unmodifiableMap(tableByName);
     }
 
     /** Returns table by given id. */
     public IgniteTable getTable(int tableId) {
-        return tableMapById.get(tableId);
+        return tableById.get(tableId);
     }
 }
