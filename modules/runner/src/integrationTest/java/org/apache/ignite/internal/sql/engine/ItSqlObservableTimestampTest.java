@@ -18,9 +18,12 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.nullValue;
 
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
@@ -36,18 +39,35 @@ public class ItSqlObservableTimestampTest extends ClusterPerClassIntegrationTest
     }
 
     @Test
-    public void timestampGrowsUp() {
+    public void timestampGrowsUp() throws InterruptedException {
+        String query = "select 1";
+
         HybridTimestamp minTimestamp = HybridTimestamp.MIN_VALUE;
 
-        assertThat(execAndGetTimestamp(minTimestamp), greaterThan(minTimestamp));
+        HybridTimestamp newTimestamp = execAndGetTimestamp(query, minTimestamp);
+
+        assertThat(newTimestamp, greaterThan(minTimestamp));
+
+        waitForCondition(() -> !execAndGetTimestamp(query, newTimestamp).equals(newTimestamp), 10_000);
+
+        assertThat(execAndGetTimestamp(query, newTimestamp), greaterThan(newTimestamp));
     }
 
-    private HybridTimestamp execAndGetTimestamp(HybridTimestamp inputTs) {
+    @Test
+    public void timestampNotReturnedForRwOperation() {
+        sql("CREATE TABLE test(id INT PRIMARY KEY)");
+
+        HybridTimestamp ts = execAndGetTimestamp("INSERT INTO test VALUES(1)", new HybridClockImpl().now());
+
+        assertThat(ts, nullValue());
+    }
+
+    private HybridTimestamp execAndGetTimestamp(String query, HybridTimestamp inputTs) {
         SessionId sessionId = queryProcessor().createSession(PropertiesHelper.emptyHolder());
         QueryContext ctx = QueryContext.create(SqlQueryType.ALL, inputTs);
 
         AsyncSqlCursor<?> cursor = await(
-                queryProcessor().querySingleAsync(sessionId, ctx, "select 1")
+                queryProcessor().querySingleAsync(sessionId, ctx, query)
         );
 
         return cursor.implicitTxReadTimestamp();
