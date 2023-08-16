@@ -111,6 +111,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     {
         // TODO: Similar to above.
         await Task.Delay(1);
+        Assert.Fail("TODO");
     }
 
     [Test]

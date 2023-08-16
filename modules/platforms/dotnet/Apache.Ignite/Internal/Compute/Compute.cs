@@ -282,9 +282,15 @@ namespace Apache.Ignite.Internal.Compute
                     _tableCache.TryRemove(tableName, out _);
                     schemaVersion = null;
                 }
-                catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
+                catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
+                                                schemaVersion != e.GetExpectedSchemaVersion())
                 {
                     schemaVersion = e.GetExpectedSchemaVersion();
+                }
+                catch (Exception e) when (e.CausedByUnmappedColumns() &&
+                                          schemaVersion == null)
+                {
+                    schemaVersion = Table.SchemaVersionForceLatest;
                 }
             }
 
