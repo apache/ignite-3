@@ -27,7 +27,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -39,7 +38,6 @@ import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -100,7 +98,6 @@ public class PlacementDriverManager implements IgniteComponent {
      * @param logicalTopologyService Logical topology service.
      * @param raftManager Raft manager.
      * @param topologyAwareRaftGroupServiceFactory Raft client factory.
-     * @param tablesCfg Table configuration.
      * @param clock Hybrid clock.
      */
     public PlacementDriverManager(
@@ -112,8 +109,6 @@ public class PlacementDriverManager implements IgniteComponent {
             LogicalTopologyService logicalTopologyService,
             RaftManager raftManager,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            TablesConfiguration tablesCfg,
-            DistributionZonesConfiguration distributionZonesConfiguration,
             HybridClock clock
     ) {
         this.replicationGroupId = replicationGroupId;
@@ -130,8 +125,6 @@ public class PlacementDriverManager implements IgniteComponent {
                 vaultManager,
                 metaStorageMgr,
                 logicalTopologyService,
-                tablesCfg,
-                distributionZonesConfiguration,
                 leaseTracker,
                 clock
         );

@@ -57,6 +57,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -493,10 +494,9 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 new AtomicBoolean(),
                 new IgniteSpinBusyLock(),
-                zonesConfig,
-                tablesConfiguration,
                 metaStorageManager,
-                distributionZoneManager
+                distributionZoneManager,
+                mock(CatalogManager.class)
         );
     }
 
@@ -559,6 +559,6 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     }
 
     private int getZoneId(String zoneName) {
-        return DistributionZonesTestUtil.getZoneIdStrict(zonesConfig, zoneName);
+        return DistributionZonesTestUtil.getZoneIdStrict(mock(CatalogManager.class), zoneName, System.currentTimeMillis());
     }
 }

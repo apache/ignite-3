@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,14 +37,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -70,15 +65,12 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteTriFunction;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -305,8 +297,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
                     logicalTopologyService,
                     raftManager,
                     topologyAwareRaftGroupServiceFactory,
-                    tblsCfg,
-                    dstZnsCfg,
                     clock
             );
 
@@ -600,31 +590,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      */
     private TablePartitionId createTableAssignment() throws Exception {
         int tableId = nextTableId.incrementAndGet();
-
-        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(nodeNames, 1, nodeNames.size());
-
-        tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
-            tableViewTableChangeNamedListChange.create("test-table-" + tableId, tableChange -> {
-                var extConfCh = ((ExtendedTableChange) tableChange);
-
-                extConfCh.changeId(tableId);
-
-                extConfCh.changeZoneId(getZoneId(dstZnsCfg, "zone1"));
-            });
-        }).thenCompose(v -> {
-            Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
-
-            for (int i = 0; i < assignments.size(); i++) {
-                partitionAssignments.put(
-                        stablePartAssignmentsKey(
-                                new TablePartitionId(tableId, i)),
-                        ByteUtils.toBytes(assignments.get(i)));
-
-            }
-
-            return metaStorageManager.putAll(partitionAssignments);
-        })
-        .get();
 
         var grpPart0 = new TablePartitionId(tableId, 0);
 

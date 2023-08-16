@@ -181,8 +181,4 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     protected int getZoneId(String zoneName) {
         return DistributionZonesTestUtil.getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
     }
-
-    protected int getZoneId(String zoneName) {
-        return DistributionZonesTestUtil.getZoneIdStrict(zonesConfiguration, zoneName);
-    }
 }

@@ -35,7 +35,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -50,7 +49,6 @@ import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationM
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -120,7 +118,6 @@ public class LeaseUpdater {
      * @param vaultManager Vault manager.
      * @param msManager Meta storage manager.
      * @param topologyService Topology service.
-     * @param tablesConfiguration Tables configuration.
      * @param leaseTracker Lease tracker.
      * @param clock Cluster clock.
      */
@@ -129,8 +126,6 @@ public class LeaseUpdater {
             VaultManager vaultManager,
             MetaStorageManager msManager,
             LogicalTopologyService topologyService,
-            TablesConfiguration tablesConfiguration,
-            DistributionZonesConfiguration distributionZonesConfiguration,
             LeaseTracker leaseTracker,
             HybridClock clock
     ) {

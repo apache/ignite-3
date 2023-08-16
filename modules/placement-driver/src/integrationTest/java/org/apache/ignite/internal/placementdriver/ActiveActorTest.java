@@ -170,8 +170,6 @@ public class ActiveActorTest extends IgniteAbstractTest {
                 logicalTopologyService,
                 raftManager,
                 raftGroupServiceFactory,
-                tblsCfg,
-                dstZnsCfg,
                 new HybridClockImpl()
         );
 

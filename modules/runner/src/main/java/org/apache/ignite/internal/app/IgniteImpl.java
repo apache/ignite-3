@@ -459,8 +459,6 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                tablesConfig,
-                zonesConfig,
                 clock
         );
 
