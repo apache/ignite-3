@@ -42,7 +42,12 @@ namespace Apache.Ignite.Internal.Table
         /// <summary>
         /// Unknown schema version.
         /// </summary>
-        public const int UnknownSchemaVersion = -1;
+        public const int SchemaVersionUnknown = -1;
+
+        /// <summary>
+        /// Latest schema version, bypassing cache.
+        /// </summary>
+        public const int SchemaVersionForceLatest = -2;
 
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
@@ -66,7 +71,7 @@ namespace Apache.Ignite.Internal.Table
         private readonly SemaphoreSlim _partitionAssignmentSemaphore = new(1);
 
         /** */
-        private volatile int _latestSchemaVersion = UnknownSchemaVersion;
+        private volatile int _latestSchemaVersion = SchemaVersionUnknown;
 
         /** */
         private volatile int _partitionAssignmentVersion = -1;
@@ -173,7 +178,9 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="version">Schema version; when null, latest is used.</param>
         /// <returns>Schema.</returns>
-        internal Task<Schema> GetSchemaAsync(int? version) => GetCachedSchemaAsync(version ?? _latestSchemaVersion);
+        internal Task<Schema> GetSchemaAsync(int? version) => version == SchemaVersionForceLatest
+            ? LoadSchemaAsync(SchemaVersionUnknown)
+            : GetCachedSchemaAsync(version ?? _latestSchemaVersion);
 
         /// <summary>
         /// Gets the latest schema.
@@ -289,7 +296,7 @@ namespace Apache.Ignite.Internal.Table
                 var w = writer.MessageWriter;
                 w.Write(Id);
 
-                if (version == UnknownSchemaVersion)
+                if (version == SchemaVersionUnknown)
                 {
                     w.WriteNil();
                 }

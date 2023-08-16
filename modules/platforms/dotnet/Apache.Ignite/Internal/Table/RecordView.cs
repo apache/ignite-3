@@ -425,7 +425,7 @@ namespace Apache.Ignite.Internal.Table
             catch (Exception e) when (e.CausedByUnmappedColumns() &&
                                       schemaVersionOverride == null)
             {
-                schemaVersionOverride = Table.UnknownSchemaVersion;
+                schemaVersionOverride = Table.SchemaVersionForceLatest;
                 return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVersionOverride).ConfigureAwait(false);
             }
         }
