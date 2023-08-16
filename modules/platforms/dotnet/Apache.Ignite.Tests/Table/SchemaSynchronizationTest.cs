@@ -155,7 +155,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     [Test]
-    [Ignore("IGNITE-19840")]
     public async Task TestClientUsesLatestSchemaOnReadPoco()
     {
         // Create table, insert data.
@@ -169,7 +168,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
 
-        // TODO IGNITE-19840 Reload schema when unmapped POCO column is detected
         var pocoView = table.GetRecordView<Poco>();
         var res = await pocoView.GetAsync(null, new Poco(1, string.Empty));
 
