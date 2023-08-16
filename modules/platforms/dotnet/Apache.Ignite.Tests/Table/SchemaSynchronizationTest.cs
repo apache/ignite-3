@@ -225,12 +225,37 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
 
-        // TODO: switch testMode
         var pocoView = table.GetRecordView<Poco>();
-        await pocoView.UpsertAsync(null, new Poco(1, "foo"));
 
-        var res = await view.GetAsync(null, rec);
-        Assert.AreEqual("foo", res.Value["NAME"]);
+        switch (testMode)
+        {
+            case TestMode.One:
+                await pocoView.UpsertAsync(null, new Poco(1, "foo"));
+                break;
+
+            case TestMode.Two:
+                var replaceRes = await pocoView.ReplaceAsync(null, new Poco(1, "foo"), new Poco(1, "foo"));
+                Assert.IsFalse(replaceRes);
+                break;
+
+            case TestMode.Multiple:
+                await pocoView.UpsertAllAsync(null, new[] { new Poco(1, "foo"), new Poco(2, "bar") });
+                break;
+
+            case TestMode.Compute:
+                await Client.Compute.ExecuteColocatedAsync<string, Poco>(
+                    table.Name, new Poco(1, "foo"), Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(testMode), testMode, null);
+        }
+
+        if (testMode is TestMode.One or TestMode.Multiple)
+        {
+            var res = await view.GetAsync(null, rec);
+            Assert.AreEqual("foo", res.Value["NAME"]);
+        }
     }
 
     [Test]
