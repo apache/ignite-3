@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
@@ -58,9 +57,11 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         long revision = 100;
 
+        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+
         keyValueStorage.putAll(
-                List.of(zoneScaleUpChangeTriggerKey(DEFAULT_ZONE_ID).bytes(), zoneDataNodesKey(DEFAULT_ZONE_ID).bytes()),
-                List.of(longToBytes(revision), keyValueStorage.get(zoneDataNodesKey(DEFAULT_ZONE_ID).bytes()).value()),
+                List.of(zoneScaleUpChangeTriggerKey(defaultZoneId).bytes(), zoneDataNodesKey(defaultZoneId).bytes()),
+                List.of(longToBytes(revision), keyValueStorage.get(zoneDataNodesKey(defaultZoneId).bytes()).value()),
                 HybridTimestamp.MIN_VALUE
         );
 
@@ -69,14 +70,16 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
         setLogicalTopologyInMetaStorage(nodes, 100, metaStorageManager);
 
         // TODO: IGNITE-18564 This is incorrect to check that data nodes are the same right after logical topology is changes manually.
-        assertDataNodesForZone(DEFAULT_ZONE_ID, Set.of(NODE_1), keyValueStorage);
+        assertDataNodesForZone(defaultZoneId, Set.of(NODE_1), keyValueStorage);
     }
 
     @Test
     void testStaleVaultRevisionOnZoneManagerStart() throws Exception {
         long revision = 100;
 
-        keyValueStorage.put(zonesChangeTriggerKey(DEFAULT_ZONE_ID).bytes(), longToBytes(revision), HybridTimestamp.MIN_VALUE);
+        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+
+        keyValueStorage.put(zonesChangeTriggerKey(defaultZoneId).bytes(), longToBytes(revision), HybridTimestamp.MIN_VALUE);
 
         Set<LogicalNode> nodes = Set.of(
                 new LogicalNode(new ClusterNodeImpl("node1", "node1", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap()),
@@ -87,7 +90,7 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         startDistributionZoneManager();
 
-        assertDataNodesForZone(DEFAULT_ZONE_ID, null, keyValueStorage);
+        assertDataNodesForZone(defaultZoneId, null, keyValueStorage);
     }
 
     @Test
@@ -101,6 +104,6 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
 
         startDistributionZoneManager();
 
-        assertDataNodesForZone(DEFAULT_ZONE_ID, nodes, keyValueStorage);
+        assertDataNodesForZone(getZoneId(DEFAULT_ZONE_NAME), nodes, keyValueStorage);
     }
 }

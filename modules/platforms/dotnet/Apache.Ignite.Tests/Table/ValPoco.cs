@@ -15,11 +15,22 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table;
+namespace Apache.Ignite.Tests.Table
+{
+    using System;
+    using System.ComponentModel.DataAnnotations.Schema;
 
-using System.ComponentModel.DataAnnotations.Schema;
+    /// <summary>
+    /// Test user object.
+    /// </summary>
+    public class ValPoco
+    {
+        public string? Val { get; set; }
 
-/// <summary>
-/// Test user struct.
-/// </summary>
-public record struct PocoStruct(long Key, string? Val, [property:NotMapped] string? UnmappedStr = null);
+        [NotMapped]
+        public Guid UnmappedId { get; set; }
+
+        [NotMapped]
+        public string? UnmappedStr { get; set; }
+    }
+}

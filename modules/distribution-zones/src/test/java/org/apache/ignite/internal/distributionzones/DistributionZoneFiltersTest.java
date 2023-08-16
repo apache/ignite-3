@@ -29,7 +29,6 @@ import org.junit.jupiter.api.Test;
  * Tests scenarios for filtering attributes of a node.
  */
 public class DistributionZoneFiltersTest {
-
     @Test
     void testNodeAttributesFilterScenario1() {
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD", "dataRegionSize", "10");

@@ -401,7 +401,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             assertEquals(partsMap.get(p), cmd.rowsToUpdate().size(), () -> "part=" + p + ", set=" + set);
 
             cmd.rowsToUpdate().values().forEach(rowMessage -> {
-                Row r = new Row(schema, rowMessage.asBinaryRow());
+                Row r = Row.wrapBinaryRow(schema, rowMessage.asBinaryRow());
 
                 assertEquals(INT_TABLE.partition(r), p);
             });

@@ -28,7 +28,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.LongFunction;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -52,6 +51,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -254,7 +254,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /**
      * This class encapsulates the logic of conversion from table row to a particular index key.
      */
-    private static class TableRowToIndexKeyConverter {
+    private static class TableRowToIndexKeyConverter implements ColumnsExtractor {
         private final SchemaRegistry registry;
         private final String[] indexedColumns;
         private final Object mutex = new Object();
@@ -266,20 +266,34 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             this.indexedColumns = indexedColumns;
         }
 
-        public BinaryTuple convert(BinaryRow binaryRow) {
+        @Override
+        public BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow) {
+            return converter(keyOnlyRow).extractColumnsFromKeyOnlyRow(keyOnlyRow);
+        }
+
+        @Override
+        public BinaryTuple extractColumns(BinaryRow row) {
+            return converter(row).extractColumns(row);
+        }
+
+        private ColumnsExtractor converter(BinaryRow row) {
+            int schemaVersion = row.schemaVersion();
+
             VersionedConverter converter = this.converter;
 
-            if (converter.version != binaryRow.schemaVersion()) {
+            if (converter.version != schemaVersion) {
                 synchronized (mutex) {
-                    if (converter.version != binaryRow.schemaVersion()) {
-                        converter = createConverter(binaryRow.schemaVersion());
+                    converter = this.converter;
+
+                    if (converter.version != schemaVersion) {
+                        converter = createConverter(schemaVersion);
 
                         this.converter = converter;
                     }
                 }
             }
 
-            return converter.convert(binaryRow);
+            return converter;
         }
 
         /** Creates converter for given version of the schema. */
@@ -319,18 +333,23 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
          * Convenient wrapper which glues together a function which actually converts one row to another,
          * and a version of the schema the function was build upon.
          */
-        private static class VersionedConverter {
+        private static class VersionedConverter implements ColumnsExtractor {
             private final int version;
-            private final Function<BinaryRow, BinaryTuple> delegate;
+            private final ColumnsExtractor delegate;
 
-            private VersionedConverter(int version, Function<BinaryRow, BinaryTuple> delegate) {
+            private VersionedConverter(int version, ColumnsExtractor delegate) {
                 this.version = version;
                 this.delegate = delegate;
             }
 
-            /** Converts the given row to tuple. */
-            public BinaryTuple convert(BinaryRow binaryRow) {
-                return delegate.apply(binaryRow);
+            @Override
+            public BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow) {
+                return delegate.extractColumnsFromKeyOnlyRow(keyOnlyRow);
+            }
+
+            @Override
+            public BinaryTuple extractColumns(BinaryRow row) {
+                return delegate.extractColumns(row);
             }
         }
     }
@@ -448,7 +467,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             if (storageIndexDescriptor instanceof StorageSortedIndexDescriptor) {
                 tableImpl.registerSortedIndex(
                         (StorageSortedIndexDescriptor) storageIndexDescriptor,
-                        tableRowConverter::convert,
+                        tableRowConverter,
                         partitionSet
                 );
             } else {
@@ -457,7 +476,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 tableImpl.registerHashIndex(
                         (StorageHashIndexDescriptor) storageIndexDescriptor,
                         unique,
-                        tableRowConverter::convert,
+                        tableRowConverter,
                         partitionSet
                 );
 

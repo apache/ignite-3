@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.BaseMvStoragesTest;
@@ -69,7 +70,19 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     private static final BinaryTupleSchema PK_INDEX_SCHEMA = BinaryTupleSchema.createKeySchema(schemaDescriptor);
 
-    private static final BinaryRowConverter PK_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, PK_INDEX_SCHEMA);
+    private static final ColumnsExtractor PK_INDEX_BINARY_TUPLE_CONVERTER = new ColumnsExtractor() {
+        private final BinaryRowConverter converter = new BinaryRowConverter(TUPLE_SCHEMA, PK_INDEX_SCHEMA);
+
+        @Override
+        public BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow) {
+            return new BinaryTuple(PK_INDEX_SCHEMA.elementCount(), keyOnlyRow.tupleSlice());
+        }
+
+        @Override
+        public BinaryTuple extractColumns(BinaryRow row) {
+            return converter.toTuple(row);
+        }
+    };
 
     private static final int[] USER_INDEX_COLS = {
             schemaDescriptor.column("INTVAL").schemaIndex(),
@@ -78,7 +91,19 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     private static final BinaryTupleSchema USER_INDEX_SCHEMA = BinaryTupleSchema.createSchema(schemaDescriptor, USER_INDEX_COLS);
 
-    private static final BinaryRowConverter USER_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
+    private static final ColumnsExtractor USER_INDEX_BINARY_TUPLE_CONVERTER = new ColumnsExtractor() {
+        private final BinaryRowConverter converter = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
+
+        @Override
+        public BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public BinaryTuple extractColumns(BinaryRow row) {
+            return converter.toTuple(row);
+        }
+    };
 
     private static final UUID TX_ID = UUID.randomUUID();
 
@@ -101,7 +126,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
                 pkIndexId,
                 pkInnerStorage,
-                PK_INDEX_BINARY_TUPLE_CONVERTER::toTuple
+                PK_INDEX_BINARY_TUPLE_CONVERTER
         );
 
         sortedInnerStorage = new TestSortedIndexStorage(PARTITION_ID, new StorageSortedIndexDescriptor(sortedIndexId, List.of(
@@ -112,7 +137,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 sortedIndexId,
                 sortedInnerStorage,
-                USER_INDEX_BINARY_TUPLE_CONVERTER::toTuple
+                USER_INDEX_BINARY_TUPLE_CONVERTER
         );
 
         hashInnerStorage = new TestHashIndexStorage(PARTITION_ID, new StorageHashIndexDescriptor(hashIndexId, List.of(
@@ -123,7 +148,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
                 hashIndexId,
                 hashInnerStorage,
-                USER_INDEX_BINARY_TUPLE_CONVERTER::toTuple
+                USER_INDEX_BINARY_TUPLE_CONVERTER
         );
 
         storage = new TestMvPartitionStorage(PARTITION_ID);
@@ -182,8 +207,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     }
 
     boolean inIndexes(BinaryRow row, boolean mustBeInPk, boolean mustBeInUser) {
-        BinaryTuple pkIndexValue = PK_INDEX_BINARY_TUPLE_CONVERTER.toTuple(row);
-        BinaryTuple userIndexValue = USER_INDEX_BINARY_TUPLE_CONVERTER.toTuple(row);
+        BinaryTuple pkIndexValue = PK_INDEX_BINARY_TUPLE_CONVERTER.extractColumns(row);
+        BinaryTuple userIndexValue = USER_INDEX_BINARY_TUPLE_CONVERTER.extractColumns(row);
 
         assert pkIndexValue != null;
         assert userIndexValue != null;

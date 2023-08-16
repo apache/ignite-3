@@ -143,28 +143,25 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row) {
-        final SchemaDescriptor curSchema = waitLatestSchema();
+        SchemaDescriptor curSchema = waitLatestSchema();
 
-        return resolveInternal(row, curSchema);
+        return resolveInternal(row, curSchema, false);
     }
 
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor schemaDescriptor) {
-        return resolveInternal(row, schemaDescriptor);
+        return resolveInternal(row, schemaDescriptor, false);
     }
 
     @Override
     public List<Row> resolve(Collection<BinaryRow> binaryRows) {
-        SchemaDescriptor curSchema = waitLatestSchema();
+        return resolveInternal(binaryRows, false);
+    }
 
-        var rows = new ArrayList<Row>(binaryRows.size());
-
-        for (BinaryRow row : binaryRows) {
-            rows.add(row == null ? null : resolveInternal(row, curSchema));
-        }
-
-        return rows;
+    @Override
+    public List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows) {
+        return resolveInternal(keyOnlyRows, true);
     }
 
     @Override
@@ -175,23 +172,46 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     /**
      * Resolves a schema for row. The method is optimal when the latest schema is already got.
      *
-     * @param row Binary row.
+     * @param binaryRow Binary row.
      * @param curSchema The latest available local schema.
+     * @param keyOnly {@code true} if the given {@code binaryRow} only contains a key component, {@code false} otherwise.
      * @return Schema-aware row.
      * @throws SchemaRegistryException if no schema exists for the given row.
      */
-    private Row resolveInternal(BinaryRow row, SchemaDescriptor curSchema) {
+    private Row resolveInternal(BinaryRow binaryRow, SchemaDescriptor curSchema, boolean keyOnly) {
         if (curSchema == null) {
-            throw new SchemaRegistryException("No schema found for the row: schemaVersion=" + row.schemaVersion());
-        } else if (row.schemaVersion() == 0 || curSchema.version() == row.schemaVersion()) {
-            return new Row(curSchema, row);
+            throw new SchemaRegistryException("No schema found for the row: schemaVersion=" + binaryRow.schemaVersion());
         }
 
-        final SchemaDescriptor rowSchema = schema(row.schemaVersion());
+        if (binaryRow.schemaVersion() == 0 || curSchema.version() == binaryRow.schemaVersion()) {
+            return keyOnly ? Row.wrapKeyOnlyBinaryRow(curSchema, binaryRow) : Row.wrapBinaryRow(curSchema, binaryRow);
+        }
+
+        SchemaDescriptor rowSchema = schema(binaryRow.schemaVersion());
 
         ColumnMapper mapping = resolveMapping(curSchema, rowSchema);
 
-        return new UpgradingRowAdapter(curSchema, rowSchema, row, mapping);
+        if (keyOnly) {
+            Row row = Row.wrapKeyOnlyBinaryRow(rowSchema, binaryRow);
+
+            return UpgradingRowAdapter.upgradeKeyOnlyRow(curSchema, mapping, row);
+        } else {
+            Row row = Row.wrapBinaryRow(rowSchema, binaryRow);
+
+            return UpgradingRowAdapter.upgradeRow(curSchema, mapping, row);
+        }
+    }
+
+    private List<Row> resolveInternal(Collection<BinaryRow> binaryRows, boolean keyOnly) {
+        SchemaDescriptor curSchema = waitLatestSchema();
+
+        var rows = new ArrayList<Row>(binaryRows.size());
+
+        for (BinaryRow row : binaryRows) {
+            rows.add(row == null ? null : resolveInternal(row, curSchema, keyOnly));
+        }
+
+        return rows;
     }
 
     /**
@@ -208,7 +228,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             return curSchema.columnMapping();
         }
 
-        final long mappingKey = (((long) curSchema.version()) << 32) | (rowSchema.version());
+        long mappingKey = (((long) curSchema.version()) << 32) | (rowSchema.version());
 
         ColumnMapper mapping;
 

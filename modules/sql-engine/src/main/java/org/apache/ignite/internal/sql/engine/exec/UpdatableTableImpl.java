@@ -323,7 +323,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
             appendValue(rowAssembler, colDesc, val);
         }
 
-        return new Row(schemaDescriptor, rowAssembler.build());
+        BinaryRow binaryRow = rowAssembler.build();
+
+        return Row.wrapBinaryRow(schemaDescriptor, binaryRow);
     }
 
     private <RowT> BinaryRowEx convertKeyOnlyRow(RowT row, RowHandler<RowT> hnd) {
@@ -335,7 +337,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             appendValue(rowAssembler, colDesc, val);
         }
 
-        return new Row(schemaDescriptor, rowAssembler.build());
+        return Row.wrapKeyOnlyBinaryRow(schemaDescriptor, rowAssembler.build());
     }
 
     private static void appendValue(RowAssembler rowAssembler, ColumnDescriptor colDesc, Object val) {

@@ -15,11 +15,25 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table;
+package org.apache.ignite.internal.schema;
 
-using System.ComponentModel.DataAnnotations.Schema;
+/**
+ * Class for extracting a subset of columns from {@code BinaryRow}s.
+ */
+public interface ColumnsExtractor {
+    /**
+     * Extracts a subset of columns from a given {@code BinaryRow}, that only contains a key.
+     *
+     * @param keyOnlyRow Row that only contains a key.
+     * @return Subset of columns, packed into a {@code BinaryTuple}.
+     */
+    BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow);
 
-/// <summary>
-/// Test user struct.
-/// </summary>
-public record struct PocoStruct(long Key, string? Val, [property:NotMapped] string? UnmappedStr = null);
+    /**
+     * Extracts a subset of columns from a given {@code BinaryRow}.
+     *
+     * @param row Row with data (both key and value).
+     * @return Subset of columns, packed into a {@code BinaryTuple}.
+     */
+    BinaryTuple extractColumns(BinaryRow row);
+}
