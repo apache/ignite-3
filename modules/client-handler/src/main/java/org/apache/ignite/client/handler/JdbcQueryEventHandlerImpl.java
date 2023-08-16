@@ -367,7 +367,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @param req Execution request.
      * @return JdbcQuerySingleResult filled with first batch of data.
      */
-    private CompletionStage<JdbcQuerySingleResult> createJdbcResult(AsyncSqlCursor<List<Object>> cur, JdbcQueryExecuteRequest req) {
+    private CompletionStage<JdbcQuerySingleResult> createJdbcResult(JdbcQueryCursor<List<Object>> cur, JdbcQueryExecuteRequest req) {
         return cur.requestNextAsync(req.pageSize()).thenApply(batch -> {
             boolean hasNext = batch.hasMore();
 

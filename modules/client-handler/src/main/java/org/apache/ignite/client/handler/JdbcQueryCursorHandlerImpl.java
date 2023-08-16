@@ -22,6 +22,7 @@ import java.io.StringWriter;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.client.handler.requests.jdbc.JdbcQueryCursor;
 import org.apache.ignite.internal.jdbc.JdbcConverterUtils;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
@@ -32,7 +33,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -56,9 +57,9 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcQueryFetchResult> fetchAsync(JdbcQueryFetchRequest req) {
-        AsyncSqlCursor<List<Object>> asyncSqlCursor = null;
+        JdbcQueryCursor<List<Object>> jdbcCursor;
         try {
-            asyncSqlCursor = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
+            jdbcCursor = resources.get(req.cursorId()).get(JdbcQueryCursor.class);
         } catch (IgniteInternalCheckedException e) {
             StringWriter sw = getWriterWithStackTrace(e);
 
@@ -71,7 +72,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
                     "Invalid fetch size [fetchSize=" + req.pageSize() + ']'));
         }
 
-        return asyncSqlCursor.requestNextAsync(req.pageSize()).handle((batch, t) -> {
+        return jdbcCursor.requestNextAsync(req.pageSize()).handle((batch, t) -> {
             if (t != null) {
                 StringWriter sw = getWriterWithStackTrace(t);
 
@@ -86,9 +87,9 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcQueryCloseResult> closeAsync(JdbcQueryCloseRequest req) {
-        AsyncSqlCursor<List<Object>> asyncSqlCursor = null;
+        AsyncCursor<List<Object>> asyncSqlCursor = null;
         try {
-            asyncSqlCursor = resources.remove(req.cursorId()).get(AsyncSqlCursor.class);
+            asyncSqlCursor = resources.remove(req.cursorId()).get(AsyncCursor.class);
         } catch (IgniteInternalCheckedException e) {
             StringWriter sw = getWriterWithStackTrace(e);
 
@@ -111,9 +112,9 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
-        AsyncSqlCursor<List<Object>> asyncSqlCursor = null;
+        JdbcQueryCursor<List<Object>> jdbcCursor;
         try {
-            asyncSqlCursor = resources.get(req.cursorId()).get(AsyncSqlCursor.class);
+            jdbcCursor = resources.get(req.cursorId()).get(JdbcQueryCursor.class);
         } catch (IgniteInternalCheckedException e) {
             StringWriter sw = getWriterWithStackTrace(e);
 
@@ -121,7 +122,7 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
                     "Failed to find query cursor [curId=" + req.cursorId() + "]. Error message:" + sw));
         }
 
-        ResultSetMetadata metadata = asyncSqlCursor.metadata();
+        ResultSetMetadata metadata = jdbcCursor.metadata();
 
         if (metadata == null) {
             return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(Response.STATUS_FAILED,
