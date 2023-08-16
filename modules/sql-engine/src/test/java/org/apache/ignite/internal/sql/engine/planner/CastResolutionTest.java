@@ -61,7 +61,8 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
     private static final Set<String> DAY_INTERVAL = Set.of(INTERVAL_HOUR.getName(), INTERVAL_MINUTE.getName(), INTERVAL_SECOND.getName());
 
-    private static final Set<String> ALL_BESIDES_BINARY_NAMES = BOOLEAN_TYPES.stream().map(SqlTypeName::getName).collect(Collectors.toSet());
+    private static final Set<String> ALL_BESIDES_BINARY_NAMES =
+            BOOLEAN_TYPES.stream().map(SqlTypeName::getName).collect(Collectors.toSet());
 
     private static final Set<String> CHAR_NUMERIC_AND_INTERVAL_NAMES = new HashSet<>();
 
