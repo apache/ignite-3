@@ -72,9 +72,8 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -448,7 +447,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
                 int indexId = globalIndexId++;
 
-                Function<BinaryRow, BinaryTuple> row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
+                ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
                 Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                         indexId,
@@ -522,7 +521,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 placementDriver,
                                                 storageUpdateHandler,
                                                 new DummySchemas(schemaManager),
-                                                completedFuture(schemaManager),
                                                 consistentIdToNode.apply(assignment),
                                                 mvTableStorage,
                                                 mock(IndexBuilder.class),

@@ -146,11 +146,49 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         );
     }
 
+    @ParameterizedTest
+    @MethodSource("distributionsForDelete")
+    public void testDelete(IgniteDistribution distribution) throws Exception {
+        IgniteTable test1 = TestBuilders.table()
+                .name("TEST1")
+                .addColumn("C1", NativeTypes.INT32)
+                .addKeyColumn("KEY1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.INT32)
+                .addKeyColumn("KEY2", NativeTypes.INT32)
+                .distribution(distribution)
+                .build();
+
+        IgniteSchema schema = createSchema(test1);
+
+        // There should be no exchange between the modify node and the scan node.
+        assertPlan("DELETE FROM TEST1 WHERE KEY1 = 1 and KEY2 = 2", schema,
+                nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(e -> e.distribution().equals(IgniteDistributions.single())))
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class)
+                                .and(input(isTableScan("TEST1")))))
+        );
+    }
+
     private static Stream<IgniteDistribution> distributions() {
         return Stream.of(
                 IgniteDistributions.single(),
                 IgniteDistributions.hash(List.of(0, 1)),
                 IgniteDistributions.affinity(0, 2, "0")
+        );
+    }
+
+    /**
+     * Creates a list of non-single distributions with keys corresponding to the indexes of the key columns of the table.
+     *
+     * @return Distributions to test DELETE operation.
+     */
+    private static Stream<IgniteDistribution> distributionsForDelete() {
+        return Stream.of(
+                IgniteDistributions.hash(List.of(1, 3)),
+                IgniteDistributions.affinity(1, 2, "0"),
+                IgniteDistributions.affinity(3, 2, "0"),
+                IgniteDistributions.affinity(List.of(1, 3), 2, "0"),
+                IgniteDistributions.affinity(List.of(3, 1), 2, "0")
         );
     }
 

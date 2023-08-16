@@ -136,9 +136,9 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
                 .start(COUNTER_GROUP_ID_1, clientNode2, FACTORY, raftConfiguration, memberConfiguration, false, executor)
                 .get(3, TimeUnit.SECONDS);
 
-        assertTrue(waitForTopology(service, 3, 1000));
-        assertTrue(waitForTopology(clientNode1, 3, 1000));
-        assertTrue(waitForTopology(clientNode2, 3, 1000));
+        assertTrue(waitForTopology(service, 3, 10_000));
+        assertTrue(waitForTopology(clientNode1, 3, 10_000));
+        assertTrue(waitForTopology(clientNode2, 3, 10_000));
     }
 
     /**

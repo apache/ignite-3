@@ -667,7 +667,7 @@ public class RowTest {
             }
         }
 
-        Row row = new Row(schema, asm.build());
+        Row row = Row.wrapBinaryRow(schema, asm.build());
 
         for (int i = 0; i < vals.length; i++) {
             Column col = schema.column(i);

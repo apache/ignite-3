@@ -366,7 +366,10 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
                                 methodDef.getScope().getVariable("val"))
                 )
                 .append(
-                        newInstance(Row.class,
+                        invokeStatic(
+                                Row.class,
+                                "wrapBinaryRow",
+                                Row.class,
                                 methodDef.getThis().getField("schema", SchemaDescriptor.class),
                                 asm.invoke("build", BinaryRow.class))
                 )
