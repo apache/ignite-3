@@ -451,6 +451,7 @@ namespace Apache.Ignite.Internal.Table
             }
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
             {
+                // TODO: Handle unmapped
                 return await DoTwoRecordOutOpAsync(op, transaction, record, record2, keyOnly, e.GetExpectedSchemaVersion())
                     .ConfigureAwait(false);
             }
@@ -484,6 +485,7 @@ namespace Apache.Ignite.Internal.Table
             }
             catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
             {
+                // TODO: Handle unmapped
                 // ReSharper disable once PossibleMultipleEnumeration (we have to retry, but this is very rare)
                 return await DoMultiRecordOutOpAsync(op, transaction, recs, keyOnly, e.GetExpectedSchemaVersion()).ConfigureAwait(false);
             }
