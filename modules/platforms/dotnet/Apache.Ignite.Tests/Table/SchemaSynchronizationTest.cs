@@ -128,6 +128,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         // then force reload schema and retry.
         // The process is transparent for the user: updated schema is in effect immediately.
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name2'");
+        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         var rec2 = new IgniteTuple
         {
@@ -272,6 +273,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         await view.InsertAsync(null, rec);
 
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name1'");
+        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         var pocoView = table.GetRecordView<Poco>();
 
@@ -349,7 +351,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             while (true)
             {
                 var schema = await tableImpl.GetSchemaAsync(Apache.Ignite.Internal.Table.Table.SchemaVersionForceLatest);
-
                 if (schema.Version >= schemaVer)
                 {
                     break;
@@ -359,6 +360,8 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 {
                     Assert.Fail($"Schema version {schema.Version} is not available on node {cfg.Endpoints[0]} after {timeoutMs}ms");
                 }
+
+                await Task.Delay(50);
             }
         }
     }
