@@ -93,7 +93,7 @@ class ChunkedFileReader implements AutoCloseable {
         int read = stream.read(data);
 
         if (read != toRead) {
-            throw new IOException("Failed to read chunk data from file [expected=" + toRead + ", actual=" + read + "]");
+            throw new IOException("Failed to read chunk data from file: expected " + toRead + ", actual " + read + "]");
         }
 
         offset += toRead;

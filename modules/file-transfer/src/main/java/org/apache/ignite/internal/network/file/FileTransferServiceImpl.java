@@ -530,7 +530,7 @@ public class FileTransferServiceImpl implements FileTransferService {
         try {
             return Files.createDirectories(transferDirectory.resolve(transferId.toString()));
         } catch (IOException e) {
-            throw new FileTransferException("Failed to create transfer directory. Transfer id: " + transferId, e);
+            throw new FileTransferException("Failed to create the transfer directory with transferId: " + transferId, e);
         }
     }
 
