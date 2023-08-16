@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Table;
 
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Compute;
 using Ignite.Compute;
@@ -330,16 +331,12 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         Assert.AreEqual("name1", res.Value);
     }
 
-    private static async Task WaitForNewSchemaOnAllNodes(string tableName, int schemaVer, int timeoutMs = 5000)
+    private async Task WaitForNewSchemaOnAllNodes(string tableName, int schemaVer, int timeoutMs = 5000)
     {
         // TODO IGNITE-18733, IGNITE-18449: remove this workaround when issues are fixed.
         // Currently new schema version is not immediately available on all nodes.
-        // Use separate client to check schema sync.
-        var configs = new[]
-        {
-            new IgniteClientConfiguration("127.0.0.1:" + ServerPort),
-            new IgniteClientConfiguration("127.0.0.1:" + (ServerPort + 1))
-        };
+        // Use separate client to check schema sync without affecting the system under test.
+        var configs = Client.Configuration.Endpoints.Select(e => new IgniteClientConfiguration(e)).ToList();
 
         foreach (var cfg in configs)
         {
