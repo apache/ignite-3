@@ -40,5 +40,5 @@ public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
     /**
      * Returns read timestamp of the implicit read-only transaction, if any has been started.
      */
-    @Nullable HybridTimestamp implicitTxReadTimestamp();
+    @Nullable HybridTimestamp observableTimestamp();
 }

@@ -73,7 +73,7 @@ public class FakeCursor implements AsyncSqlCursor<List<Object>> {
     }
 
     @Override
-    public @Nullable HybridTimestamp implicitTxReadTimestamp() {
+    public @Nullable HybridTimestamp observableTimestamp() {
         return null;
     }
 }

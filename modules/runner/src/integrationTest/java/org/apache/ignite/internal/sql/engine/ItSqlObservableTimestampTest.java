@@ -70,6 +70,6 @@ public class ItSqlObservableTimestampTest extends ClusterPerClassIntegrationTest
                 queryProcessor().querySingleAsync(sessionId, ctx, query)
         );
 
-        return cursor.implicitTxReadTimestamp();
+        return cursor.observableTimestamp();
     }
 }

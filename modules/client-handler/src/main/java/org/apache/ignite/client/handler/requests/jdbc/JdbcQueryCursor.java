@@ -92,7 +92,7 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable HybridTimestamp implicitTxReadTimestamp() {
-        return cur.implicitTxReadTimestamp();
+    public @Nullable HybridTimestamp observableTimestamp() {
+        return cur.observableTimestamp();
     }
 }
