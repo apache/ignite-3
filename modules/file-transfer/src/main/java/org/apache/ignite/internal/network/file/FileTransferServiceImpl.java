@@ -404,7 +404,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                 getMessageType(identifier),
                 (k, v) -> {
                     if (v != null) {
-                        throw new IllegalArgumentException("File provider for metadata " + identifier.getName() + " already exists");
+                        throw new IllegalArgumentException("File provider for identifier " + identifier.getName() + " already exists");
                     } else {
                         return (FileProvider<Identifier>) provider;
                     }
@@ -421,7 +421,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                 getMessageType(identifier),
                 (k, v) -> {
                     if (v != null) {
-                        throw new IllegalArgumentException("File handler for metadata " + identifier.getName() + " already exists");
+                        throw new IllegalArgumentException("File handler for identifier " + identifier.getName() + " already exists");
                     } else {
                         return (FileConsumer<Identifier>) consumer;
                     }
