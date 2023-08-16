@@ -109,9 +109,54 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     [Test]
     public async Task TestClientUsesLatestSchemaOnWriteAddColumn([ValueSource(nameof(TestModes))] TestMode testMode)
     {
-        // TODO: Similar to above.
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        // Create table, insert data.
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (ID INT NOT NULL PRIMARY KEY)");
+
+        var table = await Client.Tables.GetTableAsync(TestTableName);
+        var view = table!.RecordBinaryView;
+
+        var rec = new IgniteTuple
+        {
+            ["ID"] = 1,
+            ["NAME"] = "name"
+        };
+
+        await view.InsertAsync(null, rec);
+
+        // Modify table, insert data with new columns - client will validate against old schema, throw error for unmapped columns,
+        // then force reload schema and retry.
+        // The process is transparent for the user: updated schema is in effect immediately.
+        await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'name2'");
+
+        var rec2 = new IgniteTuple
+        {
+            ["ID"] = 2,
+            ["NAME"] = "name2"
+        };
+
+        switch (testMode)
+        {
+            case TestMode.One:
+                await view.InsertAsync(null, rec2);
+                break;
+
+            case TestMode.Two:
+                await view.ReplaceAsync(null, rec2, rec2);
+                break;
+
+            case TestMode.Multiple:
+                await view.InsertAllAsync(null, new[] { rec2, rec2, rec2 });
+                break;
+
+            case TestMode.Compute:
+                await Client.Compute.ExecuteColocatedAsync<string>(
+                    table.Name, rec2, Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
+                break;
+
+            default:
+                Assert.Fail("Invalid test mode: " + testMode);
+                break;
+        }
     }
 
     [Test]
