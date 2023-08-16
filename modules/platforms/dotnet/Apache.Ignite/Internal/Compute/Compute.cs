@@ -243,6 +243,7 @@ namespace Apache.Ignite.Internal.Compute
             throw new IgniteClientException(ErrorGroups.Client.TableIdNotFound, $"Table '{tableName}' does not exist.");
         }
 
+        [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]
         private async Task<T> ExecuteColocatedAsync<T, TKey>(
             string tableName,
             TKey key,
@@ -264,12 +265,12 @@ namespace Apache.Ignite.Internal.Compute
                 var table = await GetTableAsync(tableName).ConfigureAwait(false);
                 var schema = await table.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
 
-                using var bufferWriter = ProtoCommon.GetMessageWriter();
-                var colocationHash = Write(bufferWriter, table, schema);
-                var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
-
                 try
                 {
+                    using var bufferWriter = ProtoCommon.GetMessageWriter();
+                    var colocationHash = Write(bufferWriter, table, schema);
+                    var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
+
                     using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode)
                         .ConfigureAwait(false);
 
