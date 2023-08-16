@@ -39,8 +39,10 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     internal sealed class Table : ITable
     {
-        /** Unknown schema version. */
-        private const int UnknownSchemaVersion = -1;
+        /// <summary>
+        /// Unknown schema version.
+        /// </summary>
+        public const int UnknownSchemaVersion = -1;
 
         /** Socket. */
         private readonly ClientFailoverSocket _socket;

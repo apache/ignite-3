@@ -416,9 +416,17 @@ namespace Apache.Ignite.Internal.Table
 
                 return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
             }
-            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch)
+            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
+                                            schemaVersionOverride != e.GetExpectedSchemaVersion())
             {
-                return await DoRecordOutOpAsync(op, transaction, record, keyOnly, e.GetExpectedSchemaVersion()).ConfigureAwait(false);
+                schemaVersionOverride = e.GetExpectedSchemaVersion();
+                return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVersionOverride).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e.CausedByUnmappedColumns() &&
+                                      schemaVersionOverride == null)
+            {
+                schemaVersionOverride = Table.UnknownSchemaVersion;
+                return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVersionOverride).ConfigureAwait(false);
             }
         }
 
