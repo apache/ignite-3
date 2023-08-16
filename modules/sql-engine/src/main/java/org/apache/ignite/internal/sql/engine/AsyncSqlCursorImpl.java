@@ -99,6 +99,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
         return dataCursor.closeAsync();
     }
 
+    /** {@inheritDoc} */
     @Override
     public @Nullable HybridTimestamp implicitTxReadTimestamp() {
         return implicitTx != null && implicitTx.isReadOnly() ? implicitTx.readTimestamp() : null;

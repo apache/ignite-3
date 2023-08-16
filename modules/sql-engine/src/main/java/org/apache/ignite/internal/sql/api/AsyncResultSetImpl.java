@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.binary.BinaryObject;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -46,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Asynchronous result set implementation.
  */
-public class AsyncResultSetImpl<T> implements AsyncResultSetEx<T> {
+public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     private static final CompletableFuture<? extends AsyncResultSet> HAS_NO_MORE_PAGE_FUTURE =
             CompletableFuture.failedFuture(new SqlException(CURSOR_NO_MORE_PAGES_ERR, "There are no more pages."));
 
@@ -58,25 +57,16 @@ public class AsyncResultSetImpl<T> implements AsyncResultSetEx<T> {
 
     private final Runnable closeRun;
 
-    private final HybridTimestamp readTs;
-
     /**
      * Constructor.
      *
      * @param cur Asynchronous query cursor.
      */
-    public AsyncResultSetImpl(
-            AsyncSqlCursor<List<Object>> cur,
-            BatchedResult<List<Object>> page,
-            int pageSize,
-            Runnable closeRun,
-            @Nullable HybridTimestamp readTs
-    ) {
+    public AsyncResultSetImpl(AsyncSqlCursor<List<Object>> cur, BatchedResult<List<Object>> page, int pageSize, Runnable closeRun) {
         this.cur = cur;
         this.curPage = page;
         this.pageSize = pageSize;
         this.closeRun = closeRun;
-        this.readTs = readTs;
     }
 
     /** {@inheritDoc} */
@@ -162,11 +152,6 @@ public class AsyncResultSetImpl<T> implements AsyncResultSetEx<T> {
     @Override
     public CompletableFuture<Void> closeAsync() {
         return cur.closeAsync().thenRun(closeRun);
-    }
-
-    @Override
-    public HybridTimestamp implicitTxReadTimestamp() {
-        return readTs;
     }
 
     private void requireResultSet() {

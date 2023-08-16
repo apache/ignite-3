@@ -31,8 +31,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.sql.api.AsyncResultSetEx;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -48,7 +46,7 @@ import org.jetbrains.annotations.Nullable;
  * Fake result set.
  */
 @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-public class FakeAsyncResultSet implements AsyncResultSetEx {
+public class FakeAsyncResultSet implements AsyncResultSet {
     private final Session session;
 
     private final Transaction transaction;
@@ -92,7 +90,7 @@ public class FakeAsyncResultSet implements AsyncResultSetEx {
             var props = ((FakeSession) session).properties();
 
             for (var e : props.entrySet()) {
-                rows.add(getRow(e.getKey(), String.valueOf(e.getValue())));
+                rows.add(getRow(e.getKey(), e.getValue()));
             }
 
             columns = new ArrayList<>();
@@ -216,11 +214,6 @@ public class FakeAsyncResultSet implements AsyncResultSetEx {
     @NotNull
     private SqlRow getRow(Object... vals) {
         return new FakeSqlRow(List.of(vals), metadata());
-    }
-
-    @Override
-    public HybridTimestamp implicitTxReadTimestamp() {
-        return null;
     }
 
     private static class ColumnOrigin implements ColumnMetadata.ColumnOrigin {

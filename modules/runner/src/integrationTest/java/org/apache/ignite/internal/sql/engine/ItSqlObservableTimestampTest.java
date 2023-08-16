@@ -22,21 +22,20 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 
+import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.sql.api.AsyncResultSetEx;
-import org.apache.ignite.internal.sql.api.SessionEx;
-import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
+import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * Blah-blah-blah.
+ * Checks the processing of the observable timestamp passed from the client side.
  */
 public class ItSqlObservableTimestampTest extends ClusterPerClassIntegrationTest {
 
-    private static SessionEx session;
+    private SessionId sessionId;
 
     @Override
     protected int nodes() {
@@ -44,14 +43,8 @@ public class ItSqlObservableTimestampTest extends ClusterPerClassIntegrationTest
     }
 
     @BeforeAll
-    static void beforeAll() {
-        sql("CREATE TABLE test (id int primary key, val int)");
-
-        session = (SessionEx) sql().createSession();
-    }
-
-    private static IgniteSql sql() {
-        return CLUSTER_NODES.get(0).sql();
+    void beforeAll() {
+        sessionId = queryProcessor().createSession(PropertiesHelper.emptyHolder());
     }
 
     @Test
@@ -69,10 +62,10 @@ public class ItSqlObservableTimestampTest extends ClusterPerClassIntegrationTest
     }
 
     private HybridTimestamp execAndGetTimestamp(HybridTimestamp inputTs) {
-        AsyncResultSetEx<SqlRow> resultSet = await(
-                session.executeAsyncInternal(inputTs, sql().createStatement("select 1"))
+        AsyncSqlCursor<?> cursor = await(
+                queryProcessor().querySingleAsync(sessionId, QueryContext.create(Set.of(SqlQueryType.QUERY), inputTs), "select 1")
         );
 
-        return resultSet.implicitTxReadTimestamp();
+        return cursor.implicitTxReadTimestamp();
     }
 }

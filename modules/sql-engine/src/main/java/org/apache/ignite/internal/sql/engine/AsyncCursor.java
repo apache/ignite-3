@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
  * Asynchronous cursor.
@@ -57,8 +56,6 @@ public interface AsyncCursor<T> {
 
         private final boolean hasMore;
 
-        private final HybridTimestamp readTs;
-
         /**
          * Constructor.
          *
@@ -66,19 +63,8 @@ public interface AsyncCursor<T> {
          * @param hasMore Whether there is at least one more row in the cursor.
          */
         public BatchedResult(List<T> items, boolean hasMore) {
-            this(items, hasMore, null);
-        }
-
-        /**
-         * Constructor.
-         *
-         * @param items Batch of items.
-         * @param hasMore Whether there is at least one more row in the cursor.
-         */
-        public BatchedResult(List<T> items, boolean hasMore, HybridTimestamp readTs) {
             this.items = items;
             this.hasMore = hasMore;
-            this.readTs = readTs;
         }
 
         /** Returns items of this batch. */
@@ -89,10 +75,6 @@ public interface AsyncCursor<T> {
         /** Returns {@code true} in case this cursor has more data. */
         public boolean hasMore() {
             return hasMore;
-        }
-
-        public HybridTimestamp readTs() {
-            return readTs;
         }
     }
 }
