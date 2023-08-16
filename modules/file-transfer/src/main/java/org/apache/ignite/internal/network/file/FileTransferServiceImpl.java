@@ -254,7 +254,12 @@ public class FileTransferServiceImpl implements FileTransferService {
 
         Identifier identifier = message.identifier();
 
-        CompletableFuture<Path> directoryFuture = supplyAsync(() -> createTransferDirectory(transferId), executorService);
+        CompletableFuture<Path> directoryFuture = supplyAsync(() -> createTransferDirectory(transferId), executorService)
+                .whenComplete((directory, e) -> {
+                    if (e != null) {
+                        LOG.error("Failed to create transfer directory [transferId={}, identifier={}]", e, transferId, identifier);
+                    }
+                });
 
         CompletableFuture<List<Path>> uploadedFiles = directoryFuture.thenCompose(directory -> fileReceiver.registerTransfer(
                 senderConsistentId,
@@ -283,9 +288,9 @@ public class FileTransferServiceImpl implements FileTransferService {
                     }
                 })
                 // Wait for the files to be uploaded.
-                .thenComposeAsync(ignored -> uploadedFiles, executorService)
+                .thenCompose(ignored -> uploadedFiles)
                 // Provide the files to the consumer.
-                .<CompletableFuture<Void>>handleAsync((files, e) -> {
+                .<CompletableFuture<Void>>handle((files, e) -> {
                     // Remove the consumer from the map if there was an error and it was a download request.
                     if (e != null && transferIdToDownloadConsumer.containsKey(transferId)) {
                         transferIdToDownloadConsumer.get(transferId).onError(e);
@@ -297,10 +302,10 @@ public class FileTransferServiceImpl implements FileTransferService {
                                 : getFileConsumer(identifier);
                         return consumer.consume(identifier, files);
                     }
-                }, executorService)
+                })
                 // Wait for the consumer to finish.
-                .thenComposeAsync(Function.identity(), executorService)
-                .whenCompleteAsync((v, e) -> {
+                .thenCompose(Function.identity())
+                .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.error("Failed to process file transfer [transferId={}, identifier={}]",
                                 e,
@@ -310,7 +315,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                     }
 
                     directoryFuture.thenAccept(IgniteUtils::deleteIfExists);
-                }, executorService);
+                });
     }
 
     private void processDownloadRequest(FileDownloadRequest message, String senderConsistentId, Long correlationId) {
