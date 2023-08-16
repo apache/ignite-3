@@ -127,7 +127,7 @@ public class FileTransferServiceImpl implements FileTransferService {
     private final FileTransferFactory messageFactory = new FileTransferFactory();
 
     /**
-     * Factory method. Creates a new instance of {@link FileTransferServiceImpl}.
+     * Constructor.
      *
      * @param nodeName Node name.
      * @param topologyService Topology service.
@@ -157,6 +157,15 @@ public class FileTransferServiceImpl implements FileTransferService {
         );
     }
 
+    /**
+     * Constructor.
+     *
+     * @param topologyService Topology service.
+     * @param messagingService Messaging service.
+     * @param configuration File transfer configuration.
+     * @param transferDirectory Transfer directory. All files will be saved here before being moved to their final location.
+     * @param executorService Executor service.
+     */
     private FileTransferServiceImpl(
             TopologyService topologyService,
             MessagingService messagingService,

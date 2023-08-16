@@ -27,7 +27,7 @@ import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 
 /**
- * A stream of messages to send file.
+ * A stream of {@link FileChunkMessage} to send file.
  */
 public class FileChunkMessagesStream implements Iterable<FileChunkMessage>, AutoCloseable {
     private final UUID transferId;

@@ -45,6 +45,9 @@ import org.apache.ignite.network.MessagingService;
  * parallel.
  */
 class FileSender {
+    /**
+     * The size of the chunks to send.
+     */
     private final int chunkSize;
 
     /**
@@ -53,10 +56,19 @@ class FileSender {
      */
     private final Semaphore rateLimiter;
 
+    /**
+     * The timeout for the response from the node.
+     */
     private final long responseTimeout;
 
+    /**
+     * The messaging service used to send the files.
+     */
     private final MessagingService messagingService;
 
+    /**
+     * The thread pool used to send the files in parallel.
+     */
     private final ExecutorService executorService;
 
     /**

@@ -37,10 +37,19 @@ import org.apache.ignite.internal.util.RefCountedObjectPool;
  * File receiver.
  */
 class FileReceiver {
+    /**
+     * Map from transfer id to file transfer handler.
+     */
     private final Map<UUID, FileTransferMessagesHandler> transferIdToHandler = new ConcurrentHashMap<>();
 
+    /**
+     * Map from sender consistent id to transfer ids.
+     */
     private final Map<String, Set<UUID>> senderConsistentIdToTransferIds = new ConcurrentHashMap<>();
 
+    /**
+     * Map from sender consistent id to lock.
+     */
     private final RefCountedObjectPool<String, ReentrantLock> senderConsistentIdToLock = new RefCountedObjectPool<>();
 
     /**
