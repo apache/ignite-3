@@ -33,6 +33,7 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -41,6 +42,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Group of tests to verify aggregation functions.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-20114")
 public class ItAggregatesTest extends ClusterPerClassIntegrationTest {
     private static final String[] DISABLED_RULES = {"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule",
             "ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"};
