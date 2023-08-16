@@ -36,6 +36,7 @@ testing {
                 implementation libs.hamcrest.optional
                 implementation libs.hamcrest.path
 
+                implementation libs.jansi.core
                 implementation libs.log4j.api
                 implementation libs.log4j.core
                 implementation libs.log4j.bridge

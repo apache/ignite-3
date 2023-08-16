@@ -38,7 +38,6 @@ dependencies {
     implementation project(':ignite-transactions')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
-//    implementation libs.slf4j.jdk14
     implementation libs.netty.common
     implementation libs.netty.buffer
     implementation libs.netty.codec
