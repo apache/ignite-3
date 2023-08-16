@@ -7,7 +7,7 @@ This module provides a way to transfer files between the host and the target.
 The module provides the `org.apache.ignite.internal.network.file.FileTransferService` class that can be used to transfer files between the
 host and the target.
 
-### Metadata
+### Identifier
 
 For all files that are going to be transferred, identifiers must be provided.
 The identifier is represented by the `org.apache.ignite.internal.network.file.messages.Identifier` class.

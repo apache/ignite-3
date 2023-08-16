@@ -47,7 +47,7 @@ public interface FileTransferService extends IgniteComponent {
     <M extends Identifier> void addFileConsumer(Class<M> identifier, FileConsumer<M> consumer);
 
     /**
-     * Downloads files for the given metadata from the given node.
+     * Downloads files for the given identifier from the given node.
      *
      * @param sourceNodeConsistentId consistent ID of a node.
      * @param identifier Files identifier.
@@ -59,7 +59,7 @@ public interface FileTransferService extends IgniteComponent {
     CompletableFuture<List<Path>> download(String sourceNodeConsistentId, Identifier identifier, Path targetDir);
 
     /**
-     * Uploads files for the given metadata to the given node.
+     * Uploads files for the given identifier to the given node.
      *
      * @param targetNodeConsistentId consistent ID of a node.
      * @param identifier Files identifier.

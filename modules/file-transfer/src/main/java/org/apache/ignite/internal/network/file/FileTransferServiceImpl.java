@@ -109,12 +109,12 @@ public class FileTransferServiceImpl implements FileTransferService {
     /**
      * Map of file providers.
      */
-    private final Map<Short, FileProvider<Identifier>> metadataToProvider = new ConcurrentHashMap<>();
+    private final Map<Short, FileProvider<Identifier>> identifierToProvider = new ConcurrentHashMap<>();
 
     /**
      * Map of file handlers.
      */
-    private final Map<Short, FileConsumer<Identifier>> metadataToConsumer = new ConcurrentHashMap<>();
+    private final Map<Short, FileConsumer<Identifier>> identifierToConsumer = new ConcurrentHashMap<>();
 
     /**
      * Map of download requests consumers.
@@ -317,7 +317,7 @@ public class FileTransferServiceImpl implements FileTransferService {
                 .thenCompose(provider -> provider.files(message.identifier()))
                 .whenComplete((files, e) -> {
                     if (e != null) {
-                        LOG.error("Failed to get files for download [[transferId={}, identifier={}]]",
+                        LOG.error("Failed to get files for download [transferId={}, identifier={}]",
                                 e,
                                 message.transferId(),
                                 message.identifier()
@@ -400,7 +400,7 @@ public class FileTransferServiceImpl implements FileTransferService {
             Class<M> identifier,
             FileProvider<M> provider
     ) {
-        metadataToProvider.compute(
+        identifierToProvider.compute(
                 getMessageType(identifier),
                 (k, v) -> {
                     if (v != null) {
@@ -417,7 +417,7 @@ public class FileTransferServiceImpl implements FileTransferService {
             Class<M> identifier,
             FileConsumer<M> consumer
     ) {
-        metadataToConsumer.compute(
+        identifierToConsumer.compute(
                 getMessageType(identifier),
                 (k, v) -> {
                     if (v != null) {
@@ -499,28 +499,28 @@ public class FileTransferServiceImpl implements FileTransferService {
                 });
     }
 
-    private static short getMessageType(Class<?> metadata) {
-        Transferable annotation = metadata.getAnnotation(Transferable.class);
+    private static short getMessageType(Class<?> identifier) {
+        Transferable annotation = identifier.getAnnotation(Transferable.class);
         if (annotation == null) {
-            throw new IllegalArgumentException("Class " + metadata.getName() + " is not annotated with @Transferable");
+            throw new IllegalArgumentException("Class " + identifier.getName() + " is not annotated with @Transferable");
         } else {
             return annotation.value();
         }
     }
 
-    private <M extends Identifier> FileProvider<M> getFileProvider(M metadata) {
-        FileProvider<Identifier> provider = metadataToProvider.get(metadata.messageType());
+    private <M extends Identifier> FileProvider<M> getFileProvider(M identifier) {
+        FileProvider<Identifier> provider = identifierToProvider.get(identifier.messageType());
         if (provider == null) {
-            throw new IllegalArgumentException("File provider for metadata " + metadata.getClass().getName() + " not found");
+            throw new IllegalArgumentException("File provider for identifier " + identifier.getClass().getName() + " not found");
         } else {
             return (FileProvider<M>) provider;
         }
     }
 
-    private <M extends Identifier> FileConsumer<M> getFileConsumer(M metadata) {
-        FileConsumer<Identifier> consumer = metadataToConsumer.get(metadata.messageType());
+    private <M extends Identifier> FileConsumer<M> getFileConsumer(M identifier) {
+        FileConsumer<Identifier> consumer = identifierToConsumer.get(identifier.messageType());
         if (consumer == null) {
-            throw new IllegalArgumentException("File consumer for metadata " + metadata.getClass().getName() + " not found");
+            throw new IllegalArgumentException("File consumer for identifier " + identifier.getClass().getName() + " not found");
         } else {
             return (FileConsumer<M>) consumer;
         }

@@ -327,7 +327,7 @@ public class ItFileTransferTest {
 
         // The future that will be completed when the consumer is called.
         CompletableFuture<Void> uploadedFilesFuture = new CompletableFuture<>();
-        targetNode.fileTransferService().addFileConsumer(Identifier.class, ((metadata, uploadedFiles) -> {
+        targetNode.fileTransferService().addFileConsumer(Identifier.class, ((identifier, uploadedFiles) -> {
             return uploadedFilesFuture.completeAsync(() -> {
                 assertThat(uploadedFiles, namesAndContentEquals(files));
                 return null;
@@ -402,7 +402,7 @@ public class ItFileTransferTest {
 
         // The future will be completed when the file consumer is called.
         CompletableFuture<List<Path>> uploadedFilesFuture = new CompletableFuture<>();
-        targetNode.fileTransferService().addFileConsumer(Identifier.class, ((metadata, uploadedFiles) -> {
+        targetNode.fileTransferService().addFileConsumer(Identifier.class, ((identifier, uploadedFiles) -> {
             uploadedFilesFuture.complete(uploadedFiles);
             return completedFuture(null);
         }));
@@ -439,7 +439,7 @@ public class ItFileTransferTest {
 
         // The future will be completed when the file consumer is called.
         CompletableFuture<List<Path>> uploadedFilesFuture = new CompletableFuture<>();
-        targetNode.fileTransferService().addFileConsumer(Identifier.class, ((metadata, uploadedFiles) -> {
+        targetNode.fileTransferService().addFileConsumer(Identifier.class, ((identifier, uploadedFiles) -> {
             uploadedFilesFuture.complete(uploadedFiles);
             return completedFuture(null);
         }));
