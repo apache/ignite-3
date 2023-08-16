@@ -18,10 +18,12 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Compute;
 using Ignite.Compute;
 using Ignite.Table;
+using Internal.Table;
 using NUnit.Framework;
 
 /// <summary>
@@ -324,6 +326,41 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         Assert.IsTrue(res.HasValue);
         Assert.AreEqual("name1", res.Value);
+    }
+
+    private static async Task WaitForNewSchemaOnAllNodes(string tableName, int schemaVer, int timeoutMs = 5000)
+    {
+        // TODO IGNITE-18733, IGNITE-18449: remove this workaround when issues are fixed.
+        // Currently new schema version is not immediately available on all nodes.
+        // Use separate client to check schema sync.
+        var configs = new[]
+        {
+            new IgniteClientConfiguration("127.0.0.1:" + ServerPort),
+            new IgniteClientConfiguration("127.0.0.1:" + (ServerPort + 1))
+        };
+
+        foreach (var cfg in configs)
+        {
+            using var client = await IgniteClient.StartAsync(cfg);
+            var table = await client.Tables.GetTableAsync(tableName);
+            var tableImpl = (Table)table!;
+            var sw = Stopwatch.StartNew();
+
+            while (true)
+            {
+                var schema = await tableImpl.GetSchemaAsync(Apache.Ignite.Internal.Table.Table.SchemaVersionForceLatest);
+
+                if (schema.Version >= schemaVer)
+                {
+                    break;
+                }
+
+                if (sw.Elapsed > TimeSpan.FromMilliseconds(timeoutMs))
+                {
+                    Assert.Fail($"Schema version {schema.Version} is not available on node {cfg.Endpoints[0]} after {timeoutMs}ms");
+                }
+            }
+        }
     }
 
     private record Poco(int Id, string Name);
