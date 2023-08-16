@@ -30,11 +30,8 @@ dependencies {
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-core')
     implementation project(':ignite-vault')
-    implementation libs.slf4j.log4j
     implementation libs.jetbrains.annotations
-    implementation (libs.scalecube.cluster) {
-        exclude group: 'org.slf4j', module: 'slf4j-jdk14'
-    }
+    implementation libs.scalecube.cluster
     implementation libs.fastutil.core
     implementation libs.netty.handler
     implementation libs.netty.transport
