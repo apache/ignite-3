@@ -70,6 +70,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<Response> queryAsync(long connectionId, JdbcQueryExecuteRequest req) {
         return client.sendRequestAsync(ClientOp.JDBC_EXEC, w -> {
             w.out().packLong(connectionId);
+            w.out().packLong(client.observableTimestamp());
 
             req.writeBinary(w.out());
         }, r -> {

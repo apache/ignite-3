@@ -24,7 +24,9 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * JDBC query execute result.
@@ -44,6 +46,9 @@ public class JdbcQuerySingleResult extends Response {
 
     /** Update count. */
     private long updateCnt;
+
+
+    private HybridTimestamp observableTimestamp;
 
     /**
      * Constructor. For deserialization purposes only.
@@ -68,7 +73,7 @@ public class JdbcQuerySingleResult extends Response {
      * @param items    Query result rows.
      * @param last     Flag indicates the query has no unfetched results.
      */
-    public JdbcQuerySingleResult(long cursorId, List<List<Object>> items, boolean last) {
+    public JdbcQuerySingleResult(long cursorId, List<List<Object>> items, boolean last, @Nullable HybridTimestamp observableTimestamp) {
         super();
 
         Objects.requireNonNull(items);
@@ -77,6 +82,7 @@ public class JdbcQuerySingleResult extends Response {
         this.items = items;
         this.last = last;
         this.isQuery = true;
+        this.observableTimestamp = observableTimestamp;
 
         hasResults = true;
     }
@@ -146,6 +152,10 @@ public class JdbcQuerySingleResult extends Response {
     @Override
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
+
+        if (observableTimestamp != null) {
+            packer.meta(observableTimestamp);
+        }
 
         if (!hasResults) {
             return;
