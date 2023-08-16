@@ -62,46 +62,12 @@ statement ok
 DELETE FROM blobs
 
 # Implicit cast
-statement ok
+statement error
 INSERT INTO blobs VALUES('blablabla')
 
-# BINARY with “non-printable” octets
-statement ok
-INSERT INTO blobs VALUES('abc �'::VARBINARY)
-
-query T
-SELECT b::varchar FROM blobs ORDER BY b
-----
-abc �
-blablabla
-
 # BINARY null and empty values
+statement error
 query T
 SELECT ''::VARBINARY
-----
-(empty)
 
-query T
-SELECT NULL::VARBINARY
-----
-NULL
 
-statement ok
-CREATE TABLE blob_empty (b binary);
-
-statement ok
-INSERT INTO blob_empty VALUES('')
-
-statement ok
-INSERT INTO blob_empty VALUES(''::VARBINARY)
-
-statement ok
-INSERT INTO blob_empty VALUES(NULL), (NULL::VARBINARY)
-
-query T rowsort
-SELECT * FROM blob_empty
-----
-NULL
-NULL
-(empty)
-(empty)

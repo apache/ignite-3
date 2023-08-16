@@ -144,7 +144,7 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
         assertExpression("LOWER('aA')").returns("aa").check();
         assertExpression("INITCAP('aA')").returns("Aa").check();
         assertExpression("TO_BASE64('aA')").returns("YUE=").check();
-        assertExpression("FROM_BASE64('YUE=')::VARCHAR").returns("aA").check();
+        assertExpression("FROM_BASE64('YUE=')").returns(new byte[] {(byte) 97, (byte) 65}).check();
         assertExpression("MD5('aa')").returns("4124bc0a9335c27f086f24ba207a4912").check();
         assertExpression("SHA1('aa')").returns("e0c9035898dd52fc65c41454cec9c4d2611bfb37").check();
         assertExpression("SUBSTRING('aAaA', 2, 2)").returns("Aa").check();
@@ -275,7 +275,7 @@ public class ItSqlOperatorsTest extends ClusterPerClassIntegrationTest {
         assertExpression("DECODE(1, 1, 1, 2)").returns(1).check();
         assertExpression("LEAST('a', 'b')").returns("a").check();
         assertExpression("GREATEST('a', 'b')").returns("b").check();
-        assertExpression("COMPRESS('')::VARCHAR").returns("").check();
+        assertExpression("COMPRESS('')").returns(new byte[]{}).check();
         assertExpression("OCTET_LENGTH(x'01')").returns(1).check();
         assertExpression("CAST(INTERVAL 1 SECONDS AS INT)").returns(1).check(); // Converted to REINTERPRED.
         assertExpression("CAST(INTERVAL 1 DAY AS INT)").returns(1).check(); // Converted to REINTERPRED.
