@@ -66,7 +66,7 @@ class FileSenderTest {
     @Mock
     private MessagingService messagingService;
 
-    private ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     private final FileTransferFactory messageFactory = new FileTransferFactory();
 
