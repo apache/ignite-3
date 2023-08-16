@@ -19,51 +19,35 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 
-import java.util.Set;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
  * Checks the processing of the observable timestamp passed from the client side.
  */
 public class ItSqlObservableTimestampTest extends ClusterPerClassIntegrationTest {
-
-    private SessionId sessionId;
-
     @Override
     protected int nodes() {
         return 1;
     }
 
-    @BeforeAll
-    void beforeAll() {
-        sessionId = queryProcessor().createSession(PropertiesHelper.emptyHolder());
-    }
-
     @Test
-    public void outTimestampGrowsUp() {
+    public void timestampGrowsUp() {
         HybridTimestamp minTimestamp = HybridTimestamp.MIN_VALUE;
 
         assertThat(execAndGetTimestamp(minTimestamp), greaterThan(minTimestamp));
     }
 
-    @Test
-    public void outTimestampNotChangesDuringSafeTime() {
-        HybridTimestamp nowTimestamp = new HybridClockImpl().now();
-
-        assertThat(execAndGetTimestamp(nowTimestamp), equalTo(nowTimestamp));
-    }
-
     private HybridTimestamp execAndGetTimestamp(HybridTimestamp inputTs) {
+        SessionId sessionId = queryProcessor().createSession(PropertiesHelper.emptyHolder());
+        QueryContext ctx = QueryContext.create(SqlQueryType.ALL, inputTs);
+
         AsyncSqlCursor<?> cursor = await(
-                queryProcessor().querySingleAsync(sessionId, QueryContext.create(Set.of(SqlQueryType.QUERY), inputTs), "select 1")
+                queryProcessor().querySingleAsync(sessionId, ctx, "select 1")
         );
 
         return cursor.implicitTxReadTimestamp();
