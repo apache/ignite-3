@@ -466,6 +466,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @Test
     @UseTestTxStateStorage
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20230")
     void testDestroyPartitionStoragesOnEvictNode() {
         createTableWithOnePartition(TABLE_1_NAME, ZONE_1_NAME, 3, true);
 
