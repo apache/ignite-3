@@ -577,9 +577,9 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     public void testInsertMultipleDefaults() {
         sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, col1 INTEGER DEFAULT 200, col2 INTEGER DEFAULT 300)");
 
+        sql("INSERT INTO integers (i) VALUES (0)");
         sql("INSERT INTO integers VALUES (1, DEFAULT, DEFAULT)");
         sql("INSERT INTO integers(i, col2) VALUES (2, DEFAULT), (3, 4), (4, DEFAULT)");
-        sql("INSERT INTO integers (i) VALUES (0)");
         sql("INSERT INTO integers VALUES (5, DEFAULT, DEFAULT)");
         sql("INSERT INTO integers VALUES (6, 4, DEFAULT)");
         sql("INSERT INTO integers VALUES (7, 5, 5)");
@@ -606,7 +606,6 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT i, j FROM integers").returns(1, 100).check();
 
         sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT), (4, 4), (5, DEFAULT)");
-        //sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT)");
 
         assertQuery("SELECT i, j FROM integers ORDER BY i")
                 .returns(1, 100)

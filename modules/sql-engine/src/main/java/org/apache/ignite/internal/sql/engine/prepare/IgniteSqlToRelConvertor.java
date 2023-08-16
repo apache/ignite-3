@@ -94,6 +94,15 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
     }
 
     private static class DefaultChecker extends SqlShuttle {
+        private boolean hasDefaults(SqlCall call) {
+            try {
+                call.accept(this);
+                return false;
+            } catch (ControlFlowException e) {
+                return true;
+            }
+        }
+
         @Override public @Nullable SqlNode visit(SqlCall call) {
             if (call.getKind() == SqlKind.DEFAULT) {
                 throw new ControlFlowException();
@@ -104,17 +113,11 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
     }
 
     @Override public RelNode convertValues(SqlCall values, RelDataType targetRowType) {
-        boolean defaultValueFound = false;
-
         DefaultChecker checker = new DefaultChecker();
 
-        try {
-            values.accept(checker);
-        } catch (ControlFlowException e) {
-            defaultValueFound = true;
-        }
+        boolean hasDefaults = checker.hasDefaults(values);
 
-        if (defaultValueFound) {
+        if (hasDefaults) {
             SqlValidatorScope scope = validator.getOverScope(values);
             assert scope != null;
             Blackboard bb = createBlackboard(scope, null, false);
