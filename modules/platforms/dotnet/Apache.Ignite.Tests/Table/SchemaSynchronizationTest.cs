@@ -103,7 +103,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         });
 
         StringAssert.StartsWith("Tuple doesn't match schema", ex!.Message);
-        StringAssert.EndsWith("extraColumns=NAME (Parameter 'record')", ex.Message);
+        StringAssert.EndsWith("extraColumns=NAME", ex.Message);
     }
 
     [Test]
