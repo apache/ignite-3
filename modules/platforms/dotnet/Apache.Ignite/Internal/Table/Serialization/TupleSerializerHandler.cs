@@ -94,7 +94,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (record.FieldCount > written)
             {
-                var extraColumns = new HashSet<string>(record.FieldCount);
+                var extraColumns = new HashSet<string>(record.FieldCount, StringComparer.OrdinalIgnoreCase);
                 for (int i = 0; i < record.FieldCount; i++)
                 {
                     var name = record.GetName(i);

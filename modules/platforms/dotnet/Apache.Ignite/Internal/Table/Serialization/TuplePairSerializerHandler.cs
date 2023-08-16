@@ -112,7 +112,7 @@ internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgn
 
         if (recordFieldCount > written)
         {
-            var extraColumns = new HashSet<string>(recordFieldCount);
+            var extraColumns = new HashSet<string>(recordFieldCount, StringComparer.OrdinalIgnoreCase);
 
             for (int i = 0; i < record.Key.FieldCount; i++)
             {
