@@ -148,8 +148,9 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 break;
 
             case TestMode.Compute:
+                // ExecuteColocated requires key part only.
                 await Client.Compute.ExecuteColocatedAsync<string>(
-                    table.Name, rec2, Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
+                    table.Name, rec, Array.Empty<DeploymentUnit>(), ComputeTests.NodeNameJob);
                 break;
 
             default:
