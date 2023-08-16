@@ -158,7 +158,6 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-
         autoCommit = unpacker.unpackBoolean();
         stmtType = JdbcStatementType.getStatement(unpacker.unpackByte());
         schemaName = unpacker.unpackString();

@@ -383,7 +383,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                         return new JdbcQuerySingleResult(Response.STATUS_FAILED,
                                 "Unable to store query cursor.");
                     }
-                    return new JdbcQuerySingleResult(cursorId, batch.items(), !hasNext, cur.implicitTxReadTimestamp());
+                    return new JdbcQuerySingleResult(cursorId, batch.items(), !hasNext);
                 }
                 case DML:
                     if (!validateDmlResult(cur.metadata(), hasNext)) {
