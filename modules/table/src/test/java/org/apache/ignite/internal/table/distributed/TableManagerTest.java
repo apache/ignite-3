@@ -64,7 +64,7 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.TestCatalogManager;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -246,12 +246,12 @@ public class TableManagerTest extends IgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
     /** Catalog manager. */
-    private TestCatalogManager catalogManager;
+    private CatalogManager catalogManager;
 
     @BeforeEach
     void before() throws NodeStoppingException {
-        catalogManager = new TestCatalogManager(NODE_NAME, clock);
-        catalogManager.startAllAndWithDeployWatches();
+        catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock);
+        catalogManager.start();
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
 
@@ -298,7 +298,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 },
                 dsm == null ? null : dsm::stop,
                 sm == null ? null : sm::stop,
-                catalogManager == null ? null : catalogManager::stopAll
+                catalogManager == null ? null : catalogManager::stop
         );
     }
 
@@ -682,7 +682,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockMetastore();
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
 
         // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
         TableManager tableManager = createTableManager(tblManagerFut, (mvTableStorage) -> {
@@ -881,7 +881,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 vaultManager,
                 cmgMgr,
                 distributionZoneManager,
-                mock(CatalogManager.class)
+                catalogManager
         ) {
 
             @Override
