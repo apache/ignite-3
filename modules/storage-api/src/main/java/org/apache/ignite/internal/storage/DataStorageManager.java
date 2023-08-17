@@ -26,7 +26,6 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.tostring.S;
@@ -60,15 +59,6 @@ public class DataStorageManager implements IgniteComponent {
     }
 
     /**
-     * Returns the data storage engine by data storage configuration.
-     *
-     * @param config Data storage configuration.
-     */
-    public @Nullable StorageEngine engine(DataStorageConfiguration config) {
-        return engines.get(config.value().name());
-    }
-
-    /**
      * Returns the data storage engine by name, {@code null} if absent.
      *
      * @param name Storage engine name.
@@ -90,6 +80,7 @@ public class DataStorageManager implements IgniteComponent {
      * @param dataStorage Data storage.
      * @param values {@link Value Values} for the data storage. Mapping: field name -> field value.
      */
+    // TODO: IGNITE-20114 Get rid of
     public Consumer<DataStorageChange> zoneDataStorageConsumer(String dataStorage, Map<String, Object> values) {
         ConfigurationSource configurationSource = new ConfigurationSource() {
             /** {@inheritDoc} */
