@@ -54,20 +54,6 @@ public interface IgniteMapSetOp extends IgniteSetOp {
         );
     }
 
-    /** Build RowType for MAP node. */
-    default RelDataType buildRowType() {
-        RelDataTypeFactory typeFactory = Commons.typeFactory(getCluster());
-
-        assert typeFactory instanceof IgniteTypeFactory;
-
-        RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-
-        builder.add("GROUP_KEY", typeFactory.createJavaType(GroupKey.class));
-        builder.add("COUNTERS", typeFactory.createJavaType(int[].class));
-
-        return builder.build();
-    }
-
     /**
      * Creates a row type produced by MAP phase of INTERSECT/EXCEPT operator.
      * For input row (a:type1, b:type2) and {@code inputsNum} = {@code 3} it produces the following row type:
