@@ -214,6 +214,8 @@ public class TestLogChecker {
 
     /**
      * Starts the test log checker.
+     *
+     * @throws IllegalStateException If the checker is already started.
      */
     public void start() {
         if (config != null) {
@@ -231,6 +233,8 @@ public class TestLogChecker {
 
     /**
      * Stops the test log checker.
+     *
+     * @throws IllegalStateException If the checker is not started.
      */
     public void stop() {
         if (config == null) {
@@ -243,14 +247,14 @@ public class TestLogChecker {
     }
 
     private static synchronized void addAppender(Appender appender, Configuration config) {
-        for (final LoggerConfig loggerConfig : config.getLoggers().values()) {
+        for (LoggerConfig loggerConfig : config.getLoggers().values()) {
             loggerConfig.addAppender(appender, null, null);
         }
         config.getRootLogger().addAppender(appender, null, null);
     }
 
     private static synchronized void removeAppender(Appender appender, Configuration config) {
-        for (final LoggerConfig loggerConfig : config.getLoggers().values()) {
+        for (LoggerConfig loggerConfig : config.getLoggers().values()) {
             loggerConfig.removeAppender(appender.getName());
         }
         config.getRootLogger().removeAppender(appender.getName());
@@ -294,12 +298,12 @@ public class TestLogChecker {
     }
 
     private class TestLogAppender extends AbstractAppender {
-        public TestLogAppender(final String name) {
+        public TestLogAppender(String name) {
             super(name, null, null, true, Property.EMPTY_ARRAY);
         }
 
         @Override
-        public void append(final LogEvent event) {
+        public void append(LogEvent event) {
             if (!loggerName.equals(event.getLoggerName())) {
                 return;
             }
