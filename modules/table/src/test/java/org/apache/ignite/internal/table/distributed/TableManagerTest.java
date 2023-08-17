@@ -933,7 +933,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PersistentPageMemoryDataStorageModule()));
 
         DataStorageManager manager = new DataStorageManager(
-                distributionZonesConfiguration,
                 dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null)
         );
 

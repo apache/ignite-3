@@ -485,7 +485,6 @@ public class IgniteImpl implements Ignite {
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
         dataStorageMgr = new DataStorageManager(
-                zonesConfig,
                 dataStorageModules.createStorageEngines(
                         name,
                         clusterConfigRegistry,
