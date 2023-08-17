@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,8 +36,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.hamcrest.Description;
-import org.hamcrest.TypeSafeMatcher;
 
 /**
  * Test utility class.
@@ -165,45 +162,6 @@ public final class SchemaTestUtils {
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);
-    }
-
-    /**
-     * Matcher for comparing {@link BinaryRow}s.
-     */
-    public static class BinaryRowMatcher extends TypeSafeMatcher<BinaryRow> {
-        private final BinaryRow row;
-
-        private BinaryRowMatcher(BinaryRow row) {
-            this.row = row;
-        }
-
-        public static BinaryRowMatcher equalToRow(BinaryRow row) {
-            return new BinaryRowMatcher(row);
-        }
-
-        @Override
-        protected boolean matchesSafely(BinaryRow item) {
-            return row.schemaVersion() == item.schemaVersion() && row.tupleSlice().equals(item.tupleSlice());
-        }
-
-        @Override
-        public void describeTo(Description description) {
-            description.appendValue(rowToString(row));
-        }
-
-        @Override
-        protected void describeMismatchSafely(BinaryRow item, Description mismatchDescription) {
-            mismatchDescription.appendText("was ").appendValue(rowToString(item));
-        }
-
-        private static String rowToString(BinaryRow row) {
-            ByteBuffer tupleSlice = row.tupleSlice();
-
-            byte[] array = new byte[tupleSlice.remaining()];
-            tupleSlice.get(array);
-
-            return String.format("{schemaVersion=%d tuple=%s}", row.schemaVersion(), Arrays.toString(array));
-        }
     }
 
     /**
