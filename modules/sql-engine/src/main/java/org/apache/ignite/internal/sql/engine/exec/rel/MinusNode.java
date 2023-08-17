@@ -71,6 +71,12 @@ public class MinusNode<RowT> extends AbstractSetOpNode<RowT> {
 
         /** {@inheritDoc} */
         @Override
+        protected void endOfSet(int setIdx) {
+
+        }
+
+        /** {@inheritDoc} */
+        @Override
         protected void addOnSingle(RowT row, int setIdx) {
             int[] cntrs;
 

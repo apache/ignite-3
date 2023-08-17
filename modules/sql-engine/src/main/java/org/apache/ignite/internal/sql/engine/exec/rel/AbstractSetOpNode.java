@@ -261,9 +261,8 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
             return new GroupKey(fields);
         }
 
-        protected void endOfSet(int setIdx) {
-
-        }
+        /** Callback called when data is over. */
+        protected abstract void endOfSet(int setIdx);
 
         /** Implementation of colocated version of this operator.*/
         protected abstract void addOnSingle(RowT row, int setIdx);
