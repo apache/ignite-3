@@ -583,6 +583,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         sql("INSERT INTO integers VALUES (5, DEFAULT, DEFAULT)");
         sql("INSERT INTO integers VALUES (6, 4, DEFAULT)");
         sql("INSERT INTO integers VALUES (7, 5, 5)");
+        sql("INSERT INTO integers(i, col1) VALUES (8, DEFAULT)");
 
         assertQuery("SELECT i, col1, col2 FROM integers ORDER BY i")
                 .returns(0, 200, 300)
@@ -593,6 +594,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .returns(5, 200, 300)
                 .returns(6, 4, 300)
                 .returns(7, 5, 5)
+                .returns(8, 200, 300)
                 .check();
     }
 

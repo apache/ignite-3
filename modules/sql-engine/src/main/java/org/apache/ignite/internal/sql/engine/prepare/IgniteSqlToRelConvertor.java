@@ -162,6 +162,10 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
                     }
 
                     rowPos++;
+
+                    if (rowPos == targetFields.size()) {
+                        break;
+                    }
                 }
 
                 pos++;
