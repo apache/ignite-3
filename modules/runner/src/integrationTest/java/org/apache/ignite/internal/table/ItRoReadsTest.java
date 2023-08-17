@@ -20,10 +20,12 @@ package org.apache.ignite.internal.table;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.runner.app.ItTablesApiTest.SCHEMA;
+import static org.apache.ignite.internal.schema.SchemaTestUtils.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -34,7 +36,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -178,7 +179,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
-        assertRowEquals(res, keyValueRow);
+        assertThat(res, is(equalToRow(keyValueRow)));
     }
 
     @Test
@@ -210,7 +211,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
-        assertRowEquals(res, keyValueRow2);
+        assertThat(res, is(equalToRow(keyValueRow2)));
     }
 
     @Test
@@ -269,9 +270,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         latch.await();
 
-        assertEquals(1, list.size());
-
-        assertRowEquals(list.get(0), keyValueRow2);
+        assertThat(list, contains(equalToRow(keyValueRow2)));
     }
 
     @Test
@@ -300,13 +299,13 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
-        assertRowEquals(res, keyValueRow);
+        assertThat(res, is(equalToRow(keyValueRow)));
 
         tx2.commit();
 
         res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
 
-        assertRowEquals(res, keyValueRow2);
+        assertThat(res, is(equalToRow(keyValueRow2)));
     }
 
     @Test
@@ -337,15 +336,11 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
 
-        assertEquals(3, res.size());
-
-        for (int i = 0; i < 3; i++) {
-            assertRowEquals(res.get(i), keyValueRows.get(i));
-        }
+        assertThat(res, contains(equalToRow(keyValueRows.get(0)), equalToRow(keyValueRows.get(1)), equalToRow(keyValueRows.get(2))));
     }
 
     @Test
-    public void testRoGetAllWithSeveralInserts() throws ExecutionException, InterruptedException {
+    public void testRoGetAllWithSeveralInserts() throws Exception {
         IgniteImpl node = node();
 
         InternalTable internalTable = ((TableImpl) table).internalTable();
@@ -368,11 +363,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
 
-        assertEquals(3, res.size());
-
-        for (int i = 0; i < 3; i++) {
-            assertRowEquals(res.get(i), keyValueRows.get(i));
-        }
+        assertThat(res, contains(equalToRow(keyValueRows.get(0)), equalToRow(keyValueRows.get(1)), equalToRow(keyValueRows.get(2))));
 
         node.transactions().runInTransaction(txs -> {
             for (int i = 0; i < 15; i++) {
@@ -386,11 +377,7 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
         res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
 
-        assertEquals(3, res.size());
-
-        assertRowEquals(res.get(0), newKeyValueRow1);
-        assertRowEquals(res.get(1), newKeyValueRow2);
-        assertRowEquals(res.get(2), newKeyValueRow3);
+        assertThat(res, contains(equalToRow(newKeyValueRow1), equalToRow(newKeyValueRow2), equalToRow(newKeyValueRow3)));
     }
 
     @Test
@@ -498,9 +485,9 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
     }
 
     private static void putValue(KeyValueView<Tuple, Tuple> kv, int val, Transaction tx) {
-        Tuple tableKey = Tuple.create().set("key", Long.valueOf(val % 100));
+        Tuple tableKey = Tuple.create().set("key", (long) (val % 100));
 
-        Tuple value = Tuple.create().set("valInt", Integer.valueOf(val)).set("valStr", "some string row" + val);
+        Tuple value = Tuple.create().set("valInt", val).set("valStr", "some string row" + val);
 
         kv.put(tx, tableKey, value);
     }
@@ -552,10 +539,5 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
     protected static IgniteImpl node() {
         return (IgniteImpl) NODE;
-    }
-
-    private static void assertRowEquals(BinaryRow row1, BinaryRow row2) {
-        assertThat(row1.schemaVersion(), is(row2.schemaVersion()));
-        assertThat(row1.tupleSlice(), is(row2.tupleSlice()));
     }
 }
