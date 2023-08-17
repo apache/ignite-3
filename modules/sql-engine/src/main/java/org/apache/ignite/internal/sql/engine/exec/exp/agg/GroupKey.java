@@ -19,13 +19,16 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A fixed length group key used by execution node.
  */
-public class GroupKey {
+public class GroupKey implements Serializable {
+    private static final long serialVersionUID = -2429859777754969352L;
+
     public static final GroupKey EMPTY_GRP_KEY = new GroupKey(OBJECT_EMPTY_ARRAY);
 
     private final Object[] fields;

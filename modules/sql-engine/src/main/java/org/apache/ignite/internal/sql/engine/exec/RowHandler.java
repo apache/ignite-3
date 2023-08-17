@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,6 +32,8 @@ public interface RowHandler<RowT> {
     RowT concat(RowT left, RowT right);
 
     int columnCount(RowT row);
+
+    ByteBuffer toByteBuffer(RowT row);
 
     String toString(RowT row);
 
@@ -48,5 +51,7 @@ public interface RowHandler<RowT> {
         RowT create();
 
         RowT create(Object... fields);
+
+        RowT create(ByteBuffer raw);
     }
 }

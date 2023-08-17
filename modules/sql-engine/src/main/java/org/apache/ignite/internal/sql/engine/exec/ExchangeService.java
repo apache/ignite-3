@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -48,7 +49,7 @@ public interface ExchangeService extends LifecycleAware {
      *      which completes when the data has been sent.
      */
     <RowT> CompletableFuture<Void> sendBatch(String nodeName, UUID queryId, long fragmentId, long exchangeId, int batchId, boolean last,
-            List<RowT> rows);
+            List<ByteBuffer> rows);
 
     /**
      * Asynchronously requests data from the specified node.

@@ -280,7 +280,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         /** {@inheritDoc} */
         @Override
         public void add(RowT row) {
-            if (type != AggregateType.REDUCE && filterArg >= 0 && Boolean.TRUE != handler.get(filterArg, row)) {
+            if (type != AggregateType.REDUCE && filterArg >= 0 && !Boolean.TRUE.equals(handler.get(filterArg, row))) {
                 return;
             }
 
