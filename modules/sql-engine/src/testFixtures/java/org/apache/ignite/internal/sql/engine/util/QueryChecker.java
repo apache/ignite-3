@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromC
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -500,7 +501,7 @@ public abstract class QueryChecker {
                         .map(ColumnMetadata::name)
                         .collect(Collectors.toList());
 
-                assertThat("Column names don't match", colNames, CoreMatchers.equalTo(expectedColumnNames));
+                assertThat("Column names don't match", colNames, equalTo(expectedColumnNames));
             }
 
             if (expectedColumnTypes != null) {
@@ -509,7 +510,7 @@ public abstract class QueryChecker {
                         .map(ColumnType::columnTypeToClass)
                         .collect(Collectors.toList());
 
-                assertThat("Column types don't match", colTypes, CoreMatchers.equalTo(expectedColumnTypes));
+                assertThat("Column types don't match", colTypes, equalTo(expectedColumnTypes));
             }
 
             if (metadataMatchers != null) {
