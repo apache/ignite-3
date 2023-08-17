@@ -15,19 +15,29 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table;
+package org.apache.ignite.internal.placementdriver.leases;
 
-using Ignite.Sql;
+import java.util.Map;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-/// <summary>
-/// Schema column.
-/// </summary>
-internal record Column(
-    string Name,
-    ColumnType Type,
-    bool IsNullable,
-    bool IsKey,
-    int ColocationIndex,
-    int SchemaIndex,
-    int Scale,
-    int Precision);
+/** Leases received from the metastore. */
+public class Leases {
+    private final Map<ReplicationGroupId, Lease> leaseByGroupId;
+
+    private final byte[] leasesBytes;
+
+    Leases(Map<ReplicationGroupId, Lease> leaseByGroupId, byte[] leasesBytes) {
+        this.leaseByGroupId = leaseByGroupId;
+        this.leasesBytes = leasesBytes;
+    }
+
+    /** Returns leases grouped by replication group. */
+    public Map<ReplicationGroupId, Lease> leaseByGroupId() {
+        return leaseByGroupId;
+    }
+
+    /** Returns an array of byte leases from the metastore. */
+    public byte[] leasesBytes() {
+        return leasesBytes;
+    }
+}
