@@ -138,7 +138,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItTxDistributedTestSingleNode extends TxAbstractTest {
-    @InjectConfiguration
+    //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
+    @InjectConfiguration("mock: { fsync: false }")
     private static RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
