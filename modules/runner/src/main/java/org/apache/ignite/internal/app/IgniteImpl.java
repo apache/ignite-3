@@ -288,6 +288,7 @@ public class IgniteImpl implements Ignite {
     private final RestAddressReporter restAddressReporter;
 
     private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+
     private final CatalogManager catalogManager;
 
     private final AuthenticationManager authenticationManager;
@@ -739,6 +740,7 @@ public class IgniteImpl implements Ignite {
                                     clusterCfgMgr,
                                     placementDriverMgr,
                                     metricManager,
+                                    catalogManager,
                                     distributionZoneManager,
                                     computeComponent,
                                     replicaMgr,
@@ -749,7 +751,6 @@ public class IgniteImpl implements Ignite {
                                     volatileLogStorageFactoryCreator,
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
-                                    catalogManager,
                                     indexManager,
                                     qryEngine,
                                     clientHandlerModule,
