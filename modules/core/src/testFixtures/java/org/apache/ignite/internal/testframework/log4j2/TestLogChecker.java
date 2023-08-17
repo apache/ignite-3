@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.testframework.log4j2;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -140,9 +141,7 @@ public class TestLogChecker {
 
         lock.writeLock().lock();
         try {
-            for (Handler handler : handlers) {
-                this.handlers.add(handler);
-            }
+            Collections.addAll(this.handlers, handlers);
         } finally {
             lock.writeLock().unlock();
         }
