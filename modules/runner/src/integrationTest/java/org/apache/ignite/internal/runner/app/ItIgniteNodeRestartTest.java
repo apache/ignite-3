@@ -342,9 +342,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         SchemaManager schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
-        Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
-                metaStorageMgr.registerRevisionUpdateListener(function::apply);
-
         var clockWaiter = new ClockWaiter(name, hybridClock);
 
         var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageMgr), clockWaiter);
@@ -352,7 +349,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
-                zonesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
                 vault,
@@ -455,7 +451,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopology,
                 cfgStorage,
                 distributedConfigurationGenerator,
-                clusterConfigRegistry
+                clusterConfigRegistry,
+                hybridClock
         );
 
         partialNodes.add(partialNode);

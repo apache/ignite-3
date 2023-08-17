@@ -53,9 +53,6 @@ import org.apache.ignite.internal.catalog.TestCatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -68,12 +65,10 @@ import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests distribution zones configuration changes and reaction to that changes.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstractTest {
     private static final String ZONE_NAME = "zone1";
 
@@ -92,7 +87,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
     private TestCatalogManager catalogManager;
 
     @BeforeEach
-    public void setUp(@InjectConfiguration DistributionZonesConfiguration zonesConfig) {
+    public void setUp() {
         String nodeName = "test";
 
         // Mock logical topology for distribution zone.
@@ -129,7 +124,6 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         distributionZoneManager = new DistributionZoneManager(
                 nodeName,
                 revisionUpdater,
-                zonesConfig,
                 metaStorageManager,
                 logicalTopologyService,
                 vaultMgr,

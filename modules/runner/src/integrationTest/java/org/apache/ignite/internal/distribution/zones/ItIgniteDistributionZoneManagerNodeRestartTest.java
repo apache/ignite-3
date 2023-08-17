@@ -22,10 +22,8 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
@@ -54,7 +52,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -76,10 +73,10 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -96,6 +93,7 @@ import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -209,8 +207,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-        DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
-
         LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
         var clock = new HybridClockImpl();
@@ -222,7 +218,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 revisionUpdater,
-                zonesConfiguration,
                 metaStorageMgr,
                 logicalTopologyService,
                 vault,
@@ -270,7 +265,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 logicalTopology,
                 cfgStorage,
                 distributedConfigurationGenerator,
-                clusterConfigRegistry
+                clusterConfigRegistry,
+                clock
         );
 
         partialNodes.add(partialNode);
@@ -282,16 +278,17 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     public void testNodeAttributesRestoredAfterRestart() throws Exception {
         PartialNode partialNode = startPartialNode(0);
 
-        CatalogManager catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
-        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
-
         partialNode.logicalTopology().putNode(A);
         partialNode.logicalTopology().putNode(B);
         partialNode.logicalTopology().putNode(C);
 
-        createZone(catalogManager, ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, (String) null);
+        createZone(partialNode, ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), 1,
+        int zoneId = getZoneId(partialNode, ZONE_NAME);
+
+        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(partialNode);
+
+        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId,
                 Set.of(A, B, C), TIMEOUT_MILLIS);
 
         Map<String, Map<String, String>> nodeAttributesBeforeRestart = distributionZoneManager.nodesAttributes();
@@ -300,7 +297,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         partialNode = startPartialNode(0);
 
-        distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        distributionZoneManager = getDistributionZoneManager(partialNode);
 
         Map<String, Map<String, String>> nodeAttributesAfterRestart = distributionZoneManager.nodesAttributes();
 
@@ -319,9 +316,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         Set<NodeWithAttributes> logicalTopology = Set.of(A, B, C).stream()
                 .map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes()))
-                .collect(Collectors.toSet());
+                .collect(toSet());
 
-        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(partialNode);
 
         DistributionZoneManager finalDistributionZoneManager = distributionZoneManager;
 
@@ -331,7 +328,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         partialNode = startPartialNode(0);
 
-        distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        distributionZoneManager = getDistributionZoneManager(partialNode);
 
         assertEquals(logicalTopology, distributionZoneManager.logicalTopology());
     }
@@ -340,13 +337,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     public void testGlobalStateRevisionUpdatedCorrectly() throws Exception {
         PartialNode partialNode = startPartialNode(0);
 
-        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
-
         partialNode.logicalTopology().putNode(A);
         partialNode.logicalTopology().putNode(B);
         partialNode.logicalTopology().putNode(C);
 
-        int defaultZoneId = getZoneId(distributionZoneManager, DEFAULT_ZONE_NAME);
+        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(partialNode);
+
+        int defaultZoneId = getZoneId(partialNode, DEFAULT_ZONE_NAME);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), defaultZoneId,
                 Set.of(A, B, C), TIMEOUT_MILLIS);
@@ -369,15 +366,14 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     public void testLocalDataNodesAreRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode partialNode = startPartialNode(0);
 
-        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
-        CatalogManager catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
-
-        createZoneOrAlterDefaultZone(distributionZoneManager, catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneOrAlterDefaultZone(partialNode, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         partialNode.logicalTopology().putNode(A);
         partialNode.logicalTopology().putNode(B);
 
-        int zoneId = getZoneId(distributionZoneManager, zoneName);
+        int zoneId = getZoneId(partialNode, zoneName);
+
+        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(partialNode);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A, B), TIMEOUT_MILLIS);
 
@@ -391,7 +387,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         partialNode = startPartialNode(0);
 
-        distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        distributionZoneManager = getDistributionZoneManager(partialNode);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
         assertDataNodesFromManager(distributionZoneManager, () -> revisionBeforeRestart, zoneId, Set.of(A), TIMEOUT_MILLIS);
@@ -403,15 +399,14 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     public void testScaleUpTimerIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode partialNode = startPartialNode(0);
 
-        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
-        CatalogManager catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
-
-        createZoneOrAlterDefaultZone(distributionZoneManager, catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneOrAlterDefaultZone(partialNode, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         partialNode.logicalTopology().putNode(A);
         partialNode.logicalTopology().putNode(B);
 
-        int zoneId = getZoneId(distributionZoneManager, zoneName);
+        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(partialNode);
+
+        int zoneId = getZoneId(partialNode, zoneName);
 
         assertDataNodesFromManager(
                 distributionZoneManager,
@@ -441,7 +436,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         partialNode = startPartialNode(0);
 
-        distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        distributionZoneManager = getDistributionZoneManager(partialNode);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A, C), TIMEOUT_MILLIS);
     }
@@ -452,18 +447,17 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     public void testScaleUpTriggeredByFilterUpdateIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode partialNode = startPartialNode(0);
 
-        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
-        CatalogManager catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
-
-        createZoneOrAlterDefaultZone(distributionZoneManager, catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneOrAlterDefaultZone(partialNode, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         partialNode.logicalTopology().putNode(A);
 
-        int zoneId = getZoneId(distributionZoneManager, zoneName);
+        int zoneId = getZoneId(partialNode, zoneName);
+
+        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(partialNode);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
-        alterZone(catalogManager, zoneName, INFINITE_TIMER_VALUE, null, null);
+        alterZone(partialNode, zoneName, INFINITE_TIMER_VALUE, null, null);
 
         partialNode.logicalTopology().putNode(B);
 
@@ -476,7 +470,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Only Node B passes the filter
         String filter = "$[?(@.dataRegionSize > 10)]";
 
-        alterZone(catalogManager, zoneName, null, null, filter);
+        alterZone(partialNode, zoneName, null, null, filter);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
@@ -484,7 +478,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         partialNode = startPartialNode(0);
 
-        distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        distributionZoneManager = getDistributionZoneManager(partialNode);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(B), TIMEOUT_MILLIS);
     }
@@ -495,14 +489,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     public void testScaleUpsTriggeredByFilterUpdateAndNodeJoinAreRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode partialNode = startPartialNode(0);
 
-        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
-        CatalogManager catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
-
-        createZoneOrAlterDefaultZone(distributionZoneManager, catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneOrAlterDefaultZone(partialNode, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         partialNode.logicalTopology().putNode(A);
 
-        int zoneId = getZoneId(distributionZoneManager, zoneName);
+        int zoneId = getZoneId(partialNode, zoneName);
+
+        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(partialNode);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A), TIMEOUT_MILLIS);
 
@@ -510,7 +503,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         blockUpdate(metaStorageManager, zoneScaleUpChangeTriggerKey(zoneId));
 
-        alterZone(catalogManager, zoneName, 100, null, null);
+        alterZone(partialNode, zoneName, 100, null, null);
 
         partialNode.logicalTopology().putNode(B);
 
@@ -519,7 +512,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Only Node B and C passes the filter
         String filter = "$[?(@.dataRegionSize > 10)]";
 
-        alterZone(catalogManager, zoneName, null, null, filter);
+        alterZone(partialNode, zoneName, null, null, filter);
 
         partialNode.logicalTopology().putNode(C);
 
@@ -531,8 +524,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         partialNode = startPartialNode(0);
 
-        distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
-        catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
+        distributionZoneManager = getDistributionZoneManager(partialNode);
 
         // Immediate timer triggered by filter update
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(B), TIMEOUT_MILLIS);
@@ -542,7 +534,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         // Timer scheduled after join of the node C
         assertNotNull(zoneState.scaleUpTask());
 
-        alterZone(catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
+        alterZone(partialNode, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(B, C), TIMEOUT_MILLIS);
     }
@@ -553,14 +545,11 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     public void testScaleDownTimerIsRestoredAfterRestart(String zoneName) throws Exception {
         PartialNode partialNode = startPartialNode(0);
 
-        DistributionZoneManager distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
-        CatalogManager catalogManager = findComponent(partialNode.startedComponents(), CatalogManager.class);
-
-        createZoneOrAlterDefaultZone(distributionZoneManager, catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneOrAlterDefaultZone(partialNode, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         MetaStorageManager metaStorageManager = findComponent(partialNode.startedComponents(), MetaStorageManager.class);
 
-        int zoneId = getZoneId(distributionZoneManager, zoneName);
+        int zoneId = getZoneId(partialNode, zoneName);
 
         // Block scale down
         blockUpdate(metaStorageManager, zoneScaleDownChangeTriggerKey(zoneId));
@@ -582,7 +571,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         partialNode = startPartialNode(0);
 
-        distributionZoneManager = findComponent(partialNode.startedComponents(), DistributionZoneManager.class);
+        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(partialNode);
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(A, C), TIMEOUT_MILLIS);
     }
@@ -592,18 +581,17 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     }
 
     private static void createZoneOrAlterDefaultZone(
-            DistributionZoneManager distributionZoneManager,
-            CatalogManager catalogManager,
+            PartialNode node,
             String zoneName,
             int scaleUp,
             int scaleDown
     ) throws Exception {
         if (zoneName.equals(DEFAULT_ZONE_NAME)) {
-            alterZone(catalogManager, DEFAULT_ZONE_NAME, scaleUp, scaleDown, null);
+            alterZone(node, DEFAULT_ZONE_NAME, scaleUp, scaleDown, null);
 
-            int defaultZoneId = getZoneId(distributionZoneManager, DEFAULT_ZONE_NAME);
+            int defaultZoneId = getZoneId(node, DEFAULT_ZONE_NAME);
 
-            ZoneState zoneState = distributionZoneManager.zonesState().get(defaultZoneId);
+            ZoneState zoneState = getDistributionZoneManager(node).zonesState().get(defaultZoneId);
 
             // This is needed because we want to wait for the end of scale up/down triggered by altering delays.
             if (zoneState.scaleUpTask() != null) {
@@ -614,7 +602,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 assertTrue(waitForCondition(() -> zoneState.scaleDownTask().isDone(), TIMEOUT_MILLIS));
             }
         } else {
-            createZone(catalogManager, ZONE_NAME, scaleUp, scaleDown, (String) null);
+            createZone(node, ZONE_NAME, scaleUp, scaleDown);
         }
     }
 
@@ -628,7 +616,37 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         }))).thenThrow(new RuntimeException("Expected"));
     }
 
-    private static int getZoneId(DistributionZoneManager distributionZoneManager, String zoneName) {
-        return distributionZoneManager.getZoneId(zoneName);
+    private static int getZoneId(PartialNode node, String zoneName) {
+        return DistributionZonesTestUtil.getZoneId(getCatalogManager(node), zoneName, node.clock().nowLong());
+    }
+
+    private static void createZone(PartialNode node, String zoneName, int scaleUp, int scaleDown) {
+        DistributionZonesTestUtil.createZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, null);
+    }
+
+    private static void alterZone(
+            PartialNode node,
+            String zoneName,
+            @Nullable Integer scaleUp,
+            @Nullable Integer scaleDown,
+            @Nullable String filter
+    ) {
+        DistributionZonesTestUtil.alterZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, filter);
+    }
+
+    private static DistributionZoneManager getDistributionZoneManager(PartialNode node) {
+        DistributionZoneManager distributionZoneManager = findComponent(node.startedComponents(), DistributionZoneManager.class);
+
+        assertNotNull(distributionZoneManager);
+
+        return distributionZoneManager;
+    }
+
+    private static CatalogManager getCatalogManager(PartialNode node) {
+        CatalogManager catalogManager = findComponent(node.startedComponents(), CatalogManager.class);
+
+        assertNotNull(catalogManager);
+
+        return catalogManager;
     }
 }

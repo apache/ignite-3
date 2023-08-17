@@ -36,8 +36,6 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyServiceImpl;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -83,7 +81,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     private final List<IgniteComponent> components = new ArrayList<>();
 
     @BeforeEach
-    void setUp(@InjectConfiguration DistributionZonesConfiguration zonesConfig) {
+    void setUp() {
         String nodeName = "test";
 
         vaultMgr = new VaultManager(new InMemoryVaultService());
@@ -115,7 +113,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         distributionZoneManager = new DistributionZoneManager(
                 nodeName,
                 revisionUpdater,
-                zonesConfig,
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 vaultMgr,

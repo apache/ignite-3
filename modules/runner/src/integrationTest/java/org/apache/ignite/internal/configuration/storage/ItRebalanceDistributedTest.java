@@ -813,7 +813,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             distributionZoneManager = new DistributionZoneManager(
                     name,
                     registry,
-                    zonesCfg,
                     metaStorageManager,
                     logicalTopologyService,
                     vaultManager,

@@ -1076,7 +1076,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private long alterZoneScaleUpAndGetRevision(String zoneName, int scaleUp) throws Exception {
         CompletableFuture<Long> revisionFut = new CompletableFuture<>();
 
-        int zoneId = distributionZoneManager.getZoneId(zoneName);
+        int zoneId = getZoneId(zoneName);
 
         zoneScaleUpRevisions.put(zoneId, revisionFut);
 
@@ -1096,7 +1096,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private long alterZoneScaleDownAndGetRevision(String zoneName, int scaleDown) throws Exception {
         CompletableFuture<Long> revisionFut = new CompletableFuture<>();
 
-        int zoneId = distributionZoneManager.getZoneId(zoneName);
+        int zoneId = getZoneId(zoneName);
 
         zoneScaleDownRevisions.put(zoneId, revisionFut);
 
@@ -1116,7 +1116,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private long alterFilterAndGetRevision(String zoneName, String filter) throws Exception {
         CompletableFuture<Long> revisionFut = new CompletableFuture<>();
 
-        int zoneId = distributionZoneManager.getZoneId(zoneName);
+        int zoneId = getZoneId(zoneName);
 
         zoneChangeFilterRevisions.put(zoneId, revisionFut);
 

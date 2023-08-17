@@ -1510,55 +1510,44 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         }
 
                         try {
-                            distributionZoneManager.zoneIdAsyncInternal(zoneName).handle((zoneId, zoneIdEx) -> {
-                                if (zoneId == null) {
-                                    tblFut.completeExceptionally(new DistributionZoneNotFoundException(zoneName));
-                                } else if (zoneIdEx != null) {
-                                    tblFut.completeExceptionally(zoneIdEx);
-                                } else {
-                                    if (!busyLock.enterBusy()) {
-                                        NodeStoppingException nodeStoppingException = new NodeStoppingException();
+                            // TODO: IGNITE-19499 Should listen to event CreateTableEventParameters and get the zone ID from it
+                            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneName, clock.nowLong());
 
-                                        tblFut.completeExceptionally(nodeStoppingException);
-
-                                        throw new IgniteException(nodeStoppingException);
-                                    }
-
-                                    try {
-                                        cmgMgr.logicalTopology()
-                                                .handle((cmgTopology, e) -> {
-                                                    if (e == null) {
-                                                        if (!busyLock.enterBusy()) {
-                                                            NodeStoppingException nodeStoppingException = new NodeStoppingException();
-
-                                                            tblFut.completeExceptionally(nodeStoppingException);
-
-                                                            throw new IgniteException(nodeStoppingException);
-                                                        }
-
-                                                        try {
-                                                            changeTablesConfigurationOnTableCreate(
-                                                                    name,
-                                                                    zoneId,
-                                                                    tableInitChange,
-                                                                    tblFut
-                                                            );
-                                                        } finally {
-                                                            busyLock.leaveBusy();
-                                                        }
-                                                    } else {
-                                                        tblFut.completeExceptionally(e);
-                                                    }
-
-                                                    return null;
-                                                });
-                                    } finally {
-                                        busyLock.leaveBusy();
-                                    }
-                                }
+                            if (zoneDescriptor == null) {
+                                tblFut.completeExceptionally(new DistributionZoneNotFoundException(zoneName));
 
                                 return null;
-                            });
+                            }
+
+                            cmgMgr.logicalTopology()
+                                    .handle((cmgTopology, e) -> {
+                                        if (e == null) {
+                                            if (!busyLock.enterBusy()) {
+                                                NodeStoppingException nodeStoppingException = new NodeStoppingException();
+
+                                                tblFut.completeExceptionally(nodeStoppingException);
+
+                                                throw new IgniteException(nodeStoppingException);
+                                            }
+
+                                            try {
+                                                changeTablesConfigurationOnTableCreate(
+                                                        name,
+                                                        zoneDescriptor.id(),
+                                                        tableInitChange,
+                                                        tblFut
+                                                );
+                                            } finally {
+                                                busyLock.leaveBusy();
+                                            }
+                                        } else {
+                                            tblFut.completeExceptionally(e);
+                                        }
+
+                                        return null;
+                                    });
+                        } catch (Throwable t) {
+                            tblFut.completeExceptionally(t);
                         } finally {
                             busyLock.leaveBusy();
                         }
