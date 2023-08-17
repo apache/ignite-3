@@ -1295,7 +1295,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
             @Override
             protected CompletableFuture<Void> onAutoAdjustScaleDownUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleDown) {
-                completeRevisionFuture(zoneScaleUpRevisions.remove(parameters.zoneDescriptor().id()), parameters.causalityToken());
+                completeRevisionFuture(zoneScaleDownRevisions.remove(parameters.zoneDescriptor().id()), parameters.causalityToken());
 
                 return completedFuture(null);
             }

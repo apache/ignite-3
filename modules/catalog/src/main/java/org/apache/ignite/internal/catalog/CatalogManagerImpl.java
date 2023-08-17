@@ -27,7 +27,10 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
@@ -176,10 +179,10 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         CatalogZoneDescriptor defaultZone = new CatalogZoneDescriptor(
                 objectIdGen++,
                 DEFAULT_ZONE_NAME,
-                25,
-                1,
+                DEFAULT_PARTITION_COUNT,
+                DEFAULT_REPLICA_COUNT,
                 INFINITE_TIMER_VALUE,
-                INFINITE_TIMER_VALUE,
+                IMMEDIATE_TIMER_VALUE,
                 INFINITE_TIMER_VALUE,
                 DEFAULT_FILTER,
                 // TODO: IGNITE-19719 Should be defined differently

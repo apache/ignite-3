@@ -136,6 +136,10 @@ public class CausalityDataNodesEngine {
             throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
         }
 
+        if (zoneId < 0) {
+            throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
+        }
+
         return inBusyLock(busyLock, () -> {
             try {
                 return zonesVv.get(causalityToken);
