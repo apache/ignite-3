@@ -153,7 +153,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     @Test
     public void testNonNullTxDisablesPartitionAwareness() {
         RecordView<Tuple> recordView = defaultTable().recordView();
-        var tx = (ClientTransaction)client2.transactions().begin();
+        var tx = (ClientTransaction) client2.transactions().begin();
 
         @SuppressWarnings("resource") String expectedNode = tx.channel().protocolContext().clusterNode().name();
 
