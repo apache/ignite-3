@@ -91,7 +91,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         Set<LogicalNode> clusterNodes = Set.of(NODE_1);
 
         int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
-        int zoneId = getZoneId(ZONE_NAME);
 
         assertDataNodesForZone(defaultZoneId, clusterNodes, keyValueStorage);
 
@@ -102,6 +101,8 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertLogicalTopology(clusterNodes2, keyValueStorage);
 
         createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
+
+        int zoneId = getZoneId(ZONE_NAME);
 
         assertDataNodesForZone(zoneId, clusterNodes2, keyValueStorage);
 
@@ -140,11 +141,12 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         Set<LogicalNode> clusterNodes = Set.of(NODE_1, NODE_2);
 
         int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
-        int zoneId = getZoneId(ZONE_NAME);
 
         assertDataNodesForZone(defaultZoneId, clusterNodes, keyValueStorage);
 
         createZone(ZONE_NAME, null, IMMEDIATE_TIMER_VALUE, null);
+
+        int zoneId = getZoneId(ZONE_NAME);
 
         assertDataNodesForZone(zoneId, clusterNodes, keyValueStorage);
 
@@ -472,11 +474,12 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
         assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
 
         int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
-        int zoneId = getZoneId(ZONE_NAME);
 
         assertDataNodesForZone(defaultZoneId, Set.of(NODE_1), keyValueStorage);
 
         createZone(ZONE_NAME, null, IMMEDIATE_TIMER_VALUE, null);
+
+        int zoneId = getZoneId(ZONE_NAME);
 
         assertDataNodesForZone(zoneId, Set.of(NODE_1), keyValueStorage);
 

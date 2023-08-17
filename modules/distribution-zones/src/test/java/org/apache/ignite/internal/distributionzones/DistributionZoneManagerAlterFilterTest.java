@@ -255,7 +255,6 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
             createZone(ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER);
         }
 
-
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), getZoneId(zoneName), Set.of(A, C),
                 ZONE_MODIFICATION_AWAIT_TIMEOUT);
     }

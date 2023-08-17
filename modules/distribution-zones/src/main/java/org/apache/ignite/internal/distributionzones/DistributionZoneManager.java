@@ -286,7 +286,6 @@ public class DistributionZoneManager implements IgniteComponent {
         });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         if (!stopGuard.compareAndSet(false, true)) {

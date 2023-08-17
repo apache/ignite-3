@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -28,7 +30,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import org.apache.ignite.internal.catalog.TestCatalogManager;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -76,7 +79,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     private final HybridClock clock = new HybridClockImpl();
 
-    protected TestCatalogManager catalogManager;
+    protected CatalogManager catalogManager;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -107,7 +110,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
 
-        catalogManager = new TestCatalogManager(nodeName, clock, vaultMgr, metaStorageManager);
+        catalogManager = CatalogTestUtils.createTestCatalogManager(nodeName, clock, metaStorageManager);
         components.add(catalogManager);
 
         distributionZoneManager = new DistributionZoneManager(
@@ -138,7 +141,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     void startDistributionZoneManager() {
         distributionZoneManager.start();
 
-        metaStorageManager.deployWatches();
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     protected void createZone(
