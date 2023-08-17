@@ -91,7 +91,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -99,6 +98,8 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -173,9 +174,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile SqlSchemaManager sqlSchemaManager;
 
-    /** Transaction manager. */
-    private final TxManager txManager;
-
     /** Distribution zones manager. */
     private final DistributionZoneManager distributionZoneManager;
 
@@ -199,7 +197,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             IndexManager indexManager,
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
-            TxManager txManager,
             DistributionZoneManager distributionZoneManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
@@ -213,7 +210,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.indexManager = indexManager;
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
-        this.txManager = txManager;
         this.distributionZoneManager = distributionZoneManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
@@ -414,6 +410,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         String schemaName = session.properties().get(QueryProperty.DEFAULT_SCHEMA);
 
         InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
+        IgniteTransactions transactions = outerTx == null ? context.unwrap(IgniteTransactions.class) : null;
+
+        assert outerTx != null || transactions != null;
 
         QueryCancel queryCancel = new QueryCancel();
 
@@ -445,7 +444,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     boolean implicitTxRequired = outerTx == null;
 
                     InternalTransaction currentTx = implicitTxRequired
-                            ? txManager.begin(!rwOp, rwOp ? null : context.unwrap(HybridTimestamp.class))
+                            ? (InternalTransaction) transactions.begin(new TransactionOptions().readOnly(!rwOp))
                             : outerTx;
 
                     tx.set(currentTx);

@@ -50,6 +50,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
@@ -465,7 +466,7 @@ public abstract class QueryChecker {
 
         SessionId sessionId = qryProc.createSession(PropertiesHelper.emptyHolder());
 
-        QueryContext context = QueryContext.create(SqlQueryType.ALL, tx);
+        QueryContext context = QueryContext.create(SqlQueryType.ALL, tx == null ? transactions() : tx);
 
         String qry = queryTemplate.createQuery();
 
@@ -552,6 +553,8 @@ public abstract class QueryChecker {
     }
 
     protected abstract QueryProcessor getEngine();
+
+    protected abstract IgniteTransactions transactions();
 
     protected void checkMetadata(AsyncSqlCursor<?> cursor) {
 

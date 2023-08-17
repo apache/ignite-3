@@ -111,7 +111,7 @@ public class AbstractOneNodeBenchmark {
                 + ");";
 
         try {
-            var context = QueryContext.create(SqlQueryType.ALL);
+            var context = QueryContext.create(SqlQueryType.ALL, clusterNode.transactions());
 
             getAllFromCursor(
                     await(queryEngine.querySingleAsync(sessionId, context, sql))

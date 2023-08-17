@@ -59,6 +59,7 @@ import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -73,6 +74,8 @@ public class SessionImpl implements AbstractSession {
 
     private final QueryProcessor qryProc;
 
+    private final IgniteTransactions transactions;
+
     private final SessionId sessionId;
 
     private final int pageSize;
@@ -83,16 +86,19 @@ public class SessionImpl implements AbstractSession {
      * Constructor.
      *
      * @param qryProc Query processor.
+     * @param transactions Transactions.
      * @param pageSize Query fetch page size.
      * @param props Session's properties.
      */
     SessionImpl(
             SessionId sessionId,
             QueryProcessor qryProc,
+            IgniteTransactions transactions,
             int pageSize,
             PropertiesHolder props
     ) {
         this.qryProc = qryProc;
+        this.transactions = transactions;
         this.sessionId = sessionId;
         this.pageSize = pageSize;
         this.props = props;
@@ -155,7 +161,7 @@ public class SessionImpl implements AbstractSession {
             propertyMap.put(entry.getKey().name, entry.getValue());
         }
 
-        return new SessionBuilderImpl(qryProc, propertyMap)
+        return new SessionBuilderImpl(qryProc, transactions, propertyMap)
                 .defaultPageSize(pageSize);
     }
 
@@ -172,7 +178,7 @@ public class SessionImpl implements AbstractSession {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction);
+            QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction == null ? transactions : transaction);
 
             result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
@@ -241,7 +247,7 @@ public class SessionImpl implements AbstractSession {
         }
 
         try {
-            QueryContext ctx = QueryContext.create(Set.of(SqlQueryType.DML), transaction);
+            QueryContext ctx = QueryContext.create(Set.of(SqlQueryType.DML), transaction == null ? transactions : transaction);
 
             var counters = new LongArrayList(batch.size());
             CompletableFuture<Void> tail = CompletableFuture.completedFuture(null);

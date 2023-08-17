@@ -112,6 +112,7 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -157,6 +158,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** TX manager. */
     @Mock(lenient = true)
     private TxManager tm;
+
+    /** Ignite transactions. */
+    @Mock(lenient = true)
+    private IgniteTransactions transactions;
 
     /** Meta storage manager. */
     @Mock
@@ -326,7 +331,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 idxManager,
                 schemaManager,
                 dataStorageManager,
-                tm,
                 distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(
                         List.of(
@@ -377,7 +381,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         SqlQueryProcessor finalQueryProc = queryProc;
 
         SessionId sessionId = queryProc.createSession(PropertiesHelper.emptyHolder());
-        QueryContext context = QueryContext.create(SqlQueryType.ALL);
+        QueryContext context = QueryContext.create(SqlQueryType.ALL, transactions);
 
         String curMethodName = getCurrentMethodName();
 
@@ -428,7 +432,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String tableName = getCurrentMethodName().toUpperCase();
 
         SessionId sessionId = queryProc.createSession(PropertiesHelper.emptyHolder());
-        QueryContext context = QueryContext.create(SqlQueryType.ALL);
+        QueryContext context = QueryContext.create(SqlQueryType.ALL, transactions);
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) ",
                  tableName);
@@ -474,7 +478,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String curMethodName = getCurrentMethodName();
 
         SessionId sessionId = queryProc.createSession(PropertiesHelper.emptyHolder());
-        QueryContext context = QueryContext.create(SqlQueryType.ALL);
+        QueryContext context = QueryContext.create(SqlQueryType.ALL, transactions);
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName);
 
@@ -506,7 +510,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String method = getCurrentMethodName();
 
         SessionId sessionId = queryProc.createSession(PropertiesHelper.emptyHolder());
-        QueryContext context = QueryContext.create(SqlQueryType.ALL);
+        QueryContext context = QueryContext.create(SqlQueryType.ALL, transactions);
 
         assertDoesNotThrow(() -> readFirst(queryProc.querySingleAsync(
                 sessionId,
@@ -584,6 +588,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         InternalTransaction tx = mock(InternalTransaction.class);
         when(tx.startTimestamp()).thenReturn(HybridTimestamp.MAX_VALUE);
         when(tm.begin(anyBoolean(), any())).thenReturn(tx);
+        when(transactions.begin(any())).thenReturn(tx);
 
         when(replicaManager.stopReplica(any())).thenReturn(completedFuture(true));
 

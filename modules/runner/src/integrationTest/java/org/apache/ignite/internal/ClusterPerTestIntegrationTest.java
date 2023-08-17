@@ -204,7 +204,7 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
     protected final List<List<Object>> executeSql(String sql, Object... args) {
         QueryProcessor qryProc = new TestQueryProcessor(node(0));
         SessionId sessionId = qryProc.createSession(PropertiesHelper.emptyHolder());
-        QueryContext context = QueryContext.create(SqlQueryType.ALL);
+        QueryContext context = QueryContext.create(SqlQueryType.ALL, node(0).transactions());
 
         return getAllFromCursor(
                 qryProc.querySingleAsync(sessionId, context, sql, args).join()

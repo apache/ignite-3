@@ -287,6 +287,11 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             protected QueryProcessor getEngine() {
                 return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
             }
+
+            @Override
+            protected IgniteTransactions transactions() {
+                return CLUSTER_NODES.get(0).transactions();
+            }
         };
     }
 
@@ -443,7 +448,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
 
         try {
-            var context = QueryContext.create(SqlQueryType.ALL, tx);
+            var context = QueryContext.create(SqlQueryType.ALL, tx == null ? CLUSTER_NODES.get(0).transactions() : tx);
 
             return getAllFromCursor(
                     await(queryEngine.querySingleAsync(sessionId, context, sql, args))

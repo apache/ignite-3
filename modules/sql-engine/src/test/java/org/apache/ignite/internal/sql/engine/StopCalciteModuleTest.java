@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -77,7 +76,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
@@ -88,6 +86,7 @@ import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -126,7 +125,7 @@ public class StopCalciteModuleTest {
     private MessagingService msgSrvc;
 
     @Mock
-    private TxManager txManager;
+    private IgniteTransactions transactions;
 
     @Mock
     private DistributionZoneManager distributionZoneManager;
@@ -241,7 +240,6 @@ public class StopCalciteModuleTest {
                 indexManager,
                 schemaManager,
                 dataStorageManager,
-                txManager,
                 distributionZoneManager,
                 Map::of,
                 mock(ReplicaService.class),
@@ -262,14 +260,14 @@ public class StopCalciteModuleTest {
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
         when(tbl.storage().getTableDescriptor()).thenReturn(new StorageTableDescriptor(tblId, 1, "none"));
 
-        when(txManager.begin(anyBoolean(), any())).thenReturn(new NoOpTransaction(localNode.name()));
+        when(transactions.begin(any())).thenReturn(new NoOpTransaction(localNode.name()));
 
         qryProc.start();
 
         await(testRevisionRegister.moveRevision.apply(0L));
 
         SessionId sessionId = qryProc.createSession(PropertiesHelper.emptyHolder());
-        QueryContext context = QueryContext.create(SqlQueryType.ALL);
+        QueryContext context = QueryContext.create(SqlQueryType.ALL, transactions);
 
         var cursors = qryProc.querySingleAsync(
                 sessionId,

@@ -159,8 +159,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                     "Connection is broken"));
         }
 
-        Transaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
-        QueryContext context = createQueryContext(req.getStmtType(), tx);
+        Object txParam = req.autoCommit() ? igniteTransactions : connectionContext.getOrStartTransaction();
+        QueryContext context = createQueryContext(req.getStmtType(), txParam);
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
@@ -181,7 +181,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 });
     }
 
-    private QueryContext createQueryContext(JdbcStatementType stmtType, @Nullable Transaction tx) {
+    private QueryContext createQueryContext(JdbcStatementType stmtType, @Nullable Object tx) {
         switch (stmtType) {
             case ANY_STATEMENT_TYPE:
                 return QueryContext.create(SqlQueryType.ALL, tx);
@@ -266,7 +266,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             String sql,
             Object[] arg
     ) {
-        QueryContext queryContext = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE, tx);
+        QueryContext queryContext = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE, tx == null ? igniteTransactions : tx);
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connCtx.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,

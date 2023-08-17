@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.util.QueryChecker.QueryTemplate;
 import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.provider.Arguments;
@@ -123,6 +124,11 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
             @Override
             protected QueryProcessor getEngine() {
                 return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
+            }
+
+            @Override
+            protected IgniteTransactions transactions() {
+                return CLUSTER_NODES.get(0).transactions();
             }
 
             @Override
