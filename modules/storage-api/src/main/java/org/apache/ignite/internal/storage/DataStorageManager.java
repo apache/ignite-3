@@ -34,6 +34,9 @@ import org.jetbrains.annotations.Nullable;
 
 /** Data storage manager. */
 public class DataStorageManager implements IgniteComponent {
+    // TODO: IGNITE-20237 Make it configurable
+    private static final String DEFAULT_DATA_STORAGE = "aipersist";
+
     /** Mapping: {@link DataStorageModule#name} -> {@link StorageEngine}. */
     private final Map<String, StorageEngine> engines;
 
@@ -68,9 +71,8 @@ public class DataStorageManager implements IgniteComponent {
     }
 
     /** Returns the default data storage. */
-    // TODO: IGNITE-20237 Make it configurable
     public static String defaultDataStorage() {
-        return "aipersist";
+        return DEFAULT_DATA_STORAGE;
     }
 
     /**
