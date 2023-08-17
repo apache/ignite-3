@@ -142,25 +142,25 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
         List<RelDataTypeField> tblFields = targetTable.getRowType().getFieldList();
         List<String> targetFields = targetRowType.getFieldNames();
 
+        int[] mapping = new int[targetFields.size()];
+
+        int pos = 0;
+
+        for (String fld : targetFields) {
+            int tblPos = 0;
+            for (RelDataTypeField tblFld : tblFields) {
+                if (tblFld.getName().equals(fld)) {
+                    mapping[pos++] = tblPos;
+                    break;
+                }
+                ++tblPos;
+            }
+        }
+
         for (SqlNode rowConstructor : values.getOperandList()) {
             SqlCall rowConstructor0 = (SqlCall) rowConstructor;
 
             List<Pair<RexNode, String>> exps = new ArrayList<>(targetFields.size());
-
-            int[] mapping = new int[targetFields.size()];
-
-            int pos = 0;
-
-            for (String fld : targetFields) {
-                int tblPos = 0;
-                for (RelDataTypeField tblFld : tblFields) {
-                    if (tblFld.getName().equals(fld)) {
-                        mapping[pos++] = tblPos;
-                        break;
-                    }
-                    ++tblPos;
-                }
-            }
 
             pos = 0;
             for (String fld : targetFields) {
