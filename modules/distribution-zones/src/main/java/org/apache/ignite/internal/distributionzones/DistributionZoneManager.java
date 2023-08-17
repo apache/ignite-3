@@ -25,6 +25,8 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndUpdateTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
@@ -134,34 +136,10 @@ import org.jetbrains.annotations.TestOnly;
  * Distribution zones manager.
  */
 public class DistributionZoneManager implements IgniteComponent {
-    /** Name of the default distribution zone. */
-    public static final String DEFAULT_ZONE_NAME = "Default";
-
     private static final String DISTRIBUTION_ZONE_MANAGER_POOL_NAME = "dst-zones-scheduler";
 
     /** Id of the default distribution zone. */
     public static final int DEFAULT_ZONE_ID = 0;
-
-    /**
-     * Default filter value for a distribution zone,
-     * which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of nodes.
-     */
-    public static final String DEFAULT_FILTER = "$..*";
-
-    /** Default number of zone replicas. */
-    public static final int DEFAULT_REPLICA_COUNT = 1;
-
-    /** Default number of zone partitions. */
-    public static final int DEFAULT_PARTITION_COUNT = 25;
-
-    /**
-     * Value for the distribution zones' timers which means that data nodes changing for distribution zone
-     * will be started without waiting.
-     */
-    public static final int IMMEDIATE_TIMER_VALUE = 0;
-
-    /** Default infinite value for the distribution zones' timers. */
-    public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
@@ -402,7 +380,8 @@ public class DistributionZoneManager implements IgniteComponent {
                         }
 
                         if (distributionZoneCfg.dataStorageChangeConsumer() == null) {
-                            zoneChange.changeDataStorage(ch -> ch.convert(zonesConfiguration.defaultDataStorage().value()));
+                            // TODO: IGNITE-20114 Delete when switching to the catalog
+                            zoneChange.changeDataStorage(ch -> ch.convert("aipersist"));
                         } else {
                             zoneChange.changeDataStorage(distributionZoneCfg.dataStorageChangeConsumer());
                         }
