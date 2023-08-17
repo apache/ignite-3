@@ -76,7 +76,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -214,10 +213,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Tables configuration. */
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
-
-    /** Distribution zones configuration. */
-    @InjectConfiguration
-    private DistributionZonesConfiguration distributionZonesConfiguration;
 
     /** Garbage collector configuration. */
     @InjectConfiguration

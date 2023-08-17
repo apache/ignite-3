@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distribution.zones;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
@@ -30,16 +31,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.distributionzones.Node;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -418,35 +417,22 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         //Check that stable and pending are null, so there wasn't any rebalance.
         assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
 
-        session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET "
-                + "\"REPLICAS\" = 2");
-
-        DistributionZoneManager distributionZoneManager = (DistributionZoneManager) IgniteTestUtils.getFieldValue(
-                node0,
-                IgniteImpl.class,
-                "distributionZoneManager"
-        );
-
-        DistributionZonesConfiguration distributionZonesConfiguration = (DistributionZonesConfiguration) IgniteTestUtils.getFieldValue(
-                distributionZoneManager,
-                DistributionZoneManager.class,
-                "zonesConfiguration"
-        );
+        session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET \"REPLICAS\" = 2");
 
         CountDownLatch latch = new CountDownLatch(1);
 
-        // We need to be sure, that the first asynchronous configuration change of replica was handled,
+        // We need to be sure, that the first asynchronous catalog change of replica was handled,
         // so we create a listener with a latch, and change replica again and wait for latch, so we can be sure that the first
         // replica was handled.
-        distributionZonesConfiguration.distributionZones().any().replicas().listen(ctx -> {
+        node0.catalogManager().listen(CatalogEvent.ZONE_ALTER, (parameters, exception) -> {
             latch.countDown();
 
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         });
 
         session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET \"REPLICAS\" = 3");
 
-        latch.await(10_000, MILLISECONDS);
+        assertTrue(latch.await(10_000, MILLISECONDS));
 
         //Check that stable and pending are null, so there wasn't any rebalance.
         assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);

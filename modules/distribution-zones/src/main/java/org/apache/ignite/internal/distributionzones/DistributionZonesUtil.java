@@ -21,7 +21,6 @@ import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_FILTER;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -39,12 +38,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
@@ -451,48 +447,6 @@ public class DistributionZonesUtil {
             return bytesToLong(revisionEntry.value());
         } else {
             return INITIAL_TRIGGER_REVISION_VALUE;
-        }
-    }
-
-    /**
-     * Finds a zone configuration from zones configuration by its id.
-     *
-     * @param dstZnsCfg Distribution zones config.
-     * @param zoneId Id of zone.
-     * @return Zone configuration with appropriate zone id.
-     */
-    public static DistributionZoneConfiguration getZoneById(DistributionZonesConfiguration dstZnsCfg, int zoneId) {
-        if (zoneId == DEFAULT_ZONE_ID) {
-            return dstZnsCfg.defaultDistributionZone();
-        }
-
-        for (UUID id : dstZnsCfg.distributionZones().internalIds()) {
-            DistributionZoneConfiguration distributionZoneConfiguration = dstZnsCfg.distributionZones().get(id);
-
-            assert distributionZoneConfiguration != null;
-
-            if (distributionZoneConfiguration.zoneId().value().equals(zoneId)) {
-                return distributionZoneConfiguration;
-            }
-        }
-
-        throw new DistributionZoneNotFoundException(zoneId);
-    }
-
-    /**
-     * Checks if the zone with specified id exists.
-     *
-     * @param dstZnsCfg Distribution zones config.
-     * @param zoneId Id of zone.
-     * @return {@code true} if the zone exists. {@code false} if the zone doesn't exist.
-     */
-    static boolean isZoneExist(DistributionZonesConfiguration dstZnsCfg, int zoneId) {
-        try {
-            getZoneById(dstZnsCfg, zoneId);
-
-            return true;
-        } catch (DistributionZoneNotFoundException e) {
-            return false;
         }
     }
 

@@ -252,7 +252,6 @@ public class DistributionZoneManager implements IgniteComponent {
         // meta storage notification thread that won't start before all components start.
         //noinspection ThisEscapedInObjectConstruction
         rebalanceEngine = new DistributionZoneRebalanceEngine(
-                stopGuard,
                 busyLock,
                 metaStorageManager,
                 this,
