@@ -19,7 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -41,7 +41,6 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -53,7 +52,9 @@ import org.jetbrains.annotations.TestOnly;
  * The another role of the manager is providing a node, which is leaseholder at the moment, for a particular replication group.
  */
 public class PlacementDriverManager implements IgniteComponent {
-    public static final String PLACEMENTDRIVER_LEASES_KEY_STRING = "placementdriver.leases";
+    private static final IgniteLogger LOG = Loggers.forClass(PlacementDriverManager.class);
+
+    private static final String PLACEMENTDRIVER_LEASES_KEY_STRING = "placementdriver.leases";
 
     public static final ByteArray PLACEMENTDRIVER_LEASES_KEY = ByteArray.fromString(PLACEMENTDRIVER_LEASES_KEY_STRING);
 
@@ -61,7 +62,7 @@ public class PlacementDriverManager implements IgniteComponent {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping of the component. */
-    private final AtomicBoolean isStopped = new AtomicBoolean();
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Cluster service. */
     private final ClusterService clusterService;
@@ -88,8 +89,9 @@ public class PlacementDriverManager implements IgniteComponent {
     private final LeaseUpdater leaseUpdater;
 
     /**
-     * The constructor.
+     * Constructor.
      *
+     * @param nodeName Node name.
      * @param metaStorageMgr Meta Storage manager.
      * @param vaultManager Vault manager.
      * @param replicationGroupId Id of placement driver group.
@@ -101,6 +103,7 @@ public class PlacementDriverManager implements IgniteComponent {
      * @param clock Hybrid clock.
      */
     public PlacementDriverManager(
+            String nodeName,
             MetaStorageManager metaStorageMgr,
             VaultManager vaultManager,
             ReplicationGroupId replicationGroupId,
@@ -121,6 +124,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr);
         this.leaseUpdater = new LeaseUpdater(
+                nodeName,
                 clusterService,
                 vaultManager,
                 metaStorageMgr,
@@ -130,47 +134,44 @@ public class PlacementDriverManager implements IgniteComponent {
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
-        placementDriverNodesNamesProvider.get()
-                .thenCompose(placementDriverNodes -> {
-                    String thisNodeName = clusterService.topologyService().localMember().name();
+        inBusyLock(busyLock, () -> {
+            placementDriverNodesNamesProvider.get()
+                    .thenCompose(placementDriverNodes -> {
+                        String thisNodeName = clusterService.topologyService().localMember().name();
 
-                    if (placementDriverNodes.contains(thisNodeName)) {
+                        if (!placementDriverNodes.contains(thisNodeName)) {
+                            return completedFuture(null);
+                        }
+
                         try {
-                            leaseUpdater.init(thisNodeName);
+                            leaseUpdater.init();
 
                             return raftManager.startRaftGroupService(
                                     replicationGroupId,
                                     PeersAndLearners.fromConsistentIds(placementDriverNodes),
                                     topologyAwareRaftGroupServiceFactory
-                                ).thenCompose(client -> client.subscribeLeader(this::onLeaderChange).thenApply(v -> client));
+                            ).thenCompose(client -> client.subscribeLeader(this::onLeaderChange).thenApply(v -> client));
                         } catch (NodeStoppingException e) {
                             return failedFuture(e);
                         }
-                    } else {
-                        return completedFuture(null);
-                    }
-                })
-                .whenComplete((client, ex) -> {
-                    if (ex == null) {
-                        raftClientFuture.complete(client);
-                    } else {
-                        raftClientFuture.completeExceptionally(ex);
-                    }
-                });
+                    })
+                    .whenComplete((client, ex) -> {
+                        if (ex == null) {
+                            raftClientFuture.complete(client);
+                        } else {
+                            raftClientFuture.completeExceptionally(ex);
+                        }
+                    });
 
-        leaseTracker.startTrack();
+            leaseTracker.startTrack();
+        });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void beforeNodeStop() {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-        try {
+        inBusyLock(busyLock, () -> {
             withRaftClientIfPresent(c -> {
                 c.unsubscribeLeader().join();
 
@@ -178,15 +179,12 @@ public class PlacementDriverManager implements IgniteComponent {
             });
 
             leaseTracker.stopTrack();
-        } finally {
-            busyLock.leaveBusy();
-        }
+        });
     }
 
-    /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        if (!isStopped.compareAndSet(false, true)) {
+        if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
 
@@ -206,37 +204,24 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     private void onLeaderChange(ClusterNode leader, long term) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-        try {
+        inBusyLock(busyLock, () -> {
             if (leader.equals(clusterService.topologyService().localMember())) {
-                takeOverActiveActor();
+                takeOverActiveActorBusy();
             } else {
-                stepDownActiveActor();
+                stepDownActiveActorBusy();
             }
-        } finally {
-            busyLock.leaveBusy();
-        }
+        });
     }
 
-    /** The logger. */
-    private static IgniteLogger LOG = Loggers.forClass(PlacementDriverManager.class);
-
-    /**
-     * Takes over active actor of placement driver group.
-     */
-    private void takeOverActiveActor() {
+    /** Takes over active actor of placement driver group. */
+    private void takeOverActiveActorBusy() {
         LOG.info("Placement driver active actor is starting.");
 
         leaseUpdater.activate();
     }
 
-
-    /**
-     * Steps down as active actor.
-     */
-    private void stepDownActiveActor() {
+    /** Steps down as active actor. */
+    private void stepDownActiveActorBusy() {
         LOG.info("Placement driver active actor is stopping.");
 
         leaseUpdater.deactivate();

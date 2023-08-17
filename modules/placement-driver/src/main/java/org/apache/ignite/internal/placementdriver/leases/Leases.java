@@ -15,18 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.storage;
+package org.apache.ignite.internal.placementdriver.leases;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.util.Map;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-/**
- * An annotation to check that the value is equal to the {@link DataStorageConfigurationSchema#name name} of one of the {@link
- * DataStorageConfigurationSchema data storages}.
- */
-@Target(ElementType.FIELD)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface ExistingDataStorage {
+/** Leases received from the metastore. */
+public class Leases {
+    private final Map<ReplicationGroupId, Lease> leaseByGroupId;
+
+    private final byte[] leasesBytes;
+
+    Leases(Map<ReplicationGroupId, Lease> leaseByGroupId, byte[] leasesBytes) {
+        this.leaseByGroupId = leaseByGroupId;
+        this.leasesBytes = leasesBytes;
+    }
+
+    /** Returns leases grouped by replication group. */
+    public Map<ReplicationGroupId, Lease> leaseByGroupId() {
+        return leaseByGroupId;
+    }
+
+    /** Returns an array of byte leases from the metastore. */
+    public byte[] leasesBytes() {
+        return leasesBytes;
+    }
 }

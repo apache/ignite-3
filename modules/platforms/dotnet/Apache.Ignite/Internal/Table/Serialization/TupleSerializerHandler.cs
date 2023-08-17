@@ -94,7 +94,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             if (record.FieldCount > written)
             {
-                var extraColumns = new HashSet<string>(record.FieldCount);
+                var extraColumns = new HashSet<string>(record.FieldCount, StringComparer.OrdinalIgnoreCase);
                 for (int i = 0; i < record.FieldCount; i++)
                 {
                     var name = record.GetName(i);
@@ -112,9 +112,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     extraColumns.Remove(schema.Columns[i].Name);
                 }
 
-                throw new ArgumentException(
-                    $"Tuple doesn't match schema: schemaVersion={schema.Version}, extraColumns={extraColumns.StringJoin()}",
-                    nameof(record));
+                throw SerializerExceptionExtensions.GetUnmappedColumnsException("Tuple", schema, extraColumns);
             }
         }
     }

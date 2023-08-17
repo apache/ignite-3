@@ -451,6 +451,7 @@ public class IgniteImpl implements Ignite {
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));
 
         placementDriverMgr = new PlacementDriverManager(
+                name,
                 metaStorageMgr,
                 vaultMgr,
                 MetastorageGroupId.INSTANCE,
@@ -483,7 +484,6 @@ public class IgniteImpl implements Ignite {
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
         dataStorageMgr = new DataStorageManager(
-                zonesConfig,
                 dataStorageModules.createStorageEngines(
                         name,
                         clusterConfigRegistry,

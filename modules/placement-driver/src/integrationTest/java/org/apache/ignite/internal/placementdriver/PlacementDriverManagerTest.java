@@ -34,8 +34,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -53,7 +51,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -61,7 +58,6 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
-import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
@@ -69,10 +65,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -95,7 +88,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * There are tests for Placement driver manager.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class PlacementDriverManagerTest extends IgniteAbstractTest {
+public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     public static final int PORT = 1234;
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
@@ -118,12 +111,6 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
-
-    @InjectConfiguration
-    private TablesConfiguration tblsCfg;
-
-    @InjectConfiguration("mock.distributionZones {zone1 = { partitions = 1, replicas = 2, zoneId = 1}}")
-    private DistributionZonesConfiguration dstZnsCfg;
 
     @InjectConfiguration
     private MetaStorageConfiguration metaStorageConfiguration;
@@ -205,11 +192,12 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
         );
 
         placementDriverManager = new PlacementDriverManager(
+                nodeName,
                 metaStorageManager,
                 vaultManager,
                 MetastorageGroupId.INSTANCE,
                 clusterService,
-                () -> cmgManager.metaStorageNodes(),
+                cmgManager::metaStorageNodes,
                 logicalTopologyService,
                 raftManager,
                 topologyAwareRaftGroupServiceFactory,
@@ -477,22 +465,9 @@ public class PlacementDriverManagerTest extends IgniteAbstractTest {
      * Creates an assignment for the fake table.
      *
      * @return Replication group id.
-     * @throws Exception If failed.
      */
-    private TablePartitionId createTableAssignment() throws Exception {
-        int tableId = nextTableId.incrementAndGet();
-
-        var grpPart0 = new TablePartitionId(tableId, 0);
-
-        log.info("Fake table created [id={}, repGrp={}]", tableId, grpPart0);
-
-        return grpPart0;
-    }
-
-    private Lease leaseFromBytes(byte[] bytes, ReplicationGroupId groupId) {
-        LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN));
-
-        return leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(groupId)).findAny().orElse(null);
+    private TablePartitionId createTableAssignment() {
+        return createTableAssignment(metaStorageManager, nextTableId.incrementAndGet(), List.of(nodeName, anotherNodeName));
     }
 
     /**

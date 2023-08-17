@@ -28,7 +28,6 @@ import org.junit.jupiter.api.Test;
  * Tests for cluster/node config commands.
  */
 class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
-
     @Test
     @DisplayName("Should read config when valid cluster-endpoint-url is given")
     void readDefaultConfig() {
@@ -47,7 +46,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
     @DisplayName("Should update config with hocon format when valid cluster-endpoint-url is given")
     void addConfigKeyValue() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "{zone: {defaultDataStorage: rocksdb}}");
+        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "{metaStorage: {idleSyncTimeInterval: 1000}}");
 
         // Then
         assertAll(
@@ -63,7 +62,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"defaultDataStorage\" : \"rocksdb\"")
+                () -> assertOutputContains("\"idleSyncTimeInterval\" : 1000")
         );
     }
 
@@ -96,7 +95,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
     @DisplayName("Should update config with key-value format when valid cluster-endpoint-url is given")
     void updateConfigWithSpecifiedPath() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "zone.defaultDataStorage=rocksdb");
+        execute("cluster", "config", "update", "--cluster-endpoint-url", NODE_URL, "metaStorage.idleSyncTimeInterval=2000");
 
         // Then
         assertAll(
@@ -112,7 +111,7 @@ class ItConfigCommandTest extends CliCommandTestInitializedIntegrationBase {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("\"defaultDataStorage\" : \"rocksdb\"")
+                () -> assertOutputContains("\"idleSyncTimeInterval\" : 2000")
         );
     }
 }
