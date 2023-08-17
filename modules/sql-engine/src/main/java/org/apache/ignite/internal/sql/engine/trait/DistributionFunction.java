@@ -72,8 +72,8 @@ public abstract class DistributionFunction {
      * Creates a destination based on this function algorithm, given nodes mapping and given distribution keys.
      *
      * @param hashFuncFactory Factory to create a hash function for the row, from which the destination nodes are calculated.
-     * @param group Target mapping.
-     * @param keys Distribution keys.
+     * @param group           Target mapping.
+     * @param keys            Distribution keys.
      * @return Destination function.
      */
     abstract <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup group, ImmutableIntList keys);
@@ -258,7 +258,7 @@ public abstract class DistributionFunction {
          * Constructor.
          *
          * @param tableId Table ID.
-         * @param zoneId Distribution zone ID.
+         * @param zoneId  Distribution zone ID.
          */
         private AffinityDistribution(int tableId, Object zoneId) {
             this.zoneId = zoneId;
@@ -292,7 +292,7 @@ public abstract class DistributionFunction {
     }
 
     /**
-     * Affinity distribution function, which treats column value as valid destination.
+     * Distribution function, which treats column value as a destination.
      */
     public static final class IdentityDistribution extends DistributionFunction {
         public static final DistributionFunction INSTANCE = new IdentityDistribution();
@@ -312,7 +312,7 @@ public abstract class DistributionFunction {
         /** {@inheritDoc} */
         @Override
         <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup group, ImmutableIntList keys) {
-            //TODO: IGNITE-20246 Fix method signature.
+            //TODO: IGNITE-20246 Fix method signature. RowHandler should be here instead of HashFunctionFactory.
             throw new UnsupportedOperationException("Not implemented yet.");
         }
 

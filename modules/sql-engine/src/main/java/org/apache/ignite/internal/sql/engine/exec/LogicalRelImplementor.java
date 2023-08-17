@@ -161,7 +161,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     }
 
     private Destination<RowT> getDestination(IgniteDistribution distribution) {
-        //TODO: IGNITE-20246 Drop this hack
+        //TODO: IGNITE-20246 Drop this workaround for bad `distribution.destination` method signature.
         if (distribution.function() instanceof IdentityDistribution) {
             IdentityDistribution function = (IdentityDistribution) distribution.function();
             return function.destination(ctx.rowHandler(), ctx.target(), distribution.getKeys());

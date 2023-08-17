@@ -112,7 +112,7 @@ public class IgniteDistributions {
     /**
      * Creates an identity distribution that calculates destinations based on a raw value of the row field.
      *
-     * @param key     Distribution key ordinal.
+     * @param key Distribution key ordinal.
      * @return Identity distribution.
      */
     public static IgniteDistribution identity(int key) {
