@@ -73,7 +73,6 @@ public class IdentityDistributionFunctionSelfTest {
         assertThat(destination.targets(), containsInAnyOrder(NODE_1, NODE_2, NODE_3));
     }
 
-    // TODO create a ticket to unmute this.
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20246")
     @Test
     public void distributionTrait() {
