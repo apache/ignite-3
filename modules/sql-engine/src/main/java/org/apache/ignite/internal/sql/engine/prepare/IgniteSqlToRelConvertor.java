@@ -147,28 +147,34 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
 
             List<Pair<RexNode, String>> exps = new ArrayList<>(targetFields.size());
 
+            int mapping[] = new int[targetFields.size()];
+
             int pos = 0;
-            int rowPos = 0;
-            for (RelDataTypeField fld : tblFields) {
-                if (fld.getName().equals(targetFields.get(rowPos))) {
-                    SqlNode operand = rowConstructor0.getOperandList().get(rowPos);
 
-                    if (operand.getKind() == SqlKind.DEFAULT) {
-                        RexNode def = ignTable.descriptor().newColumnDefaultValue(targetTable, pos, bb);
-
-                        exps.add(Pair.of(def, SqlValidatorUtil.alias(operand, pos)));
-                    } else {
-                        exps.add(Pair.of(bb.convertExpression(operand), SqlValidatorUtil.alias(operand, pos)));
-                    }
-
-                    rowPos++;
-
-                    if (rowPos == targetFields.size()) {
+            for (String fld : targetFields) {
+                int tblPos = 0;
+                for (RelDataTypeField tblFld : tblFields) {
+                    if (tblFld.getName().equals(fld)) {
+                        mapping[pos++] = tblPos;
                         break;
                     }
+                    ++tblPos;
+                }
+            }
+
+            pos = 0;
+            for (String fld : targetFields) {
+                SqlNode operand = rowConstructor0.getOperandList().get(pos);
+
+                if (operand.getKind() == SqlKind.DEFAULT) {
+                    RexNode def = ignTable.descriptor().newColumnDefaultValue(targetTable, mapping[pos], bb);
+
+                    exps.add(Pair.of(def, SqlValidatorUtil.alias(operand, pos)));
+                } else {
+                    exps.add(Pair.of(bb.convertExpression(operand), SqlValidatorUtil.alias(operand, pos)));
                 }
 
-                pos++;
+                ++pos;
             }
 
             RelNode in = (null == bb.root) ? LogicalValues.createOneRow(cluster) : bb.root;
