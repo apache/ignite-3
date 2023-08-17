@@ -85,7 +85,7 @@ public class IdentityDistributionFunctionSelfTest {
 
         // Valid row.
         assertThat(destination.targets(row).size(), equalTo(1));
-        assertThat(destination.targets(row), Matchers.contains(NODE_2));
+        assertThat(destination.targets(row), Matchers.contains(NODE_1));
 
         // Invalid row.
         assertThat(destination.targets(otherRow), empty());
@@ -109,7 +109,7 @@ public class IdentityDistributionFunctionSelfTest {
 
         // Valid row.
         assertThat(destination.targets(row).size(), equalTo(1));
-        assertThat(destination.targets(row), Matchers.contains(NODE_2));
+        assertThat(destination.targets(row), Matchers.contains(NODE_1));
 
         // Invalid row.
         assertThat(destination.targets(otherRow), empty());
