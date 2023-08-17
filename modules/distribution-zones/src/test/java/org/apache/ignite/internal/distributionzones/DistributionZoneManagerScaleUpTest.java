@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesForZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesForZoneWithAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
@@ -79,8 +79,6 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
     private static final Node D  = new Node("D", "id_D");
 
     private static final Node E  = new Node("E", "id_E");
-
-    private long prerequisiteRevision;
 
     @Test
     void testDataNodesPropagationAfterScaleUpTriggered() throws Exception {
@@ -1047,7 +1045,5 @@ public class DistributionZoneManagerScaleUpTest extends BaseDistributionZoneMana
 
         assertEquals(scaleUpChangeTriggerKey, scaleDownChangeTriggerKey,
                 "zoneScaleUpChangeTriggerKey and zoneScaleDownChangeTriggerKey are not equal");
-
-        prerequisiteRevision = scaleUpChangeTriggerKey;
     }
 }

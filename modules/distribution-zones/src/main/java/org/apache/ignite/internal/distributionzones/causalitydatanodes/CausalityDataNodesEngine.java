@@ -20,8 +20,7 @@ package org.apache.ignite.internal.distributionzones.causalitydatanodes;
 import static java.lang.Math.max;
 import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
@@ -135,10 +134,6 @@ public class CausalityDataNodesEngine {
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int zoneId) {
         if (causalityToken < 1) {
             throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
-        }
-
-        if (zoneId < DEFAULT_ZONE_ID) {
-            throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
         }
 
         return inBusyLock(busyLock, () -> {

@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
@@ -117,37 +118,9 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Distribution zones manager.
  */
-// TODO: IGNITE-20114 избавиться от констант
 public class DistributionZoneManager implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
-
-    /** Name of the default distribution zone. */
-    public static final String DEFAULT_ZONE_NAME = "Default";
-
-    /** Id of the default distribution zone. */
-    public static final int DEFAULT_ZONE_ID = 0;
-
-    /**
-     * Default filter value for a distribution zone,
-     * which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of nodes.
-     */
-    public static final String DEFAULT_FILTER = "$.+";
-
-    /** Default number of zone replicas. */
-    public static final int DEFAULT_REPLICA_COUNT = 1;
-
-    /** Default number of zone partitions. */
-    public static final int DEFAULT_PARTITION_COUNT = 25;
-
-    /**
-     * Value for the distribution zones' timers which means that data nodes changing for distribution zone
-     * will be started without waiting.
-     */
-    public static final int IMMEDIATE_TIMER_VALUE = 0;
-
-    /** Default infinite value for the distribution zones' timers. */
-    public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
 
     /** Meta Storage manager. */
     private final MetaStorageManager metaStorageManager;
@@ -322,9 +295,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
         long causalityToken = parameters.causalityToken();
 
-        // TODO: IGNITE-20114 редактировать комментарий
         // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
-        // and this map will be initialized on a manager start or with onCreate configuration notification
+        // and this map will be initialized on a manager start or with catalog notification
         ZoneState zoneState = zonesState.get(zoneId);
 
         if (newScaleUp != INFINITE_TIMER_VALUE) {
@@ -357,9 +329,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
         long causalityToken = parameters.causalityToken();
 
-        // TODO: IGNITE-20114 редактировать комментарий
         // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
-        // and this map will be initialized on a manager start or with onCreate configuration notification
+        // and this map will be initialized on a manager start or with catalog notification
         ZoneState zoneState = zonesState.get(zoneId);
 
         if (newScaleDown != INFINITE_TIMER_VALUE) {
