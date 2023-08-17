@@ -57,7 +57,7 @@ public class SchemaValidationTest : IgniteTestsBase
         };
 
         var ex = Assert.ThrowsAsync<ArgumentException>(async () => await TupleView.UpsertAsync(null, igniteTuple));
-        StringAssert.StartsWith("Tuple doesn't match schema: schemaVersion=1, extraColumns=FOO, BAR ", ex!.Message);
+        Assert.AreEqual("Tuple doesn't match schema: schemaVersion=1, extraColumns=FOO, BAR", ex!.Message);
     }
 
     [Test]
@@ -76,7 +76,7 @@ public class SchemaValidationTest : IgniteTestsBase
 
         var kvView = Table.KeyValueBinaryView;
         var ex = Assert.ThrowsAsync<ArgumentException>(async () => await kvView.PutAsync(null, keyTuple, valTuple));
-        StringAssert.StartsWith("Tuple pair doesn't match schema: schemaVersion=1, extraColumns=BAR ", ex!.Message);
+        Assert.AreEqual("Tuple pair doesn't match schema: schemaVersion=1, extraColumns=BAR", ex!.Message);
     }
 
     [Test]
@@ -95,7 +95,7 @@ public class SchemaValidationTest : IgniteTestsBase
 
         var kvView = Table.KeyValueBinaryView;
         var ex = Assert.ThrowsAsync<ArgumentException>(async () => await kvView.PutAsync(null, keyTuple, valTuple));
-        StringAssert.StartsWith("Tuple pair doesn't match schema: schemaVersion=1, extraColumns=BAZ ", ex!.Message);
+        Assert.AreEqual("Tuple pair doesn't match schema: schemaVersion=1, extraColumns=BAZ", ex!.Message);
     }
 
     [Test]
