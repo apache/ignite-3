@@ -57,7 +57,6 @@ import org.apache.ignite.raft.jraft.rpc.impl.core.InstallSnapshotRequestProcesso
 import org.apache.ignite.raft.jraft.rpc.impl.core.ReadIndexRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.RequestVoteRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.TimeoutNowRequestProcessor;
-import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -90,7 +89,6 @@ public class IgniteRpcServer implements RpcServer<Void> {
             Executor rpcExecutor,
             RaftServiceEventInterceptor serviceEventInterceptor,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
-            Marshaller commandsMarshaller,
             AppendEntriesRequestInterceptor appendEntriesRequestFilter
     ) {
         this.service = service;
@@ -99,9 +97,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
 
         // raft server RPC
         AppendEntriesRequestProcessor appendEntriesRequestProcessor =
-            new InterceptingAppendEntriesRequestProcessor(
-                    rpcExecutor, raftMessagesFactory, commandsMarshaller, appendEntriesRequestFilter
-            );
+            new InterceptingAppendEntriesRequestProcessor(rpcExecutor, raftMessagesFactory,  appendEntriesRequestFilter);
         registerConnectionClosedEventListener(appendEntriesRequestProcessor);
         registerProcessor(appendEntriesRequestProcessor);
         registerProcessor(new GetFileRequestProcessor(rpcExecutor, raftMessagesFactory));
@@ -124,7 +120,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new RemoveLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ResetLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         // common client integration
-        registerProcessor(new ActionRequestProcessor(rpcExecutor, raftMessagesFactory, commandsMarshaller));
+        registerProcessor(new ActionRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new NotifyElectProcessor(raftMessagesFactory, serviceEventInterceptor));
         registerProcessor(new RaftGroupEventsProcessor(raftGroupEventsClientListener));
 

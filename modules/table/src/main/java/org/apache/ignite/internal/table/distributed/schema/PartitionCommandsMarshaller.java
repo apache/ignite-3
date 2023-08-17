@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.rpc.impl;
+package org.apache.ignite.internal.table.distributed.schema;
 
-import org.apache.ignite.raft.jraft.rpc.Message;
-import org.apache.ignite.raft.jraft.rpc.RaftServerService;
-import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
-import org.jetbrains.annotations.Nullable;
+import java.nio.ByteBuffer;
+import org.apache.ignite.raft.jraft.util.Marshaller;
 
 /**
- * An {@link AppendEntriesRequestInterceptor} that never intercepts anything and always asks the standard handling
- * to be used.
+ * {@link Marshaller} that first writes some metadata about an object and then it writes the actual serialized
+ * representation of the object.
  */
-public class NullAppendEntriesRequestInterceptor implements AppendEntriesRequestInterceptor {
-    @Override
-    public @Nullable Message intercept(RaftServerService service, AppendEntriesRequest request, RpcRequestClosure done) {
-        return null;
-    }
+public interface PartitionCommandsMarshaller extends Marshaller {
+    /**
+     * Reads required catalog version from the provided buffer.
+     *
+     * @param raw Buffer to read from.
+     * @return Catalog version.
+     */
+    int readRequiredCatalogVersion(ByteBuffer raw);
 }

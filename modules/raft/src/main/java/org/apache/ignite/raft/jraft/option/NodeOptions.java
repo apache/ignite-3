@@ -17,13 +17,11 @@
 package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
-import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -38,6 +36,7 @@ import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.util.Copiable;
+import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
@@ -45,7 +44,6 @@ import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Node options.
@@ -257,6 +255,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      * Apply task in blocking or non-blocking mode, ApplyTaskMode.NonBlocking by default.
      */
     private ApplyTaskMode applyTaskMode = ApplyTaskMode.NonBlocking;
+
+    private Marshaller commandsMarshaller;
 
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
@@ -665,6 +665,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setRpcInstallSnapshotTimeout(this.getRpcInstallSnapshotTimeout());
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
         nodeOptions.setClock(this.getClock());
+        nodeOptions.setCommandsMarshaller(this.getCommandsMarshaller());
 
         return nodeOptions;
     }
@@ -703,5 +704,17 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setElectionTimeoutStrategy(TimeoutStrategy electionTimeoutStrategy) {
         this.electionTimeoutStrategy = electionTimeoutStrategy;
+    }
+
+    public Marshaller getCommandsMarshaller() {
+        return commandsMarshaller;
+    }
+
+    public void setCommandsMarshaller(Marshaller commandsMarshaller) {
+        this.commandsMarshaller = commandsMarshaller;
+    }
+
+    public Marshaller requiredCommandsMarshaller() {
+        return Objects.requireNonNull(commandsMarshaller);
     }
 }

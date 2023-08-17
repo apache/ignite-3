@@ -44,10 +44,10 @@ public class OptimizedMarshaller implements Marshaller {
     private static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
 
     /** Buffer to write data. */
-    private ByteBuffer buffer = ByteBuffer.allocate(DEFAULT_BUFFER_SIZE).order(ORDER);
+    protected ByteBuffer buffer = ByteBuffer.allocate(DEFAULT_BUFFER_SIZE).order(ORDER);
 
     /** Direct byte-buffer stream instance. */
-    private final OptimizedStream stream;
+    protected final OptimizedStream stream;
 
     /** Message writer. */
     private final MessageWriter messageWriter;
@@ -88,8 +88,6 @@ public class OptimizedMarshaller implements Marshaller {
 
         NetworkMessage message = (NetworkMessage) o;
 
-        buffer.position(0);
-
         while (true) {
             stream.setBuffer(buffer);
 
@@ -102,7 +100,11 @@ public class OptimizedMarshaller implements Marshaller {
             buffer = expandBuffer(buffer);
         }
 
-        return Arrays.copyOf(buffer.array(), buffer.position());
+        byte[] result = Arrays.copyOf(buffer.array(), buffer.position());
+
+        buffer.position(0);
+
+        return result;
     }
 
     @SuppressWarnings("unchecked")

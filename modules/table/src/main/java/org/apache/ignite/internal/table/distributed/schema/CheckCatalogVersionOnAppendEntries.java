@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.table.distributed.command.CatalogLevelAware;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
@@ -54,12 +52,7 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
 
     @Override
     @Nullable
-    public Message intercept(
-            RaftServerService service,
-            AppendEntriesRequest request,
-            Marshaller commandsMarshaller,
-            RpcRequestClosure done
-    ) {
+    public Message intercept(RaftServerService service, AppendEntriesRequest request, RpcRequestClosure done) {
         if (request.entriesList() == null || request.data() == null) {
             return null;
         }
@@ -67,10 +60,10 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
         Node node = (Node) service;
 
         ByteBuffer allData = request.data().asReadOnlyByteBuffer();
+        int offset = 0;
 
-        final Collection<EntryMeta> entriesList = request.entriesList();
-        for (RaftOutter.EntryMeta entry : entriesList) {
-            int requiredCatalogVersion = readRequiredCatalogVersionForMeta(allData, entry, commandsMarshaller);
+        for (RaftOutter.EntryMeta entry : request.entriesList()) {
+            int requiredCatalogVersion = readRequiredCatalogVersionForMeta(allData, entry, node.getOptions().requiredCommandsMarshaller());
 
             if (requiredCatalogVersion != NO_LEVEL_REQUIREMENT && !isMetadataAvailableFor(requiredCatalogVersion)) {
                 LOG.warn("Metadata not yet available, group {}, required level {}.", request.groupId(), requiredCatalogVersion);
@@ -78,26 +71,28 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
                     .newResponse(node.getRaftOptions().getRaftMessagesFactory(), RaftError.EBUSY,
                             "Metadata not yet available, group '%s', required level %d.", request.groupId(), requiredCatalogVersion);
             }
+
+            offset += (int) entry.dataLen();
+            allData.position(offset);
         }
 
         return null;
     }
 
-    private int readRequiredCatalogVersionForMeta(ByteBuffer allData, final EntryMeta entry, Marshaller commandsMarshaller) {
+    private static int readRequiredCatalogVersionForMeta(ByteBuffer allData, final EntryMeta entry, Marshaller commandsMarshaller) {
         if (entry.type() != EntryType.ENTRY_TYPE_DATA) {
             return NO_LEVEL_REQUIREMENT;
         }
 
+        if (!(commandsMarshaller instanceof PartitionCommandsMarshaller)) {
+            return NO_LEVEL_REQUIREMENT;
+        }
+
+        PartitionCommandsMarshaller partitionCommandsMarshaller = (PartitionCommandsMarshaller) commandsMarshaller;
+
         long dataLen = entry.dataLen();
         if (dataLen > 0) {
-            byte[] bs = new byte[(int) dataLen];
-            assert allData != null;
-            allData.get(bs, 0, bs.length);
-            Object command = commandsMarshaller.unmarshall(ByteBuffer.wrap(bs));
-
-            if (command instanceof CatalogLevelAware) {
-                return ((CatalogLevelAware) command).requiredCatalogVersion();
-            }
+            return partitionCommandsMarshaller.readRequiredCatalogVersion(allData);
         }
 
         return NO_LEVEL_REQUIREMENT;

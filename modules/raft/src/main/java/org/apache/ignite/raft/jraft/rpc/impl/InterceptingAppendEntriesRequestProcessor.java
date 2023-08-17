@@ -24,7 +24,6 @@ import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor;
-import org.apache.ignite.raft.jraft.util.Marshaller;
 
 /**
  * Extension of the standard {@link AppendEntriesRequestProcessor} that allows to add some interception logic.
@@ -32,23 +31,21 @@ import org.apache.ignite.raft.jraft.util.Marshaller;
  * @see AppendEntriesRequestInterceptor
  */
 public class InterceptingAppendEntriesRequestProcessor extends AppendEntriesRequestProcessor {
-    private final Marshaller commandsMarshaller;
     private final AppendEntriesRequestInterceptor interceptor;
 
     /**
      * Constructor.
      */
     public InterceptingAppendEntriesRequestProcessor(Executor executor, RaftMessagesFactory msgFactory,
-            Marshaller commandsMarshaller, AppendEntriesRequestInterceptor interceptor) {
+            AppendEntriesRequestInterceptor interceptor) {
         super(executor, msgFactory);
 
-        this.commandsMarshaller = commandsMarshaller;
         this.interceptor = interceptor;
     }
 
     @Override
     public Message processRequest0(RaftServerService service, AppendEntriesRequest request, RpcRequestClosure done) {
-        Message result = interceptor.intercept(service, request, commandsMarshaller, done);
+        Message result = interceptor.intercept(service, request,  done);
 
         if (result != null) {
             return result;

@@ -21,7 +21,6 @@ import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
-import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,10 +33,9 @@ public interface AppendEntriesRequestInterceptor {
      *
      * @param service Server service.
      * @param request Request in question.
-     * @param commandsMarshaller Marshaller used to marshal/unmarshal commands (might be needed for request inspection).
      * @param done Done closure.
      * @return A message to return to the caller, or {@code null} if standard handling should be used.
      */
     @Nullable
-    Message intercept(RaftServerService service, AppendEntriesRequest request, Marshaller commandsMarshaller, RpcRequestClosure done);
+    Message intercept(RaftServerService service, AppendEntriesRequest request,  RpcRequestClosure done);
 }

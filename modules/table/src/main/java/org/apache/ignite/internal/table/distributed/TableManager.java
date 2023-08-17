@@ -167,6 +167,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -199,6 +200,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
+import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -290,7 +292,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
-     * Only explicitly updated in {@link #createTablePartitionsLocally(long, List, int, TableImpl)}.
+     * Only explicitly updated in {@link #createTablePartitionsLocally(long, CompletableFuture, int, TableImpl)}.
      * Completed strictly after {@link #localPartsByTableIdVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
@@ -379,6 +381,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final IndexBuilder indexBuilder;
 
     private final ConfiguredTablesCache configuredTablesCache;
+
+    private final Marshaller raftCommandsMarshaller;
 
     /**
      * Creates a new table manager.
@@ -507,6 +511,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         indexBuilder = new IndexBuilder(nodeName, cpus);
 
         configuredTablesCache = new ConfiguredTablesCache(tablesCfg, getMetadataLocallyOnly);
+
+        raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
     }
 
     @Override
@@ -1089,6 +1095,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 ),
                 incomingSnapshotsExecutor
         ));
+
+        raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
 
         return raftGroupOptions;
     }

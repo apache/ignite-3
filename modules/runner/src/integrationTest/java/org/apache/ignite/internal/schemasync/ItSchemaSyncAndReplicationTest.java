@@ -71,21 +71,25 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
         WatchListenerInhibitor listenerInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(nodeToInhibitMetaStorage);
         listenerInhibitor.startInhibit();
 
-        CountDownLatch rejectionTriggered = rejectionDueToMetadataLagTriggered();
+        try {
+            CountDownLatch rejectionTriggered = rejectionDueToMetadataLagTriggered();
 
-        updateTableSchemaAt(notInhibitedNodeIndex);
-        putToTableAt(notInhibitedNodeIndex);
+            updateTableSchemaAt(notInhibitedNodeIndex);
+            putToTableAt(notInhibitedNodeIndex);
 
-        assertTrue(rejectionTriggered.await(10, TimeUnit.SECONDS), "Did not see rejections due to lagging metadata");
+            assertTrue(rejectionTriggered.await(10, TimeUnit.SECONDS), "Did not see rejections due to lagging metadata");
 
-        assertTrue(solePartitionIsEmpty(nodeToInhibitMetaStorage), "Something was written to the partition");
+            assertTrue(solePartitionIsEmpty(nodeToInhibitMetaStorage), "Something was written to the partition");
 
-        listenerInhibitor.stopInhibit();
+            listenerInhibitor.stopInhibit();
 
-        assertTrue(
-                waitForCondition(() -> !solePartitionIsEmpty(nodeToInhibitMetaStorage), 10_000),
-                "Nothing was written to partition even after inhibiting was cancelled"
-        );
+            assertTrue(
+                    waitForCondition(() -> !solePartitionIsEmpty(nodeToInhibitMetaStorage), 10_000),
+                    "Nothing was written to partition even after inhibiting was cancelled"
+            );
+        } finally {
+            listenerInhibitor.stopInhibit();
+        }
     }
 
     private void createTestTableWith3Replicas() throws InterruptedException {

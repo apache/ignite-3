@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.server.impl;
 
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
@@ -124,7 +125,7 @@ public class JraftServerImpl implements RaftServer {
     private ExecutorService requestExecutor;
 
     /** Marshaller for RAFT commands. */
-    private final Marshaller commandsMarshaller;
+    private final Marshaller defaultCommandsMarshaller;
 
     /** Raft service event interceptor. */
     private final RaftServiceEventInterceptor serviceEventInterceptor;
@@ -193,7 +194,7 @@ public class JraftServerImpl implements RaftServer {
 
         startGroupInProgressMonitors = Collections.unmodifiableList(monitors);
 
-        commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
+        defaultCommandsMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
         serviceEventInterceptor = new RaftServiceEventInterceptor();
     }
 
@@ -253,7 +254,6 @@ public class JraftServerImpl implements RaftServer {
                 requestExecutor,
                 serviceEventInterceptor,
                 raftGroupEventsClientListener,
-                commandsMarshaller,
                 appendEntriesRequestInterceptor
         );
 
@@ -439,6 +439,9 @@ public class JraftServerImpl implements RaftServer {
             nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
 
             nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
+
+            Marshaller commandsMarshaller = requireNonNullElse(groupOptions.commandsMarshaller(), defaultCommandsMarshaller);
+            nodeOptions.setCommandsMarshaller(commandsMarshaller);
 
             nodeOptions.setFsm(new DelegatingStateMachine(lsnr, commandsMarshaller));
 
