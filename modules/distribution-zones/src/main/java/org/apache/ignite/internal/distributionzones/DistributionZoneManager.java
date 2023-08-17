@@ -398,7 +398,8 @@ public class DistributionZoneManager implements IgniteComponent {
                         }
 
                         if (distributionZoneCfg.dataStorageChangeConsumer() == null) {
-                            zoneChange.changeDataStorage(ch -> ch.convert(zonesConfiguration.defaultDataStorage().value()));
+                            // TODO: IGNITE-20114 Delete when switching to the catalog
+                            zoneChange.changeDataStorage(ch -> ch.convert("aipersist"));
                         } else {
                             zoneChange.changeDataStorage(distributionZoneCfg.dataStorageChangeConsumer());
                         }

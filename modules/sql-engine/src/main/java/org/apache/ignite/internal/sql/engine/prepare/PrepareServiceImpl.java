@@ -116,7 +116,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return new PrepareServiceImpl(
                 nodeName,
                 cacheSize,
-                new DdlSqlToCommandConverter(dataStorageFields, dataStorageManager::defaultDataStorage),
+                new DdlSqlToCommandConverter(dataStorageFields, DataStorageManager::defaultDataStorage),
                 DEFAULT_PLANNER_TIMEOUT,
                 metricManager
         );

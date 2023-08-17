@@ -326,7 +326,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         DistributionZonesConfiguration zonesConfig = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         DataStorageManager dataStorageManager = new DataStorageManager(
-                zonesConfig,
                 dataStorageModules.createStorageEngines(
                         name,
                         clusterConfigRegistry,

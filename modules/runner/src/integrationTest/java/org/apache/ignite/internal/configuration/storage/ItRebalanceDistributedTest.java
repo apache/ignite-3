@@ -791,12 +791,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             Path storagePath = dir.resolve("storage");
 
             dataStorageMgr = new DataStorageManager(
-                    zonesCfg,
                     dataStorageModules.createStorageEngines(
                             name,
                             clusterConfigRegistry,
                             dir.resolve("storage"),
-                            null));
+                            null
+                    )
+            );
 
             baselineMgr = new BaselineManager(
                     clusterCfgMgr,
