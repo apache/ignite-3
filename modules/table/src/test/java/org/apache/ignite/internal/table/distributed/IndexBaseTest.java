@@ -66,9 +66,9 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
 
-    private static final BinaryTupleSchema TUPLE_SCHEMA = BinaryTupleSchema.createRowSchema(schemaDescriptor);
+    private static final BinaryTupleSchema TUPLE_SCHEMA = BinaryTupleSchema.createRowSchema(SCHEMA_DESCRIPTOR);
 
-    private static final BinaryTupleSchema PK_INDEX_SCHEMA = BinaryTupleSchema.createKeySchema(schemaDescriptor);
+    private static final BinaryTupleSchema PK_INDEX_SCHEMA = BinaryTupleSchema.createKeySchema(SCHEMA_DESCRIPTOR);
 
     private static final ColumnsExtractor PK_INDEX_BINARY_TUPLE_CONVERTER = new ColumnsExtractor() {
         private final BinaryRowConverter converter = new BinaryRowConverter(TUPLE_SCHEMA, PK_INDEX_SCHEMA);
@@ -85,11 +85,11 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     };
 
     private static final int[] USER_INDEX_COLS = {
-            schemaDescriptor.column("INTVAL").schemaIndex(),
-            schemaDescriptor.column("STRVAL").schemaIndex()
+            SCHEMA_DESCRIPTOR.column("INTVAL").schemaIndex(),
+            SCHEMA_DESCRIPTOR.column("STRVAL").schemaIndex()
     };
 
-    private static final BinaryTupleSchema USER_INDEX_SCHEMA = BinaryTupleSchema.createSchema(schemaDescriptor, USER_INDEX_COLS);
+    private static final BinaryTupleSchema USER_INDEX_SCHEMA = BinaryTupleSchema.createSchema(SCHEMA_DESCRIPTOR, USER_INDEX_COLS);
 
     private static final ColumnsExtractor USER_INDEX_BINARY_TUPLE_CONVERTER = new ColumnsExtractor() {
         private final BinaryRowConverter converter = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
