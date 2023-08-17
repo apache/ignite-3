@@ -93,6 +93,7 @@ docker = "com.palantir.docker:0.34.0"
 checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:7.2.13"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.5.1"
+ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.7"
 
 [libraries]
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }

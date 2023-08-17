@@ -19,7 +19,7 @@
 //This need for resolving plugins in buildscripts
 plugins {
     id('idea')
-    id 'org.jetbrains.gradle.plugin.idea-ext' version '1.1.7'
+    alias(libs.plugins.ideaext)
     alias(libs.plugins.javacc) apply false
     alias(libs.plugins.modernizer) apply false
     alias(libs.plugins.aggregateJavadoc)
@@ -45,6 +45,10 @@ ext {
             'apache-staging'   : 'https://repository.apache.org/service/local/staging/deploy/maven2'
     ]
 }
+
+def compilerArgs = [
+        "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED"
+]
 
 allprojects {
     group 'org.apache.ignite'
@@ -91,7 +95,7 @@ allprojects {
 
     tasks.withType(JavaCompile) {
         options.encoding = 'UTF-8'
-        options.compilerArgs << "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED"
+        options.compilerArgs += compilerArgs
     }
 
     //Temporary hack to disable caching of Test tasks.
@@ -132,10 +136,8 @@ subprojects {
 }
 
 idea.project.settings {
-    compiler {
-        javac {
-            //TODO: Workaround on https://youtrack.jetbrains.com/issue/IDEA-154038
-            javacAdditionalOptions "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED"
-        }
+    compiler.javac {
+        // Workaround on https://youtrack.jetbrains.com/issue/IDEA-154038.
+        javacAdditionalOptions = compilerArgs.join(' ')
     }
 }
