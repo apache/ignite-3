@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.schema;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
@@ -39,11 +38,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Schema object representing an Index.
@@ -72,9 +69,7 @@ public class IgniteIndex {
             this.asc = asc;
             this.nullsFirst = nullsFirst;
         }
-
     }
-
 
     /**
      * Type of the index.
@@ -89,23 +84,19 @@ public class IgniteIndex {
 
     private final IgniteDistribution tableDistribution;
 
-    private final RelCollation outputCollation;
-
-    private final RelCollation indexCollation;
+    private final RelCollation collation;
 
     private final Type type;
 
     private RelDataType rowType;
 
     /** Constructor. */
-    public IgniteIndex(int id, String name, Type type, IgniteDistribution tableDistribution, RelCollation outputCollation) {
+    public IgniteIndex(int id, String name, Type type, IgniteDistribution tableDistribution, RelCollation collation) {
         this.id = id;
         this.name = name;
         this.type = type;
         this.tableDistribution = tableDistribution;
-        this.outputCollation = outputCollation;
-
-        indexCollation = (type == Type.SORTED) ? createIndexCollation(outputCollation.getFieldCollations()) : null;
+        this.collation = collation;
     }
 
     /** Returns an id of the index. */
@@ -125,13 +116,13 @@ public class IgniteIndex {
 
     /** Returns the collation of this index. */
     public RelCollation collation() {
-        return outputCollation;
+        return collation;
     }
 
     /** Returns index row type. */
     public RelDataType rowType(IgniteTypeFactory factory, TableDescriptor tableDescriptor) {
         if (rowType == null) {
-            rowType = createRowType(factory, tableDescriptor, outputCollation);
+            rowType = createRowType(factory, tableDescriptor, collation);
         }
         return rowType;
     }
@@ -148,7 +139,7 @@ public class IgniteIndex {
     ) {
         RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
                 .replace(tableDistribution)
-                .replace(type() == Type.HASH ? RelCollations.EMPTY : outputCollation);
+                .replace(type() == Type.HASH ? RelCollations.EMPTY : collation);
 
         return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, name, proj, condition, requiredCols);
     }
@@ -203,22 +194,6 @@ public class IgniteIndex {
         }
     }
 
-    /**
-     * Creates {@link RelCollation} object from a given collations.
-     *
-     * @param collations Original collation.
-     * @return a {@link RelCollation} object.
-     */
-    private static RelCollation createIndexCollation(List<RelFieldCollation> collations) {
-        int i = 0;
-        List<RelFieldCollation> result = new ArrayList<>(collations.size());
-        for (RelFieldCollation fieldCollation : collations) {
-            result.add(fieldCollation.withFieldIndex(i++));
-        }
-
-        return RelCollations.of(result);
-    }
-
     //TODO: cache rowType as it can't be changed.
 
     /**
@@ -245,12 +220,20 @@ public class IgniteIndex {
         return b.build();
     }
 
-    /** Index row collation. */
-    public static <RowT> @Nullable Comparator<RowT> createComparator(ExpressionFactory<RowT> factory, IgniteIndex index) {
-        if (index.type != Type.SORTED) {
-            return null;
+    /**
+     * Creates {@link RelCollation} for search row from given index collation.
+     *
+     * @param indexCollation Original index collation.
+     * @return a {@link RelCollation} object.
+     */
+    public static RelCollation createSearchRowCollation(RelCollation indexCollation) {
+        List<RelFieldCollation> collations = indexCollation.getFieldCollations();
+        List<RelFieldCollation> result = new ArrayList<>(collations.size());
+
+        for (int i = 0; i < collations.size(); i++) {
+            result.add(collations.get(i).withFieldIndex(i));
         }
 
-        return factory.comparator(index.indexCollation);
+        return RelCollations.of(result);
     }
 }
