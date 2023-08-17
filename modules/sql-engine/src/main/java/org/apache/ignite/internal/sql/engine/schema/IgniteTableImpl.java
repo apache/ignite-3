@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -36,7 +38,6 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
@@ -211,7 +212,7 @@ public class IgniteTableImpl extends AbstractTable implements IgniteTable {
     }
 
     private static final class RowCountStatistic implements DoubleSupplier {
-        private static final int UPDATE_THRESHOLD = DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+        private static final int UPDATE_THRESHOLD = DEFAULT_PARTITION_COUNT;
 
         private final AtomicLong lastUpd = new AtomicLong();
 
