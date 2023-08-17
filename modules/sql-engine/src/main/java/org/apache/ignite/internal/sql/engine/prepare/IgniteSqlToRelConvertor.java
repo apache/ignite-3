@@ -147,7 +147,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
 
             List<Pair<RexNode, String>> exps = new ArrayList<>(targetFields.size());
 
-            int mapping[] = new int[targetFields.size()];
+            int[] mapping = new int[targetFields.size()];
 
             int pos = 0;
 
