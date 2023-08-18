@@ -367,7 +367,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 delayDurationMsSupplier
         );
 
-        var schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), catalogManager, delayDurationMsSupplier);
+        var schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
 
         TableManager tableManager = new TableManager(
                 name,

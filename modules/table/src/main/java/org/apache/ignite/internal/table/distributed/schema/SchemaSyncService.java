@@ -33,12 +33,4 @@ public interface SchemaSyncService {
      *     remain unchanged for the timestamp).
      */
     CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts);
-
-    /**
-     * Returns {@code true} if we already have metadata (like table/index schemas) for the given catalog version.
-     *
-     * @param catalogVersion Version of the Catalog to check.
-     * @return {@code true} if we already have metadata (like table/index schemas) for the given catalog version.
-     */
-    boolean isMetadataAvailableFor(int catalogVersion);
 }

@@ -527,9 +527,7 @@ public class IgniteImpl implements Ignite {
 
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
 
-        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(
-                metaStorageMgr.clusterTime(), catalogManager, delayDurationMsSupplier
-        );
+        SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
 
         distributedTblMgr = new TableManager(
                 name,

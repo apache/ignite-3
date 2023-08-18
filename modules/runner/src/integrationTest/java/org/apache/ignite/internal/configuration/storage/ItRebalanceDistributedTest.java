@@ -813,7 +813,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
 
-            var schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), catalogManager, delayDurationMsSupplier);
+            var schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
 
             distributionZoneManager = new DistributionZoneManager(
                     registry,
