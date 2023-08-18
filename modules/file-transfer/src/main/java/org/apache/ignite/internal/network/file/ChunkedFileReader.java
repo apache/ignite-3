@@ -86,7 +86,7 @@ class ChunkedFileReader implements AutoCloseable {
         nextChunkNumber++;
         hasNextChunk = stream.available() > 0;
 
-        if (stream.available() == 0) {
+        if (!hasNextChunk) {
             stream.close();
         }
 
