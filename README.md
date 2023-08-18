@@ -1,14 +1,14 @@
-Apache Ignite 3.x
+Apache Ignite 3
 ===
 
-Apache Ignite 3 is a distributed database for high-performance computing with in-memory speed.
+Apache Ignite 3 is a distributed database for high-performance computing.
 
-* MULTI-TIER STORAGE: Ignite scales up and out across memory and disk. By default, Ignite operates in a pure in-memory mode. But, by toggling a single configuration setting, you can turn a cluster into a database that can grow beyond the cluster's memory capacity.
-* DISTRIBUTED SQL: Use Ignite as a traditional SQL database by leveraging JDBC drivers, ODBC drivers, or the native SQL APIs that are available for Java, C#, C++, Python, and other programming languages.
-* ACID TRANSACTIONS: Ignite can operate in a strongly consistent mode that provides full support for distributed ACID transactions.
-* COMPUTE APIS: With traditional databases, for in-place calculations, you use stored procedures that are written in a language such as PL/SQL. With Ignite, you use modern JVM languages, C# or C++ to develop and execute custom tasks across your distributed database.
-* MACHINE LEARNING: Ignite machine learning uses built-in algorithms and tools, as well as TensorFlow integration, to enable the building of scalable machine learning models and avoid costly data transfers.
-* CONTINUOUS QUERIES: With relational databases, you use triggers to react to certain events. With Ignite, you deploy continuous queries that are written in a modern programming language such as Java or C# and process streams of changes on the database and application side.
+* ACID TRANSACTIONS: Ignite can operate in a strongly consistent mode that provides full support for distributed ACID transactions executed at the Serializable isolation level.
+* DISTRIBUTED SQL: Use Ignite as a traditional SQL database by leveraging JDBC drivers, ODBC drivers, or the native SQL APIs that are available for Java, C#, C++, and other programming languages.
+* COMPUTE API: With traditional databases, for in-place calculations, you use stored procedures that are written in a language such as PL/SQL. With Ignite, you use modern JVM languages to develop and execute custom tasks across your distributed database.
+* SCHEMA-DRIVEN ARCHITECTURE: Ignite built around schema-driven model ensuring consistency between DDL, internal models and data.
+* PLUGABLE STORAGE ENGINES: Ignite's modular architecture enables the customization of underlying data and metadata storage, offering in-memory storage and RocksDB as default options.
+* UNIFIED CLI TOOL AND REST API: Management tools now include built-in CLI and REST API allowing simple access and configuration of Ignite cluster.
 
 ## Documentation
 
