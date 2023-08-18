@@ -30,7 +30,7 @@ public class IntersectExecutionTest extends AbstractSetOpExecutionTest {
     @Override
     protected AbstractSetOpNode<Object[]> setOpNodeFactory(ExecutionContext<Object[]> ctx,
             AggregateType type, int columnCount, boolean all, int inputsCnt) {
-        return new IntersectNode<>(ctx, columnCount, type,  all, rowFactory(), inputsCnt);
+        return new IntersectNode<>(ctx, columnCount, type, all, rowFactory(), inputsCnt);
     }
 
     /** {@inheritDoc} */
