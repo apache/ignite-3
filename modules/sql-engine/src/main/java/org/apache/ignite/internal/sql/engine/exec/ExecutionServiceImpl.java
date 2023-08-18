@@ -161,6 +161,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExchangeService exchangeSrvc,
             ExecutionDependencyResolver dependencyResolver
     ) {
+        HashFunctionFactoryImpl<RowT> rowHashFunctionFactory = new HashFunctionFactoryImpl<>(handler);
+
         return new ExecutionServiceImpl<>(
                 msgSrvc,
                 topSrvc,
@@ -172,7 +174,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 dependencyResolver,
                 (ctx, deps) -> new LogicalRelImplementor<>(
                         ctx,
-                        new HashFunctionFactoryImpl<>(sqlSchemaManager, handler),
+                        rowHashFunctionFactory,
                         mailboxRegistry,
                         exchangeSrvc,
                         deps)

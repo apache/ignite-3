@@ -787,7 +787,7 @@ public class ExecutionServiceImplTest {
                     MailboxRegistry mailboxRegistry,
                     ExchangeService exchangeService,
                     ResolvedDependencies deps) {
-                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(mock(SqlSchemaManager.class), ctx.rowHandler());
+                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(ctx.rowHandler());
 
                 return new LogicalRelImplementor<>(ctx, funcFactory, mailboxRegistry, exchangeService, deps) {
                     @Override
