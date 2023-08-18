@@ -80,6 +80,13 @@ public enum RequestType {
     }
 
     /**
+     * Returns {@code true} if the operation works with a single row and it's a write.
+     */
+    public boolean isSingleRowWrite() {
+        return isSingleRow() && this != RW_GET;
+    }
+
+    /**
      * Returns {@code true} if the operation works with multiple rows.
      */
     public boolean isMultipleRows() {
@@ -92,6 +99,42 @@ public enum RequestType {
                 return true;
             default:
                 return false;
+        }
+    }
+
+    /**
+     * Returns {@code true} if the operation works with multiple rows.
+     */
+    public boolean isMultipleRowsWrite() {
+        return isMultipleRows() && this != RW_GET_ALL;
+    }
+
+    /**
+     * Returns {@code true} if the operation requires a key-only tuple.
+     */
+    public boolean isKeyOnly() {
+        switch (this) {
+            case RW_GET:
+            case RW_GET_ALL:
+            case RW_DELETE:
+            case RW_DELETE_ALL:
+            case RW_GET_AND_DELETE:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Returns {@code true} if the operation looks up for an existing row (to return/delete/update/replace it).
+     */
+    public boolean looksUpFirst() {
+        switch (this) {
+            case RW_INSERT:
+            case RW_INSERT_ALL:
+                return false;
+            default:
+                return true;
         }
     }
 }

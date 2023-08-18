@@ -41,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -169,7 +170,11 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.junitpioneer.jupiter.cartesian.CartesianTest.Values;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /** Tests for partition replica listener. */
@@ -265,6 +270,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Mock
     private Schemas schemas;
 
+    private final SchemaSyncService schemaSyncService = mock(SchemaSyncService.class, invocation -> completedFuture(null));
+
+    @Mock
+    private CatalogService catalogService;
+
     /** Schema descriptor for tests. */
     private SchemaDescriptor schemaDescriptor;
 
@@ -299,6 +309,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private Function<PartitionCommand, CompletableFuture<?>> raftClientFutureClosure = defaultMockRaftFutureClosure;
 
     private static final AtomicInteger nextMonotonicInt = new AtomicInteger(1);
+
+    @Captor
+    private ArgumentCaptor<HybridTimestamp> timestampCaptor;
+
+    private final TestValue someValue = new TestValue(1, "v1");
 
     @BeforeEach
     public void beforeTest(
@@ -420,8 +435,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 localNode,
                 new TestMvTableStorage(tblId, DEFAULT_PARTITION_COUNT),
                 mock(IndexBuilder.class),
-                mock(SchemaSyncService.class, invocation -> completedFuture(null)),
-                mock(CatalogService.class),
+                schemaSyncService,
+                catalogService,
                 tablesConfig
         );
 
@@ -1427,28 +1442,20 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @MethodSource("singleRowRequestTypes")
     public void failsWhenReadingSingleRowFromFutureIncompatibleSchema(RequestType requestType) {
         testFailsWhenReadingFromFutureIncompatibleSchema((targetTxId, key) -> {
-            try {
-                switch (requestType) {
-                    case RW_GET:
-                    case RW_DELETE:
-                    case RW_GET_AND_DELETE:
-                        return doSingleRowRequest(targetTxId, kvMarshaller.marshal(key), requestType);
-
-                    case RW_DELETE_EXACT:
-                    case RW_INSERT:
-                    case RW_UPSERT:
-                    case RW_GET_AND_UPSERT:
-                    case RW_GET_AND_REPLACE:
-                    case RW_REPLACE_IF_EXIST:
-                        return doSingleRowRequest(targetTxId, kvMarshaller.marshal(key, new TestValue(1, "v1")), requestType);
-
-                    default:
-                        throw new AssertionError("Unexpected operation type: " + requestType);
-                }
-            } catch (MarshallerException e) {
-                throw new AssertionError(e);
-            }
+            return doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType);
         });
+    }
+
+    private BinaryRow marshalKeyOrKeyValue(RequestType requestType, TestKey key) {
+        try {
+            if (requestType.isKeyOnly()) {
+                return kvMarshaller.marshal(key);
+            } else {
+                return kvMarshaller.marshal(key, someValue);
+            }
+        } catch (MarshallerException e) {
+            throw new AssertionError(e);
+        }
     }
 
     private void testFailsWhenReadingFromFutureIncompatibleSchema(ListenerInvocation listenerInvocation) {
@@ -1507,23 +1514,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @MethodSource("multiRowsRequestTypes")
     public void failsWhenReadingMultiRowsFromFutureIncompatibleSchema(RequestType requestType) {
         testFailsWhenReadingFromFutureIncompatibleSchema((targetTxId, key) -> {
-            try {
-                switch (requestType) {
-                    case RW_GET_ALL:
-                    case RW_DELETE_ALL:
-                        return doMultiRowRequest(targetTxId, List.of(kvMarshaller.marshal(key)), requestType);
-
-                    case RW_DELETE_EXACT_ALL:
-                    case RW_INSERT_ALL:
-                    case RW_UPSERT_ALL:
-                        return doMultiRowRequest(targetTxId, List.of(kvMarshaller.marshal(key, new TestValue(1, "v1"))), requestType);
-
-                    default:
-                        throw new AssertionError("Unexpected operation type: " + requestType);
-                }
-            } catch (MarshallerException e) {
-                throw new AssertionError(e);
-            }
+            return doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType);
         });
     }
 
@@ -1536,16 +1527,24 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Test
     public void failsWhenReplacingOnTupleWithIncompatibleSchemaFromFuture() {
         testFailsWhenReadingFromFutureIncompatibleSchema(
-                (targetTxId, key) -> partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteSwapRowReplicaRequest()
-                        .groupId(grpId)
-                        .transactionId(targetTxId)
-                        .requestType(RequestType.RW_REPLACE)
-                        .oldBinaryRowMessage(binaryRowMessage(binaryRow(key, new TestValue(1, "v1"))))
-                        .binaryRowMessage(binaryRowMessage(binaryRow(key, new TestValue(3, "v3"))))
-                        .term(1L)
-                        .commitPartitionId(commitPartitionId())
-                        .build()
+                (targetTxId, key) -> doReplaceRequest(
+                        targetTxId,
+                        binaryRow(key, new TestValue(1, "v1")),
+                        binaryRow(key, new TestValue(3, "v3"))
                 )
+        );
+    }
+
+    private CompletableFuture<?> doReplaceRequest(UUID targetTxId, BinaryRow oldRow, BinaryRow newRow) {
+        return partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteSwapRowReplicaRequest()
+                .groupId(grpId)
+                .transactionId(targetTxId)
+                .requestType(RequestType.RW_REPLACE)
+                .oldBinaryRowMessage(binaryRowMessage(oldRow))
+                .binaryRowMessage(binaryRowMessage(newRow))
+                .term(1L)
+                .commitPartitionId(commitPartitionId())
+                .build()
         );
     }
 
@@ -1592,6 +1591,69 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         .build()
                 )
         );
+    }
+
+    @ParameterizedTest
+    @MethodSource("singleRowWriteRequestTypes")
+    public void schemaSyncIsAwaitedForSingleRowWrites(RequestType requestType) {
+        testSchemaSyncIsAwaited(requestType, (targetTxId, key) -> {
+            return doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType);
+        });
+    }
+
+    private static Stream<Arguments> singleRowWriteRequestTypes() {
+        return Arrays.stream(RequestType.values())
+                .filter(RequestType::isSingleRowWrite)
+                .map(Arguments::of);
+    }
+
+    private void testSchemaSyncIsAwaited(RequestType requestType, ListenerInvocation listenerInvocation) {
+        TestKey key = nextKey();
+
+        if (requestType.looksUpFirst()) {
+            UUID tx0 = beginTx();
+            upsert(tx0, binaryRow(key, someValue));
+            cleanup(tx0);
+
+            // While handling the upsert, our mocks were touched, let's reset them to prevent false-positives during verification.
+            Mockito.reset(schemaSyncService);
+        }
+
+        UUID targetTxId = beginTx();
+
+        CompletableFuture<?> future = listenerInvocation.invoke(targetTxId, key);
+
+        assertThat(future, willCompleteSuccessfully());
+
+        InOrder inOrder = inOrder(schemaSyncService, catalogService);
+
+        inOrder.verify(schemaSyncService).waitForMetadataCompleteness(timestampCaptor.capture());
+        inOrder.verify(catalogService).activeCatalogVersion(timestampCaptor.getValue().longValue());
+    }
+
+    @Test
+    public void schemaSyncIsAwaitedForReplaceRequest() {
+        testSchemaSyncIsAwaited(RequestType.RW_REPLACE, (targetTxId, key) -> {
+            return doReplaceRequest(
+                    targetTxId,
+                    marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
+                    marshalKeyOrKeyValue(RequestType.RW_REPLACE, key)
+            );
+        });
+    }
+
+    @ParameterizedTest
+    @MethodSource("multiRowsWriteRequestTypes")
+    public void schemaSyncIsAwaitedForMultiRowWrites(RequestType requestType) {
+        testSchemaSyncIsAwaited(requestType, (targetTxId, key) -> {
+            return doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType);
+        });
+    }
+
+    private static Stream<Arguments> multiRowsWriteRequestTypes() {
+        return Arrays.stream(RequestType.values())
+                .filter(RequestType::isMultipleRowsWrite)
+                .map(Arguments::of);
     }
 
     private static UUID beginTx() {
