@@ -22,11 +22,9 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake {@link AsyncSqlCursor}.
@@ -69,11 +67,6 @@ public class FakeCursor implements AsyncSqlCursor<List<Object>> {
 
     @Override
     public ResultSetMetadata metadata() {
-        return null;
-    }
-
-    @Override
-    public @Nullable HybridTimestamp observableTimestamp() {
         return null;
     }
 }

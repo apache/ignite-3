@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Sql query cursor.
@@ -36,9 +34,4 @@ public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
      * Returns column metadata.
      */
     ResultSetMetadata metadata();
-
-    /**
-     * Returns read timestamp of the implicit read-only transaction, if any has been started.
-     */
-    @Nullable HybridTimestamp observableTimestamp();
 }

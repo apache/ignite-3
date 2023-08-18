@@ -20,11 +20,9 @@ package org.apache.ignite.client.handler.requests.jdbc;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Jdbc query cursor with the ability to limit the maximum number of rows returned.
@@ -88,11 +86,5 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     @Override
     public ResultSetMetadata metadata() {
         return cur.metadata();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable HybridTimestamp observableTimestamp() {
-        return cur.observableTimestamp();
     }
 }
