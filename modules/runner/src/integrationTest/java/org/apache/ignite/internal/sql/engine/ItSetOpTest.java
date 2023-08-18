@@ -75,7 +75,7 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @EnumSource(SetOpVariant.class)
     public void testExcept(SetOpVariant setOp) {
-        var rows = setSql(setOp, "SELECT name FROM emp1 EXCEPT SELECT name FROM emp2");
+        var rows = sql(setOp, "SELECT name FROM emp1 EXCEPT SELECT name FROM emp2");
 
         assertEquals(1, rows.size());
         assertEquals("Igor", rows.get(0).get(0));
@@ -84,7 +84,7 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @EnumSource(SetOpVariant.class)
     public void testExceptFromEmpty(SetOpVariant setOp) {
-        var rows = setSql(setOp, "SELECT name FROM emp1 WHERE salary < 0 EXCEPT SELECT name FROM emp2");
+        var rows = sql(setOp, "SELECT name FROM emp1 WHERE salary < 0 EXCEPT SELECT name FROM emp2");
 
         assertEquals(0, rows.size());
     }
@@ -92,7 +92,7 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @EnumSource(SetOpVariant.class)
     public void testExceptSeveralColumns(SetOpVariant setOp) {
-        var rows = setSql(setOp, "SELECT name, salary FROM emp1 EXCEPT SELECT name, salary FROM emp2");
+        var rows = sql(setOp, "SELECT name, salary FROM emp1 EXCEPT SELECT name, salary FROM emp2");
 
         assertEquals(4, rows.size());
         assertEquals(3, countIf(rows, r -> r.get(0).equals("Igor")));
@@ -102,7 +102,7 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @EnumSource(SetOpVariant.class)
     public void testExceptAll(SetOpVariant setOp) {
-        var rows = setSql(setOp, "SELECT name FROM emp1 EXCEPT ALL SELECT name FROM emp2");
+        var rows = sql(setOp, "SELECT name FROM emp1 EXCEPT ALL SELECT name FROM emp2");
 
         assertEquals(4, rows.size());
         assertEquals(3, countIf(rows, r -> r.get(0).equals("Igor")));
@@ -113,7 +113,7 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
     @EnumSource(SetOpVariant.class)
     public void testExceptNested(SetOpVariant setOp) {
         var rows =
-                setSql(setOp, "SELECT name FROM emp1 EXCEPT (SELECT name FROM emp1 EXCEPT SELECT name FROM emp2)");
+                sql(setOp, "SELECT name FROM emp1 EXCEPT (SELECT name FROM emp1 EXCEPT SELECT name FROM emp2)");
 
         assertEquals(2, rows.size());
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Roman")));
@@ -172,7 +172,7 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @EnumSource(SetOpVariant.class)
     public void testIntersect(SetOpVariant setOp) {
-        var rows = setSql(setOp, "SELECT name FROM emp1 INTERSECT SELECT name FROM emp2");
+        var rows = sql(setOp, "SELECT name FROM emp1 INTERSECT SELECT name FROM emp2");
 
         assertEquals(2, rows.size());
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Igor1")));
@@ -182,7 +182,7 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @EnumSource(SetOpVariant.class)
     public void testIntersectAll(SetOpVariant setOp) {
-        var rows = setSql(setOp, "SELECT name FROM emp1 INTERSECT ALL SELECT name FROM emp2");
+        var rows = sql(setOp, "SELECT name FROM emp1 INTERSECT ALL SELECT name FROM emp2");
 
         assertEquals(3, rows.size());
         assertEquals(2, countIf(rows, r -> r.get(0).equals("Igor1")));
@@ -192,7 +192,7 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @EnumSource(SetOpVariant.class)
     public void testIntersectEmpty(SetOpVariant setOp) {
-        var rows = setSql(setOp, "SELECT name FROM emp1 WHERE salary < 0 INTERSECT SELECT name FROM emp2");
+        var rows = sql(setOp, "SELECT name FROM emp1 WHERE salary < 0 INTERSECT SELECT name FROM emp2");
 
         assertEquals(0, rows.size());
     }
@@ -200,7 +200,7 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @EnumSource(SetOpVariant.class)
     public void testIntersectSeveralColumns(SetOpVariant setOp) {
-        var rows = setSql(setOp, "SELECT name, salary FROM emp1 INTERSECT ALL SELECT name, salary FROM emp2");
+        var rows = sql(setOp, "SELECT name, salary FROM emp1 INTERSECT ALL SELECT name, salary FROM emp2");
 
         assertEquals(2, rows.size());
         assertEquals(2, countIf(rows, r -> r.get(0).equals("Igor1")));
@@ -307,7 +307,7 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
         return StreamSupport.stream(it.spliterator(), false).filter(pred).count();
     }
 
-    private static List<List<Object>> setSql(SetOpVariant setOp, String sql) {
+    private static List<List<Object>> sql(SetOpVariant setOp, String sql) {
         // Wrap set query into SELECT because calcite does not allow to specify hints on set operation nodes (SqlCall nodes).
         return sql(format("SELECT {} * FROM (" + sql + ")", setOp.hint()));
     }
