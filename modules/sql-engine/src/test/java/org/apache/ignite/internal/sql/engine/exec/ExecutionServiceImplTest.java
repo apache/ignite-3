@@ -592,8 +592,6 @@ public class ExecutionServiceImplTest {
 
         when(topologyService.localMember()).thenReturn(clusterNode);
 
-        when(schemaManagerMock.tableById(anyInt())).thenReturn(table);
-
         when(schemaManagerMock.schemaReadyFuture(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
 
         TestExecutableTableRegistry executableTableRegistry = new TestExecutableTableRegistry();

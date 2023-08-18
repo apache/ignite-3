@@ -284,7 +284,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
                 throw new IllegalStateException("Unable to plan: " + sql, e);
             }
 
-            return resolver.resolveDependencies(List.of(rel), 1);
+            return resolver.resolveDependencies(List.of(rel), igniteSchema);
         }
 
         void checkDependencies(ResolvedDependencies dependencies, int tableId) {

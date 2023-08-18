@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.schema;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.jetbrains.annotations.Nullable;
@@ -32,7 +34,8 @@ public class IgniteSchema extends AbstractSchema {
 
     private final String schemaName;
 
-    private final Map<String, Table> tblMap;
+    private final Map<String, IgniteTable> tableByName;
+    private final Map<Integer, IgniteTable> tableById;
 
     private final Map<Integer, IgniteIndex> idxMap;
 
@@ -47,14 +50,17 @@ public class IgniteSchema extends AbstractSchema {
      */
     public IgniteSchema(
             String schemaName,
-            @Nullable Map<String, Table> tableMap,
+            @Nullable Map<String, IgniteTable> tableMap,
             @Nullable Map<Integer, IgniteIndex> indexMap,
             long schemaVersion
     ) {
         this.schemaName = schemaName;
-        this.tblMap = tableMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(tableMap);
+        this.tableByName = tableMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(tableMap);
         this.idxMap = indexMap == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(indexMap);
         this.schemaVersion = schemaVersion;
+
+        this.tableById = tableMap == null ? new ConcurrentHashMap<>() :
+                tableMap.values().stream().collect(Collectors.toConcurrentMap(IgniteTable::id, Function.identity()));
     }
 
     /**
@@ -76,7 +82,7 @@ public class IgniteSchema extends AbstractSchema {
     }
 
     public static IgniteSchema copy(IgniteSchema old, long schemaVersion) {
-        return new IgniteSchema(old.schemaName, old.tblMap, old.idxMap, schemaVersion);
+        return new IgniteSchema(old.schemaName, old.tableByName, old.idxMap, schemaVersion);
     }
 
     /**
@@ -91,7 +97,14 @@ public class IgniteSchema extends AbstractSchema {
     /** {@inheritDoc} */
     @Override
     protected Map<String, Table> getTableMap() {
-        return Collections.unmodifiableMap(tblMap);
+        return Collections.unmodifiableMap(tableByName);
+    }
+
+    /**
+     * Return table by given id.
+     */
+    public IgniteTable getTable(int tableId) {
+        return tableById.get(tableId);
     }
 
     /**
@@ -100,7 +113,8 @@ public class IgniteSchema extends AbstractSchema {
      * @param tbl Table.
      */
     public void addTable(IgniteTable tbl) {
-        tblMap.put(tbl.name(), tbl);
+        tableByName.put(tbl.name(), tbl);
+        tableById.put(tbl.id(), tbl);
     }
 
     /**
@@ -109,7 +123,7 @@ public class IgniteSchema extends AbstractSchema {
      * @param tblName Table name.
      */
     public void removeTable(String tblName) {
-        tblMap.remove(tblName);
+        tableByName.remove(tblName);
     }
 
     /**
