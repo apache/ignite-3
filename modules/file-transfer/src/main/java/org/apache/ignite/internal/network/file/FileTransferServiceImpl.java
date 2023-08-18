@@ -301,7 +301,6 @@ public class FileTransferServiceImpl implements FileTransferService {
 
                         transferIdToDownloadConsumer.computeIfPresent(transferId, (k, v) -> {
                             v.onError(throwable);
-
                             return null;
                         });
                     }
