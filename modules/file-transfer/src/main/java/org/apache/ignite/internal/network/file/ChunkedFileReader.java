@@ -28,31 +28,24 @@ import java.io.IOException;
  * file size is less than the chunk size, only one chunk will be read. The reader is not thread-safe.
  */
 class ChunkedFileReader implements AutoCloseable {
-    private final long length;
+    private final int chunkSize;
 
     private final BufferedInputStream stream;
 
-    private long offset = 0;
-
     private int nextChunkNumber = 0;
 
-    private final int chunkSize;
+    private boolean hasNextChunk;
 
     /**
      * Constructor.
      *
-     * @param length File length.
-     * @param stream Random access file.
      * @param chunkSize Chunk size.
+     * @param stream Random access file.
      */
-    private ChunkedFileReader(
-            long length,
-            BufferedInputStream stream,
-            int chunkSize
-    ) {
-        this.length = length;
-        this.stream = stream;
+    private ChunkedFileReader(int chunkSize, BufferedInputStream stream) throws IOException {
         this.chunkSize = chunkSize;
+        this.stream = stream;
+        this.hasNextChunk = stream.available() > 0;
     }
 
     /**
@@ -63,8 +56,8 @@ class ChunkedFileReader implements AutoCloseable {
      * @return Chunked file reader.
      * @throws FileNotFoundException If the file does not exist.
      */
-    static ChunkedFileReader open(File file, int chunkSize) throws FileNotFoundException {
-        return new ChunkedFileReader(file.length(), new BufferedInputStream(new FileInputStream(file)), chunkSize);
+    static ChunkedFileReader open(File file, int chunkSize) throws IOException {
+        return new ChunkedFileReader(chunkSize, new BufferedInputStream(new FileInputStream(file)));
     }
 
     /**
@@ -73,7 +66,7 @@ class ChunkedFileReader implements AutoCloseable {
      * @return {@code false} if there are no more chunks to read. Otherwise, returns {@code true}.
      */
     boolean hasNextChunk() {
-        return offset < length;
+        return hasNextChunk;
     }
 
     /**
@@ -88,18 +81,12 @@ class ChunkedFileReader implements AutoCloseable {
             throw new IOException("No more chunks to read");
         }
 
-        int toRead = (int) Math.min(chunkSize, length - offset);
-        byte[] data = new byte[toRead];
-        int read = stream.read(data);
+        byte[] data = stream.readNBytes(chunkSize);
 
-        if (read != toRead) {
-            throw new IOException("Failed to read chunk data from file: expected " + toRead + ", actual " + read + "]");
-        }
-
-        offset += toRead;
         nextChunkNumber++;
+        hasNextChunk = stream.available() > 0;
 
-        if (offset == length) {
+        if (stream.available() == 0) {
             stream.close();
         }
 

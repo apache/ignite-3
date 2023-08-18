@@ -249,24 +249,26 @@ public class FileTransferServiceImpl implements FileTransferService {
         IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS);
     }
 
+    /**
+     * Processes {@link FileTransferInitMessage} message. Creates transfer directory, registers transfer, sends response to the sender and
+     * passes the transferred files to the consumer.
+     *
+     * @param message File transfer init message.
+     * @param senderConsistentId Sender consistent ID.
+     * @param correlationId Correlation ID.
+     */
     private void processFileTransferInitMessage(FileTransferInitMessage message, String senderConsistentId, long correlationId) {
         UUID transferId = message.transferId();
 
         Identifier identifier = message.identifier();
 
+        // Create transfer directory.
         CompletableFuture<Path> directoryFuture = supplyAsync(() -> createTransferDirectory(transferId), executorService)
                 .whenComplete((directory, e) -> {
                     if (e != null) {
                         LOG.error("Failed to create transfer directory [transferId={}, identifier={}]", e, transferId, identifier);
                     }
                 });
-
-        CompletableFuture<List<Path>> uploadedFiles = directoryFuture.thenCompose(directory -> fileReceiver.registerTransfer(
-                senderConsistentId,
-                transferId,
-                message.headers(),
-                directory
-        ));
 
         // Check that directory was created successfully and send response to the sender.
         directoryFuture.handle((directory, e) -> {
@@ -279,28 +281,35 @@ public class FileTransferServiceImpl implements FileTransferService {
                 .thenCompose(Function.identity())
                 .whenComplete((v, e) -> {
                     if (e != null) {
-                        LOG.error("Failed to send file transfer response [transferId={}, identifier={}]", e, transferId, identifier);
+                        LOG.error("Failed to send file transfer response [transferId={}, identifier={}]", e, transferId,
+                                identifier);
                         fileReceiver.cancelTransfer(transferId, e);
                     }
-                })
-                // Wait for the files to be uploaded.
-                .thenCompose(ignored -> uploadedFiles)
-                // Provide the files to the consumer.
-                .<CompletableFuture<Void>>handle((files, e) -> {
-                    // Remove the consumer from the map if there was an error and it was a download request.
-                    if (e != null && transferIdToDownloadConsumer.containsKey(transferId)) {
-                        transferIdToDownloadConsumer.get(transferId).onError(e);
-                        return failedFuture(e);
-                    } else {
-                        // Check if there is a consumer for this transfer ID (download request) or use the default one.
-                        FileConsumer<Identifier> consumer = transferIdToDownloadConsumer.containsKey(transferId)
-                                ? transferIdToDownloadConsumer.get(transferId)
-                                : getFileConsumer(identifier);
-                        return consumer.consume(identifier, files);
-                    }
-                })
-                // Wait for the consumer to finish.
-                .thenCompose(Function.identity())
+                });
+
+        // Register the transfer.
+        CompletableFuture<List<Path>> transferredFilesFuture = directoryFuture.thenCompose(directory -> fileReceiver.registerTransfer(
+                senderConsistentId,
+                transferId,
+                message.headers(),
+                directory
+        )).whenComplete((v, e) -> {
+            if (e != null) {
+                LOG.error("Failed to receive file transfer [transferId={}, identifier={}]", e, transferId, identifier);
+            }
+        });
+
+        // Consume the transferred files and delete the transfer directory.
+        transferredFilesFuture.whenComplete((files, e) -> {
+            // Remove the consumer from the map if there was an error and it was a download request.
+            if (e != null) {
+                transferIdToDownloadConsumer.computeIfPresent(transferId, (k, v) -> {
+                    v.onError(e);
+                    return null;
+                });
+            }
+        })
+                .thenCompose(files -> getFileConsumer(transferId, identifier).consume(identifier, files))
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.error("Failed to process file transfer [transferId={}, identifier={}]",
@@ -310,10 +319,19 @@ public class FileTransferServiceImpl implements FileTransferService {
                         );
                     }
 
+                    transferIdToDownloadConsumer.remove(transferId);
                     directoryFuture.thenAccept(IgniteUtils::deleteIfExists);
                 });
     }
 
+    /**
+     * Processes the download request. Gets the files from the provider and starts the transfer. If there is an error or there are no files
+     * to transfer, then sends the response to the sender.
+     *
+     * @param message Download request.
+     * @param senderConsistentId Sender consistent ID.
+     * @param correlationId Correlation ID.
+     */
     private void processDownloadRequest(FileDownloadRequest message, String senderConsistentId, Long correlationId) {
         supplyAsync(() -> getFileProvider(message.identifier()), executorService)
                 .thenCompose(provider -> provider.files(message.identifier()))
@@ -350,6 +368,13 @@ public class FileTransferServiceImpl implements FileTransferService {
                 });
     }
 
+    /**
+     * Processes {@link FileChunkMessage} message. Passes the chunk to the receiver and sends the response to the sender.
+     *
+     * @param message File chunk message.
+     * @param senderConsistentId Sender consistent ID.
+     * @param correlationId Correlation ID.
+     */
     private void processFileChunkMessage(FileChunkMessage message, String senderConsistentId, long correlationId) {
         runAsync(() -> fileReceiver.receiveFileChunk(message), executorService)
                 .whenComplete((v, e) -> {
@@ -365,6 +390,11 @@ public class FileTransferServiceImpl implements FileTransferService {
                 });
     }
 
+    /**
+     * Processes {@link FileTransferErrorMessage} message. Cancels the corresponding transfer.
+     *
+     * @param message File transfer error message.
+     */
     private void processFileTransferErrorMessage(FileTransferErrorMessage message) {
         LOG.error("Received file transfer error message. Transfer will be cancelled [transferId={}, error={}",
                 message.transferId(),
@@ -463,6 +493,16 @@ public class FileTransferServiceImpl implements FileTransferService {
                 .thenCompose(files -> transferFilesToNode(targetNodeConsistentId, UUID.randomUUID(), identifier, files));
     }
 
+    /**
+     * Transfers files to the node with the given consistent id. Sends a {@link FileTransferInitMessage} to the node and then sends the
+     * files. If the node responds with an error, the returned future will be completed exceptionally.
+     *
+     * @param targetNodeConsistentId The consistent id of the node to transfer the files to.
+     * @param transferId The id of the transfer.
+     * @param identifier The identifier of the files.
+     * @param paths The paths of the files to transfer.
+     * @return A future that will be completed when the transfer is complete.
+     */
     private CompletableFuture<Void> transferFilesToNode(
             String targetNodeConsistentId,
             UUID transferId,
@@ -517,6 +557,20 @@ public class FileTransferServiceImpl implements FileTransferService {
         } else {
             return (FileProvider<M>) provider;
         }
+    }
+
+    /**
+     * Returns the file consumer for the given transfer ID or identifier. If there is no consumer for the transfer ID, the consumer for the
+     * identifier is returned.
+     *
+     * @param transferId The transfer ID.
+     * @param identifier The identifier.
+     * @return The file consumer.
+     */
+    private <M extends Identifier> FileConsumer<M> getFileConsumer(UUID transferId, M identifier) {
+        return transferIdToDownloadConsumer.containsKey(transferId)
+                ? (FileConsumer<M>) transferIdToDownloadConsumer.get(transferId)
+                : getFileConsumer(identifier);
     }
 
     private <M extends Identifier> FileConsumer<M> getFileConsumer(M identifier) {
