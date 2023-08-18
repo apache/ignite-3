@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZoneWithDataStorage;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -76,6 +75,7 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -145,6 +145,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -267,19 +268,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testOneRebalance() throws InterruptedException {
+    void testOneRebalance() throws Exception {
         createZone(nodes.get(0).catalogManager, ZONE_1_NAME, 1, 1);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_1_NAME).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-
-        await(nodes.get(0).tableManager.createTableAsync(
-                TABLE_1_NAME,
-                ZONE_1_NAME,
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
-        ));
+        createTable(nodes.get(0), ZONE_1_NAME, TABLE_1_NAME);
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(0, 0).size() == 1, ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS));
 
@@ -293,19 +285,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testTwoQueuedRebalances() throws InterruptedException {
+    void testTwoQueuedRebalances() throws Exception {
         createZone(nodes.get(0).catalogManager, ZONE_1_NAME, 1, 1);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_1_NAME).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-
-        await(nodes.get(0).tableManager.createTableAsync(
-                TABLE_1_NAME,
-                ZONE_1_NAME,
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
-        ));
+        createTable(nodes.get(0), ZONE_1_NAME, TABLE_1_NAME);
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(0, 0).size() == 1, ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS));
 
@@ -320,18 +303,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testThreeQueuedRebalances() throws InterruptedException {
+    void testThreeQueuedRebalances() throws Exception {
         createZone(nodes.get(0).catalogManager, ZONE_1_NAME, 1, 1);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_1_NAME).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-
-        await(nodes.get(0).tableManager.createTableAsync(
-                TABLE_1_NAME,
-                ZONE_1_NAME,
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
+        createTable(nodes.get(0), ZONE_1_NAME, TABLE_1_NAME);
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(0, 0).size() == 1, ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS));
 
@@ -352,16 +327,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createZone(nodes.get(0).catalogManager, zoneName, 1, 2);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_1_NAME).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-
-        // Tests that the distribution zone created on node0 is available on node1.
-        TableImpl table = (TableImpl) await(nodes.get(1).tableManager.createTableAsync(
-                TABLE_1_NAME,
-                zoneName,
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
+        createTable(nodes.get(1), zoneName, TABLE_1_NAME);
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
@@ -370,6 +336,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .collect(Collectors.toSet());
 
         Node newNode = nodes.stream().filter(n -> !partitionNodesConsistentIds.contains(n.name)).findFirst().orElseThrow();
+
+        InternalTable table = getInternalTable(nodes.get(1), TABLE_1_NAME);
 
         Node leaderNode = findNodeByConsistentId(table.leaderAssignment(0).name());
 
@@ -415,18 +383,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testRebalanceRetryWhenCatchupFailed() throws InterruptedException {
+    void testRebalanceRetryWhenCatchupFailed() throws Exception {
         createZone(nodes.get(0).catalogManager, ZONE_1_NAME, 1, 1);
 
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_1_NAME).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-
-        await(nodes.get(0).tableManager.createTableAsync(
-                TABLE_1_NAME,
-                ZONE_1_NAME,
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)));
+        createTable(nodes.get(0), ZONE_1_NAME, TABLE_1_NAME);
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(0, 0).size() == 1, ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS));
 
@@ -467,8 +427,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @Test
     @UseTestTxStateStorage
-    void testDestroyPartitionStoragesOnEvictNode() {
-        createTableWithOnePartition(TABLE_1_NAME, ZONE_1_NAME, 3, true);
+    void testDestroyPartitionStoragesOnEvictNode() throws Exception {
+        createTableWithOnePartition(nodes.get(0), TABLE_1_NAME, ZONE_1_NAME, 3, true);
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -504,7 +464,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     @UseRocksMetaStorage
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-20187")
     void testDestroyPartitionStoragesOnRestartEvictedNode(TestInfo testInfo) throws Exception {
-        createTableWithOnePartition(TABLE_1_NAME, ZONE_1_NAME, 3, true);
+        createTableWithOnePartition(nodes.get(0), TABLE_1_NAME, ZONE_1_NAME, 3, true);
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
@@ -555,10 +515,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         checkInvokeDestroyedPartitionStorages(newNode, TABLE_1_NAME, 0);
     }
 
-    private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) {
-        while (!IntStream.range(0, nodes.size()).allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum)) {
-            LockSupport.parkNanos(100_000_000);
-        }
+    private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) throws Exception {
+        assertTrue(waitForCondition(
+                () -> IntStream.range(0, nodes.size()).allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum),
+                10 * ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS
+        ));
     }
 
     private Node findNodeByConsistentId(String consistentId) {
@@ -809,6 +770,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             distributionZoneManager = new DistributionZoneManager(
                     name,
                     registry,
+                    tablesCfg,
                     metaStorageManager,
                     logicalTopologyService,
                     vaultManager,
@@ -1003,32 +965,22 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static TableDefinition createTableDefinition(String tableName) {
-        return SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, tableName).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-    }
-
-    private void createTableWithOnePartition(String tableName, String zoneName, int replicas, boolean testDataStorage) {
+    private void createTableWithOnePartition(
+            Node node,
+            String tableName,
+            String zoneName,
+            int replicas,
+            boolean testDataStorage
+    ) throws Exception {
         createZoneWithDataStorage(
-                nodes.get(0).catalogManager,
+                node.catalogManager,
                 zoneName,
                 1,
                 replicas,
                 testDataStorage ? TestStorageEngine.ENGINE_NAME : null
         );
 
-        assertThat(
-                nodes.get(0).tableManager.createTableAsync(
-                        tableName,
-                        zoneName,
-                        tableChange -> {
-                            SchemaConfigurationConverter.convert(createTableDefinition(tableName), tableChange);
-                        }
-                ),
-                willCompleteSuccessfully()
-        );
+        createTable(node, zoneName, tableName);
 
         waitPartitionAssignmentsSyncedToExpected(0, replicas);
 
@@ -1037,7 +989,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertEquals(replicas, getPartitionClusterNodes(2, 0).size());
     }
 
-    private void changeTableReplicasForSinglePartition(String zoneName, int replicas) {
+    private void changeTableReplicasForSinglePartition(String zoneName, int replicas) throws Exception {
         alterZone(nodes.get(0).catalogManager, zoneName, replicas);
 
         waitPartitionAssignmentsSyncedToExpected(0, replicas);
@@ -1112,5 +1064,32 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertThat(String.format("tableName=%s, partitionId=%s", tableName, partitionId), futures, not(empty()));
 
         return allOf(futures.toArray(CompletableFuture<?>[]::new));
+    }
+
+    private static void createTable(Node node, String zoneName, String tableName) {
+        TableTestUtils.createTable(
+                node.catalogManager,
+                DEFAULT_SCHEMA_NAME,
+                zoneName,
+                tableName,
+                List.of(
+                        ColumnParams.builder().name("key").type(org.apache.ignite.sql.ColumnType.INT64).build(),
+                        ColumnParams.builder().name("val").type(org.apache.ignite.sql.ColumnType.INT32).nullable(true).build()
+                ),
+                List.of("key")
+        );
+
+        TableDefinition tableDefinition = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, tableName).columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
+        ).withPrimaryKey("key").build();
+
+        CompletableFuture<Table> createTableFuture = node.tableManager.createTableAsync(
+                tableName,
+                zoneName,
+                tblChanger -> SchemaConfigurationConverter.convert(tableDefinition, tblChanger)
+        );
+
+        assertThat(createTableFuture, willCompleteSuccessfully());
     }
 }

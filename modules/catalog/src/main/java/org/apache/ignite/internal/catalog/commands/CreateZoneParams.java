@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_F
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 
 import java.util.Objects;
@@ -46,7 +47,7 @@ public class CreateZoneParams extends AbstractZoneCommandParams {
     private int dataNodesAutoAdjust = INFINITE_TIMER_VALUE;
 
     /** Data nodes auto adjust scale up timeout. */
-    private int dataNodesAutoAdjustScaleUp = INFINITE_TIMER_VALUE;
+    private int dataNodesAutoAdjustScaleUp = IMMEDIATE_TIMER_VALUE;
 
     /** Data nodes auto adjust scale down timeout. */
     private int dataNodesAutoAdjustScaleDown = INFINITE_TIMER_VALUE;

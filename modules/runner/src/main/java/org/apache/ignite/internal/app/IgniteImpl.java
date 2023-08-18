@@ -509,6 +509,7 @@ public class IgniteImpl implements Ignite {
         distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
+                tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
                 vaultMgr,

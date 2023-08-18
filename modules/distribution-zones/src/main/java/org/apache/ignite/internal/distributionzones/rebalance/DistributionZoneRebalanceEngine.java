@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -154,6 +155,11 @@ public class DistributionZoneRebalanceEngine {
                             distributionZoneManager.nodesAttributes()
                     );
 
+                    LOG.info(
+                            "asshole 1 replicase={}, dataNode={}, filteredDataNodes={}",
+                            zoneDescriptor.replicas(), dataNodes, filteredDataNodes
+                    );
+
                     if (filteredDataNodes.isEmpty()) {
                         return completedFuture(null);
                     }
@@ -232,8 +238,8 @@ public class DistributionZoneRebalanceEngine {
 
                         for (CatalogTableDescriptor tableDescriptor : tableDescriptors) {
                             LOG.info(
-                                    "Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
-                                    tableInfo(tableDescriptor), oldReplicas, parameters.zoneDescriptor().replicas()
+                                    "Received update for replicas number [table={}, oldNumber={}, newNumber={}, dataNode={}]",
+                                    tableInfo(tableDescriptor), oldReplicas, parameters.zoneDescriptor().replicas(), dataNodes
                             );
 
                             CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
@@ -255,10 +261,12 @@ public class DistributionZoneRebalanceEngine {
     private List<CatalogTableDescriptor> findTablesByZoneId(int zoneId, int catalogVersion) {
         return catalogService.tables(catalogVersion).stream()
                 .filter(table -> table.zoneId() == zoneId)
+                // TODO: IGNITE-19499 Get rid of this line
+                .map(tableDescriptor -> distributionZoneManager.getTableFromConfig(tableDescriptor.name())).filter(Objects::nonNull)
                 .collect(toList());
     }
 
     private static String tableInfo(CatalogTableDescriptor tableDescriptor) {
-        return tableDescriptor.id() + '/' + tableDescriptor.name();
+        return tableDescriptor.id() + "/" + tableDescriptor.name();
     }
 }

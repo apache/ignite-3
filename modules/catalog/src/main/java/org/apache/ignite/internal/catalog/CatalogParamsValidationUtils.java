@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 
@@ -136,7 +137,7 @@ class CatalogParamsValidationUtils {
             return;
         }
 
-        if ((dataNodesAutoAdjustScaleUp != null && dataNodesAutoAdjustScaleUp != INFINITE_TIMER_VALUE)
+        if ((dataNodesAutoAdjustScaleUp != null && (dataNodesAutoAdjustScaleUp != INFINITE_TIMER_VALUE || dataNodesAutoAdjustScaleUp != IMMEDIATE_TIMER_VALUE))
                 || (dataNodesAutoAdjustScaleDown != null && dataNodesAutoAdjustScaleDown != INFINITE_TIMER_VALUE)) {
             throw new CatalogValidationException(
                     DistributionZones.ZONE_DEFINITION_ERR,
