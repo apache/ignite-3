@@ -70,4 +70,8 @@ statement error
 query T
 SELECT ''::VARBINARY
 
+query T
+SELECT NULL::VARBINARY
+----
+NULL
 

@@ -36,6 +36,7 @@ import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_MONTH;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_SECOND;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_YEAR;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_YEAR_MONTH;
+import static org.apache.calcite.sql.type.SqlTypeName.NULL;
 import static org.apache.calcite.sql.type.SqlTypeName.YEAR_INTERVAL_TYPES;
 
 import com.google.common.cache.CacheBuilder;
@@ -113,6 +114,7 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
         // BINARY, VARBINARY is assignable from...
         rule.clear();
         rule.addAll(BINARY_TYPES);
+        rule.add(NULL);
         for (SqlTypeName type : BINARY_TYPES) {
             rules.add(type, rule);
         }
