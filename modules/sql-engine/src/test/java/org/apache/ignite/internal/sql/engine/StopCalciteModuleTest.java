@@ -267,11 +267,12 @@ public class StopCalciteModuleTest {
         await(testRevisionRegister.moveRevision.apply(0L));
 
         SessionId sessionId = qryProc.createSession(PropertiesHelper.emptyHolder());
-        QueryContext context = QueryContext.create(SqlQueryType.ALL, transactions);
+        QueryContext context = QueryContext.create(SqlQueryType.ALL);
 
         var cursors = qryProc.querySingleAsync(
                 sessionId,
                 context,
+                new QueryTransactionWrapper(transactions, null),
                 "SELECT * FROM TEST"
         );
 
@@ -297,6 +298,7 @@ public class StopCalciteModuleTest {
         assertTrue(assertThrows(IgniteInternalException.class, () -> qryProc.querySingleAsync(
                 sessionId,
                 context,
+                new QueryTransactionWrapper(transactions, null),
                 "SELECT 1"
         )).getCause() instanceof NodeStoppingException);
 

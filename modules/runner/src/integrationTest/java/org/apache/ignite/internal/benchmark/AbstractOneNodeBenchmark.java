@@ -32,6 +32,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -111,10 +112,11 @@ public class AbstractOneNodeBenchmark {
                 + ");";
 
         try {
-            var context = QueryContext.create(SqlQueryType.ALL, clusterNode.transactions());
+            var context = QueryContext.create(SqlQueryType.ALL);
+            var txWrapper = new QueryTransactionWrapper(clusterNode.transactions(), null);
 
             getAllFromCursor(
-                    await(queryEngine.querySingleAsync(sessionId, context, sql))
+                    await(queryEngine.querySingleAsync(sessionId, context, txWrapper, sql))
             );
         } finally {
             queryEngine.closeSession(sessionId);

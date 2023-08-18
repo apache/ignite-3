@@ -35,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -53,7 +54,7 @@ public class AsyncSqlCursorImplTest {
     public void testTriggerCommitAfterDataIsFullyRead(NoOpTransaction implicitTx) {
         List<Integer> list = List.of(1, 2, 3);
 
-        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, implicitTx,
+        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, wrapTx(implicitTx),
                 new AsyncWrapper<>(CompletableFuture.completedFuture(list.iterator()), Runnable::run));
 
         int requestRows = 2;
@@ -80,7 +81,7 @@ public class AsyncSqlCursorImplTest {
     public void testExceptionRollbacksImplicitTx(NoOpTransaction implicitTx) {
         IgniteException err = new IgniteException(Common.INTERNAL_ERR);
 
-        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, implicitTx,
+        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, wrapTx(implicitTx),
                 new AsyncWrapper<>(CompletableFuture.failedFuture(err), Runnable::run));
 
         CompletionException t = assertThrows(CompletionException.class, () -> cursor.requestNextAsync(1).join());
@@ -99,7 +100,7 @@ public class AsyncSqlCursorImplTest {
     @MethodSource("transactions")
     public void testCloseCommitsImplicitTx(NoOpTransaction implicitTx) {
         AsyncCursor<Integer> data = new AsyncWrapper<>(List.of(1, 2, 3, 4).iterator());
-        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, implicitTx, data);
+        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, wrapTx(implicitTx), data);
         cursor.closeAsync().join();
 
         if (implicitTx != null) {
@@ -113,5 +114,9 @@ public class AsyncSqlCursorImplTest {
                 Arguments.of(Named.named("implicit-tx", NoOpTransaction.readOnly("TX"))),
                 Arguments.of(Named.named("no implicit-tx", null))
         );
+    }
+
+    private static QueryTransactionWrapper wrapTx(Transaction tx) {
+        return new QueryTransactionWrapper(null, tx);
     }
 }

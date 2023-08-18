@@ -31,7 +31,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
@@ -90,7 +89,6 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -98,8 +96,6 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -364,14 +360,14 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
-            SessionId sessionId, QueryContext context, String qry, Object... params
+            SessionId sessionId, QueryContext context, QueryTransactionWrapper txWrapper, String qry, Object... params
     ) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
-            return querySingle0(sessionId, context, qry, params);
+            return querySingle0(sessionId, context, txWrapper, qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -398,6 +394,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
             SessionId sessionId,
             QueryContext context,
+            QueryTransactionWrapper txWrapper,
             String sql,
             Object... params
     ) {
@@ -408,11 +405,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         String schemaName = session.properties().get(QueryProperty.DEFAULT_SCHEMA);
-
-        InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
-        IgniteTransactions transactions = outerTx == null ? context.unwrap(IgniteTransactions.class) : null;
-
-        assert outerTx != null || transactions != null;
 
         QueryCancel queryCancel = new QueryCancel();
 
@@ -431,26 +423,16 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         CompletableFuture<Void> start = new CompletableFuture<>();
 
-        AtomicReference<InternalTransaction> tx = new AtomicReference<>();
-
         CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
                 .thenCompose(ignored -> {
                     ParsedResult result = parserService.parse(sql);
 
-                    validateParsedStatement(context, outerTx, result, params);
+                    validateParsedStatement(context, txWrapper, result, params);
 
-                    boolean rwOp = dataModificationOp(result);
-
-                    boolean implicitTxRequired = outerTx == null;
-
-                    InternalTransaction currentTx = implicitTxRequired
-                            ? (InternalTransaction) transactions.begin(new TransactionOptions().readOnly(!rwOp))
-                            : outerTx;
-
-                    tx.set(currentTx);
+                    txWrapper.beginImplicitIfNeeded(result.queryType());
 
                     // TODO IGNITE-18733: wait for actual metadata for TX.
-                    HybridTimestamp txTimestamp = currentTx.startTimestamp();
+                    HybridTimestamp txTimestamp = txWrapper.transaction().startTimestamp();
 
                     SchemaPlus schema = sqlSchemaManager.schema(schemaName, txTimestamp.longValue());
 
@@ -471,7 +453,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     return prepareSvc.prepareAsync(result, ctx)
                             .thenApply(plan -> {
-                                var dataCursor = executionSrvc.executePlan(tx.get(), plan, ctx);
+                                var dataCursor = executionSrvc.executePlan(txWrapper.transaction(), plan, ctx);
 
                                 SqlQueryType queryType = plan.type();
                                 assert queryType != null : "Expected a full plan but got a fragment: " + plan;
@@ -481,7 +463,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 return new AsyncSqlCursorImpl<>(
                                         queryType,
                                         plan.metadata(),
-                                        implicitTxRequired ? tx.get() : null,
+                                        txWrapper,
                                         new AsyncCursor<List<Object>>() {
                                             @Override
                                             public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
@@ -507,11 +489,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 queryCancel.cancel();
             }
 
-            if (ex != null && outerTx == null) {
-                InternalTransaction tx0 = tx.get();
-                if (tx0 != null) {
-                    tx0.rollback();
-                }
+            if (ex != null) {
+                txWrapper.rollback();
             }
         });
 
@@ -632,15 +611,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
-    /** Returns {@code true} if this is data modification operation. */
-    private static boolean dataModificationOp(ParsedResult parsedResult) {
-        return parsedResult.queryType() == SqlQueryType.DML;
-    }
-
     /** Performs additional validation of a parsed statement. **/
     private static void validateParsedStatement(
             QueryContext context,
-            @Nullable InternalTransaction outerTx,
+            QueryTransactionWrapper txWrapper,
             ParsedResult parsedResult,
             Object[] params
     ) {
@@ -653,7 +627,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             throw new QueryValidationException(message);
         }
 
-        if (SqlQueryType.DDL == queryType && outerTx != null) {
+        if (SqlQueryType.DDL == queryType && !txWrapper.implicit()) {
             throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
         }
 

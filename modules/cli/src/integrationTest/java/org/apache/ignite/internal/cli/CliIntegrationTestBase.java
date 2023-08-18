@@ -29,6 +29,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryContext;
+import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
@@ -93,10 +94,11 @@ public abstract class CliIntegrationTestBase extends IntegrationTestBase {
         SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
 
         try {
-            var context = QueryContext.create(SqlQueryType.ALL, tx == null ? CLUSTER_NODES.get(0).transactions() : tx);
+            var context = QueryContext.create(SqlQueryType.ALL);
+            var txWrapper = new QueryTransactionWrapper(CLUSTER_NODES.get(0).transactions(), tx);
 
             return getAllFromCursor(
-                    await(queryEngine.querySingleAsync(sessionId, context, sql, args))
+                    await(queryEngine.querySingleAsync(sessionId, context, txWrapper, sql, args))
             );
         } finally {
             queryEngine.closeSession(sessionId);

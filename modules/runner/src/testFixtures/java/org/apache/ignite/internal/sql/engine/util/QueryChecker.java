@@ -42,6 +42,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
@@ -466,7 +467,7 @@ public abstract class QueryChecker {
 
         SessionId sessionId = qryProc.createSession(PropertiesHelper.emptyHolder());
 
-        QueryContext context = QueryContext.create(SqlQueryType.ALL, tx == null ? transactions() : tx);
+        QueryContext context = QueryContext.create(SqlQueryType.ALL);
 
         String qry = queryTemplate.createQuery();
 
@@ -475,7 +476,7 @@ public abstract class QueryChecker {
             if (!CollectionUtils.nullOrEmpty(planMatchers) || exactPlan != null) {
 
                 CompletableFuture<AsyncSqlCursor<List<Object>>> explainCursors = qryProc.querySingleAsync(sessionId,
-                        context, "EXPLAIN PLAN FOR " + qry, params);
+                        context, new QueryTransactionWrapper(transactions(), tx), "EXPLAIN PLAN FOR " + qry, params);
                 AsyncSqlCursor<List<Object>> explainCursor = await(explainCursors);
                 List<List<Object>> explainRes = getAllFromCursor(explainCursor);
 
@@ -492,7 +493,8 @@ public abstract class QueryChecker {
                 }
             }
             // Check result.
-            CompletableFuture<AsyncSqlCursor<List<Object>>> cursors = qryProc.querySingleAsync(sessionId, context, qry, params);
+            QueryTransactionWrapper txWrapper = new QueryTransactionWrapper(transactions(), tx);
+            CompletableFuture<AsyncSqlCursor<List<Object>>> cursors = qryProc.querySingleAsync(sessionId, context, txWrapper, qry, params);
             AsyncSqlCursor<List<Object>> cur = await(cursors);
 
             checkMetadata(cur);

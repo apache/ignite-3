@@ -27,6 +27,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
@@ -204,10 +205,11 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
     protected final List<List<Object>> executeSql(String sql, Object... args) {
         QueryProcessor qryProc = new TestQueryProcessor(node(0));
         SessionId sessionId = qryProc.createSession(PropertiesHelper.emptyHolder());
-        QueryContext context = QueryContext.create(SqlQueryType.ALL, node(0).transactions());
+        QueryContext context = QueryContext.create(SqlQueryType.ALL);
+        QueryTransactionWrapper txWrapper = new QueryTransactionWrapper(node(0).transactions(), null);
 
         return getAllFromCursor(
-                qryProc.querySingleAsync(sessionId, context, sql, args).join()
+                qryProc.querySingleAsync(sessionId, context, txWrapper, sql, args).join()
         );
     }
 }
