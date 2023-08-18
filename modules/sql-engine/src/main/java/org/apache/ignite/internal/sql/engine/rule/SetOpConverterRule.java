@@ -112,7 +112,7 @@ public class SetOpConverterRule {
 
         /** Reduce node factory method. */
         abstract PhysicalNode createReduceNode(RelOptCluster cluster, RelTraitSet traits, RelNode input,
-                boolean all, RelDataType rowType, int inputsNum);
+                boolean all, RelDataType rowType);
 
         /** {@inheritDoc} */
         @Override
@@ -129,8 +129,7 @@ public class SetOpConverterRule {
                     outTrait.replace(IgniteDistributions.single()),
                     convert(map, inTrait.replace(IgniteDistributions.single())),
                     setOp.all,
-                    cluster.getTypeFactory().leastRestrictive(Util.transform(inputs, RelNode::getRowType)),
-                    inputs.size()
+                    cluster.getTypeFactory().leastRestrictive(Util.transform(inputs, RelNode::getRowType))
             );
         }
     }
@@ -150,7 +149,7 @@ public class SetOpConverterRule {
         /** {@inheritDoc} */
         @Override
         PhysicalNode createReduceNode(RelOptCluster cluster, RelTraitSet traits, RelNode input, boolean all,
-                RelDataType rowType, int inputsNum) {
+                RelDataType rowType) {
             return new IgniteReduceMinus(cluster, traits, input, all, rowType);
         }
     }
@@ -170,8 +169,8 @@ public class SetOpConverterRule {
         /** {@inheritDoc} */
         @Override
         PhysicalNode createReduceNode(RelOptCluster cluster, RelTraitSet traits, RelNode input, boolean all,
-                RelDataType rowType, int inputsNum) {
-            return new IgniteReduceIntersect(cluster, traits, input, all, rowType, inputsNum);
+                RelDataType rowType) {
+            return new IgniteReduceIntersect(cluster, traits, input, all, rowType);
         }
     }
 }

@@ -197,7 +197,8 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
     /**
      * Grouping provides base driver code to implement a set operator.
-     * The basic idea is to store the number of distinct rows per input set and use these numbers to calculate
+     *
+     * <p>The basic idea is to store the number of distinct rows per input set and use these numbers to calculate
      * the number of rows an operator should produce.
      */
     protected abstract static class Grouping<RowT> {
@@ -213,7 +214,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
         private final int columnNum;
 
-        protected Grouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory,  int columnNum, AggregateType type, boolean all) {
+        protected Grouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory, int columnNum, AggregateType type, boolean all) {
             hnd = ctx.rowHandler();
             this.columnNum = columnNum;
             this.type = type;
@@ -332,11 +333,10 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
                 } else {
                     availableRows = cnt;
 
-                    assert availableRows > 0;
-                    assert all : "This branch should only be accessible for non distinct variant of a set operator";
+                    assert availableRows > 0 : format("Number of available rows is negative: {}", entry);
+                    assert all : format("This branch should only be accessible for non distinct variant of a set operator: {}", entry);
 
-                    int[] cntrs = entry.getValue();
-                    cntrs[0] -= availableRows;
+                    decrementAvailableRows(entry.getValue(), availableRows);
 
                     cnt = 0;
                 }
@@ -359,6 +359,9 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
         /** Updates the counters after calculating the number of available rows. */
         protected abstract void updateAvailableRows(int[] cntrs, int availableRows);
+
+        /** Decreases counters taking into account the given {@code availableRows}. */
+        protected abstract void decrementAvailableRows(int[] cntrs, int availableRows);
 
         private boolean isEmpty() {
             return groups.isEmpty();

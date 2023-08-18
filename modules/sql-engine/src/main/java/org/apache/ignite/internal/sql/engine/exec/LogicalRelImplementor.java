@@ -102,6 +102,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapSetOp;
+import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -554,7 +555,20 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         if (rel instanceof Minus) {
             node = new MinusNode<>(ctx, columnNum, rel.aggregateType(), rel.all(), rowFactory);
         } else if (rel instanceof IgniteIntersect) {
-            int inputsNum = ((IgniteIntersect) rel).inputsNum();
+            int inputsNum;
+
+            if (rel instanceof IgniteReduceIntersect) {
+                // MAP phase of intersect operator produces (c1, c2, .., cN, counters_input1, ... counters_inputM),
+                // so the number of input relations is equal to the number of input cols to reduce phase
+                // minus the number of output columns produced by a set operator (See IgniteMapSetOp::buildRowType).
+                int inputCols = rel.getInput(0).getRowType().getFieldCount();
+                int outputCols = rel.getRowType().getFieldCount();
+
+                inputsNum = inputCols - outputCols;
+            } else {
+                inputsNum = rel.getInputs().size();
+            }
+
             node = new IntersectNode<>(ctx, columnNum, rel.aggregateType(), rel.all(), rowFactory, inputsNum);
         } else {
             throw new AssertionError("Unexpected set node: " + rel);

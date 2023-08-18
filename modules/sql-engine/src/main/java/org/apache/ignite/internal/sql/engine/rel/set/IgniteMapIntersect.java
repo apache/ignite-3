@@ -60,12 +60,6 @@ public class IgniteMapIntersect extends IgniteIntersect implements IgniteMapSetO
 
     /** {@inheritDoc} */
     @Override
-    public int inputsNum() {
-        return inputs.size();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public IgniteMapIntersect copy(RelTraitSet traitSet, List<RelNode> inputs, boolean all) {
         return new IgniteMapIntersect(getCluster(), traitSet, inputs, all);
     }

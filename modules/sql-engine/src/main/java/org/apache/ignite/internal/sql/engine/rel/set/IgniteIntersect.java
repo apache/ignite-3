@@ -68,6 +68,4 @@ public abstract class IgniteIntersect extends Intersect implements IgniteSetOp {
         return all;
     }
 
-    /** Returns the number of input relations. */
-    public abstract int inputsNum();
 }

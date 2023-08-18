@@ -80,9 +80,4 @@ public class IgniteColocatedIntersect extends IgniteIntersect implements IgniteC
         return getInput(0).getRowType().getFieldCount() + getInputs().size();
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public int inputsNum() {
-        return inputs.size();
-    }
 }

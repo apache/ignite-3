@@ -26,6 +26,17 @@ import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
  * Execution node for INTERSECT operator.
  */
 public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
+
+    /**
+     * Constructor.
+     *
+     * @param ctx An execution context.
+     * @param columnNum The number of column in a row.
+     * @param type Aggregation mode.
+     * @param all Whether this operator should return all rows or only distinct rows.
+     * @param rowFactory The row factory.
+     * @param inputsCnt The number of input relations this operator accepts.
+     */
     public IntersectNode(ExecutionContext<RowT> ctx, int columnNum, AggregateType type, boolean all,
             RowFactory<RowT> rowFactory, int inputsCnt) {
         super(ctx, type, all, rowFactory, new IntersectGrouping<>(ctx, rowFactory, columnNum, type, all,  inputsCnt));
@@ -167,6 +178,12 @@ public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
             if (all) {
                 cntrs[0] = availableRows;
             }
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected void decrementAvailableRows(int[] cntrs, int availableRows) {
+            cntrs[0] -= availableRows;
         }
     }
 }
