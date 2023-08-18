@@ -163,7 +163,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
             List<Pair<RexNode, String>> exps = new ArrayList<>(targetFields.size());
 
             pos = 0;
-            for (String fld : targetFields) {
+            for (; pos < targetFields.size(); ++pos) {
                 SqlNode operand = rowConstructor0.getOperandList().get(pos);
 
                 if (operand.getKind() == SqlKind.DEFAULT) {
@@ -173,8 +173,6 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
                 } else {
                     exps.add(Pair.of(bb.convertExpression(operand), SqlValidatorUtil.alias(operand, pos)));
                 }
-
-                ++pos;
             }
 
             RelNode in = (null == bb.root) ? LogicalValues.createOneRow(cluster) : bb.root;
