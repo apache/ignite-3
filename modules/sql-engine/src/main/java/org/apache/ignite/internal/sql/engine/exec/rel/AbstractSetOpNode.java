@@ -241,7 +241,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
                     addOnSingle(row, setIdx);
                     break;
                 default:
-                    throw new IllegalArgumentException("Unexpected type " + type);
+                    throw new IllegalStateException("Unexpected type " + type);
             }
         }
 
@@ -262,7 +262,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
                 case SINGLE:
                     return getResultRows(cnt);
                 default:
-                    throw new IllegalArgumentException("Unexpected type " + type);
+                    throw new IllegalStateException("Unexpected type " + type);
             }
         }
 
