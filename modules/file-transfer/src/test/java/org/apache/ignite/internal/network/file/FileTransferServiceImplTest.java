@@ -188,16 +188,18 @@ class FileTransferServiceImplTest {
                         eq(correlationId));
 
         // Set file receiver to complete transfer registration.
-        CompletableFuture<UUID> transferRegistered = new CompletableFuture<>();
+        CompletableFuture<UUID> registeredTransferIdFuture = new CompletableFuture<>();
+        CompletableFuture<List<Path>> transferredFilesFuture = new CompletableFuture<>();
         doAnswer(invocation -> {
-            transferRegistered.complete(invocation.getArgument(1, UUID.class));
-            return new CompletableFuture<>();
+            registeredTransferIdFuture.complete(invocation.getArgument(1, UUID.class));
+            return transferredFilesFuture;
         }).when(fileReceiver).registerTransfer(eq(TARGET_CONSISTENT_ID), any(UUID.class), anyList(), any(Path.class));
 
         // Set file receiver to complete transfer cancellation.
-        CompletableFuture<UUID> transferCanceled = new CompletableFuture<>();
+        CompletableFuture<UUID> candeledTransferIdFuture = new CompletableFuture<>();
         doAnswer(invocation -> {
-            transferCanceled.complete(invocation.getArgument(0, UUID.class));
+            candeledTransferIdFuture.complete(invocation.getArgument(0, UUID.class));
+            transferredFilesFuture.completeExceptionally(invocation.getArgument(1, RuntimeException.class));
             return null;
         }).when(fileReceiver).cancelTransfer(any(UUID.class), any(RuntimeException.class));
 
@@ -213,8 +215,8 @@ class FileTransferServiceImplTest {
         messagingService.fairMessage(uploadRequest, TARGET_CONSISTENT_ID, correlationId);
 
         // Check that transfer was registered and canceled.
-        assertThat(transferRegistered, willCompleteSuccessfully());
-        assertThat(transferCanceled, willBe(transferRegistered.join()));
+        assertThat(registeredTransferIdFuture, willCompleteSuccessfully());
+        assertThat(candeledTransferIdFuture, willBe(registeredTransferIdFuture.join()));
 
         // Check that transfer directory is empty.
         await().untilAsserted(() -> assertThat(transferDir.toFile().listFiles(), emptyArray()));
