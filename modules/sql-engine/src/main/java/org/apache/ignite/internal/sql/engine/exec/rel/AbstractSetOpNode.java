@@ -222,15 +222,26 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
             this.rowFactory = rowFactory;
         }
 
+        /**
+         * The given row from {@code setIdx}-th input to this group.
+         *
+         * @param row Row.
+         * @param setIdx The index of input relation the row belongs to.
+         */
         protected void add(RowT row, int setIdx) {
-            if (type == AggregateType.REDUCE) {
-                assert setIdx == 0 : "Unexpected set index: " + setIdx;
-
-                addOnReducer(row);
-            } else if (type == AggregateType.MAP) {
-                addOnMapper(row, setIdx);
-            } else {
-                addOnSingle(row, setIdx);
+            switch (type) {
+                case MAP:
+                    addOnMapper(row, setIdx);
+                    break;
+                case REDUCE:
+                    assert setIdx == 0 : "Unexpected set index: " + setIdx;
+                    addOnReducer(row);
+                    break;
+                case SINGLE:
+                    addOnSingle(row, setIdx);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unexpected type " + type);
             }
         }
 
@@ -243,10 +254,15 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         private List<RowT> getRows(int cnt) {
             if (nullOrEmpty(groups)) {
                 return Collections.emptyList();
-            } else if (type == AggregateType.MAP) {
-                return getOnMapper(cnt);
-            } else {
-                return getResultRows(cnt);
+            }
+            switch (type) {
+                case MAP:
+                    return getOnMapper(cnt);
+                case REDUCE:
+                case SINGLE:
+                    return getResultRows(cnt);
+                default:
+                    throw new IllegalArgumentException("Unexpected type " + type);
             }
         }
 

@@ -65,11 +65,11 @@ public interface IgniteMapSetOp extends IgniteSetOp {
      *     _count_2: int
      * </pre>
      */
-    public static RelDataType buildRowType(IgniteTypeFactory typeFactory, RelDataType rowType, int inputsNum) {
+    public static RelDataType buildRowType(IgniteTypeFactory typeFactory, RelDataType inputRowType, int inputsNum) {
         RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
 
-        for (int i = 0; i < rowType.getFieldCount(); i++) {
-            RelDataTypeField field = rowType.getFieldList().get(i);
+        for (int i = 0; i < inputRowType.getFieldCount(); i++) {
+            RelDataTypeField field = inputRowType.getFieldList().get(i);
             builder.add("f" + i, field.getType());
         }
 
