@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.framework;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
@@ -33,7 +34,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -47,9 +47,9 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -351,17 +351,13 @@ public class TestBuilders {
                 }
             }
 
-            Map<String, Table> tableMap = tableBuilders.stream()
+            Map<String, IgniteTable> tableByName = tableBuilders.stream()
                     .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
-            Map<Integer, IgniteIndex> indexMap = tableMap.values().stream()
-                    .map(TestTable.class::cast)
-                    .flatMap(t -> t.indexes().values().stream().map(TestIndex.class::cast))
-                    .collect(Collectors.toMap(TestIndex::id, Function.identity()));
-
-            var schemaManager = new PredefinedSchemaManager(new IgniteSchema("PUBLIC", tableMap, indexMap, SCHEMA_VERSION));
-            var colocationGroupProvider = new TestColocationGroupProvider(tableBuilders, tableMap, nodeNames);
+            IgniteSchema schema = new IgniteSchema(DEFAULT_SCHEMA_NAME, SCHEMA_VERSION, tableByName.values());
+            var schemaManager = new PredefinedSchemaManager(schema);
+            var colocationGroupProvider = new TestColocationGroupProvider(tableBuilders, tableByName, nodeNames);
 
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> new TestNode(name, clusterService.forNode(name), schemaManager, colocationGroupProvider))
@@ -430,15 +426,18 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Table must contain at least one column");
             }
 
-            TestTable testTable = new TestTable(
-                    new TableDescriptorImpl(columns, distribution),
+            TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
+
+            List<IgniteIndex> indexes = indexBuilders.stream()
+                    .map(idx -> idx.build(tableDescriptor))
+                    .collect(Collectors.toList());
+
+            return new TestTable(
+                    tableDescriptor,
                     Objects.requireNonNull(name),
-                    size
+                    size,
+                    indexes
             );
-
-            indexBuilders.stream().map(AbstractIndexBuilderImpl::build).forEach(testTable::addIndex);
-
-            return testTable;
         }
 
         /** {@inheritDoc} */
@@ -482,11 +481,13 @@ public class TestBuilders {
         }
 
         private TestTable build() {
-            TestTable testTable = new TestTable(new TableDescriptorImpl(columns, distribution), name, dataProviders, size);
+            TableDescriptorImpl tableDescriptor = new TableDescriptorImpl(columns, distribution);
 
-            indexBuilders.forEach(idx -> testTable.addIndex(idx.build()));
+            List<IgniteIndex> indexes = indexBuilders.stream()
+                    .map(idx -> idx.build(tableDescriptor))
+                    .collect(Collectors.toList());
 
-            return testTable;
+            return new TestTable(tableDescriptor, name, size, indexes, dataProviders);
         }
     }
 
@@ -514,7 +515,7 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public TestIndex build() {
+        public TestIndex build(TableDescriptor desc) {
             if (name == null) {
                 throw new IllegalArgumentException("Name is not specified");
             }
@@ -527,7 +528,7 @@ public class TestBuilders {
                 throw new IllegalArgumentException("Collation must be specified for each of columns.");
             }
 
-            return new TestIndex(name, Type.SORTED, columns, collations, dataProviders);
+            return TestIndex.createSorted(name, columns, collations, desc, dataProviders);
         }
     }
 
@@ -554,7 +555,7 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public TestIndex build() {
+        public TestIndex build(TableDescriptor desc) {
             if (name == null) {
                 throw new IllegalArgumentException("Name is not specified");
             }
@@ -565,7 +566,7 @@ public class TestBuilders {
 
             assert collations == null : "Collation is not supported.";
 
-            return new TestIndex(name, Type.HASH, columns, null, dataProviders);
+            return TestIndex.createHash(name, columns, desc, dataProviders);
         }
     }
 
@@ -592,10 +593,10 @@ public class TestBuilders {
         }
 
         @Override
-        TestIndex build() {
+        TestIndex build(TableDescriptor desc) {
             assert collations.size() == columns.size();
 
-            return TestIndex.createSorted(name, columns, collations, dataProviders);
+            return TestIndex.createSorted(name, columns, collations, desc, dataProviders);
         }
     }
 
@@ -622,10 +623,10 @@ public class TestBuilders {
         }
 
         @Override
-        TestIndex build() {
+        TestIndex build(TableDescriptor desc) {
             assert collations == null;
 
-            return TestIndex.createHash(name, columns, dataProviders);
+            return TestIndex.createHash(name, columns, desc, dataProviders);
         }
     }
 
@@ -673,7 +674,7 @@ public class TestBuilders {
         @Override
         public ChildT addKeyColumn(String name, NativeType type) {
             columns.add(new ColumnDescriptorImpl(
-                    name, true, false, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, true, false, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return self();
@@ -689,7 +690,7 @@ public class TestBuilders {
         @Override
         public ChildT addColumn(String name, NativeType type, boolean nullable) {
             columns.add(new ColumnDescriptorImpl(
-                    name, false, nullable, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
+                    name, false, nullable, columns.size(), type, DefaultValueStrategy.DEFAULT_NULL, null
             ));
 
             return self();
@@ -702,7 +703,7 @@ public class TestBuilders {
                 return addColumn(name, type);
             } else {
                 ColumnDescriptorImpl desc = new ColumnDescriptorImpl(
-                        name, false, true, columns.size(), columns.size(), type, DefaultValueStrategy.DEFAULT_CONSTANT, () -> defaultValue
+                        name, false, true, columns.size(), type, DefaultValueStrategy.DEFAULT_CONSTANT, () -> defaultValue
                 );
                 columns.add(desc);
             }
@@ -744,7 +745,7 @@ public class TestBuilders {
             return self();
         }
 
-        abstract TestIndex build();
+        abstract TestIndex build(TableDescriptor desc);
     }
 
     private abstract static class AbstractDataSourceBuilderImpl<ChildT> {
@@ -880,11 +881,11 @@ public class TestBuilders {
 
         private final Map<Integer, CompletableFuture<ColocationGroup>> groups = new HashMap<>();
 
-        TestColocationGroupProvider(List<ClusterTableBuilderImpl> tableBuilders, Map<String, Table> tableMap, List<String> nodeNames) {
+        TestColocationGroupProvider(List<ClusterTableBuilderImpl> tableBuilders, Map<String, IgniteTable> tableByName,
+                List<String> nodeNames) {
 
             for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
-                Table table = tableMap.get(tableBuilder.name);
-                IgniteTable igniteTable = (IgniteTable) table;
+                IgniteTable table = tableByName.get(tableBuilder.name);
                 CompletableFuture<ColocationGroup> f;
 
                 if (!tableBuilder.dataProviders.isEmpty()) {
@@ -896,7 +897,7 @@ public class TestBuilders {
                     f = CompletableFuture.completedFuture(ColocationGroup.forNodes(nodeNames));
                 }
 
-                groups.put(igniteTable.id(), f);
+                groups.put(table.id(), f);
             }
         }
 

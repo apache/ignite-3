@@ -144,13 +144,14 @@ public class ExecutableTableRegistrySelfTest {
         CompletableFuture<ExecutableTable> getTable(int tableId) {
             TableImpl table = new TableImpl(internalTable, schemaRegistry, new HeapLockManager());
             int schemaVersion = 1;
+            int tableVersion = 1;
             SchemaDescriptor schemaDescriptor = newDescriptor(schemaVersion);
 
             when(tableManager.tableAsync(tableId)).thenReturn(CompletableFuture.completedFuture(table));
             when(schemaManager.schemaRegistry(tableId)).thenReturn(schemaRegistry);
             when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
 
-            return registry.getTable(tableId, descriptor);
+            return registry.getTable(tableId, tableVersion, descriptor);
         }
     }
 }

@@ -114,7 +114,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
         for (int i = 0; i < desc.columnsCount(); i++) {
             ColumnDescriptor columnDescriptor = desc.columnDescriptor(i);
 
-            tmp[columnDescriptor.physicalIndex()] = columnDescriptor;
+            int physIndex = schemaDescriptor.column(columnDescriptor.name()).schemaIndex();
+
+            tmp[physIndex] = columnDescriptor;
         }
 
         columnsOrderedByPhysSchema = tmp;
