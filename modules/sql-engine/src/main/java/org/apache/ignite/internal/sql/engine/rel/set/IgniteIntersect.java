@@ -67,5 +67,4 @@ public abstract class IgniteIntersect extends Intersect implements IgniteSetOp {
     public boolean all() {
         return all;
     }
-
 }

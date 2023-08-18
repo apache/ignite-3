@@ -31,7 +31,7 @@ public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
      * Constructor.
      *
      * @param ctx An execution context.
-     * @param columnNum The number of column in a row.
+     * @param columnNum The number of columns in an input row.
      * @param type Aggregation mode.
      * @param all Whether this operator should return all rows or only distinct rows.
      * @param rowFactory The row factory.
