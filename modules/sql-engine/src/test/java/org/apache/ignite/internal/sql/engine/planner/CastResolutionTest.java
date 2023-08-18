@@ -17,17 +17,27 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static java.lang.String.format;
 import static org.apache.calcite.sql.type.SqlTypeName.BINARY_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.BOOLEAN_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.DATETIME_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.EXACT_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.FRACTIONAL_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_DAY;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_DAY_MINUTE;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_DAY_SECOND;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_HOUR;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_HOUR_MINUTE;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_HOUR_SECOND;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_MINUTE;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_MINUTE_SECOND;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_MONTH;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_SECOND;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_YEAR;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_YEAR_MONTH;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,8 +46,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.sql.type.SqlTypeCoercionRule;
+import org.apache.calcite.sql.type.SqlTypeMappingRule;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
+import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssigmentsRules;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
@@ -143,10 +156,10 @@ public class CastResolutionTest extends AbstractPlannerTest {
                     continue;
                 }
 
-                testItems.add(checkStatement().sql(String.format(template, from, toType)).ok(false));
+                testItems.add(checkStatement().sql(format(template, from, toType)).ok(false));
             }
 
-            testItems.add(checkStatement().sql(String.format(template, from, makeUsableIntervalToType(fromInitial))).ok());
+            testItems.add(checkStatement().sql(format(template, from, makeUsableIntervalToType(fromInitial))).ok());
 
             String finalFrom = from;
             Set<String> deprecatedCastTypes = allTypes.stream().filter(t -> !toTypes.contains(t) && !t.equals(finalFrom))
@@ -157,7 +170,7 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
                 toType = isInterval ? makeUsableIntervalToType(toType) : toType;
 
-                testItems.add(checkStatement().sql(String.format(template, from, toType)).fails(CAST_ERROR_MESSAGE));
+                testItems.add(checkStatement().sql(format(template, from, toType)).fails(CAST_ERROR_MESSAGE));
             }
         }
 
@@ -175,6 +188,82 @@ public class CastResolutionTest extends AbstractPlannerTest {
         testItems.add(checkStatement().sql("SELECT CAST(1 AS interval day to second)").fails(CAST_ERROR_MESSAGE));
         testItems.add(checkStatement().sql("SELECT CAST(1 AS interval hour to minute)").fails(CAST_ERROR_MESSAGE));
         testItems.add(checkStatement().sql("SELECT CAST(1 AS interval hour to second)").fails(CAST_ERROR_MESSAGE));
+
+        testItems.add(checkStatement().sql("SELECT CAST('1' AS interval hour to second)").ok());
+        testItems.add(checkStatement().sql("SELECT CAST('1' AS interval day to hour)").ok());
+        testItems.add(checkStatement().sql("SELECT CAST('1' AS interval day to minute)").ok());
+        testItems.add(checkStatement().sql("SELECT CAST('1' AS interval day to second)").ok());
+        testItems.add(checkStatement().sql("SELECT CAST('1' AS interval hour to minute)").ok());
+        testItems.add(checkStatement().sql("SELECT CAST('1' AS interval hour to second)").ok());
+
+        testItems.add(checkStatement().sql("SELECT CAST('1'::VARCHAR AS interval hour to second)").ok());
+        testItems.add(checkStatement().sql("SELECT CAST('1'::VARCHAR AS interval day to hour)").ok());
+        testItems.add(checkStatement().sql("SELECT CAST('1'::VARCHAR AS interval day to minute)").ok());
+        testItems.add(checkStatement().sql("SELECT CAST('1'::VARCHAR AS interval day to second)").ok());
+        testItems.add(checkStatement().sql("SELECT CAST('1'::VARCHAR AS interval hour to minute)").ok());
+        testItems.add(checkStatement().sql("SELECT CAST('1'::VARCHAR AS interval hour to second)").ok());
+
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> testRulesContainsIntervalWithExactTypesRules() {
+        List<DynamicTest> testItems = new ArrayList<>();
+
+        List<SqlTypeName> singleIntervals = List.of(INTERVAL_YEAR, INTERVAL_MONTH, INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE,
+                INTERVAL_SECOND);
+
+        List<SqlTypeName> nonSingleIntervals = List.of(INTERVAL_YEAR_MONTH, INTERVAL_DAY_MINUTE, INTERVAL_DAY_SECOND,
+                INTERVAL_HOUR_MINUTE, INTERVAL_HOUR_SECOND, INTERVAL_MINUTE_SECOND);
+
+        List<SqlTypeName> singleYearIntervals = List.of(INTERVAL_YEAR, INTERVAL_MONTH);
+
+        List<SqlTypeName> singleDayIntervals = List.of(INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE,
+                INTERVAL_SECOND);
+
+        SqlTypeMappingRule rules = SqlTypeCoercionRule.instance(IgniteCustomAssigmentsRules.instance().getTypeMapping());
+
+        for (SqlTypeName toType : singleIntervals) {
+            for (SqlTypeName fromType : EXACT_TYPES) {
+                testItems.add(DynamicTest.dynamicTest(format("ALLOW: from: %s to: %s", fromType, toType),
+                        () -> assertTrue(rules.canApplyFrom(toType, fromType))));
+            }
+        }
+
+        for (SqlTypeName toType : nonSingleIntervals) {
+            for (SqlTypeName fromType : EXACT_TYPES) {
+                testItems.add(DynamicTest.dynamicTest(format("ALLOW: from: %s to: %s", fromType, toType),
+                        () -> assertFalse(rules.canApplyFrom(toType, fromType))));
+            }
+        }
+
+        for (SqlTypeName toType : singleYearIntervals) {
+            for (SqlTypeName fromType : singleYearIntervals) {
+                testItems.add(DynamicTest.dynamicTest(format("ALLOW: from: %s to: %s", fromType, toType),
+                        () -> assertTrue(rules.canApplyFrom(toType, fromType))));
+            }
+        }
+
+        for (SqlTypeName toType : singleDayIntervals) {
+            for (SqlTypeName fromType : singleDayIntervals) {
+                testItems.add(DynamicTest.dynamicTest(format("ALLOW: from: %s to: %s", fromType, toType),
+                        () -> assertTrue(rules.canApplyFrom(toType, fromType))));
+            }
+        }
+
+        for (SqlTypeName toType : singleYearIntervals) {
+            for (SqlTypeName fromType : singleDayIntervals) {
+                testItems.add(DynamicTest.dynamicTest(format("FORBID: from: %s to: %s", fromType, toType),
+                        () -> assertFalse(rules.canApplyFrom(toType, fromType))));
+            }
+        }
+
+        for (SqlTypeName toType : singleDayIntervals) {
+            for (SqlTypeName fromType : singleYearIntervals) {
+                testItems.add(DynamicTest.dynamicTest(format("FORBID: from: %s to: %s", fromType, toType),
+                        () -> assertFalse(rules.canApplyFrom(toType, fromType))));
+            }
+        }
 
         return testItems.stream();
     }
