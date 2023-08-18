@@ -60,6 +60,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -106,7 +107,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -140,6 +140,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Empty logical topology snapshot. */
     private static final LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(0, emptySet());
 
+    private final HybridClock clock = new HybridClockImpl();
+
     /** Schema manager. */
     @Mock
     private BaselineManager bm;
@@ -171,9 +173,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Replica manager. */
     @Mock
     ReplicaManager replicaManager;
-
-    @Mock
-    HybridClock clock;
 
     @Mock
     private VaultManager vaultManager;
@@ -209,13 +208,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     ClusterManagementGroupManager cmgMgr;
 
     SqlQueryProcessor queryProc;
-
-    /** Test node. */
-    private final ClusterNode node = new ClusterNodeImpl(
-            UUID.randomUUID().toString(),
-            NODE_NAME,
-            new NetworkAddress("127.0.0.1", 2245)
-    );
 
     @InjectConfiguration
     private RocksDbStorageEngineConfiguration rocksDbEngineConfig;
@@ -379,8 +371,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      */
     @Test
     public void testCreateTable() {
-        SqlQueryProcessor finalQueryProc = queryProc;
-
         String curMethodName = getCurrentMethodName();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
@@ -476,8 +466,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         readFirst(sql(newTblSql));
 
         readFirst(sql("DROP TABLE " + curMethodName));
-
-        SqlQueryProcessor finalQueryProc = queryProc;
 
         assertThrows(TableNotFoundException.class, () -> readFirst(sql("DROP TABLE " + curMethodName + "_not_exist")));
 
