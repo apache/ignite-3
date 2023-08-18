@@ -879,7 +879,11 @@ public class TestBuilders {
 
         private final Map<Integer, CompletableFuture<ColocationGroup>> groups = new HashMap<>();
 
-        TestColocationGroupProvider(List<ClusterTableBuilderImpl> tableBuilders, Map<String, IgniteTable> tableMap, List<String> nodeNames) {
+        TestColocationGroupProvider(
+                List<ClusterTableBuilderImpl> tableBuilders,
+                Map<String, IgniteTable> tableMap,
+                List<String> nodeNames
+        ) {
 
             for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
                 IgniteTable table = tableMap.get(tableBuilder.name);
