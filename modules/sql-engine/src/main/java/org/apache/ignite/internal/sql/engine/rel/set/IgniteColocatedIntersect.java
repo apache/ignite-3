@@ -33,10 +33,10 @@ public class IgniteColocatedIntersect extends IgniteIntersect implements IgniteC
     /**
      * Constructor.
      *
-     * @param cluster   Cluster that this relational expression belongs to.
-     * @param traitSet    The traits of this rel.
-     * @param inputs     Input relational expressions.
-     * @param all   Whether this operator should return all rows or only distinct rows.
+     * @param cluster Cluster that this relational expression belongs to.
+     * @param traitSet The traits of this rel.
+     * @param inputs Input relational expressions.
+     * @param all Whether this operator should return all rows or only distinct rows.
      */
     public IgniteColocatedIntersect(
             RelOptCluster cluster,

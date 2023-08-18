@@ -39,10 +39,10 @@ public abstract class IgniteMinus extends Minus implements IgniteSetOp {
     /**
      * Constructor.
      *
-     * @param cluster   Cluster that this relational expression belongs to.
-     * @param traits    The traits of this rel.
-     * @param inputs     Input relational expressions.
-     * @param all   Whether this operator should return all rows or only distinct rows.
+     * @param cluster Cluster that this relational expression belongs to.
+     * @param traits The traits of this rel.
+     * @param inputs Input relational expressions.
+     * @param all Whether this operator should return all rows or only distinct rows.
      */
     IgniteMinus(RelOptCluster cluster, RelTraitSet traits, List<RelNode> inputs, boolean all) {
         super(cluster, traits, inputs, all);

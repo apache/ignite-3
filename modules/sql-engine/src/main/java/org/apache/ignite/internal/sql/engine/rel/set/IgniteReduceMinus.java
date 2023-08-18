@@ -37,11 +37,11 @@ public class IgniteReduceMinus extends IgniteMinus implements IgniteReduceSetOp 
     /**
      * Constructor.
      *
-     * @param cluster  Cluster that this relational expression belongs to.
-     * @param traitSet    The traits of this rel.
-     * @param input     Input relational expression.
-     * @param all   Whether this operator should return all rows or only distinct rows.
-     * @param rowType  Row type this expression produces.
+     * @param cluster Cluster that this relational expression belongs to.
+     * @param traitSet The traits of this rel.
+     * @param input Input relational expression.
+     * @param all Whether this operator should return all rows or only distinct rows.
+     * @param rowType Row type this expression produces.
      */
     public IgniteReduceMinus(
             RelOptCluster cluster,
