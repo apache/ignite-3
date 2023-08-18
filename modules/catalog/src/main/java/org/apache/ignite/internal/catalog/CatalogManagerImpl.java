@@ -25,10 +25,6 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
@@ -173,17 +169,9 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                 new CatalogIndexDescriptor[0]
         );
 
-        CatalogZoneDescriptor defaultZone = new CatalogZoneDescriptor(
+        CatalogZoneDescriptor defaultZone = fromParams(
                 objectIdGen++,
-                DEFAULT_ZONE_NAME,
-                25,
-                1,
-                INFINITE_TIMER_VALUE,
-                INFINITE_TIMER_VALUE,
-                INFINITE_TIMER_VALUE,
-                DEFAULT_FILTER,
-                // TODO: IGNITE-19719 Should be defined differently
-                new CatalogDataStorageDescriptor(DEFAULT_STORAGE_ENGINE, DEFAULT_DATA_REGION)
+                CreateZoneParams.builder().zoneName(DEFAULT_ZONE_NAME).build()
         );
 
         registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(schemaPublic)));
@@ -334,7 +322,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
             int id = catalog.objectIdGenState();
 
-            CatalogTableDescriptor table = CatalogUtils.fromParams(id++, zone.id(), params);
+            CatalogTableDescriptor table = fromParams(id++, zone.id(), params);
 
             CatalogHashIndexDescriptor pkIndex = createHashIndexDescriptor(table, id++, createPkIndexParams(params));
 
@@ -383,7 +371,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                     throw new ColumnAlreadyExistsException(col.name());
                 }
 
-                columnDescriptors.add(CatalogUtils.fromParams(col));
+                columnDescriptors.add(fromParams(col));
             }
 
             return List.of(
@@ -470,7 +458,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
             validateCreateSortedIndexParams(params, table);
 
-            CatalogIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+            CatalogIndexDescriptor index = fromParams(catalog.objectIdGenState(), table.id(), params);
 
             return List.of(
                     new NewIndexEntry(index),
@@ -505,7 +493,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new DistributionZoneAlreadyExistsException(params.zoneName());
             }
 
-            CatalogZoneDescriptor zone = CatalogUtils.fromParams(catalog.objectIdGenState(), params);
+            CatalogZoneDescriptor zone = fromParams(catalog.objectIdGenState(), params);
 
             return List.of(
                     new NewZoneEntry(zone),
@@ -1000,7 +988,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     ) {
         validateCreateHashIndexParams(params, table);
 
-        return CatalogUtils.fromParams(indexId, table.id(), params);
+        return fromParams(indexId, table.id(), params);
     }
 
     @Override

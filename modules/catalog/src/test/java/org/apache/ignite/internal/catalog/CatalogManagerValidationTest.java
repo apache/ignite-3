@@ -157,24 +157,14 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
                 willThrowFast(CatalogValidationException.class, "Invalid data nodes auto adjust")
         );
 
+        assertThat(
+                manager.createZone(createZoneBuilder(ZONE_NAME + 0).dataNodesAutoAdjust(IMMEDIATE_TIMER_VALUE).build()),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
         // Let's check the success cases.
         assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 0).dataNodesAutoAdjust(0).build()),
-                willBe(nullValue())
-        );
-
-        assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 1).dataNodesAutoAdjust(Integer.MAX_VALUE).build()),
-                willBe(nullValue())
-        );
-
-        assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 2).dataNodesAutoAdjust(IMMEDIATE_TIMER_VALUE).build()),
-                willBe(nullValue())
-        );
-
-        assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 3).dataNodesAutoAdjust(INFINITE_TIMER_VALUE).build()),
+                manager.createZone(createZoneBuilder(ZONE_NAME + 1).dataNodesAutoAdjust(INFINITE_TIMER_VALUE).build()),
                 willBe(nullValue())
         );
     }
@@ -188,11 +178,13 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
                 willThrowFast(CatalogValidationException.class, "Invalid data nodes auto adjust")
         );
 
+        assertThat(
+                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(IMMEDIATE_TIMER_VALUE).build()),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
         // Let's check the success cases.
-        assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(0).build()), willBe(nullValue()));
-        assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(Integer.MAX_VALUE).build()), willBe(nullValue()));
         assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(INFINITE_TIMER_VALUE).build()), willBe(nullValue()));
-        assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(IMMEDIATE_TIMER_VALUE).build()), willBe(nullValue()));
     }
 
     @Test
@@ -338,22 +330,22 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
                 willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
+        assertThat(
+                manager.createZone(
+                        createZoneBuilder(ZONE_NAME + 1)
+                                .dataNodesAutoAdjust(666)
+                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                                .build()
+                ),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
         // Let's check the success cases.
         assertThat(
                 manager.createZone(
                         createZoneBuilder(ZONE_NAME + 0)
                                 .dataNodesAutoAdjust(666)
                                 .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                                .build()
-                ),
-                willBe(nullValue())
-        );
-
-        assertThat(
-                manager.createZone(
-                        createZoneBuilder(ZONE_NAME + 1)
-                                .dataNodesAutoAdjust(666)
-                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                                 .build()
                 ),
                 willBe(nullValue())

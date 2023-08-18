@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones.utils;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -177,7 +178,17 @@ public class CatalogAlterZoneEventListenerTest extends BaseCatalogManagerTest {
         });
 
         assertThat(manager.createZone(createZoneBuilder().build()), willCompleteSuccessfully());
-        assertThat(manager.alterZone(alterZoneBuilder().dataNodesAutoAdjust(newAutoAdjust).build()), willCompleteSuccessfully());
+
+        assertThat(
+                manager.alterZone(
+                        alterZoneBuilder()
+                                .dataNodesAutoAdjust(newAutoAdjust)
+                                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
+                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
+                                .build()
+                ),
+                willCompleteSuccessfully()
+        );
 
         assertThat(onZoneUpdateFuture, willCompleteSuccessfully());
         assertThat(onAutoAdjustUpdateFuture, willCompleteSuccessfully());
