@@ -46,29 +46,39 @@ public class QueryTransactionWrapper {
         implicit = transaction == null;
     }
 
-    void beginImplicitIfNeeded(SqlQueryType type) {
-        if (implicit && transaction == null) {
-            transaction = transactions.begin(new TransactionOptions().readOnly(type != SqlQueryType.DML));
+    protected void commitImplicit() {
+        if (!implicit) {
+            return;
+        }
+
+        Transaction transaction0 = transaction;
+
+        if (transaction0 != null) {
+            transaction0.commit();
         }
     }
 
-    InternalTransaction transaction() {
+    protected void rollbackImplicit() {
+        if (!implicit) {
+            return;
+        }
+
+        Transaction transaction0 = transaction;
+
+        if (transaction0 != null) {
+            transaction0.rollback();
+        }
+    }
+
+    @Nullable InternalTransaction getOrStartImplicitIfNeeded(SqlQueryType type) {
+        if (implicit && type != SqlQueryType.DDL && type != SqlQueryType.EXPLAIN && transaction == null) {
+            transaction = transactions.begin(new TransactionOptions().readOnly(type != SqlQueryType.DML));
+        }
+
         return (InternalTransaction) transaction;
     }
 
     boolean implicit() {
         return implicit;
-    }
-
-    void rollback() {
-        if (implicit) {
-            transaction.rollback();
-        }
-    }
-
-    void commit() {
-        if (implicit) {
-            transaction.commit();
-        }
     }
 }

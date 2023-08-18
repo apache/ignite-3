@@ -70,14 +70,14 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
         return dataCursor.requestNextAsync(rows).handle((batch, t) -> {
             if (t != null) {
-                txWrapper.rollback();
+                txWrapper.rollbackImplicit();
 
                 throw new CompletionException(wrapIfNecessary(t));
             }
 
             if (!batch.hasMore()) {
                 // last batch, need to commit transaction
-                txWrapper.commit();
+                txWrapper.commitImplicit();
             }
 
             return batch;
@@ -88,7 +88,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     @Override
     public CompletableFuture<Void> closeAsync() {
         // Commit implicit transaction, if any.
-        txWrapper.commit();
+        txWrapper.commitImplicit();
 
         return dataCursor.closeAsync();
     }

@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
+import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncWrapper;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -59,9 +60,10 @@ public class JdbcQueryCursorSelfTest {
     }
 
     private static List<Integer> fetchFullBatch(int maxRows, int fetchSize) {
-        JdbcQueryCursor<Integer> cursor = new JdbcQueryCursor<>(maxRows,
-                new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, null,
-                        new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run)));
+        QueryTransactionWrapper txTestWrapper = new QueryTransactionWrapper(null, null);
+        AsyncWrapper<Integer> asyncWrapper = new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run);
+        JdbcQueryCursor<Integer> cursor = new JdbcQueryCursor<>(
+                maxRows, new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, txTestWrapper, asyncWrapper));
 
         List<Integer> results = new ArrayList<>(maxRows);
         BatchedResult<Integer> requestResult;

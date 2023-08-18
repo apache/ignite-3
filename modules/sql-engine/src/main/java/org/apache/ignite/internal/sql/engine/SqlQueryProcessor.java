@@ -89,6 +89,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -429,10 +430,10 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     validateParsedStatement(context, txWrapper, result, params);
 
-                    txWrapper.beginImplicitIfNeeded(result.queryType());
+                    InternalTransaction tx = txWrapper.getOrStartImplicitIfNeeded(result.queryType());
 
                     // TODO IGNITE-18733: wait for actual metadata for TX.
-                    HybridTimestamp txTimestamp = txWrapper.transaction().startTimestamp();
+                    HybridTimestamp txTimestamp = tx == null ? clock.now() : tx.startTimestamp();
 
                     SchemaPlus schema = sqlSchemaManager.schema(schemaName, txTimestamp.longValue());
 
@@ -453,7 +454,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     return prepareSvc.prepareAsync(result, ctx)
                             .thenApply(plan -> {
-                                var dataCursor = executionSrvc.executePlan(txWrapper.transaction(), plan, ctx);
+                                var dataCursor = executionSrvc.executePlan(tx, plan, ctx);
 
                                 SqlQueryType queryType = plan.type();
                                 assert queryType != null : "Expected a full plan but got a fragment: " + plan;
@@ -490,7 +491,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
 
             if (ex != null) {
-                txWrapper.rollback();
+                txWrapper.rollbackImplicit();
             }
         });
 

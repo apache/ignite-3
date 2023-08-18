@@ -117,6 +117,20 @@ public class AsyncSqlCursorImplTest {
     }
 
     private static QueryTransactionWrapper wrapTx(Transaction tx) {
-        return new QueryTransactionWrapper(null, tx);
+        return new QueryTransactionWrapper(null, null) {
+            @Override
+            protected void commitImplicit() {
+                if (tx != null) {
+                    tx.commit();
+                }
+            }
+
+            @Override
+            protected void rollbackImplicit() {
+                if (tx != null) {
+                    tx.rollback();
+                }
+            }
+        };
     }
 }
