@@ -55,7 +55,8 @@ public interface IgniteMapSetOp extends IgniteSetOp {
 
     /**
      * Creates a row type produced by MAP phase of INTERSECT/EXCEPT operator.
-     * For input row (a:type1, b:type2) and {@code inputsNum} = {@code 3} it produces the following row type:
+     *
+     * <p>For input row (a:type1, b:type2) and {@code inputsNum} = {@code 3} it produces the following row type:
      * <pre>
      *     f0: type1
      *     f1: type2
