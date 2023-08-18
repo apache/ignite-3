@@ -223,7 +223,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         }
 
         /**
-         * Adds the given row from {@code setIdx}-th input to this group.
+         * Adds the given row from {@code setIdx}-th input to this grouping object for processing.
          *
          * @param row Row to process.
          * @param setIdx The index of input relation the row belongs to.
