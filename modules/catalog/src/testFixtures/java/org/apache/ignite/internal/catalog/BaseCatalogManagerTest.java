@@ -53,7 +53,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     ClockWaiter clockWaiter;
 
-    CatalogManagerImpl manager;
+    protected CatalogManagerImpl manager;
 
     @BeforeEach
     void setUp() {

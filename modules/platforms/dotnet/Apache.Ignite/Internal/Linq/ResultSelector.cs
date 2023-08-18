@@ -25,6 +25,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading;
+using Common;
 using Ignite.Sql;
 using Proto.BinaryTuple;
 using Remotion.Linq.Clauses;
@@ -411,7 +412,7 @@ internal static class ResultSelector
             return;
         }
 
-        var columnStr = string.Join(", ", columns.Select(x => x.Type + " " + x.Name));
+        var columnStr = columns.Select(x => x.Type + " " + x.Name).StringJoin();
 
         throw new IgniteClientException(
             ErrorGroups.Client.Configuration,

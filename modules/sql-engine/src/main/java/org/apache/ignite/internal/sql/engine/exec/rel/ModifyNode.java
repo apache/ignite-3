@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.DEFAULT_VALUE_PLACEHOLDER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
@@ -32,7 +31,6 @@ import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,15 +47,13 @@ import org.jetbrains.annotations.Nullable;
  *         and WHEN NOT MATCHED clauses</li>
  * </ol>
  * , where <ul>
- *     <li>[insert row type] is the same as [full row type], but may contain
- *         {@link ExpressionFactoryImpl#DEFAULT_VALUE_PLACEHOLDER DEFAULT placeholder}s which have to be resolved</li>
+ *     <li>[insert row type] is the same as [full row type]</li>
  *     <li>[delete row type] is the type of the row defined by {@link TableDescriptor#deleteRowType(IgniteTypeFactory)}</li>
  *     <li>[columns to update] is the projection of [full row type] having only columns enumerated in
  *         {@link #updateColumns} (with respect to the order of the enumeration)</li>
  * </ul>
  *
  * <p>Depending on the type of operation, different preparatory steps must be taken: <ul>
- *     <li>Before any insertion, all {@link ExpressionFactoryImpl#DEFAULT_VALUE_PLACEHOLDER DEFAULT placeholder}s must be resolved</li>
  *     <li>Before any update, new value must be inlined into the old row: rows for update contains actual row
  *         read from a table followed by new values with respect to {@link #updateColumns}</li>
  *     <li>For MERGE operation, the rows need to be split on two group: rows to insert and rows to update</li>
@@ -220,8 +216,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         switch (modifyOp) {
             case INSERT:
-                injectDefaults(table.descriptor(), context().rowHandler(), rows);
-
                 table.insertAll(context(), rows).join();
 
                 break;
@@ -296,9 +290,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         RowHandler<RowT> handler = context().rowHandler();
 
         if (nullOrEmpty(updateColumns)) {
-            // WHEN NOT MATCHED clause only
-            injectDefaults(table.descriptor(), handler, rows);
-
             return new Pair<>(rows, null);
         }
 
@@ -345,10 +336,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         if (rowsToUpdate != null) {
             inlineUpdates(updateColumnOffset, rowsToUpdate);
-        }
-
-        if (rowsToInsert != null) {
-            injectDefaults(table.descriptor(), handler, rowsToInsert);
         }
 
         return new Pair<>(rowsToInsert, rowsToUpdate);
@@ -417,42 +404,6 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
 
         return mapping;
-    }
-
-    // TODO Remove this method when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-    private static <RowT> void injectDefaults(
-            TableDescriptor tableDescriptor,
-            RowHandler<RowT> handler,
-            List<RowT> rows
-    ) {
-        for (RowT row : rows) {
-            for (int i = 0; i < tableDescriptor.columnsCount(); i++) {
-                ColumnDescriptor columnDescriptor = tableDescriptor.columnDescriptor(i);
-
-                Object oldValue = handler.get(columnDescriptor.logicalIndex(), row);
-                Object newValue = replaceDefaultValuePlaceholder(oldValue, columnDescriptor);
-
-                if (oldValue != newValue) {
-                    handler.set(columnDescriptor.logicalIndex(), row, newValue);
-                }
-            }
-        }
-    }
-
-    // TODO Remove this method when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-    private static @Nullable Object replaceDefaultValuePlaceholder(@Nullable Object val, ColumnDescriptor desc) {
-        Object newValue;
-
-        if (desc.key() && Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(desc.name())) {
-            assert val != DEFAULT_VALUE_PLACEHOLDER  : "Implicit primary key value should have already been generated";
-            newValue = val;
-        } else {
-            newValue = val == DEFAULT_VALUE_PLACEHOLDER ? desc.defaultValue() : val;
-        }
-
-        assert newValue != DEFAULT_VALUE_PLACEHOLDER : "Placeholder should have been replaced. Column: " + desc.name();
-
-        return newValue;
     }
 
     private enum State {

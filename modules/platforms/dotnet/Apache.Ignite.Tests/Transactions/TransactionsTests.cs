@@ -76,7 +76,7 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.AreEqual(4, deleteAllRes.Single()[0]);
             Assert.IsFalse((await TupleView.GetAsync(tx, GetTuple(3))).HasValue);
 
-            var deleteAllExactRes = await TupleView.DeleteAllAsync(tx, new[] { GetTuple(1, "12"), GetTuple(5) });
+            var deleteAllExactRes = await TupleView.DeleteAllAsync(tx, new[] { GetTuple(1), GetTuple(5) });
             Assert.AreEqual(5, deleteAllExactRes.Single()[0]);
             Assert.IsFalse((await TupleView.GetAsync(tx, key)).HasValue);
 

@@ -113,7 +113,7 @@ public class RecordMarshallerTest {
 
         BinaryRow row = marshaller.marshal(rec);
 
-        TestObjectWithAllTypes restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TestObjectWithAllTypes restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertTrue(rec.getClass().isInstance(restoredRec));
 
@@ -131,7 +131,7 @@ public class RecordMarshallerTest {
 
         BinaryRow row = marshaller.marshal(rec);
 
-        Object restoredRec = marshaller.unmarshal(new Row(schema, row));
+        Object restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertTrue(rec.getClass().isInstance(restoredRec));
 
@@ -185,7 +185,7 @@ public class RecordMarshallerTest {
 
         BinaryRow row = marshaller.marshal(rec);
 
-        Object restoredRec = marshaller.unmarshal(new Row(schema, row));
+        Object restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertTrue(rec.getClass().isInstance(restoredRec));
 
@@ -251,7 +251,7 @@ public class RecordMarshallerTest {
 
         BinaryRow row = marshaller.marshal(rec);
 
-        TestObjectWithPrivateConstructor restoredRec = marshaller.unmarshal(new Row(schema, row));
+        TestObjectWithPrivateConstructor restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertDeepEquals(TestObjectWithPrivateConstructor.class, rec, restoredRec);
     }
@@ -287,7 +287,7 @@ public class RecordMarshallerTest {
 
         BinaryRow row = marshaller.marshal(objFactory.create());
 
-        Object restoredRec = marshaller.unmarshal(new Row(schema, row));
+        Object restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
         assertTrue(rec.getClass().isInstance(restoredRec));
     }
@@ -320,7 +320,7 @@ public class RecordMarshallerTest {
 
             BinaryRow row = marshaller.marshal(rec);
 
-            Object restoredRec = marshaller.unmarshal(new Row(schema, row));
+            Object restoredRec = marshaller.unmarshal(Row.wrapBinaryRow(schema, row));
 
             assertDeepEquals(recClass, rec, restoredRec);
         } finally {

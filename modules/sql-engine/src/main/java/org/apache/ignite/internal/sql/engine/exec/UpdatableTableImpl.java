@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.DEFAULT_VALUE_PLACEHOLDER;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
@@ -321,7 +320,9 @@ public final class UpdatableTableImpl implements UpdatableTable {
             appendValue(rowAssembler, colDesc, val);
         }
 
-        return new Row(schemaDescriptor, rowAssembler.build());
+        BinaryRow binaryRow = rowAssembler.build();
+
+        return Row.wrapBinaryRow(schemaDescriptor, binaryRow);
     }
 
     private <RowT> BinaryRowEx convertKeyOnlyRow(RowT row, RowHandler<RowT> hnd) {
@@ -333,13 +334,10 @@ public final class UpdatableTableImpl implements UpdatableTable {
             appendValue(rowAssembler, colDesc, val);
         }
 
-        return new Row(schemaDescriptor, rowAssembler.build());
+        return Row.wrapKeyOnlyBinaryRow(schemaDescriptor, rowAssembler.build());
     }
 
     private static void appendValue(RowAssembler rowAssembler, ColumnDescriptor colDesc, Object val) {
-        // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-        assert val != DEFAULT_VALUE_PLACEHOLDER;
-
         val = TypeUtils.fromInternal(val, NativeTypeSpec.toClass(colDesc.physicalType().spec(), colDesc.nullable()));
 
         RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);

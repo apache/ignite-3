@@ -15,18 +15,29 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Common;
+package org.apache.ignite.internal.placementdriver.leases;
 
-using System;
-using System.Collections.Generic;
+import java.util.Map;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-public static class CollectionExtensions
-{
-    public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
-    {
-        foreach (var item in source)
-        {
-            action(item);
-        }
+/** Leases received from the metastore. */
+public class Leases {
+    private final Map<ReplicationGroupId, Lease> leaseByGroupId;
+
+    private final byte[] leasesBytes;
+
+    Leases(Map<ReplicationGroupId, Lease> leaseByGroupId, byte[] leasesBytes) {
+        this.leaseByGroupId = leaseByGroupId;
+        this.leasesBytes = leasesBytes;
+    }
+
+    /** Returns leases grouped by replication group. */
+    public Map<ReplicationGroupId, Lease> leaseByGroupId() {
+        return leaseByGroupId;
+    }
+
+    /** Returns an array of byte leases from the metastore. */
+    public byte[] leasesBytes() {
+        return leasesBytes;
     }
 }
