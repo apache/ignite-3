@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -59,7 +58,7 @@ class FileReceiver {
      * @param transferId Transfer id.
      * @return Future that will be completed when file transfer is finished.
      */
-    CompletableFuture<List<Path>> registerTransfer(
+    TransferredFilesCollector registerTransfer(
             String senderConsistentId,
             UUID transferId,
             List<FileHeader> headers,
@@ -68,7 +67,7 @@ class FileReceiver {
         return doInLock(senderConsistentId, () -> registerTransfer0(senderConsistentId, transferId, headers, handlerDir));
     }
 
-    private CompletableFuture<List<Path>> registerTransfer0(
+    private TransferredFilesCollector registerTransfer0(
             String senderConsistentId,
             UUID transferId,
             List<FileHeader> headers,
@@ -86,8 +85,10 @@ class FileReceiver {
             return v;
         });
 
-        return handler.result()
-                .whenComplete((files, throwable) -> deregisterTransfer(senderConsistentId, transferId));
+        // De-register transfer on completion.
+        handler.collectedFiles().whenComplete((files, throwable) -> deregisterTransfer(senderConsistentId, transferId));
+
+        return handler;
     }
 
     /**

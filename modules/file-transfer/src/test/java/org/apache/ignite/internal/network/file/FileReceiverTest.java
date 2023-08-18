@@ -30,7 +30,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -56,7 +55,7 @@ class FileReceiverTest {
 
         Path path = Files.createDirectory(workDir.resolve(transferId.toString()));
 
-        CompletableFuture<List<Path>> receivedFiles = receiver.registerTransfer(
+        TransferredFilesCollector collector = receiver.registerTransfer(
                 "node2",
                 transferId,
                 fromPaths(messageFactory, filesToSend),
@@ -67,7 +66,7 @@ class FileReceiverTest {
 
         // Then the file is received.
         assertThat(
-                receivedFiles,
+                collector.collectedFiles(),
                 willBe(namesAndContentEquals(filesToSend))
         );
     }
@@ -85,7 +84,7 @@ class FileReceiverTest {
 
         Path path = Files.createDirectory(workDir.resolve(transferId.toString()));
 
-        CompletableFuture<List<Path>> receivedFiles = receiver.registerTransfer(
+        TransferredFilesCollector collector = receiver.registerTransfer(
                 "node2",
                 transferId,
                 fromPaths(messageFactory, filesToSend),
@@ -96,7 +95,7 @@ class FileReceiverTest {
 
         // Then the files are received.
         assertThat(
-                receivedFiles,
+                collector.collectedFiles(),
                 willBe(namesAndContentEquals(filesToSend))
         );
     }
@@ -112,7 +111,7 @@ class FileReceiverTest {
 
         Path path1 = Files.createDirectory(workDir.resolve(transferId1.toString()));
 
-        CompletableFuture<List<Path>> receivedFiles1 = receiver.registerTransfer(
+        TransferredFilesCollector collector1 = receiver.registerTransfer(
                 "node2",
                 transferId1,
                 fromPaths(messageFactory, filesToSend1),
@@ -124,7 +123,7 @@ class FileReceiverTest {
 
         Path path2 = Files.createDirectory(workDir.resolve(transferId2.toString()));
 
-        CompletableFuture<List<Path>> receivedFiles2 = receiver.registerTransfer("node2", transferId2, List.of(), path2);
+        TransferredFilesCollector collector2 = receiver.registerTransfer("node2", transferId2, List.of(), path2);
 
         // And the third file transfer from another node is started.
         UUID transferId3 = UUID.randomUUID();
@@ -132,7 +131,7 @@ class FileReceiverTest {
 
         Path path3 = Files.createDirectory(workDir.resolve(transferId3.toString()));
 
-        CompletableFuture<List<Path>> receivedFiles3 = receiver.registerTransfer(
+        TransferredFilesCollector collector3 = receiver.registerTransfer(
                 "node3",
                 transferId3,
                 fromPaths(messageFactory, filesToSend3),
@@ -146,19 +145,19 @@ class FileReceiverTest {
 
         // Then the file transfer is canceled.
         assertThat(
-                receivedFiles1,
+                collector1.collectedFiles(),
                 willThrow(FileTransferException.class)
         );
 
         // And the second file transfer is canceled.
         assertThat(
-                receivedFiles2,
+                collector2.collectedFiles(),
                 willThrow(FileTransferException.class)
         );
 
         // And the third file transfer is not canceled.
         assertThat(
-                receivedFiles3,
+                collector3.collectedFiles(),
                 willCompleteSuccessfully()
         );
     }

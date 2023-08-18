@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.network.file.messages.FileTransferError
 import static org.apache.ignite.internal.network.file.messages.FileTransferError.toException;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
@@ -40,7 +39,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -270,15 +268,19 @@ public class FileTransferServiceImpl implements FileTransferService {
                     }
                 });
 
-        // Check that directory was created successfully and send response to the sender.
-        directoryFuture.handle((directory, e) -> {
-            FileTransferInitResponse response = messageFactory.fileTransferInitResponse()
-                    .error(e != null ? fromThrowable(messageFactory, e) : null)
+        // We have to register transfer before sending response to avoid the case
+        // when chunks are received when FileTransferMessagesHandler is not yet registered.
+        CompletableFuture<TransferredFilesCollector> collectorFuture = directoryFuture.thenApply(
+                directory -> fileReceiver.registerTransfer(senderConsistentId, transferId, message.headers(), directory)
+        );
+
+        // Send response to the sender.
+        collectorFuture.handle((collector, throwable) -> {
+            return messageFactory.fileTransferInitResponse()
+                    .error(throwable != null ? fromThrowable(messageFactory, throwable) : null)
                     .build();
-            return messagingService.respond(senderConsistentId, FILE_TRANSFER_CHANNEL, response, correlationId);
         })
-                // Wait for the response to be sent.
-                .thenCompose(Function.identity())
+                .thenCompose(response -> messagingService.respond(senderConsistentId, FILE_TRANSFER_CHANNEL, response, correlationId))
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.error("Failed to send file transfer response [transferId={}, identifier={}]", e, transferId,
@@ -287,38 +289,36 @@ public class FileTransferServiceImpl implements FileTransferService {
                     }
                 });
 
-        // Register the transfer.
-        CompletableFuture<List<Path>> transferredFilesFuture = directoryFuture.thenCompose(directory -> fileReceiver.registerTransfer(
-                senderConsistentId,
-                transferId,
-                message.headers(),
-                directory
-        )).whenComplete((v, e) -> {
-            if (e != null) {
-                LOG.error("Failed to receive file transfer [transferId={}, identifier={}]", e, transferId, identifier);
-            }
-        });
-
-        // Consume the transferred files and delete the transfer directory.
-        transferredFilesFuture.whenComplete((files, e) -> {
-            // Remove the consumer from the map if there was an error and it was a download request.
-            if (e != null) {
-                transferIdToDownloadConsumer.computeIfPresent(transferId, (k, v) -> {
-                    v.onError(e);
-                    return null;
-                });
-            }
-        })
-                .thenCompose(files -> getFileConsumer(transferId, identifier).consume(identifier, files))
-                .whenComplete((v, e) -> {
-                    if (e != null) {
-                        LOG.error("Failed to process file transfer [transferId={}, identifier={}]",
-                                e,
+        // Pass transferred files to the consumer.
+        collectorFuture.thenCompose(TransferredFilesCollector::collectedFiles)
+                .whenComplete((files, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Failed to collect transferred files [transferId={}, identifier={}]",
+                                throwable,
                                 transferId,
                                 identifier
                         );
-                    }
 
+                        transferIdToDownloadConsumer.computeIfPresent(transferId, (k, v) -> {
+                            v.onError(throwable);
+
+                            return null;
+                        });
+                    }
+                })
+                .thenCompose(files -> {
+                    return getFileConsumer(transferId, identifier).consume(identifier, files)
+                            .whenComplete((v, e) -> {
+                                if (e != null) {
+                                    LOG.error("Failed to process file transfer [transferId={}, identifier={}]",
+                                            e,
+                                            transferId,
+                                            identifier
+                                    );
+                                }
+                            });
+                })
+                .whenComplete((v, e) -> {
                     transferIdToDownloadConsumer.remove(transferId);
                     directoryFuture.thenAccept(IgniteUtils::deleteIfExists);
                 });
@@ -584,7 +584,7 @@ public class FileTransferServiceImpl implements FileTransferService {
 
     private Path createTransferDirectory(UUID transferId) {
         try {
-            return Files.createDirectories(transferDirectory.resolve(transferId.toString()));
+            return java.nio.file.Files.createDirectories(transferDirectory.resolve(transferId.toString()));
         } catch (IOException e) {
             throw new FileTransferException("Failed to create the transfer directory with transferId: " + transferId, e);
         }
@@ -616,9 +616,9 @@ public class FileTransferServiceImpl implements FileTransferService {
             if (!uploadedFiles.isEmpty()) {
                 Path directory = uploadedFiles.get(0).getParent();
                 try {
-                    Files.move(directory, targetDir, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                    java.nio.file.Files.move(directory, targetDir, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
 
-                    try (Stream<Path> stream = Files.list(targetDir)) {
+                    try (Stream<Path> stream = java.nio.file.Files.list(targetDir)) {
                         downloadedFiles.complete(stream.collect(Collectors.toList()));
                     }
                 } catch (IOException e) {

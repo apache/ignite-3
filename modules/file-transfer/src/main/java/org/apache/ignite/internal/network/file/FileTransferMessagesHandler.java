@@ -19,7 +19,6 @@ package org.apache.ignite.internal.network.file;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +35,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 /**
  * Handler for file transfer messages.
  */
-class FileTransferMessagesHandler {
+class FileTransferMessagesHandler implements TransferredFilesCollector {
     private final int filesCount;
 
     private final Path dir;
@@ -115,7 +114,7 @@ class FileTransferMessagesHandler {
      */
     private void completeIfAllFilesFinished() throws IOException {
         if (filesCount == filesComplete.get()) {
-            try (Stream<Path> stream = Files.list(dir)) {
+            try (Stream<Path> stream = java.nio.file.Files.list(dir)) {
                 result.complete(stream.collect(Collectors.toList()));
             }
         }
@@ -126,7 +125,8 @@ class FileTransferMessagesHandler {
      *
      * @return Result future.
      */
-    CompletableFuture<List<Path>> result() {
+    @Override
+    public CompletableFuture<List<Path>> collectedFiles() {
         return result;
     }
 
@@ -159,7 +159,7 @@ class FileTransferMessagesHandler {
 
     private File createFile(String fileName) {
         try {
-            return Files.createFile(dir.resolve(fileName)).toFile();
+            return java.nio.file.Files.createFile(dir.resolve(fileName)).toFile();
         } catch (IOException e) {
             handleFileTransferError(e);
             throw new FileTransferException("Failed to create file", e);

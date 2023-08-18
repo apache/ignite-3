@@ -31,6 +31,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
@@ -42,6 +43,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
 import org.apache.ignite.internal.network.file.messages.FileDownloadResponse;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
@@ -259,5 +261,37 @@ class FileTransferServiceImplTest {
 
         // Check that transfer directory is empty.
         await().untilAsserted(() -> assertThat(transferDir.toFile().listFiles(), nullValue()));
+    }
+
+    @Test
+    void transferIsRegisteredBeforeResponseIsSent() {
+        // Set file receiver to complete transfer registration.
+        AtomicBoolean transferRegistered = new AtomicBoolean(false);
+        doAnswer(invocation -> {
+            transferRegistered.set(true);
+            return (TransferredFilesCollector) () -> completedFuture(List.of());
+        }).when(fileReceiver).registerTransfer(anyString(), any(UUID.class), anyList(), any(Path.class));
+
+        // Set messaging service to fail to send upload response if transfer is not registered.
+        doAnswer(invocation -> {
+            if (!transferRegistered.get()) {
+                throw new RuntimeException("Transfer is not registered");
+            } else {
+                return completedFuture(null);
+            }
+        }).when(messagingService).respond(anyString(), eq(FILE_TRANSFER_CHANNEL), any(FileTransferInitResponse.class), anyLong());
+
+        // Create file transfer request.
+        Path path1 = FileGenerator.randomFile(workDir, 0);
+        List<Path> paths = List.of(path1);
+
+        FileTransferInitMessage fileTransferInitMessage = messageFactory.fileTransferInitMessage()
+                .transferId(UUID.randomUUID())
+                .identifier(messageFactory.identifier().build())
+                .headers(FileHeader.fromPaths(messageFactory, paths))
+                .build();
+
+        // Send file transfer request.
+        messagingService.fairMessage(fileTransferInitMessage, TARGET_CONSISTENT_ID, 1L);
     }
 }
