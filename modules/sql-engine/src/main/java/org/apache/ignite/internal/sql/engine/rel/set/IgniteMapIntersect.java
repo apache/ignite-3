@@ -76,8 +76,6 @@ public class IgniteMapIntersect extends IgniteIntersect implements IgniteMapSetO
         return visitor.visit(this);
     }
 
-
-
     /** {@inheritDoc} */
     @Override
     protected RelDataType deriveRowType() {
