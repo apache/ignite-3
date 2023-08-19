@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,9 +42,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
@@ -77,6 +81,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -113,6 +118,7 @@ import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.table.distributed.command.CatalogLevelAware;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.PartitionCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
@@ -312,6 +318,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Captor
     private ArgumentCaptor<HybridTimestamp> timestampCaptor;
+
+    @Captor
+    private ArgumentCaptor<Command> commandCaptor;
 
     private final TestValue someValue = new TestValue(1, "v1");
 
@@ -1595,8 +1604,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("singleRowWriteRequestTypes")
-    public void schemaSyncIsAwaitedForSingleRowWrites(RequestType requestType) {
-        testSchemaSyncIsAwaited(requestType, (targetTxId, key) -> {
+    public void singleRowWritesAreSuppliedWithRequiredCatalogVersion(RequestType requestType) {
+        testWritesAreSuppliedWithRequiredCatalogVersion(requestType, (targetTxId, key) -> {
             return doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType);
         });
     }
@@ -1607,7 +1616,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .map(Arguments::of);
     }
 
-    private void testSchemaSyncIsAwaited(RequestType requestType, ListenerInvocation listenerInvocation) {
+    private void testWritesAreSuppliedWithRequiredCatalogVersion(RequestType requestType, ListenerInvocation listenerInvocation) {
         TestKey key = nextKey();
 
         if (requestType.looksUpFirst()) {
@@ -1619,21 +1628,34 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             Mockito.reset(schemaSyncService);
         }
 
+        when(catalogService.activeCatalogVersion(anyLong())).thenReturn(42);
+
         UUID targetTxId = beginTx();
 
         CompletableFuture<?> future = listenerInvocation.invoke(targetTxId, key);
 
         assertThat(future, willCompleteSuccessfully());
 
+        // Make sure metadata completeness is awaited for.
         InOrder inOrder = inOrder(schemaSyncService, catalogService);
 
         inOrder.verify(schemaSyncService).waitForMetadataCompleteness(timestampCaptor.capture());
         inOrder.verify(catalogService).activeCatalogVersion(timestampCaptor.getValue().longValue());
+
+        // Make sure catalog required version is filled in the executed update command.
+        verify(mockRaftClient, atLeast(1)).run(commandCaptor.capture());
+
+        List<Command> commands = commandCaptor.getAllValues();
+        Command updateCommand = commands.get(commands.size() - 1);
+
+        assertThat(updateCommand, is(instanceOf(CatalogLevelAware.class)));
+        CatalogLevelAware catalogLevelAware = (CatalogLevelAware) updateCommand;
+        assertThat(catalogLevelAware.requiredCatalogVersion(), is(42));
     }
 
     @Test
-    public void schemaSyncIsAwaitedForReplaceRequest() {
-        testSchemaSyncIsAwaited(RequestType.RW_REPLACE, (targetTxId, key) -> {
+    public void replaceRequestIsSuppliedWithRequiredCatalogVersion() {
+        testWritesAreSuppliedWithRequiredCatalogVersion(RequestType.RW_REPLACE, (targetTxId, key) -> {
             return doReplaceRequest(
                     targetTxId,
                     marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
@@ -1644,8 +1666,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("multiRowsWriteRequestTypes")
-    public void schemaSyncIsAwaitedForMultiRowWrites(RequestType requestType) {
-        testSchemaSyncIsAwaited(requestType, (targetTxId, key) -> {
+    public void multiRowWritesAreSuppliedWithRequiredCatalogVersion(RequestType requestType) {
+        testWritesAreSuppliedWithRequiredCatalogVersion(requestType, (targetTxId, key) -> {
             return doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType);
         });
     }
