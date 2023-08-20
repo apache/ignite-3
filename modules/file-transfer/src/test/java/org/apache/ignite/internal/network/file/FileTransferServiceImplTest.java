@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyArray;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -43,7 +44,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.network.file.messages.FileDownloadRequest;
 import org.apache.ignite.internal.network.file.messages.FileDownloadResponse;
 import org.apache.ignite.internal.network.file.messages.FileHeader;
@@ -266,19 +267,18 @@ class FileTransferServiceImplTest {
     @Test
     void transferIsRegisteredBeforeResponseIsSent() {
         // Set file receiver to complete transfer registration.
-        AtomicBoolean transferRegistered = new AtomicBoolean(false);
+        AtomicInteger transferLifecycleState = new AtomicInteger(0);
         doAnswer(invocation -> {
-            transferRegistered.set(true);
+            // Update transfer lifecycle state - transfer is registered.
+            transferLifecycleState.compareAndSet(0, 1);
             return (TransferredFilesCollector) () -> completedFuture(List.of());
         }).when(fileReceiver).registerTransfer(anyString(), any(UUID.class), anyList(), any(Path.class));
 
         // Set messaging service to fail to send upload response if transfer is not registered.
         doAnswer(invocation -> {
-            if (!transferRegistered.get()) {
-                throw new RuntimeException("Transfer is not registered");
-            } else {
-                return completedFuture(null);
-            }
+            // Check lifecycle state - transfer is registered.
+            transferLifecycleState.compareAndSet(1, 2);
+            return completedFuture(null);
         }).when(messagingService).respond(anyString(), eq(FILE_TRANSFER_CHANNEL), any(FileTransferInitResponse.class), anyLong());
 
         // Create file transfer request.
@@ -293,5 +293,8 @@ class FileTransferServiceImplTest {
 
         // Send file transfer request.
         messagingService.fairMessage(fileTransferInitMessage, TARGET_CONSISTENT_ID, 1L);
+
+        // Check that transfer was registered before response was sent.
+        await().untilAtomic(transferLifecycleState, equalTo(2));
     }
 }
