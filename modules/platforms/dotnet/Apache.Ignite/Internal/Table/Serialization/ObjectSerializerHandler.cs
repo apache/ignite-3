@@ -527,9 +527,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var keyValTypes = type.GetGenericArguments();
             var keyColumnMap = keyValTypes[0].GetFieldsByColumnName();
-            var valColumnMap = keyValTypes[0].GetFieldsByColumnName();
+            var valColumnMap = keyValTypes[1].GetFieldsByColumnName();
+            var columnMap = type.GetFieldsByColumnName();
 
-            return (keyValTypes[0], keyValTypes[1], keyColumnMap["Key"].Field, valColumnMap["Val"].Field, keyColumnMap, valColumnMap);
+            return (keyValTypes[0], keyValTypes[1], columnMap["Key"].Field, columnMap["Val"].Field, keyColumnMap, valColumnMap);
         }
     }
 }
