@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -98,10 +100,52 @@ public class QueryTransactionWrapperTest {
         NoOpTransaction externalTx = new NoOpTransaction("test");
         QueryTransactionWrapper wrapper = new QueryTransactionWrapper(transactions, externalTx);
 
+        wrapper.beginTxIfNeeded(SqlQueryType.QUERY);
         wrapper.commitImplicit();
         assertFalse(externalTx.commitFuture().isDone());
 
+        wrapper.beginTxIfNeeded(SqlQueryType.QUERY);
         wrapper.rollbackImplicit();
         assertFalse(externalTx.commitFuture().isDone());
+
+        verifyNoInteractions(transactions);
+    }
+
+    @Test
+    public void testCommitImplicit() {
+        when(transactions.begin(any())).thenReturn(new NoOpTransaction("test"));
+
+        QueryTransactionWrapper wrapper = new QueryTransactionWrapper(transactions, null);
+
+        wrapper.beginTxIfNeeded(SqlQueryType.QUERY);
+
+        assertThat(wrapper.transaction(), instanceOf(NoOpTransaction.class));
+        NoOpTransaction tx = (NoOpTransaction) wrapper.transaction();
+
+        assertFalse(tx.commitFuture().isDone());
+
+        wrapper.commitImplicit();
+
+        assertTrue(tx.commitFuture().isDone());
+        assertFalse(tx.rollbackFuture().isDone());
+    }
+
+    @Test
+    public void testRollbackImplicit() {
+        when(transactions.begin(any())).thenReturn(new NoOpTransaction("test"));
+
+        QueryTransactionWrapper wrapper = new QueryTransactionWrapper(transactions, null);
+
+        wrapper.beginTxIfNeeded(SqlQueryType.QUERY);
+
+        assertThat(wrapper.transaction(), instanceOf(NoOpTransaction.class));
+        NoOpTransaction tx = (NoOpTransaction) wrapper.transaction();
+
+        assertFalse(tx.rollbackFuture().isDone());
+
+        wrapper.rollbackImplicit();
+
+        assertTrue(tx.rollbackFuture().isDone());
+        assertFalse(tx.commitFuture().isDone());
     }
 }
