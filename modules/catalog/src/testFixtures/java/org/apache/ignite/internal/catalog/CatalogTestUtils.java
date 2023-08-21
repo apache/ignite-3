@@ -43,7 +43,7 @@ public class CatalogTestUtils {
     public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock) {
         var vault = new VaultManager(new InMemoryVaultService());
 
-        var metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage(nodeName));
+        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage(nodeName));
 
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
