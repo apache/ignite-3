@@ -61,6 +61,8 @@ public class OptimizedMarshaller implements Marshaller {
      * @param serializationRegistry Serialization registry.
      */
     public OptimizedMarshaller(MessageSerializationRegistry serializationRegistry) {
+        assert buffer.position() == 0;
+
         stream = new OptimizedStream(serializationRegistry);
 
         messageWriter = new DirectMessageWriter(serializationRegistry, PROTO_VER) {
