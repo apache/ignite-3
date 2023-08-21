@@ -137,7 +137,8 @@ class CatalogParamsValidationUtils {
             return;
         }
 
-        if ((dataNodesAutoAdjustScaleUp != null && (dataNodesAutoAdjustScaleUp != INFINITE_TIMER_VALUE || dataNodesAutoAdjustScaleUp != IMMEDIATE_TIMER_VALUE))
+        if ((dataNodesAutoAdjustScaleUp != null && (dataNodesAutoAdjustScaleUp != INFINITE_TIMER_VALUE
+                || dataNodesAutoAdjustScaleUp != IMMEDIATE_TIMER_VALUE))
                 || (dataNodesAutoAdjustScaleDown != null && dataNodesAutoAdjustScaleDown != INFINITE_TIMER_VALUE)) {
             throw new CatalogValidationException(
                     DistributionZones.ZONE_DEFINITION_ERR,

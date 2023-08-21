@@ -58,7 +58,6 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -531,16 +530,6 @@ public class DistributionZonesTestUtil {
         alterZone(catalogManager, zoneName, replicas, null, null, null);
     }
 
-    /**
-     * Drops a distribution zone from the catalog.
-     *
-     * @param catalogManager Catalog manager.
-     * @param zoneName Zone name.
-     */
-    public static void dropZone(CatalogManager catalogManager, String zoneName) {
-        assertThat(catalogManager.dropZone(DropZoneParams.builder().zoneName(zoneName).build()), willCompleteSuccessfully());
-    }
-
     private static void alterZone(
             CatalogManager catalogManager,
             String zoneName,
@@ -618,34 +607,5 @@ public class DistributionZonesTestUtil {
         assertNotNull(zoneId, "zoneName=" + zoneName + ", timestamp=" + timestamp);
 
         return zoneId;
-    }
-
-    /**
-     * Returns table ID form catalog, {@code null} if table is absent.
-     *
-     * @param catalogService Catalog service.
-     * @param tableName Table name.
-     * @param timestamp Timestamp.
-     */
-    public static @Nullable Integer getTableId(CatalogService catalogService, String tableName, long timestamp) {
-        CatalogTableDescriptor table = catalogService.table(tableName, timestamp);
-
-        return table == null ? null : table.id();
-    }
-
-    /**
-     * Returns table ID form catalog.
-     *
-     * @param catalogService Catalog service.
-     * @param tableName Table name.
-     * @param timestamp Timestamp.
-     * @throws AssertionError If table is absent.
-     */
-    public static int getTableIdStrict(CatalogService catalogService, String tableName, long timestamp) {
-        Integer tableId = getTableId(catalogService, tableName, timestamp);
-
-        assertNotNull(tableId, "tableName=" + tableName + ", timestamp=" + timestamp);
-
-        return tableId;
     }
 }

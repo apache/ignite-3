@@ -49,8 +49,6 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Zone rebalance manager.
@@ -157,21 +155,11 @@ public class DistributionZoneRebalanceEngine {
                             distributionZoneManager.nodesAttributes()
                     );
 
-                    LOG.info(
-                            "asshole 1 replicase={}, dataNode={}, filteredDataNodes={}",
-                            zoneDescriptor.replicas(), dataNodes, filteredDataNodes
-                    );
-
                     if (filteredDataNodes.isEmpty()) {
                         return completedFuture(null);
                     }
 
                     for (CatalogTableDescriptor tableDescriptor : findTablesByZoneId(zoneId, catalogVersion)) {
-                        // TODO: IGNITE-20114 NullPointerException may appear when creating a table immediately after creating a zone,
-                        //  perhaps we somehow need to work more carefully with the list of tables and get not the latest, but stable, i.e.
-                        //  those that have already been created and added their distribution to the metastorage. If we can’t fix it right
-                        //  away, then it will probably work out in IGNITE-19499 or a new ticket. This problem reproduced in
-                        //  ItAggregatesTest.
                         CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
                                 tableDescriptor,
                                 zoneDescriptor,
