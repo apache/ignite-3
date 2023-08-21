@@ -51,14 +51,14 @@ public class MinusNode<RowT> extends AbstractSetOpNode<RowT> {
      *
      *     MAP:
      *      for each distinct row count the number of such rows in A (rows_A) and in sets except A (rows_rest)
-     *      return row_cols, rows_A, rows_rest
+     *      return col1, .. , colN, rows_A, rows_rest
      *
      *     REDUCE:
      *      Group inputs by row and sum all row counts elements:
-     *        row_cols, c1, c2
-     *        row_cols, c3, c4
+     *        col1, .. , colN, c1, c2, c3
+     *        col1, .. , colN, c3, c4, c6
      *        ->
-     *        row_cols, c1+c3, c2+c4
+     *        col1, .. , colN, c1+c3, c2+c4, c3+c6
      *
      *      return:
      *        EXCEPT ALL        : for each distinct row return the number of rows equal to rows_A - rows_rest or 0.

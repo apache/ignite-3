@@ -46,18 +46,18 @@ public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
      * Implementation of INTERSECT (INTERSECT DISTINCT) / INTERSECT ALL operators.
      *
      * <pre>
-     *     Given sets A, B, and C operator returns elements that present in all sets.
+     *     Given sets A, B, C operator returns elements that present in all sets.
      *
      *     MAP:
      *       for each distinct row count the number of such rows in every input
-     *       return: row_col1.., row_colN, (rows_A, rows_B, rows_C)
+     *       return: col1, .. , colN, rows_A, rows_B, rows_C
      *
      *     REDUCE:
      *       Group inputs by row and sum all row counts elements:
-     *       row_cols, c1, c2
-     *       row_cols, c3, c4
+     *       col1, .. , colN, c1, c2
+     *       col1, .. , colN, c3, c4
      *       ->
-     *       row_cols, c1+c3, c2+c4
+     *       col1, .. , colN, c1+c3, c2+c4
      *
      *       return:
      *        INTERCEPT ALL: for each distinct row return the smallest number of rows across rows_*.
