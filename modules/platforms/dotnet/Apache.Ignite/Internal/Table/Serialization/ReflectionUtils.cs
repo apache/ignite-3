@@ -88,7 +88,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="type">Type to get the map for.</param>
         /// <returns>Map.</returns>
-        public static IReadOnlyDictionary<string, ColumnInfo> GetFieldsByColumnName(Type type)
+        public static IReadOnlyDictionary<string, ColumnInfo> GetFieldsByColumnName(this Type type)
         {
             // ReSharper disable once HeapView.CanAvoidClosure, HeapView.ClosureAllocation, HeapView.DelegateAllocation (false positive)
             return FieldsByColumnNameCache.GetOrAdd(type, static t => RetrieveFieldsByColumnName(t));
