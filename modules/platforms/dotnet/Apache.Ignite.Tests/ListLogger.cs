@@ -21,6 +21,7 @@ namespace Apache.Ignite.Tests
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
+    using Internal.Common;
     using Log;
     using NUnit.Framework;
 
@@ -71,7 +72,7 @@ namespace Apache.Ignite.Tests
         {
             lock (_lock)
             {
-                return string.Join(", ", _entries.Select(e => $"{e.Category} [{e.Level}] {e.Message}"));
+                return _entries.Select(e => $"{e.Category} [{e.Level}] {e.Message}").StringJoin();
             }
         }
 

@@ -100,7 +100,7 @@ namespace Apache.Ignite.Tests.Table
         {
             var pocoView = Table.GetRecordView<object>();
 
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await pocoView.UpsertAsync(null, new object()));
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () => await pocoView.UpsertAsync(null, new object()));
 
             Assert.AreEqual("Can't map 'System.Object' to columns 'Int64 KEY, String VAL'. Matching fields not found.", ex!.Message);
         }

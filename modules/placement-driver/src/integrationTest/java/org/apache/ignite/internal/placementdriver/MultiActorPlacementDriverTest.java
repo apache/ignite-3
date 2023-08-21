@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -31,26 +29,20 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.Closeable;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.affinity.AffinityUtils;
-import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -59,7 +51,6 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManagerTest.LogicalTopologyServiceTestImpl;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
-import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
@@ -68,16 +59,11 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplica
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteTriFunction;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -95,8 +81,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * There are tests of muti-nodes for placement driver.
  */
-@ExtendWith({ConfigurationExtension.class})
-public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
+@ExtendWith(ConfigurationExtension.class)
+public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
     public static final int BASE_PORT = 1234;
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
@@ -105,12 +91,6 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
-
-    @InjectConfiguration
-    private TablesConfiguration tblsCfg;
-
-    @InjectConfiguration
-    private DistributionZonesConfiguration dstZnsCfg;
 
     @InjectConfiguration
     private MetaStorageConfiguration metaStorageConfiguration;
@@ -168,9 +148,7 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
 
     @AfterEach
     public void afterTest() throws Exception {
-        for (Closeable cl : servicesToClose) {
-            cl.close();
-        }
+        IgniteUtils.closeAll(servicesToClose);
     }
 
     /**
@@ -298,16 +276,15 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
             }
 
             var placementDriverManager = new PlacementDriverManager(
+                    nodeName,
                     metaStorageManager,
                     vaultManager,
                     MetastorageGroupId.INSTANCE,
                     clusterService,
-                    () -> cmgManager.metaStorageNodes(),
+                    cmgManager::metaStorageNodes,
                     logicalTopologyService,
                     raftManager,
                     topologyAwareRaftGroupServiceFactory,
-                    tblsCfg,
-                    dstZnsCfg,
                     clock
             );
 
@@ -597,69 +574,8 @@ public class MultiActorPlacementDriverTest extends IgniteAbstractTest {
      * Creates an assignment for the fake table.
      *
      * @return Replication group id.
-     * @throws Exception If failed.
      */
-    private TablePartitionId createTableAssignment() throws Exception {
-        int tableId = nextTableId.incrementAndGet();
-
-        List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(nodeNames, 1, nodeNames.size());
-
-        int zoneId = createZone();
-
-        tblsCfg.tables().change(tableViewTableChangeNamedListChange -> {
-            tableViewTableChangeNamedListChange.create("test-table-" + tableId, tableChange -> {
-                var extConfCh = ((ExtendedTableChange) tableChange);
-
-                extConfCh.changeId(tableId);
-
-                extConfCh.changeZoneId(zoneId);
-            });
-        }).thenCompose(v -> {
-            Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
-
-            for (int i = 0; i < assignments.size(); i++) {
-                partitionAssignments.put(
-                        stablePartAssignmentsKey(
-                                new TablePartitionId(tableId, i)),
-                        ByteUtils.toBytes(assignments.get(i)));
-
-            }
-
-            return metaStorageManager.putAll(partitionAssignments);
-        })
-        .get();
-
-        var grpPart0 = new TablePartitionId(tableId, 0);
-
-        log.info("Fake table created [id={}, repGrp={}]", tableId, grpPart0);
-
-        return grpPart0;
-    }
-
-    /**
-     * Creates a distribution zone.
-     *
-     * @return Id of created distribution zone.
-     */
-    private int createZone() {
-        if (dstZnsCfg.distributionZones().get("zone1") != null) {
-            return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
-        }
-
-        dstZnsCfg.distributionZones().change(zones -> {
-            zones.create("zone1", ch -> {
-                ch.changePartitions(1);
-                ch.changeReplicas(2);
-                ch.changeZoneId(DEFAULT_ZONE_ID + 1);
-            });
-        }).join();
-
-        return dstZnsCfg.distributionZones().get("zone1").value().zoneId();
-    }
-
-    private Lease leaseFromBytes(byte[] bytes, ReplicationGroupId groupId) {
-        LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN));
-
-        return leaseBatch.leases().stream().filter(l -> l.replicationGroupId().equals(groupId)).findAny().orElse(null);
+    private TablePartitionId createTableAssignment() {
+        return createTableAssignment(metaStorageManager, nextTableId.get(), nodeNames);
     }
 }

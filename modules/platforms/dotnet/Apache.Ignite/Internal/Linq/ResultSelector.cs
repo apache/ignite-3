@@ -25,6 +25,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading;
+using Common;
 using Ignite.Sql;
 using Proto.BinaryTuple;
 using Remotion.Linq.Clauses;
@@ -186,6 +187,7 @@ internal static class ResultSelector
 
         var il = method.GetILGenerator();
         var resObj = il.DeclareAndInitLocal(typeof(T));
+        var colMap = typeof(T).GetFieldsByColumnName();
 
         int mappedCount = 0;
 
@@ -193,7 +195,7 @@ internal static class ResultSelector
         {
             var col = columns[index];
 
-            if (EmitFieldRead(il, resObj, col, index, defaultAsNull))
+            if (EmitFieldRead(il, resObj, colMap, col, index, defaultAsNull))
             {
                 mappedCount++;
             }
@@ -284,12 +286,15 @@ internal static class ResultSelector
         var key = il.DeclareAndInitLocal(keyType);
         var val = il.DeclareAndInitLocal(valType);
 
+        var keyColMap = keyType.GetFieldsByColumnName();
+        var valColMap = valType.GetFieldsByColumnName();
+
         for (var index = 0; index < columns.Count; index++)
         {
             var col = columns[index];
 
-            EmitFieldRead(il, key, col, index, defaultAsNull);
-            EmitFieldRead(il, val, col, index, defaultAsNull);
+            EmitFieldRead(il, key, keyColMap, col, index, defaultAsNull);
+            EmitFieldRead(il, val, valColMap, col, index, defaultAsNull);
         }
 
         il.Emit(OpCodes.Ldloc_0); // key
@@ -366,9 +371,15 @@ internal static class ResultSelector
         il.MarkLabel(endParamLabel);
     }
 
-    private static bool EmitFieldRead(ILGenerator il, LocalBuilder targetObj, IColumnMetadata col, int colIndex, bool defaultAsNull)
+    private static bool EmitFieldRead(
+        ILGenerator il,
+        LocalBuilder targetObj,
+        IReadOnlyDictionary<string, ReflectionUtils.ColumnInfo> columnMap,
+        IColumnMetadata col,
+        int colIndex,
+        bool defaultAsNull)
     {
-        if (targetObj.LocalType.GetFieldByColumnName(col.Name) is not { } field)
+        if (!columnMap.TryGetValue(col.Name, out var columnInfo))
         {
             return false;
         }
@@ -396,8 +407,8 @@ internal static class ResultSelector
         var colType = col.Type.ToClrType(col.Nullable);
         il.Emit(OpCodes.Call, BinaryTupleMethods.GetReadMethod(colType));
 
-        il.EmitConv(colType, field.FieldType, col.Name);
-        il.Emit(OpCodes.Stfld, field); // res.field = value
+        il.EmitConv(colType, columnInfo.Field.FieldType, col.Name);
+        il.Emit(OpCodes.Stfld, columnInfo.Field); // res.field = value
 
         il.MarkLabel(endFieldLabel);
 
@@ -411,7 +422,7 @@ internal static class ResultSelector
             return;
         }
 
-        var columnStr = string.Join(", ", columns.Select(x => x.Type + " " + x.Name));
+        var columnStr = columns.Select(x => x.Type + " " + x.Name).StringJoin();
 
         throw new IgniteClientException(
             ErrorGroups.Client.Configuration,

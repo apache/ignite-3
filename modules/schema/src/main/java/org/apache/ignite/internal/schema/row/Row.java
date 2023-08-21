@@ -51,21 +51,32 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
     /** Cached colocation hash value. */
     private int colocationHash;
 
-    /**
-     * Constructor.
-     *
-     * @param schema Schema.
-     * @param row    Binary row representation.
-     */
-    public Row(SchemaDescriptor schema, BinaryRow row) {
-        super(row.hasValue() ? schema.length() : schema.keyColumns().length(), row.tupleSlice());
+    protected Row(SchemaDescriptor schema, BinaryTupleSchema binaryTupleSchema, BinaryRow row) {
+        super(binaryTupleSchema.elementCount(), row.tupleSlice());
 
         this.row = row;
         this.schema = schema;
+        this.binaryTupleSchema = binaryTupleSchema;
+    }
 
-        binaryTupleSchema = row.hasValue()
-                ? BinaryTupleSchema.createRowSchema(schema)
-                : BinaryTupleSchema.createKeySchema(schema);
+    /**
+     * Creates a row from a given {@code BinaryRow}.
+     *
+     * @param schema Schema.
+     * @param binaryRow Binary row.
+     */
+    public static Row wrapBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
+        return new Row(schema, BinaryTupleSchema.createRowSchema(schema), binaryRow);
+    }
+
+    /**
+     * Creates a row from a given {@code BinaryRow} that only contains the key component.
+     *
+     * @param schema Schema.
+     * @param binaryRow Binary row.
+     */
+    public static Row wrapKeyOnlyBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
+        return new Row(schema, BinaryTupleSchema.createKeySchema(schema), binaryRow);
     }
 
     /**
@@ -74,18 +85,6 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
     @Override
     public SchemaDescriptor schema() {
         return schema;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean hasValue() {
-        return row.hasValue();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int elementCount() {
-        return schema.length();
     }
 
     /**
@@ -139,6 +138,10 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
     @Override
     public BinaryTuple binaryTuple() {
         return new BinaryTuple(binaryTupleSchema.elementCount(), row.tupleSlice());
+    }
+
+    public BinaryTupleSchema binaryTupleSchema() {
+        return binaryTupleSchema;
     }
 
     @Override

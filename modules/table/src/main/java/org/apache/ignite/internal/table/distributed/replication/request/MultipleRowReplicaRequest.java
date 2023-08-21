@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.replication.request;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
@@ -33,7 +34,7 @@ public interface MultipleRowReplicaRequest extends ReplicaRequest {
     /**
      * Deserializes binary row byte buffers into binary rows.
      */
-    default Collection<BinaryRow> binaryRows() {
+    default List<BinaryRow> binaryRows() {
         Collection<BinaryRowMessage> binaryRowMessages = binaryRowMessages();
 
         var result = new ArrayList<BinaryRow>(binaryRowMessages.size());

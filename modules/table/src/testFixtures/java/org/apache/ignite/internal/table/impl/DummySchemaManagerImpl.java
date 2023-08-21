@@ -83,7 +83,7 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor desc) {
-        return new Row(desc, row);
+        return Row.wrapBinaryRow(desc, row);
     }
 
     /** {@inheritDoc} */
@@ -91,12 +91,21 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
     public Row resolve(BinaryRow row) {
         assert row.schemaVersion() == schema.version() || row.schemaVersion() == 0;
 
-        return new Row(schema, row);
+        return Row.wrapBinaryRow(schema, row);
     }
 
     @Override
     public List<Row> resolve(Collection<BinaryRow> rows) {
-        return rows.stream().map(binaryRow -> binaryRow == null ? null : resolve(binaryRow)).collect(toList());
+        return rows.stream()
+                .map(row -> row == null ? null : Row.wrapBinaryRow(schema(row.schemaVersion()), row))
+                .collect(toList());
+    }
+
+    @Override
+    public List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows) {
+        return keyOnlyRows.stream()
+                .map(row -> row == null ? null : Row.wrapKeyOnlyBinaryRow(schema(row.schemaVersion()), row))
+                .collect(toList());
     }
 
     @Override
