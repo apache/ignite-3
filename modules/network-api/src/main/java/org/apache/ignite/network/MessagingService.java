@@ -77,6 +77,26 @@ public interface MessagingService {
     CompletableFuture<Void> send(ClusterNode recipient, ChannelType channelType, NetworkMessage msg);
 
     /**
+     * Tries to send the given message via specified channel asynchronously to the specific cluster member.
+     *
+     * <p>Guarantees:
+     * <ul>
+     *     <li>Messages send to same receiver will be delivered in the same order as they were sent;</li>
+     *     <li>If a message N has been successfully delivered to a member implies that all messages to same receiver
+     *     preceding N have also been successfully delivered.</li>
+     * </ul>
+     *
+     * <p>Please note that the guarantees only work for same (sender, receiver) pairs. That is, if A sends m1 and m2
+     * to B, then the guarantees are maintained. If, on the other hand, A sends m1 to B and m2 to C, then no guarantees
+     * exist.
+     *
+     * @param recipientConsistentId Consistent ID of the recipient of the message.
+     * @param msg       Message which should be delivered.
+     * @return Future of the send operation.
+     */
+    CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg);
+
+    /**
      * Sends a response to a {@link #invoke} request.
      * Guarantees are the same as for the {@link #send(ClusterNode, NetworkMessage)}.
      *
