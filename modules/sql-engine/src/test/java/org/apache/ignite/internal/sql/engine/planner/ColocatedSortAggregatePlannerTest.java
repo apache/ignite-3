@@ -73,7 +73,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDistinctAggHash(TestCase.CASE_2_1A);
         checkDistinctAggHash(TestCase.CASE_2_2A);
         checkDistinctAggHash(TestCase.CASE_2_3A);
-        
+
         checkDistinctAggHash(TestCase.CASE_2_1B);
         checkDistinctAggHash(TestCase.CASE_2_2B);
         checkDistinctAggHash(TestCase.CASE_2_3B);
@@ -91,7 +91,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggHash(TestCase.CASE_3_1A);
         checkSimpleAggHash(TestCase.CASE_3_2A);
-        
+
         checkSimpleAggHash(TestCase.CASE_3_1B);
         checkSimpleAggHash(TestCase.CASE_3_2B);
     }
@@ -106,7 +106,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggWithGroupByHash(TestCase.CASE_5A);
         checkSimpleAggWithGroupByHash(TestCase.CASE_6A);
-        
+
         checkSimpleAggWithGroupByHash(TestCase.CASE_5B);
         checkSimpleAggWithGroupByHash(TestCase.CASE_6B);
     }
@@ -127,7 +127,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_2A);
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_3A);
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_4A);
-        
+
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_1B);
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_2B);
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_3B);
@@ -146,7 +146,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_1A);
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_2A);
-        
+
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_1B);
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_2B);
     }
@@ -165,7 +165,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9A);
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10A);
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11A);
-        
+
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9B);
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10B);
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11B);
@@ -335,7 +335,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_1A, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_2A, TraitUtils.createCollation(List.of(1, 0)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_3A, TraitUtils.createCollation(List.of(1, 0)));
-        
+
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_1B, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_2B, TraitUtils.createCollation(List.of(1, 0)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_3B, TraitUtils.createCollation(List.of(1, 0)));

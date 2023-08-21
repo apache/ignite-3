@@ -78,7 +78,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDistinctAggHash(TestCase.CASE_2_1A);
         checkDistinctAggHash(TestCase.CASE_2_2A);
         checkDistinctAggHash(TestCase.CASE_2_3A);
-        
+
         checkDistinctAggHash(TestCase.CASE_2_1B);
         checkDistinctAggHash(TestCase.CASE_2_2B);
         checkDistinctAggHash(TestCase.CASE_2_3B);
@@ -96,7 +96,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggHash(TestCase.CASE_3_1A);
         checkSimpleAggHash(TestCase.CASE_3_2A);
-        
+
         checkSimpleAggHash(TestCase.CASE_3_1B);
         checkSimpleAggHash(TestCase.CASE_3_2B);
     }
@@ -133,7 +133,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_2A);
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_3A);
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_4A);
-        
+
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_1B);
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_2B);
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_3B);
@@ -152,7 +152,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_1A);
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_2A);
-        
+
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_1B);
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_2B);
     }
@@ -329,7 +329,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_1A, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_2A, TraitUtils.createCollation(List.of(1, 0)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_3A, TraitUtils.createCollation(List.of(1, 0)));
-        
+
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_1B, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_2B, TraitUtils.createCollation(List.of(1, 0)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_18_3B, TraitUtils.createCollation(List.of(1, 0)));
@@ -347,7 +347,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_19_1A, TraitUtils.createCollation(List.of(0)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_19_2A, TraitUtils.createCollation(List.of(1)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_20A, TraitUtils.createCollation(List.of(0, 1, 2)));
-        
+
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_19_1B, TraitUtils.createCollation(List.of(0)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_19_2B, TraitUtils.createCollation(List.of(1)));
         checkGroupsWithOrderByGroupColumnsHash(TestCase.CASE_20B, TraitUtils.createCollation(List.of(0, 1, 2)));

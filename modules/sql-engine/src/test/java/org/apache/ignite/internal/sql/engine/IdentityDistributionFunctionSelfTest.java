@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.Identity
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -111,12 +112,12 @@ public class IdentityDistributionFunctionSelfTest {
         assertThat(destination.targets(row), Matchers.contains(NODE_1));
 
         // Invalid row.
-        assertThat(destination.targets(otherRow), empty());
+        Assertions.assertThrows(IllegalStateException.class, () -> destination.targets(otherRow));
 
         // Apply mapping to function to satisfy otherRow.
-        destination = function.destination(rowHandler, colocationGroup, ImmutableIntList.of(1));
+        Destination<Object[]> remappedDestination = function.destination(rowHandler, colocationGroup, ImmutableIntList.of(1));
 
-        assertThat(destination.targets(otherRow).size(), equalTo(1));
-        assertThat(destination.targets(otherRow), Matchers.contains(NODE_2));
+        assertThat(remappedDestination.targets(otherRow).size(), equalTo(1));
+        assertThat(remappedDestination.targets(otherRow), Matchers.contains(NODE_2));
     }
 }
