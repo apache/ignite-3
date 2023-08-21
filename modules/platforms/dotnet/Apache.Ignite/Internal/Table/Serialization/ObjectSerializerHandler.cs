@@ -173,13 +173,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
         private static WriteDelegate<T> EmitKvWriter(Schema schema, int count, DynamicMethod method)
         {
-            var (keyType, valType, keyField, valField) = GetKeyValTypes();
+            var (keyType, valType, keyField, valField, keyColumnMap, valColumnMap) = GetKeyValTypes();
 
             var keyWriteMethod = BinaryTupleMethods.GetWriteMethodOrNull(keyType);
             var valWriteMethod = BinaryTupleMethods.GetWriteMethodOrNull(valType);
-
-            var keyColumnMap = keyType.GetFieldsByColumnName();
-            var valColumnMap = valType.GetFieldsByColumnName();
 
             var il = method.GetILGenerator();
 
@@ -320,13 +317,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var type = typeof(T);
 
             var il = method.GetILGenerator();
-            var (keyType, valType, keyField, valField) = GetKeyValTypes();
+            var (keyType, valType, keyField, valField, keyColumnMap, valColumnMap) = GetKeyValTypes();
 
             var keyMethod = BinaryTupleMethods.GetReadMethodOrNull(keyType);
             var valMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
-
-            var keyColumnMap = keyType.GetFieldsByColumnName();
-            var valColumnMap = valType.GetFieldsByColumnName();
 
             var kvLocal = il.DeclareAndInitLocal(type);
             var keyLocal = keyMethod == null ? il.DeclareAndInitLocal(keyType) : null;
@@ -518,7 +512,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
             }
         }
 
-        private static (Type KeyType, Type ValType, FieldInfo KeyField, FieldInfo ValField) GetKeyValTypes()
+        private static (
+            Type KeyType,
+            Type ValType,
+            FieldInfo KeyField,
+            FieldInfo ValField,
+            IReadOnlyDictionary<string, ReflectionUtils.ColumnInfo> KeyColumnMap,
+            IReadOnlyDictionary<string, ReflectionUtils.ColumnInfo> ValColumnMap) GetKeyValTypes()
         {
             var type = typeof(T);
             Debug.Assert(
@@ -526,8 +526,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 "type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KvPair<,>)");
 
             var keyValTypes = type.GetGenericArguments();
+            var keyColumnMap = keyValTypes[0].GetFieldsByColumnName();
+            var valColumnMap = keyValTypes[0].GetFieldsByColumnName();
 
-            return (keyValTypes[0], keyValTypes[1], type.GetFieldByColumnName("Key")!, type.GetFieldByColumnName("Val")!);
+            return (keyValTypes[0], keyValTypes[1], keyColumnMap["Key"].Field, valColumnMap["Val"].Field, keyColumnMap, valColumnMap);
         }
     }
 }
