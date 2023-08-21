@@ -39,7 +39,7 @@ public class QueryTransactionWrapper {
     /**
      * Constructor.
      *
-     * @param transactions Transaction facade.
+     * @param transactions Transactions facade.
      * @param transaction Explicit transaction.
      */
     public QueryTransactionWrapper(IgniteTransactions transactions, @Nullable Transaction transaction) {

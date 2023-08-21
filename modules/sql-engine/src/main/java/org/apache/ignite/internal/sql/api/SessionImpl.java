@@ -87,7 +87,7 @@ public class SessionImpl implements AbstractSession {
      * Constructor.
      *
      * @param qryProc Query processor.
-     * @param transactions Transactions.
+     * @param transactions Transactions facade.
      * @param pageSize Query fetch page size.
      * @param props Session's properties.
      */

@@ -57,7 +57,7 @@ public class SessionBuilderImpl implements SessionBuilder {
      * Session builder constructor.
      *
      * @param qryProc SQL query processor.
-     * @param transactions Transactions.
+     * @param transactions Transactions facade.
      * @param props Initial properties.
      */
     SessionBuilderImpl(QueryProcessor qryProc, IgniteTransactions transactions, Map<String, Object> props) {

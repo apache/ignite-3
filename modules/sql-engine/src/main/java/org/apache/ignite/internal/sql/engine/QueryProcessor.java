@@ -62,8 +62,8 @@ public interface QueryProcessor extends IgniteComponent {
      * <p>If the query string contains more than one statement the IgniteException will be thrown.
      *
      * @param context User query context.
-     * @param txWrapper Transaction wrapper.
-     * @param qry Single statement SQL query .
+     * @param txWrapper Query transaction wrapper.
+     * @param qry Single statement SQL query.
      * @param params Query parameters.
      * @return Sql cursor.
      *
