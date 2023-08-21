@@ -3767,7 +3767,7 @@ public class ItNodeTest {
      * @param timeout
      * @return
      */
-    public static boolean waitForTopology(TestCluster cluster, PeerId peerId, int expected, long timeout) {
+    private static boolean waitForTopology(TestCluster cluster, PeerId peerId, int expected, long timeout) {
         RaftGroupService grp = cluster.getServer(peerId);
 
         if (grp == null) {
@@ -3972,7 +3972,7 @@ public class ItNodeTest {
         }
     }
 
-    public static void waitForTopologyOnEveryNode(int count, TestCluster cluster) {
+    static void waitForTopologyOnEveryNode(int count, TestCluster cluster) {
         cluster.getAllNodes().forEach(peerId -> {
             assertTrue(waitForTopology(cluster, peerId, count, TimeUnit.SECONDS.toMillis(10)));
         });
