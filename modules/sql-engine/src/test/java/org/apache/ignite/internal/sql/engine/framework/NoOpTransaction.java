@@ -75,7 +75,7 @@ public final class NoOpTransaction implements InternalTransaction {
      * @param name Name of the node.
      * @param readOnly Read-only or not.
      */
-    private NoOpTransaction(String name, boolean readOnly) {
+    public NoOpTransaction(String name, boolean readOnly) {
         var networkAddress = NetworkAddress.from(new InetSocketAddress("localhost", 1234));
         this.tuple = new IgniteBiTuple<>(new ClusterNodeImpl(name, name, networkAddress), 1L);
         this.readOnly = readOnly;
