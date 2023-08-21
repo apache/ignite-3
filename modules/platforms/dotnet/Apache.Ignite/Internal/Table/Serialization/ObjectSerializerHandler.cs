@@ -178,6 +178,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var keyWriteMethod = BinaryTupleMethods.GetWriteMethodOrNull(keyType);
             var valWriteMethod = BinaryTupleMethods.GetWriteMethodOrNull(valType);
 
+            var keyColumnMap = keyType.GetFieldsByColumnName();
+            var valColumnMap = valType.GetFieldsByColumnName();
+
             var il = method.GetILGenerator();
 
             var columns = schema.Columns;
@@ -204,7 +207,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
-                    fieldInfo = (col.IsKey ? keyType : valType).GetFieldByColumnName(col.Name);
+                    fieldInfo = (col.IsKey ? keyColumnMap : valColumnMap).TryGetValue(col.Name, out var columnInfo)
+                        ? columnInfo.Field
+                        : null;
                 }
 
                 if (fieldInfo == null)
