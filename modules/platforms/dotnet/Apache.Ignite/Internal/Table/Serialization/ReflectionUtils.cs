@@ -42,7 +42,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         public static readonly MethodInfo GetTypeFromHandleMethod = GetMethodInfo(() => Type.GetTypeFromHandle(default));
 
-        private static readonly ConcurrentDictionary<Type, IDictionary<string, ColumnInfo>> FieldsByColumnNameCache = new();
+        private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, ColumnInfo>> FieldsByColumnNameCache = new();
 
         /// <summary>
         /// Gets the field by column name. Ignores case, handles <see cref="ColumnAttribute"/> and <see cref="NotMappedAttribute"/>.
@@ -58,7 +58,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="type">Type.</param>
         /// <returns>Columns.</returns>
-        public static ICollection<ColumnInfo> GetColumns(this Type type) => GetFieldsByColumnName(type).Values;
+        public static ICollection<ColumnInfo> GetColumns(this Type type) => (ICollection<ColumnInfo>)GetFieldsByColumnName(type).Values;
 
         /// <summary>
         /// Gets a pair of types for <see cref="KeyValuePair{TKey,TValue}"/>.
@@ -97,12 +97,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="type">Type to get the map for.</param>
         /// <returns>Map.</returns>
-        private static IDictionary<string, ColumnInfo> GetFieldsByColumnName(Type type)
+        public static IReadOnlyDictionary<string, ColumnInfo> GetFieldsByColumnName(Type type)
         {
             // ReSharper disable once HeapView.CanAvoidClosure, HeapView.ClosureAllocation, HeapView.DelegateAllocation (false positive)
             return FieldsByColumnNameCache.GetOrAdd(type, static t => RetrieveFieldsByColumnName(t));
 
-            static IDictionary<string, ColumnInfo> RetrieveFieldsByColumnName(Type type)
+            static IReadOnlyDictionary<string, ColumnInfo> RetrieveFieldsByColumnName(Type type)
             {
                 var res = new Dictionary<string, ColumnInfo>(StringComparer.OrdinalIgnoreCase);
 
