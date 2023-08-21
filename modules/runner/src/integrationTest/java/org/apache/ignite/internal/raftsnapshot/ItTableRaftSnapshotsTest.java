@@ -128,7 +128,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
     private Cluster cluster;
 
-    private TestLogChecker replicatorLogger;
+    private TestLogChecker replicatorLogChecker;
 
     private @Nullable Handler replicaLoggerHandler;
 
@@ -136,17 +136,17 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     void createCluster(TestInfo testInfo) {
         cluster = new Cluster(testInfo, workDir, NODE_BOOTSTRAP_CFG);
 
-        replicatorLogger = TestLogChecker.create(Replicator.class, true);
+        replicatorLogChecker = TestLogChecker.create(Replicator.class, true);
     }
 
     @AfterEach
     @Timeout(60)
     void shutdownCluster() {
         if (replicaLoggerHandler != null) {
-            replicatorLogger.removeHandler(replicaLoggerHandler);
+            replicatorLogChecker.removeHandler(replicaLoggerHandler);
         }
 
-        replicatorLogger.stop();
+        replicatorLogChecker.stop();
 
         cluster.shutdown();
     }
@@ -464,7 +464,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     private void reanimateNodeAndWaitForSnapshotInstalled(int nodeIndex) throws InterruptedException {
         CountDownLatch snapshotInstalledLatch = new CountDownLatch(1);
 
-        Handler handler = replicatorLogger.addHandler(
+        Handler handler = replicatorLogChecker.addHandler(
                 msg -> msg.matches("Node .+ received InstallSnapshotResponse from .+_" + nodeIndex + " .+ success=true"),
                 () -> snapshotInstalledLatch.countDown()
         );
@@ -474,7 +474,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
             assertTrue(snapshotInstalledLatch.await(60, TimeUnit.SECONDS), "Did not install a snapshot in time");
         } finally {
-            replicatorLogger.removeHandler(handler);
+            replicatorLogChecker.removeHandler(handler);
         }
     }
 
@@ -728,14 +728,14 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     void snapshotInstallTimeoutDoesNotBreakSubsequentInstallsWhenSecondAttemptIsIdenticalToFirst() throws Exception {
         AtomicBoolean snapshotInstallFailedDueToIdenticalRetry = new AtomicBoolean(false);
 
-        TestLogChecker snapshotExecutorLogger = TestLogChecker.create(SnapshotExecutorImpl.class);
+        TestLogChecker snapshotExecutorLogChecker = TestLogChecker.create(SnapshotExecutorImpl.class);
 
         Handler snapshotInstallFailedDueToIdenticalRetryHandler =
-                snapshotExecutorLogger.addHandler(
+                snapshotExecutorLogChecker.addHandler(
                         msg -> msg.contains("Register DownloadingSnapshot failed: interrupted by retry installing request"),
                         () -> snapshotInstallFailedDueToIdenticalRetry.set(true));
 
-        snapshotExecutorLogger.start();
+        snapshotExecutorLogChecker.start();
 
         try {
             prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, theCluster -> {
@@ -754,8 +754,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
             reanimateNode2AndWaitForSnapshotInstalled();
         } finally {
-            snapshotExecutorLogger.removeHandler(snapshotInstallFailedDueToIdenticalRetryHandler);
-            snapshotExecutorLogger.stop();
+            snapshotExecutorLogChecker.removeHandler(snapshotInstallFailedDueToIdenticalRetryHandler);
+            snapshotExecutorLogChecker.stop();
         }
     }
 
@@ -796,7 +796,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     /**
-     * Adds a listener for the {@link #replicatorLogger} to hear the success of the snapshot installation.
+     * Adds a listener for the {@link #replicatorLogChecker} to hear the success of the snapshot installation.
      */
     private void listenForSnapshotInstalledSuccessFromLogger(
             int nodeIndexFrom,
@@ -805,7 +805,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     ) {
         String regexp = "Node .+" + nodeIndexFrom + " received InstallSnapshotResponse from .+_" + nodeIndexTo + " .+ success=true";
 
-        replicaLoggerHandler = replicatorLogger.addHandler(
+        replicaLoggerHandler = replicatorLogChecker.addHandler(
                 msg -> msg.matches(regexp),
                 () -> snapshotInstallSuccessfullyFuture.complete(null));
     }

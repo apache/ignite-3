@@ -71,7 +71,7 @@ class ItClusterCommandTest extends AbstractCliTest {
     void setup(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         CountDownLatch allNodesAreInPhysicalTopology = new CountDownLatch(1);
 
-        TestLogChecker topologyLogger = new TestLogChecker(
+        TestLogChecker topologyLogChecker = new TestLogChecker(
                 "org.apache.ignite.network.scalecube.ScaleCubeTopologyService",
                 msg -> {
                     if (msg.startsWith(TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX)) {
@@ -84,14 +84,14 @@ class ItClusterCommandTest extends AbstractCliTest {
                 },
                 allNodesAreInPhysicalTopology::countDown);
 
-        topologyLogger.start();
+        topologyLogChecker.start();
 
         try {
             startClusterWithoutInit(workDir, testInfo);
 
             waitTillAllNodesJoinPhysicalTopology(allNodesAreInPhysicalTopology);
         } finally {
-            topologyLogger.stop();
+            topologyLogChecker.stop();
         }
     }
 

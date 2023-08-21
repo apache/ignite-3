@@ -87,14 +87,14 @@ class ItScaleCubeNetworkMessagingTest {
     private final TestMessagesFactory messageFactory = new TestMessagesFactory();
 
     /** List of test loggers. */
-    private final List<TestLogChecker> loggers = new ArrayList<>();
+    private final List<TestLogChecker> logCheckers = new ArrayList<>();
 
     /** Tear down method. */
     @AfterEach
     public void tearDown() {
         testCluster.shutdown();
-        loggers.forEach(TestLogChecker::stop);
-        loggers.clear();
+        logCheckers.forEach(TestLogChecker::stop);
+        logCheckers.clear();
     }
 
     /**
@@ -418,17 +418,17 @@ class ItScaleCubeNetworkMessagingTest {
 
         Predicate<String> matcher = msg -> msg.startsWith("Handshake rejected by ");
 
-        loggers.add(new TestLogChecker(
+        logCheckers.add(new TestLogChecker(
                 RecoveryClientHandshakeManager.class.getName(),
                 matcher,
                 ready::countDown));
 
-        loggers.add(new TestLogChecker(
+        logCheckers.add(new TestLogChecker(
                 RecoveryServerHandshakeManager.class.getName(),
                 matcher,
                 ready::countDown));
 
-        loggers.forEach(TestLogChecker::start);
+        logCheckers.forEach(TestLogChecker::start);
 
         testCluster.members.stream()
                 .filter(service -> !outcastName.equals(service.nodeName()))
