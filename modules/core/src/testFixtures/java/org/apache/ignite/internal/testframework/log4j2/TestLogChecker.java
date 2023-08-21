@@ -176,7 +176,7 @@ public class TestLogChecker {
     }
 
     /**
-     * Creates a new instance of {@link TestLogChecker} with the given {@code predicate} and {@code action}.
+     * Creates a new instance of {@link TestLogChecker} with the given list of {@code handlers}.
      *
      * @param loggerName Logger name.
      * @param handlers List of handlers to be added.
