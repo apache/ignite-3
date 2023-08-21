@@ -92,4 +92,16 @@ public class QueryTransactionWrapperTest {
         verify(transactions, times(2)).begin(any());
         verifyNoMoreInteractions(transactions);
     }
+
+    @Test
+    public void commitAndRollbackNotAffectExternalTransaction() {
+        NoOpTransaction externalTx = new NoOpTransaction("test");
+        QueryTransactionWrapper wrapper = new QueryTransactionWrapper(transactions, externalTx);
+
+        wrapper.commitImplicit();
+        assertFalse(externalTx.commitFuture().isDone());
+
+        wrapper.rollbackImplicit();
+        assertFalse(externalTx.commitFuture().isDone());
+    }
 }
