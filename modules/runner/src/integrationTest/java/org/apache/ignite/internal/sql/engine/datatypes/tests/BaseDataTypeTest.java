@@ -56,7 +56,8 @@ import org.junit.jupiter.params.provider.Arguments;
  * <ul>
  *     <li>{@code <type>} - an SQL name of a data type.</li>
  *     <li>{@code $N} - the {@code N-th} value from sample values (0-based), converted to an SQL expression by
- *     {@link DataTypeTestSpec#toValueExpr(Comparable)} call (0-based)</li>
+ *     {@link DataTypeTestSpec#toLiteral(Comparable)} or by {@link DataTypeTestSpec#toValueExpr(Comparable)} ,
+ *     if the type has designated literals or if type does have designated literals.</li>
  * </ul>
  *
  * <p>{@link QueryChecker} is automatically checks columns named {@code test_key}
