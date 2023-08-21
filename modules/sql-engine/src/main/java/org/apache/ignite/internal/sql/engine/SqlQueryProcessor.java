@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -89,7 +90,6 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -430,14 +430,10 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     validateParsedStatement(context, result, params);
 
-                    txWrapper.beginTxIfNeeded(result.queryType());
-
-                    InternalTransaction tx = txWrapper.transaction();
+                    HybridTimestamp txStartTs = txWrapper.beginTxIfNeeded(result.queryType());
 
                     // TODO IGNITE-18733: wait for actual metadata for TX.
-                    HybridTimestamp txTimestamp = tx == null ? clock.now() : tx.startTimestamp();
-
-                    SchemaPlus schema = sqlSchemaManager.schema(schemaName, txTimestamp.longValue());
+                    SchemaPlus schema = sqlSchemaManager.schema(schemaName, Objects.requireNonNullElse(txStartTs, clock.now()).longValue());
 
                     if (schema == null) {
                         return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
@@ -456,7 +452,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     return prepareSvc.prepareAsync(result, ctx)
                             .thenApply(plan -> {
-                                var dataCursor = executionSrvc.executePlan(tx, plan, ctx);
+                                var dataCursor = executionSrvc.executePlan(txWrapper.transaction(), plan, ctx);
 
                                 SqlQueryType queryType = plan.type();
                                 assert queryType != null : "Expected a full plan but got a fragment: " + plan;

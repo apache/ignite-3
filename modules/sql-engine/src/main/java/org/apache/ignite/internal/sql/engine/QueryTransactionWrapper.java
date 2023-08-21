@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.SqlException;
@@ -33,7 +34,7 @@ public class QueryTransactionWrapper {
 
     private final boolean implicitRequired;
 
-    private volatile Transaction transaction;
+    private volatile InternalTransaction transaction;
 
     /**
      * Constructor.
@@ -43,11 +44,14 @@ public class QueryTransactionWrapper {
      */
     public QueryTransactionWrapper(IgniteTransactions transactions, @Nullable Transaction transaction) {
         this.transactions = transactions;
-        this.transaction = transaction;
+        this.transaction = (InternalTransaction) transaction;
 
         implicitRequired = transaction == null;
     }
 
+    /**
+     * Commits an implicit transaction, if one has been started.
+     */
     protected void commitImplicit() {
         if (!implicitRequired) {
             return;
@@ -60,6 +64,9 @@ public class QueryTransactionWrapper {
         }
     }
 
+    /**
+     * Rolls back an implicit transaction, if one has been started.
+     */
     protected void rollbackImplicit() {
         if (!implicitRequired) {
             return;
@@ -72,17 +79,31 @@ public class QueryTransactionWrapper {
         }
     }
 
-    void beginTxIfNeeded(SqlQueryType type) {
-        if (!implicitRequired && SqlQueryType.DDL == type) {
+    /**
+     * Each call starts a new "implicit" transaction if the query requires a new one and no "external" transaction exists.
+     *
+     * @param type Query type.
+     * @return Transaction start time, or {@code null} if specified query type does not require transaction.
+     * @throws SqlException If an external transaction was started for a {@link SqlQueryType#DDL DDL} query.
+     */
+    @Nullable HybridTimestamp beginTxIfNeeded(SqlQueryType type) {
+        if (implicitRequired) {
+            if (type == SqlQueryType.DDL || type == SqlQueryType.EXPLAIN) {
+                return null;
+            }
+
+            transaction = (InternalTransaction) transactions.begin(new TransactionOptions().readOnly(type != SqlQueryType.DML));
+        } else if (SqlQueryType.DDL == type) {
             throw new SqlException(ErrorGroups.Sql.STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
         }
 
-        if (implicitRequired && type != SqlQueryType.DDL && type != SqlQueryType.EXPLAIN && transaction == null) {
-            transaction = transactions.begin(new TransactionOptions().readOnly(type != SqlQueryType.DML));
-        }
+        return transaction.startTimestamp();
     }
 
+    /**
+     * Returns transaction if any has been started.
+     */
     @Nullable InternalTransaction transaction() {
-        return (InternalTransaction) transaction;
+        return transaction;
     }
 }
