@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -29,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 public class QueryTransactionWrapper {
     private final IgniteTransactions transactions;
 
-    private final boolean implicit;
+    private final boolean implicitRequired;
 
     private volatile Transaction transaction;
 
@@ -43,11 +46,11 @@ public class QueryTransactionWrapper {
         this.transactions = transactions;
         this.transaction = transaction;
 
-        implicit = transaction == null;
+        implicitRequired = transaction == null;
     }
 
     protected void commitImplicit() {
-        if (!implicit) {
+        if (!implicitRequired) {
             return;
         }
 
@@ -59,7 +62,7 @@ public class QueryTransactionWrapper {
     }
 
     protected void rollbackImplicit() {
-        if (!implicit) {
+        if (!implicitRequired) {
             return;
         }
 
@@ -71,14 +74,14 @@ public class QueryTransactionWrapper {
     }
 
     @Nullable InternalTransaction getOrStartImplicitIfNeeded(SqlQueryType type) {
-        if (implicit && type != SqlQueryType.DDL && type != SqlQueryType.EXPLAIN && transaction == null) {
+        if (!implicitRequired && SqlQueryType.DDL == type) {
+            throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
+        }
+
+        if (implicitRequired && type != SqlQueryType.DDL && type != SqlQueryType.EXPLAIN && transaction == null) {
             transaction = transactions.begin(new TransactionOptions().readOnly(type != SqlQueryType.DML));
         }
 
         return (InternalTransaction) transaction;
-    }
-
-    boolean implicit() {
-        return implicit;
     }
 }

@@ -428,7 +428,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .thenCompose(ignored -> {
                     ParsedResult result = parserService.parse(sql);
 
-                    validateParsedStatement(context, txWrapper, result, params);
+                    validateParsedStatement(context, result, params);
 
                     InternalTransaction tx = txWrapper.getOrStartImplicitIfNeeded(result.queryType());
 
@@ -615,7 +615,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Performs additional validation of a parsed statement. **/
     private static void validateParsedStatement(
             QueryContext context,
-            QueryTransactionWrapper txWrapper,
             ParsedResult parsedResult,
             Object[] params
     ) {
@@ -626,10 +625,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             String message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, queryType);
 
             throw new QueryValidationException(message);
-        }
-
-        if (SqlQueryType.DDL == queryType && !txWrapper.implicit()) {
-            throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
         }
 
         if (parsedResult.dynamicParamsCount() != params.length) {
