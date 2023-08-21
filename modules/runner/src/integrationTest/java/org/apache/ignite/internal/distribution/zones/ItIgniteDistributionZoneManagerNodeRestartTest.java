@@ -93,7 +93,6 @@ import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -535,12 +534,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         alterZone(node, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
 
-        assertDataNodesFromManager(distributionZoneManager, () -> metaStorageMgr.appliedRevision(), zoneId, Set.of(B, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metastore.appliedRevision(), zoneId, Set.of(B, C), TIMEOUT_MILLIS);
 
-        metaStorageManager = findComponent(partialNode.startedComponents(), MetaStorageManager.class);
+        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
 
         assertValueInStorage(
-                metaStorageManager,
+                metastore,
                 zoneDataNodesKey(zoneId),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 Set.of(B.name(), C.name()),
