@@ -638,8 +638,6 @@ public class TypeUtils {
             NativeType nativeType = IgniteTypeFactory.relDataTypeToNative(type);
             return RowSchemaTypes.nativeTypeWithNullability(nativeType, nullable);
         } else if (SqlTypeName.ANY == type.getSqlTypeName()) {
-            // TODO: After https://issues.apache.org/jira/browse/IGNITE-19096 is fixed
-            //  it should be possible to remove branch.
             // TODO Some JSON functions that return ANY as well : https://issues.apache.org/jira/browse/IGNITE-20163
             return new BaseTypeSpec(null, nullable);
         } else if (SqlTypeUtil.isNull(type)) {
