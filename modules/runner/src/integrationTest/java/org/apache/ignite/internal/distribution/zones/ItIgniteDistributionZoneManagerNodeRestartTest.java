@@ -54,7 +54,6 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -220,7 +219,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         var clockWaiter = new ClockWaiter(name, clock);
 
-        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageMgr), clockWaiter);
+        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter);
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
