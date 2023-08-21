@@ -62,6 +62,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     protected void simpleAggregate() throws Exception {
         checkSimpleAggSingle(TestCase.CASE_1);
         checkSimpleAggHash(TestCase.CASE_1A);
+        checkSimpleAggHash(TestCase.CASE_1B);
     }
 
     /**
@@ -78,6 +79,10 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDistinctAggHash(TestCase.CASE_2_1A);
         checkDistinctAggHash(TestCase.CASE_2_2A);
         checkDistinctAggHash(TestCase.CASE_2_3A);
+
+        checkDistinctAggHash(TestCase.CASE_2_1B);
+        checkDistinctAggHash(TestCase.CASE_2_2B);
+        checkDistinctAggHash(TestCase.CASE_2_3B);
     }
 
     /**
@@ -92,6 +97,9 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggHash(TestCase.CASE_3_1A);
         checkSimpleAggHash(TestCase.CASE_3_2A);
+
+        checkSimpleAggHash(TestCase.CASE_3_1B);
+        checkSimpleAggHash(TestCase.CASE_3_2B);
     }
 
     /**
@@ -104,6 +112,9 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggWithGroupByHash(TestCase.CASE_5A);
         checkSimpleAggWithGroupByHash(TestCase.CASE_6A);
+
+        checkSimpleAggWithGroupByHash(TestCase.CASE_5B);
+        checkSimpleAggWithGroupByHash(TestCase.CASE_6B);
     }
 
     /**
@@ -122,6 +133,11 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_2A);
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_3A);
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_4A);
+
+        checkDistinctAggWithGroupByHash(TestCase.CASE_7_1B);
+        checkDistinctAggWithGroupByHash(TestCase.CASE_7_2B);
+        checkDistinctAggWithGroupByHash(TestCase.CASE_7_3B);
+        checkDistinctAggWithGroupByHash(TestCase.CASE_7_4B);
     }
 
     /**
@@ -136,6 +152,9 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_1A);
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_2A);
+
+        checkSimpleAggWithGroupByHash(TestCase.CASE_8_1B);
+        checkSimpleAggWithGroupByHash(TestCase.CASE_8_2B);
     }
 
     /**
@@ -152,6 +171,10 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9A);
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10A);
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11A);
+
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9B);
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10B);
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11B);
     }
 
     /**
@@ -162,6 +185,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkGroupWithNoAggregateSingle(TestCase.CASE_12);
 
         checkGroupWithNoAggregateHash(TestCase.CASE_12A);
+        checkGroupWithNoAggregateHash(TestCase.CASE_12B);
     }
 
     /**
@@ -196,6 +220,20 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 ),
                 disableRules
         );
+        assertPlan(TestCase.CASE_13B,
+                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                        .and(not(hasAggregate()))
+                        .and(hasGroups())
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(not(hasAggregate()))
+                                        .and(hasGroups())
+                                        .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
+                                ))
+                        ))
+                ),
+                disableRules
+        );
     }
 
     /**
@@ -205,6 +243,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     public void subqueryWithAggregateInWhereClause() throws Exception {
         checkSimpleAggSingle(TestCase.CASE_14);
         checkSimpleAggHash(TestCase.CASE_14A);
+        checkSimpleAggHash(TestCase.CASE_14B);
     }
 
     /**
@@ -214,6 +253,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     public void distinctAggregateInWhereClause() throws Exception {
         checkGroupWithNoAggregateSingle(TestCase.CASE_15);
         checkGroupWithNoAggregateHash(TestCase.CASE_15A);
+        checkGroupWithNoAggregateHash(TestCase.CASE_15B);
     }
 
     /**
@@ -233,6 +273,16 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         );
 
         assertPlan(TestCase.CASE_16A,
+                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(input(isIndexScan("TEST", "idx_val0")))
+                                ))
+                        ))
+                ),
+                ArrayUtils.concat(disableRules, additionalRulesToDisable)
+        );
+        assertPlan(TestCase.CASE_16B,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
@@ -280,6 +330,22 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 ),
                 disableRules
         );
+        assertPlan(TestCase.CASE_17B,
+                hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
+                        .and(input(1, isInstanceOf(IgniteReduceSortAggregate.class)
+                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(input(isInstanceOf(IgniteLimit.class)
+                                                .and(input(isInstanceOf(IgniteExchange.class)
+                                                        .and(input(isInstanceOf(IgniteSort.class)
+                                                                .and(input(isTableScan("TEST")))
+                                                        ))
+                                                ))
+                                        ))
+                                ))
+                        ))
+                ),
+                disableRules
+        );
     }
 
     /**
@@ -294,6 +360,10 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_18_1A, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_18_2A, TraitUtils.createCollation(List.of(1, 0)));
         checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_18_3A, TraitUtils.createCollation(List.of(1, 0)));
+
+        checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_18_1B, TraitUtils.createCollation(List.of(0, 1)));
+        checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_18_2B, TraitUtils.createCollation(List.of(1, 0)));
+        checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_18_3B, TraitUtils.createCollation(List.of(1, 0)));
     }
 
     /**
@@ -306,6 +376,9 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_19_1A, TraitUtils.createCollation(List.of(0, 1)));
         checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_19_2A, TraitUtils.createCollation(List.of(1, 0)));
+
+        checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_19_1B, TraitUtils.createCollation(List.of(0, 1)));
+        checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_19_2B, TraitUtils.createCollation(List.of(1, 0)));
     }
 
     /**
@@ -316,6 +389,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkGroupsWithGroupBySubsetOfSortColumnsSingle(TestCase.CASE_20, TraitUtils.createCollation(List.of(0, 1)));
 
         checkGroupsWithGroupBySubsetOfSortColumnsHash(TestCase.CASE_20A, TraitUtils.createCollation(List.of(0, 1)));
+        checkGroupsWithGroupBySubsetOfSortColumnsHash(TestCase.CASE_20B, TraitUtils.createCollation(List.of(0, 1)));
     }
 
     /**
@@ -368,6 +442,10 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 .and(input(0, subtreePredicate))
                 .and(input(1, subtreePredicate))
         ), disableRules);
+        assertPlan(TestCase.CASE_21B, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
+                .and(input(0, subtreePredicate))
+                .and(input(1, subtreePredicate))
+        ), disableRules);
     }
 
     /**
@@ -393,6 +471,14 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 )
                         ))
                 )), disableRules);
+        assertPlan(TestCase.CASE_22A, hasChildThat(isInstanceOf(IgniteReduceSortAggregate.class)
+                .and(in -> hasAggregates(countReduce).test(in.getAggregateCalls()))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
+                                )
+                        ))
+                )), disableRules);
     }
 
     /**
@@ -403,7 +489,10 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     public void testAvgAgg() {
         RuntimeException e = assertThrows(RuntimeException.class,
                 () -> assertPlan(TestCase.CASE_23, isInstanceOf(IgniteRel.class), disableRules));
+        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
 
+        e = assertThrows(RuntimeException.class,
+                () -> assertPlan(TestCase.CASE_23A, isInstanceOf(IgniteRel.class), disableRules));
         assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
     }
 
