@@ -465,7 +465,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         CountDownLatch snapshotInstalledLatch = new CountDownLatch(1);
 
         Handler handler = replicatorLogChecker.addHandler(
-                msg -> msg.matches("Node .+ received InstallSnapshotResponse from .+_" + nodeIndex + " .+ success=true"),
+                evt -> evt.getMessage().getFormattedMessage().matches(
+                        "Node .+ received InstallSnapshotResponse from .+_" + nodeIndex + " .+ success=true"),
                 () -> snapshotInstalledLatch.countDown()
         );
 
@@ -732,7 +733,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         Handler snapshotInstallFailedDueToIdenticalRetryHandler =
                 snapshotExecutorLogChecker.addHandler(
-                        msg -> msg.contains("Register DownloadingSnapshot failed: interrupted by retry installing request"),
+                        evt -> evt.getMessage().getFormattedMessage().contains(
+                                "Register DownloadingSnapshot failed: interrupted by retry installing request"),
                         () -> snapshotInstallFailedDueToIdenticalRetry.set(true));
 
         snapshotExecutorLogChecker.start();
@@ -806,7 +808,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         String regexp = "Node .+" + nodeIndexFrom + " received InstallSnapshotResponse from .+_" + nodeIndexTo + " .+ success=true";
 
         replicaLoggerHandler = replicatorLogChecker.addHandler(
-                msg -> msg.matches(regexp),
+                evt -> evt.getMessage().getFormattedMessage().matches(regexp),
                 () -> snapshotInstallSuccessfullyFuture.complete(null));
     }
 
