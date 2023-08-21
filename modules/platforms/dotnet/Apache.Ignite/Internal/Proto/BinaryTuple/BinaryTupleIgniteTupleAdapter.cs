@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple;
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Ignite.Table;
 using Table;
@@ -28,10 +29,15 @@ using Table;
 /// </summary>
 internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple
 {
-    // TODO: Copy on write.
-    private readonly Memory<byte> _data;
+    private readonly int _schemaFieldCount; // TODO: Does it ever differ from _schema.Columns.Count?
 
-    private readonly Schema _schema;
+    private Memory<byte> _data;
+
+    private Schema? _schema;
+
+    private Dictionary<string, int>? _indexes;
+
+    private IgniteTuple? _tuple;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BinaryTupleIgniteTupleAdapter"/> class.
@@ -45,36 +51,82 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple
 
         _data = data;
         _schema = schema;
-        FieldCount = fieldCount;
+        _schemaFieldCount = fieldCount;
     }
 
     /// <inheritdoc/>
-    public int FieldCount { get; }
+    public int FieldCount => _tuple?.FieldCount ?? _schemaFieldCount;
 
     /// <inheritdoc/>
     public object? this[int ordinal]
     {
-        get => throw new System.NotImplementedException();
-        set => throw new System.NotImplementedException();
+        get => throw new NotImplementedException();
+        set
+        {
+            InitTuple();
+            _tuple![ordinal] = value;
+        }
     }
 
     /// <inheritdoc/>
     public object? this[string name]
     {
-        get => throw new System.NotImplementedException();
-        set => throw new System.NotImplementedException();
+        get => throw new NotImplementedException();
+        set
+        {
+            InitTuple();
+            _tuple![name] = value;
+        }
     }
 
     /// <inheritdoc/>
-    public string GetName(int ordinal)
-    {
-        // TODO: Range checks.
-        return _schema.Columns[ordinal].Name;
-    }
+    public string GetName(int ordinal) => _schema != null
+        ? _schema.Columns[ordinal].Name
+        : _tuple!.GetName(ordinal);
 
     /// <inheritdoc/>
     public int GetOrdinal(string name)
     {
-        throw new NotImplementedException();
+        if (_tuple != null)
+        {
+            return _tuple.GetOrdinal(name);
+        }
+
+        if (_indexes == null)
+        {
+            _indexes = new Dictionary<string, int>(_schema!.Columns.Count);
+
+            for (var i = 0; i < _schema.Columns.Count; i++)
+            {
+                _indexes[_schema.Columns[i].Name] = i;
+            }
+        }
+
+        return _indexes.TryGetValue(name, out var index) ? index : -1;
+    }
+
+    private void InitTuple()
+    {
+        if (_tuple != null)
+        {
+            return;
+        }
+
+        Debug.Assert(_schema != null, "_schema != null");
+
+        // Copy data to a mutable IgniteTuple.
+        _tuple = new IgniteTuple(FieldCount);
+
+        var tupleReader = new BinaryTupleReader(_data.Span, _schemaFieldCount);
+
+        for (var index = 0; index < _schemaFieldCount; index++)
+        {
+            var column = _schema!.Columns[index];
+            _tuple[column.Name] = tupleReader.GetObject(index, column.Type, column.Scale);
+        }
+
+        _schema = default;
+        _indexes = default;
+        _data = default;
     }
 }
