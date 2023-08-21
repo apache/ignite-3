@@ -20,6 +20,7 @@ assertj = "3.22.0"
 asm = "9.1"
 compileTesting = "0.19"
 fliptables = "1.1.0"
+fmpp = "0.9.16"
 jackson = "2.14.1"
 jakarta = "2.0.0"
 jansi = "2.4.0"
@@ -230,6 +231,7 @@ caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "c
 calcite-core = { module = "org.apache.calcite:calcite-core", version.ref = "calcite" }
 calcite-linq4j = { module = "org.apache.calcite:calcite-linq4j", version.ref = "calcite" }
 calcite-avatica = { module = "org.apache.calcite.avatica:avatica-core", version.ref = "avatica" }
+fmpp = { module = "net.sourceforge.fmpp:fmpp", version.ref = "fmpp" }
 
 value-annotations = { module = "org.immutables:value-annotations", version.ref = "value" }
 value-annotation-processor = { module = "org.immutables:value", version.ref = "value" }
