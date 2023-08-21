@@ -90,7 +90,7 @@ public class DistributionZonesTestUtil {
             String zoneName,
             int partitions,
             int replicas,
-            Consumer<DataStorageChange> dataStorageChangeConsumer
+            @Nullable Consumer<DataStorageChange> dataStorageChangeConsumer
     ) {
         var distributionZoneCfgBuilder = new Builder(zoneName)
                 .replicas(replicas)
