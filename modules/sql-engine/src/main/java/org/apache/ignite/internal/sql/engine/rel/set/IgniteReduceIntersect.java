@@ -113,5 +113,4 @@ public class IgniteReduceIntersect extends IgniteIntersect implements IgniteRedu
     public int aggregateFieldsCount() {
         return rowType.getFieldCount() + inputsCnt;
     }
-
 }
