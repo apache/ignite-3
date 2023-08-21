@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
@@ -73,15 +72,17 @@ public class QueryTransactionWrapper {
         }
     }
 
-    @Nullable InternalTransaction getOrStartImplicitIfNeeded(SqlQueryType type) {
+    void beginTxIfNeeded(SqlQueryType type) {
         if (!implicitRequired && SqlQueryType.DDL == type) {
-            throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
+            throw new SqlException(ErrorGroups.Sql.STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
         }
 
         if (implicitRequired && type != SqlQueryType.DDL && type != SqlQueryType.EXPLAIN && transaction == null) {
             transaction = transactions.begin(new TransactionOptions().readOnly(type != SqlQueryType.DML));
         }
+    }
 
+    @Nullable InternalTransaction transaction() {
         return (InternalTransaction) transaction;
     }
 }

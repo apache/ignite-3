@@ -430,7 +430,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     validateParsedStatement(context, result, params);
 
-                    InternalTransaction tx = txWrapper.getOrStartImplicitIfNeeded(result.queryType());
+                    txWrapper.beginTxIfNeeded(result.queryType());
+
+                    InternalTransaction tx = txWrapper.transaction();
 
                     // TODO IGNITE-18733: wait for actual metadata for TX.
                     HybridTimestamp txTimestamp = tx == null ? clock.now() : tx.startTimestamp();
