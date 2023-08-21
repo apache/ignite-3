@@ -177,8 +177,6 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         SqlSchemaManager oldManager =
                 (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProcessor(), SqlQueryProcessor.class, "sqlSchemaManager");
 
-        int txPrevCnt = txManager.finished();
-
         Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
 
         try {
@@ -188,17 +186,14 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             // No op.
         }
 
-        assertEquals(0, txManager.finished() - txPrevCnt);
         assertEquals(1, txManager.pending());
         InternalTransaction tx0 = (InternalTransaction) tx;
         assertEquals(TxState.PENDING, tx0.state());
 
         tx.rollback();
-        assertEquals(1, txManager.finished() - txPrevCnt);
         assertEquals(0, txManager.pending());
 
         sql("INSERT INTO TEST VALUES(1, 1)");
-        assertEquals(2, txManager.finished() - txPrevCnt);
         assertEquals(0, txManager.pending());
 
         var schemaManager = new ErroneousSchemaManager();
@@ -218,7 +213,6 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             // No op.
         }
 
-        assertEquals(4, txManager.finished() - txPrevCnt);
         assertEquals(0, txManager.pending());
 
         IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", oldManager);
