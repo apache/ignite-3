@@ -123,7 +123,7 @@ public class SetOpConverterRule {
             List<RelNode> inputs = Util.transform(setOp.getInputs(), rel -> convert(rel, inTrait));
 
             RelNode map = createMapNode(cluster, outTrait, inputs, setOp.all);
-            int inputsNum = inputs.size();
+            int inputsCnt = inputs.size();
 
             return createReduceNode(
                     cluster,
@@ -131,7 +131,7 @@ public class SetOpConverterRule {
                     convert(map, inTrait.replace(IgniteDistributions.single())),
                     setOp.all,
                     cluster.getTypeFactory().leastRestrictive(Util.transform(inputs, RelNode::getRowType)),
-                    inputsNum
+                    inputsCnt
             );
         }
     }
@@ -171,8 +171,8 @@ public class SetOpConverterRule {
         /** {@inheritDoc} */
         @Override
         PhysicalNode createReduceNode(RelOptCluster cluster, RelTraitSet traits, RelNode input, boolean all,
-                RelDataType rowType, int inputsNum) {
-            return new IgniteReduceIntersect(cluster, traits, input, all, rowType, inputsNum);
+                RelDataType rowType, int inputsCnt) {
+            return new IgniteReduceIntersect(cluster, traits, input, all, rowType, inputsCnt);
         }
     }
 }

@@ -33,14 +33,14 @@ public class MinusNode<RowT> extends AbstractSetOpNode<RowT> {
      * Constructor.
      *
      * @param ctx An execution context.
-     * @param columnNum The number of columns in an input row.
+     * @param columnCnt The number of columns in an input row of a set operator.
      * @param type Aggregation mode.
      * @param all Whether this operator should return all rows or only distinct rows.
      * @param rowFactory The row factory.
      */
-    public MinusNode(ExecutionContext<RowT> ctx, int columnNum, AggregateType type, boolean all,
+    public MinusNode(ExecutionContext<RowT> ctx, int columnCnt, AggregateType type, boolean all,
             RowFactory<RowT> rowFactory) {
-        super(ctx, type, all, rowFactory, new MinusGrouping<>(ctx, rowFactory, columnNum, type, all));
+        super(ctx, type, all, rowFactory, new MinusGrouping<>(ctx, rowFactory, columnCnt, type, all));
     }
 
     /**
@@ -74,8 +74,8 @@ public class MinusNode<RowT> extends AbstractSetOpNode<RowT> {
      */
     private static class MinusGrouping<RowT> extends Grouping<RowT> {
         private MinusGrouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory,
-                int columnNum, AggregateType type, boolean all) {
-            super(ctx, rowFactory, columnNum, type, all);
+                int columnCnt, AggregateType type, boolean all) {
+            super(ctx, rowFactory, columnCnt, type, all);
         }
 
         /** {@inheritDoc} */

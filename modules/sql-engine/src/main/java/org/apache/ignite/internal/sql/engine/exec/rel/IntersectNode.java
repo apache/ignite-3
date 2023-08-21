@@ -31,15 +31,15 @@ public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
      * Constructor.
      *
      * @param ctx An execution context.
-     * @param columnNum The number of columns in an input row.
+     * @param columnCnt The number of columns in an input row of a set operator.
      * @param type Aggregation mode.
      * @param all Whether this operator should return all rows or only distinct rows.
      * @param rowFactory The row factory.
      * @param inputsCnt The number of input relations this operator accepts.
      */
-    public IntersectNode(ExecutionContext<RowT> ctx, int columnNum, AggregateType type, boolean all,
+    public IntersectNode(ExecutionContext<RowT> ctx, int columnCnt, AggregateType type, boolean all,
             RowFactory<RowT> rowFactory, int inputsCnt) {
-        super(ctx, type, all, rowFactory, new IntersectGrouping<>(ctx, rowFactory, columnNum, type, all,  inputsCnt));
+        super(ctx, type, all, rowFactory, new IntersectGrouping<>(ctx, rowFactory, columnCnt, type, all,  inputsCnt));
     }
 
     /**
@@ -72,16 +72,16 @@ public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
      */
     private static class IntersectGrouping<RowT> extends Grouping<RowT> {
         /** The number of inputs. */
-        private final int inputsNum;
+        private final int inputsCnt;
 
-        /** Processed rows count in current set. */
+        /** The number of rows processed by this operator. */
         private int rowsCnt = 0;
 
-        private IntersectGrouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory, int columnNum,
-                AggregateType type, boolean all, int inputsNum) {
-            super(ctx, rowFactory, columnNum, type, all);
+        private IntersectGrouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory, int columnCnt,
+                AggregateType type, boolean all, int inputsCnt) {
+            super(ctx, rowFactory, columnCnt, type, all);
 
-            this.inputsNum = inputsNum;
+            this.inputsCnt = inputsCnt;
         }
 
         /** {@inheritDoc} */
@@ -110,7 +110,7 @@ public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
             GroupKey key = createKey(row);
 
             if (setIdx == 0) {
-                cntrs = groups.computeIfAbsent(key, k -> new int[inputsNum]);
+                cntrs = groups.computeIfAbsent(key, k -> new int[inputsCnt]);
 
                 cntrs[0]++;
             } else {
@@ -129,14 +129,14 @@ public class IntersectNode<RowT> extends AbstractSetOpNode<RowT> {
         /** {@inheritDoc} */
         @Override
         protected int getCounterFieldsCount() {
-            return inputsNum;
+            return inputsCnt;
         }
 
         /** {@inheritDoc} */
         @Override
         protected void addOnMapper(RowT row, int setIdx) {
             GroupKey key = createKey(row);
-            int[] cntrs = groups.computeIfAbsent(key, k -> new int[inputsNum]);
+            int[] cntrs = groups.computeIfAbsent(key, k -> new int[inputsCnt]);
 
             cntrs[setIdx]++;
         }

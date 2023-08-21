@@ -212,11 +212,12 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
         private final RowHandler<RowT> hnd;
 
-        private final int columnNum;
+        /** The number of columns in an input row of a set operator.*/
+        private final int columnCnt;
 
-        protected Grouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory, int columnNum, AggregateType type, boolean all) {
+        protected Grouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory, int columnCnt, AggregateType type, boolean all) {
             hnd = ctx.rowHandler();
-            this.columnNum = columnNum;
+            this.columnCnt = columnCnt;
             this.type = type;
             this.all = all;
             this.rowFactory = rowFactory;
@@ -291,9 +292,9 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         protected abstract int getCounterFieldsCount();
 
         private void addOnReducer(RowT row) {
-            GroupKey.Builder grpKeyBuilder = GroupKey.builder(columnNum);
+            GroupKey.Builder grpKeyBuilder = GroupKey.builder(columnCnt);
 
-            for (int i = 0; i < columnNum; i++) {
+            for (int i = 0; i < columnCnt; i++) {
                 Object field = hnd.get(i, row);
                 grpKeyBuilder.add(field);
             }
@@ -304,7 +305,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
             int[] cntrs = groups.computeIfAbsent(grpKey, k -> new int[inputsCnt]);
 
             for (int i = 0; i < inputsCnt; i++) {
-                cntrs[i] += (int) hnd.get(i + columnNum, row);
+                cntrs[i] += (int) hnd.get(i + columnCnt, row);
             }
         }
 
@@ -387,27 +388,27 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
             GroupKey groupKey = entry.getKey();
             int[] cnts = entry.getValue();
 
-            assert groupKey.fieldsCount() == columnNum : format("Invalid key {} columnNum: {}", groupKey, columnNum);
+            assert groupKey.fieldsCount() == columnCnt : format("Invalid key {} columnNum: {}", groupKey, columnCnt);
 
             // Append counts on MAP phase.
             boolean appendCounts = type == AggregateType.MAP;
-            int countsNum;
+            int counts;
             Object[] fields;
 
             if (appendCounts) {
-                countsNum = cnts.length;
-                fields = new Object[columnNum + countsNum];
+                counts = cnts.length;
+                fields = new Object[columnCnt + counts];
             } else {
-                countsNum = 0;
-                fields = new Object[columnNum];
+                counts = 0;
+                fields = new Object[columnCnt];
             }
 
             for (int i = 0; i < groupKey.fieldsCount(); i++) {
                 fields[i] = groupKey.field(i);
             }
 
-            for (int j = 0; j < countsNum; j++) {
-                fields[columnNum + j] = cnts[j];
+            for (int j = 0; j < counts; j++) {
+                fields[columnCnt + j] = cnts[j];
             }
 
             return rowFactory.create(fields);

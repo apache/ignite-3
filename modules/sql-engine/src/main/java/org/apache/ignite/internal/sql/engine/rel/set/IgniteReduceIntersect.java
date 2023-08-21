@@ -35,7 +35,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
  */
 public class IgniteReduceIntersect extends IgniteIntersect implements IgniteReduceSetOp {
 
-    private final int inputsNum;
+    private final int inputsCnt;
 
     /**
      * Constructor.
@@ -45,7 +45,7 @@ public class IgniteReduceIntersect extends IgniteIntersect implements IgniteRedu
      * @param input Input relational expression.
      * @param all Whether this operator should return all rows or only distinct rows.
      * @param rowType Row type this expression produces.
-     * @param inputsNum The number of inputs.
+     * @param inputsCnt The number of inputs.
      */
     public IgniteReduceIntersect(
             RelOptCluster cluster,
@@ -53,12 +53,12 @@ public class IgniteReduceIntersect extends IgniteIntersect implements IgniteRedu
             RelNode input,
             boolean all,
             RelDataType rowType,
-            int inputsNum
+            int inputsCnt
     ) {
         super(cluster, traitSet, List.of(input), all);
 
         this.rowType = rowType;
-        this.inputsNum = inputsNum;
+        this.inputsCnt = inputsCnt;
     }
 
     /**
@@ -73,7 +73,7 @@ public class IgniteReduceIntersect extends IgniteIntersect implements IgniteRedu
                 input.getInput(),
                 input.getBoolean("all", false),
                 input.getRowType("rowType"),
-                (Integer) input.get("inputsNum")
+                (Integer) input.get("inputsCnt")
         );
     }
 
@@ -82,7 +82,7 @@ public class IgniteReduceIntersect extends IgniteIntersect implements IgniteRedu
     public RelWriter explainTerms(RelWriter pw) {
         super.explainTerms(pw)
                 .itemIf("rowType", rowType, pw.getDetailLevel() == SqlExplainLevel.ALL_ATTRIBUTES)
-                .itemIf("inputsNum", inputsNum, pw.getDetailLevel() == SqlExplainLevel.ALL_ATTRIBUTES);
+                .itemIf("inputsCnt", inputsCnt, pw.getDetailLevel() == SqlExplainLevel.ALL_ATTRIBUTES);
 
         return pw;
     }
@@ -90,13 +90,13 @@ public class IgniteReduceIntersect extends IgniteIntersect implements IgniteRedu
     /** {@inheritDoc} */
     @Override
     public SetOp copy(RelTraitSet traitSet, List<RelNode> inputs, boolean all) {
-        return new IgniteReduceIntersect(getCluster(), traitSet, sole(inputs), all, rowType, inputsNum);
+        return new IgniteReduceIntersect(getCluster(), traitSet, sole(inputs), all, rowType, inputsCnt);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteReduceIntersect clone(RelOptCluster cluster, List<IgniteRel> inputs) {
-        return new IgniteReduceIntersect(cluster, getTraitSet(), sole(inputs), all, rowType, inputsNum);
+        return new IgniteReduceIntersect(cluster, getTraitSet(), sole(inputs), all, rowType, inputsCnt);
     }
 
     /** {@inheritDoc} */
@@ -108,7 +108,7 @@ public class IgniteReduceIntersect extends IgniteIntersect implements IgniteRedu
     /** {@inheritDoc} */
     @Override
     public int aggregateFieldsCount() {
-        return rowType.getFieldCount() + inputsNum;
+        return rowType.getFieldCount() + inputsCnt;
     }
 
 }
