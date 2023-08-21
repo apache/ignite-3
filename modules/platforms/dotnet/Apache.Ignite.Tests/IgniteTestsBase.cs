@@ -154,9 +154,11 @@ namespace Apache.Ignite.Tests
 
         protected static IIgniteTuple GetTuple(string? val) => new IgniteTuple { [ValCol] = val };
 
-        protected static Poco GetPoco(long id, string? val = null) => new() {Key = id, Val = val};
+        protected static Poco GetPoco(long id, string? val = null) => new() { Key = id, Val = val };
 
-        protected static Poco GetPoco(string? val) => new() {Val = val};
+        protected static KeyPoco GetKeyPoco(long id) => new() { Key = id };
+
+        protected static ValPoco GetValPoco(string? val) => new() { Val = val };
 
         protected static IgniteClientConfiguration GetConfig() => new()
         {

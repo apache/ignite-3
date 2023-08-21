@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -369,7 +370,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         // With aliases, reference columns by table alias.
         sql("MERGE INTO test2 test1 USING test1 test2 ON test1.d = test2.b "
                 + "WHEN MATCHED THEN UPDATE SET a = test1.a + 1 "
-                + "WHEN NOT MATCHED THEN INSERT (a, d, e) VALUES (test2.a, test2.b, test2.c)");
+                + "WHEN NOT MATCHED THEN INSERT (k, a, d, e) VALUES (test2.k, test2.a, test2.b, test2.c)");
 
         assertQuery("SELECT * FROM test2").returns(1, 2, 0, "0").check();
     }
@@ -539,11 +540,9 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
         sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
 
-        var e = assertThrows(IgniteException.class,
-                () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+        var expectedMessage = "Failed to validate query. From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
 
-        var expectedMessage = "From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
-        assertEquals(expectedMessage, e.getMessage(), "error message");
+        assertThrowsSqlException(STMT_VALIDATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
     }
 
     private void checkQueryResult(String sql, List<Object> expectedVals) {
@@ -553,7 +552,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     private void checkWrongDefault(String sqlType, String sqlVal) {
         try {
             assertThrows(
-                    IgniteException.class,
+                    SqlException.class,
                     () -> sql("CREATE TABLE test (val " + sqlType + " DEFAULT " + sqlVal + ")"),
                     "Cannot convert literal"
             );
@@ -576,41 +575,71 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testInsertMultipleDefaults() {
-        sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, j INTEGER DEFAULT 2)");
+        sql("CREATE TABLE integers(i INTEGER PRIMARY KEY, col1 INTEGER DEFAULT 200, col2 INTEGER DEFAULT 300)");
 
-        sql("INSERT INTO integers VALUES (1, DEFAULT)");
+        sql("INSERT INTO integers (i) VALUES (0)");
+        sql("INSERT INTO integers VALUES (1, DEFAULT, DEFAULT)");
+        sql("INSERT INTO integers(i, col2) VALUES (2, DEFAULT), (3, 4), (4, DEFAULT)");
+        sql("INSERT INTO integers VALUES (5, DEFAULT, DEFAULT)");
+        sql("INSERT INTO integers VALUES (6, 4, DEFAULT)");
+        sql("INSERT INTO integers VALUES (7, 5, 5)");
+        sql("INSERT INTO integers(col1, i) VALUES (DEFAULT, 8)");
+        sql("INSERT INTO integers(i, col1) VALUES (9, DEFAULT)");
 
-        assertQuery("SELECT i, j FROM integers").returns(1, 2).check();
-
-        sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT), (4, 4), (5, DEFAULT)");
-
-        assertQuery("SELECT i, j FROM integers ORDER BY i")
-                .returns(1, 2)
-                .returns(2, 3)
-                .returns(3, 2)
-                .returns(4, 4)
-                .returns(5, 2)
+        assertQuery("SELECT i, col1, col2 FROM integers ORDER BY i")
+                .returns(0, 200, 300)
+                .returns(1, 200, 300)
+                .returns(2, 200, 300)
+                .returns(3, 200, 4)
+                .returns(4, 200, 300)
+                .returns(5, 200, 300)
+                .returns(6, 4, 300)
+                .returns(7, 5, 5)
+                .returns(8, 200, 300)
+                .returns(9, 200, 300)
                 .check();
     }
 
     @Test
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     public void testInsertMultipleDefaultsWithImplicitPk() {
-        sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 2)");
+        sql("CREATE TABLE integers(i INTEGER, j INTEGER DEFAULT 100)");
 
         sql("INSERT INTO integers VALUES (1, DEFAULT)");
 
-        assertQuery("SELECT i, j FROM integers").returns(1, 2).check();
+        assertQuery("SELECT i, j FROM integers").returns(1, 100).check();
 
         sql("INSERT INTO integers VALUES (2, 3), (3, DEFAULT), (4, 4), (5, DEFAULT)");
 
+        sql("INSERT INTO integers(j, i) VALUES (DEFAULT, 6)");
+
         assertQuery("SELECT i, j FROM integers ORDER BY i")
-                .returns(1, 2)
+                .returns(1, 100)
                 .returns(2, 3)
-                .returns(3, 2)
+                .returns(3, 100)
                 .returns(4, 4)
-                .returns(5, 2)
+                .returns(5, 100)
+                .returns(6, 100)
                 .check();
+    }
+
+    @Test
+    public void testDeleteUsingCompositePk() {
+        sql("CREATE TABLE test (a INT, b VARCHAR NOT NULL, c INT NOT NULL, d INT NOT NULL, PRIMARY KEY(d, b)) COLOCATE BY (d)");
+        sql("INSERT INTO test VALUES "
+                + "(0, '3', 0, 1),"
+                + "(0, '3', 0, 2),"
+                + "(0, '4', 0, 2)");
+
+        // Use PK index.
+        sql("DELETE FROM test WHERE b = '3' and d = 2");
+        assertQuery("SELECT d FROM test").returns(1).returns(2).check();
+
+        sql("DELETE FROM test WHERE d = 1");
+        assertQuery("SELECT b FROM test").returns("4").check();
+
+        sql("DELETE FROM test WHERE a = 0");
+        assertQuery("SELECT d FROM test").returnNothing();
     }
 
     private static void checkDuplicatePk(IgniteException ex) {

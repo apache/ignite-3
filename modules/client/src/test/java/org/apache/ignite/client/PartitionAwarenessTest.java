@@ -35,6 +35,7 @@ import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -83,7 +84,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
         server2 = new FakeIgnite("server-2");
-        testServer2 = new TestServer(0, server2, null, null, "server-2", clusterId, null, serverPort + 1);
+        testServer2 = new TestServer(0, server2, null, null, "server-2", clusterId, null, null);
 
         var clientBuilder = IgniteClient.builder()
                 .addresses("127.0.0.1:" + serverPort, "127.0.0.1:" + testServer2.port())
@@ -152,11 +153,13 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     @Test
     public void testNonNullTxDisablesPartitionAwareness() {
         RecordView<Tuple> recordView = defaultTable().recordView();
-        var tx = client2.transactions().begin();
+        var tx = (ClientTransaction) client2.transactions().begin();
 
-        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 0L)));
-        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 1L)));
-        assertOpOnNode("server-1", "get", x -> recordView.get(tx, Tuple.create().set("ID", 2L)));
+        @SuppressWarnings("resource") String expectedNode = tx.channel().protocolContext().clusterNode().name();
+
+        assertOpOnNode(expectedNode, "get", x -> recordView.get(tx, Tuple.create().set("ID", 0L)));
+        assertOpOnNode(expectedNode, "get", x -> recordView.get(tx, Tuple.create().set("ID", 1L)));
+        assertOpOnNode(expectedNode, "get", x -> recordView.get(tx, Tuple.create().set("ID", 2L)));
     }
 
     @ParameterizedTest

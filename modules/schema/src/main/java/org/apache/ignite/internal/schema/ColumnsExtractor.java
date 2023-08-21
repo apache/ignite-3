@@ -15,29 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.annotation;
-
-import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+package org.apache.ignite.internal.schema;
 
 /**
- * This annotation can only be applied to a class that is either marked with {@link ConfigurationRoot} or the superclass is marked with
- * {@link ConfigurationRoot}, {@link Config}.
- *
- * <p>It indicates that this is an internal configuration that should be hidden from the end user. Any extensions are allowed for any
- * configuration.
- *
- * <p>NOTE: Field name collisions are not allowed.
- *
- * @see ConfigurationRoot
- * @see Config
+ * Class for extracting a subset of columns from {@code BinaryRow}s.
  */
-@Target(TYPE)
-@Retention(RUNTIME)
-@Documented
-public @interface InternalConfiguration {
+public interface ColumnsExtractor {
+    /**
+     * Extracts a subset of columns from a given {@code BinaryRow}, that only contains a key.
+     *
+     * @param keyOnlyRow Row that only contains a key.
+     * @return Subset of columns, packed into a {@code BinaryTuple}.
+     */
+    BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow);
+
+    /**
+     * Extracts a subset of columns from a given {@code BinaryRow}.
+     *
+     * @param row Row with data (both key and value).
+     * @return Subset of columns, packed into a {@code BinaryTuple}.
+     */
+    BinaryTuple extractColumns(BinaryRow row);
 }

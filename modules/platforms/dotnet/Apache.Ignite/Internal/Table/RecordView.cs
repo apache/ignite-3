@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
@@ -28,6 +29,7 @@ namespace Apache.Ignite.Internal.Table
     using Ignite.Table;
     using Ignite.Transactions;
     using Linq;
+    using Log;
     using Proto;
     using Serialization;
     using Sql;
@@ -49,6 +51,8 @@ namespace Apache.Ignite.Internal.Table
         /** SQL. */
         private readonly Sql _sql;
 
+        private readonly IIgniteLogger? _logger;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="RecordView{T}"/> class.
         /// </summary>
@@ -60,6 +64,7 @@ namespace Apache.Ignite.Internal.Table
             _table = table;
             _ser = ser;
             _sql = sql;
+            _logger = table.Socket.Configuration.Logger.GetLogger(GetType());
         }
 
         /// <summary>
@@ -147,25 +152,16 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(keys, nameof(keys));
 
-            using var iterator = keys.GetEnumerator();
-
-            if (!iterator.MoveNext())
+            using var resBuf = await DoMultiRecordOutOpAsync(ClientOp.TupleGetAll, transaction, keys, true).ConfigureAwait(false);
+            if (resBuf == null)
             {
                 return resultFactory(0);
             }
 
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = transaction.ToInternal();
-
-            using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: true);
-            var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
-
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleGetAll, tx, writer, preferredNode).ConfigureAwait(false);
-            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf.Value).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
-            return _ser.ReadMultipleNullable(resBuf, resSchema, resultFactory, addAction);
+            return _ser.ReadMultipleNullable(resBuf.Value, resSchema, resultFactory, addAction);
         }
 
         /// <inheritdoc/>
@@ -181,21 +177,7 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
-            using var iterator = records.GetEnumerator();
-
-            if (!iterator.MoveNext())
-            {
-                return;
-            }
-
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = transaction.ToInternal();
-
-            using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator);
-            var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
-
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleUpsertAll, tx, writer, preferredNode).ConfigureAwait(false);
+            using var resBuf = await DoMultiRecordOutOpAsync(ClientOp.TupleUpsertAll, transaction, records).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -223,26 +205,17 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
-            using var iterator = records.GetEnumerator();
-
-            if (!iterator.MoveNext())
+            using var resBuf = await DoMultiRecordOutOpAsync(ClientOp.TupleInsertAll, transaction, records).ConfigureAwait(false);
+            if (resBuf == null)
             {
                 return Array.Empty<T>();
             }
 
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = transaction.ToInternal();
-
-            using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator);
-            var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
-
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleInsertAll, tx, writer, preferredNode).ConfigureAwait(false);
-            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf.Value).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
             return _ser.ReadMultiple(
-                buf: resBuf,
+                buf: resBuf.Value,
                 schema: resSchema,
                 keyOnly: false,
                 resultFactory: static count => count == 0
@@ -265,14 +238,9 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(record, nameof(record));
 
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = transaction.ToInternal();
+            using var resBuf = await DoTwoRecordOutOpAsync(ClientOp.TupleReplaceExact, transaction, record, newRecord)
+                .ConfigureAwait(false);
 
-            using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = _ser.WriteTwo(writer, tx, schema, record, newRecord);
-            var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
-
-            using var resBuf = await DoOutInOpAsync(ClientOp.TupleReplaceExact, tx, writer, preferredNode).ConfigureAwait(false);
             return ReadSchemaAndBoolean(resBuf);
         }
 
@@ -342,7 +310,7 @@ namespace Apache.Ignite.Internal.Table
                         .ConfigureAwait(false);
                 },
                 writer: _ser.Handler,
-                schemaProvider: () => _table.GetLatestSchemaAsync(),
+                schemaProvider: () => _table.GetLatestSchemaAsync(), // TODO IGNITE-19710 retry outdated schema.
                 partitionAssignmentProvider: () => _table.GetPartitionAssignmentAsync(),
                 options ?? DataStreamerOptions.Default,
                 cancellationToken).ConfigureAwait(false);
@@ -395,27 +363,18 @@ namespace Apache.Ignite.Internal.Table
         {
             IgniteArgumentCheck.NotNull(records, nameof(records));
 
-            using var iterator = records.GetEnumerator();
-
-            if (!iterator.MoveNext())
+            var clientOp = exact ? ClientOp.TupleDeleteAllExact : ClientOp.TupleDeleteAll;
+            using var resBuf = await DoMultiRecordOutOpAsync(clientOp, transaction, records, keyOnly: !exact).ConfigureAwait(false);
+            if (resBuf == null)
             {
                 return resultFactory(0);
             }
 
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = transaction.ToInternal();
-
-            using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly: !exact);
-            var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
-
-            var clientOp = exact ? ClientOp.TupleDeleteAllExact : ClientOp.TupleDeleteAll;
-            using var resBuf = await DoOutInOpAsync(clientOp, tx, writer, preferredNode).ConfigureAwait(false);
-            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
+            var resSchema = await _table.ReadSchemaAsync(resBuf.Value).ConfigureAwait(false);
 
             // TODO: Read value parts only (IGNITE-16022).
             return _ser.ReadMultiple(
-                buf: resBuf,
+                buf: resBuf.Value,
                 schema: resSchema,
                 keyOnly: !exact,
                 resultFactory: resultFactory,
@@ -444,20 +403,154 @@ namespace Apache.Ignite.Internal.Table
             return buf;
         }
 
+        [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive.")]
         private async Task<PooledBuffer> DoRecordOutOpAsync(
             ClientOp op,
             ITransaction? transaction,
             T record,
-            bool keyOnly = false)
+            bool keyOnly = false,
+            int? schemaVersionOverride = null)
         {
-            var schema = await _table.GetLatestSchemaAsync().ConfigureAwait(false);
-            var tx = transaction.ToInternal();
+            Schema? schema = null;
 
-            using var writer = ProtoCommon.GetMessageWriter();
-            var colocationHash = _ser.Write(writer, tx, schema, record, keyOnly);
-            var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
+            try
+            {
+                schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
+                var tx = transaction.ToInternal();
 
-            return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
+                using var writer = ProtoCommon.GetMessageWriter();
+                var colocationHash = _ser.Write(writer, tx, schema, record, keyOnly);
+                var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
+
+                return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
+            }
+            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
+                                            schemaVersionOverride != e.GetExpectedSchemaVersion())
+            {
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger.Debug($"Retrying SchemaVersionMismatch error [tableId={_table.Id}, schemaVersion={schema?.Version}, " +
+                                  $"expectedSchemaVersion={e.GetExpectedSchemaVersion()}]");
+                }
+
+                schemaVersionOverride = e.GetExpectedSchemaVersion();
+                return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVersionOverride).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e.CausedByUnmappedColumns() &&
+                                      schemaVersionOverride == null)
+            {
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger.Debug($"Retrying unmapped columns error [tableId={_table.Id}, schemaVersion={schema?.Version}]");
+                }
+
+                schemaVersionOverride = Table.SchemaVersionForceLatest;
+                return await DoRecordOutOpAsync(op, transaction, record, keyOnly, schemaVersionOverride).ConfigureAwait(false);
+            }
+        }
+
+        [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive.")]
+        private async Task<PooledBuffer> DoTwoRecordOutOpAsync(
+            ClientOp op,
+            ITransaction? transaction,
+            T record,
+            T record2,
+            bool keyOnly = false,
+            int? schemaVersionOverride = null)
+        {
+            Schema? schema = null;
+
+            try
+            {
+                schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
+                var tx = transaction.ToInternal();
+
+                using var writer = ProtoCommon.GetMessageWriter();
+                var colocationHash = _ser.WriteTwo(writer, tx, schema, record, record2, keyOnly);
+                var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
+
+                return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
+            }
+            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
+                                            schemaVersionOverride != e.GetExpectedSchemaVersion())
+            {
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger.Debug($"Retrying SchemaVersionMismatch error [tableId={_table.Id}, schemaVersion={schema?.Version}, " +
+                                  $"expectedSchemaVersion={e.GetExpectedSchemaVersion()}]");
+                }
+
+                schemaVersionOverride = e.GetExpectedSchemaVersion();
+                return await DoTwoRecordOutOpAsync(op, transaction, record, record2, keyOnly, schemaVersionOverride).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e.CausedByUnmappedColumns() &&
+                                      schemaVersionOverride == null)
+            {
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger.Debug($"Retrying unmapped columns error [tableId={_table.Id}, schemaVersion={schema?.Version}]");
+                }
+
+                schemaVersionOverride = Table.SchemaVersionForceLatest;
+                return await DoTwoRecordOutOpAsync(op, transaction, record, record2, keyOnly, schemaVersionOverride).ConfigureAwait(false);
+            }
+        }
+
+        private async Task<PooledBuffer?> DoMultiRecordOutOpAsync(
+            ClientOp op,
+            ITransaction? transaction,
+            IEnumerable<T> recs,
+            bool keyOnly = false,
+            int? schemaVersionOverride = null)
+        {
+            // ReSharper disable once PossibleMultipleEnumeration (we may have to retry, but this is very rare)
+            using var iterator = recs.GetEnumerator();
+
+            if (!iterator.MoveNext())
+            {
+                return null;
+            }
+
+            Schema? schema = null;
+
+            try
+            {
+                schema = await _table.GetSchemaAsync(schemaVersionOverride).ConfigureAwait(false);
+                var tx = transaction.ToInternal();
+
+                using var writer = ProtoCommon.GetMessageWriter();
+                var colocationHash = _ser.WriteMultiple(writer, tx, schema, iterator, keyOnly);
+                var preferredNode = await _table.GetPreferredNode(colocationHash, transaction).ConfigureAwait(false);
+
+                return await DoOutInOpAsync(op, tx, writer, preferredNode).ConfigureAwait(false);
+            }
+            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
+                                            schemaVersionOverride != e.GetExpectedSchemaVersion())
+            {
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger.Debug($"Retrying SchemaVersionMismatch error [tableId={_table.Id}, schemaVersion={schema?.Version}, " +
+                                  $"expectedSchemaVersion={e.GetExpectedSchemaVersion()}]");
+                }
+
+                schemaVersionOverride = e.GetExpectedSchemaVersion();
+
+                // ReSharper disable once PossibleMultipleEnumeration (we have to retry, but this is very rare)
+                return await DoMultiRecordOutOpAsync(op, transaction, recs, keyOnly, schemaVersionOverride).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e.CausedByUnmappedColumns() &&
+                                      schemaVersionOverride == null)
+            {
+                if (_logger?.IsEnabled(LogLevel.Debug) == true)
+                {
+                    _logger.Debug($"Retrying unmapped columns error [tableId={_table.Id}, schemaVersion={schema?.Version}]");
+                }
+
+                schemaVersionOverride = Table.SchemaVersionForceLatest;
+
+                // ReSharper disable once PossibleMultipleEnumeration (we have to retry, but this is very rare)
+                return await DoMultiRecordOutOpAsync(op, transaction, recs, keyOnly, schemaVersionOverride).ConfigureAwait(false);
+            }
         }
     }
 }

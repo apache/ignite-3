@@ -82,7 +82,7 @@ public class ColocationHashCalculationTest {
         rasm.appendString("key_" + 3);
         rasm.appendInt(0);
 
-        Row r = new Row(schema, rasm.build());
+        Row r = Row.wrapBinaryRow(schema, rasm.build());
 
         HashCalculator hashCalc = new HashCalculator();
         hashCalc.appendByte((byte) 1);

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.lang.reflect.Type;
 import java.util.Arrays;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
@@ -62,8 +62,8 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
     /** {@inheritDoc} */
     @Override
-    public RowFactory<Object[]> factory(Type... types) {
-        int rowLen = types.length;
+    public RowFactory<Object[]> factory(RowSchema rowSchema) {
+        int rowLen = rowSchema.fields().size();
 
         return new RowFactory<>() {
             /** {@inheritDoc} */

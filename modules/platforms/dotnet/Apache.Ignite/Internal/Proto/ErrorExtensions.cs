@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Common;
+namespace Apache.Ignite.Internal.Proto;
 
-using System;
-using System.Collections.Generic;
-
-public static class CollectionExtensions
+/// <summary>
+/// Error data extensions. When the server returns an error response, it may contain additional data in a map. Keys are defined here.
+/// </summary>
+internal static class ErrorExtensions
 {
-    public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
-    {
-        foreach (var item in source)
-        {
-            action(item);
-        }
-    }
+    /// <summary>
+    /// Expected schema version for <see cref="ErrorGroups.Table.SchemaVersionMismatch"/> error.
+    /// </summary>
+    public const string ExpectedSchemaVersion = "expected-schema-ver";
 }

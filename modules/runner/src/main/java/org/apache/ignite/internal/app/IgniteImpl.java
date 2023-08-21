@@ -317,7 +317,7 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationTreeGenerator localConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.local().rootKeys(),
-                modules.local().internalSchemaExtensions(),
+                modules.local().schemaExtensions(),
                 modules.local().polymorphicSchemaExtensions()
         );
 
@@ -383,7 +383,7 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
                 modules.distributed().rootKeys(),
-                modules.distributed().internalSchemaExtensions(),
+                modules.distributed().schemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
@@ -451,6 +451,7 @@ public class IgniteImpl implements Ignite {
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));
 
         placementDriverMgr = new PlacementDriverManager(
+                name,
                 metaStorageMgr,
                 vaultMgr,
                 MetastorageGroupId.INSTANCE,
@@ -459,8 +460,6 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                tablesConfig,
-                zonesConfig,
                 clock
         );
 

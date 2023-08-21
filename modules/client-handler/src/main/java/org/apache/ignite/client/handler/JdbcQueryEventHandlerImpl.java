@@ -66,6 +66,7 @@ import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnType;
@@ -504,7 +505,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                             return CompletableFuture.completedFuture(resAndError.getFirst());
                         }
 
-                        Throwable error = resAndError.getSecond();
+                        Throwable error = ExceptionUtils.unwrapCause(resAndError.getSecond());
 
                         if (sessionExpiredError(error)) {
                             SessionId newSessionId = recreateSession(finalSessionId);
@@ -512,7 +513,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                             return action.perform(newSessionId);
                         }
 
-                        return CompletableFuture.failedFuture(error);
+                        return CompletableFuture.failedFuture(IgniteExceptionMapperUtil.mapToPublicException(error));
                     });
         }
 

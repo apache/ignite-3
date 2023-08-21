@@ -56,9 +56,11 @@ dependencies {
     }
     implementation libs.classgraph
     implementation libs.javassist
+    implementation libs.auto.service.annotations
 
     annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.value.annotation.processor
+    annotationProcessor libs.auto.service
 
     testAnnotationProcessor project(':ignite-network-annotation-processor')
     testAnnotationProcessor libs.jmh.annotation.processor
@@ -84,7 +86,6 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core
-    testImplementation libs.slf4j.jdk14
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
 

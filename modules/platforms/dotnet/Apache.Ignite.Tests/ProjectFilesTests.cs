@@ -92,11 +92,14 @@ namespace Apache.Ignite.Tests
                         continue;
                     }
 
+                    int lineNum = 0;
                     foreach (var line in File.ReadAllLines(file))
                     {
+                        lineNum++;
+
                         if (line.Contains("TODO", StringComparison.Ordinal))
                         {
-                            StringAssert.Contains("IGNITE-", line, "TODOs should be linked to tickets: " + file);
+                            StringAssert.Contains("IGNITE-", line, $"TODOs should be linked to tickets in {file}:line {lineNum}");
                         }
                     }
                 }

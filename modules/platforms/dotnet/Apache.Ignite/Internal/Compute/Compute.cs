@@ -243,6 +243,7 @@ namespace Apache.Ignite.Internal.Compute
             throw new IgniteClientException(ErrorGroups.Client.TableIdNotFound, $"Table '{tableName}' does not exist.");
         }
 
+        [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]
         private async Task<T> ExecuteColocatedAsync<T, TKey>(
             string tableName,
             TKey key,
@@ -257,18 +258,19 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
 
             var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
+            int? schemaVersion = null;
 
             while (true)
             {
                 var table = await GetTableAsync(tableName).ConfigureAwait(false);
-                var schema = await table.GetLatestSchemaAsync().ConfigureAwait(false);
-
-                using var bufferWriter = ProtoCommon.GetMessageWriter();
-                var colocationHash = Write(bufferWriter, table, schema);
-                var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
+                var schema = await table.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
 
                 try
                 {
+                    using var bufferWriter = ProtoCommon.GetMessageWriter();
+                    var colocationHash = Write(bufferWriter, table, schema);
+                    var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
+
                     using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode)
                         .ConfigureAwait(false);
 
@@ -279,6 +281,17 @@ namespace Apache.Ignite.Internal.Compute
                     // Table was dropped - remove from cache.
                     // Try again in case a new table with the same name exists.
                     _tableCache.TryRemove(tableName, out _);
+                    schemaVersion = null;
+                }
+                catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
+                                                schemaVersion != e.GetExpectedSchemaVersion())
+                {
+                    schemaVersion = e.GetExpectedSchemaVersion();
+                }
+                catch (Exception e) when (e.CausedByUnmappedColumns() &&
+                                          schemaVersion == null)
+                {
+                    schemaVersion = Table.SchemaVersionForceLatest;
                 }
             }
 

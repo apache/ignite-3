@@ -28,6 +28,7 @@ namespace Apache.Ignite.Tests
     using Ignite.Compute;
     using Ignite.Sql;
     using Internal.Buffers;
+    using Internal.Common;
     using Internal.Network;
     using Internal.Proto;
     using Internal.Proto.BinaryTuple;
@@ -119,6 +120,10 @@ namespace Apache.Ignite.Tests
         public bool SendInvalidMagic { get; set; }
 
         public int RequestCount { get; set; }
+
+        public long ObservableTimestamp { get; set; }
+
+        public long LastClientObservableTimestamp { get; set; }
 
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
@@ -281,6 +286,9 @@ namespace Apache.Ignite.Tests
                         continue;
 
                     case ClientOp.TxBegin:
+                        reader.Skip(); // Read only.
+                        LastClientObservableTimestamp = reader.ReadInt64();
+
                         Send(handler, requestId, new byte[] { 0 }.AsMemory());
                         continue;
 
@@ -339,7 +347,7 @@ namespace Apache.Ignite.Tests
             writer.Write(0); // Message type.
             writer.Write(requestId);
             writer.Write(PartitionAssignmentChanged ? (int)ResponseFlags.PartitionAssignmentChanged : 0);
-            writer.Write(0); // Observable timestamp.
+            writer.Write(ObservableTimestamp); // Observable timestamp.
 
             if (!isError)
             {
@@ -410,6 +418,17 @@ namespace Apache.Ignite.Tests
 
             var sql = reader.ReadString();
             props["sql"] = sql;
+
+            if (!reader.TryReadNil())
+            {
+                var argCount = reader.ReadInt32();
+                if (argCount > 0)
+                {
+                    reader.Skip();
+                }
+            }
+
+            LastClientObservableTimestamp = reader.ReadInt64();
 
             LastSql = sql;
             LastSqlPageSize = pageSize;
@@ -571,7 +590,7 @@ namespace Apache.Ignite.Tests
                 ? new
                 {
                     NodeName = Node.Name,
-                    Units = string.Join(", ", units.Select(u => $"{u.Name}|{u.Version}")),
+                    Units = units.Select(u => $"{u.Name}|{u.Version}").StringJoin(),
                     jobClassName
                 }.ToString()
                 : Node.Name;
