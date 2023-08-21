@@ -15,22 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.testframework.jul;
+package org.apache.ignite.internal.placementdriver.leases;
 
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
+import java.util.Map;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-/**
- * Adapter for {@link Handler} with empty implementations of all methods but {@link Handler#publish(LogRecord)}.
- */
-public abstract class NoOpHandler extends Handler {
-    @Override
-    public void flush() {
-        // no-op
+/** Leases received from the metastore. */
+public class Leases {
+    private final Map<ReplicationGroupId, Lease> leaseByGroupId;
+
+    private final byte[] leasesBytes;
+
+    Leases(Map<ReplicationGroupId, Lease> leaseByGroupId, byte[] leasesBytes) {
+        this.leaseByGroupId = leaseByGroupId;
+        this.leasesBytes = leasesBytes;
     }
 
-    @Override
-    public void close() throws SecurityException {
-        // no-op
+    /** Returns leases grouped by replication group. */
+    public Map<ReplicationGroupId, Lease> leaseByGroupId() {
+        return leaseByGroupId;
+    }
+
+    /** Returns an array of byte leases from the metastore. */
+    public byte[] leasesBytes() {
+        return leasesBytes;
     }
 }

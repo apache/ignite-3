@@ -331,7 +331,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                                     .build();
                         })
                         .sql("INSERT INTO t1 VALUES(1, DEFAULT)")
-                        .project("1", "DEFAULT()")
+                        .project("1", "_UTF-8'0000'")
         );
     }
 

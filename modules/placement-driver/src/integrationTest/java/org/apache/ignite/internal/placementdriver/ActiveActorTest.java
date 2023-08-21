@@ -52,7 +52,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -70,9 +69,9 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterNode;
@@ -116,12 +115,6 @@ public class ActiveActorTest extends IgniteAbstractTest {
     @Mock
     MetaStorageManager msm;
 
-    @InjectConfiguration
-    private TablesConfiguration tblsCfg;
-
-    @InjectConfiguration
-    private DistributionZonesConfiguration dstZnsCfg;
-
     @AfterEach
     @Override
     public void tearDown(TestInfo testInfo) throws Exception {
@@ -130,6 +123,8 @@ public class ActiveActorTest extends IgniteAbstractTest {
         closeAll(closeables);
 
         placementDriverManagers.clear();
+
+        IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         super.tearDown(testInfo);
     }
@@ -162,6 +157,7 @@ public class ActiveActorTest extends IgniteAbstractTest {
         );
 
         PlacementDriverManager placementDriverManager = new PlacementDriverManager(
+                nodeName,
                 msm,
                 new VaultManager(new InMemoryVaultService()),
                 GROUP_ID,
@@ -170,8 +166,6 @@ public class ActiveActorTest extends IgniteAbstractTest {
                 logicalTopologyService,
                 raftManager,
                 raftGroupServiceFactory,
-                tblsCfg,
-                dstZnsCfg,
                 new HybridClockImpl()
         );
 

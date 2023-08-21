@@ -139,6 +139,12 @@ public class TxLocalTest extends TxAbstractTest {
         // TODO asch IGNITE-15928 implement local scan
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20205")
+    @Override
+    public void testBalance() throws InterruptedException {
+        super.testBalance();
+    }
+
     @Override
     protected TxManager clientTxManager() {
         return txManager;
