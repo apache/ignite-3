@@ -77,7 +77,7 @@ import org.apache.logging.log4j.core.config.Property;
  *     assertThat(messageCounter.get(), is(42));
  * </code></pre>
  * <p>
- * It is possible to add a new pair of of predicate and action using {@link #addHandler(Predicate, Runnable)},
+ * It is possible to add a new pair of predicate and action using {@link #addHandler(Predicate, Runnable)},
  * {@link #addHandler(Handler)} methods at any time.
  * </p>
  */
