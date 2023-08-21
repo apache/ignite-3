@@ -36,7 +36,6 @@ import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_MONTH;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_SECOND;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_YEAR;
 import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_YEAR_MONTH;
-import static org.apache.calcite.sql.type.SqlTypeName.NULL;
 import static org.apache.calcite.sql.type.SqlTypeName.YEAR_INTERVAL_TYPES;
 
 import com.google.common.cache.CacheBuilder;
