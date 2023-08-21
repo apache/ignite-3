@@ -27,6 +27,7 @@
 #include <ignite/common/bytes.h>
 #include <ignite/network/network.h>
 #include <ignite/protocol/client_operation.h>
+#include <ignite/protocol/messages.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -593,25 +594,7 @@ sql_result sql_connection::make_request_handshake() {
     m_protocol_version = protocol::protocol_version::get_current();
 
     try {
-        std::vector<std::byte> message;
-        {
-            protocol::buffer_adapter buffer(message);
-            buffer.write_raw(bytes_view(protocol::MAGIC_BYTES));
-
-            protocol::write_message_to_buffer(buffer, [&ver = m_protocol_version](protocol::writer &writer) {
-                writer.write(ver.get_major());
-                writer.write(ver.get_minor());
-                writer.write(ver.get_patch());
-
-                writer.write(ODBC_CLIENT);
-
-                // Features.
-                writer.write_binary_empty();
-
-                // Extensions.
-                writer.write_map_empty();
-            });
-        }
+        std::vector<std::byte> message = protocol::make_handshake_request(ODBC_CLIENT, m_protocol_version);
 
         auto res = send_all(message.data(), message.size(), m_login_timeout);
         if (res != operation_result::SUCCESS) {

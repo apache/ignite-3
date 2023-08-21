@@ -18,6 +18,7 @@
 #include "ignite/client/detail/node_connection.h"
 
 #include <ignite/protocol/utils.h>
+#include <ignite/protocol/messages.h>
 
 namespace ignite::detail {
 
@@ -55,29 +56,7 @@ bool node_connection::handshake() {
         extensions.emplace("authn-secret", authenticator->get_secret());
     }
 
-    std::vector<std::byte> message;
-    {
-        protocol::buffer_adapter buffer(message);
-        buffer.write_raw(bytes_view(protocol::MAGIC_BYTES));
-
-        protocol::write_message_to_buffer(
-            buffer, [&context = m_protocol_context, &extensions](protocol::writer &writer) {
-                auto ver = context.get_version();
-
-                writer.write(ver.get_major());
-                writer.write(ver.get_minor());
-                writer.write(ver.get_patch());
-
-                writer.write(CLIENT_TYPE);
-
-                // Features.
-                writer.write_binary_empty();
-
-                // Extensions.
-                writer.write_map(extensions);
-            });
-    }
-
+    std::vector<std::byte> message = protocol::make_handshake_request(CLIENT_TYPE, m_protocol_context.get_version());
     return m_pool->send(m_id, std::move(message));
 }
 

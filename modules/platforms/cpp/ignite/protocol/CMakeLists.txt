@@ -25,7 +25,7 @@ set(SOURCES
     bitset_span.h
     buffer_adapter.cpp buffer_adapter.h
     extension_types.h
-    messages.h
+    messages.cpp messages.h
     protocol_context.h
     protocol_version.cpp protocol_version.h
     reader.cpp reader.h

@@ -17,19 +17,37 @@
 
 #pragma once
 
+#include "ignite/protocol/buffer_adapter.h"
+#include "ignite/protocol/writer.h"
+#include "ignite/protocol/utils.h"
 #include "ignite/protocol/protocol_version.h"
+
+#include "ignite/common/bytes_view.h"
 
 #include <vector>
 
 namespace ignite::protocol {
 
-/**
- * Make handshake request.
- *
- * @param client_type Client type.
- * @param ver Protocol version.
- * @return Message.
- */
-std::vector<std::byte> make_handshake_request(std::int8_t client_type, protocol_version ver);
+std::vector<std::byte> make_handshake_request(std::int8_t client_type, protocol_version ver) {
+    std::vector<std::byte> message;
+    buffer_adapter buffer(message);
+    buffer.write_raw(bytes_view(MAGIC_BYTES));
+
+    write_message_to_buffer(buffer, [=](protocol::writer &writer) {
+        writer.write(ver.get_major());
+        writer.write(ver.get_minor());
+        writer.write(ver.get_patch());
+
+        writer.write(client_type);
+
+        // Features.
+        writer.write_binary_empty();
+
+        // Extensions.
+        writer.write_map_empty();
+    });
+
+    return message;
+}
 
 } // namespace ignite::protocol
