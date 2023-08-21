@@ -45,15 +45,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, ColumnInfo>> FieldsByColumnNameCache = new();
 
         /// <summary>
-        /// Gets the field by column name. Ignores case, handles <see cref="ColumnAttribute"/> and <see cref="NotMappedAttribute"/>.
-        /// </summary>
-        /// <param name="type">Type.</param>
-        /// <param name="name">Field name.</param>
-        /// <returns>Field info, or null when no matching fields exist.</returns>
-        public static FieldInfo? GetFieldByColumnName(this Type type, string name) =>
-            GetFieldsByColumnName(type).TryGetValue(name, out var fieldInfo) ? fieldInfo.Field : null;
-
-        /// <summary>
         /// Gets column names for all fields in the specified type.
         /// </summary>
         /// <param name="type">Type.</param>
@@ -93,7 +84,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static Type UnwrapEnum(this Type type) => type.IsEnum ? Enum.GetUnderlyingType(type) : type;
 
         /// <summary>
-        /// Gets a map of fields by column name.
+        /// Gets a map of fields by column name. Ignores case, handles <see cref="ColumnAttribute"/> and <see cref="NotMappedAttribute"/>.
         /// </summary>
         /// <param name="type">Type to get the map for.</param>
         /// <returns>Map.</returns>
