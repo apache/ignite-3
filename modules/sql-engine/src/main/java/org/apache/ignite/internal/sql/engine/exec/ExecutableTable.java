@@ -42,7 +42,7 @@ public interface ExecutableTable {
     CompletableFuture<ColocationGroup> fetchColocationGroup();
 
     /**
-     * Returns a descriptor for a table with the given id.
+     * Returns a descriptor for the table.
      */
     TableDescriptor tableDescriptor();
 }

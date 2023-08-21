@@ -66,23 +66,24 @@ class DestinationFactory<RowT> {
      */
     Destination<RowT> createDestination(IgniteDistribution distribution, ColocationGroup group) {
         DistributionFunction function = distribution.function();
-        ImmutableIntList keys = distribution.getKeys();
 
         switch (function.type()) {
             case SINGLETON:
-                assert group != null && group.nodeNames() != null && group.nodeNames().size() == 1;
+                assert group.nodeNames() != null && group.nodeNames().size() == 1;
 
                 return new AllNodes<>(Collections.singletonList(Objects.requireNonNull(first(group.nodeNames()))));
             case BROADCAST_DISTRIBUTED:
-                assert group != null && !nullOrEmpty(group.nodeNames());
+                assert !nullOrEmpty(group.nodeNames());
 
                 return new AllNodes<>(group.nodeNames());
             case RANDOM_DISTRIBUTED:
-                assert group != null && !nullOrEmpty(group.nodeNames());
+                assert !nullOrEmpty(group.nodeNames());
 
                 return new RandomNode<>(group.nodeNames());
             case HASH_DISTRIBUTED: {
-                assert group != null && !nullOrEmpty(group.assignments()) && !keys.isEmpty();
+                ImmutableIntList keys = distribution.getKeys();
+
+                assert !nullOrEmpty(group.assignments()) && !nullOrEmpty(keys);
 
                 List<List<String>> assignments = Commons.transform(group.assignments(), v -> Commons.transform(v, NodeWithTerm::name));
 
