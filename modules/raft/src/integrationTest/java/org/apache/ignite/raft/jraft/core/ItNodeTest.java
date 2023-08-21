@@ -2932,7 +2932,7 @@ public class ItNodeTest {
             assertTrue(cluster.start(peer, false, 300));
         }
 
-        waitForTopologyOnEveryNode(numPeers);
+        waitForTopologyOnEveryNode(numPeers, cluster);
 
         for (int i = 0; i < 9; i++) {
             leader = cluster.waitAndGetLeader();
@@ -3027,7 +3027,7 @@ public class ItNodeTest {
 
         // Wait until every node sees every other node, otherwise
         // changePeersAsync can fail.
-        waitForTopologyOnEveryNode(numPeers);
+        waitForTopologyOnEveryNode(numPeers, cluster);
 
         for (int i = 0; i < 4; i++) {
             leader = cluster.getLeader();
@@ -3767,7 +3767,7 @@ public class ItNodeTest {
      * @param timeout
      * @return
      */
-    private boolean waitForTopology(TestCluster cluster, PeerId peerId, int expected, long timeout) {
+    public static boolean waitForTopology(TestCluster cluster, PeerId peerId, int expected, long timeout) {
         RaftGroupService grp = cluster.getServer(peerId);
 
         if (grp == null) {
@@ -3972,7 +3972,7 @@ public class ItNodeTest {
         }
     }
 
-    private void waitForTopologyOnEveryNode(int count) {
+    public static void waitForTopologyOnEveryNode(int count, TestCluster cluster) {
         cluster.getAllNodes().forEach(peerId -> {
             assertTrue(waitForTopology(cluster, peerId, count, TimeUnit.SECONDS.toMillis(10)));
         });
