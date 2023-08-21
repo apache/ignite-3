@@ -26,7 +26,6 @@ import org.apache.ignite.internal.streamer.StreamerOptions;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
 import org.apache.ignite.table.DataStreamerOptions;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 class DataStreamer {
@@ -46,7 +45,6 @@ class DataStreamer {
         return subscriber.completionFuture();
     }
 
-    @NotNull
     private static StreamerOptions streamerOptions(@Nullable DataStreamerOptions options) {
         var options0 = options == null ? DataStreamerOptions.DEFAULT : options;
 

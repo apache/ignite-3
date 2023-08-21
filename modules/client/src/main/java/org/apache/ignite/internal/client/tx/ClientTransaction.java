@@ -27,7 +27,6 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Client transaction.
@@ -128,7 +127,7 @@ public class ClientTransaction implements Transaction {
      * @param tx Public transaction.
      * @return Internal transaction.
      */
-    public static ClientTransaction get(@NotNull Transaction tx) {
+    public static ClientTransaction get(Transaction tx) {
         if (!(tx instanceof ClientTransaction)) {
             throw new IgniteException(INTERNAL_ERR, "Unsupported transaction implementation: '"
                     + tx.getClass()

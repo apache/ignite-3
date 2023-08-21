@@ -31,7 +31,6 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -71,7 +70,7 @@ public class FakeTxManager implements TxManager {
             private final HybridTimestamp timestamp = clock.now();
 
             @Override
-            public @NotNull UUID id() {
+            public UUID id() {
                 return id;
             }
 

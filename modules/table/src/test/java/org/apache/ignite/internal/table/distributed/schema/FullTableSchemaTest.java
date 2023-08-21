@@ -28,7 +28,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.sql.ColumnType;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 class FullTableSchemaTest {
@@ -45,12 +44,10 @@ class FullTableSchemaTest {
         assertThat(diff.isEmpty(), is(true));
     }
 
-    @NotNull
     private static CatalogHashIndexDescriptor someIndex(int id, String name) {
         return new CatalogHashIndexDescriptor(id, name, 1, true, List.of("a"));
     }
 
-    @NotNull
     private static CatalogTableColumnDescriptor someColumn(String columnName) {
         return new CatalogTableColumnDescriptor(columnName, ColumnType.INT32, true, 0, 0, 0, DefaultValue.constant(null));
     }

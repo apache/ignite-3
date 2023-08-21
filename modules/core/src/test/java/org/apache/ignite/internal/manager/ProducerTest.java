@@ -27,7 +27,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -131,11 +130,11 @@ public class ProducerTest {
             Consumer<Throwable> remove
     ) {
         return new EventListener<T>() {
-            @Override public CompletableFuture<Boolean> notify(@NotNull T parameters, @Nullable Throwable exception) {
+            @Override public CompletableFuture<Boolean> notify(T parameters, @Nullable Throwable exception) {
                 return notify.apply(parameters, exception);
             }
 
-            @Override public void remove(@NotNull Throwable throwable) {
+            @Override public void remove(Throwable throwable) {
                 remove.accept(throwable);
             }
         };

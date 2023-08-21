@@ -30,7 +30,6 @@ import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -105,7 +104,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final StringProperty ciphers = new StringProperty("ciphers",
             "SSL ciphers", null, null, false, null);
 
-    @NotNull
     private static String[] clientAuthValues() {
         return Arrays.stream(ClientAuthenticationMode.values())
                 .map(Enum::name)

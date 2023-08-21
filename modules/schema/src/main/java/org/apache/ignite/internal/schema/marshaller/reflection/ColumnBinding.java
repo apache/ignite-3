@@ -39,7 +39,6 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerUtil;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.table.mapper.TypeConverter;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -201,7 +200,7 @@ abstract class ColumnBinding {
      * @param converter Type converter or {@code null}.
      * @return Column to field binding.
      */
-    static ColumnBinding createFieldBinding(Column col, Class<?> type, @NotNull String fldName, @Nullable TypeConverter<?, ?> converter) {
+    static ColumnBinding createFieldBinding(Column col, Class<?> type, String fldName, @Nullable TypeConverter<?, ?> converter) {
         try {
             final Field field = type.getDeclaredField(fldName);
 
@@ -232,7 +231,7 @@ abstract class ColumnBinding {
      * @param converter Type converter or {@code null}.
      * @return Column to object binding.
      */
-    static @NotNull ColumnBinding createIdentityBinding(Column col, Class<?> type, @Nullable TypeConverter<?, ?> converter) {
+    static ColumnBinding createIdentityBinding(Column col, Class<?> type, @Nullable TypeConverter<?, ?> converter) {
         final BinaryMode mode = MarshallerUtil.mode(type);
 
         if (mode.typeSpec() != col.type().spec()) {
@@ -255,7 +254,7 @@ abstract class ColumnBinding {
      * @param converter    Type converter or {@code null}.
      * @return Column binding.
      */
-    private static @NotNull ColumnBinding create(
+    private static ColumnBinding create(
             Column col,
             Class<?> type,
             MethodHandle getterHandle,
@@ -337,7 +336,6 @@ abstract class ColumnBinding {
      * @param converter    Type converter or {@code null}.
      * @return Column binding.
      */
-    @NotNull
     private static ColumnBinding create(int colIdx, MethodHandle getterHandle, MethodHandle setterHandle, MethodHandle readerHandle,
             MethodHandle writerHandle, @Nullable TypeConverter<?, ?> converter) {
         if (converter != null) {

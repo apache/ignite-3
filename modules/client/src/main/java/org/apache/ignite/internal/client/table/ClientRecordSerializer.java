@@ -39,7 +39,6 @@ import org.apache.ignite.internal.marshaller.MarshallerUtil;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -149,7 +148,7 @@ public class ClientRecordSerializer<R> {
 
     void writeRecs(
             @Nullable Transaction tx,
-            @NotNull Collection<R> recs,
+            Collection<R> recs,
             ClientSchema schema,
             PayloadOutputChannel out,
             TuplePart part
@@ -211,7 +210,7 @@ public class ClientRecordSerializer<R> {
         }
     }
 
-    R readValRec(@NotNull R keyRec, ClientSchema schema, ClientMessageUnpacker in) {
+    R readValRec(R keyRec, ClientSchema schema, ClientMessageUnpacker in) {
         if (oneColumnMode) {
             return keyRec;
         }
