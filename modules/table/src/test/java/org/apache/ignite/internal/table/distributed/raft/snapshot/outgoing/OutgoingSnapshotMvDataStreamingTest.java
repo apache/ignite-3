@@ -34,6 +34,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -61,6 +62,9 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     @Mock
     private PartitionAccess partitionAccess;
 
+    @Mock
+    private CatalogService catalogService;
+
     private OutgoingSnapshot snapshot;
 
     private final TableMessagesFactory messagesFactory = new TableMessagesFactory();
@@ -83,7 +87,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     void createTestInstance() {
         when(partitionAccess.partitionKey()).thenReturn(partitionKey);
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
+        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, catalogService);
     }
 
     @BeforeEach

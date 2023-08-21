@@ -54,6 +54,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -280,6 +281,9 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         when(outgoingSnapshotsManager.messagingService()).thenReturn(messagingService);
 
+        CatalogService catalogService = mock(CatalogService.class);
+        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(completedFuture(null));
+
         return new PartitionSnapshotStorage(
                 topologyService,
                 outgoingSnapshotsManager,
@@ -293,6 +297,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                         mock(IndexUpdateHandler.class),
                         mock(GcUpdateHandler.class)
                 )),
+                catalogService,
                 mock(SnapshotMeta.class),
                 executorService
         );

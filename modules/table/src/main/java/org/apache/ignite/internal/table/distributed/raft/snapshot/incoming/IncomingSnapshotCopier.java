@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 
+import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
@@ -25,6 +26,8 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -67,6 +70,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private static final long MAX_MV_DATA_PAYLOADS_BATCH_BYTES_HINT = 100 * 1024;
 
     private static final int MAX_TX_DATA_BATCH_SIZE = 1000;
+
+    /** Number of milliseconds that the follower is allowed to try to catch up the required catalog version. */
+    private static final int WAIT_FOR_METADATA_CATCHUP_MS = 3000;
 
     private final PartitionSnapshotStorage partitionSnapshotStorage;
 
@@ -121,11 +127,39 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     }
 
                     return loadSnapshotMeta(snapshotSender)
-                            .thenCompose(unused1 -> loadSnapshotMvData(snapshotSender, executor))
-                            .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor));
+                            // Give metadata some time to catch up as it's very probable that the leader is ahead metadata-wise.
+                            .thenCompose(unused2 -> waitForMetadataWithTimeout())
+                            .thenCompose(unused2 -> {
+                                if (metadataIsSufficientlyComplete()) {
+                                    return loadSnapshotMvData(snapshotSender, executor)
+                                            .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor));
+                                } else {
+                                    logMetadataIsInsufficiencyAndSetError();
+
+                                    return completedFuture(null);
+                                }
+                            });
                 });
 
         joinFuture = rebalanceFuture.handle((unused, throwable) -> completeRebalance(throwable)).thenCompose(Function.identity());
+    }
+
+    private CompletableFuture<?> waitForMetadataWithTimeout() {
+        CompletableFuture<?> metadataReadyFuture = partitionSnapshotStorage.catalogService()
+                .catalogReadyFuture(snapshotMeta.requiredCatalogVersion());
+        CompletableFuture<?> readinessTimeoutFuture = completeOnMetadataReadinessTimeout();
+
+        return anyOf(metadataReadyFuture, readinessTimeoutFuture);
+    }
+
+    private static CompletableFuture<?> completeOnMetadataReadinessTimeout() {
+        return new CompletableFuture<>()
+                .orTimeout(WAIT_FOR_METADATA_CATCHUP_MS, TimeUnit.MILLISECONDS)
+                .exceptionally(ex -> {
+                    assert (ex instanceof TimeoutException);
+
+                    return null;
+                });
     }
 
     @Override
@@ -142,7 +176,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
                 LOG.error("Error when completing the copier", cause);
 
-                if (!isOk()) {
+                if (isOk()) {
                     setError(RaftError.UNKNOWN, "Unknown error on completion the copier");
                 }
 
@@ -212,6 +246,28 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             });
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    private boolean metadataIsSufficientlyComplete() {
+        return partitionSnapshotStorage.catalogService().latestCatalogVersion() >= snapshotMeta.requiredCatalogVersion();
+    }
+
+    private void logMetadataIsInsufficiencyAndSetError() {
+        LOG.warn(
+                "Metadata not yet available, URI '{}', required level {}; rejecting snapshot installation.",
+                this.snapshotUri,
+                snapshotMeta.requiredCatalogVersion()
+        );
+
+        String errorMessage = String.format(
+                "Metadata not yet available, URI '%s', required level %s; rejecting snapshot installation.",
+                this.snapshotUri,
+                snapshotMeta.requiredCatalogVersion()
+        );
+
+        if (isOk()) {
+            setError(RaftError.EBUSY, errorMessage);
         }
     }
 
@@ -340,7 +396,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      */
     private CompletableFuture<Void> completeRebalance(@Nullable Throwable throwable) {
         if (!busyLock.enterBusy()) {
-            if (!isOk()) {
+            if (isOk()) {
                 setError(RaftError.ECANCELED, "Copier is cancelled");
             }
 
@@ -351,7 +407,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             if (throwable != null) {
                 LOG.error("Partition rebalancing error [{}]", throwable, createPartitionInfo());
 
-                if (!isOk()) {
+                if (isOk()) {
                     setError(RaftError.UNKNOWN, throwable.getMessage());
                 }
 
