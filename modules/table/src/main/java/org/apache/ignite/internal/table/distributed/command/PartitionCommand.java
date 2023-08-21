@@ -23,7 +23,7 @@ import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 /**
  * Partition transactional command.
  */
-public interface PartitionCommand extends SafeTimePropagatingCommand, CatalogLevelAware {
+public interface PartitionCommand extends SafeTimePropagatingCommand, CatalogVersionAware {
     /**
      * Returns a transaction id.
      */

@@ -118,7 +118,7 @@ import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
-import org.apache.ignite.internal.table.distributed.command.CatalogLevelAware;
+import org.apache.ignite.internal.table.distributed.command.CatalogVersionAware;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.PartitionCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
@@ -1648,9 +1648,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         List<Command> commands = commandCaptor.getAllValues();
         Command updateCommand = commands.get(commands.size() - 1);
 
-        assertThat(updateCommand, is(instanceOf(CatalogLevelAware.class)));
-        CatalogLevelAware catalogLevelAware = (CatalogLevelAware) updateCommand;
-        assertThat(catalogLevelAware.requiredCatalogVersion(), is(42));
+        assertThat(updateCommand, is(instanceOf(CatalogVersionAware.class)));
+        CatalogVersionAware catalogVersionAware = (CatalogVersionAware) updateCommand;
+        assertThat(catalogVersionAware.requiredCatalogVersion(), is(42));
     }
 
     @Test

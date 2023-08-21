@@ -42,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
 public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestInterceptor {
     private static final IgniteLogger LOG = Loggers.forClass(CheckCatalogVersionOnAppendEntries.class);
 
-    private static final int NO_LEVEL_REQUIREMENT = Integer.MIN_VALUE;
+    private static final int NO_VERSION_REQUIREMENT = Integer.MIN_VALUE;
 
     private final CatalogService catalogService;
 
@@ -65,7 +65,7 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
         for (RaftOutter.EntryMeta entry : request.entriesList()) {
             int requiredCatalogVersion = readRequiredCatalogVersionForMeta(allData, entry, node.getOptions().requiredCommandsMarshaller());
 
-            if (requiredCatalogVersion != NO_LEVEL_REQUIREMENT && !isMetadataAvailableFor(requiredCatalogVersion)) {
+            if (requiredCatalogVersion != NO_VERSION_REQUIREMENT && !isMetadataAvailableFor(requiredCatalogVersion)) {
                 LOG.warn("Metadata not yet available, group {}, required level {}.", request.groupId(), requiredCatalogVersion);
                 return RaftRpcFactory.DEFAULT //
                     .newResponse(node.getRaftOptions().getRaftMessagesFactory(), RaftError.EBUSY,
@@ -81,11 +81,11 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
 
     private static int readRequiredCatalogVersionForMeta(ByteBuffer allData, final EntryMeta entry, Marshaller commandsMarshaller) {
         if (entry.type() != EntryType.ENTRY_TYPE_DATA) {
-            return NO_LEVEL_REQUIREMENT;
+            return NO_VERSION_REQUIREMENT;
         }
 
         if (!(commandsMarshaller instanceof PartitionCommandsMarshaller)) {
-            return NO_LEVEL_REQUIREMENT;
+            return NO_VERSION_REQUIREMENT;
         }
 
         PartitionCommandsMarshaller partitionCommandsMarshaller = (PartitionCommandsMarshaller) commandsMarshaller;
@@ -95,7 +95,7 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
             return partitionCommandsMarshaller.readRequiredCatalogVersion(allData);
         }
 
-        return NO_LEVEL_REQUIREMENT;
+        return NO_VERSION_REQUIREMENT;
     }
 
     private boolean isMetadataAvailableFor(int catalogVersion) {

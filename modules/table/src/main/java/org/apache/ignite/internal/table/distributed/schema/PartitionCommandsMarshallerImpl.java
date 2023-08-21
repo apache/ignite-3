@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed.schema;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
-import org.apache.ignite.internal.table.distributed.command.CatalogLevelAware;
+import org.apache.ignite.internal.table.distributed.command.CatalogVersionAware;
 import org.apache.ignite.internal.util.VarIntUtils;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
@@ -33,7 +33,7 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
     @Override
     public byte[] marshall(Object o) {
-        int requiredCatalogVersion = o instanceof CatalogLevelAware ? ((CatalogLevelAware) o).requiredCatalogVersion() : 0;
+        int requiredCatalogVersion = o instanceof CatalogVersionAware ? ((CatalogVersionAware) o).requiredCatalogVersion() : 0;
 
         stream.setBuffer(buffer);
         stream.writeInt(requiredCatalogVersion);
