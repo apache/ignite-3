@@ -94,6 +94,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var il = method.GetILGenerator();
 
             var columns = schema.Columns;
+            var columnMap = type.GetFieldsByColumnName();
 
             if (BinaryTupleMethods.GetWriteMethodOrNull(type) is { } directWriteMethod)
             {
@@ -132,7 +133,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
             for (var index = 0; index < count; index++)
             {
                 var col = columns[index];
-                var fieldInfo = type.GetFieldByColumnName(col.Name);
+                var fieldInfo = columnMap.TryGetValue(col.Name, out var columnInfo) ? columnInfo.Field : null;
 
                 if (fieldInfo == null)
                 {
