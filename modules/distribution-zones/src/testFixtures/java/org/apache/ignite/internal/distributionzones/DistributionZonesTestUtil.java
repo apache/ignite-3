@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
@@ -53,7 +54,13 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DataStorageParams;
+import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
@@ -76,6 +83,97 @@ import org.jetbrains.annotations.Nullable;
  * Utils to manage distribution zones inside tests.
  */
 public class DistributionZonesTestUtil {
+    /**
+     * Creates distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param partitions Zone number of partitions.
+     * @param replicas Zone number of replicas.
+     * @param dataStorage Data storage, {@code null} if not set.
+     */
+    public static void createZoneWithDataStorage(
+            CatalogManager catalogManager,
+            String zoneName,
+            int partitions,
+            int replicas,
+            @Nullable String dataStorage
+    ) {
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, dataStorage);
+    }
+
+    /**
+     * Creates distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param partitions Zone number of partitions.
+     * @param replicas Zone number of replicas.
+     */
+    public static void createZone(CatalogManager catalogManager, String zoneName, int partitions, int replicas) {
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null);
+    }
+
+    /**
+     * Creates a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param filter Nodes filter, {@code null} if not set.
+     */
+    public static void createZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        createZone(catalogManager, zoneName, null, null, dataNodesAutoAdjustScaleDown, dataNodesAutoAdjustScaleDown, filter, null);
+    }
+
+    private static void createZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer partitions,
+            @Nullable Integer replicas,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter,
+            @Nullable String dataStorage
+    ) {
+        CreateZoneParams.Builder builder = CreateZoneParams.builder().zoneName(zoneName);
+
+        if (partitions != null) {
+            builder.partitions(partitions);
+        }
+
+        if (replicas != null) {
+            builder.replicas(replicas);
+        }
+
+        if (dataNodesAutoAdjustScaleUp != null) {
+            builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
+        }
+
+        if (dataNodesAutoAdjustScaleDown != null) {
+            builder.dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
+        }
+
+        if (filter != null) {
+            builder.filter(filter);
+        }
+
+        if (dataStorage != null) {
+            builder.dataStorage(DataStorageParams.builder().engine(dataStorage).build());
+        }
+
+        assertThat(catalogManager.createZone(builder.build()), willCompleteSuccessfully());
+    }
+
     /**
      * Creates distribution zone.
      *
@@ -180,7 +278,7 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         Set<Node> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new Node(n.name(), n.id())).collect(Collectors.toSet());
+                : clusterNodes.stream().map(n -> new Node(n.name(), n.id())).collect(toSet());
 
         assertValueInStorage(
                 keyValueStorage,
@@ -310,7 +408,7 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         Set<NodeWithAttributes> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes())).collect(Collectors.toSet());
+                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes())).collect(toSet());
 
         assertValueInStorage(
                 keyValueStorage,
@@ -347,7 +445,7 @@ public class DistributionZonesTestUtil {
     public static void mockVaultZonesLogicalTopologyKey(Set<LogicalNode> nodes, VaultManager vaultMgr, long appliedRevision) {
         Set<NodeWithAttributes> nodesWithAttributes = nodes.stream()
                 .map(n -> new NodeWithAttributes(n.name(), n.id(), n.nodeAttributes()))
-                .collect(Collectors.toSet());
+                .collect(toSet());
 
         byte[] newLogicalTopology = toBytes(nodesWithAttributes);
 
@@ -475,7 +573,7 @@ public class DistributionZonesTestUtil {
             long timeoutMillis
     ) throws InterruptedException, ExecutionException, TimeoutException {
         Set<String> expectedValueNames =
-                expectedValue == null ? null : expectedValue.stream().map(ClusterNode::name).collect(Collectors.toSet());
+                expectedValue == null ? null : expectedValue.stream().map(ClusterNode::name).collect(toSet());
 
         boolean success = waitForCondition(() -> {
             Set<String> dataNodes = null;
@@ -524,6 +622,67 @@ public class DistributionZonesTestUtil {
     }
 
     /**
+     * Alters a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param replicas New number of zone replicas.
+     */
+    public static void alterZone(CatalogManager catalogManager, String zoneName, int replicas) {
+        alterZone(catalogManager, zoneName, replicas, null, null, null);
+    }
+
+    /**
+     * Alters a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
+     *         {@code null} if not set.
+     * @param filter Nodes filter, {@code null} if not set.
+     */
+    public static void alterZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        alterZone(catalogManager, zoneName, null, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter);
+    }
+
+    private static void alterZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            @Nullable Integer replicas,
+            @Nullable Integer dataNodesAutoAdjustScaleUp,
+            @Nullable Integer dataNodesAutoAdjustScaleDown,
+            @Nullable String filter
+    ) {
+        AlterZoneParams.Builder builder = AlterZoneParams.builder().zoneName(zoneName);
+
+        if (replicas != null) {
+            builder.replicas(replicas);
+        }
+
+        if (dataNodesAutoAdjustScaleUp != null) {
+            builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
+        }
+
+        if (dataNodesAutoAdjustScaleDown != null) {
+            builder.dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
+        }
+
+        if (filter != null) {
+            builder.filter(filter);
+        }
+
+        assertThat(catalogManager.alterZone(builder.build()), willCompleteSuccessfully());
+    }
+
+    /**
      * Drops a distribution zone in the configuration.
      *
      * @param distributionZoneManager Distributed zone manager.
@@ -534,6 +693,16 @@ public class DistributionZonesTestUtil {
             String zoneName
     ) {
         assertThat(distributionZoneManager.dropZone(zoneName), willCompleteSuccessfully());
+    }
+
+    /**
+     * Drops a distribution zone from the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     */
+    public static void dropZone(CatalogManager catalogManager, String zoneName) {
+        assertThat(catalogManager.dropZone(DropZoneParams.builder().zoneName(zoneName).build()), willCompleteSuccessfully());
     }
 
     private static DistributionZoneConfigurationParameters createParameters(
@@ -557,6 +726,19 @@ public class DistributionZonesTestUtil {
         }
 
         return builder.build();
+    }
+
+    /**
+     * Returns distributed zone ID form catalog, {@code null} if zone is absent.
+     *
+     * @param catalogService Catalog service.
+     * @param zoneName Distributed zone name.
+     * @param timestamp Timestamp.
+     */
+    public static @Nullable Integer getZoneId(CatalogService catalogService, String zoneName, long timestamp) {
+        CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
+
+        return zone == null ? null : zone.id();
     }
 
     /**
@@ -590,6 +772,22 @@ public class DistributionZonesTestUtil {
         Integer zoneId = getZoneId(config, zoneName);
 
         assertNotNull(zoneId, zoneName);
+
+        return zoneId;
+    }
+
+    /**
+     * Returns distributed zone ID form catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param zoneName Distributed zone name.
+     * @param timestamp Timestamp.
+     * @throws AssertionError If zone is absent.
+     */
+    public static int getZoneIdStrict(CatalogService catalogService, String zoneName, long timestamp) {
+        Integer zoneId = getZoneId(catalogService, zoneName, timestamp);
+
+        assertNotNull(zoneId, "zoneName=" + zoneName + ", timestamp=" + timestamp);
 
         return zoneId;
     }

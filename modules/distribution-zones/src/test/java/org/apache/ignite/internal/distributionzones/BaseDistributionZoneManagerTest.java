@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -28,6 +30,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -43,6 +47,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -87,6 +92,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     protected MetaStorageManager metaStorageManager;
 
     VaultManager vaultMgr;
+
+    private CatalogManager catalogManager;
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
@@ -137,14 +144,18 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
 
+        catalogManager = CatalogTestUtils.createTestCatalogManager(nodeName, new HybridClockImpl(), metaStorageManager);
+        components.add(catalogManager);
+
         distributionZoneManager = new DistributionZoneManager(
+                nodeName,
                 revisionUpdater,
                 zonesConfiguration,
                 tablesConfiguration,
                 metaStorageManager,
                 new LogicalTopologyServiceImpl(topology, cmgManager),
                 vaultMgr,
-                nodeName
+                catalogManager
         );
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
@@ -168,7 +179,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     void startDistributionZoneManager() {
         distributionZoneManager.start();
 
-        metaStorageManager.deployWatches();
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     protected void createZone(
@@ -177,6 +188,14 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter
     ) {
+        DistributionZonesTestUtil.createZone(
+                catalogManager,
+                zoneName,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter
+        );
+
         DistributionZonesTestUtil.createZone(
                 distributionZoneManager,
                 zoneName,
@@ -193,6 +212,14 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
             @Nullable String filter
     ) {
         DistributionZonesTestUtil.alterZone(
+                catalogManager,
+                zoneName,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                filter
+        );
+
+        DistributionZonesTestUtil.alterZone(
                 distributionZoneManager,
                 zoneName,
                 dataNodesAutoAdjustScaleUp,
@@ -202,6 +229,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     }
 
     protected void dropZone(String zoneName) {
+        DistributionZonesTestUtil.dropZone(catalogManager, zoneName);
+
         DistributionZonesTestUtil.dropZone(distributionZoneManager, zoneName);
     }
 

@@ -82,13 +82,14 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         distributionZoneManager = new DistributionZoneManager(
+                "node",
                 null,
                 zonesConfiguration,
                 tablesConfiguration,
                 null,
                 null,
                 null,
-                "node"
+                null
         );
     }
 
