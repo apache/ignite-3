@@ -53,6 +53,7 @@ import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -243,7 +244,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         when(queryProcessor.querySingleAsync(any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Expected")));
 
-        Transaction tx = mock(Transaction.class);
+        Transaction tx = mock(InternalTransaction.class);
         when(tx.commitAsync()).thenReturn(CompletableFuture.completedFuture(null));
         when(tx.rollbackAsync()).thenReturn(CompletableFuture.completedFuture(null));
         when(igniteTransactions.begin()).thenReturn(tx);
