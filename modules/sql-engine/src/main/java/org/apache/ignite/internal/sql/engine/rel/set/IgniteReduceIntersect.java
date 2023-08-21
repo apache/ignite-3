@@ -57,6 +57,9 @@ public class IgniteReduceIntersect extends IgniteIntersect implements IgniteRedu
     ) {
         super(cluster, traitSet, List.of(input), all);
 
+        // Since REDUCE.inputRowType. != REDUCE.outputRowType,
+        // we do not want for a call to SetOp::deriveRowType to take place,
+        // because it is going to produce incorrect result.
         this.rowType = rowType;
         this.inputsCnt = inputsCnt;
     }
