@@ -56,7 +56,7 @@ public class IdentityDistributionExecutionTest extends AbstractPlannerTest {
 
         String sql = "select * "
                 + "from TEST_TBL1 t1 "
-                + "left join TEST_TBL2 t2 on t1.id = t2.id";
+                + "join TEST_TBL2 t2 on t1.id = t2.id";
 
         TestNode node = cluster.node(NODE1_NAME);
 
@@ -75,7 +75,7 @@ public class IdentityDistributionExecutionTest extends AbstractPlannerTest {
 
         String sql = "select * "
                 + "from TEST_TBL1 t1 "
-                + "left join TEST_TBL2 t2 on t1.id = t2.id";
+                + "join TEST_TBL2 t2 on t1.id = t2.id";
 
         TestNode node = cluster.node(NODE1_NAME);
 
@@ -83,7 +83,7 @@ public class IdentityDistributionExecutionTest extends AbstractPlannerTest {
         AsyncCursor<List<Object>> cursor = node.executePlan(queryPlan);
 
         List<List<Object>> allFromCursor = CursorUtils.getAllFromCursor(cursor);
-        assertThat(allFromCursor.size(), is(7 + 3 * 5));
+        assertThat(allFromCursor.size(), is(3 * 5));
     }
 
     @Test
@@ -94,7 +94,7 @@ public class IdentityDistributionExecutionTest extends AbstractPlannerTest {
 
         String sql = "select * "
                 + "from TEST_TBL1 t1 "
-                + "left join TEST_TBL2 t2 on t1.id = t2.id";
+                + "join TEST_TBL2 t2 on t1.id = t2.id";
 
         TestNode node = cluster.node(NODE1_NAME);
 
