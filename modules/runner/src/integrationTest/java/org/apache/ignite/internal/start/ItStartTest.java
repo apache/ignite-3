@@ -37,8 +37,8 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.log4j2.TestLogChecker;
-import org.apache.ignite.internal.testframework.log4j2.TestLogChecker.Handler;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -79,17 +79,17 @@ class ItStartTest extends IgniteIntegrationTest {
                 new Expectation("startComplete", "org.apache.ignite.internal.app.LifecycleManager", "Start complete")
         );
 
-        Map<String, TestLogChecker> checkers = new HashMap<>();
+        Map<String, LogInspector> inspectors = new HashMap<>();
 
         List<LoggingProbe> probes = expectations.stream()
-                .map(expectation -> installProbe(expectation, checkers))
+                .map(expectation -> installProbe(expectation, inspectors))
                 .collect(toList());
 
         try {
             cluster.startAndInit(1);
         } finally {
             probes.forEach(LoggingProbe::cleanup);
-            checkers.values().forEach(TestLogChecker::stop);
+            inspectors.values().forEach(LogInspector::stop);
         }
 
         assertAll(
@@ -107,18 +107,18 @@ class ItStartTest extends IgniteIntegrationTest {
         return "%" + IgniteTestUtils.testNodeName(testInfo, 0) + "%start-";
     }
 
-    private static LoggingProbe installProbe(Expectation expectation, Map<String, TestLogChecker> checkers) {
-        TestLogChecker checker = checkers.computeIfAbsent(
+    private static LoggingProbe installProbe(Expectation expectation, Map<String, LogInspector> inspectors) {
+        LogInspector inspector = inspectors.computeIfAbsent(
                 expectation.loggerClassName,
-                loggerClassName -> TestLogChecker.create(loggerClassName, true));
+                loggerClassName -> LogInspector.create(loggerClassName, true));
 
         AtomicReference<String> threadNameRef = new AtomicReference<>();
 
-        Handler handler = checker.addHandler(
+        Handler handler = inspector.addHandler(
                 evt -> evt.getMessage().getFormattedMessage().matches(expectation.messageRegexp),
                 () -> threadNameRef.set(Thread.currentThread().getName()));
 
-        return new LoggingProbe(expectation, checker, handler, threadNameRef);
+        return new LoggingProbe(expectation, inspector, handler, threadNameRef);
     }
 
     @Test
@@ -168,19 +168,19 @@ class ItStartTest extends IgniteIntegrationTest {
 
     private static class LoggingProbe {
         private final Expectation expectation;
-        private final TestLogChecker checker;
+        private final LogInspector inspector;
         private final Handler handler;
         private final AtomicReference<String> threadNameRef;
 
-        private LoggingProbe(Expectation expectation, TestLogChecker checker, Handler handler, AtomicReference<String> threadNameRef) {
+        private LoggingProbe(Expectation expectation, LogInspector inspector, Handler handler, AtomicReference<String> threadNameRef) {
             this.expectation = expectation;
-            this.checker = checker;
+            this.inspector = inspector;
             this.handler = handler;
             this.threadNameRef = threadNameRef;
         }
 
         void cleanup() {
-            checker.removeHandler(handler);
+            inspector.removeHandler(handler);
         }
     }
 }

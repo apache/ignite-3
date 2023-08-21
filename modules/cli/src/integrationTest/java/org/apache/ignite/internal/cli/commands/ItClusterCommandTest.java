@@ -39,7 +39,7 @@ import org.apache.ignite.internal.cli.AbstractCliTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.testframework.log4j2.TestLogChecker;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
@@ -71,7 +71,7 @@ class ItClusterCommandTest extends AbstractCliTest {
     void setup(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         CountDownLatch allNodesAreInPhysicalTopology = new CountDownLatch(1);
 
-        TestLogChecker topologyLogChecker = new TestLogChecker(
+        LogInspector topologyLogInspector = new LogInspector(
                 "org.apache.ignite.network.scalecube.ScaleCubeTopologyService",
                 evt -> {
                     String msg = evt.getMessage().getFormattedMessage();
@@ -85,14 +85,14 @@ class ItClusterCommandTest extends AbstractCliTest {
                 },
                 allNodesAreInPhysicalTopology::countDown);
 
-        topologyLogChecker.start();
+        topologyLogInspector.start();
 
         try {
             startClusterWithoutInit(workDir, testInfo);
 
             waitTillAllNodesJoinPhysicalTopology(allNodesAreInPhysicalTopology);
         } finally {
-            topologyLogChecker.stop();
+            topologyLogInspector.stop();
         }
     }
 

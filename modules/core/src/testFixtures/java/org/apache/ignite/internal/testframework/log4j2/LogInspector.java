@@ -40,26 +40,26 @@ import org.apache.logging.log4j.core.config.Property;
  * When it is needed to check log events/messages, the following steps should be performed:
  * </p>
  * <pre><code>
- *     // Create a new instance of TestLogChecker for the given logger name and specified predicate.
- *     TestLogChecker checker = new TestLogChecker(
+ *     // Create a new instance of LogInspector for the given logger name and specified predicate.
+ *     LogInspector logInspector = new LogInspector(
  *             CustomClass.class.getName(),
  *             evt -> evt.getMessage().getFormattedMessage().matches(pattern) && evt.getLevel() == Level.ERROR);
  *
- *     checker.start();
+ *     logInspector.start();
  *     try {
  *         // do something
  *     } finally {
- *         checker.stop();
+ *         logInspector.stop();
  *     }
  *
- *     assertThat(checker.isMatched(), is(true));
+ *     assertThat(logInspector.isMatched(), is(true));
  * </code></pre>
  * <p>
  * When it is needed to check log events/messages and perform some action, just add a predicate and an action:
  * </p>
  * <pre><code>
  *     AtomicInteger messageCounter = new AtomicInteger();
- *     TestLogChecker checker = new TestLogChecker(
+ *     LogInspector checker = new LogInspector(
  *             CustomClass.class.getName(),
  *             evt -> evt.getMessage().getFormattedMessage().matches(pattern) && evt.getLevel() == Level.ERROR,
  *             // This action will be executed when the predicate is matched.
@@ -67,11 +67,11 @@ import org.apache.logging.log4j.core.config.Property;
  *                 messageCounter.incrementAndGet();
  *             });
  *
- *     checker.start();
+ *     logInspector.start();
  *     try {
  *         // do something
  *     } finally {
- *         checker.stop();
+ *         logInspector.stop();
  *     }
  *
  *     assertThat(messageCounter.get(), is(42));
@@ -81,7 +81,7 @@ import org.apache.logging.log4j.core.config.Property;
  * {@link #addHandler(Handler)} methods at any time.
  * </p>
  */
-public class TestLogChecker {
+public class LogInspector {
     /** Logger name. */
     private final String loggerName;
 
@@ -98,22 +98,22 @@ public class TestLogChecker {
     private Configuration config;
 
     /**
-     * Creates a new instance of {@link TestLogChecker} for the given {@code loggerName}.
+     * Creates a new instance of {@link LogInspector} for the given {@code loggerName}.
      *
-     * @return New instance of {@link TestLogChecker}.
+     * @return New instance of {@link LogInspector}.
      **/
-    public static TestLogChecker create(String loggerName) {
+    public static LogInspector create(String loggerName) {
         return create(loggerName, false);
     }
 
     /**
-     * Creates a new instance of {@link TestLogChecker} for the given {@code loggerName}.
+     * Creates a new instance of {@link LogInspector} for the given {@code loggerName}.
      *
      * @param started Whether the checker should be started.
-     * @return New instance of {@link TestLogChecker}.
+     * @return New instance of {@link LogInspector}.
      **/
-    public static TestLogChecker create(String loggerName, boolean started) {
-        TestLogChecker checker = new TestLogChecker(loggerName);
+    public static LogInspector create(String loggerName, boolean started) {
+        LogInspector checker = new LogInspector(loggerName);
 
         if (started) {
             checker.start();
@@ -123,30 +123,30 @@ public class TestLogChecker {
     }
 
     /**
-     * Creates a new instance of {@link TestLogChecker} for the given {@code clazz}.
+     * Creates a new instance of {@link LogInspector} for the given {@code clazz}.
      *
-     * @return New instance of {@link TestLogChecker}.
+     * @return New instance of {@link LogInspector}.
      **/
-    public static TestLogChecker create(Class<?> clazz) {
+    public static LogInspector create(Class<?> clazz) {
         return create(clazz, false);
     }
 
     /**
-     * Creates a new instance of {@link TestLogChecker} for the given {@code clazz}.
+     * Creates a new instance of {@link LogInspector} for the given {@code clazz}.
      *
      * @param started Whether the checker should be started.
-     * @return New instance of {@link TestLogChecker}.
+     * @return New instance of {@link LogInspector}.
      **/
-    public static TestLogChecker create(Class<?> clazz, boolean started) {
+    public static LogInspector create(Class<?> clazz, boolean started) {
         return create(clazz.getName(), started);
     }
 
     /**
-     * Creates a new instance of {@link TestLogChecker}.
+     * Creates a new instance of {@link LogInspector}.
      *
      * @param loggerName Logger name.
      */
-    public TestLogChecker(String loggerName) {
+    public LogInspector(String loggerName) {
         Objects.requireNonNull(loggerName);
 
         this.loggerName = loggerName;
@@ -154,34 +154,34 @@ public class TestLogChecker {
     }
 
     /**
-     * Creates a new instance of {@link TestLogChecker} with the given {@code predicate}.
+     * Creates a new instance of {@link LogInspector} with the given {@code predicate}.
      * In order to check that the required log event was logged, use {@link #isMatched()} method.
      *
      * @param loggerName Logger name.
      * @param predicate Predicate to check log messages.
      */
-    public TestLogChecker(String loggerName, Predicate<LogEvent> predicate) {
+    public LogInspector(String loggerName, Predicate<LogEvent> predicate) {
         this(loggerName, predicate, () -> {});
     }
 
     /**
-     * Creates a new instance of {@link TestLogChecker} with the given {@code predicate} and {@code action}.
+     * Creates a new instance of {@link LogInspector} with the given {@code predicate} and {@code action}.
      *
      * @param loggerName Logger name.
      * @param predicate Predicate to check log messages.
      * @param action Action to be executed when the {@code predicate} is matched.
      */
-    public TestLogChecker(String loggerName, Predicate<LogEvent> predicate, Runnable action) {
+    public LogInspector(String loggerName, Predicate<LogEvent> predicate, Runnable action) {
         this(loggerName, new Handler(predicate, action));
     }
 
     /**
-     * Creates a new instance of {@link TestLogChecker} with the given list of {@code handlers}.
+     * Creates a new instance of {@link LogInspector} with the given list of {@code handlers}.
      *
      * @param loggerName Logger name.
      * @param handlers List of handlers to be added.
      */
-    public TestLogChecker(String loggerName, Handler... handlers) {
+    public LogInspector(String loggerName, Handler... handlers) {
         this(loggerName);
 
         lock.writeLock().lock();
