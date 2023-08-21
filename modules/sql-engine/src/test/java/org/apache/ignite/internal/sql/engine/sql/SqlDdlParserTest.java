@@ -395,7 +395,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         var query = "create index my_index on my_table using hash (col1, col2 asc)";
 
         var ex = assertThrows(SqlException.class, () -> parse(query));
-        assertThat(ex.getMessage(), containsString("Encountered \"asc\""));
+        assertThat(ex.getMessage(), containsString("Encountered \" \"ASC\""));
     }
 
     @Test
@@ -513,7 +513,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     public void timestampWithLocalTimeZoneIsNotSupported() {
         Consumer<String> checker = (query) -> {
             var ex = assertThrows(SqlException.class, () -> parse(query));
-            assertThat(ex.getMessage(), containsString("Encountered \"WITH\""));
+            assertThat(ex.getMessage(), containsString("Encountered \" \"WITH\""));
         };
 
         checker.accept("CREATE TABLE test (ts TIMESTAMP WITH LOCAL TIME ZONE)");
