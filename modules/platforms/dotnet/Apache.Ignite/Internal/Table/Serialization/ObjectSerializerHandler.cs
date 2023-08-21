@@ -299,11 +299,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var columns = schema.Columns;
             var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            var columnMap = type.GetFieldsByColumnName();
 
             for (var i = 0; i < count; i++)
             {
                 var col = columns[i];
-                var fieldInfo = type.GetFieldByColumnName(col.Name);
+                var fieldInfo = columnMap.TryGetValue(col.Name, out var columnInfo) ? columnInfo.Field : null;
 
                 EmitFieldRead(fieldInfo, il, col, i, local);
             }
@@ -323,6 +324,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             var keyMethod = BinaryTupleMethods.GetReadMethodOrNull(keyType);
             var valMethod = BinaryTupleMethods.GetReadMethodOrNull(valType);
+
+            var keyColumnMap = keyType.GetFieldsByColumnName();
+            var valColumnMap = valType.GetFieldsByColumnName();
 
             var kvLocal = il.DeclareAndInitLocal(type);
             var keyLocal = keyMethod == null ? il.DeclareAndInitLocal(keyType) : null;
@@ -352,7 +356,9 @@ namespace Apache.Ignite.Internal.Table.Serialization
                     local = col.IsKey ? keyLocal : valLocal;
                     fieldInfo = local == null
                         ? null
-                        : (col.IsKey ? keyType : valType).GetFieldByColumnName(col.Name);
+                        : (col.IsKey ? keyColumnMap : valColumnMap).TryGetValue(col.Name, out var columnInfo)
+                            ? columnInfo.Field
+                            : null;
                 }
 
                 EmitFieldRead(fieldInfo, il, col, i, local);
