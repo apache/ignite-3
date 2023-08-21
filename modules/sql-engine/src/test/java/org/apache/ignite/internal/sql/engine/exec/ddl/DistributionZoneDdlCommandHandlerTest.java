@@ -29,6 +29,10 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DropZoneParams;
+import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
@@ -51,6 +55,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
 
     @BeforeEach
     void before() {
+        catalogManager = mock(CatalogManager.class, invocation -> completedFuture(null));
         catalogManager = mock(CatalogManager.class, invocation -> completedFuture(null));
 
         commandHandler = new DdlCommandHandler(mock(TableManager.class), catalogManager);

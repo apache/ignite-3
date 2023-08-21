@@ -531,6 +531,16 @@ public class DistributionZonesTestUtil {
         alterZone(catalogManager, zoneName, replicas, null, null, null);
     }
 
+    /**
+     * Drops a distribution zone from the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     */
+    public static void dropZone(CatalogManager catalogManager, String zoneName) {
+        assertThat(catalogManager.dropZone(DropZoneParams.builder().zoneName(zoneName).build()), willCompleteSuccessfully());
+    }
+
     private static void alterZone(
             CatalogManager catalogManager,
             String zoneName,

@@ -66,8 +66,8 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
         RexNode condition = scan.condition();
         ImmutableBitSet requiredCols = scan.requiredColumns();
 
-        List<IgniteLogicalIndexScan> indexes = igniteTable.indexes().keySet().stream()
-                .map(idxName -> igniteTable.toRel(cluster, optTable, idxName, proj, condition, requiredCols))
+        List<IgniteLogicalIndexScan> indexes = igniteTable.indexes().values().stream()
+                .map(idx -> idx.toRel(cluster, optTable, proj, condition, requiredCols))
                 .filter(idx -> filter(igniteTable, idx.indexName(), idx.searchBounds()))
                 .collect(Collectors.toList());
 
@@ -85,7 +85,7 @@ public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
 
     /** Filter pre known not applicable variants. Significant shrink search space in some cases. */
     private static boolean filter(IgniteTable table, String idxName, List<SearchBounds> searchBounds) {
-        IgniteIndex index = table.getIndex(idxName);
+        IgniteIndex index = table.indexes().get(idxName);
 
         return index.type() == Type.SORTED || (searchBounds != null
                 && searchBounds.stream().noneMatch(bound -> bound.type() == SearchBounds.Type.RANGE));

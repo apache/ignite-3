@@ -53,6 +53,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -121,7 +122,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends IgniteAbstr
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = (LongFunction<CompletableFuture<?>> function) ->
                 metaStorageManager.registerRevisionUpdateListener(function::apply);
 
-        catalogManager = CatalogTestUtils.createTestCatalogManager(nodeName, clock, metaStorageManager);
+        catalogManager = CatalogTestUtils.createTestCatalogManager(nodeName, new HybridClockImpl(), metaStorageManager);
 
         distributionZoneManager = new DistributionZoneManager(
                 nodeName,

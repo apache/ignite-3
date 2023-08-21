@@ -568,7 +568,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
     @Test
     public void testMinusDateSerialization() throws Exception {
-        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+        IgniteSchema publicSchema = new IgniteSchema(DEFAULT_SCHEMA, 1, List.of());
 
         IgniteRel phys = physicalPlan("SELECT (DATE '2021-03-01' - DATE '2021-01-01') MONTHS", publicSchema);
 

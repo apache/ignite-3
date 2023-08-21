@@ -88,7 +88,7 @@ public class CausalityDataNodesEngine {
      * zoneId -> (revision -> zoneConfiguration).
      * TODO IGNITE-20050 Clean up this map.
      */
-    private final ConcurrentHashMap<Integer, ConcurrentSkipListMap<Long, ZoneConfiguration>> zonesVersionedCfg;
+    private final ConcurrentHashMap<Integer, ConcurrentSkipListMap<Long, ZoneConfiguration>> zonesVersionedCfg = new ConcurrentHashMap<>();
 
     /** Used to guarantee that the zone will be created before other components use the zone. */
     private final VersionedValue<Void> zonesVv;
@@ -116,7 +116,6 @@ public class CausalityDataNodesEngine {
         this.zonesState = zonesState;
         this.distributionZoneManager = distributionZoneManager;
 
-        zonesVersionedCfg = new ConcurrentHashMap<>();
         zonesVv = new IncrementalVersionedValue<>(registry);
     }
 

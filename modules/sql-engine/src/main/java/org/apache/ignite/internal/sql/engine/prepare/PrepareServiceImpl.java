@@ -305,7 +305,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     private static CacheKey createCacheKey(ParsedResult parsedResult, PlanningContext ctx) {
         boolean distributed = distributionPresent(ctx.config().getTraitDefs());
-        long catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
+        int catalogVersion = ctx.unwrap(BaseQueryContext.class).schemaVersion();
 
         Class[] paramTypes = ctx.parameters().length == 0
                 ? EMPTY_CLASS_ARRAY :

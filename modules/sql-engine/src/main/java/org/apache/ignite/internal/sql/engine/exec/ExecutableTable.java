@@ -19,11 +19,17 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.table.InternalTable;
 
 /**
  * Execution related APIs of a table.
  */
 public interface ExecutableTable {
+    /** TODO IGNITE-19499: Drop this hack to get underlying table. */
+    @Deprecated
+    default InternalTable internalTable() {
+        return null;
+    }
 
     /**
      * Returns read API.

@@ -49,6 +49,8 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Zone rebalance manager.
@@ -238,8 +240,8 @@ public class DistributionZoneRebalanceEngine {
 
                         for (CatalogTableDescriptor tableDescriptor : tableDescriptors) {
                             LOG.info(
-                                    "Received update for replicas number [table={}, oldNumber={}, newNumber={}, dataNode={}]",
-                                    tableInfo(tableDescriptor), oldReplicas, parameters.zoneDescriptor().replicas(), dataNodes
+                                    "Received update for replicas number [table={}, oldNumber={}, newNumber={}]",
+                                    tableInfo(tableDescriptor), oldReplicas, parameters.zoneDescriptor().replicas()
                             );
 
                             CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
