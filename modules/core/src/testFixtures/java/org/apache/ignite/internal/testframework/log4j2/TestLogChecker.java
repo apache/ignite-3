@@ -36,6 +36,50 @@ import org.apache.logging.log4j.core.config.Property;
 
 /**
  * This class is used to check log events/messages.
+ * <p>
+ * When it is needed to check log events/messages, the following steps should be performed:
+ * </p>
+ * <pre><code>
+ *     // Create a new instance of TestLogChecker for the given logger name and specified predicate.
+ *     TestLogChecker checker = new TestLogChecker(
+ *             CustomClass.class.getName(),
+ *             evt -> evt.getMessage().getFormattedMessage().matches(pattern) && evt.getLevel() == Level.ERROR);
+ *
+ *     checker.start();
+ *     try {
+ *         // do something
+ *     } finally {
+ *         checker.stop();
+ *     }
+ *
+ *     assertThat(checker.isMatched(), is(true));
+ * </code></pre>
+ * <p>
+ * When it is needed to check log events/messages and perform some action, just add a predicate and an action:
+ * </p>
+ * <pre><code>
+ *     AtomicInteger messageCounter = new AtomicInteger();
+ *     TestLogChecker checker = new TestLogChecker(
+ *             CustomClass.class.getName(),
+ *             evt -> evt.getMessage().getFormattedMessage().matches(pattern) && evt.getLevel() == Level.ERROR,
+ *             // This action will be executed when the predicate is matched.
+ *             () -> {
+ *                 messageCounter.incrementAndGet();
+ *             });
+ *
+ *     checker.start();
+ *     try {
+ *         // do something
+ *     } finally {
+ *         checker.stop();
+ *     }
+ *
+ *     assertThat(messageCounter.get(), is(42));
+ * </code></pre>
+ * <p>
+ * It is possible to add a new pair of of predicate and action using {@link #addHandler(Predicate, Runnable)},
+ * {@link #addHandler(Handler)} methods at any time.
+ * </p>
  */
 public class TestLogChecker {
     /** Logger name. */
@@ -111,6 +155,7 @@ public class TestLogChecker {
 
     /**
      * Creates a new instance of {@link TestLogChecker} with the given {@code predicate}.
+     * In order to check that the required log event was logged, use {@link #isMatched()} method.
      *
      * @param loggerName Logger name.
      * @param predicate Predicate to check log messages.
