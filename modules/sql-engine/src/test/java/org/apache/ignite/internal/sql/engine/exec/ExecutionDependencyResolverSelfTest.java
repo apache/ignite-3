@@ -329,6 +329,11 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         public CompletableFuture<ColocationGroup> fetchColocationGroup() {
             return colocationGroup;
         }
+
+        @Override
+        public TableDescriptor tableDescriptor() {
+            return updates.descriptor();
+        }
     }
 
     private static TestTable createTestTable(String tableName) {

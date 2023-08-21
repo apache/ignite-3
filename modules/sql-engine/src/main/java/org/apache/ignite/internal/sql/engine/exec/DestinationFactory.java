@@ -42,7 +42,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * Factory that resolves {@link IgniteDistribution} trait, which represents logical {@link DistributionFunction} function, into its
  * physical representation - {@link Destination} function.
  */
-public class DestinationFactory<RowT> {
+class DestinationFactory<RowT> {
     private final HashFunctionFactory<RowT> hashFunctionFactory;
     private final ResolvedDependencies dependencies;
 
@@ -70,27 +70,19 @@ public class DestinationFactory<RowT> {
 
         switch (function.type()) {
             case SINGLETON:
-                if (group == null || group.nodeNames() == null || group.nodeNames().size() != 1) {
-                    throw new IllegalStateException();
-                }
+                assert group != null && group.nodeNames() != null && group.nodeNames().size() == 1;
 
                 return new AllNodes<>(Collections.singletonList(Objects.requireNonNull(first(group.nodeNames()))));
             case BROADCAST_DISTRIBUTED:
-                if (group == null || nullOrEmpty(group.nodeNames())) {
-                    throw new IllegalStateException();
-                }
+                assert group != null && !nullOrEmpty(group.nodeNames());
 
                 return new AllNodes<>(group.nodeNames());
             case RANDOM_DISTRIBUTED:
-                if (group == null || nullOrEmpty(group.nodeNames())) {
-                    throw new IllegalStateException();
-                }
+                assert group != null && !nullOrEmpty(group.nodeNames());
 
                 return new RandomNode<>(group.nodeNames());
             case HASH_DISTRIBUTED: {
-                if (group == null || nullOrEmpty(group.assignments()) || keys.isEmpty()) {
-                    throw new IllegalStateException();
-                }
+                assert group != null && !nullOrEmpty(group.assignments()) && !keys.isEmpty();
 
                 List<List<String>> assignments = Commons.transform(group.assignments(), v -> Commons.transform(v, NodeWithTerm::name));
 
@@ -103,7 +95,7 @@ public class DestinationFactory<RowT> {
                 if (function.affinity()) {
                     int tableId = ((AffinityDistribution) function).tableId();
 
-                    TableDescriptor tableDescriptor = dependencies.updatableTable(tableId).descriptor();
+                    TableDescriptor tableDescriptor = dependencies.tableDescriptor(tableId);
 
                     return new Partitioned<>(assignments, hashFunctionFactory.create(keys.toIntArray(), tableDescriptor));
                 }
