@@ -123,7 +123,11 @@ public class IgniteSchema extends AbstractSchema {
      * @param tblName Table name.
      */
     public void removeTable(String tblName) {
-        tableByName.remove(tblName);
+        IgniteTable removed = tableByName.remove(tblName);
+
+        if (removed != null) {
+            tableById.remove(removed.id());
+        }
     }
 
     /**
