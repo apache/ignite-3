@@ -33,7 +33,7 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
     @Override
     public byte[] marshall(Object o) {
-        int requiredCatalogVersion = o instanceof CatalogVersionAware ? ((CatalogVersionAware) o).requiredCatalogVersion() : 0;
+        int requiredCatalogVersion = o instanceof CatalogVersionAware ? ((CatalogVersionAware) o).requiredCatalogVersion() : -1;
 
         stream.setBuffer(buffer);
         stream.writeInt(requiredCatalogVersion);

@@ -73,7 +73,7 @@ class PartitionCommandsMarshallerImplTest {
         byte[] enrichedResult = partitionCommandsMarshaller.marshall(obj);
 
         assertThat(enrichedResult.length, is(standardResult.length + 1));
-        assertThat(enrichedResult[0], is((byte) 1));
+        assertThat(enrichedResult[0], is((byte) 0));
         assertThat(Arrays.copyOfRange(enrichedResult, 1, enrichedResult.length), is(equalTo(standardResult)));
     }
 
