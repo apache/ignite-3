@@ -67,6 +67,7 @@ import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
+import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -416,7 +417,7 @@ class ItScaleCubeNetworkMessagingTest {
             }
         });
 
-        Predicate<String> matcher = msg -> msg.startsWith("Handshake rejected by ");
+        Predicate<LogEvent> matcher = evt -> evt.getMessage().getFormattedMessage().startsWith("Handshake rejected by ");
 
         logCheckers.add(new TestLogChecker(
                 RecoveryClientHandshakeManager.class.getName(),

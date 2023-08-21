@@ -35,7 +35,7 @@ import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.apache.logging.log4j.core.config.Property;
 
 /**
- * Test log checker.
+ * This class is used to check log events/messages.
  */
 public class TestLogChecker {
     /** Logger name. */
@@ -115,7 +115,7 @@ public class TestLogChecker {
      * @param loggerName Logger name.
      * @param predicate Predicate to check log messages.
      */
-    public TestLogChecker(String loggerName, Predicate<String> predicate) {
+    public TestLogChecker(String loggerName, Predicate<LogEvent> predicate) {
         this(loggerName, predicate, () -> {});
     }
 
@@ -126,7 +126,7 @@ public class TestLogChecker {
      * @param predicate Predicate to check log messages.
      * @param action Action to be executed when the {@code predicate} is matched.
      */
-    public TestLogChecker(String loggerName, Predicate<String> predicate, Runnable action) {
+    public TestLogChecker(String loggerName, Predicate<LogEvent> predicate, Runnable action) {
         this(loggerName, new Handler(predicate, action));
     }
 
@@ -154,15 +154,10 @@ public class TestLogChecker {
      * @param action Action to be executed when the {@code predicate} is matched.
      * @return New instance of {@link Handler}.
      */
-    public Handler addHandler(Predicate<String> predicate, Runnable action) {
+    public Handler addHandler(Predicate<LogEvent> predicate, Runnable action) {
         Handler handler = new Handler(predicate, action);
 
-        lock.writeLock().lock();
-        try {
-            handlers.add(handler);
-        } finally {
-            lock.writeLock().unlock();
-        }
+        addHandler(handler);
 
         return handler;
     }
@@ -265,7 +260,7 @@ public class TestLogChecker {
      */
     public static class Handler {
         /** Predicate that is used to check log messages. */
-        private final Predicate<String> predicate;
+        private final Predicate<LogEvent> predicate;
 
         /** Action to be executed when the {@code predicate} is matched. */
         private final Runnable action;
@@ -279,7 +274,7 @@ public class TestLogChecker {
          * @param predicate Predicate to check log messages.
          * @param action Action to be executed when the {@code predicate} is matched.
          */
-        public Handler(Predicate<String> predicate, Runnable action) {
+        public Handler(Predicate<LogEvent> predicate, Runnable action) {
             Objects.requireNonNull(predicate);
             Objects.requireNonNull(action);
 
@@ -311,7 +306,7 @@ public class TestLogChecker {
             lock.readLock().lock();
             try {
                 handlers.forEach(handler -> {
-                    if (handler.predicate.test(event.getMessage().getFormattedMessage())) {
+                    if (handler.predicate.test(event)) {
                         handler.isMatched.set(true);
                         handler.action.run();
                     }

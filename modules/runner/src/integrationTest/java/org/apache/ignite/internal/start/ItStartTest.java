@@ -115,7 +115,7 @@ class ItStartTest extends IgniteIntegrationTest {
         AtomicReference<String> threadNameRef = new AtomicReference<>();
 
         Handler handler = checker.addHandler(
-                msg -> msg.matches(expectation.messageRegexp),
+                evt -> evt.getMessage().getFormattedMessage().matches(expectation.messageRegexp),
                 () -> threadNameRef.set(Thread.currentThread().getName()));
 
         return new LoggingProbe(expectation, checker, handler, threadNameRef);

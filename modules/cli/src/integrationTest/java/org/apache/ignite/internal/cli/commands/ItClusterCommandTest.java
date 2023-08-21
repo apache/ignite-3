@@ -73,7 +73,8 @@ class ItClusterCommandTest extends AbstractCliTest {
 
         TestLogChecker topologyLogChecker = new TestLogChecker(
                 "org.apache.ignite.network.scalecube.ScaleCubeTopologyService",
-                msg -> {
+                evt -> {
+                    String msg = evt.getMessage().getFormattedMessage();
                     if (msg.startsWith(TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX)) {
                         var ids = msg.substring(TOPOLOGY_SNAPSHOT_LOG_RECORD_PREFIX.length(), msg.lastIndexOf(']'))
                                 .split(",");
