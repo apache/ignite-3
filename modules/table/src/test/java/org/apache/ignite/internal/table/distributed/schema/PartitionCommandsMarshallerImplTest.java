@@ -55,7 +55,7 @@ class PartitionCommandsMarshallerImplTest {
 
         // For a command that does not have required catalog version property.
         registry.registerFactory(
-                (short) 8,
+                ReplicaMessageGroup.GROUP_TYPE,
                 ReplicaMessageGroup.SAFE_TIME_SYNC_COMMAND,
                 new SafeTimeSyncCommandSerializationFactory(replicaMessagesFactory)
         );
