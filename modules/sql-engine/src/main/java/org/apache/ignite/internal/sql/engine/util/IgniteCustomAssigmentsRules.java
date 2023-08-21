@@ -114,7 +114,6 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
         // BINARY, VARBINARY is assignable from...
         rule.clear();
         rule.addAll(BINARY_TYPES);
-        rule.add(NULL);
         for (SqlTypeName type : BINARY_TYPES) {
             rules.add(type, rule);
         }

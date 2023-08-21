@@ -161,6 +161,8 @@ public class CastResolutionTest extends AbstractPlannerTest {
 
             testItems.add(checkStatement().sql(format(template, from, makeUsableIntervalToType(fromInitial))).ok());
 
+            testItems.add(checkStatement().sql(format(INTERVAL_TEMPLATE, "NULL", makeUsableIntervalToType(fromInitial))).ok());
+
             String finalFrom = from;
             Set<String> deprecatedCastTypes = allTypes.stream().filter(t -> !toTypes.contains(t) && !t.equals(finalFrom))
                     .collect(Collectors.toSet());
