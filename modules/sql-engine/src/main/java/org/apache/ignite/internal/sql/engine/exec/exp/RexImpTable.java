@@ -386,8 +386,7 @@ import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.RAND_UUID;
  * 1. AbstractRexCallImplementor#genValueStatement() -> append op instanceof SqlTableFunction)
  * 2. NotImplementor -> nullPolicy inheritance
  * 3. ExtractImplementor isIntervalType info
- * 4. DefaultImplementor DEFAULT_VALUE_PLACEHOLDER
- * 5. Custom SUBSTRING and additional support for SUBSTR
+ * 4. Custom SUBSTRING and additional support for SUBSTR
  *
  * <p>Immutable.
  */
@@ -4130,16 +4129,14 @@ public class RexImpTable {
     /** Implementor for the {@code DEFAULT} function. */
     private static class DefaultImplementor extends AbstractRexCallImplementor {
         DefaultImplementor() {
-            super(NullPolicy.NONE, false);
+            super(NullPolicy.NONE, true);
         }
 
-        @Override String getVariableName() {
-            return "default";
-        }
+        @Override String getVariableName() {return "default";}
 
-        @Override Expression implementSafe(final RexToLixTranslator translator,
+        @Override Expression implementSafe(RexToLixTranslator translator,
                 final RexCall call, final List<Expression> argValueList) {
-            return Expressions.field(null, ExpressionFactoryImpl.class, "DEFAULT_VALUE_PLACEHOLDER");
+            return Expressions.constant(null);
         }
     }
 
