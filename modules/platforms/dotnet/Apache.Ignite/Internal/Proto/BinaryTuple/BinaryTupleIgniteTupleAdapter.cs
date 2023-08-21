@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Proto.BinaryTuple;
 
 using System;
+using System.Diagnostics;
 using Ignite.Table;
 using Table;
 
@@ -27,38 +28,53 @@ using Table;
 /// </summary>
 internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple
 {
+    // TODO: Copy on write.
     private readonly Memory<byte> _data;
 
     private readonly Schema _schema;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BinaryTupleIgniteTupleAdapter"/> class.
+    /// </summary>
+    /// <param name="data">Binary tuple data.</param>
+    /// <param name="schema">Schema.</param>
+    /// <param name="fieldCount">Field count.</param>
     public BinaryTupleIgniteTupleAdapter(Memory<byte> data, Schema schema, int fieldCount)
     {
+        Debug.Assert(fieldCount <= schema.Columns.Count, "fieldCount <= schema.Columns.Count");
+
         _data = data;
         _schema = schema;
         FieldCount = fieldCount;
     }
 
+    /// <inheritdoc/>
     public int FieldCount { get; }
 
+    /// <inheritdoc/>
     public object? this[int ordinal]
     {
         get => throw new System.NotImplementedException();
         set => throw new System.NotImplementedException();
     }
 
+    /// <inheritdoc/>
     public object? this[string name]
     {
         get => throw new System.NotImplementedException();
         set => throw new System.NotImplementedException();
     }
 
+    /// <inheritdoc/>
     public string GetName(int ordinal)
     {
-        throw new System.NotImplementedException();
+        // TODO: Range checks.
+        return _schema.Columns[ordinal].Name;
     }
 
+    /// <inheritdoc/>
     public int GetOrdinal(string name)
     {
-        throw new System.NotImplementedException();
+        throw new NotImplementedException();
     }
 }
