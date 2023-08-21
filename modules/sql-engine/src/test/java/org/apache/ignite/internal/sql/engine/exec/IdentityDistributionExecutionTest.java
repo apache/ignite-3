@@ -87,7 +87,7 @@ public class IdentityDistributionExecutionTest extends AbstractPlannerTest {
     }
 
     @Test
-    public void joinIdetityToAffinity() {
+    public void joinIdentityToAffinity() {
         TestCluster cluster = createClusterWith(identityTable("TEST_TBL1"), affinityTable("TEST_TBL2"));
 
         cluster.start();

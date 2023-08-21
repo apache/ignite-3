@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.trait;
 
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 
 /**
@@ -25,7 +26,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
  */
 public class Identity<RowT> implements Destination<RowT> {
     private final RowHandler<RowT> rowHandler;
-    private final List<String> nodes;
+    private final Set<String> nodes;
     private final int columnIndex;
 
     /**
@@ -38,7 +39,7 @@ public class Identity<RowT> implements Destination<RowT> {
     public Identity(RowHandler<RowT> rowHandler, int columnIndex, List<String> nodes) {
         this.rowHandler = rowHandler;
         this.columnIndex = columnIndex;
-        this.nodes = nodes;
+        this.nodes = Set.copyOf(nodes);
     }
 
     /** {@inheritDoc} */
@@ -50,12 +51,12 @@ public class Identity<RowT> implements Destination<RowT> {
             return List.of(node);
         }
 
-        return List.of();
+        throw new IllegalStateException("No target found.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public List<String> targets() {
+    public Set<String> targets() {
         return nodes;
     }
 }
