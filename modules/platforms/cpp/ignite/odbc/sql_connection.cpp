@@ -616,7 +616,7 @@ sql_result sql_connection::make_request_handshake() {
     m_protocol_version = protocol::protocol_version::get_current();
 
     try {
-        std::vector<std::byte> message = protocol::make_handshake_request(ODBC_CLIENT, m_protocol_version);
+        std::vector<std::byte> message = protocol::make_handshake_request(ODBC_CLIENT, m_protocol_version, {});
 
         auto res = send_all(message.data(), message.size(), m_login_timeout);
         if (res != operation_result::SUCCESS) {

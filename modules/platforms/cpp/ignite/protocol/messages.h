@@ -24,6 +24,7 @@
 #include "ignite/common/ignite_error.h"
 
 #include <vector>
+#include <map>
 
 namespace ignite::protocol {
 
@@ -43,9 +44,11 @@ struct handshake_response {
  *
  * @param client_type Client type.
  * @param ver Protocol version.
+ * @param extensions Extensions.
  * @return Message.
  */
-std::vector<std::byte> make_handshake_request(std::int8_t client_type, protocol_version ver);
+std::vector<std::byte> make_handshake_request(std::int8_t client_type, protocol_version ver,
+    std::map<std::string, std::string> extensions);
 
 /**
  * Parse handshake response.

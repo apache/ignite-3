@@ -23,12 +23,13 @@
 
 namespace ignite::protocol {
 
-std::vector<std::byte> make_handshake_request(std::int8_t client_type, protocol_version ver) {
+std::vector<std::byte> make_handshake_request(std::int8_t client_type, protocol_version ver,
+    std::map<std::string, std::string> extensions) {
     std::vector<std::byte> message;
     buffer_adapter buffer(message);
     buffer.write_raw(bytes_view(MAGIC_BYTES));
 
-    write_message_to_buffer(buffer, [=](protocol::writer &writer) {
+    write_message_to_buffer(buffer, [=, &extensions](protocol::writer &writer) {
         writer.write(ver.get_major());
         writer.write(ver.get_minor());
         writer.write(ver.get_patch());
@@ -39,7 +40,7 @@ std::vector<std::byte> make_handshake_request(std::int8_t client_type, protocol_
         writer.write_binary_empty();
 
         // Extensions.
-        writer.write_map_empty();
+        writer.write_map(extensions);
     });
 
     return message;
