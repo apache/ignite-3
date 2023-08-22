@@ -58,6 +58,7 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
@@ -77,7 +78,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -137,11 +137,11 @@ public class DistributionZoneManager implements IgniteComponent {
     /** Vault manager. */
     private final VaultManager vaultMgr;
 
-    /** Prevents double stopping of the component. */
-    private final AtomicBoolean stopGuard = new AtomicBoolean();
-
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    /** Prevents double stopping of the component. */
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Logical topology service to track topology changes. */
     private final LogicalTopologyService logicalTopologyService;
@@ -255,7 +255,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
     @Override
     public void start() {
-        IgniteUtils.inBusyLock(busyLock, () -> {
+        inBusyLock(busyLock, () -> {
             registerCatalogEventListenersOnStartManagerBusy();
 
             rebalanceEngine.start();
@@ -901,7 +901,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     zoneScaleDownChangeTriggerKey(zoneId)
             );
 
-            return metaStorageManager.getAll(keysToGetFromMs).thenCompose(values -> IgniteUtils.inBusyLock(busyLock, () -> {
+            return metaStorageManager.getAll(keysToGetFromMs).thenCompose(values -> inBusyLock(busyLock, () -> {
                 if (values.containsValue(null)) {
                     // Zone was deleted
                     return completedFuture(null);
@@ -948,7 +948,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                 return metaStorageManager.invoke(iif)
                         .thenApply(StatementResult::getAsBoolean)
-                        .thenCompose(invokeResult -> IgniteUtils.inBusyLock(busyLock, () -> {
+                        .thenCompose(invokeResult -> inBusyLock(busyLock, () -> {
                             if (invokeResult) {
                                 // TODO: https://issues.apache.org/jira/browse/IGNITE-19491 Properly utilise this map
                                 // Currently we call clean up only on a node that successfully writes data nodes.
@@ -1012,7 +1012,7 @@ public class DistributionZoneManager implements IgniteComponent {
                     zoneScaleDownChangeTriggerKey(zoneId)
             );
 
-            return metaStorageManager.getAll(keysToGetFromMs).thenCompose(values -> IgniteUtils.inBusyLock(busyLock, () -> {
+            return metaStorageManager.getAll(keysToGetFromMs).thenCompose(values -> inBusyLock(busyLock, () -> {
                 if (values.containsValue(null)) {
                     // Zone was deleted
                     return completedFuture(null);
@@ -1055,7 +1055,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                 return metaStorageManager.invoke(iif)
                         .thenApply(StatementResult::getAsBoolean)
-                        .thenCompose(invokeResult -> IgniteUtils.inBusyLock(busyLock, () -> {
+                        .thenCompose(invokeResult -> inBusyLock(busyLock, () -> {
                             if (invokeResult) {
                                 LOG.info(
                                         "Updating data nodes for a zone after scale down has succeeded "
@@ -1365,22 +1365,8 @@ public class DistributionZoneManager implements IgniteComponent {
         return logicalTopology;
     }
 
-    private <T> CompletableFuture<T> inBusyLock(Supplier<CompletableFuture<T>> supplier) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return supplier.get();
-        } catch (Throwable t) {
-            return failedFuture(t);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     private void registerCatalogEventListenersOnStartManagerBusy() {
-        catalogManager.listen(ZONE_CREATE, (parameters, exception) -> inBusyLock(() -> {
+        catalogManager.listen(ZONE_CREATE, (parameters, exception) -> inBusyLock(busyLock, () -> {
             assert exception == null : parameters;
 
             CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
@@ -1390,7 +1376,7 @@ public class DistributionZoneManager implements IgniteComponent {
             return completedFuture(false);
         }));
 
-        catalogManager.listen(ZONE_DROP, (parameters, exception) -> inBusyLock(() -> {
+        catalogManager.listen(ZONE_DROP, (parameters, exception) -> inBusyLock(busyLock, () -> {
             assert exception == null : parameters;
 
             onDropZoneBusy((DropZoneEventParameters) parameters);
@@ -1421,17 +1407,17 @@ public class DistributionZoneManager implements IgniteComponent {
 
         @Override
         protected CompletableFuture<Void> onAutoAdjustScaleUpUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleUp) {
-            return inBusyLock(() -> onUpdateScaleUpBusy(parameters));
+            return inBusyLock(busyLock, () -> onUpdateScaleUpBusy(parameters));
         }
 
         @Override
         protected CompletableFuture<Void> onAutoAdjustScaleDownUpdate(AlterZoneEventParameters parameters, int oldAutoAdjustScaleDown) {
-            return inBusyLock(() -> onUpdateScaleDownBusy(parameters));
+            return inBusyLock(busyLock, () -> onUpdateScaleDownBusy(parameters));
         }
 
         @Override
         protected CompletableFuture<Void> onFilterUpdate(AlterZoneEventParameters parameters, String oldFilter) {
-            return inBusyLock(() -> onUpdateFilter(parameters));
+            return inBusyLock(busyLock, () -> onUpdateFilter(parameters));
         }
     }
 

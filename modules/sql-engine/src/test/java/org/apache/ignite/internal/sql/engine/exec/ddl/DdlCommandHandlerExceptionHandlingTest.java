@@ -24,25 +24,15 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.ClockWaiter;
-import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,36 +45,19 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     private static final String ZONE_NAME = "zone1";
 
-    private VaultManager vault;
-
-    private MetaStorageManager metastore;
-
-    private ClockWaiter clockWaiter;
-
     private CatalogManager catalogManager;
 
     @BeforeEach
     void before() {
-        String nodeName = "test";
-
-        vault = new VaultManager(new InMemoryVaultService());
-
-        metastore = StandaloneMetaStorageManager.create(vault, new SimpleInMemoryKeyValueStorage(nodeName));
-
-        clockWaiter = new ClockWaiter(nodeName, new HybridClockImpl());
-
-        catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter);
+        catalogManager = CatalogTestUtils.createTestCatalogManager("test", new HybridClockImpl());
+        catalogManager.start();
 
         commandHandler = new DdlCommandHandler(mock(TableManager.class), catalogManager);
-
-        Stream.of(vault, metastore, clockWaiter, catalogManager).forEach(IgniteComponent::start);
-
-        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
     }
 
     @AfterEach
     public void after() throws Exception {
-        IgniteUtils.stopAll(catalogManager, clockWaiter, metastore, vault);
+        catalogManager.stop();
     }
 
     @Test

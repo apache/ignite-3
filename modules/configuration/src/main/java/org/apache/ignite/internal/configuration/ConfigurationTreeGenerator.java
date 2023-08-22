@@ -220,7 +220,7 @@ public class ConfigurationTreeGenerator implements ManuallyCloseable {
 
         Set<Class<?>> notInAllSchemas = difference(polymorphicExtensionsByParent.keySet(), allSchemas);
 
-        // TODO: IGNTIE-20114 нормально починить
+        // TODO: IGNTIE-20263 Return commented condition
         // if (!notInAllSchemas.isEmpty()) {
         if (!notInAllSchemas.isEmpty()
                 && (notInAllSchemas.size() == 1 && !first(notInAllSchemas).getSimpleName().equals("DataStorageConfigurationSchema"))) {

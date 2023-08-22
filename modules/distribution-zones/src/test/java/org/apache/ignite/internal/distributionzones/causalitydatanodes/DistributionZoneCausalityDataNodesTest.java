@@ -37,8 +37,10 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
@@ -156,7 +158,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         distributionZoneManager.start();
 
-        metaStorageManager.deployWatches();
+        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     /**
@@ -637,11 +639,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         );
     }
 
-    /**
-     * Tests data nodes obtaining with wrong parameters throw an exception.
-     *
-     * @throws Exception If failed.
-     */
+    /** Tests data nodes obtaining with wrong parameters throw an exception. */
     @Test
     void validationTest() {
         int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
@@ -881,9 +879,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     private void checkThatDataNodesIsNotChangedInMetastorage() throws Exception {
+        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+        int zoneId = getZoneId(ZONE_NAME);
+        int zoneId2 = getZoneId(ZONE_NAME_2);
+        int zoneId3 = getZoneId(ZONE_NAME_3);
+
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(getZoneId(DEFAULT_ZONE_NAME)),
+                zoneDataNodesKey(defaultZoneId),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 TWO_NODES_NAMES,
                 TIMEOUT
@@ -891,7 +894,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(getZoneId(ZONE_NAME)),
+                zoneDataNodesKey(zoneId),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 TWO_NODES_NAMES,
                 TIMEOUT
@@ -899,7 +902,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(getZoneId(ZONE_NAME_2)),
+                zoneDataNodesKey(zoneId2),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 TWO_NODES_NAMES,
                 TIMEOUT
@@ -907,7 +910,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(getZoneId(ZONE_NAME_3)),
+                zoneDataNodesKey(zoneId3),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 TWO_NODES_NAMES,
                 TIMEOUT
@@ -924,24 +927,29 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             Set<String> expectedZone2DataNodes,
             Set<String> expectedZone3DataNodes
     ) throws ExecutionException, InterruptedException, TimeoutException {
+        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+        int zoneId = getZoneId(ZONE_NAME);
+        int zoneId2 = getZoneId(ZONE_NAME_2);
+        int zoneId3 = getZoneId(ZONE_NAME_3);
+
         assertEquals(
                 expectedDefaultZoneDataNodes,
-                distributionZoneManager.dataNodes(revision, getZoneId(DEFAULT_ZONE_NAME)).get(TIMEOUT, MILLISECONDS)
+                distributionZoneManager.dataNodes(revision, defaultZoneId).get(TIMEOUT, MILLISECONDS)
         );
 
         assertEquals(
                 expectedZone1DataNodes,
-                distributionZoneManager.dataNodes(revision, getZoneId(ZONE_NAME)).get(TIMEOUT, MILLISECONDS)
+                distributionZoneManager.dataNodes(revision, zoneId).get(TIMEOUT, MILLISECONDS)
         );
 
         assertEquals(
                 expectedZone2DataNodes,
-                distributionZoneManager.dataNodes(revision, getZoneId(ZONE_NAME_2)).get(TIMEOUT, MILLISECONDS)
+                distributionZoneManager.dataNodes(revision, zoneId2).get(TIMEOUT, MILLISECONDS)
         );
 
         assertEquals(
                 expectedZone3DataNodes,
-                distributionZoneManager.dataNodes(revision, getZoneId(ZONE_NAME_3)).get(TIMEOUT, MILLISECONDS)
+                distributionZoneManager.dataNodes(revision, zoneId3).get(TIMEOUT, MILLISECONDS)
         );
     }
 
@@ -949,10 +957,16 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             Set<String> dataNodes1,
             Set<String> dataNodes2,
             Set<String> dataNodes3,
-            Set<String> dataNodes4) throws Exception {
+            Set<String> dataNodes4
+    ) throws Exception {
+        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
+        int zoneId = getZoneId(ZONE_NAME);
+        int zoneId2 = getZoneId(ZONE_NAME_2);
+        int zoneId3 = getZoneId(ZONE_NAME_3);
+
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(getZoneId(DEFAULT_ZONE_NAME)),
+                zoneDataNodesKey(defaultZoneId),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 dataNodes1,
                 TIMEOUT
@@ -960,7 +974,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(getZoneId(ZONE_NAME)),
+                zoneDataNodesKey(zoneId),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 dataNodes2,
                 TIMEOUT
@@ -968,7 +982,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(getZoneId(ZONE_NAME_2)),
+                zoneDataNodesKey(zoneId2),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 dataNodes3,
                 TIMEOUT
@@ -976,7 +990,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(getZoneId(ZONE_NAME_3)),
+                zoneDataNodesKey(zoneId3),
                 (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
                 dataNodes4,
                 TIMEOUT

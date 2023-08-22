@@ -289,7 +289,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     @AfterEach
     void after() throws Exception {
         IgniteUtils.closeAll(
-                tblManagerFut == null ? null : () -> {
+                () -> {
                     assertTrue(tblManagerFut.isDone());
 
                     tblManagerFut.join().beforeNodeStop();
