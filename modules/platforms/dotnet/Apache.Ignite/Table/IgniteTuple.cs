@@ -25,7 +25,7 @@ namespace Apache.Ignite.Table
     /// <summary>
     /// Ignite tuple.
     /// </summary>
-    public sealed class IgniteTuple : IIgniteTuple, IEquatable<IgniteTuple>
+    public sealed class IgniteTuple : IIgniteTuple, IEquatable<IgniteTuple>, IEquatable<IIgniteTuple>
     {
         /** Key-value pairs. */
         [SuppressMessage("Microsoft.Design", "CA1002:DoNotExposeGenericLists", Justification = "Private.")]
@@ -87,21 +87,15 @@ namespace Apache.Ignite.Table
         public override string ToString() => IgniteTupleCommon.ToString(this);
 
         /// <inheritdoc />
-        public bool Equals(IgniteTuple? other)
-        {
-            return IIgniteTuple.Equals(this, other);
-        }
+        public bool Equals(IgniteTuple? other) => IIgniteTuple.Equals(this, other);
 
         /// <inheritdoc />
-        public override bool Equals(object? obj)
-        {
-            return obj is IgniteTuple other && Equals(other);
-        }
+        public bool Equals(IIgniteTuple? other) => IIgniteTuple.Equals(this, other);
 
         /// <inheritdoc />
-        public override int GetHashCode()
-        {
-            return IIgniteTuple.GetHashCode(this);
-        }
+        public override bool Equals(object? obj) => obj is IIgniteTuple other && Equals(other);
+
+        /// <inheritdoc />
+        public override int GetHashCode() => IIgniteTuple.GetHashCode(this);
     }
 }

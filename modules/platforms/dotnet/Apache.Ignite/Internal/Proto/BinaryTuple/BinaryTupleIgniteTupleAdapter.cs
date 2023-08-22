@@ -28,7 +28,7 @@ using Table.Serialization;
 /// Adapts <see cref="BinaryTuple"/> to <see cref="IIgniteTuple"/>, so that we can avoid extra copying and allocations when
 /// reading data from the server.
 /// </summary>
-internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple
+internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<BinaryTupleIgniteTupleAdapter>, IEquatable<IIgniteTuple>
 {
     private readonly int _schemaFieldCount;
 
@@ -103,6 +103,18 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple
 
     /// <inheritdoc/>
     public override string ToString() => IgniteTupleCommon.ToString(this);
+
+    /// <inheritdoc />
+    public bool Equals(BinaryTupleIgniteTupleAdapter? other) => IIgniteTuple.Equals(this, other);
+
+    /// <inheritdoc />
+    public bool Equals(IIgniteTuple? other) => IIgniteTuple.Equals(this, other);
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj) => obj is IIgniteTuple other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode() => IIgniteTuple.GetHashCode(this);
 
     private IIgniteTuple InitTuple()
     {
