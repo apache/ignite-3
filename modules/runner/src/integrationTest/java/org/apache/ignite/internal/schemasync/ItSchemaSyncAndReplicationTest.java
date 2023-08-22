@@ -40,7 +40,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.jul.NoOpHandler;
-import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
@@ -50,6 +49,8 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("resource")
 class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     private static final int NODES_TO_START = 3;
+
+    private static final String TABLE_NAME = "test";
 
     @Override
     protected int initialNodes() {
@@ -96,7 +97,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private void createTestTableWith3Replicas() throws InterruptedException {
         String zoneSql = "create zone test_zone with partitions=1, replicas=3";
-        String sql = "create table test (key int primary key, value varchar(20))"
+        String sql = "create table " + TABLE_NAME + " (key int primary key, value varchar(20))"
                 + " with primary_zone='TEST_ZONE'";
 
         cluster.doInSession(0, session -> {
@@ -146,14 +147,14 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     private void putToTableAt(int nodeIndex) {
         cluster.node(nodeIndex)
                 .tables()
-                .table("test")
+                .table(TABLE_NAME)
                 .keyValueView()
                 .put(null, Tuple.create().set("key", 1), Tuple.create().set("value", "one"));
     }
 
     private void updateTableSchemaAt(int nodeIndex) {
         cluster.doInSession(nodeIndex, session -> {
-            session.execute(null, "alter table test add column added int");
+            session.execute(null, "alter table " + TABLE_NAME + " add column added int");
         });
     }
 
@@ -164,7 +165,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     }
 
     private static MvPartitionStorage solePartitionStorage(IgniteImpl node) {
-        TableImpl table = (TableImpl) node.tables().table("test");
+        TableImpl table = (TableImpl) node.tables().table(TABLE_NAME);
 
         MvPartitionStorage mvPartitionStorage = table.internalTable().storage().getMvPartition(0);
 
