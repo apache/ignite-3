@@ -118,7 +118,8 @@ private:
         auto writer_func = [id = m_id](protocol::writer &writer) { writer.write(id); };
 
         m_connection->perform_request_wr<void>(
-            commit ? client_operation::TX_COMMIT : client_operation::TX_ROLLBACK, writer_func, std::move(callback));
+            commit ? protocol::client_operation::TX_COMMIT : protocol::client_operation::TX_ROLLBACK, writer_func,
+            std::move(callback));
     }
 
     /**

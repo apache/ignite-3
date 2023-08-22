@@ -46,6 +46,8 @@ column_meta_vector read_meta(protocol::reader &reader) {
         const msgpack_object_array &arr = obj.via.array;
 
         constexpr std::uint32_t min_count = 6;
+        UNUSED_VALUE min_count; // For release builds
+
         assert(arr.size >= min_count);
 
         auto name = protocol::unpack_object<std::string>(arr.ptr[0]);
@@ -322,7 +324,7 @@ sql_result data_query::make_request_execute() {
             tx = m_connection.get_transaction_id();
             assert(tx);
         }
-        response = m_connection.sync_request(detail::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
+        response = m_connection.sync_request(protocol::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
             if (tx)
                 writer.write(*tx);
             else
@@ -378,7 +380,7 @@ sql_result data_query::make_request_close() {
 
     auto success = m_diag.catch_errors([&] {
         UNUSED_VALUE m_connection.sync_request(
-            detail::client_operation::SQL_CURSOR_CLOSE, [&](protocol::writer &writer) { writer.write(*m_query_id); });
+            protocol::client_operation::SQL_CURSOR_CLOSE, [&](protocol::writer &writer) { writer.write(*m_query_id); });
     });
 
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;
@@ -392,7 +394,7 @@ sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page) {
 
     network::data_buffer_owning response;
     auto success = m_diag.catch_errors([&] {
-        response = m_connection.sync_request(detail::client_operation::SQL_CURSOR_NEXT_PAGE,
+        response = m_connection.sync_request(protocol::client_operation::SQL_CURSOR_NEXT_PAGE,
             [&](protocol::writer &writer) { writer.write(*m_query_id); });
 
         auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());

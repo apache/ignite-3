@@ -23,6 +23,8 @@
 #include "ignite/odbc/system/odbc_constants.h"
 #include "ignite/odbc/type_traits.h"
 
+#include <cstring>
+
 namespace ignite {
 
 #define DBG_STR_CASE(x)                                                                                                \
@@ -97,16 +99,6 @@ SQLLEN nullability_to_sql(nullability value) {
 
     assert(false);
     return SQL_NULLABLE_UNKNOWN;
-}
-
-void column_meta::read(protocol::reader &reader, const protocol_version &) {
-    m_schema_name = reader.read_string();
-    m_table_name = reader.read_string();
-    m_column_name = reader.read_string();
-    m_data_type = ignite_type(reader.read_int8());
-    m_precision = reader.read_int32();
-    m_scale = reader.read_int32();
-    m_nullability = nullability_from_int(reader.read_int8());
 }
 
 bool column_meta::get_attribute(uint16_t field_id, std::string &value) const {
@@ -288,18 +280,6 @@ bool column_meta::get_attribute(uint16_t field_id, SQLLEN &value) const {
     LOG_MSG("value: " << value);
 
     return true;
-}
-
-void read_column_meta_vector(protocol::reader &reader, column_meta_vector &meta, const protocol_version &ver) {
-    std::int32_t meta_num = reader.read_int32();
-
-    meta.clear();
-    meta.reserve(static_cast<size_t>(meta_num));
-
-    for (std::int32_t i = 0; i < meta_num; ++i) {
-        meta.emplace_back();
-        meta.back().read(reader, ver);
-    }
 }
 
 } // namespace ignite
