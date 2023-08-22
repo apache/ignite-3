@@ -100,8 +100,6 @@ public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
     private static Stream<Arguments> indexChecks() {
         return Stream.of(
                 Arguments.of(Named.of("VARBINARY_DEFAULT_LENGTH", "T"), ValueMode.LITERAL),
-                //Arguments.of(Named.of("VARBINARY_DEFAULT_LENGTH", "T"), ValueMode.CAST),
-                // duplicates a test case defined in the base class (testKeyLookUp)
                 Arguments.of(Named.of("VARBINARY_DEFAULT_LENGTH", "T"), ValueMode.CAST_WITH_PRECISION),
 
                 Arguments.of("BINARY_FIXED_LENGTH", ValueMode.LITERAL),
