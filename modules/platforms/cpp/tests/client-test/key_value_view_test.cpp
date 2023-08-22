@@ -811,6 +811,7 @@ TEST_F(key_value_view_test, types_test) {
     inserted.m_timestamp2 = {3875238472, 248760634};
     inserted.m_blob = {std::byte(1), std::byte(2), std::byte(42)};
     inserted.m_decimal = big_decimal{123456789098765};
+    inserted.m_boolean = true;
 
     kv_view.put(nullptr, test_key_type(42), inserted);
     auto res = kv_view.get(nullptr, test_key_type(42));
@@ -833,6 +834,7 @@ TEST_F(key_value_view_test, types_test) {
     EXPECT_EQ(inserted.m_timestamp, res->m_timestamp);
     EXPECT_EQ(inserted.m_blob, res->m_blob);
     EXPECT_EQ(inserted.m_decimal, res->m_decimal);
+    EXPECT_EQ(inserted.m_boolean, res->m_boolean);
 
     EXPECT_EQ(ignite_time(17, 4, 12), res->m_time2);
     EXPECT_EQ(ignite_date_time({2020, 7, 28}, {2, 15, 52, 6000000}), res->m_datetime2);
