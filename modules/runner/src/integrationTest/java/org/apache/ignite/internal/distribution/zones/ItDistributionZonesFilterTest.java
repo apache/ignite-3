@@ -399,7 +399,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         node0.catalogManager().listen(CatalogEvent.ZONE_ALTER, (parameters, exception) -> {
             latch.countDown();
 
-            return completedFuture(null);
+            return completedFuture(false);
         });
 
         session.execute(null, alterZoneSql(3));
