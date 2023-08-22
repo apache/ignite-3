@@ -17,11 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
-import static org.apache.ignite.internal.tx.TxState.PENDING;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,7 +33,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;

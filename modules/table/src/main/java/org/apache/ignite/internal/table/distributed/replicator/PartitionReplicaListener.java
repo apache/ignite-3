@@ -26,6 +26,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toIndexDescriptor;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
+import static org.apache.ignite.internal.tx.impl.TxManagerImpl.markFinishedOnReplica;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.filter;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
@@ -1197,9 +1198,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         return raftClient.run(finishTxCmdBldr.build()).whenComplete((o, throwable) -> {
             TxState newState = commit ? TxState.COMMITED : TxState.ABORTED;
 
-            fut.complete(new TxMeta(newState, aggregatedGroupIds, commitTimestamp));
+            fut.complete(new TxMeta(commit ? TxState.COMMITED : TxState.ABORTED, aggregatedGroupIds, commitTimestamp));
 
-            txManager.updateTxMeta(txId, old -> new TxStateMeta(newState, old.txCoordinatorId(), old.commitTimestamp()));
+            txManager.updateTxMeta(txId, markFinishedOnReplica(commit));
 
             txTimestampUpdateMap.remove(txId);
         });
@@ -1226,10 +1227,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return failedFuture(e);
         }
 
-        txManager.updateTxMeta(
-                request.txId(),
-                old -> new TxStateMeta(request.commit() ? TxState.COMMITED : TxState.ABORTED, old.txCoordinatorId(), old.commitTimestamp())
-        );
+        txManager.updateTxMeta(request.txId(), markFinishedOnReplica(request.commit()));
 
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
         List<CompletableFuture<?>> txReadFutures = new ArrayList<>();

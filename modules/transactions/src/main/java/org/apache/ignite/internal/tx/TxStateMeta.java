@@ -19,6 +19,9 @@ package org.apache.ignite.internal.tx;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 
+/**
+ * Transaction state meta.
+ */
 public class TxStateMeta {
     private final TxState txState;
 
@@ -26,6 +29,13 @@ public class TxStateMeta {
 
     private final HybridTimestamp commitTimestamp;
 
+    /**
+     * Constructor.
+     *
+     * @param txState Transaction state.
+     * @param txCoordinatorId Transaction coordinator id.
+     * @param commitTimestamp Commit timestamp.
+     */
     public TxStateMeta(TxState txState, String txCoordinatorId, HybridTimestamp commitTimestamp) {
         this.txState = txState;
         this.txCoordinatorId = txCoordinatorId;
