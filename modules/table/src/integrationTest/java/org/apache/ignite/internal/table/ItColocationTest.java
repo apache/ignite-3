@@ -142,7 +142,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new HeapLockManager(),
                 new HybridClockImpl(),
                 new TransactionIdGenerator(0xdeadbeef),
-                clusterNode.id()
+                clusterNode::id
         ) {
             @Override
             public CompletableFuture<Void> finish(
@@ -224,6 +224,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                         .rowUuid(UUID.randomUUID())
                         .rowMessage(((ReadWriteSingleRowReplicaRequest) request).binaryRowMessage())
                         .txId(TestTransactionIds.newTransactionId())
+                        .txCoordinatorId(UUID.randomUUID().toString())
                         .build());
             }
         });

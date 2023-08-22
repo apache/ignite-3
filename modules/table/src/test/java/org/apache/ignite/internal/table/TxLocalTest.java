@@ -117,7 +117,7 @@ public class TxLocalTest extends TxAbstractTest {
                     tables.get(request.groupId()).txStateStorage().getTxStateStorage(0).get(request.txId()));
         }).when(placementDriver).sendMetaRequest(any(), any());
 
-        txManager = new TxManagerImpl(replicaSvc, lockManager, localClock, new TransactionIdGenerator(0xdeadbeef), "local");
+        txManager = new TxManagerImpl(replicaSvc, lockManager, localClock, new TransactionIdGenerator(0xdeadbeef), () -> "local");
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 

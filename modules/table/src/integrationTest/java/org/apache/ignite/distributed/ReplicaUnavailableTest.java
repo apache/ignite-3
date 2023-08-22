@@ -163,7 +163,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 completedFuture(null),
-                                request0 -> completedFuture(replicaMessageFactory.replicaResponse()
+                                (request0, senderId) -> completedFuture(replicaMessageFactory.replicaResponse()
                                         .result(Integer.valueOf(5))
                                         .build()),
                                 mock(TopologyAwareRaftGroupService.class),
@@ -265,7 +265,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 new CompletableFuture<>(),
-                                request0 -> completedFuture(replicaMessageFactory.replicaResponse()
+                                (request0, senderId) -> completedFuture(replicaMessageFactory.replicaResponse()
                                         .result(Integer.valueOf(5))
                                         .build()),
                                 mock(TopologyAwareRaftGroupService.class),

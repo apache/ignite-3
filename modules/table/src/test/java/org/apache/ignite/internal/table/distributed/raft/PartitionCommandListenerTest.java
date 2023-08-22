@@ -754,6 +754,7 @@ public class PartitionCommandListenerTest {
                             .rowMessage(row)
                             .txId(txId)
                             .safeTimeLong(hybridClock.nowLong())
+                            .txCoordinatorId(UUID.randomUUID().toString())
                             .build());
 
             doAnswer(invocation -> {
@@ -797,6 +798,7 @@ public class PartitionCommandListenerTest {
                             .rowUuid(rowId.uuid())
                             .txId(txId)
                             .safeTimeLong(hybridClock.nowLong())
+                            .txCoordinatorId(UUID.randomUUID().toString())
                             .build());
 
             doAnswer(invocation -> {
@@ -871,6 +873,7 @@ public class PartitionCommandListenerTest {
                             .rowMessage(getTestRow(i, i))
                             .txId(txId)
                             .safeTimeLong(hybridClock.nowLong())
+                            .txCoordinatorId(UUID.randomUUID().toString())
                             .build());
 
             doAnswer(invocation -> {

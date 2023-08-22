@@ -340,7 +340,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             replicaServices.put(node.name(), replicaSvc);
 
-            TxManagerImpl txMgr = new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, new TransactionIdGenerator(i), node.id());
+            TxManagerImpl txMgr = new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, new TransactionIdGenerator(i), node::id);
 
             txMgr.start();
 
@@ -360,11 +360,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         log.info("Partition groups have been started");
 
         String localNodeName = accRaftClients.get(0).clusterService().topologyService().localMember().name();
-        String localNodeId = accRaftClients.get(0).clusterService().topologyService().localMember().name();
 
         if (startClient()) {
-            clientTxManager =
-                    new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock, new TransactionIdGenerator(-1), localNodeId);
+            clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock, new TransactionIdGenerator(-1),
+                    () -> accRaftClients.get(0).clusterService().topologyService().localMember().id());
         } else {
             // Collocated mode.
             clientTxManager = txManagers.get(localNodeName);
@@ -492,7 +491,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         new RaftNodeId(grpId, configuration.peer(assignment)),
                         configuration,
                         new PartitionListener(
-                                txManager(tblId),
+                                txManagers.get(assignment),
                                 partitionDataStorage,
                                 storageUpdateHandler,
                                 txStateStorage,
@@ -700,18 +699,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     @Override
     protected TxManager clientTxManager() {
         return clientTxManager;
-    }
-
-    protected TxManager txManager(int tableId) {
-        if (tableId == ACC_TABLE_ID) {
-            return txManager(accounts);
-        } else if (tableId == CUST_TABLE_ID) {
-            return txManager(customers);
-        } else {
-            fail("Unknown table id: " + tableId);
-        }
-
-        return null;
     }
 
     /** {@inheritDoc} */

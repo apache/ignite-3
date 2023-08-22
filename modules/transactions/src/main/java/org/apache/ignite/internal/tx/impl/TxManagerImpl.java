@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -52,6 +53,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -94,7 +96,7 @@ public class TxManagerImpl implements TxManager {
     /** Lock to update and read the low watermark. */
     private final ReadWriteLock lowWatermarkReadWriteLock = new ReentrantReadWriteLock();
 
-    private final String localNodeId;
+    private final Lazy<String> localNodeId;
 
     /**
      * The constructor.
@@ -109,13 +111,13 @@ public class TxManagerImpl implements TxManager {
             LockManager lockManager,
             HybridClock clock,
             TransactionIdGenerator transactionIdGenerator,
-            String localNodeId
+            Supplier<String> localNodeIdSupplier
     ) {
         this.replicaService = replicaService;
         this.lockManager = lockManager;
         this.clock = clock;
         this.transactionIdGenerator = transactionIdGenerator;
-        this.localNodeId = localNodeId;
+        this.localNodeId = new Lazy<>(localNodeIdSupplier);
     }
 
     @Override
@@ -129,7 +131,7 @@ public class TxManagerImpl implements TxManager {
 
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
-        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null));
+        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));
 
         if (!readOnly) {
             return new ReadWriteTransactionImpl(this, txId);
@@ -181,7 +183,9 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public TxState state(UUID txId) {
-        return txStateMap.get(txId).txState();
+        TxStateMeta meta = txStateMap.get(txId);
+
+        return meta == null ? null : meta.txState();
     }
 
     @Override
@@ -228,10 +232,12 @@ public class TxManagerImpl implements TxManager {
 
         HybridTimestamp commitTimestamp = commit ? clock.now() : null;
 
-        updateTxMeta(txId, old -> new TxStateMeta(FINISHING, old.txCoordinatorId(), commitTimestamp));
-
         // If there are no enlisted groups, just return - we already marked the tx as finished.
-        if (groups.isEmpty()) {
+        boolean finishRequestNeeded = !groups.isEmpty();
+
+        updateTxMeta(txId, old -> new TxStateMeta(finishRequestNeeded ? FINISHING : ABORTED, old.txCoordinatorId(), commitTimestamp));
+
+        if (!finishRequestNeeded) {
             return completedFuture(null);
         }
 

@@ -64,8 +64,6 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      * @return The state or null if the state is unknown.
      */
-    // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
-    @Deprecated
     @Nullable TxState state(UUID txId);
 
     /**

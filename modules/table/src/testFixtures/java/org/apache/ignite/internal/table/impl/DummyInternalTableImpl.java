@@ -203,7 +203,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 1,
                 name -> mock(ClusterNode.class),
                 txManager == null
-                        ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), "local")
+                        ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), () -> "local")
                         : txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),

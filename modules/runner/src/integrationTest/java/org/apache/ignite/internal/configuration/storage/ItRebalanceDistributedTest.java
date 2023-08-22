@@ -703,7 +703,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock
             );
 
-            txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock, new TransactionIdGenerator(addr.port()));
+            txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock, new TransactionIdGenerator(addr.port()),
+                    () -> clusterService.topologyService().localMember().id());
 
             String nodeName = clusterService.nodeName();
 

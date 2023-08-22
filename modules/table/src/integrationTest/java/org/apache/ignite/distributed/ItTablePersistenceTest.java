@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
@@ -194,14 +195,14 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 });
 
         for (int i = 0; i < nodes(); i++) {
-            TxManager txManager =
-                    new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i), "local");
+            TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i),
+                    () -> "local");
             txManagers.put(i, txManager);
             closeables.add(txManager::stop);
         }
 
-        TxManager txManager =
-                new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1), "local");
+        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1),
+                () -> "local");
         closeables.add(txManager::stop);
 
         table = new InternalTableImpl(
@@ -266,6 +267,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         .rowUuid(new RowId(0).uuid())
                         .rowMessage(binaryRow)
                         .safeTimeLong(hybridClock.nowLong())
+                        .txCoordinatorId(UUID.randomUUID().toString())
                         .build();
 
                 return service.run(cmd);
@@ -417,6 +419,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     );
 
                     PartitionListener listener = new PartitionListener(
+                            txManagers.get(index),
                             partitionDataStorage,
                             storageUpdateHandler,
                             new TestTxStateStorage(),

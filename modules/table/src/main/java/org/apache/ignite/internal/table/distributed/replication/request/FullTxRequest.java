@@ -16,10 +16,12 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+
 /**
  * Transaction request that can contain full transaction (transaction that contains full set of keys).
  */
-public interface FullTxRequest {
+public interface FullTxRequest extends ReplicaRequest {
     /**
      * Return {@code true} if this is a full transaction.
      */
