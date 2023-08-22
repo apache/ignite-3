@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Benchmarks;
 
 using BenchmarkDotNet.Running;
-using Table;
 using Table.Serialization;
 
 internal static class Program
