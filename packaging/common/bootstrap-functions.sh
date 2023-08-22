@@ -47,8 +47,8 @@ export CLASSPATH="-classpath @INSTALL_DIR@/lib/@APP_JAR@:@INSTALL_DIR@/lib/* @MA
 export JAVA_CMD_WITH_ARGS="${JAVACMD} \
   ${COMMON_JAVA_OPTS} \
   ${LOGGING_JAVA_OPTS} \
-  ${CLASSPATH} \
-  ${IGNITE3_EXTRA_JVM_ARGS}"
+  ${IGNITE3_EXTRA_JVM_ARGS} \
+  ${CLASSPATH}"
 
 export APPLICATION_ARGS="\
   --config-path ${CONFIG_FILE} \

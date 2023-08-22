@@ -67,7 +67,6 @@ allprojects {
                     "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
                     "--add-opens=java.base/sun.security.x509=ALL-UNNAMED",
                     "-Dio.netty.tryReflectionSetAccessible=true",
-                    "-Djava.util.logging.config.file=${project.rootDir}/config/java.util.logging.properties",
                     "-XX:+HeapDumpOnOutOfMemoryError"]
 
         systemProperty 'jraft.available_processors', 1
