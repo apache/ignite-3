@@ -46,6 +46,8 @@ column_meta_vector read_meta(protocol::reader &reader) {
         const msgpack_object_array &arr = obj.via.array;
 
         constexpr std::uint32_t min_count = 6;
+        UNUSED_VALUE min_count; // For release builds
+
         assert(arr.size >= min_count);
 
         auto name = protocol::unpack_object<std::string>(arr.ptr[0]);
