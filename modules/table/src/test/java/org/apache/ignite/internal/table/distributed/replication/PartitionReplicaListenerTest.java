@@ -1638,7 +1638,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         // Make sure metadata completeness is awaited for.
         InOrder inOrder = inOrder(schemaSyncService, catalogService);
-
         inOrder.verify(schemaSyncService).waitForMetadataCompleteness(timestampCaptor.capture());
         inOrder.verify(catalogService).activeCatalogVersion(timestampCaptor.getValue().longValue());
 
