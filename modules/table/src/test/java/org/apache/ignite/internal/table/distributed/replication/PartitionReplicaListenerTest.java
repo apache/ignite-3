@@ -136,6 +136,7 @@ import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.distributed.replicator.action.RequestTypes;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
@@ -1457,7 +1458,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private BinaryRow marshalKeyOrKeyValue(RequestType requestType, TestKey key) {
         try {
-            return requestType.isKeyOnly() ? kvMarshaller.marshal(key) : kvMarshaller.marshal(key, someValue);
+            return RequestTypes.isKeyOnly(requestType) ? kvMarshaller.marshal(key) : kvMarshaller.marshal(key, someValue);
         } catch (MarshallerException e) {
             throw new AssertionError(e);
         }
@@ -1479,7 +1480,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private static Stream<Arguments> singleRowRequestTypes() {
         return Arrays.stream(RequestType.values())
-                .filter(RequestType::isSingleRow)
+                .filter(RequestTypes::isSingleRow)
                 .map(Arguments::of);
     }
 
@@ -1525,7 +1526,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private static Stream<Arguments> multiRowsRequestTypes() {
         return Arrays.stream(RequestType.values())
-                .filter(RequestType::isMultipleRows)
+                .filter(RequestTypes::isMultipleRows)
                 .map(Arguments::of);
     }
 
@@ -1608,14 +1609,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private static Stream<Arguments> singleRowWriteRequestTypes() {
         return Arrays.stream(RequestType.values())
-                .filter(RequestType::isSingleRowWrite)
+                .filter(RequestTypes::isSingleRowWrite)
                 .map(Arguments::of);
     }
 
     private void testWritesAreSuppliedWithRequiredCatalogVersion(RequestType requestType, ListenerInvocation listenerInvocation) {
         TestKey key = nextKey();
 
-        if (requestType.looksUpFirst()) {
+        if (RequestTypes.looksUpFirst(requestType)) {
             UUID tx0 = beginTx();
             upsert(tx0, binaryRow(key, someValue));
             cleanup(tx0);
@@ -1669,7 +1670,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private static Stream<Arguments> multiRowsWriteRequestTypes() {
         return Arrays.stream(RequestType.values())
-                .filter(RequestType::isMultipleRowsWrite)
+                .filter(RequestTypes::isMultipleRowsWrite)
                 .map(Arguments::of);
     }
 
