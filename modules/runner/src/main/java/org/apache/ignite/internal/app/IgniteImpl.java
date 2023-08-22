@@ -451,6 +451,7 @@ public class IgniteImpl implements Ignite {
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageConfiguration.KEY));
 
         placementDriverMgr = new PlacementDriverManager(
+                name,
                 metaStorageMgr,
                 vaultMgr,
                 MetastorageGroupId.INSTANCE,
@@ -459,8 +460,6 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                tablesConfig,
-                zonesConfig,
                 clock
         );
 

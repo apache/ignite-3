@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_ID;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -61,6 +60,8 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     @InjectConfiguration("mock.tables.fooTable {}")
     private TablesConfiguration tablesConfiguration;
 
+    private DistributionZonesConfiguration zonesConfiguration;
+
     @BeforeEach
     public void setUp() {
         generator = new ConfigurationTreeGenerator(
@@ -78,7 +79,7 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
         registry.start();
         assertThat(registry.onDefaultsPersisted(), willCompleteSuccessfully());
 
-        DistributionZonesConfiguration zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
+        zonesConfiguration = registry.getConfiguration(DistributionZonesConfiguration.KEY);
 
         distributionZoneManager = new DistributionZoneManager(
                 null,
@@ -101,25 +102,24 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
     public void testGetExistingZoneIdByName() {
         createZone(ZONE_NAME);
 
-        assertEquals(DEFAULT_ZONE_ID + 1, distributionZoneManager.getZoneId(ZONE_NAME));
-        assertEquals(DEFAULT_ZONE_ID + 1,
-                registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones().get(ZONE_NAME).zoneId().value(),
-                "Default distribution zone has wrong id.");
+        int zoneId = getZoneId(ZONE_NAME);
+
+        assertEquals(zoneId, distributionZoneManager.getZoneId(ZONE_NAME));
+        assertEquals(zoneId, zonesConfiguration.distributionZones().get(ZONE_NAME).zoneId().value());
 
         dropZone(ZONE_NAME);
 
         createZone(NEW_ZONE_NAME);
 
-        assertEquals(DEFAULT_ZONE_ID, distributionZoneManager.getZoneId(DEFAULT_ZONE_NAME),
-                "Default distribution zone has wrong id.");
-        assertEquals(DEFAULT_ZONE_ID,
-                registry.getConfiguration(DistributionZonesConfiguration.KEY).defaultDistributionZone().zoneId().value(),
-                "Default distribution zone has wrong id.");
+        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
 
-        assertEquals(DEFAULT_ZONE_ID + 2, distributionZoneManager.getZoneId(NEW_ZONE_NAME));
-        assertEquals(DEFAULT_ZONE_ID + 2,
-                registry.getConfiguration(DistributionZonesConfiguration.KEY).distributionZones().get(NEW_ZONE_NAME).zoneId().value(),
-                "Default distribution zone has wrong id.");
+        assertEquals(defaultZoneId, distributionZoneManager.getZoneId(DEFAULT_ZONE_NAME));
+        assertEquals(defaultZoneId, zonesConfiguration.defaultDistributionZone().zoneId().value());
+
+        int zoneId2 = getZoneId(NEW_ZONE_NAME);
+
+        assertEquals(zoneId2, distributionZoneManager.getZoneId(NEW_ZONE_NAME));
+        assertEquals(zoneId2, zonesConfiguration.distributionZones().get(NEW_ZONE_NAME).zoneId().value());
     }
 
     @Test
@@ -136,5 +136,9 @@ class DistributionZoneManagerTest extends IgniteAbstractTest {
 
     private void dropZone(String zoneName) {
         DistributionZonesTestUtil.dropZone(distributionZoneManager, zoneName);
+    }
+
+    private int getZoneId(String zoneName) {
+        return DistributionZonesTestUtil.getZoneIdStrict(zonesConfiguration, zoneName);
     }
 }

@@ -65,7 +65,7 @@ public class DataStreamerTests : IgniteTestsBase
     {
         var options = DataStreamerOptions.Default with { BatchSize = 10_000 };
         var data = Enumerable.Range(0, Count)
-            .Select(x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), GetTuple(x, "t" + x)))
+            .Select(x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), GetTuple("t" + x)))
             .ToList();
 
         await Table.KeyValueBinaryView.StreamDataAsync(data.ToAsyncEnumerable(), options);

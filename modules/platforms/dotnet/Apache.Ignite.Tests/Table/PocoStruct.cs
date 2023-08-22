@@ -17,7 +17,9 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System.ComponentModel.DataAnnotations.Schema;
+
 /// <summary>
 /// Test user struct.
 /// </summary>
-public record struct PocoStruct(long Key, string? Val, string? UnmappedStr = null);
+public record struct PocoStruct(long Key, string? Val, [property:NotMapped] string? UnmappedStr = null);

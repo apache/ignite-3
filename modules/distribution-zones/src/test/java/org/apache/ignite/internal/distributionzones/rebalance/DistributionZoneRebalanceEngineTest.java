@@ -37,7 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -61,6 +60,7 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
@@ -109,6 +109,10 @@ import org.mockito.quality.Strictness;
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
+    private static final String ZONE_NAME = "zone0";
+
+    private static final String ZONE_NAME_1 = "zone1";
+
     private SimpleInMemoryKeyValueStorage keyValueStorage;
 
     @Mock
@@ -126,7 +130,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             ("mock.distributionZones {"
                     + "zone0 = { partitions = 1, replicas = 128, zoneId = 1},"
                     + "zone1 = { partitions = 2, replicas = 128, zoneId = 2}}")
-    private DistributionZonesConfiguration distributionZonesConfiguration;
+    private DistributionZonesConfiguration zonesConfig;
 
     private WatchListener watchListener;
 
@@ -249,11 +253,13 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
-        watchListenerOnUpdate(2, nodes, 1);
+        int zoneId = getZoneId(ZONE_NAME_1);
+
+        watchListenerOnUpdate(zoneId, nodes, 1);
 
         Map<Integer, Set<String>> zoneNodes = new HashMap<>();
 
-        zoneNodes.put(2, nodes);
+        zoneNodes.put(zoneId, nodes);
 
         checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
@@ -285,11 +291,13 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
-        watchListenerOnUpdate(1, nodes, 1);
+        int zoneId = getZoneId(ZONE_NAME);
+
+        watchListenerOnUpdate(zoneId, nodes, 1);
 
         Map<Integer, Set<String>> zoneNodes = new HashMap<>();
 
-        zoneNodes.put(1, nodes);
+        zoneNodes.put(zoneId, nodes);
 
         checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
@@ -297,10 +305,10 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         nodes = Set.of("node3", "node4", "node5");
 
-        watchListenerOnUpdate(1, nodes, 2);
+        watchListenerOnUpdate(zoneId, nodes, 2);
 
         zoneNodes.clear();
-        zoneNodes.put(1, nodes);
+        zoneNodes.put(zoneId, nodes);
 
         checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
@@ -318,15 +326,17 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         rebalanceEngine.start();
 
-        watchListenerOnUpdate(1, null, 1);
+        int zoneId = getZoneId(ZONE_NAME);
+
+        watchListenerOnUpdate(zoneId, null, 1);
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
-        watchListenerOnUpdate(1, nodes, 2);
+        watchListenerOnUpdate(zoneId, nodes, 2);
 
         Map<Integer, Set<String>> zoneNodes = new HashMap<>();
 
-        zoneNodes.put(1, nodes);
+        zoneNodes.put(zoneId, nodes);
 
         checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
@@ -334,10 +344,10 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         Set<String> emptyNodes = emptySet();
 
-        watchListenerOnUpdate(1, emptyNodes, 3);
+        watchListenerOnUpdate(zoneId, emptyNodes, 3);
 
         zoneNodes.clear();
-        zoneNodes.put(1, null);
+        zoneNodes.put(zoneId, null);
 
         checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::plannedPartAssignmentsKey);
 
@@ -357,11 +367,13 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         Set<String> nodes = Set.of("node0", "node1", "node2");
 
-        watchListenerOnUpdate(1, nodes, 1);
+        int zoneId = getZoneId(ZONE_NAME);
+
+        watchListenerOnUpdate(zoneId, nodes, 1);
 
         Map<Integer, Set<String>> zoneNodes = new HashMap<>();
 
-        zoneNodes.put(1, nodes);
+        zoneNodes.put(zoneId, nodes);
 
         checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
@@ -369,7 +381,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         Set<String> nodes2 = Set.of("node3", "node4", "node5");
 
-        watchListenerOnUpdate(1, nodes2, 1);
+        watchListenerOnUpdate(zoneId, nodes2, 1);
 
         checkAssignments(tablesConfiguration, zoneNodes, RebalanceUtil::pendingPartAssignmentsKey);
 
@@ -402,8 +414,8 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             rebalanceEngine.start();
 
-            CompletableFuture<Void> changeFuture = distributionZonesConfiguration.change(zonesChange -> zonesChange.changeDistributionZones(
-                    zoneListChange -> zoneListChange.update("zone0", zoneChange -> zoneChange.changeReplicas(2))
+            CompletableFuture<Void> changeFuture = zonesConfig.change(zonesChange -> zonesChange.changeDistributionZones(
+                    zoneListChange -> zoneListChange.update(ZONE_NAME, zoneChange -> zoneChange.changeReplicas(2))
             ));
             assertThat(changeFuture, willCompleteSuccessfully());
 
@@ -441,7 +453,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             rebalanceEngine.start();
 
-            CompletableFuture<Void> changeFuture = distributionZonesConfiguration.change(zonesChange ->
+            CompletableFuture<Void> changeFuture = zonesConfig.change(zonesChange ->
                     zonesChange.changeDefaultDistributionZone(zoneChange -> {
                         zoneChange.changeReplicas(2);
                     })
@@ -481,7 +493,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 new AtomicBoolean(),
                 new IgniteSpinBusyLock(),
-                distributionZonesConfiguration,
+                zonesConfig,
                 tablesConfiguration,
                 metaStorageManager,
                 distributionZoneManager
@@ -497,7 +509,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             int tableId = tableView.id();
 
             DistributionZoneConfiguration distributionZoneConfiguration =
-                    getZoneById(distributionZonesConfiguration, tableView.zoneId());
+                    getZoneById(zonesConfig, tableView.zoneId());
 
             for (int j = 0; j < distributionZoneConfiguration.partitions().value(); j++) {
                 TablePartitionId partId = new TablePartitionId(tableId, j);
@@ -544,5 +556,9 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         WatchEvent evt = new WatchEvent(entryEvent);
 
         watchListener.onUpdate(evt);
+    }
+
+    private int getZoneId(String zoneName) {
+        return DistributionZonesTestUtil.getZoneIdStrict(zonesConfig, zoneName);
     }
 }

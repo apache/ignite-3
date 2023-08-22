@@ -19,6 +19,7 @@ package org.apache.ignite.internal.util;
 
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
@@ -698,6 +699,17 @@ public class IgniteUtils {
     /**
      * Closes all provided objects.
      *
+     * @param closeables Collection of closeable objects to close.
+     * @throws Exception If failed to close.
+     * @see #closeAll(Collection)
+     */
+    public static void closeAllManually(Collection<? extends ManuallyCloseable> closeables) throws Exception {
+        closeAllManually(closeables.stream());
+    }
+
+    /**
+     * Closes all provided objects.
+     *
      * @param closeables Array of closeable objects to close.
      * @throws Exception If failed to close.
      * @see #closeAll(Collection)
@@ -880,10 +892,10 @@ public class IgniteUtils {
     /**
      * Method that runs the provided {@code fn} in {@code busyLock}.
      *
-     * @param busyLock Component's busy lock
-     * @param fn Function to run
-     * @param <T> Type of returned value from {@code fn}
-     * @return Result of the provided function
+     * @param busyLock Component's busy lock.
+     * @param fn Function to run.
+     * @param <T> Type of returned value from {@code fn}.
+     * @return Result of the provided function.
      */
     public static <T> T inBusyLock(IgniteSpinBusyLock busyLock, Supplier<T> fn) {
         if (!busyLock.enterBusy()) {
@@ -899,8 +911,8 @@ public class IgniteUtils {
     /**
      * Method that runs the provided {@code fn} in {@code busyLock}.
      *
-     * @param busyLock Component's busy lock
-     * @param fn Runnable to run
+     * @param busyLock Component's busy lock.
+     * @param fn Runnable to run.
      */
     public static void inBusyLock(IgniteSpinBusyLock busyLock, Runnable fn) {
         if (!busyLock.enterBusy()) {
@@ -908,6 +920,29 @@ public class IgniteUtils {
         }
         try {
             fn.run();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Method that runs the provided {@code fn} in {@code busyLock}.
+     *
+     * @param <T> Type of returned value from {@code fn}.
+     * @param busyLock Component's busy lock.
+     * @param fn Function to run.
+     * @return Future returned from the {@code fn}, or future with the {@link NodeStoppingException} if
+     *      {@link IgniteSpinBusyLock#enterBusy()} failed or with runtime exception/error while executing the {@code fn}.
+     */
+    public static <T> CompletableFuture<T> inBusyLockAsync(IgniteSpinBusyLock busyLock, Supplier<CompletableFuture<T>> fn) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return fn.get();
+        } catch (Throwable t) {
+            return failedFuture(t);
         } finally {
             busyLock.leaveBusy();
         }

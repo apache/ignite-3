@@ -168,7 +168,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
         boolean isNode0Leader = node0.id().equals(leader.id());
 
-        BinaryRowEx key = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("id", 42));
+        BinaryRowEx key = new TupleMarshallerImpl(table.schemaView()).marshalKey(Tuple.create().set("id", 42));
 
         if (isNode0Leader) {
             assertNull(table.internalTable().get(key, node1.clock().now(), node1.node()).get());
@@ -280,13 +280,16 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
                 assertEquals(row[1], txTuple.value("NAME"));
                 assertEquals(row[2], txTuple.value("SALARY"));
 
-                BinaryRowEx testKey = new TupleMarshallerImpl(table.schemaView()).marshal(Tuple.create().set("ID", row[0]));
+                BinaryRowEx testKey = new TupleMarshallerImpl(table.schemaView()).marshalKey(Tuple.create().set("ID", row[0]));
 
-                BinaryRow readOnlyRow = table.internalTable().get(testKey, ignite.clock().now(), ignite.node()).get();
+                BinaryRow readOnlyBinaryRow = table.internalTable().get(testKey, ignite.clock().now(), ignite.node()).get();
 
-                assertNotNull(readOnlyRow);
-                assertEquals(row[1], new Row(table.schemaView().schema(), readOnlyRow).stringValue(2));
-                assertEquals(row[2], new Row(table.schemaView().schema(), readOnlyRow).doubleValue(1));
+                assertNotNull(readOnlyBinaryRow);
+
+                Row readOnlyRow = Row.wrapBinaryRow(table.schemaView().schema(), readOnlyBinaryRow);
+
+                assertEquals(row[1], readOnlyRow.stringValue(2));
+                assertEquals(row[2], readOnlyRow.doubleValue(1));
             } catch (Exception e) {
                 new RuntimeException(IgniteStringFormatter.format("Cannot check a row {}", row), e);
             }

@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeType;
@@ -77,7 +78,9 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                     }
 
                     if (!binaryTupleRebuildRequired(schema)) {
-                        return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
+                        var binaryRow = new BinaryRowImpl(schema.version(), tupleReader.byteBuffer());
+
+                        return Row.wrapBinaryRow(schema, binaryRow);
                     }
                 }
             }
@@ -137,25 +140,27 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     private Row buildRow(SchemaDescriptor schema, InternalTuple keyTuple0, InternalTuple valTuple0) throws SchemaMismatchException {
         RowAssembler rowBuilder = createAssembler(schema, keyTuple0, valTuple0);
 
-        Columns columns = schema.keyColumns();
+        Columns keyColumns = schema.keyColumns();
 
-        for (int i = 0, len = columns.length(); i < len; i++) {
-            final Column col = columns.column(i);
+        for (int i = 0, len = keyColumns.length(); i < len; i++) {
+            Column col = keyColumns.column(i);
 
             writeColumn(rowBuilder, col, keyTuple0);
         }
 
-        if (valTuple0.tuple != null) {
-            columns = schema.valueColumns();
-
-            for (int i = 0, len = columns.length(); i < len; i++) {
-                final Column col = columns.column(i);
-
-                writeColumn(rowBuilder, col, valTuple0);
-            }
+        if (schema.valueColumns().length() == 0 || valTuple0.tuple == null) {
+            return Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build());
         }
 
-        return new Row(schema, rowBuilder.build());
+        Columns valueColumns = schema.valueColumns();
+
+        for (int i = 0, len = valueColumns.length(); i < len; i++) {
+            Column col = valueColumns.column(i);
+
+            writeColumn(rowBuilder, col, valTuple0);
+        }
+
+        return Row.wrapBinaryRow(schema, rowBuilder.build());
     }
 
     /** {@inheritDoc} */
@@ -180,7 +185,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 writeColumn(rowBuilder, col, keyTuple0);
             }
 
-            return new Row(schema, rowBuilder.build());
+            return Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build());
         } catch (Exception ex) {
             throw new TupleMarshallerException("Failed to marshal tuple.", ex);
         }
