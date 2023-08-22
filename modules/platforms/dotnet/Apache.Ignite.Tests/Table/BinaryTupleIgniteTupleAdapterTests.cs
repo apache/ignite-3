@@ -26,7 +26,7 @@ using Internal.Table;
 using NUnit.Framework;
 
 /// <summary>
-/// Tests for <see cref="BinaryTupleIgniteTupleAdapterTests"/>. Ensures consistency with <see cref="IgniteTuple"/>.
+/// Tests for <see cref="BinaryTupleIgniteTupleAdapter"/>. Ensures consistency with <see cref="IgniteTuple"/>.
 /// </summary>
 [TestFixture]
 public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
