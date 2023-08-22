@@ -98,7 +98,7 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
         return NO_VERSION_REQUIREMENT;
     }
 
-    private boolean isMetadataAvailableFor(int catalogVersion) {
-        return catalogVersion <= catalogService.latestCatalogVersion();
+    private boolean isMetadataAvailableFor(int requiredCatalogVersion) {
+        return requiredCatalogVersion <= catalogService.latestCatalogVersion();
     }
 }
