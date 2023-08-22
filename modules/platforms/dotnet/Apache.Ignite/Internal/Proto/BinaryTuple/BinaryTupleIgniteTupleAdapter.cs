@@ -61,10 +61,9 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple
     /// <inheritdoc/>
     public object? this[int ordinal]
     {
-        get
-        {
-            throw new NotImplementedException();
-        }
+        get => _tuple != null
+            ? _tuple[ordinal]
+            : TupleSerializerHandler.ReadObject(_data.Span, _schema!, ordinal);
 
         set => InitTuple()[ordinal] = value;
     }

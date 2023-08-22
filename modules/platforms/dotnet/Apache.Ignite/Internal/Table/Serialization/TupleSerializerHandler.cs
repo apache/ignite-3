@@ -68,6 +68,21 @@ namespace Apache.Ignite.Internal.Table.Serialization
             return tuple;
         }
 
+        /// <summary>
+        /// Reads single column from the binary tuple.
+        /// </summary>
+        /// <param name="buf">Binary tuple buffer.</param>
+        /// <param name="schema">Schema.</param>
+        /// <param name="index">Column index.</param>
+        /// <returns>Column value.</returns>
+        public static object? ReadObject(ReadOnlySpan<byte> buf, Schema schema, int index)
+        {
+            var tupleReader = new BinaryTupleReader(buf, schema.Columns.Count);
+            var column = schema.Columns[index];
+
+            return tupleReader.GetObject(index, column.Type, column.Scale);
+        }
+
         /// <inheritdoc/>
         public IIgniteTuple Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
         {
