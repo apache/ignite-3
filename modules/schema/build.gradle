@@ -53,9 +53,12 @@ dependencies {
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
 
+    testFixturesApi libs.hamcrest.core
+
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-bytecode')
     testFixturesImplementation project(':ignite-configuration-api')
+    testFixturesImplementation project(':ignite-catalog')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.junit5.api

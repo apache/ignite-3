@@ -87,7 +87,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
 
         recMarsh.writeObject(rec, asm);
 
-        return new Row(schema, asm.build());
+        return Row.wrapBinaryRow(schema, asm.build());
     }
 
     /** {@inheritDoc} */
@@ -99,7 +99,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
 
         keyMarsh.writeObject(rec, asm);
 
-        return new Row(schema, asm.build());
+        return Row.wrapKeyOnlyBinaryRow(schema, asm.build());
     }
 
     /** {@inheritDoc} */

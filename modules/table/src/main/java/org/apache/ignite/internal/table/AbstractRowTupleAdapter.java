@@ -49,7 +49,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
      *
      * @param row Row.
      */
-    public AbstractRowTupleAdapter(@NotNull Row row) {
+    public AbstractRowTupleAdapter(Row row) {
         this.row = row;
     }
 
@@ -62,7 +62,7 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     /** {@inheritDoc} */
     @Override
     public int columnCount() {
-        return row.hasValue() ? row.schema().length() : row.schema().keyColumns().length();
+        return row.elementCount();
     }
 
     /** {@inheritDoc} */

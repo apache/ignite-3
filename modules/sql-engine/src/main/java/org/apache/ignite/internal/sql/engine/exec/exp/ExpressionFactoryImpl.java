@@ -71,6 +71,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGe
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -80,6 +81,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -91,17 +93,11 @@ import org.jetbrains.annotations.Nullable;
 public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private static final int CACHE_SIZE = 1024;
 
-    /** Placeholder for DEFAULT operator value. */
-    // TODO Remove this constant when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-    public static final Object DEFAULT_VALUE_PLACEHOLDER = Placeholder.DEFAULT_VALUE;
-
     /** Placeholder for values, which expressions are not specified. */
     public static final Object UNSPECIFIED_VALUE_PLACEHOLDER = Placeholder.UNSPECIFIED_VALUE;
 
     // We use enums for placeholders because enum serialization/deserialization guarantees to preserve object's identity.
     private enum Placeholder {
-        // TODO Remove this enum element when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-        DEFAULT_VALUE,
         UNSPECIFIED_VALUE
     }
 
@@ -264,27 +260,37 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /** {@inheritDoc} */
     @Override
     public Function<RowT, RowT> project(List<RexNode> projects, RelDataType rowType) {
-        return new ProjectImpl(scalar(projects, rowType), ctx.rowHandler().factory(typeFactory, RexUtil.types(projects)));
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RexUtil.types(projects));
+
+        return new ProjectImpl(scalar(projects, rowType), ctx.rowHandler().factory(rowSchema));
     }
 
     /** {@inheritDoc} */
     @Override
     public Supplier<RowT> rowSource(List<RexNode> values) {
-        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(typeFactory,
-                Commons.transform(values, v -> v != null ? v.getType() : nullType)));
+        List<RelDataType> typeList = Commons.transform(values, v -> v != null ? v.getType() : nullType);
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typeList);
+
+        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
     }
 
     /** {@inheritDoc} */
     @Override
     public <T> Supplier<T> execute(RexNode node) {
-        return new ValueImpl<>(scalar(node, null), ctx.rowHandler().factory(typeFactory.getJavaClass(node.getType())));
+        RelDataType nodeType = node.getType();
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(List.of(nodeType));
+
+        RowFactory<RowT> factory = ctx.rowHandler().factory(rowSchema);
+
+        return new ValueImpl<>(scalar(node, null), factory);
     }
 
     /** {@inheritDoc} */
     @Override
     public Iterable<RowT> values(List<RexLiteral> values, RelDataType rowType) {
         RowHandler<RowT> handler = ctx.rowHandler();
-        RowFactory<RowT> factory = handler.factory(typeFactory, rowType);
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+        RowFactory<RowT> factory = handler.factory(rowSchema);
 
         int columns = rowType.getFieldCount();
         assert values.size() % columns == 0;
@@ -319,7 +325,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RelDataType rowType,
             @Nullable Comparator<RowT> comparator
     ) {
-        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(typeFactory, rowType);
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
         List<RangeCondition<RowT>> ranges = new ArrayList<>();
 
@@ -617,7 +624,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private AbstractScalarPredicate(T scalar) {
             this.scalar = scalar;
             hnd = ctx.rowHandler();
-            out = hnd.factory(typeFactory, typeFactory.createJavaType(Boolean.class)).create();
+
+            RelDataType booleanType = typeFactory.createSqlType(SqlTypeName.BOOLEAN);
+            RelDataType nullableType = typeFactory.createTypeWithNullability(booleanType, true);
+            RowSchema schema = TypeUtils.rowSchemaFromRelTypes(List.of(nullableType));
+
+            out = hnd.factory(schema).create();
         }
     }
 

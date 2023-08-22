@@ -24,9 +24,8 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParamsAndPreviousValue;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -55,10 +54,12 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -89,6 +90,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundExce
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
@@ -167,15 +169,9 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                 new CatalogIndexDescriptor[0]
         );
 
-        CatalogZoneDescriptor defaultZone = new CatalogZoneDescriptor(
+        CatalogZoneDescriptor defaultZone = fromParams(
                 objectIdGen++,
-                DEFAULT_ZONE_NAME,
-                25,
-                1,
-                INFINITE_TIMER_VALUE,
-                INFINITE_TIMER_VALUE,
-                INFINITE_TIMER_VALUE,
-                DEFAULT_FILTER
+                CreateZoneParams.builder().zoneName(DEFAULT_ZONE_NAME).build()
         );
 
         registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(schemaPublic)));
@@ -253,13 +249,23 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     @Override
-    public CatalogZoneDescriptor zone(String zoneName, long timestamp) {
+    public @Nullable CatalogZoneDescriptor zone(String zoneName, long timestamp) {
         return catalogAt(timestamp).zone(zoneName);
     }
 
     @Override
-    public CatalogZoneDescriptor zone(int zoneId, long timestamp) {
+    public @Nullable CatalogZoneDescriptor zone(int zoneId, long timestamp) {
         return catalogAt(timestamp).zone(zoneId);
+    }
+
+    @Override
+    public @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion) {
+        return catalog(catalogVersion).zone(zoneId);
+    }
+
+    @Override
+    public Collection<CatalogZoneDescriptor> zones(int catalogVersion) {
+        return catalog(catalogVersion).zones();
     }
 
     @Override
@@ -316,7 +322,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
             int id = catalog.objectIdGenState();
 
-            CatalogTableDescriptor table = CatalogUtils.fromParams(id++, zone.id(), params);
+            CatalogTableDescriptor table = fromParams(id++, zone.id(), params);
 
             CatalogHashIndexDescriptor pkIndex = createHashIndexDescriptor(table, id++, createPkIndexParams(params));
 
@@ -365,7 +371,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                     throw new ColumnAlreadyExistsException(col.name());
                 }
 
-                columnDescriptors.add(CatalogUtils.fromParams(col));
+                columnDescriptors.add(fromParams(col));
             }
 
             return List.of(
@@ -452,7 +458,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
             validateCreateSortedIndexParams(params, table);
 
-            CatalogIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+            CatalogIndexDescriptor index = fromParams(catalog.objectIdGenState(), table.id(), params);
 
             return List.of(
                     new NewIndexEntry(index),
@@ -487,7 +493,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new DistributionZoneAlreadyExistsException(params.zoneName());
             }
 
-            CatalogZoneDescriptor zone = CatalogUtils.fromParams(catalog.objectIdGenState(), params);
+            CatalogZoneDescriptor zone = fromParams(catalog.objectIdGenState(), params);
 
             return List.of(
                     new NewZoneEntry(zone),
@@ -548,7 +554,8 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                     zone.dataNodesAutoAdjust(),
                     zone.dataNodesAutoAdjustScaleUp(),
                     zone.dataNodesAutoAdjustScaleDown(),
-                    zone.filter()
+                    zone.filter(),
+                    zone.dataStorage()
             );
 
             return List.of(new AlterZoneEntry(descriptor));
@@ -562,37 +569,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
 
-            Integer dataNodesAutoAdjust = Objects.requireNonNullElse(
-                    params.dataNodesAutoAdjust(),
-                    zone.dataNodesAutoAdjust()
-            );
-
-            Integer dataNodesAutoAdjustScaleUp = Objects.requireNonNullElse(
-                    params.dataNodesAutoAdjustScaleUp(),
-                    zone.dataNodesAutoAdjustScaleUp()
-            );
-
-            Integer dataNodesAutoAdjustScaleDown = Objects.requireNonNullElse(
-                    params.dataNodesAutoAdjustScaleDown(),
-                    zone.dataNodesAutoAdjustScaleDown()
-            );
-
-            validateZoneDataNodesAutoAdjustParametersCompatibility(
-                    dataNodesAutoAdjust,
-                    dataNodesAutoAdjustScaleUp,
-                    dataNodesAutoAdjustScaleDown
-            );
-
-            CatalogZoneDescriptor descriptor = new CatalogZoneDescriptor(
-                    zone.id(),
-                    zone.name(),
-                    Objects.requireNonNullElse(params.partitions(), zone.partitions()),
-                    Objects.requireNonNullElse(params.replicas(), zone.replicas()),
-                    dataNodesAutoAdjust,
-                    dataNodesAutoAdjustScaleUp,
-                    dataNodesAutoAdjustScaleDown,
-                    Objects.requireNonNullElse(params.filter(), zone.filter())
-            );
+            CatalogZoneDescriptor descriptor = fromParamsAndPreviousValue(params, zone);
 
             return List.of(new AlterZoneEntry(descriptor));
         });
@@ -980,6 +957,15 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     ) {
         validateCreateHashIndexParams(params, table);
 
-        return CatalogUtils.fromParams(indexId, table.id(), params);
+        return fromParams(indexId, table.id(), params);
+    }
+
+    @Override
+    public void listen(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure) {
+        listen(evt, (EventListener<CatalogEventParameters>) closure);
+    }
+
+    private static @Nullable CatalogDataStorageDescriptor dataStorage(@Nullable DataStorageParams params) {
+        return params == null ? null : fromParams(params);
     }
 }

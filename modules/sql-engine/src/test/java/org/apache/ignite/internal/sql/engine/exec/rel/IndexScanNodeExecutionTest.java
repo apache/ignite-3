@@ -42,10 +42,12 @@ import org.apache.ignite.internal.index.Index;
 import org.apache.ignite.internal.index.IndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.index.SortedIndexImpl;
+import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.metadata.PartitionWithTerm;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -168,17 +170,20 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
             TestScannableTable<?> scannableTable, @Nullable Comparator<Object[]> comparator) {
 
         RelDataTypeFactory.Builder rowTypeBuilder = new Builder(Commons.typeFactory());
+        RowSchema.Builder rowSchemaBuilder = RowSchema.builder();
 
         for (String column : index.descriptor().columns()) {
             rowTypeBuilder = rowTypeBuilder.add(column, SqlTypeName.INTEGER);
+            rowSchemaBuilder = rowSchemaBuilder.addField(NativeTypes.INT32);
         }
 
         RelDataType rowType = rowTypeBuilder.build();
+        RowSchema rowSchema = rowSchemaBuilder.build();
 
         TableDescriptor tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, rowType);
 
         IgniteIndex schemaIndex = new IgniteIndex(index);
-        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(ctx.getTypeFactory(), rowType);
+        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(rowSchema);
         SingleRangeIterable<Object[]> conditions = new SingleRangeIterable<>(new Object[]{}, null, false, false);
         List<PartitionWithTerm> partitions = scannableTable.getPartitions();
 

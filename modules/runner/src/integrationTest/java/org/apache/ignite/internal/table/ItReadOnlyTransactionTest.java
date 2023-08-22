@@ -178,7 +178,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
         rowBuilder.appendInt(id);
         rowBuilder.appendString("new str " + id);
 
-        return new Row(schema, rowBuilder.build());
+        return Row.wrapBinaryRow(schema, rowBuilder.build());
     }
 
     private static Row createRowKey(SchemaDescriptor schema, int id) {
@@ -186,7 +186,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
 
         rowBuilder.appendInt(id);
 
-        return new Row(schema, rowBuilder.build());
+        return Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build());
     }
 
     /**

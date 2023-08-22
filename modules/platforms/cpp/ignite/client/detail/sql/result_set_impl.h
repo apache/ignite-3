@@ -116,7 +116,7 @@ public:
         };
 
         return m_connection->perform_request<void>(
-            client_operation::SQL_CURSOR_CLOSE, writer_func, std::move(reader_func), std::move(callback));
+            protocol::client_operation::SQL_CURSOR_CLOSE, writer_func, std::move(reader_func), std::move(callback));
     }
 
     /**
@@ -183,7 +183,7 @@ public:
         };
 
         m_connection->perform_request<void>(
-            client_operation::SQL_CURSOR_NEXT_PAGE, writer_func, std::move(reader_func), std::move(callback));
+            protocol::client_operation::SQL_CURSOR_NEXT_PAGE, writer_func, std::move(reader_func), std::move(callback));
     }
 
 private:

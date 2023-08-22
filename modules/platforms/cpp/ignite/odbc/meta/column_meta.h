@@ -18,8 +18,8 @@
 #pragma once
 
 #include "ignite/odbc/common_types.h"
-#include "ignite/odbc/protocol_version.h"
 #include "ignite/odbc/utility.h"
+#include "ignite/protocol/protocol_version.h"
 
 #include "ignite/common/ignite_type.h"
 #include "ignite/protocol/reader.h"
@@ -93,13 +93,6 @@ public:
         , m_precision(precision)
         , m_scale(scale)
         , m_nullability(nullable ? nullability::NULLABLE : nullability::NO_NULL) {}
-
-    /**
-     * Read using reader.
-     * @param reader Reader.
-     * @param ver Server version.
-     */
-    void read(protocol::reader &reader, const protocol_version &ver);
 
     /**
      * Get schema name.
@@ -187,14 +180,5 @@ private:
 
 /** Column metadata vector alias. */
 typedef std::vector<column_meta> column_meta_vector;
-
-/**
- * Read columns metadata collection.
- *
- * @param reader Reader.
- * @param meta Collection.
- * @param ver Server protocol version.
- */
-void read_column_meta_vector(protocol::reader &reader, column_meta_vector &meta, const protocol_version &ver);
 
 } // namespace ignite

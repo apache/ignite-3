@@ -22,11 +22,8 @@ import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DAT
 import static org.apache.ignite.lang.IgniteSystemProperties.getString;
 import static org.mockito.Mockito.framework;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
-import java.util.logging.LogManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
@@ -47,18 +44,7 @@ public abstract class BaseIgniteAbstractTest {
     /** Test start time in milliseconds. */
     private long testStartMs;
 
-    //
-    // IDEA test runner didn't apply provided from Gradle scripts -Djava.util.logging.config.file
-    // So, we need to apply logging properties manually to {@link LogManager}.
-    //
     static {
-        try (InputStream is = BaseIgniteAbstractTest.class.getClassLoader()
-                        .getResourceAsStream("java.util.logging.properties")) {
-            LogManager.getLogManager().readConfiguration(is);
-        } catch (IOException e) {
-            throw new IllegalStateException("Logger properties not found.");
-        }
-
         /* Init test env. */
         S.setSensitiveDataLoggingPolicySupplier(() ->
                 SensitiveDataLoggingPolicy.valueOf(getString(IGNITE_SENSITIVE_DATA_LOGGING, "hash").toUpperCase()));
