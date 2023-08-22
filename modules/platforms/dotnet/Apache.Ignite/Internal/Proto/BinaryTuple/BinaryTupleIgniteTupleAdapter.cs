@@ -94,11 +94,11 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple
 
             for (var i = 0; i < _schema.Columns.Count; i++)
             {
-                _indexes[_schema.Columns[i].Name] = i;
+                _indexes[IgniteTupleCommon.ParseColumnName(_schema.Columns[i].Name)] = i;
             }
         }
 
-        return _indexes.TryGetValue(name, out var index) ? index : -1;
+        return _indexes.TryGetValue(IgniteTupleCommon.ParseColumnName(name), out var index) ? index : -1;
     }
 
     /// <inheritdoc/>
