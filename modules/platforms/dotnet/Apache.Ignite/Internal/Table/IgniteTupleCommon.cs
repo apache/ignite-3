@@ -18,8 +18,6 @@
 namespace Apache.Ignite.Internal.Table;
 
 using System;
-using Common;
-using Ignite.Table;
 
 /// <summary>
 /// Common tuple utilities.
@@ -44,22 +42,5 @@ internal static class IgniteTupleCommon
         }
 
         return name.ToUpperInvariant();
-    }
-
-    /// <summary>
-    /// Converts tuple to string.
-    /// </summary>
-    /// <param name="tuple">Tuple.</param>
-    /// <returns>String representation.</returns>
-    public static string ToString(IIgniteTuple tuple)
-    {
-        var builder = new IgniteToStringBuilder(tuple.GetType());
-
-        for (var i = 0; i < tuple.FieldCount; i++)
-        {
-            builder.Append(tuple[i], tuple.GetName(i));
-        }
-
-        return builder.Build();
     }
 }

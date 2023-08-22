@@ -107,7 +107,7 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<B
     }
 
     /// <inheritdoc/>
-    public override string ToString() => IgniteTupleCommon.ToString(this);
+    public override string ToString() => IIgniteTuple.ToString(this);
 
     /// <inheritdoc />
     public bool Equals(BinaryTupleIgniteTupleAdapter? other) => IIgniteTuple.Equals(this, other);

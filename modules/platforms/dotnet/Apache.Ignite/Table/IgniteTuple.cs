@@ -84,7 +84,7 @@ namespace Apache.Ignite.Table
         public int GetOrdinal(string name) => _indexes.TryGetValue(IgniteTupleCommon.ParseColumnName(name), out var index) ? index : -1;
 
         /// <inheritdoc />
-        public override string ToString() => IgniteTupleCommon.ToString(this);
+        public override string ToString() => IIgniteTuple.ToString(this);
 
         /// <inheritdoc />
         public bool Equals(IgniteTuple? other) => IIgniteTuple.Equals(this, other);
