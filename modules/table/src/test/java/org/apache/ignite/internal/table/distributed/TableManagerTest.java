@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_N
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -35,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -261,7 +261,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(topologyService.localMember()).thenReturn(node);
 
         revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> {
-            function.apply(0L).join();
+            assertThat(function.apply(0L), willCompleteSuccessfully());
 
             fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
                 log.info("Notify about revision: {}", newStorageRevision);
@@ -277,6 +277,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(cmgMgr.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
 
         distributionZoneManager = mock(DistributionZoneManager.class);
+
+        when(distributionZoneManager.zoneIdAsyncInternal(anyString()))
+                .then(invocation -> completedFuture(getZoneId(invocation.getArgument(0))));
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(completedFuture(emptySet()));
 
@@ -315,44 +318,26 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         tblManagerFut.complete(tableManager);
 
-        TableDefinition scmTbl = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, PRECONFIGURED_TABLE_NAME).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-
         createZone(PARTITIONS, REPLICAS);
 
-        CompletableFuture<Void> changeTableConfigFuture = tblsCfg.tables().change(tablesChange -> {
-            tablesChange.create(scmTbl.name(), tableChange -> {
-                (SchemaConfigurationConverter.convert(scmTbl, tableChange))
-                        .changeZoneId(getZoneId(ZONE_NAME));
-                var extConfCh = ((ExtendedTableChange) tableChange);
+        TableDefinition scmTbl = createTableDefinition(PRECONFIGURED_TABLE_NAME);
 
-                extConfCh.changeSchemaId(1);
-            });
-        });
+        CompletableFuture<Void> createTableConfigFuture = tblsCfg.tables().change(tablesChange ->
+                tablesChange.create(scmTbl.name(), tableChange -> {
+                    (SchemaConfigurationConverter.convert(scmTbl, tableChange)).changeZoneId(getZoneId(ZONE_NAME));
 
-        assertThat(changeTableConfigFuture, willCompleteSuccessfully());
+                    var extConfCh = ((ExtendedTableChange) tableChange);
+
+                    extConfCh.changeSchemaId(1);
+                }));
+
+        assertThat(createTableConfigFuture, willCompleteSuccessfully());
 
         assertEquals(1, tableManager.tables().size());
 
         assertNotNull(tableManager.table(scmTbl.name()));
 
         checkTableDataStorage(tblsCfg.tables().value(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
-    }
-
-    private void createZone(int partitions, int replicas) {
-        DistributionZonesTestUtil.createZone(catalogManager, ZONE_NAME, partitions, replicas);
-    }
-
-    private int getZoneId(String zoneName) {
-        return DistributionZonesTestUtil.getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
-    }
-
-    private @Nullable String getZoneDataStorage(int zoneId) {
-        CatalogZoneDescriptor zoneDescriptor = DistributionZonesTestUtil.getZoneById(catalogManager, zoneId, clock.nowLong());
-
-        return zoneDescriptor == null ? null : zoneDescriptor.dataStorage().engine();
     }
 
     /**
@@ -362,16 +347,11 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testCreateTable() throws Exception {
-        TableDefinition scmTbl = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, DYNAMIC_TABLE_NAME).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-
-        Table table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
+        Table table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
 
         assertNotNull(table);
 
-        assertSame(table, tblManagerFut.join().table(scmTbl.name()));
+        assertSame(table, tblManagerFut.join().table(DYNAMIC_TABLE_NAME));
 
         checkTableDataStorage(tblsCfg.tables().value(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
     }
@@ -383,12 +363,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testDropTable() throws Exception {
-        TableDefinition scmTbl = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, DYNAMIC_TABLE_FOR_DROP_NAME).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-
-        mockManagersAndCreateTable(scmTbl, tblManagerFut);
+        mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -398,7 +373,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         verify(txStateTableStorage).destroy();
         verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
 
-        assertNull(tableManager.table(scmTbl.name()));
+        assertNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
 
         assertEquals(0, tableManager.tables().size());
     }
@@ -418,10 +393,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         createZone(PARTITIONS, REPLICAS);
 
         Consumer<TableChange> createTableChange = (TableChange change) ->
-                SchemaConfigurationConverter.convert(SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, DYNAMIC_TABLE_FOR_DROP_NAME).columns(
-                                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
-                        ).withPrimaryKey("key").build(), change);
+                SchemaConfigurationConverter.convert(createTableDefinition(DYNAMIC_TABLE_FOR_DROP_NAME), change);
 
         Function<TableChange, Boolean> addColumnChange = (TableChange change) -> {
             change.changeColumns(cols -> {
@@ -546,12 +518,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     private IgniteBiTuple<TableImpl, TableManager> startTableManagerStopTest() throws Exception {
-        TableDefinition scmTbl = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, DYNAMIC_TABLE_FOR_DROP_NAME).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-
-        TableImpl table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
+        TableImpl table = mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
 
         verify(rm, times(PARTITIONS)).startRaftGroupService(any(), any(), any());
 
@@ -577,16 +544,11 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testGetTableDuringCreation() {
-        TableDefinition scmTbl = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, DYNAMIC_TABLE_FOR_DROP_NAME).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
-        ).withPrimaryKey("key").build();
-
         Phaser phaser = new Phaser(2);
 
         CompletableFuture<Table> createFut = CompletableFuture.supplyAsync(() -> {
             try {
-                return mockManagersAndCreateTableWithDelay(scmTbl, tblManagerFut, phaser);
+                return mockManagersAndCreateTableWithDelay(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut, phaser);
             } catch (Exception e) {
                 fail(e.getMessage());
             }
@@ -597,7 +559,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         CompletableFuture<Table> getFut = CompletableFuture.supplyAsync(() -> {
             phaser.awaitAdvance(0);
 
-            return tblManagerFut.join().table(scmTbl.name());
+            return tblManagerFut.join().table(DYNAMIC_TABLE_FOR_DROP_NAME);
         });
 
         CompletableFuture<Collection<Table>> getAllTablesFut = CompletableFuture.supplyAsync(() -> {
@@ -624,22 +586,15 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testDoubledCreateTable() throws Exception {
-        TableDefinition scmTbl = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, DYNAMIC_TABLE_NAME)
-                .columns(
-                        SchemaBuilders.column("key", ColumnType.INT64).build(),
-                        SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build())
-                .withPrimaryKey("key")
-                .build();
-
-        Table table = mockManagersAndCreateTable(scmTbl, tblManagerFut);
+        Table table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
 
         assertNotNull(table);
 
         assertThrows(RuntimeException.class,
                 () -> await(tblManagerFut.join().createTableAsync(DYNAMIC_TABLE_NAME, ZONE_NAME,
-                        tblCh -> SchemaConfigurationConverter.convert(scmTbl, tblCh))));
+                        tblCh -> SchemaConfigurationConverter.convert(createTableDefinition(DYNAMIC_TABLE_NAME), tblCh))));
 
-        assertSame(table, tblManagerFut.join().table(scmTbl.name()));
+        assertSame(table, tblManagerFut.join().table(DYNAMIC_TABLE_NAME));
     }
 
     @Test
@@ -694,10 +649,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
         });
 
-        TableDefinition scmTbl = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, PRECONFIGURED_TABLE_NAME).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
-        ).withPrimaryKey("key").build();
+        TableDefinition scmTbl = createTableDefinition(PRECONFIGURED_TABLE_NAME);
 
         CompletableFuture<Void> cfgChangeFuture = tblsCfg.tables()
                 .change(namedListChange -> namedListChange.create(scmTbl.name(),
@@ -718,16 +670,13 @@ public class TableManagerTest extends IgniteAbstractTest {
     /**
      * Instantiates Table manager and creates a table in it.
      *
-     * @param tableDefinition Configuration schema for a table.
+     * @param tableName Table name.
      * @param tblManagerFut Future for table manager.
      * @return Table.
      * @throws Exception If something went wrong.
      */
-    private TableImpl mockManagersAndCreateTable(
-            TableDefinition tableDefinition,
-            CompletableFuture<TableManager> tblManagerFut
-    ) throws Exception {
-        return mockManagersAndCreateTableWithDelay(tableDefinition, tblManagerFut, null);
+    private TableImpl mockManagersAndCreateTable(String tableName, CompletableFuture<TableManager> tblManagerFut) throws Exception {
+        return mockManagersAndCreateTableWithDelay(tableName, tblManagerFut, null);
     }
 
     /** Dummy metastore activity mock. */
@@ -745,14 +694,14 @@ public class TableManagerTest extends IgniteAbstractTest {
     /**
      * Instantiates a table and prepares Table manager. When the latch would open, the method completes.
      *
-     * @param tableDefinition Configuration schema for a table.
+     * @param tableName Table name.
      * @param tblManagerFut Future for table manager.
      * @param phaser Phaser for the wait.
      * @return Table manager.
      * @throws Exception If something went wrong.
      */
     private TableImpl mockManagersAndCreateTableWithDelay(
-            TableDefinition tableDefinition,
+            String tableName,
             CompletableFuture<TableManager> tblManagerFut,
             @Nullable Phaser phaser
     ) throws Exception {
@@ -793,6 +742,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = createTableManager(tblManagerFut);
 
         int tablesBeforeCreation = tableManager.tables().size();
+
+        TableDefinition tableDefinition = createTableDefinition(tableName);
 
         tblsCfg.tables().listen(ctx -> {
             boolean createTbl = ctx.newValue().get(tableDefinition.name()) != null
@@ -934,8 +885,29 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     private void checkTableDataStorage(NamedListView<TableView> tables, String expDataStorage) {
-        for (TableView tableView : tables) {
-            assertThat(getZoneDataStorage(tableView.zoneId()), equalTo(expDataStorage));
+        for (TableView table : tables) {
+            assertEquals(getZoneDataStorage(table.zoneId()), expDataStorage, table.name());
         }
+    }
+
+    private void createZone(int partitions, int replicas) {
+        DistributionZonesTestUtil.createZone(catalogManager, ZONE_NAME, partitions, replicas);
+    }
+
+    private int getZoneId(String zoneName) {
+        return DistributionZonesTestUtil.getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
+    }
+
+    private @Nullable String getZoneDataStorage(int zoneId) {
+        CatalogZoneDescriptor zoneDescriptor = DistributionZonesTestUtil.getZoneById(catalogManager, zoneId, clock.nowLong());
+
+        return zoneDescriptor == null ? null : zoneDescriptor.dataStorage().engine();
+    }
+
+    private static TableDefinition createTableDefinition(String tableName) {
+        return SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, tableName).columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
+        ).withPrimaryKey("key").build();
     }
 }

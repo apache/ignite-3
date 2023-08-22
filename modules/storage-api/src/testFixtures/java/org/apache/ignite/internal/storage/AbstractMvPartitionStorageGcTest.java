@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.storage;
 
+import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -58,13 +61,13 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         assertNotNull(gcedRow);
 
-        assertRowMatches(gcedRow.binaryRow(), TABLE_ROW);
+        assertThat(gcedRow.binaryRow(), is(equalToRow(TABLE_ROW)));
 
         // Read from the old timestamp should return null.
         assertNull(read(ROW_ID, firstCommitTs));
 
         // Read from the newer timestamp should return last value.
-        assertRowMatches(read(ROW_ID, secondCommitTs), TABLE_ROW2);
+        assertThat(read(ROW_ID, secondCommitTs), is(equalToRow(TABLE_ROW2)));
     }
 
     @Test
@@ -75,7 +78,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         BinaryRowAndRowId row = pollForVacuum(secondCommitTs);
 
         assertNotNull(row);
-        assertRowMatches(row.binaryRow(), TABLE_ROW);
+        assertThat(row.binaryRow(), is(equalToRow(TABLE_ROW)));
 
         assertNull(read(ROW_ID, secondCommitTs));
 
@@ -95,7 +98,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         BinaryRowAndRowId row = pollForVacuum(lastCommitTs);
 
         assertNotNull(row);
-        assertRowMatches(row.binaryRow(), TABLE_ROW);
+        assertThat(row.binaryRow(), is(equalToRow(TABLE_ROW)));
 
         assertNull(read(ROW_ID, lastCommitTs));
 
@@ -118,13 +121,13 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
         BinaryRowAndRowId row = pollForVacuum(lowWatermark);
 
         assertNotNull(row);
-        assertRowMatches(row.binaryRow(), TABLE_ROW);
+        assertThat(row.binaryRow(), is(equalToRow(TABLE_ROW)));
 
         // Poll the next oldest row.
         row = pollForVacuum(lowWatermark);
 
         assertNotNull(row);
-        assertRowMatches(row.binaryRow(), TABLE_ROW2);
+        assertThat(row.binaryRow(), is(equalToRow(TABLE_ROW2)));
 
         // Nothing else to poll.
         assertNull(pollForVacuum(lowWatermark));
@@ -140,7 +143,8 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         BinaryRowAndRowId row = pollForVacuum(HybridTimestamp.MAX_VALUE);
 
-        assertRowMatches(row.binaryRow(), TABLE_ROW);
+        assertNotNull(row);
+        assertThat(row.binaryRow(), is(equalToRow(TABLE_ROW)));
     }
 
     @Test
@@ -153,6 +157,7 @@ public abstract class AbstractMvPartitionStorageGcTest extends BaseMvPartitionSt
 
         BinaryRowAndRowId row = pollForVacuum(HybridTimestamp.MAX_VALUE);
 
-        assertRowMatches(row.binaryRow(), TABLE_ROW);
+        assertNotNull(row);
+        assertThat(row.binaryRow(), is(equalToRow(TABLE_ROW)));
     }
 }

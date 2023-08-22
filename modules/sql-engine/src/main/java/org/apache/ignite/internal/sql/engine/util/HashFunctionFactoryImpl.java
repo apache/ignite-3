@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.DEFAULT_VALUE_PLACEHOLDER;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-
 import java.util.Objects;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.schema.NativeType;
@@ -117,15 +114,7 @@ public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
                 NativeTypeSpec nativeTypeSpec = fieldTypes[i].spec();
                 Class<?> storageType = NativeTypeSpec.toClass(nativeTypeSpec, true);
 
-                // TODO Remove this check when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-                if (value == DEFAULT_VALUE_PLACEHOLDER) {
-                    var error = format("Placeholder should have been replaced. field: {} nativeTypeSpec: {} row: {} ",
-                            fields[i], nativeTypeSpec, rowHandler.toString(row));
-
-                    throw new IllegalArgumentException(error);
-                } else {
-                    value = TypeUtils.fromInternal(value, storageType);
-                }
+                value = TypeUtils.fromInternal(value, storageType);
 
                 ColocationUtils.append(hashCalc, value, fieldTypes[i]);
             }
