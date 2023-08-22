@@ -109,9 +109,9 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
             var reader = new MsgPackReader(SerializedData);
             var res = TupleSerializerHandler.Instance.Read(ref reader, Schema);
 
-            Consumer.Consume(res[nameof(Car.Id)]);
-            Consumer.Consume(res[nameof(Car.BodyType)]);
-            Consumer.Consume(res[nameof(Car.Seats)]);
+            Consumer.Consume(res[0]);
+            Consumer.Consume(res[1]);
+            Consumer.Consume(res[2]);
         }
     }
 }
