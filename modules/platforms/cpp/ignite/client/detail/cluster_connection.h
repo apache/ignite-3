@@ -17,11 +17,11 @@
 
 #pragma once
 
+#include "ignite/client/detail/connection_event_handler.h"
 #include "ignite/client/detail/node_connection.h"
 #include "ignite/client/detail/protocol_context.h"
 #include "ignite/client/detail/response_handler.h"
 #include "ignite/client/detail/transaction/transaction_impl.h"
-#include "ignite/client/detail/connection_event_handler.h"
 #include "ignite/client/ignite_client_configuration.h"
 
 #include "ignite/common/ignite_result.h"
@@ -51,7 +51,8 @@ namespace ignite::detail {
  *
  * Considered established while there is connection to at least one server.
  */
-class cluster_connection : public std::enable_shared_from_this<cluster_connection>, public network::async_handler,
+class cluster_connection : public std::enable_shared_from_this<cluster_connection>,
+                           public network::async_handler,
                            public connection_event_handler {
 public:
     /** Default TCP port. */

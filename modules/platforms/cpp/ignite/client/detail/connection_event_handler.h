@@ -17,15 +17,7 @@
 
 #pragma once
 
-#include "ignite/client/detail/node_connection.h"
-#include "ignite/common/ignite_error.h"
-#include "ignite/common/ignite_result.h"
-#include "ignite/protocol/reader.h"
-
-#include <functional>
-#include <future>
-#include <memory>
-#include <tuple>
+#include <cstdint>
 
 namespace ignite::detail {
 

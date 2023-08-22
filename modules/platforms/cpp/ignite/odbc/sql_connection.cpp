@@ -337,8 +337,6 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
     }
 }
 
-
-
 const configuration &sql_connection::get_configuration() const {
     return m_config;
 }
