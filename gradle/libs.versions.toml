@@ -75,6 +75,9 @@ openapi = "4.8.6"
 autoService = "1.0.1"
 awaitility = "4.2.0"
 progressBar = "0.9.4"
+opentelemetrySdk = "1.29.0"
+opentelemetryJavaagent = "1.29.0"
+opentelemetryJavaagentAlpha = "1.29.0-alpha"
 
 #Tools
 pmdTool = "6.55.0"
@@ -238,3 +241,8 @@ auto-service-annotations = { module = "com.google.auto.service:auto-service-anno
 awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
 
 progressBar = { module = "me.tongfei:progressbar", version.ref = "progressBar" }
+
+opentelemetry-sdk-extension-autoconfigure-spi = { module = "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi", version.ref = "opentelemetrySdk" }
+opentelemetry-instrumentation-api = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api", version.ref = "opentelemetryJavaagent" }
+opentelemetry-instrumentation-annotations = { module = "io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations", version.ref = "opentelemetryJavaagent" }
+opentelemetry-javaagent-extension-api = { module = "io.opentelemetry.javaagent:opentelemetry-javaagent-extension-api", version.ref = "opentelemetryJavaagentAlpha" }

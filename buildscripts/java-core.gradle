@@ -75,7 +75,8 @@ tasks.withType(Checkstyle) {
     excludes = ["**/generated-source/**",
                 "**/generated/**",
                 "com/facebook/presto/bytecode/**/*",
-                "org/apache/ignite/raft/jraft/**/*"]
+                "org/apache/ignite/raft/jraft/**/*",
+                "org/apache/ignite/otel/ext/sampler/*MBean.java"]
     reports {
         xml.required = false
         html {
