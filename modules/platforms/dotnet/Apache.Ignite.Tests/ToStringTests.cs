@@ -53,7 +53,7 @@ public class ToStringTests
 
                 if (code.Contains("new IgniteToStringBuilder(", StringComparison.Ordinal) ||
                     code.Contains("IgniteToStringBuilder.Build(", StringComparison.Ordinal) ||
-                    code.Contains("IgniteTupleCommon.ToString(this)", StringComparison.Ordinal))
+                    code.Contains("IIgniteTuple.ToString(this)", StringComparison.Ordinal))
                 {
                     continue;
                 }
