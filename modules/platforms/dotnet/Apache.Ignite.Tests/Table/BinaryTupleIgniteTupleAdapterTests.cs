@@ -31,6 +31,40 @@ using NUnit.Framework;
 [TestFixture]
 public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
 {
+    [Test]
+    public void TestUpdate()
+    {
+        var tuple = CreateTuple(new IgniteTuple
+        {
+            ["A"] = 1,
+            ["B"] = "2",
+            ["C"] = 3L,
+            ["D"] = null
+        });
+
+        Assert.AreEqual(4, tuple.FieldCount);
+
+        Assert.AreEqual(1, tuple["A"]);
+        Assert.AreEqual("2", tuple["B"]);
+        Assert.AreEqual(3L, tuple["C"]);
+        Assert.IsNull(tuple["D"]);
+
+        Assert.IsNull(tuple.GetFieldValue<object>("_tuple"));
+        Assert.IsNotNull(tuple.GetFieldValue<object>("_schema"));
+
+        tuple["A"] = 11;
+
+        Assert.AreEqual(4, tuple.FieldCount);
+
+        Assert.AreEqual(11, tuple["A"]);
+        Assert.AreEqual("2", tuple["B"]);
+        Assert.AreEqual(3L, tuple["C"]);
+        Assert.IsNull(tuple["D"]);
+
+        Assert.IsNotNull(tuple.GetFieldValue<object>("_tuple"));
+        Assert.IsNull(tuple.GetFieldValue<object>("_schema"));
+    }
+
     protected override string GetShortClassName() => nameof(BinaryTupleIgniteTupleAdapter);
 
     protected override IIgniteTuple CreateTuple(IIgniteTuple source)
