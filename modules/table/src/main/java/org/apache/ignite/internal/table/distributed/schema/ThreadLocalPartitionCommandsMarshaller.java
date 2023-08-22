@@ -21,7 +21,7 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 
 /**
- * Thread-safe variant of {@link PartitionCommandsMarshaller}.
+ * Thread-local variant of {@link PartitionCommandsMarshaller}.
  */
 public class ThreadLocalPartitionCommandsMarshaller implements PartitionCommandsMarshaller {
     /** Thread-local optimized marshaller holder. Not static, because it depends on serialization registry. */
