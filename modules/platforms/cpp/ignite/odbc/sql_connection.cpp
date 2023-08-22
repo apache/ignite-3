@@ -333,7 +333,7 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
 
         protocol::reader reader(res);
         auto response_type = reader.read_int32();
-        if (detail::message_type(response_type) != detail::message_type::RESPONSE) {
+        if (protocol::message_type(response_type) != protocol::message_type::RESPONSE) {
             LOG_MSG("Unsupported message type: " + std::to_string(response_type));
             continue;
         }
@@ -382,7 +382,7 @@ sql_result sql_connection::internal_transaction_commit() {
     network::data_buffer_owning response;
     auto success = catch_errors([&] {
         auto response = sync_request(
-            detail::client_operation::TX_COMMIT, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
+            protocol::client_operation::TX_COMMIT, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
     });
 
     if (!success)
@@ -409,7 +409,7 @@ sql_result sql_connection::internal_transaction_rollback() {
     network::data_buffer_owning response;
     auto success = catch_errors([&] {
         auto response = sync_request(
-            detail::client_operation::TX_ROLLBACK, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
+            protocol::client_operation::TX_ROLLBACK, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
     });
 
     if (!success)
@@ -425,7 +425,7 @@ void sql_connection::transaction_start() {
     LOG_MSG("Starting transaction");
 
     network::data_buffer_owning response =
-        sync_request(detail::client_operation::TX_BEGIN, [&](protocol::writer &writer) {
+        sync_request(protocol::client_operation::TX_BEGIN, [&](protocol::writer &writer) {
             writer.write_bool(false); // read_only.
         });
 
@@ -596,7 +596,7 @@ sql_result sql_connection::internal_set_attribute(int attr, void *value, SQLINTE
 }
 
 std::vector<std::byte> sql_connection::make_request(
-    std::int64_t id, detail::client_operation op, const std::function<void(protocol::writer &)> &func) {
+    std::int64_t id, protocol::client_operation op, const std::function<void(protocol::writer &)> &func) {
     std::vector<std::byte> req;
     protocol::buffer_adapter buffer(req);
     buffer.reserve_length_header();

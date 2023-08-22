@@ -245,7 +245,7 @@ public:
      * @param func Function.
      */
     [[nodiscard]] static std::vector<std::byte> make_request(
-        std::int64_t id, detail::client_operation op, const std::function<void(protocol::writer &)> &func);
+        std::int64_t id, protocol::client_operation op, const std::function<void(protocol::writer &)> &func);
 
     /**
      * Get connection schema.
@@ -269,7 +269,7 @@ public:
      * @return Response.
      */
     network::data_buffer_owning sync_request(
-        detail::client_operation op, const std::function<void(protocol::writer &)> &wr) {
+        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr) {
         auto req_id = generate_next_req_id();
         auto request = make_request(req_id, op, wr);
 

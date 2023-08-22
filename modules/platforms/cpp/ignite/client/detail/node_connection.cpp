@@ -63,7 +63,7 @@ bool node_connection::handshake() {
 void node_connection::process_message(bytes_view msg) {
     protocol::reader reader(msg);
     auto response_type = reader.read_int32();
-    if (message_type(response_type) != message_type::RESPONSE) {
+    if (protocol::message_type(response_type) != protocol::message_type::RESPONSE) {
         m_logger->log_warning("Unsupported message type: " + std::to_string(response_type));
         return;
     }

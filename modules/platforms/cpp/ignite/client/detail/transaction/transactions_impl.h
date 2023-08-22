@@ -67,7 +67,7 @@ public:
         };
 
         m_connection->perform_request<transaction>(
-            client_operation::TX_BEGIN, std::move(writer_func), std::move(reader_func), std::move(callback));
+            protocol::client_operation::TX_BEGIN, std::move(writer_func), std::move(reader_func), std::move(callback));
     }
 
 private:

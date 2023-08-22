@@ -102,7 +102,7 @@ void compute_impl::execute_on_one_node(cluster_node node, const std::vector<depl
     };
 
     m_connection->perform_request<std::optional<primitive>>(
-        client_operation::COMPUTE_EXECUTE, writer_func, std::move(reader_func), std::move(callback));
+        protocol::client_operation::COMPUTE_EXECUTE, writer_func, std::move(reader_func), std::move(callback));
 }
 
 void compute_impl::execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
@@ -141,7 +141,7 @@ void compute_impl::execute_colocated_async(const std::string &table_name, const 
                         return read_primitive_from_binary_tuple(reader);
                     };
 
-                    conn->perform_request<std::optional<primitive>>(client_operation::COMPUTE_EXECUTE_COLOCATED,
+                    conn->perform_request<std::optional<primitive>>(protocol::client_operation::COMPUTE_EXECUTE_COLOCATED,
                         writer_func, std::move(reader_func), std::move(callback));
                 });
         });
