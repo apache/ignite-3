@@ -28,11 +28,11 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class VarIntUtilsTest {
-    private final byte[] array = new byte[10];
-
     @ParameterizedTest
     @MethodSource("sampleInts")
     void readingAndWritingVarintsIsCompatible(int intVal) {
+        byte[] array = new byte[10];
+
         VarIntUtils.putVarIntToBytes(intVal, array, 1);
 
         ByteBuffer buf = ByteBuffer.wrap(array);
@@ -44,6 +44,8 @@ class VarIntUtilsTest {
     @ParameterizedTest
     @MethodSource("sampleInts")
     void writingVarIntReturnsNumberOfBytesInItsRepresentation(int intVal) {
+        byte[] array = new byte[10];
+
         int len = VarIntUtils.putVarIntToBytes(intVal, array, 0);
 
         assertThat(VarIntUtils.varIntLength(intVal), is(len));
@@ -52,6 +54,8 @@ class VarIntUtilsTest {
     @ParameterizedTest
     @MethodSource("sampleInts")
     void readingVarIntConsumesExactlyItsBytes(int intVal) {
+        byte[] array = new byte[10];
+
         int len = VarIntUtils.putVarIntToBytes(intVal, array, 0);
 
         ByteBuffer buf = ByteBuffer.wrap(array);
