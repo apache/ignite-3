@@ -101,6 +101,9 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple
         return _indexes.TryGetValue(name, out var index) ? index : -1;
     }
 
+    /// <inheritdoc/>
+    public override string ToString() => IgniteTupleCommon.ToString(this);
+
     private IIgniteTuple InitTuple()
     {
         if (_tuple != null)
