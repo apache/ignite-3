@@ -35,7 +35,6 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -115,7 +114,6 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest {
      */
     protected void checkSetOp(boolean single, boolean all, List<List<Object[]>> dataSets, List<Object[]> expectedResult) {
         ExecutionContext<Object[]> ctx = executionContext();
-        IgniteTypeFactory tf = ctx.getTypeFactory();
 
         List<Node<Object[]>> inputs = dataSets.stream().map(ds -> new ScanNode<>(ctx, ds))
                 .collect(Collectors.toList());

@@ -50,8 +50,6 @@ class VolatilePageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest 
 
         ioRegistry.loadFromServiceLoader();
 
-        String nodeName = "test";
-
         engine = new VolatilePageMemoryStorageEngine("test", engineConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
 
         engine.start();
