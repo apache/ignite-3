@@ -320,6 +320,8 @@ Parameters:
 
 Creates a new index.
 
+NOTE: The index cannot include the same column more than once.
+
 [.diagram-container]
 Diagram(
   NonTerminal('CREATE INDEX'),
