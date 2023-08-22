@@ -60,7 +60,6 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -139,8 +138,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Empty logical topology snapshot. */
     private static final LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(0, emptySet());
 
-    private final HybridClock clock = new HybridClockImpl();
-
     /** Schema manager. */
     @Mock
     private BaselineManager bm;
@@ -172,6 +169,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Replica manager. */
     @Mock
     ReplicaManager replicaManager;
+
+    @Mock
+    HybridClock clock;
 
     @Mock
     private VaultManager vaultManager;

@@ -38,7 +38,7 @@ public class IgniteSqlImpl implements IgniteSql {
      * Constructor.
      *
      * @param qryProc Query processor.
-     * @param transactions Transactions.
+     * @param transactions Transactions facade.
      */
     public IgniteSqlImpl(QueryProcessor qryProc, IgniteTransactions transactions) {
         this.qryProc = qryProc;
