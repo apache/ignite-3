@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.call.connect;
 
+import io.micronaut.http.HttpStatus;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import javax.net.ssl.SSLException;
@@ -28,15 +29,19 @@ import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
 /**
- * Call which tries to connect to the Ignite 3 node and in case of SSL error asks the user for the SSL configuration and tries again.
+ * Call which tries to connect to the Ignite 3 node and in case of error (SSL error or auth error) asks the user for the
+ * SSL configuration or Auth configuration and tries again.
  */
 @Singleton
-public class ConnectSslCall implements Call<ConnectCallInput, String> {
+public class ConnectWizardCall implements Call<ConnectCallInput, String> {
     @Inject
     private ConnectCall connectCall;
 
     @Inject
     private ConnectSslConfigCall connectSslConfigCall;
+
+    @Inject
+    private ConnectAuthConfigCall connectAuthConfigCall;
 
     @Override
     public CallOutput<String> execute(ConnectCallInput input) {
@@ -45,11 +50,26 @@ public class ConnectSslCall implements Call<ConnectCallInput, String> {
             if (output.errorCause().getCause() instanceof ApiException) {
                 ApiException cause = (ApiException) output.errorCause().getCause();
                 Throwable apiCause = cause.getCause();
+
+                // Configure SSL
                 if (apiCause instanceof SSLException) {
                     FlowBuilder<Void, SslConfig> flowBuilder = ConnectToClusterQuestion.askQuestionOnSslError();
                     Flowable<SslConfig> result = flowBuilder.build().start(Flowable.empty());
                     if (result.hasResult()) {
                         return connectSslConfigCall.execute(new ConnectSslConfigCallInput(input.url(), result.value()));
+                    }
+
+                // Configure rest basic auth
+                } else if (cause.getCode() == HttpStatus.UNAUTHORIZED.getCode()) {
+                    FlowBuilder<Void, AuthConfig> flowBuilder = ConnectToClusterQuestion.askQuestionOnAuthError();
+                    Flowable<AuthConfig> result = flowBuilder.build().start(Flowable.empty());
+                    if (result.hasResult()) {
+                        ConnectCallInput connectCallInput = ConnectCallInput.builder()
+                                .url(input.url())
+                                .username(result.value().username())
+                                .password(result.value().password())
+                                .build();
+                        return connectAuthConfigCall.execute(connectCallInput);
                     }
                 }
             }

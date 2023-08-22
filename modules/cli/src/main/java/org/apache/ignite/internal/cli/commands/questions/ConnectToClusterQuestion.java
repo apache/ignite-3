@@ -25,8 +25,9 @@ import static org.apache.ignite.lang.util.StringUtils.nullOrBlank;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import java.util.Objects;
+import org.apache.ignite.internal.cli.call.connect.AuthConfig;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
-import org.apache.ignite.internal.cli.call.connect.ConnectSslCall;
+import org.apache.ignite.internal.cli.call.connect.ConnectWizardCall;
 import org.apache.ignite.internal.cli.call.connect.SslConfig;
 import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
@@ -47,7 +48,7 @@ import org.jetbrains.annotations.Nullable;
 @Singleton
 public class ConnectToClusterQuestion {
     @Inject
-    private ConnectSslCall connectCall;
+    private ConnectWizardCall connectCall;
 
     @Inject
     private ConfigManagerProvider configManagerProvider;
@@ -202,6 +203,31 @@ public class ConnectToClusterQuestion {
             config.keyStorePath(escapeWindowsPath(enterFilePath("key store path")));
             config.keyStorePassword(enterPassword("key store password"));
         }));
+    }
+
+
+    /**
+     * Ask if the user wants to enter basic auth configuration to retry connect.
+     *
+     * @return {@link FlowBuilder} instance which provides the {@link ConnectCallInput} or interrupts if user's answer is negative.
+     */
+    public static FlowBuilder<Void, AuthConfig> askQuestionOnAuthError() {
+        QuestionUiComponent question = fromYesNoQuestion(
+                "Authentication error occurred while connecting to the node, it could be due to the wrong basic auth configuration. "
+                        + "Do you want to configure them now?"
+        );
+
+        return Flows.acceptQuestion(question, () -> {
+            AuthConfig authConfig = new AuthConfig();
+            authConfig.username(enterString("username"));
+            authConfig.password(enterPassword("user password"));
+            return authConfig;
+        });
+    }
+
+    private static String enterString(String question) {
+        return QuestionAskerFactory.newQuestionAsker()
+                .askQuestion("Enter " + question + ": ");
     }
 
     private static String enterFilePath(String question) {
