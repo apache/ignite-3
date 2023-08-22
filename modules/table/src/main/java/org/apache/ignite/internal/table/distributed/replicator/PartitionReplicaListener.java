@@ -1196,8 +1196,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return raftClient.run(finishTxCmdBldr.build()).whenComplete((o, throwable) -> {
-            TxState newState = commit ? TxState.COMMITED : TxState.ABORTED;
-
             fut.complete(new TxMeta(commit ? TxState.COMMITED : TxState.ABORTED, aggregatedGroupIds, commitTimestamp));
 
             txManager.updateTxMeta(txId, markFinishedOnReplica(commit));
