@@ -551,7 +551,7 @@ public class Cluster {
             }
 
             if (attempt < maxAttempts) {
-                LOG.info("Did not transfer leadership after " + attempt + " attempts, going to retry...");
+                LOG.info("Did not transfer leadership after {} attempts, going to retry...", attempt);
             } else {
                 fail("Did not transfer leadership in time after " + maxAttempts + " attempts");
             }
