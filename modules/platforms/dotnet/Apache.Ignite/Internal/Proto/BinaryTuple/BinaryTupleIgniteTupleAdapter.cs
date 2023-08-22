@@ -30,7 +30,6 @@ using Table.Serialization;
 /// </summary>
 internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<BinaryTupleIgniteTupleAdapter>, IEquatable<IIgniteTuple>
 {
-    // TODO: Benchmarks
     // TODO: Comprehensive tests to ensure consistency with IgniteTuple
     private readonly int _schemaFieldCount; // Key-only tuples have less fields than schema.
 
