@@ -313,7 +313,8 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
                 assertNotNull(txTuple);
 
                 assertEquals(row[1], txTuple.value("NAME"));
-                assertEquals(row[2], txTuple.value("SALARY"));} catch (Exception e) {
+                assertEquals(row[2], txTuple.value("SALARY"));
+            } catch (Exception e) {
                 new RuntimeException(IgniteStringFormatter.format("Cannot check a row {} when the local node leader", row), e);
             }
         }
