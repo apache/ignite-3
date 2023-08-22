@@ -20,7 +20,18 @@ package org.apache.ignite.internal.util;
 import java.nio.ByteBuffer;
 
 /**
- * Utilities to work with general-purpose varints.
+ * Utilities to work with general-purpose varints: that is, integers represented with a variable number of bytes.
+ *
+ * <p>The varint encoding used here is as follows. First, the number is incremented (this is a tweak to allow -1 be
+ * represented as 1 byte as this encoding only produces compact representation for positive numbers of small magnitude).
+ * Then the binary string representing the number is split into 7-bit chunks,
+ * each chunk that is not a 'leading zero' is encoded as 1 byte. The highest bit of the byte is 1 if there are more
+ * bytes (encoding more chunks) and 0 if this is the last byte of the varint representation. Other 7 bits of the byte
+ * represent the bits of the chunk. The least-significant chunk is encoded first.
+ *
+ * <p>This is a variation of <a href="https://en.wikipedia.org/wiki/Variable-length_quantity">VLQ</a> ;
+ * the difference is that we encode least-significant chunk first (and not last as they do) and that we increment
+ * the number before encoding it.
  */
 public class VarIntUtils {
     /**
