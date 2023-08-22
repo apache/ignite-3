@@ -144,11 +144,11 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     }
 
     private void putToTableAt(int nodeIndex) {
-        KeyValueView<Tuple, Tuple> kvView = cluster.node(nodeIndex)
+        cluster.node(nodeIndex)
                 .tables()
                 .table("test")
-                .keyValueView();
-        kvView.put(null, Tuple.create().set("key", 1), Tuple.create().set("value", "one"));
+                .keyValueView()
+                .put(null, Tuple.create().set("key", 1), Tuple.create().set("value", "one"));
     }
 
     private void updateTableSchemaAt(int nodeIndex) {
