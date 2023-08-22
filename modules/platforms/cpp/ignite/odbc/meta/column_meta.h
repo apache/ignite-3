@@ -95,13 +95,6 @@ public:
         , m_nullability(nullable ? nullability::NULLABLE : nullability::NO_NULL) {}
 
     /**
-     * Read using reader.
-     * @param reader Reader.
-     * @param ver Server version.
-     */
-    void read(protocol::reader &reader, const protocol::protocol_version &ver);
-
-    /**
      * Get schema name.
      *
      * @return Schema name.
@@ -187,14 +180,5 @@ private:
 
 /** Column metadata vector alias. */
 typedef std::vector<column_meta> column_meta_vector;
-
-/**
- * Read columns metadata collection.
- *
- * @param reader Reader.
- * @param meta Collection.
- * @param ver Server protocol version.
- */
-void read_column_meta_vector(protocol::reader &reader, column_meta_vector &meta, const protocol::protocol_version &ver);
 
 } // namespace ignite
