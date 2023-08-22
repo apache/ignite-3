@@ -32,7 +32,7 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<B
 {
     // TODO: Benchmarks
     // TODO: Comprehensive tests to ensure consistency with IgniteTuple
-    private readonly int _schemaFieldCount;
+    private readonly int _schemaFieldCount; // Key-only tuples have less fields than schema.
 
     private Memory<byte> _data;
 
