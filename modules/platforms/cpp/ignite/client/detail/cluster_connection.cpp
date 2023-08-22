@@ -76,7 +76,7 @@ void cluster_connection::on_connection_success(const end_point &addr, uint64_t i
     m_logger->log_info("Established connection with remote host " + addr.to_string());
     m_logger->log_debug("Connection ID: " + std::to_string(id));
 
-    auto connection = node_connection::make_new(id, m_pool, m_logger, m_configuration);
+    auto connection = node_connection::make_new(id, m_pool, weak_from_this(), m_logger, m_configuration);
     {
         [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 
@@ -159,6 +159,10 @@ std::shared_ptr<node_connection> cluster_connection::find_client(uint64_t id) {
 void cluster_connection::on_message_sent(uint64_t id) {
     if (m_logger->is_debug_enabled())
         m_logger->log_debug("Message sent successfully on Connection ID " + std::to_string(id));
+}
+
+void cluster_connection::on_observable_timestamp_changed(std::int64_t timestamp) {
+    // TODO IGNITE-20057 C++ client: Track observable timestamp
 }
 
 void cluster_connection::remove_client(uint64_t id) {

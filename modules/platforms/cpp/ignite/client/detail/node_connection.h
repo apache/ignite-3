@@ -17,10 +17,11 @@
 
 #pragma once
 
-#include "ignite/protocol/client_operation.h"
+#include <ignite/client/detail/connection_event_handler.h>
 #include <ignite/client/detail/protocol_context.h>
 #include <ignite/client/detail/response_handler.h>
 #include <ignite/client/ignite_client_configuration.h>
+#include <ignite/protocol/client_operation.h>
 
 #include <ignite/common/utils.h>
 #include <ignite/network/async_client_pool.h>
@@ -63,13 +64,16 @@ public:
      *
      * @param id Connection ID.
      * @param pool Connection pool.
+     * @param event_handler Event handler.
      * @param logger Logger.
      * @param cfg Configuration.
      * @return New instance.
      */
     static std::shared_ptr<node_connection> make_new(uint64_t id, std::shared_ptr<network::async_client_pool> pool,
-        std::shared_ptr<ignite_logger> logger, const ignite_client_configuration &cfg) {
-        return std::shared_ptr<node_connection>(new node_connection(id, std::move(pool), std::move(logger), cfg));
+        std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
+        const ignite_client_configuration &cfg) {
+        return std::shared_ptr<node_connection>(
+            new node_connection(id, std::move(pool), std::move(event_handler), std::move(logger), cfg));
     }
 
     /**
@@ -196,11 +200,13 @@ private:
      *
      * @param id Connection ID.
      * @param pool Connection pool.
+     * @param event_handler Event handler.
      * @param logger Logger.
      * @param cfg Configuration.
      */
     node_connection(uint64_t id, std::shared_ptr<network::async_client_pool> pool,
-        std::shared_ptr<ignite_logger> logger, const ignite_client_configuration &cfg);
+        std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
+        const ignite_client_configuration &cfg);
 
     /**
      * Generate next request ID.
@@ -228,6 +234,9 @@ private:
 
     /** Connection pool. */
     std::shared_ptr<network::async_client_pool> m_pool;
+
+    /** Connection event handler. */
+    std::weak_ptr<connection_event_handler> m_event_handler;
 
     /** Request ID generator. */
     std::atomic_int64_t m_req_id_gen{0};

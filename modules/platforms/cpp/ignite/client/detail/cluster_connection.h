@@ -21,6 +21,7 @@
 #include "ignite/client/detail/protocol_context.h"
 #include "ignite/client/detail/response_handler.h"
 #include "ignite/client/detail/transaction/transaction_impl.h"
+#include "ignite/client/detail/connection_event_handler.h"
 #include "ignite/client/ignite_client_configuration.h"
 
 #include "ignite/common/ignite_result.h"
@@ -50,7 +51,8 @@ namespace ignite::detail {
  *
  * Considered established while there is connection to at least one server.
  */
-class cluster_connection : public std::enable_shared_from_this<cluster_connection>, public network::async_handler {
+class cluster_connection : public std::enable_shared_from_this<cluster_connection>, public network::async_handler,
+                           public connection_event_handler {
 public:
     /** Default TCP port. */
     static constexpr uint16_t DEFAULT_TCP_PORT = 10800;
@@ -313,6 +315,13 @@ private:
      * @param id Async client ID.
      */
     void on_message_sent(uint64_t id) override;
+
+    /**
+     * Handle observable timestamp.
+     *
+     * @param timestamp Timestamp.
+     */
+    void on_observable_timestamp_changed(std::int64_t timestamp) override;
 
     /**
      * Remove client.
