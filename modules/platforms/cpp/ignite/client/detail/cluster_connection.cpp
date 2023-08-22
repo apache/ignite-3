@@ -187,7 +187,7 @@ void cluster_connection::initial_connect_result(ignite_result<void> &&res) {
     m_on_initial_connect = {};
 }
 
-void cluster_connection::initial_connect_result(const protocol_context &context) {
+void cluster_connection::initial_connect_result(const protocol::protocol_context &context) {
     [[maybe_unused]] std::lock_guard<std::mutex> lock(m_on_initial_connect_mutex);
 
     if (!m_on_initial_connect)

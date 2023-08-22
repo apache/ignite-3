@@ -94,7 +94,7 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
     };
 
     m_connection->perform_request_raw<result_set>(
-        client_operation::SQL_EXEC, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+        protocol::client_operation::SQL_EXEC, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
 }
 
 } // namespace ignite::detail
