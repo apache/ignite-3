@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 
 import com.jayway.jsonpath.InvalidPathException;
@@ -129,21 +127,15 @@ class CatalogParamsValidationUtils {
     }
 
     static void validateZoneDataNodesAutoAdjustParametersCompatibility(
-            @Nullable Integer dataNodesAutoAdjust,
-            @Nullable Integer dataNodesAutoAdjustScaleUp,
-            @Nullable Integer dataNodesAutoAdjustScaleDown
+            @Nullable Integer autoAdjust,
+            @Nullable Integer scaleUp,
+            @Nullable Integer scaleDown
     ) {
-        if (dataNodesAutoAdjust == null || dataNodesAutoAdjust == INFINITE_TIMER_VALUE) {
-            return;
-        }
-
-        if ((dataNodesAutoAdjustScaleUp != null && (dataNodesAutoAdjustScaleUp != INFINITE_TIMER_VALUE
-                || dataNodesAutoAdjustScaleUp != IMMEDIATE_TIMER_VALUE))
-                || (dataNodesAutoAdjustScaleDown != null && dataNodesAutoAdjustScaleDown != INFINITE_TIMER_VALUE)) {
+        if (autoAdjust != null && (scaleUp != null || scaleDown != null)) {
             throw new CatalogValidationException(
                     DistributionZones.ZONE_DEFINITION_ERR,
                     "Not compatible parameters [dataNodesAutoAdjust={}, dataNodesAutoAdjustScaleUp={}, dataNodesAutoAdjustScaleDown={}]",
-                    dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown
+                    autoAdjust, scaleUp, scaleDown
             );
         }
     }

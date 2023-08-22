@@ -1290,8 +1290,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(42, zone.partitions());
         assertEquals(15, zone.replicas());
         assertEquals(73, zone.dataNodesAutoAdjust());
-        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleUp());
-        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleDown());
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals("expression", zone.filter());
         assertEquals("test_engine", zone.dataStorage().engine());
         assertEquals("test_region", zone.dataStorage().dataRegion());
@@ -1430,7 +1430,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .zoneName(zoneName)
                 .partitions(10)
                 .replicas(2)
-                .dataNodesAutoAdjust(INFINITE_TIMER_VALUE)
                 .dataNodesAutoAdjustScaleUp(3)
                 .dataNodesAutoAdjustScaleDown(4)
                 .filter("newExpression")

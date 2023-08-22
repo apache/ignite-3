@@ -15,29 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+#pragma once
+
+#include <cstdint>
+
+namespace ignite::detail {
+
+class node_connection;
 
 /**
- * DROP ZONE statement.
+ * Socket event handler.
  */
-public class DropZoneParams extends AbstractZoneCommandParams {
-    /** Constructor. */
-    private DropZoneParams(String zoneName) {
-        super(zoneName);
-    }
+class connection_event_handler {
+public:
+    // Default
+    connection_event_handler() = default;
+    virtual ~connection_event_handler() = default;
 
-    /** Creates parameters builder. */
-    public static Builder builder() {
-        return new Builder();
-    }
+    // Deleted
+    connection_event_handler(connection_event_handler &&) = delete;
+    connection_event_handler(const connection_event_handler &) = delete;
+    connection_event_handler &operator=(connection_event_handler &&) = delete;
+    connection_event_handler &operator=(const connection_event_handler &) = delete;
 
     /**
-     * Parameters builder.
+     * Handle observable timestamp.
+     *
+     * @param timestamp Timestamp.
      */
-    public static class Builder extends AbstractBuilder<DropZoneParams, Builder> {
-        @Override
-        protected DropZoneParams createParams() {
-            return new DropZoneParams(zoneName);
-        }
-    }
-}
+    virtual void on_observable_timestamp_changed(std::int64_t timestamp) = 0;
+};
+
+} // namespace ignite::detail
