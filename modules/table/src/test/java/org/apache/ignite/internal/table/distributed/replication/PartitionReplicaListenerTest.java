@@ -1457,11 +1457,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private BinaryRow marshalKeyOrKeyValue(RequestType requestType, TestKey key) {
         try {
-            if (requestType.isKeyOnly()) {
-                return kvMarshaller.marshal(key);
-            } else {
-                return kvMarshaller.marshal(key, someValue);
-            }
+            return requestType.isKeyOnly() ? kvMarshaller.marshal(key) : kvMarshaller.marshal(key, someValue);
         } catch (MarshallerException e) {
             throw new AssertionError(e);
         }
