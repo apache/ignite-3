@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
     using Common;
     using Ignite.Table;
@@ -41,6 +42,30 @@ namespace Apache.Ignite.Internal.Table.Serialization
         private TupleSerializerHandler()
         {
             // No-op.
+        }
+
+        /// <summary>
+        /// Reads tuple from the buffer.
+        /// </summary>
+        /// <param name="buf">Buffer.</param>
+        /// <param name="schema">Schema.</param>
+        /// <param name="count">Column count to read.</param>
+        /// <returns>Tuple.</returns>
+        public static IgniteTuple Read(ReadOnlySpan<byte> buf, Schema schema, int count)
+        {
+            Debug.Assert(count <= schema.Columns.Count, "count <= schema.Columns.Count");
+
+            var tuple = new IgniteTuple(count);
+            var tupleReader = new BinaryTupleReader(buf, count);
+            var columns = schema.Columns;
+
+            for (var index = 0; index < count; index++)
+            {
+                var column = columns[index];
+                tuple[column.Name] = tupleReader.GetObject(index, column.Type, column.Scale);
+            }
+
+            return tuple;
         }
 
         /// <inheritdoc/>

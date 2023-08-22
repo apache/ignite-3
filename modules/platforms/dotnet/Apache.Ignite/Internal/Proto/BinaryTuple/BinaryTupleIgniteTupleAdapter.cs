@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Ignite.Table;
 using Table;
+using Table.Serialization;
 
 /// <summary>
 /// Adapts <see cref="BinaryTuple"/> to <see cref="IIgniteTuple"/>, so that we can avoid extra copying and allocations when
@@ -60,23 +61,19 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple
     /// <inheritdoc/>
     public object? this[int ordinal]
     {
-        get => throw new NotImplementedException();
-        set
+        get
         {
-            InitTuple();
-            _tuple![ordinal] = value;
+            throw new NotImplementedException();
         }
+
+        set => InitTuple()[ordinal] = value;
     }
 
     /// <inheritdoc/>
     public object? this[string name]
     {
-        get => throw new NotImplementedException();
-        set
-        {
-            InitTuple();
-            _tuple![name] = value;
-        }
+        get => this[GetOrdinal(name)];
+        set => InitTuple()[name] = value;
     }
 
     /// <inheritdoc/>
@@ -105,28 +102,23 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple
         return _indexes.TryGetValue(name, out var index) ? index : -1;
     }
 
-    private void InitTuple()
+    private IIgniteTuple InitTuple()
     {
         if (_tuple != null)
         {
-            return;
+            return _tuple;
         }
 
         Debug.Assert(_schema != null, "_schema != null");
 
         // Copy data to a mutable IgniteTuple.
-        _tuple = new IgniteTuple(FieldCount);
+        _tuple = TupleSerializerHandler.Read(_data.Span, _schema, _schemaFieldCount);
 
-        var tupleReader = new BinaryTupleReader(_data.Span, _schemaFieldCount);
-
-        for (var index = 0; index < _schemaFieldCount; index++)
-        {
-            var column = _schema!.Columns[index];
-            _tuple[column.Name] = tupleReader.GetObject(index, column.Type, column.Scale);
-        }
-
+        // Release schema and data.
         _schema = default;
         _indexes = default;
         _data = default;
+
+        return _tuple;
     }
 }
