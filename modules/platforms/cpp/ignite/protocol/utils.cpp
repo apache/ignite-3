@@ -190,6 +190,8 @@ std::optional<ignite_error> read_error(reader &reader) {
     auto code = reader.read_object_or_default<std::int32_t>(65537);
     auto class_name = reader.read_string();
     auto message = reader.read_string_nullable();
+    auto java_stack_trace = reader.read_string_nullable();
+    UNUSED_VALUE java_stack_trace;
 
     std::stringstream err_msg_builder;
 
