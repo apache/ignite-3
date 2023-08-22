@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static java.lang.String.format;
+import static org.apache.calcite.sql.type.SqlTypeName.ALL_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.BINARY_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.BOOLEAN_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
@@ -204,6 +205,24 @@ public class CastResolutionTest extends AbstractPlannerTest {
         testItems.add(checkStatement().sql("SELECT CAST('1'::VARCHAR AS interval day to second)").ok());
         testItems.add(checkStatement().sql("SELECT CAST('1'::VARCHAR AS interval hour to minute)").ok());
         testItems.add(checkStatement().sql("SELECT CAST('1'::VARCHAR AS interval hour to second)").ok());
+
+        return testItems.stream();
+    }
+
+    @TestFactory
+    public Stream<DynamicTest> allowedCastsFromNull() {
+        List<DynamicTest> testItems = new ArrayList<>();
+
+        SqlTypeMappingRule rules = SqlTypeCoercionRule.instance(IgniteCustomAssigmentsRules.instance().getTypeMapping());
+
+        for (SqlTypeName type : ALL_TYPES) {
+            if (type == SqlTypeName.NULL) {
+                continue;
+            }
+
+            testItems.add(DynamicTest.dynamicTest(format("ALLOW: from: %s to: %s", SqlTypeName.NULL.getName(), type),
+                    () -> assertTrue(rules.canApplyFrom(type, SqlTypeName.NULL))));
+        }
 
         return testItems.stream();
     }
