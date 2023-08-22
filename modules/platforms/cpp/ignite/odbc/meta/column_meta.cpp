@@ -292,7 +292,8 @@ bool column_meta::get_attribute(uint16_t field_id, SQLLEN &value) const {
     return true;
 }
 
-void read_column_meta_vector(protocol::reader &reader, column_meta_vector &meta, const protocol::protocol_version &ver) {
+void read_column_meta_vector(
+    protocol::reader &reader, column_meta_vector &meta, const protocol::protocol_version &ver) {
     std::int32_t meta_num = reader.read_int32();
 
     meta.clear();

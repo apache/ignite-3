@@ -38,7 +38,7 @@ public:
      *
      * @return String to version map.
      */
-    static const version_set &get_supported(){ return m_supported; }
+    static const version_set &get_supported() { return m_supported; }
 
     /**
      * Get current version.

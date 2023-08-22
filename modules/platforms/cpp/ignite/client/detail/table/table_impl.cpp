@@ -200,8 +200,8 @@ void table_impl::get_async(
                 return read_tuple(reader, sch.get());
             };
 
-            self->m_connection->perform_request<std::optional<ignite_tuple>>(
-                protocol::client_operation::TUPLE_GET, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request<std::optional<ignite_tuple>>(protocol::client_operation::TUPLE_GET,
+                tx0.get(), writer_func, std::move(reader_func), std::move(callback));
         });
 }
 
@@ -221,8 +221,8 @@ void table_impl::contains_async(transaction *tx, const ignite_tuple &key, ignite
                 return reader.read_bool();
             };
 
-            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_CONTAINS_KEY, tx0.get(), writer_func,
-                std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_CONTAINS_KEY, tx0.get(),
+                writer_func, std::move(reader_func), std::move(callback));
         });
 }
 
@@ -243,7 +243,8 @@ void table_impl::get_all_async(transaction *tx, std::vector<ignite_tuple> keys,
             };
 
             self->m_connection->perform_request<std::vector<std::optional<ignite_tuple>>>(
-                protocol::client_operation::TUPLE_GET_ALL, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+                protocol::client_operation::TUPLE_GET_ALL, tx0.get(), writer_func, std::move(reader_func),
+                std::move(callback));
         });
 }
 
@@ -296,8 +297,9 @@ void table_impl::get_and_upsert_async(
                 return read_tuple(reader, sch.get());
             };
 
-            self->m_connection->perform_request<std::optional<ignite_tuple>>(protocol::client_operation::TUPLE_GET_AND_UPSERT,
-                tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request<std::optional<ignite_tuple>>(
+                protocol::client_operation::TUPLE_GET_AND_UPSERT, tx0.get(), writer_func, std::move(reader_func),
+                std::move(callback));
         });
 }
 
@@ -316,8 +318,8 @@ void table_impl::insert_async(transaction *tx, const ignite_tuple &record, ignit
                 return reader.read_bool();
             };
 
-            self->m_connection->perform_request<bool>(
-                protocol::client_operation::TUPLE_INSERT, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_INSERT, tx0.get(), writer_func,
+                std::move(reader_func), std::move(callback));
         });
 }
 
@@ -358,8 +360,8 @@ void table_impl::replace_async(transaction *tx, const ignite_tuple &record, igni
                 return reader.read_bool();
             };
 
-            self->m_connection->perform_request<bool>(
-                protocol::client_operation::TUPLE_REPLACE, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_REPLACE, tx0.get(), writer_func,
+                std::move(reader_func), std::move(callback));
         });
 }
 
@@ -380,8 +382,8 @@ void table_impl::replace_async(
                 return reader.read_bool();
             };
 
-            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_REPLACE_EXACT, tx0.get(), writer_func,
-                std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_REPLACE_EXACT, tx0.get(),
+                writer_func, std::move(reader_func), std::move(callback));
         });
 }
 
@@ -405,8 +407,9 @@ void table_impl::get_and_replace_async(
                 return read_tuple(reader, sch.get());
             };
 
-            self->m_connection->perform_request<std::optional<ignite_tuple>>(protocol::client_operation::TUPLE_GET_AND_REPLACE,
-                tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request<std::optional<ignite_tuple>>(
+                protocol::client_operation::TUPLE_GET_AND_REPLACE, tx0.get(), writer_func, std::move(reader_func),
+                std::move(callback));
         });
 }
 
@@ -425,8 +428,8 @@ void table_impl::remove_async(transaction *tx, const ignite_tuple &key, ignite_c
                 return reader.read_bool();
             };
 
-            self->m_connection->perform_request<bool>(
-                protocol::client_operation::TUPLE_DELETE, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_DELETE, tx0.get(), writer_func,
+                std::move(reader_func), std::move(callback));
         });
 }
 
@@ -445,8 +448,8 @@ void table_impl::remove_exact_async(transaction *tx, const ignite_tuple &record,
                 return reader.read_bool();
             };
 
-            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_DELETE_EXACT, tx0.get(), writer_func,
-                std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request<bool>(protocol::client_operation::TUPLE_DELETE_EXACT, tx0.get(),
+                writer_func, std::move(reader_func), std::move(callback));
         });
 }
 
@@ -470,8 +473,9 @@ void table_impl::get_and_remove_async(
                 return read_tuple(reader, sch.get());
             };
 
-            self->m_connection->perform_request<std::optional<ignite_tuple>>(protocol::client_operation::TUPLE_GET_AND_DELETE,
-                tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request<std::optional<ignite_tuple>>(
+                protocol::client_operation::TUPLE_GET_AND_DELETE, tx0.get(), writer_func, std::move(reader_func),
+                std::move(callback));
         });
 }
 
@@ -510,8 +514,9 @@ void table_impl::remove_all_exact_async(
                 return read_tuples(reader, sch.get(), false);
             };
 
-            self->m_connection->perform_request<std::vector<ignite_tuple>>(protocol::client_operation::TUPLE_DELETE_ALL_EXACT,
-                tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+            self->m_connection->perform_request<std::vector<ignite_tuple>>(
+                protocol::client_operation::TUPLE_DELETE_ALL_EXACT, tx0.get(), writer_func, std::move(reader_func),
+                std::move(callback));
         });
 }
 

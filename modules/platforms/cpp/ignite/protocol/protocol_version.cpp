@@ -24,13 +24,11 @@ namespace ignite::protocol {
 
 const protocol_version protocol_version::VERSION_3_0_0{3, 0, 0};
 
-const protocol_version::version_set protocol_version::m_supported{
-    protocol_version::VERSION_3_0_0
-};
+const protocol_version::version_set protocol_version::m_supported{protocol_version::VERSION_3_0_0};
 
 void throw_parse_error() {
     throw ignite_error("Invalid version format. Valid format is X.Y.Z, where X, Y and Z are major, "
-        "minor and maintenance version parts of Ignite since which protocol is introduced.");
+                       "minor and maintenance version parts of Ignite since which protocol is introduced.");
 }
 
 std::optional<protocol_version> protocol_version::from_string(const std::string &version) {

@@ -17,8 +17,8 @@
 
 #include "ignite/client/detail/node_connection.h"
 
-#include <ignite/protocol/utils.h>
 #include <ignite/protocol/messages.h>
+#include <ignite/protocol/utils.h>
 
 namespace ignite::detail {
 

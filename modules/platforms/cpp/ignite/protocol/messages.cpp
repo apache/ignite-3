@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-#pragma once
-
 #include "ignite/protocol/messages.h"
 #include "ignite/protocol/buffer_adapter.h"
+#include "ignite/protocol/reader.h"
 #include "ignite/protocol/utils.h"
 #include "ignite/protocol/writer.h"
-#include "ignite/protocol/reader.h"
 
 namespace ignite::protocol {
 

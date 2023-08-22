@@ -408,8 +408,8 @@ sql_result sql_connection::internal_transaction_rollback() {
 
     network::data_buffer_owning response;
     auto success = catch_errors([&] {
-        auto response = sync_request(
-            protocol::client_operation::TX_ROLLBACK, [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
+        auto response = sync_request(protocol::client_operation::TX_ROLLBACK,
+            [&](protocol::writer &writer) { writer.write(*m_transaction_id); });
     });
 
     if (!success)

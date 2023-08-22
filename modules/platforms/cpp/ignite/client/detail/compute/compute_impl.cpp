@@ -141,8 +141,9 @@ void compute_impl::execute_colocated_async(const std::string &table_name, const 
                         return read_primitive_from_binary_tuple(reader);
                     };
 
-                    conn->perform_request<std::optional<primitive>>(protocol::client_operation::COMPUTE_EXECUTE_COLOCATED,
-                        writer_func, std::move(reader_func), std::move(callback));
+                    conn->perform_request<std::optional<primitive>>(
+                        protocol::client_operation::COMPUTE_EXECUTE_COLOCATED, writer_func, std::move(reader_func),
+                        std::move(callback));
                 });
         });
 }

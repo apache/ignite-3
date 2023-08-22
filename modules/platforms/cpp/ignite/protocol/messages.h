@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "ignite/protocol/protocol_version.h"
 #include "ignite/protocol/protocol_context.h"
+#include "ignite/protocol/protocol_version.h"
 
 #include "ignite/common/bytes_view.h"
 #include "ignite/common/ignite_error.h"
