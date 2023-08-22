@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,12 +15,32 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks;
+namespace Apache.Ignite.Internal.Table;
 
-using BenchmarkDotNet.Running;
-using Table.Serialization;
+using System;
 
-internal static class Program
+/// <summary>
+/// Common tuple utilities.
+/// </summary>
+internal static class IgniteTupleCommon
 {
-    private static void Main() => BenchmarkRunner.Run<SerializerHandlerReadBenchmarks>();
+    /// <summary>
+    /// Parses column name. Removes quotes and converts to upper case.
+    /// </summary>
+    /// <param name="name">Name.</param>
+    /// <returns>Parsed name.</returns>
+    public static string ParseColumnName(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            throw new ArgumentException("Column name can not be null or empty.");
+        }
+
+        if (name.Length > 2 && name.StartsWith('"') && name.EndsWith('"'))
+        {
+            return name.Substring(1, name.Length - 2);
+        }
+
+        return name.ToUpperInvariant();
+    }
 }
