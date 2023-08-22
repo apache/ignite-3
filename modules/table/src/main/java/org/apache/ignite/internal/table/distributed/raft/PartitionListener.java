@@ -94,7 +94,10 @@ public class PartitionListener implements RaftGroupListener {
     /** Storage of transaction metadata. */
     private final TxStateStorage txStateStorage;
 
-    /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
+    /**
+     * Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort.
+     * TODO: IGNITE-18502 Implement a pending update storage
+     */
     private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new HashMap<>();
 
     /** Safe time tracker. */
@@ -123,7 +126,6 @@ public class PartitionListener implements RaftGroupListener {
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
 
-        // TODO: IGNITE-18502 Implement a pending update storage
         try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
             while (cursor.hasNext()) {
                 ReadResult readResult = cursor.next();

@@ -717,7 +717,14 @@ public class PartitionReplicaListener implements ReplicaListener {
             List<BinaryRow> batchRows
     ) {
         if (batchRows.size() < batchCount && cursor.hasNext()) {
-            return resolveAndCheckReadCompatibility(cursor.next(), txId)
+            ReadResult readResult = cursor.next();
+
+            HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
+
+            BinaryRow candidate =
+                    newestCommitTimestamp == null || !readResult.isWriteIntent() ? null : cursor.committed(newestCommitTimestamp);
+
+            return resolveAndCheckReadCompatibility(readResult, txId, () -> candidate)
                     .thenCompose(resolvedReadResult -> {
                         if (resolvedReadResult != null) {
                             batchRows.add(resolvedReadResult);
@@ -929,14 +936,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                             + readResult.newestCommitTimestamp() + ']';
 
             return committedReadResult.binaryRow();
-        })
-                .thenComposeAsync(resolvedReadResult -> {
-                    if (resolvedReadResult != null && indexRowMatches(indexRow, resolvedReadResult, schemaAwareIndexStorage)) {
-                        result.add(resolvedReadResult);
-                    }
+        }).thenComposeAsync(resolvedReadResult -> {
+            if (resolvedReadResult != null && indexRowMatches(indexRow, resolvedReadResult, schemaAwareIndexStorage)) {
+                result.add(resolvedReadResult);
+            }
 
-                    return continueReadOnlyIndexScan(schemaAwareIndexStorage, cursor, timestamp, batchSize, result);
-                }, scanRequestExecutor);
+            return continueReadOnlyIndexScan(schemaAwareIndexStorage, cursor, timestamp, batchSize, result);
+        }, scanRequestExecutor);
     }
 
     /**
@@ -970,28 +976,41 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(null); // End of range reached. Exit loop.
                     }
 
-                    return lockManager.acquire(txId, new LockKey(tableId(), currentRow.rowId()), LockMode.S)
-                            .thenComposeAsync(rowLock -> { // Table row S lock
-                                ReadResult readResult = mvDataStorage.read(currentRow.rowId(), HybridTimestamp.MAX_VALUE);
-                                return resolveAndCheckReadCompatibility(readResult, txId)
-                                        .thenCompose(resolvedReadResult -> {
-                                            if (resolvedReadResult != null) {
-                                                if (indexRowMatches(currentRow, resolvedReadResult, schemaAwareIndexStorage)) {
-                                                    result.add(resolvedReadResult);
-                                                }
-                                            }
+                    RowId rowId = currentRow.rowId();
 
-                                            // Proceed scan.
-                                            return continueIndexScan(
-                                                    txId,
-                                                    schemaAwareIndexStorage,
-                                                    indexLocker,
-                                                    indexCursor,
-                                                    batchSize,
-                                                    result,
-                                                    isUpperBoundAchieved
-                                            );
-                                        });
+                    return lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S)
+                            .thenComposeAsync(rowLock -> { // Table row S lock
+                                ReadResult readResult = mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE);
+                                return resolveAndCheckReadCompatibility(readResult, txId, () -> {
+                                    if (readResult.newestCommitTimestamp() == null) {
+                                        return null;
+                                    }
+
+                                    ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
+
+                                    assert !committedReadResult.isWriteIntent() :
+                                            "The result is not committed [rowId=" + rowId + ", timestamp="
+                                                    + readResult.newestCommitTimestamp() + ']';
+
+                                    return committedReadResult.binaryRow();
+                                }).thenCompose(resolvedReadResult -> {
+                                    if (resolvedReadResult != null) {
+                                        if (indexRowMatches(currentRow, resolvedReadResult, schemaAwareIndexStorage)) {
+                                            result.add(resolvedReadResult);
+                                        }
+                                    }
+
+                                    // Proceed scan.
+                                    return continueIndexScan(
+                                            txId,
+                                            schemaAwareIndexStorage,
+                                            indexLocker,
+                                            indexCursor,
+                                            batchSize,
+                                            result,
+                                            isUpperBoundAchieved
+                                    );
+                                });
                             }, scanRequestExecutor);
                 });
     }
@@ -1025,15 +1044,26 @@ public class PartitionReplicaListener implements ReplicaListener {
         return lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S)
                 .thenComposeAsync(rowLock -> { // Table row S lock
                     ReadResult readResult = mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE);
-                    return resolveAndCheckReadCompatibility(readResult, txId)
-                            .thenCompose(resolvedReadResult -> {
-                                if (resolvedReadResult != null) {
-                                    result.add(resolvedReadResult);
-                                }
+                    return resolveAndCheckReadCompatibility(readResult, txId, () -> {
+                        if (readResult.newestCommitTimestamp() == null) {
+                            return null;
+                        }
 
-                                // Proceed lookup.
-                                return continueIndexLookup(txId, indexCursor, batchSize, result);
-                            });
+                        ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
+
+                        assert !committedReadResult.isWriteIntent() :
+                                "The result is not committed [rowId=" + rowId + ", timestamp="
+                                        + readResult.newestCommitTimestamp() + ']';
+
+                        return committedReadResult.binaryRow();
+                    }).thenCompose(resolvedReadResult -> {
+                        if (resolvedReadResult != null) {
+                            result.add(resolvedReadResult);
+                        }
+
+                        // Proceed lookup.
+                        return continueIndexLookup(txId, indexCursor, batchSize, result);
+                    });
                 }, scanRequestExecutor);
     }
 
@@ -1326,14 +1356,27 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         RowId rowId = cursor.next();
 
-        return resolveAndCheckReadCompatibility(mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE), txId)
-                .thenCompose(row -> {
-                    if (row != null) {
-                        return action.apply(rowId, row);
-                    } else {
-                        return continueResolvingByPk(cursor, txId, action);
-                    }
-                });
+        ReadResult readResult = mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE);
+
+        return resolveAndCheckReadCompatibility(readResult, txId, () -> {
+            if (readResult.newestCommitTimestamp() == null) {
+                return null;
+            }
+
+            ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
+
+            assert !committedReadResult.isWriteIntent() :
+                    "The result is not committed [rowId=" + rowId + ", timestamp="
+                            + readResult.newestCommitTimestamp() + ']';
+
+            return committedReadResult.binaryRow();
+        }).thenCompose(row -> {
+            if (row != null) {
+                return action.apply(rowId, row);
+            } else {
+                return continueResolvingByPk(cursor, txId, action);
+            }
+        });
 
     }
 
@@ -2246,24 +2289,27 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
-    private CompletableFuture<BinaryRow> resolveAndCheckReadCompatibility(ReadResult readResult, UUID txId) {
-        BinaryRow row = resolveRwReadResult(readResult, txId);
+    private CompletableFuture<BinaryRow> resolveAndCheckReadCompatibility(
+            ReadResult readResult,
+            UUID txId,
+            Supplier<BinaryRow> lastCommitted
+    ) {
+        return resolveRwReadResult(readResult, txId, lastCommitted).thenCompose(row -> {
+            if (row == null) {
+                return completedFuture(row);
+            }
 
-        if (row == null) {
-            return completedFuture(row);
-        }
-
-        return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
-                .thenCompose(validationResult -> {
-                    if (validationResult.isSuccessful()) {
-                        return completedFuture(row);
-                    } else {
-                        throw new IncompatibleSchemaException("Operation failed because schema "
-                                + validationResult.fromSchemaVersion() + " is not backward-compatible with "
-                                + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
-                    }
-                });
-
+            return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
+                    .thenCompose(validationResult -> {
+                        if (validationResult.isSuccessful()) {
+                            return completedFuture(row);
+                        } else {
+                            throw new IncompatibleSchemaException("Operation failed because schema "
+                                    + validationResult.fromSchemaVersion() + " is not backward-compatible with "
+                                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
+                        }
+                    });
+        });
     }
 
     /**
@@ -2271,12 +2317,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param readResult Read result to resolve.
      * @param txId Transaction id.
+     * @param lastCommitted Action to get the latest committed row.
      * @return Resolved binary row.
      */
     @Nullable
-    private BinaryRow resolveRwReadResult(ReadResult readResult, UUID txId) {
+    private CompletableFuture<BinaryRow> resolveRwReadResult(ReadResult readResult, UUID txId, Supplier<BinaryRow> lastCommitted) {
         // This is a safe join (waiting of the future result), because the resolution for RW transaction cannot lead to a network request.
-        return resolveReadResult(readResult, txId, null, null).join();
+        return resolveReadResult(readResult, txId, null, lastCommitted);
     }
 
     /**
@@ -2308,38 +2355,31 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param readResult Read result to resolve.
      * @param txId Nullable transaction id, should be provided if resolution is performed within the context of RW transaction.
      * @param timestamp Timestamp is used in RO transaction only.
-     * @param lastCommitted Action to get the latest committed row, it is used in RO transaction only.
+     * @param lastCommitted Action to get the latest committed row.
      * @return Future to resolved binary row.
      */
     private CompletableFuture<BinaryRow> resolveReadResult(
             ReadResult readResult,
             @Nullable UUID txId,
             @Nullable HybridTimestamp timestamp,
-            @Nullable Supplier<BinaryRow> lastCommitted
+            Supplier<BinaryRow> lastCommitted
     ) {
         if (readResult == null) {
             return completedFuture(null);
+        } else if (!readResult.isWriteIntent()) {
+            return completedFuture(readResult.binaryRow());
         } else {
+            // RW resolution.
             if (txId != null) {
-                // RW request.
                 UUID retrievedResultTxId = readResult.transactionId();
 
-                if (retrievedResultTxId == null || txId.equals(retrievedResultTxId)) {
+                if (txId.equals(retrievedResultTxId)) {
                     // Same transaction - return retrieved value. It may be both writeIntent or regular value.
                     return completedFuture(readResult.binaryRow());
-                } else {
-                    // Should never happen, currently, locks prevent reading another transaction intents during RW requests.
-                    throw new AssertionError("Mismatched transaction id, expectedTxId={" + txId + "},"
-                            + " actualTxId={" + retrievedResultTxId + '}');
                 }
-            } else {
-                if (!readResult.isWriteIntent()) {
-                    return completedFuture(readResult.binaryRow());
-                }
-
-                // RO request.
-                return resolveWriteIntentAsync(readResult, timestamp, lastCommitted);
             }
+
+            return resolveWriteIntentAsync(readResult, timestamp, lastCommitted);
         }
     }
 
@@ -2359,14 +2399,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         return resolveTxState(
                 new TablePartitionId(readResult.commitTableId(), readResult.commitPartitionId()),
                 readResult.transactionId(),
-                timestamp)
-                .thenApply(readLastCommitted -> {
-                    if (readLastCommitted) {
-                        return lastCommitted.get();
-                    } else {
-                        return readResult.binaryRow();
-                    }
-                });
+                timestamp
+        ).thenApply(readLastCommitted -> {
+            if (readLastCommitted) {
+                return lastCommitted.get();
+            } else {
+                return readResult.binaryRow();
+            }
+        });
     }
 
     /**
@@ -2382,18 +2422,18 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             HybridTimestamp timestamp
     ) {
-        requireNonNull(timestamp, "timestamp");
+        boolean readLatest = timestamp == null;
 
         return placementDriver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
                         .groupId(commitGrpId)
-                        .readTimestampLong(timestamp.longValue())
+                        .readTimestampLong((readLatest ? HybridTimestamp.MIN_VALUE : timestamp).longValue())
                         .txId(txId)
                         .build())
                 .thenApply(txMeta -> {
                     if (txMeta == null) {
                         return true;
                     } else if (txMeta.txState() == TxState.COMMITED) {
-                        return txMeta.commitTimestamp().compareTo(timestamp) > 0;
+                        return !readLatest && txMeta.commitTimestamp().compareTo(timestamp) > 0;
                     } else {
                         assert txMeta.txState() == TxState.ABORTED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
 
