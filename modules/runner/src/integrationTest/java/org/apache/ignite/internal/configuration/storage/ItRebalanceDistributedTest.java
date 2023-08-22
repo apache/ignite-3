@@ -1079,7 +1079,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static void alterZone(Node node, String zoneName, int replicas) {
-        DistributionZonesTestUtil.alterZoneReplicas(node.distributionZoneManager, zoneName, replicas);
+        DistributionZonesTestUtil.alterZone(node.catalogManager, zoneName, replicas);
     }
 
     private static void createTable(Node node, String zoneName, String tableName) {

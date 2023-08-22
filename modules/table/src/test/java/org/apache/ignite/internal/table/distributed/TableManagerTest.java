@@ -34,7 +34,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -277,9 +276,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(cmgMgr.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
 
         distributionZoneManager = mock(DistributionZoneManager.class);
-
-        when(distributionZoneManager.zoneIdAsyncInternal(anyString()))
-                .then(invocation -> completedFuture(getZoneId(invocation.getArgument(0))));
 
         when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(completedFuture(emptySet()));
 
