@@ -121,15 +121,16 @@ public class Replica {
      * Processes a replication request on the replica.
      *
      * @param request Request to replication.
+     * @param senderId Sender id.
      * @return Response.
      */
-    public CompletableFuture<?> processRequest(ReplicaRequest request) {
+    public CompletableFuture<?> processRequest(ReplicaRequest request, String senderId) {
         assert replicaGrpId.equals(request.groupId()) : IgniteStringFormatter.format(
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
                 request.groupId(),
                 replicaGrpId);
 
-        return listener.invoke(request);
+        return listener.invoke(request, senderId);
     }
 
     /**

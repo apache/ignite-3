@@ -187,15 +187,21 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         replicaService = mock(ReplicaService.class);
 
         when(replicaService.invoke(any(ClusterNode.class), any()))
-                .thenAnswer(invocationOnMock -> partitionReplicaListener.invoke(invocationOnMock.getArgument(1)));
+                .thenAnswer(invocationOnMock -> {
+                    ClusterNode node = invocationOnMock.getArgument(0);
+
+                    return partitionReplicaListener.invoke(invocationOnMock.getArgument(1), node.id());
+                });
 
         for (int i = 0; i < nodes(); i++) {
-            TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i));
+            TxManager txManager =
+                    new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i), "local");
             txManagers.put(i, txManager);
             closeables.add(txManager::stop);
         }
 
-        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1));
+        TxManager txManager =
+                new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1), "local");
         closeables.add(txManager::stop);
 
         table = new InternalTableImpl(
@@ -219,7 +225,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     private PartitionReplicaListener mockPartitionReplicaListener(RaftGroupService service) {
         PartitionReplicaListener partitionReplicaListener = mock(PartitionReplicaListener.class);
 
-        when(partitionReplicaListener.invoke(any())).thenAnswer(invocationOnMock -> {
+        when(partitionReplicaListener.invoke(any(), any())).thenAnswer(invocationOnMock -> {
             ReplicaRequest req = invocationOnMock.getArgument(0);
 
             if (req instanceof ReadWriteSingleRowReplicaRequest) {

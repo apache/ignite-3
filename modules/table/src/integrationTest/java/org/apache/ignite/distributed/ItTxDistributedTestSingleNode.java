@@ -138,6 +138,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItTxDistributedTestSingleNode extends TxAbstractTest {
+    protected static final int ACC_TABLE_ID = 1;
+
+    protected static final int CUST_TABLE_ID = 2;
+
     //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
     private static RaftConfiguration raftConfiguration;
@@ -336,7 +340,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
             replicaServices.put(node.name(), replicaSvc);
 
-            TxManagerImpl txMgr = new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, new TransactionIdGenerator(i));
+            TxManagerImpl txMgr = new TxManagerImpl(replicaSvc, new HeapLockManager(), clock, new TransactionIdGenerator(i), node.id());
 
             txMgr.start();
 
@@ -350,18 +354,17 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         final String accountsName = "accounts";
         final String customersName = "customers";
 
-        int accTblId = 1;
-        int custTblId = 2;
-
-        accRaftClients = startTable(accTblId, ACCOUNTS_SCHEMA);
-        custRaftClients = startTable(custTblId, CUSTOMERS_SCHEMA);
+        accRaftClients = startTable(ACC_TABLE_ID, ACCOUNTS_SCHEMA);
+        custRaftClients = startTable(CUST_TABLE_ID, CUSTOMERS_SCHEMA);
 
         log.info("Partition groups have been started");
 
         String localNodeName = accRaftClients.get(0).clusterService().topologyService().localMember().name();
+        String localNodeId = accRaftClients.get(0).clusterService().topologyService().localMember().name();
 
         if (startClient()) {
-            clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock, new TransactionIdGenerator(-1));
+            clientTxManager =
+                    new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock, new TransactionIdGenerator(-1), localNodeId);
         } else {
             // Collocated mode.
             clientTxManager = txManagers.get(localNodeName);
@@ -373,7 +376,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         this.accounts = new TableImpl(new InternalTableImpl(
                 accountsName,
-                accTblId,
+                ACC_TABLE_ID,
                 accRaftClients,
                 1,
                 consistentIdToNode,
@@ -386,7 +389,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         this.customers = new TableImpl(new InternalTableImpl(
                 customersName,
-                custTblId,
+                CUST_TABLE_ID,
                 custRaftClients,
                 1,
                 consistentIdToNode,
@@ -489,6 +492,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         new RaftNodeId(grpId, configuration.peer(assignment)),
                         configuration,
                         new PartitionListener(
+                                txManager(tblId),
                                 partitionDataStorage,
                                 storageUpdateHandler,
                                 txStateStorage,
@@ -696,6 +700,18 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     @Override
     protected TxManager clientTxManager() {
         return clientTxManager;
+    }
+
+    protected TxManager txManager(int tableId) {
+        if (tableId == ACC_TABLE_ID) {
+            return txManager(accounts);
+        } else if (tableId == CUST_TABLE_ID) {
+            return txManager(customers);
+        } else {
+            fail("Unknown table id: " + tableId);
+        }
+
+        return null;
     }
 
     /** {@inheritDoc} */

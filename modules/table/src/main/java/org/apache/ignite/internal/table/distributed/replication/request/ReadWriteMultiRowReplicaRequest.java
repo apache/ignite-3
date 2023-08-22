@@ -26,7 +26,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * Read-write multi-row replica request.
  */
 @Transferable(TableMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST)
-public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest {
+public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest, FullTxRequest {
     /**
      * Gets a commit partition id.
      *
@@ -34,9 +34,4 @@ public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaReque
      */
     @Marshallable
     TablePartitionId commitPartitionId();
-
-    /**
-     * Return {@code true} if this is a full transaction.
-     */
-    boolean full();
 }

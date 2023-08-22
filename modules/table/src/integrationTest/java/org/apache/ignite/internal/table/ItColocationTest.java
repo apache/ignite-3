@@ -141,7 +141,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 replicaService,
                 new HeapLockManager(),
                 new HybridClockImpl(),
-                new TransactionIdGenerator(0xdeadbeef)
+                new TransactionIdGenerator(0xdeadbeef),
+                clusterNode.id()
         ) {
             @Override
             public CompletableFuture<Void> finish(

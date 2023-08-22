@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 
@@ -100,7 +101,10 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             return completedFuture(null);
         }
 
-        return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(
-                new TxIdAndTimestamp(readTimestamp, id())).thenRun(() -> txManager.changeState(id(), PENDING, COMMITED));
+        return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()))
+                .thenRun(() -> txManager.updateTxMeta(
+                        id(),
+                        old -> new TxStateMeta(COMMITED, old.txCoordinatorId(), old.commitTimestamp())
+                ));
     }
 }

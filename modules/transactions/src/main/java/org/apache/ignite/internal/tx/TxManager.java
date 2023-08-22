@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -68,15 +69,12 @@ public interface TxManager extends IgniteComponent {
     @Nullable TxState state(UUID txId);
 
     /**
-     * Atomically changes the state of a transaction.
+     * Atomically changes the state meta of a transaction.
      *
      * @param txId Transaction id.
-     * @param before Before state.
-     * @param after After state.
+     * @param updater Transaction meta updater.
      */
-    // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
-    @Deprecated
-    void changeState(UUID txId, @Nullable TxState before, TxState after);
+    void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater);
 
     /**
      * Returns lock manager.

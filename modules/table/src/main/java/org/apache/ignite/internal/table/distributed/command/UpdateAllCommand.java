@@ -31,4 +31,6 @@ public interface UpdateAllCommand extends PartitionCommand {
     TablePartitionIdMessage tablePartitionId();
 
     Map<UUID, BinaryRowMessage> rowsToUpdate();
+
+    String txCoordinatorId();
 }

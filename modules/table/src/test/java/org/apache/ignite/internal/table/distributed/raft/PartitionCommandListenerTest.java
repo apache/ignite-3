@@ -95,6 +95,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.BinaryRo
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -205,6 +206,7 @@ public class PartitionCommandListenerTest {
         ));
 
         commandListener = new PartitionListener(
+                mock(TxManager.class),
                 partitionDataStorage,
                 storageUpdateHandler,
                 txStateStorage,
@@ -305,6 +307,7 @@ public class PartitionCommandListenerTest {
         );
 
         PartitionListener testCommandListener = new PartitionListener(
+                mock(TxManager.class),
                 partitionDataStorage,
                 storageUpdateHandler,
                 txStateStorage,

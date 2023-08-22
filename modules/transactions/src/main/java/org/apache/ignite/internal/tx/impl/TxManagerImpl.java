@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.Comparator;
@@ -35,6 +39,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -44,13 +49,13 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * A transaction manager implementation.
@@ -72,10 +77,8 @@ public class TxManagerImpl implements TxManager {
     /** Generates transaction IDs. */
     private final TransactionIdGenerator transactionIdGenerator;
 
-    // TODO: IGNITE-20033 Consider using Txn state map instead of states.
-    /** The storage for tx states. */
-    @TestOnly
-    private final ConcurrentHashMap<UUID, TxState> states = new ConcurrentHashMap<>();
+    /** The local map for tx states. */
+    private final ConcurrentHashMap<UUID, TxStateMeta> txStateMap = new ConcurrentHashMap<>();
 
     /** Future of a read-only transaction by it {@link TxIdAndTimestamp}. */
     private final ConcurrentNavigableMap<TxIdAndTimestamp, CompletableFuture<Void>> readOnlyTxFutureById = new ConcurrentSkipListMap<>(
@@ -91,6 +94,8 @@ public class TxManagerImpl implements TxManager {
     /** Lock to update and read the low watermark. */
     private final ReadWriteLock lowWatermarkReadWriteLock = new ReentrantReadWriteLock();
 
+    private final String localNodeId;
+
     /**
      * The constructor.
      *
@@ -103,12 +108,14 @@ public class TxManagerImpl implements TxManager {
             ReplicaService replicaService,
             LockManager lockManager,
             HybridClock clock,
-            TransactionIdGenerator transactionIdGenerator
+            TransactionIdGenerator transactionIdGenerator,
+            String localNodeId
     ) {
         this.replicaService = replicaService;
         this.lockManager = lockManager;
         this.clock = clock;
         this.transactionIdGenerator = transactionIdGenerator;
+        this.localNodeId = localNodeId;
     }
 
     @Override
@@ -122,7 +129,7 @@ public class TxManagerImpl implements TxManager {
 
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
-        changeState(txId, null, PENDING);
+        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId, null));
 
         if (!readOnly) {
             return new ReadWriteTransactionImpl(this, txId);
@@ -174,21 +181,38 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public TxState state(UUID txId) {
-        return states.get(txId);
+        return txStateMap.get(txId).txState();
     }
 
     @Override
-    public void changeState(UUID txId, TxState before, TxState after) {
-        TxState computeResult = states.compute(txId, (k, v) -> {
-            if (v == before) {
-                return after;
-            } else {
-                return v;
-            }
-        });
+    public void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+        txStateMap.compute(txId, (k, oldMeta) -> {
+            TxStateMeta newMeta = updater.apply(oldMeta);
 
-        assert computeResult == after : "Unable to change transaction state, expected = [" + before + "],"
-                + " got = [" + computeResult + "], state to set = [" + after + ']';
+            TxState oldState = oldMeta == null ? null : oldMeta.txState();
+
+            assert checkTransitionCorrectness(oldState, newMeta.txState())
+                    : "Unable to change transaction meta, transaction state transition is incorrect, old meta = [" + oldMeta + "], "
+                        + "meta to set = [" + newMeta + ']';
+
+            return newMeta;
+        });
+    }
+
+    public static Function<TxStateMeta, TxStateMeta> markFinishedOnReplica(boolean commit) {
+        return commit ? TxManagerImpl::markCommittedOnReplica : TxManagerImpl::markAbortedOnReplica;
+    }
+
+    private static TxStateMeta markCommittedOnReplica(TxStateMeta oldMeta) {
+        requireNonNull(oldMeta, "Transaction can't be marked as committed on a replica in which it was not enlisted");
+
+        return new TxStateMeta(COMMITED, oldMeta.txCoordinatorId(), oldMeta.commitTimestamp());
+    }
+
+    private static TxStateMeta markAbortedOnReplica(TxStateMeta oldMeta) {
+        requireNonNull(oldMeta, "Transaction can't be marked as aborted on a replica in which it was not enlisted");
+
+        return new TxStateMeta(ABORTED, oldMeta.txCoordinatorId(), oldMeta.commitTimestamp());
     }
 
     @Override
@@ -200,9 +224,16 @@ public class TxManagerImpl implements TxManager {
             Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
             UUID txId
     ) {
-        assert groups != null && !groups.isEmpty();
+        assert groups != null;
 
         HybridTimestamp commitTimestamp = commit ? clock.now() : null;
+
+        updateTxMeta(txId, old -> new TxStateMeta(FINISHING, old.txCoordinatorId(), commitTimestamp));
+
+        // If there are no enlisted groups, just return - we already marked the tx as finished.
+        if (groups.isEmpty()) {
+            return completedFuture(null);
+        }
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                 .txId(txId)
@@ -215,8 +246,11 @@ public class TxManagerImpl implements TxManager {
                 .build();
 
         return replicaService.invoke(recipientNode, req)
-                // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
-                .thenRun(() -> changeState(txId, PENDING, commit ? COMMITED : ABORTED));
+                .thenRun(() -> updateTxMeta(txId, old -> new TxStateMeta(
+                        commit ? COMMITED : ABORTED,
+                        old.txCoordinatorId(),
+                        old.commitTimestamp()
+                )));
     }
 
     @Override
@@ -249,12 +283,16 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public int finished() {
-        return (int) states.entrySet().stream().filter(e -> e.getValue() == COMMITED || e.getValue() == ABORTED).count();
+        return (int) txStateMap.entrySet().stream()
+                .filter(e -> e.getValue().txState() == COMMITED || e.getValue().txState() == ABORTED)
+                .count();
     }
 
     @Override
     public int pending() {
-        return (int) states.entrySet().stream().filter(e -> e.getValue() == PENDING).count();
+        return (int) txStateMap.entrySet().stream()
+                .filter(e -> e.getValue().txState() == PENDING)
+                .count();
     }
 
     @Override

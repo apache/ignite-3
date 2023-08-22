@@ -203,7 +203,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 1,
                 name -> mock(ClusterNode.class),
                 txManager == null
-                        ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef))
+                        ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), "local")
                         : txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
@@ -221,7 +221,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
-            lenient().doAnswer(invocationOnMock -> replicaListener.invoke(invocationOnMock.getArgument(1)))
+            lenient()
+                    .doAnswer(invocationOnMock -> {
+                        ClusterNode node = invocationOnMock.getArgument(0);
+
+                        return replicaListener.invoke(invocationOnMock.getArgument(1), node.id());
+                    })
                     .when(replicaSvc).invoke(any(ClusterNode.class), any());
         }
 
@@ -333,6 +338,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(safeTime.current()).thenReturn(new HybridTimestamp(1, 0));
 
         partitionListener = new PartitionListener(
+                txManager,
                 new TestPartitionDataStorage(mvPartStorage),
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),

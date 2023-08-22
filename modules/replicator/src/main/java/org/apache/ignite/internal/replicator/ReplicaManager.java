@@ -235,7 +235,9 @@ public class ReplicaManager implements IgniteComponent {
             // replicaFut is always completed here.
             Replica replica = replicaFut.join();
 
-            CompletableFuture<?> result = replica.processRequest(request);
+            String senderId = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId).id();
+
+            CompletableFuture<?> result = replica.processRequest(request, senderId);
 
             HybridTimestamp finalSendTimestamp = sendTimestamp;
             result.handle((res, ex) -> {
@@ -608,7 +610,7 @@ public class ReplicaManager implements IgniteComponent {
                         .groupId(r.join().groupId())
                         .build();
 
-                r.join().processRequest(req);
+                r.join().processRequest(req, clusterNetSvc.topologyService().localMember().id());
             }
         });
     }

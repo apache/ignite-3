@@ -86,7 +86,7 @@ public class TxLocalTest extends TxAbstractTest {
                 TimestampAware aware = (TimestampAware) request;
                 HybridTimestamp updated = DummyInternalTableImpl.CLOCK.update(aware.timestamp());
 
-                return replicaListener.invoke(request).handle((res, err) -> err == null ? replicaMessagesFactory
+                return replicaListener.invoke(request, "local").handle((res, err) -> err == null ? replicaMessagesFactory
                         .timestampAwareReplicaResponse()
                         .result(res)
                         .timestampLong(updated.longValue())
@@ -97,7 +97,7 @@ public class TxLocalTest extends TxAbstractTest {
                                 .timestampLong(updated.longValue())
                                 .build());
             } else {
-                return replicaListener.invoke(request).handle((res, err) -> err == null ? replicaMessagesFactory
+                return replicaListener.invoke(request, "local").handle((res, err) -> err == null ? replicaMessagesFactory
                         .replicaResponse()
                         .result(res)
                         .build() : replicaMessagesFactory
@@ -117,7 +117,7 @@ public class TxLocalTest extends TxAbstractTest {
                     tables.get(request.groupId()).txStateStorage().getTxStateStorage(0).get(request.txId()));
         }).when(placementDriver).sendMetaRequest(any(), any());
 
-        txManager = new TxManagerImpl(replicaSvc, lockManager, localClock, new TransactionIdGenerator(0xdeadbeef));
+        txManager = new TxManagerImpl(replicaSvc, lockManager, localClock, new TransactionIdGenerator(0xdeadbeef), "local");
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 

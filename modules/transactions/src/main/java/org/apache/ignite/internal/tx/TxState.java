@@ -17,11 +17,38 @@
 
 package org.apache.ignite.internal.tx;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * Transaction state.
  */
 public enum TxState {
     PENDING,
+    FINISHING,
     ABORTED,
     COMMITED;
+
+    private static final boolean[][] TRANSITION_MATRIX = {
+            { false, true,  false, false, false},
+            { false, true,  true,  true,  true },
+            { false, false, false, true,  true },
+            { false, false, false, true,  false},
+            { false, false, false, false, true },
+    };
+
+    /**
+     * Checks the correctness of the transition between transaction states.
+     *
+     * @param before State before.
+     * @param after State after.
+     * @return Whether the transition is correct.
+     */
+    public static boolean checkTransitionCorrectness(TxState before, TxState after) {
+        requireNonNull(after);
+
+        int beforeOrd = before == null ? 0 : before.ordinal() + 1;
+        int afterOrd = after.ordinal() + 1;
+
+        return TRANSITION_MATRIX[beforeOrd][afterOrd];
+    }
 }
