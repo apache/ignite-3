@@ -73,11 +73,12 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="buf">Binary tuple buffer.</param>
         /// <param name="schema">Schema.</param>
+        /// <param name="count">Column count.</param>
         /// <param name="index">Column index.</param>
         /// <returns>Column value.</returns>
-        public static object? ReadObject(ReadOnlySpan<byte> buf, Schema schema, int index)
+        public static object? ReadObject(ReadOnlySpan<byte> buf, Schema schema, int count, int index)
         {
-            var tupleReader = new BinaryTupleReader(buf, schema.Columns.Count);
+            var tupleReader = new BinaryTupleReader(buf, count);
             var column = schema.Columns[index];
 
             return tupleReader.GetObject(index, column.Type, column.Scale);
