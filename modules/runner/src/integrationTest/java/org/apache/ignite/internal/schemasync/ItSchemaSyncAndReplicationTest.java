@@ -49,9 +49,11 @@ import org.junit.jupiter.api.Test;
  */
 @SuppressWarnings("resource")
 class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
+    private static final int NODES_TO_START = 3;
+
     @Override
     protected int initialNodes() {
-        return 3;
+        return NODES_TO_START;
     }
 
     /**
@@ -113,7 +115,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
                     .map(ReplicationGroupsUtils::tablePartitionIds)
                     .mapToInt(List::size)
                     .sum();
-            return numberOfStartedRaftNodes == 3;
+            return numberOfStartedRaftNodes == NODES_TO_START;
         };
 
         assertTrue(waitForCondition(tableStarted, 10_000), "Did not see all table RAFT nodes started");
