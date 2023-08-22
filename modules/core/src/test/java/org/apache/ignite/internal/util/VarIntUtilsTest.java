@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.is;
 
 import java.nio.ByteBuffer;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -63,10 +64,27 @@ class VarIntUtilsTest {
     private static Stream<Arguments> sampleInts() {
         return Stream.of(
                 -1, 0, 1,
-                127, 128, 255, 256,
-                32767, 32768, 65535, 65536,
-                8388607, 8388608, 16777215, 16777216,
+                128 - 2, 128 - 1, 255, 256,
+                128 * 128 - 2, 128 * 128 - 1,
+                65535, 65536,
+                128 * 128 * 128 - 2, 128 * 128 * 128 - 1,
+                16777215, 16777216,
+                128 * 128 * 128 * 128 - 2, 128 * 128 * 128 * 128 - 1,
                 2147483647
         ).map(Arguments::of);
+    }
+
+    @Test
+    void testVarIntLength() {
+        assertThat(VarIntUtils.varIntLength(-1), is(1));
+        assertThat(VarIntUtils.varIntLength(0), is(1));
+        assertThat(VarIntUtils.varIntLength(128 - 2), is(1));
+        assertThat(VarIntUtils.varIntLength(128 - 1), is(2));
+        assertThat(VarIntUtils.varIntLength(128 * 128 - 2), is(2));
+        assertThat(VarIntUtils.varIntLength(128 * 128 - 1), is(3));
+        assertThat(VarIntUtils.varIntLength(128 * 128 * 128 - 2), is(3));
+        assertThat(VarIntUtils.varIntLength(128 * 128 * 128 - 1), is(4));
+        assertThat(VarIntUtils.varIntLength(128 * 128 * 128 * 128 - 2), is(4));
+        assertThat(VarIntUtils.varIntLength(128 * 128 * 128 * 128 - 1), is(5));
     }
 }
