@@ -448,11 +448,10 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
 
         try {
-            var context = QueryContext.create(SqlQueryType.ALL);
-            var txWrapper = new QueryTransactionWrapper(CLUSTER_NODES.get(0).transactions(), tx);
+            var context = QueryContext.create(SqlQueryType.ALL, tx);
 
             return getAllFromCursor(
-                    await(queryEngine.querySingleAsync(sessionId, context, txWrapper, sql, args))
+                    await(queryEngine.querySingleAsync(sessionId, context, CLUSTER_NODES.get(0).transactions(), sql, args))
             );
         } finally {
             queryEngine.closeSession(sessionId);

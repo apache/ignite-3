@@ -57,7 +57,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
@@ -161,13 +160,12 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         Transaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
-        QueryTransactionWrapper txWrapper = new QueryTransactionWrapper(igniteTransactions, tx);
-        QueryContext context = createQueryContext(req.getStmtType());
+        QueryContext context = createQueryContext(req.getStmtType(), tx);
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
                 context,
-                txWrapper,
+                igniteTransactions,
                 req.sqlQuery(),
                 req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments()
         ));
@@ -184,14 +182,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 });
     }
 
-    private QueryContext createQueryContext(JdbcStatementType stmtType) {
+    private QueryContext createQueryContext(JdbcStatementType stmtType, @Nullable Transaction tx) {
         switch (stmtType) {
             case ANY_STATEMENT_TYPE:
-                return QueryContext.create(SqlQueryType.ALL);
+                return QueryContext.create(SqlQueryType.ALL, tx);
             case SELECT_STATEMENT_TYPE:
-                return QueryContext.create(SELECT_STATEMENT_QUERIES);
+                return QueryContext.create(SELECT_STATEMENT_QUERIES, tx);
             case UPDATE_STATEMENT_TYPE:
-                return QueryContext.create(UPDATE_STATEMENT_QUERIES);
+                return QueryContext.create(UPDATE_STATEMENT_QUERIES, tx);
             default:
                 throw new AssertionError("Unexpected jdbc statement type: " + stmtType);
         }
@@ -269,13 +267,12 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             String sql,
             Object[] arg
     ) {
-        QueryContext queryContext = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE);
-        QueryTransactionWrapper txWrapper = new QueryTransactionWrapper(igniteTransactions, tx);
+        QueryContext queryContext = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE, tx);
 
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connCtx.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
                 queryContext,
-                txWrapper,
+                igniteTransactions,
                 sql,
                 arg == null ? OBJECT_EMPTY_ARRAY : arg
         ));

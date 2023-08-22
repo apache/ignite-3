@@ -17,93 +17,43 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.lang.ErrorGroups;
-import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionOptions;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper for the transaction that encapsulates the management of an implicit transaction.
  */
 public class QueryTransactionWrapper {
-    private final IgniteTransactions transactions;
+    private final boolean implicit;
 
-    private final boolean implicitRequired;
+    private final InternalTransaction transaction;
 
-    private volatile InternalTransaction transaction;
+    public QueryTransactionWrapper(InternalTransaction transaction, boolean implicit) {
+        this.transaction = transaction;
+        this.implicit = implicit;
+    }
 
     /**
-     * Constructor.
-     *
-     * @param transactions Transactions facade.
-     * @param transaction Explicit transaction.
+     * Unwrap transaction.
      */
-    public QueryTransactionWrapper(IgniteTransactions transactions, @Nullable Transaction transaction) {
-        this.transactions = transactions;
-        this.transaction = (InternalTransaction) transaction;
-
-        implicitRequired = transaction == null;
+    InternalTransaction unwrap() {
+        return transaction;
     }
 
     /**
      * Commits an implicit transaction, if one has been started.
      */
-    protected void commitImplicit() {
-        if (!implicitRequired) {
-            return;
-        }
-
-        Transaction transaction0 = transaction;
-
-        if (transaction0 != null) {
-            transaction0.commit();
+    void commitImplicit() {
+        if (implicit) {
+            transaction.commit();
         }
     }
 
     /**
      * Rolls back an implicit transaction, if one has been started.
      */
-    protected void rollbackImplicit() {
-        if (!implicitRequired) {
-            return;
+    void rollbackImplicit() {
+        if (implicit) {
+            transaction.rollback();
         }
-
-        Transaction transaction0 = transaction;
-
-        if (transaction0 != null) {
-            transaction0.rollback();
-        }
-    }
-
-    /**
-     * Each call starts a new "implicit" transaction if the query requires a new one and no "external" transaction exists.
-     *
-     * @param type Query type.
-     * @return Transaction start time, or {@code null} if specified query type does not require transaction.
-     * @throws SqlException If an external transaction was started for a {@link SqlQueryType#DDL DDL} query.
-     */
-    @Nullable HybridTimestamp beginTxIfNeeded(SqlQueryType type) {
-        if (implicitRequired) {
-            if (type == SqlQueryType.DDL || type == SqlQueryType.EXPLAIN) {
-                return null;
-            }
-
-            transaction = (InternalTransaction) transactions.begin(new TransactionOptions().readOnly(type != SqlQueryType.DML));
-        } else if (SqlQueryType.DDL == type) {
-            throw new SqlException(ErrorGroups.Sql.STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
-        }
-
-        return transaction.startTimestamp();
-    }
-
-    /**
-     * Returns transaction if any has been started.
-     */
-    @Nullable InternalTransaction transaction() {
-        return transaction;
     }
 }

@@ -82,7 +82,6 @@ import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
-import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
@@ -608,8 +607,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     private CompletableFuture<AsyncSqlCursor<List<Object>>> sql(String query) {
         SessionId sessionId = queryProc.createSession(PropertiesHelper.emptyHolder());
         QueryContext context = QueryContext.create(SqlQueryType.ALL);
-        QueryTransactionWrapper txWrapper = new QueryTransactionWrapper(transactions, null);
 
-        return queryProc.querySingleAsync(sessionId, context, txWrapper, query);
+        return queryProc.querySingleAsync(sessionId, context, transactions, query);
     }
 }

@@ -60,7 +60,7 @@ public class JdbcQueryCursorSelfTest {
     }
 
     private static List<Integer> fetchFullBatch(int maxRows, int fetchSize) {
-        QueryTransactionWrapper txTestWrapper = new QueryTransactionWrapper(null, null);
+        QueryTransactionWrapper txTestWrapper = new QueryTransactionWrapper(null, false);
         AsyncWrapper<Integer> asyncWrapper = new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run);
         JdbcQueryCursor<Integer> cursor = new JdbcQueryCursor<>(
                 maxRows, new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, txTestWrapper, asyncWrapper));

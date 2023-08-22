@@ -26,12 +26,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
@@ -43,7 +43,6 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -90,6 +89,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -97,6 +97,8 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -361,14 +363,14 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
-            SessionId sessionId, QueryContext context, QueryTransactionWrapper txWrapper, String qry, Object... params
+            SessionId sessionId, QueryContext context, IgniteTransactions transactions, String qry, Object... params
     ) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
-            return querySingle0(sessionId, context, txWrapper, qry, params);
+            return querySingle0(sessionId, context, transactions, qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -395,7 +397,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
             SessionId sessionId,
             QueryContext context,
-            QueryTransactionWrapper txWrapper,
+            IgniteTransactions transactions,
             String sql,
             Object... params
     ) {
@@ -406,6 +408,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         String schemaName = session.properties().get(QueryProperty.DEFAULT_SCHEMA);
+
+        InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
+
+        AtomicReference<Runnable> implicitTxRollbackAction = new AtomicReference<>(() -> {});
 
         QueryCancel queryCancel = new QueryCancel();
 
@@ -430,10 +436,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     validateParsedStatement(context, result, params);
 
-                    HybridTimestamp txStartTs = txWrapper.beginTxIfNeeded(result.queryType());
+                    QueryTransactionWrapper txWrapper = beginImplicitTxIfNeeded(result.queryType(), transactions, outerTx);
+
+                    implicitTxRollbackAction.set(txWrapper::rollbackImplicit);
 
                     // TODO IGNITE-18733: wait for actual metadata for TX.
-                    SchemaPlus schema = sqlSchemaManager.schema(schemaName, Objects.requireNonNullElse(txStartTs, clock.now()).longValue());
+                    SchemaPlus schema = sqlSchemaManager.schema(schemaName, txWrapper.unwrap().startTimestamp().longValue());
 
                     if (schema == null) {
                         return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
@@ -452,7 +460,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     return prepareSvc.prepareAsync(result, ctx)
                             .thenApply(plan -> {
-                                var dataCursor = executionSrvc.executePlan(txWrapper.transaction(), plan, ctx);
+                                var dataCursor = executionSrvc.executePlan(txWrapper.unwrap(), plan, ctx);
 
                                 SqlQueryType queryType = plan.type();
                                 assert queryType != null : "Expected a full plan but got a fragment: " + plan;
@@ -489,13 +497,32 @@ public class SqlQueryProcessor implements QueryProcessor {
             }
 
             if (ex != null) {
-                txWrapper.rollbackImplicit();
+                implicitTxRollbackAction.get().run();
             }
         });
 
         start.completeAsync(() -> null, taskExecutor);
 
         return stage;
+    }
+
+    private static QueryTransactionWrapper beginImplicitTxIfNeeded(
+            SqlQueryType queryType,
+            IgniteTransactions transactions,
+            @Nullable InternalTransaction outerTx
+    ) {
+        if (outerTx == null) {
+            InternalTransaction tx = (InternalTransaction) transactions.begin(
+                    new TransactionOptions().readOnly(queryType != SqlQueryType.DML));
+
+            return new QueryTransactionWrapper(tx, true);
+        }
+
+        if (SqlQueryType.DDL == queryType) {
+            throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
+        }
+
+        return new QueryTransactionWrapper(outerTx, false);
     }
 
     @TestOnly

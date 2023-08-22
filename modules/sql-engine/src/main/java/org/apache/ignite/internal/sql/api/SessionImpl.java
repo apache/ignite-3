@@ -40,7 +40,6 @@ import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.property.Property;
@@ -179,10 +178,9 @@ public class SessionImpl implements AbstractSession {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            QueryContext ctx = QueryContext.create(SqlQueryType.ALL);
-            QueryTransactionWrapper txWrapper = new QueryTransactionWrapper(transactions, transaction);
+            QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction);
 
-            result = qryProc.querySingleAsync(sessionId, ctx, txWrapper, query, arguments)
+            result = qryProc.querySingleAsync(sessionId, ctx, transactions, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
                             .thenApply(
                                     batchRes -> new AsyncResultSetImpl<>(
@@ -249,7 +247,7 @@ public class SessionImpl implements AbstractSession {
         }
 
         try {
-            QueryContext ctx = QueryContext.create(Set.of(SqlQueryType.DML), transaction == null ? transactions : transaction);
+            QueryContext ctx = QueryContext.create(Set.of(SqlQueryType.DML), transaction);
 
             var counters = new LongArrayList(batch.size());
             CompletableFuture<Void> tail = CompletableFuture.completedFuture(null);
@@ -258,8 +256,8 @@ public class SessionImpl implements AbstractSession {
             for (int i = 0; i < batch.size(); ++i) {
                 Object[] args = batch.get(i).toArray();
 
-                final var qryFut = tail.thenCompose(
-                        v -> qryProc.querySingleAsync(sessionId, ctx, new QueryTransactionWrapper(transactions, transaction), query, args));
+                final var qryFut = tail
+                        .thenCompose(v -> qryProc.querySingleAsync(sessionId, ctx, transactions, query, args));
 
                 tail = qryFut.thenCompose(cur -> cur.requestNextAsync(1))
                         .thenAccept(page -> {
