@@ -68,7 +68,10 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 createTable("HASH_TBL1", IgniteDistributions.hash(List.of(0))),
                 createTable("AFFINITY_TBL2", IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID)),
                 createTable("AFFINITY_TBL3", IgniteDistributions.affinity(1, nextTableId(), DEFAULT_ZONE_ID)),
-                createTable("AFFINITY_TBL4", IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID + 1))
+                createTable("AFFINITY_TBL4", IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID + 1)),
+                createTable("IDENTITY_TBL1", IgniteDistributions.identity(0)),
+                createTable("IDENTITY_TBL2", IgniteDistributions.identity(0)),
+                createTable("IDENTITY_TBL3", IgniteDistributions.identity(1))
         );
     }
 
@@ -229,6 +232,25 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
         );
     }
 
+    /**
+     * Tests SET operations on two tables with single and identity distribution.
+     *
+     * <p>{@link Type#SINGLETON Single} distribution cannot be colocated with identity distribution.
+     *
+     * @throws Exception If failed.
+     */
+    @ParameterizedTest
+    @EnumSource
+    public void testSetOpSingleAndIdentity(SetOp setOp) throws Exception {
+        String sql = "SELECT * FROM single_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM identity_tbl1 ";
+
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.colocated)
+                .and(hasDistribution(IgniteDistributions.single()))
+                .and(input(0, isTableScan("single_tbl1")))
+                .and(input(1, hasChildThat(isTableScan("identity_tbl1")))));
+    }
 
     /**
      * Tests SET operations on tables with the same affinity distribution.
@@ -479,7 +501,25 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                         .and(input(3, isTableScan("affinity_tbl2")))
                 ))
         );
+
+        sql = "SELECT * FROM random_tbl1 "
+                + setOpAll(setOp)
+                + "SELECT * FROM random_tbl2 "
+                + setOpAll(setOp)
+                + "SELECT * FROM identity_tbl1 "
+                + setOpAll(setOp)
+                + "SELECT * FROM identity_tbl2 ";
+
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce).and(IgniteSetOp::all)
+                .and(hasChildThat(isInstanceOf(setOp.map)
+                        .and(input(0, isTableScan("random_tbl1")))
+                        .and(input(1, isTableScan("random_tbl2")))
+                        .and(input(2, isTableScan("identity_tbl1")))
+                        .and(input(3, isTableScan("identity_tbl2")))
+                ))
+        );
     }
+
 
     /**
      * Tests two SET operations (with ALL flag enabled for the first one) on tables with affinity and random distribution.
@@ -501,6 +541,157 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                         .and(input(1, isTableScan("random_tbl2")))
                         .and(input(2, isTableScan("affinity_tbl1")))
                 ))
+        );
+
+        sql = "SELECT * FROM random_tbl1 "
+                + setOpAll(setOp)
+                + "SELECT * FROM random_tbl2 "
+                + setOp(setOp)
+                + "SELECT * FROM identity_tbl1 ";
+
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce).and(n -> !n.all())
+                .and(hasChildThat(isInstanceOf(setOp.map)
+                        .and(input(0, isTableScan("random_tbl1")))
+                        .and(input(1, isTableScan("random_tbl2")))
+                        .and(input(2, isTableScan("identity_tbl1")))
+                ))
+        );
+    }
+
+    /**
+     * Tests SET operations on tables with the same identity distribution.
+     *
+     * <p>The operation is considered colocated because the tables are
+     * compared against the corresponding collocation columns.
+     *
+     * @throws Exception If failed.
+     */
+    @ParameterizedTest
+    @EnumSource
+    public void testSetOpIdentity(SetOp setOp) throws Exception {
+        String sql = "SELECT * FROM identity_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM identity_tbl2 ";
+
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
+                .and(input(isInstanceOf(setOp.colocated)
+                        .and(hasDistribution(IgniteDistributions.identity(0)))
+                        .and(input(0, isTableScan("identity_tbl1")))
+                        .and(input(1, isTableScan("identity_tbl2")))
+                ))
+        );
+    }
+
+    /**
+     * Tests SET operations on two tables with identity and broadcast distribution.
+     *
+     * <p>The operation is considered colocated because {@link Type#BROADCAST_DISTRIBUTED broadcast}
+     * distribution satisfies any other distribution.
+     *
+     * @throws Exception If failed.
+     */
+    @ParameterizedTest
+    @EnumSource
+    public void testSetOpIdentityAndBroadcast(SetOp setOp) throws Exception {
+        String sql = "SELECT * FROM identity_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM broadcast_tbl1 ";
+
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
+                .and(input(isInstanceOf(setOp.colocated)
+                        .and(hasDistribution(IgniteDistributions.identity(0)))
+                        .and(input(0, isTableScan("identity_tbl1")))
+                        .and(input(1, isInstanceOf(IgniteTrimExchange.class)
+                                .and(input(isTableScan("broadcast_tbl1")))
+                        ))
+                ))
+        );
+    }
+
+    /**
+     * Tests SET operations on tables with different identity distribution.
+     *
+     * <p>Different identity distributions cannot be colocated.
+     *
+     * @throws Exception If failed.
+     */
+    @ParameterizedTest
+    @EnumSource
+    public void testSetOpNonColocatedIdentity(SetOp setOp) throws Exception {
+        String sql = "SELECT * FROM identity_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM identity_tbl3 ";
+
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce)
+                .and(hasChildThat(isInstanceOf(setOp.map)
+                        .and(input(0, isTableScan("identity_tbl1")))
+                        .and(input(1, isTableScan("identity_tbl3")))
+                ))
+        );
+    }
+
+    /**
+     * Tests SET operations on two tables with affinity and identity distribution.
+     *
+     * <p>Affinity distribution can not be colocated with identity distribution.
+     *
+     * @throws Exception If failed.
+     */
+    @ParameterizedTest
+    @EnumSource
+    public void testSetOpIdentityAndAffinity(SetOp setOp) throws Exception {
+        String sql = "SELECT * FROM identity_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM affinity_tbl1 ";
+
+
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce)
+                .and(hasChildThat(isInstanceOf(setOp.map)
+                        .and(input(0, isTableScan("identity_tbl1")))
+                        .and(input(1, isTableScan("affinity_tbl1")))
+                ))
+        );
+
+        sql = "SELECT * FROM affinity_tbl1 "
+                + setOp(setOp)
+                + "SELECT * FROM identity_tbl1 ";
+
+
+        assertPlan(sql, publicSchema, isInstanceOf(setOp.reduce)
+                .and(hasChildThat(isInstanceOf(setOp.map)
+                        .and(input(0, isTableScan("affinity_tbl1")))
+                        .and(input(1, isTableScan("identity_tbl1")))
+                ))
+        );
+    }
+
+    /**
+     * Tests two SET operations (nested and outer) on two tables with the same identity distribution.
+     *
+     * <p>Nested operation is considered colocated because the tables are compared against the corresponding collocation columns.
+     * Outer operation considered colocated because the result of nested operation must have the distribution of one of the participating
+     * tables.
+     *
+     * @throws Exception If failed.
+     */
+    @ParameterizedTest
+    @EnumSource
+    public void testSetOpIdentityNested(SetOp setOp) throws Exception {
+        String sql = "SELECT * FROM identity_tbl2 " + setOp(setOp) + "("
+                + "   SELECT * FROM identity_tbl1 "
+                + setOp(setOp)
+                + "   SELECT * FROM identity_tbl2"
+                + ")";
+
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(setOp.colocated)
+                                .and(input(0, isTableScan("identity_tbl2")))
+                                .and(input(1, isInstanceOf(setOp.colocated)
+                                        .and(input(0, isTableScan("identity_tbl1")))
+                                        .and(input(1, isTableScan("identity_tbl2")))
+                                ))
+                        )),
+                "MinusMergeRule", "IntersectMergeRule"
         );
     }
 
