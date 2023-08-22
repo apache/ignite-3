@@ -58,10 +58,10 @@ namespace Apache.Ignite.Table
         /// <inheritdoc/>
         public object? this[string name]
         {
-            get => _pairs[_indexes[Schema.ParseColumnName(name)]].Value;
+            get => _pairs[_indexes[IgniteTupleCommon.ParseColumnName(name)]].Value;
             set
             {
-                name = Schema.ParseColumnName(name);
+                name = IgniteTupleCommon.ParseColumnName(name);
 
                 var pair = (name, value);
 
@@ -82,20 +82,10 @@ namespace Apache.Ignite.Table
         public string GetName(int ordinal) => _pairs[ordinal].Key;
 
         /// <inheritdoc/>
-        public int GetOrdinal(string name) => _indexes.TryGetValue(Schema.ParseColumnName(name), out var index) ? index : -1;
+        public int GetOrdinal(string name) => _indexes.TryGetValue(IgniteTupleCommon.ParseColumnName(name), out var index) ? index : -1;
 
         /// <inheritdoc />
-        public override string ToString()
-        {
-            var builder = new IgniteToStringBuilder(GetType());
-
-            for (var i = 0; i < FieldCount; i++)
-            {
-                builder.Append(this[i], GetName(i));
-            }
-
-            return builder.Build();
-        }
+        public override string ToString() => IgniteTupleCommon.ToString(this);
 
         /// <inheritdoc />
         public bool Equals(IgniteTuple? other)
