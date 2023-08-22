@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table
 {
+    using System;
     using System.Collections.Generic;
     using Proto.BinaryTuple;
 
@@ -47,5 +48,25 @@ namespace Apache.Ignite.Internal.Table
         public int HashedColumnOrder(int index) => index < KeyColumnCount
             ? Columns[index].ColocationIndex
             : -1;
+
+        /// <summary>
+        /// Parses column name. Removes quotes and converts to upper case.
+        /// </summary>
+        /// <param name="name">Name.</param>
+        /// <returns>Parsed name.</returns>
+        public static string ParseColumnName(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                throw new ArgumentException("Column name can not be null or empty.");
+            }
+
+            if (name.Length > 2 && name.StartsWith('"') && name.EndsWith('"'))
+            {
+                return name.Substring(1, name.Length - 2);
+            }
+
+            return name.ToUpperInvariant();
+        }
     }
 }

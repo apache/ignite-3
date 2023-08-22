@@ -21,6 +21,7 @@ namespace Apache.Ignite.Table
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
     using Internal.Common;
+    using Internal.Table;
 
     /// <summary>
     /// Ignite tuple.
@@ -57,10 +58,10 @@ namespace Apache.Ignite.Table
         /// <inheritdoc/>
         public object? this[string name]
         {
-            get => _pairs[_indexes[ParseName(name)]].Value;
+            get => _pairs[_indexes[Schema.ParseColumnName(name)]].Value;
             set
             {
-                name = ParseName(name);
+                name = Schema.ParseColumnName(name);
 
                 var pair = (name, value);
 
@@ -81,7 +82,7 @@ namespace Apache.Ignite.Table
         public string GetName(int ordinal) => _pairs[ordinal].Key;
 
         /// <inheritdoc/>
-        public int GetOrdinal(string name) => _indexes.TryGetValue(ParseName(name), out var index) ? index : -1;
+        public int GetOrdinal(string name) => _indexes.TryGetValue(Schema.ParseColumnName(name), out var index) ? index : -1;
 
         /// <inheritdoc />
         public override string ToString()
@@ -112,21 +113,6 @@ namespace Apache.Ignite.Table
         public override int GetHashCode()
         {
             return IIgniteTuple.GetHashCode(this);
-        }
-
-        private static string ParseName(string name)
-        {
-            if (string.IsNullOrEmpty(name))
-            {
-                throw new ArgumentException("Column name can not be null or empty.");
-            }
-
-            if (name.Length > 2 && name.StartsWith('"') && name.EndsWith('"'))
-            {
-                return name.Substring(1, name.Length - 2);
-            }
-
-            return name.ToUpperInvariant();
         }
     }
 }
