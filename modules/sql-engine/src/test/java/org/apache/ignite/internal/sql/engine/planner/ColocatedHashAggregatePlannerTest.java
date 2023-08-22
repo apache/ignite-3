@@ -37,8 +37,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
 
 /**
- * This test verifies that queries defined in {@link TestCase TestCase} can be optimized with usage of
- * colocated hash aggregates only.
+ * This test verifies that queries defined in {@link TestCase TestCase} can be optimized with usage of colocated hash aggregates only.
  *
  * <p>See {@link AbstractAggregatePlannerTest base class} for more details.
  */
@@ -69,15 +68,18 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
     public void distinctAggregate() throws Exception {
         checkDistinctAggSingle(TestCase.CASE_2_1);
         checkDistinctAggSingle(TestCase.CASE_2_2);
-        checkDistinctAggSingle(TestCase.CASE_2_3);
 
         checkDistinctAggHash(TestCase.CASE_2_1A);
         checkDistinctAggHash(TestCase.CASE_2_2A);
-        checkDistinctAggHash(TestCase.CASE_2_3A);
 
         checkDistinctAggHash(TestCase.CASE_2_1B);
         checkDistinctAggHash(TestCase.CASE_2_2B);
-        checkDistinctAggHash(TestCase.CASE_2_3B);
+
+        checkColocatedDistinctAggHash(TestCase.CASE_2_1C);
+        checkColocatedDistinctAggHash(TestCase.CASE_2_2C);
+
+        checkColocatedDistinctAggHash(TestCase.CASE_2_1D);
+        checkColocatedDistinctAggHash(TestCase.CASE_2_2D);
     }
 
     /**
@@ -95,6 +97,12 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggHash(TestCase.CASE_3_1B);
         checkSimpleAggHash(TestCase.CASE_3_2B);
+
+        checkSimpleAggHash(TestCase.CASE_3_1C);
+        checkSimpleAggHash(TestCase.CASE_3_2C);
+
+        checkSimpleAggHash(TestCase.CASE_3_1D);
+        checkSimpleAggHash(TestCase.CASE_3_2D);
     }
 
     /**
@@ -110,6 +118,11 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggWithGroupByHash(TestCase.CASE_5B);
         checkSimpleAggWithGroupByHash(TestCase.CASE_6B);
+
+        checkSimpleAggWithColocatedGroupBy(TestCase.CASE_5C);
+        checkSimpleAggWithColocatedGroupBy(TestCase.CASE_6C);
+
+        checkSimpleAggWithColocatedGroupBy(TestCase.CASE_5D);
     }
 
     /**
@@ -122,17 +135,22 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDistinctAggWithGroupBySingle(TestCase.CASE_7_1);
         checkDistinctAggWithGroupBySingle(TestCase.CASE_7_2);
         checkDistinctAggWithGroupBySingle(TestCase.CASE_7_3);
-        checkDistinctAggWithGroupBySingle(TestCase.CASE_7_4);
 
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_1A);
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_2A);
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_3A);
-        checkDistinctAggWithGroupByHash(TestCase.CASE_7_4A);
 
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_1B);
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_2B);
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_3B);
-        checkDistinctAggWithGroupByHash(TestCase.CASE_7_4B);
+
+        checkDistinctAggWithColocatedGroupByHash(TestCase.CASE_7_1C);
+        checkDistinctAggWithColocatedGroupByHash(TestCase.CASE_7_2C);
+        checkDistinctAggWithColocatedGroupByHash(TestCase.CASE_7_3C);
+
+        checkDistinctAggWithColocatedGroupByHash(TestCase.CASE_7_1D);
+        checkDistinctAggWithColocatedGroupByHash(TestCase.CASE_7_2D);
+        checkDistinctAggWithColocatedGroupByHash(TestCase.CASE_7_3D);
     }
 
     /**
@@ -150,6 +168,12 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_1B);
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_2B);
+
+        checkSimpleAggWithColocatedGroupBy(TestCase.CASE_8_1C);
+        checkSimpleAggWithColocatedGroupBy(TestCase.CASE_8_2C);
+
+        checkSimpleAggWithColocatedGroupBy(TestCase.CASE_8_1D);
+        checkSimpleAggWithColocatedGroupBy(TestCase.CASE_8_2D);
     }
 
     /**
@@ -170,6 +194,12 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9B);
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10B);
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11B);
+
+        checkAggWithColocatedGroupByIndexColumnsHash(TestCase.CASE_9C);
+        checkAggWithColocatedGroupByIndexColumnsHash(TestCase.CASE_10C);
+        checkAggWithColocatedGroupByIndexColumnsHash(TestCase.CASE_11C);
+
+        checkAggWithColocatedGroupByIndexColumnsHash(TestCase.CASE_9D);
     }
 
     /**
@@ -180,16 +210,16 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkGroupWithNoAggregateSingle(TestCase.CASE_12);
         checkGroupWithNoAggregateHash(TestCase.CASE_12A);
         checkGroupWithNoAggregateHash(TestCase.CASE_12B);
-    }
 
-    /**
-     * Validates a plan uses index for a query with DISTINCT and without aggregation functions.
-     */
-    @Test
-    public void distinctWithoutAggregateUseIndex() throws Exception {
+        checkColocatedGroupWithNoAggregateHash(TestCase.CASE_12C);
+        checkColocatedGroupWithNoAggregateHash(TestCase.CASE_12D);
+
         checkGroupWithNoAggregateSingle(TestCase.CASE_13);
         checkGroupWithNoAggregateHash(TestCase.CASE_13A);
         checkGroupWithNoAggregateHash(TestCase.CASE_13B);
+
+        checkColocatedGroupWithNoAggregateHash(TestCase.CASE_13C);
+        checkColocatedGroupWithNoAggregateHash(TestCase.CASE_13D);
     }
 
     /**
@@ -383,18 +413,24 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
      */
     @Test
     public void testCountAgg() throws Exception {
-        Predicate<AggregateCall> countMap = (a) -> {
-            return Objects.equals(a.getAggregation().getName(), "COUNT") && a.getArgList().equals(List.of(1));
-        };
+        Predicate<AggregateCall> countMap = (a) ->
+                Objects.equals(a.getAggregation().getName(), "COUNT") && a.getArgList().equals(List.of(1));
 
-        assertPlan(TestCase.CASE_22, isInstanceOf(IgniteColocatedHashAggregate.class)
+        Predicate<IgniteColocatedHashAggregate> nonColocatedGroupBy = isInstanceOf(IgniteColocatedHashAggregate.class)
                 .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
                 .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(hasDistribution(IgniteDistributions.single())))), disableRules);
-        assertPlan(TestCase.CASE_22A, isInstanceOf(IgniteColocatedHashAggregate.class)
-                .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
-                .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(hasDistribution(IgniteDistributions.single())))), disableRules);
+                        .and(hasDistribution(IgniteDistributions.single()))));
+
+        assertPlan(TestCase.CASE_22, nonColocatedGroupBy, disableRules);
+        assertPlan(TestCase.CASE_22A, nonColocatedGroupBy, disableRules);
+
+        Predicate<IgniteExchange> colocatedGroupBy = isInstanceOf(IgniteExchange.class)
+                .and(hasDistribution(IgniteDistributions.single()))
+                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(in -> hasAggregates(countMap).test(in.getAggCallList()))));
+
+        assertPlan(TestCase.CASE_22B, colocatedGroupBy, disableRules);
+        assertPlan(TestCase.CASE_22C, colocatedGroupBy, disableRules);
     }
 
     /**
@@ -402,19 +438,24 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
      */
     @Test
     public void testAvgAgg() throws Exception {
-        Predicate<AggregateCall> countMap = (a) -> {
-            return Objects.equals(a.getAggregation().getName(), "AVG") && a.getArgList().equals(List.of(1));
-        };
+        Predicate<AggregateCall> countMap = (a) -> Objects.equals(a.getAggregation().getName(), "AVG") && a.getArgList().equals(List.of(1));
 
-        assertPlan(TestCase.CASE_23, isInstanceOf(IgniteColocatedHashAggregate.class)
+        Predicate<IgniteColocatedHashAggregate> nonColocatedGroupBy = isInstanceOf(IgniteColocatedHashAggregate.class)
                 .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
                 .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(hasDistribution(IgniteDistributions.single())))), disableRules);
+                        .and(hasDistribution(IgniteDistributions.single()))));
 
-        assertPlan(TestCase.CASE_23A, isInstanceOf(IgniteColocatedHashAggregate.class)
-                .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
-                .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(hasDistribution(IgniteDistributions.single())))), disableRules);
+        assertPlan(TestCase.CASE_23, nonColocatedGroupBy, disableRules);
+        assertPlan(TestCase.CASE_23A, nonColocatedGroupBy, disableRules);
+
+        Predicate<IgniteExchange> colocatedGroupBy = isInstanceOf(IgniteExchange.class)
+                .and(hasDistribution(IgniteDistributions.single()))
+                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(in -> hasAggregates(countMap).test(in.getAggCallList()))));
+
+        assertPlan(TestCase.CASE_23B, colocatedGroupBy, disableRules);
+        assertPlan(TestCase.CASE_23C, colocatedGroupBy, disableRules);
+
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
@@ -462,6 +503,31 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
+    private void checkSimpleAggWithColocatedGroupBy(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(hasAggregate())
+                                .and(hasGroups())
+                                .and(input(isTableScan("TEST")))
+                        ))),
+                disableRules
+        );
+    }
+
+    private void checkDistinctAggWithColocatedGroupByHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(hasAggregate())
+                                .and(hasGroups())
+                                .and(hasDistinctAggregate())
+                                .and(input(isTableScan("TEST")))
+                        ))),
+                disableRules
+        );
+    }
+
     private void checkDistinctAggSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 isInstanceOf(IgniteColocatedHashAggregate.class)
@@ -483,6 +549,21 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
                                 .and(hasGroups())
                                 .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(input(isTableScan("TEST")))
+                                ))
+                        )),
+                disableRules
+        );
+    }
+
+    private void checkColocatedDistinctAggHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasAggregate())
+                        .and(not(hasDistinctAggregate()))
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                        .and(hasGroups())
                                         .and(input(isTableScan("TEST")))
                                 ))
                         )),
@@ -536,6 +617,18 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
+    private void checkAggWithColocatedGroupByIndexColumnsHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(hasAggregate())
+                                .and(input(isTableScan("TEST")))
+                        ))
+                ),
+                disableRules
+        );
+    }
+
     private void checkGroupWithNoAggregateSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
@@ -560,6 +653,18 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
+    private void checkColocatedGroupWithNoAggregateHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(not(hasAggregate()))
+                                .and(hasGroups())
+                                .and(input(isTableScan("TEST")))
+                        ))
+                ),
+                disableRules
+        );
+    }
 
     private void checkGroupsWithOrderByGroupColumnsSingle(TestCase testCase, RelCollation collation) throws Exception {
         assertPlan(testCase,

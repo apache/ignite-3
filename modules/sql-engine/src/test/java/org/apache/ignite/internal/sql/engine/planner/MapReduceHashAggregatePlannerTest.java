@@ -73,15 +73,18 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     public void distinctAggregate() throws Exception {
         checkDistinctAggSingle(TestCase.CASE_2_1);
         checkDistinctAggSingle(TestCase.CASE_2_2);
-        checkDistinctAggSingle(TestCase.CASE_2_3);
 
         checkDistinctAggHash(TestCase.CASE_2_1A);
         checkDistinctAggHash(TestCase.CASE_2_2A);
-        checkDistinctAggHash(TestCase.CASE_2_3A);
 
         checkDistinctAggHash(TestCase.CASE_2_1B);
         checkDistinctAggHash(TestCase.CASE_2_2B);
-        checkDistinctAggHash(TestCase.CASE_2_3B);
+
+        checkDistinctAggHash(TestCase.CASE_2_1C);
+        checkDistinctAggHash(TestCase.CASE_2_2C);
+
+        checkDistinctAggHash(TestCase.CASE_2_1D);
+        checkDistinctAggHash(TestCase.CASE_2_2D);
     }
 
     /**
@@ -99,6 +102,12 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggHash(TestCase.CASE_3_1B);
         checkSimpleAggHash(TestCase.CASE_3_2B);
+
+        checkSimpleAggHash(TestCase.CASE_3_1C);
+        checkSimpleAggHash(TestCase.CASE_3_2C);
+
+        checkSimpleAggHash(TestCase.CASE_3_1D);
+        checkSimpleAggHash(TestCase.CASE_3_2D);
     }
 
     /**
@@ -114,6 +123,11 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggWithGroupByHash(TestCase.CASE_5B);
         checkSimpleAggWithGroupByHash(TestCase.CASE_6B);
+
+        checkSimpleAggWithGroupByHash(TestCase.CASE_5C);
+        checkSimpleAggWithGroupByHash(TestCase.CASE_6C);
+
+        checkSimpleAggWithGroupByHash(TestCase.CASE_5D);
     }
 
     /**
@@ -126,18 +140,23 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDistinctAggWithGroupBySingle(TestCase.CASE_7_1);
         checkDistinctAggWithGroupBySingle(TestCase.CASE_7_2);
         checkDistinctAggWithGroupBySingle(TestCase.CASE_7_3);
-        checkDistinctAggWithGroupBySingle(TestCase.CASE_7_4);
 
         //TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is fixed
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_1A);
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_2A);
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_3A);
-        assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_4A);
 
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_1B);
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_2B);
         assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_3B);
-        assumeRun("checkDistinctAggWithGroupByHash", TestCase.CASE_7_4B);
+
+        assumeRun("checkDistinctAggWithColocatedGroupByHash", TestCase.CASE_7_1C);
+        assumeRun("checkDistinctAggWithColocatedGroupByHash", TestCase.CASE_7_2C);
+        assumeRun("checkDistinctAggWithColocatedGroupByHash", TestCase.CASE_7_3C);
+
+        assumeRun("checkDistinctAggWithColocatedGroupByHash", TestCase.CASE_7_1D);
+        assumeRun("checkDistinctAggWithColocatedGroupByHash", TestCase.CASE_7_2D);
+        assumeRun("checkDistinctAggWithColocatedGroupByHash", TestCase.CASE_7_3D);
     }
 
     /**
@@ -155,6 +174,12 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_1B);
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_2B);
+
+        checkSimpleAggWithGroupByHash(TestCase.CASE_8_1C);
+        checkSimpleAggWithGroupByHash(TestCase.CASE_8_2C);
+
+        checkSimpleAggWithGroupByHash(TestCase.CASE_8_1D);
+        checkSimpleAggWithGroupByHash(TestCase.CASE_8_2D);
     }
 
     /**
@@ -175,6 +200,12 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9B);
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10B);
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11B);
+
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9C);
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10C);
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11C);
+
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9D);
     }
 
     /**
@@ -186,6 +217,8 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         //TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is resolved
         assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_12A);
         assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_12B);
+        assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_12C);
+        assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_12D);
     }
 
     /**
@@ -197,6 +230,8 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         //TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is resolved
         assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_13A);
         assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_13B);
+        assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_13C);
+        assumeRun("checkGroupWithNoAggregateHash", TestCase.CASE_13D);
     }
 
     /**
@@ -427,7 +462,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
             return Objects.equals(aggName, "$SUM0") && a.getArgList().equals(List.of(1));
         };
 
-        assertPlan(TestCase.CASE_22, hasChildThat(isInstanceOf(IgniteReduceHashAggregate.class)
+        Predicate<RelNode> nonColocated = hasChildThat(isInstanceOf(IgniteReduceHashAggregate.class)
                 .and(in -> hasAggregates(countReduce).test(in.getAggregateCalls()))
                 .and(input(isInstanceOf(IgniteExchange.class)
                         .and(input(isInstanceOf(IgniteMapHashAggregate.class)
@@ -435,8 +470,12 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(input(isTableScan("TEST")))
                                 )
                         ))
-                )), disableRules);
-        assertPlan(TestCase.CASE_22A, hasChildThat(isInstanceOf(IgniteReduceHashAggregate.class)
+                ));
+
+        assertPlan(TestCase.CASE_22, nonColocated, disableRules);
+        assertPlan(TestCase.CASE_22A, nonColocated, disableRules);
+
+        Predicate<RelNode> colocated = hasChildThat(isInstanceOf(IgniteReduceHashAggregate.class)
                 .and(in -> hasAggregates(countReduce).test(in.getAggregateCalls()))
                 .and(input(isInstanceOf(IgniteExchange.class)
                         .and(input(isInstanceOf(IgniteMapHashAggregate.class)
@@ -444,7 +483,10 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(input(isTableScan("TEST")))
                                 )
                         ))
-                )), disableRules);
+                ));
+
+        assertPlan(TestCase.CASE_22B, colocated, disableRules);
+        assertPlan(TestCase.CASE_22C, colocated, disableRules);
     }
 
     /**
@@ -459,6 +501,14 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         e = assertThrows(RuntimeException.class,
                 () -> assertPlan(TestCase.CASE_23A, isInstanceOf(IgniteRel.class), disableRules));
+        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
+
+        e = assertThrows(RuntimeException.class,
+                () -> assertPlan(TestCase.CASE_23B, isInstanceOf(IgniteRel.class), disableRules));
+        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
+
+        e = assertThrows(RuntimeException.class,
+                () -> assertPlan(TestCase.CASE_23C, isInstanceOf(IgniteRel.class), disableRules));
         assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
     }
 
