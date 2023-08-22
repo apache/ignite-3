@@ -133,7 +133,7 @@ Modifies the structure of an existing table.
 //image::images/svg/alter_table_no_logging_bnf.svg[Embedded,opts=inline]
 //
 
-==== ALTER TABLE IF EXISTS table ADD COLUMN IF NOT EXISTS (column1 int, column2 int)
+==== ALTER TABLE IF EXISTS table ADD COLUMN (column1 int, column2 int)
 
 [.diagram-container]
 Diagram(
@@ -148,7 +148,6 @@ End({type:'complex'})
 [.diagram-container]
 Diagram(
   Start({type:'complex'}),
-  Optional('IF NOT EXISTS'),
   NonTerminal('column_definition_or_list')
 )
 
@@ -159,12 +158,11 @@ Parameters:
 - `qualified_table_name` - the name of the table.
 - `ADD` - adds a new column or several columns to a previously created table. Once a column is added, it can be accessed using link:sql-reference/dml[DML commands,window=_blank] and indexed with the CREATE INDEX statement.
 - `COLUMN` - name of the defined column.
-- `IF NOT EXISTS` - do not throw an error if a column with the same name already exists.
 - `column_definition_or_list` - definition of the column to add to the table.
 
 
 
-==== ALTER TABLE IF EXISTS table DROP COLUMN IF EXISTS (column1, column2 int)
+==== ALTER TABLE IF EXISTS table DROP COLUMN (column1, column2 int)
 
 [.diagram-container]
 Diagram(
@@ -179,7 +177,6 @@ End({type:'complex'})
 [.diagram-container]
 Diagram(
 Start({type:'complex'}),
-Optional('IF EXISTS'),
 NonTerminal('column_list')
 )
 
@@ -209,13 +206,6 @@ Add a column to the table:
 ALTER TABLE Person ADD COLUMN city varchar;
 ----
 
-Add a new column to the table only if a column with the same name does not exist:
-
-[source,sql]
-----
-ALTER TABLE City ADD COLUMN IF NOT EXISTS population int;
-----
-
 Add a column​ only if the table exists:
 
 [source,sql]
@@ -235,13 +225,6 @@ Drop a column from the table:
 [source,sql]
 ----
 ALTER TABLE Person DROP COLUMN city;
-----
-
-Drop a column from the table only if a column with the same name does exist:
-
-[source,sql]
-----
-ALTER TABLE Person DROP COLUMN IF EXISTS population;
 ----
 
 Drop a column only if the table exists:
