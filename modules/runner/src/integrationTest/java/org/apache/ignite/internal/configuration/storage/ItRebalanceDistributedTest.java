@@ -1069,7 +1069,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testDataStorage) {
-        DistributionZonesTestUtil.createZone(
+        DistributionZonesTestUtil.createZoneWithDataStorage(
                 node.catalogManager,
                 zoneName,
                 partitions,

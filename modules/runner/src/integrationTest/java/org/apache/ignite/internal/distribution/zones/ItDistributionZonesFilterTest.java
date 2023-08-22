@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distribution.zones;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -55,6 +57,10 @@ import org.junit.jupiter.api.Test;
  * Integration test for data nodes' filters functionality.
  */
 public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest {
+    private static final String ZONE_NAME = "TEST_ZONE";
+
+    private static final String TABLE_NAME = "table1";
+
     @Language("JSON")
     private static final String NODE_ATTRIBUTES = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
 
@@ -107,24 +113,16 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         Session session = node.sql().createSession();
 
-        session.execute(null, "CREATE ZONE \"TEST_ZONE\" WITH "
-                + "\"REPLICAS\" = 3, "
-                + "\"PARTITIONS\" = 2, "
-                + "\"DATA_NODES_FILTER\" = " + filter + ", "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 0, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 0");
+        session.execute(null, createZoneSql(2, 3, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter));
 
-        String tableName = "table1";
-
-        session.execute(null, "CREATE TABLE " + tableName + "("
-                + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
+        session.execute(null, createTableSql());
 
         MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
                 .getFieldValue(node, IgniteImpl.class, "metaStorageMgr");
 
         TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node, IgniteImpl.class, "distributedTblMgr");
 
-        TableImpl table = (TableImpl) tableManager.table(tableName);
+        TableImpl table = (TableImpl) tableManager.table(TABLE_NAME);
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
@@ -141,15 +139,17 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         // This node pass the filter
         startNode(2, createStartConfig(secondNodeAttributes));
 
+        int zoneId = getZoneId(node);
+
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(1),
+                zoneDataNodesKey(zoneId),
                 (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
                 3,
                 TIMEOUT_MILLIS
         );
 
-        Entry dataNodesEntry1 = metaStorageManager.get(zoneDataNodesKey(1)).get(5_000, MILLISECONDS);
+        Entry dataNodesEntry1 = metaStorageManager.get(zoneDataNodesKey(zoneId)).get(5_000, MILLISECONDS);
 
         assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= dataNodesEntry1.revision(), TIMEOUT_MILLIS));
 
@@ -179,24 +179,16 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         Session session = node0.sql().createSession();
 
-        session.execute(null, "CREATE ZONE \"TEST_ZONE\" WITH "
-                + "\"REPLICAS\" = 3, "
-                + "\"PARTITIONS\" = 2, "
-                + "\"DATA_NODES_FILTER\" = " + filter + ", "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 10000, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 10000");
+        session.execute(null, createZoneSql(2, 3, 10_000, 10_000, filter));
 
-        String tableName = "table1";
-
-        session.execute(null, "CREATE TABLE " + tableName + "("
-                + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
+        session.execute(null, createTableSql());
 
         MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
                 .getFieldValue(node0, IgniteImpl.class, "metaStorageMgr");
 
         TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
 
-        TableImpl table = (TableImpl) tableManager.table(tableName);
+        TableImpl table = (TableImpl) tableManager.table(TABLE_NAME);
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
@@ -217,10 +209,9 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         startNode(1, createStartConfig(firstNodeAttributes));
 
         // Expected size is 1 because we have timers equals to 10000, so no scale up will be propagated.
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 1, getZoneId(node0));
 
-        session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET "
-                + "\"DATA_NODES_FILTER\" = '" + DEFAULT_FILTER + "'");
+        session.execute(null, alterZoneSql(DEFAULT_FILTER));
 
         // We check that all nodes that pass the filter are presented in the stable key because altering filter triggers immediate scale up.
         assertValueInStorage(
@@ -248,24 +239,16 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         Session session = node0.sql().createSession();
 
-        session.execute(null, "CREATE ZONE \"TEST_ZONE\" WITH "
-                + "\"REPLICAS\" = 3, "
-                + "\"PARTITIONS\" = 2, "
-                + "\"DATA_NODES_FILTER\" = " + filter + ", "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 10000, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 10000");
+        session.execute(null, createZoneSql(2, 3, 10_000, 10_000, filter));
 
-        String tableName = "table1";
-
-        session.execute(null, "CREATE TABLE " + tableName + "("
-                + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
+        session.execute(null, createTableSql());
 
         MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
                 .getFieldValue(node0, IgniteImpl.class, "metaStorageMgr");
 
         TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
 
-        TableImpl table = (TableImpl) tableManager.table(tableName);
+        TableImpl table = (TableImpl) tableManager.table(TABLE_NAME);
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
@@ -285,16 +268,17 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         // This node pass the filter
         startNode(1, createStartConfig(firstNodeAttributes));
 
+        int zoneId = getZoneId(node0);
+
         // Expected size is 2 because we have timers equals to 10000, so no scale up will be propagated.
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 1, zoneId);
 
         // There is no node that match the filter
         String newFilter = "'$[?(@.region == \"FOO\" && @.storage == \"BAR\")]'";
 
-        session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET "
-                + "\"DATA_NODES_FILTER\" = " + newFilter);
+        session.execute(null, alterZoneSql(newFilter));
 
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 2);
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 2, zoneId);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19425 here we should have no nodes,
         // which pass the filter, when dataNodes from DistributionZoneManager will be used
@@ -328,12 +312,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         Session session = node1.sql().createSession();
 
-        session.execute(null, "CREATE ZONE \"TEST_ZONE\" WITH "
-                + "\"REPLICAS\" = 1, "
-                + "\"PARTITIONS\" = 1, "
-                + "\"DATA_NODES_FILTER\" = " + filter + ", "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 0, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 0");
+        session.execute(null, createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter));
 
         MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils.getFieldValue(
                 node0,
@@ -341,16 +320,15 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
                 "metaStorageMgr"
         );
 
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 2);
+        int zoneId = getZoneId(node0);
 
-        String tableName = "table1";
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 2, zoneId);
 
-        session.execute(null, "CREATE TABLE " + tableName + "("
-                + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
+        session.execute(null, createTableSql());
 
         TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
 
-        TableImpl table = (TableImpl) tableManager.table(tableName);
+        TableImpl table = (TableImpl) tableManager.table(TABLE_NAME);
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
@@ -360,7 +338,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         // Stop node, that was only one, that passed the filter, so data nodes after filtering will be empty.
         stopNode(1);
 
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 1, zoneId);
 
         //Check that pending are null, so there wasn't any rebalance.
         assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
@@ -380,12 +358,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         Session session = node0.sql().createSession();
 
-        session.execute(null, "CREATE ZONE \"TEST_ZONE\" WITH "
-                + "\"REPLICAS\" = 1, "
-                + "\"PARTITIONS\" = 1, "
-                + "\"DATA_NODES_FILTER\" = " + filter + ", "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 0, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 0");
+        session.execute(null, createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter));
 
         MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils.getFieldValue(
                 node0,
@@ -393,16 +366,15 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
                 "metaStorageMgr"
         );
 
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 2);
+        int zoneId = getZoneId(node0);
 
-        String tableName = "table1";
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 2, zoneId);
 
-        session.execute(null, "CREATE TABLE " + tableName + "("
-                + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
+        session.execute(null, createTableSql());
 
         TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
 
-        TableImpl table = (TableImpl) tableManager.table(tableName);
+        TableImpl table = (TableImpl) tableManager.table(TABLE_NAME);
 
         TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
 
@@ -412,12 +384,12 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         // Stop node, that was only one, that passed the filter, so data nodes after filtering will be empty.
         stopNode(1);
 
-        waitDataNodeAndListenersAreHandled(metaStorageManager, 1);
+        waitDataNodeAndListenersAreHandled(metaStorageManager, 1, zoneId);
 
         //Check that stable and pending are null, so there wasn't any rebalance.
         assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
 
-        session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET \"REPLICAS\" = 2");
+        session.execute(null, alterZoneSql(2));
 
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -430,7 +402,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
             return completedFuture(null);
         });
 
-        session.execute(null, "ALTER ZONE \"TEST_ZONE\" SET \"REPLICAS\" = 3");
+        session.execute(null, alterZoneSql(3));
 
         assertTrue(latch.await(10_000, MILLISECONDS));
 
@@ -440,11 +412,12 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
     private static void waitDataNodeAndListenersAreHandled(
             MetaStorageManager metaStorageManager,
-            int expectedDataNodesSize
+            int expectedDataNodesSize,
+            int zoneId
     ) throws Exception {
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(1),
+                zoneDataNodesKey(zoneId),
                 (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
                 expectedDataNodesSize,
                 TIMEOUT_MILLIS
@@ -461,7 +434,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         assertValueInStorage(
                 metaStorageManager,
-                zoneDataNodesKey(1),
+                zoneDataNodesKey(zoneId),
                 (v) -> ((Map<Node, Integer>) fromBytes(v)).size(),
                 expectedDataNodesSize,
                 TIMEOUT_MILLIS
@@ -473,5 +446,35 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
             TablePartitionId partId
     ) throws InterruptedException, ExecutionException {
         assertTrue(metaStorageManager.get(pendingPartAssignmentsKey(partId)).get().empty());
+    }
+
+    private static String createZoneSql(int partitions, int replicas, int scaleUp, int scaleDown, String filter) {
+        String sqlFormat = "CREATE ZONE \"%s\" WITH "
+                + "\"REPLICAS\" = %s, "
+                + "\"PARTITIONS\" = %s, "
+                + "\"DATA_NODES_FILTER\" = %s, "
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = %s, "
+                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = %s";
+
+        return String.format(sqlFormat, ZONE_NAME, replicas, partitions, filter, scaleUp, scaleDown);
+    }
+
+    private static String alterZoneSql(String filter) {
+        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
+    }
+
+    private static String alterZoneSql(int replicas) {
+        return String.format("ALTER ZONE \"%s\" SET \"REPLICAS\" = %s", ZONE_NAME, replicas);
+    }
+
+    private static String createTableSql() {
+        return String.format(
+                "CREATE TABLE %s(%s INT PRIMARY KEY, %s VARCHAR) WITH PRIMARY_ZONE='%s'",
+                TABLE_NAME, COLUMN_KEY, COLUMN_VAL, ZONE_NAME
+        );
+    }
+
+    private static int getZoneId(IgniteImpl node) {
+        return DistributionZonesTestUtil.getZoneIdStrict(node.catalogManager(), ZONE_NAME, node.clock().nowLong());
     }
 }
