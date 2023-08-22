@@ -42,7 +42,7 @@ void ignite_client_impl::get_cluster_nodes_async(ignite_callback<std::vector<clu
     };
 
     m_connection->perform_request_rd<std::vector<cluster_node>>(
-        client_operation::CLUSTER_GET_NODES, std::move(reader_func), std::move(callback));
+        protocol::client_operation::CLUSTER_GET_NODES, std::move(reader_func), std::move(callback));
 }
 
 } // namespace ignite::detail

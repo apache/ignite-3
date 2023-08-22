@@ -20,6 +20,7 @@ package org.apache.ignite.raft.jraft.core;
 import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.raft.jraft.core.ItNodeTest.waitForTopologyOnEveryNode;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -66,6 +67,7 @@ import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -83,6 +85,8 @@ public class ItCliServiceTest {
     private static final int LEARNER_PORT_STEP = 100;
 
     private TestCluster cluster;
+
+    private ClusterService clientSvc;
 
     private final String groupId = "CliServiceTest";
 
@@ -131,7 +135,7 @@ public class ItCliServiceTest {
                 .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))
                 .collect(toList());
 
-        ClusterService clientSvc = ClusterServiceTestUtils.clusterService(
+        clientSvc = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 TestUtils.INIT_PORT - 1,
                 new StaticNodeFinder(addressList)
@@ -153,6 +157,7 @@ public class ItCliServiceTest {
 
     @AfterEach
     public void teardown(TestInfo testInfo) throws Exception {
+        LOG.info(">>>>>>>>>>>>>>> Teardown started: " + testInfo.getDisplayName());
         cliService.shutdown();
         cluster.stopAll();
         ExecutorServiceHelper.shutdownAndAwaitTermination(clientExecutor);
@@ -353,21 +358,30 @@ public class ItCliServiceTest {
     public void testSnapshot() throws Exception {
         sendTestTaskAndWait(cluster.getLeader(), 0);
         assertEquals(5, cluster.getFsms().size());
+
+        waitForTopologyOnEveryNode(6, cluster);
+
+        assertTrue(waitForTopology(clientSvc, 6,10_000));
+
         for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(0, fsm.getSaveSnapshotTimes());
         }
 
         for (PeerId peer : conf) {
-            assertTrue(cliService.snapshot(groupId, peer).isOk());
+            assertTrue(cliService.snapshot(groupId, peer).isOk(), "Failed to trigger snapshot from peer = " + peer);
         }
 
         for (PeerId peer : conf.getLearners()) {
-            assertTrue(cliService.snapshot(groupId, peer).isOk());
+            assertTrue(cliService.snapshot(groupId, peer).isOk(), "Failed to trigger snapshot from learner = " + peer);
         }
 
         for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(1, fsm.getSaveSnapshotTimes());
         }
+    }
+
+    private static boolean waitForTopology(ClusterService cluster, int expected, int timeout) {
+        return waitForCondition(() -> cluster.topologyService().allMembers().size() >= expected, timeout);
     }
 
     @Test

@@ -35,6 +35,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog utils.
@@ -196,21 +197,40 @@ public class CatalogUtils {
     /**
      * Converts CreateZone command params to descriptor.
      *
+     * <p>If the following fields are not set, the default value is used for them:</p>
+     * <ul>
+     *     <li>{@link CreateZoneParams#partitions()} -> {@link #DEFAULT_PARTITION_COUNT};</li>
+     *     <li>{@link CreateZoneParams#replicas()} -> {@link #DEFAULT_REPLICA_COUNT};</li>
+     *     <li>{@link CreateZoneParams#dataNodesAutoAdjust()} -> {@link #INFINITE_TIMER_VALUE};</li>
+     *     <li>{@link CreateZoneParams#dataNodesAutoAdjustScaleUp()} -> {@link #IMMEDIATE_TIMER_VALUE} or {@link #INFINITE_TIMER_VALUE} if
+     *     {@link CreateZoneParams#dataNodesAutoAdjust()} not {@code null};</li>
+     *     <li>{@link CreateZoneParams#dataNodesAutoAdjustScaleDown()} -> {@link #INFINITE_TIMER_VALUE};</li>
+     *     <li>{@link CreateZoneParams#filter()} -> {@link #DEFAULT_FILTER};</li>
+     *     <li>{@link CreateZoneParams#dataStorage()} -> {@link #DEFAULT_STORAGE_ENGINE} with {@link #DEFAULT_DATA_REGION};</li>
+     * </ul>
+     *
      * @param id Distribution zone ID.
      * @param params Parameters.
      * @return Distribution zone descriptor.
      */
     public static CatalogZoneDescriptor fromParams(int id, CreateZoneParams params) {
+        DataStorageParams dataStorageParams = params.dataStorage() != null
+                ? params.dataStorage()
+                : DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build();
+
         return new CatalogZoneDescriptor(
                 id,
                 params.zoneName(),
-                params.partitions(),
-                params.replicas(),
-                params.dataNodesAutoAdjust(),
-                params.dataNodesAutoAdjustScaleUp(),
-                params.dataNodesAutoAdjustScaleDown(),
-                params.filter(),
-                fromParams(params.dataStorage())
+                Objects.requireNonNullElse(params.partitions(), DEFAULT_PARTITION_COUNT),
+                Objects.requireNonNullElse(params.replicas(), DEFAULT_REPLICA_COUNT),
+                Objects.requireNonNullElse(params.dataNodesAutoAdjust(), INFINITE_TIMER_VALUE),
+                Objects.requireNonNullElse(
+                        params.dataNodesAutoAdjustScaleUp(),
+                        params.dataNodesAutoAdjust() != null ? INFINITE_TIMER_VALUE : IMMEDIATE_TIMER_VALUE
+                ),
+                Objects.requireNonNullElse(params.dataNodesAutoAdjustScaleDown(), INFINITE_TIMER_VALUE),
+                Objects.requireNonNullElse(params.filter(), DEFAULT_FILTER),
+                fromParams(dataStorageParams)
         );
     }
 
@@ -282,5 +302,56 @@ public class CatalogUtils {
             default:
                 return Math.max(DEFAULT_LENGTH, defaultPrecision(columnType));
         }
+    }
+
+    /**
+     * Creates a new version of the distribution zone descriptor based on the AlterZone command params and the previous version. If a field
+     * is not set in the command params, then the value from the previous version is taken.
+     *
+     * <p>Features of working with auto adjust params:</p>
+     * <ul>
+     *     <li>If {@link AlterZoneParams#dataNodesAutoAdjust()} is <b>not</b> {@code null}, then
+     *     {@link CatalogZoneDescriptor#dataNodesAutoAdjustScaleUp()} and {@link CatalogZoneDescriptor#dataNodesAutoAdjustScaleDown()} will
+     *     be {@link #INFINITE_TIMER_VALUE} in the new version;</li>
+     *     <li>If {@link AlterZoneParams#dataNodesAutoAdjustScaleUp()} or {@link AlterZoneParams#dataNodesAutoAdjustScaleDown()} is
+     *     <b>not</b> {@code null}, then {@link CatalogZoneDescriptor#dataNodesAutoAdjust()} will be {@link #INFINITE_TIMER_VALUE} in the
+     *     new version.</li>
+     * </ul>
+     *
+     * @param params Parameters.
+     * @param previous Previous version of the distribution zone descriptor.
+     * @return Distribution zone descriptor.
+     */
+    public static CatalogZoneDescriptor fromParamsAndPreviousValue(AlterZoneParams params, CatalogZoneDescriptor previous) {
+        assert previous.name().equals(params.zoneName()) : "previousZoneName=" + previous.name() + ", paramsZoneName=" + params.zoneName();
+
+        @Nullable Integer autoAdjust = null;
+        @Nullable Integer scaleUp = null;
+        @Nullable Integer scaleDown = null;
+
+        if (params.dataNodesAutoAdjust() != null) {
+            autoAdjust = params.dataNodesAutoAdjust();
+            scaleUp = INFINITE_TIMER_VALUE;
+            scaleDown = INFINITE_TIMER_VALUE;
+        } else if (params.dataNodesAutoAdjustScaleUp() != null || params.dataNodesAutoAdjustScaleDown() != null) {
+            autoAdjust = INFINITE_TIMER_VALUE;
+            scaleUp = params.dataNodesAutoAdjustScaleUp();
+            scaleDown = params.dataNodesAutoAdjustScaleDown();
+        }
+
+        CatalogDataStorageDescriptor dataStorageDescriptor = params.dataStorage() != null
+                ? fromParams(params.dataStorage()) : previous.dataStorage();
+
+        return new CatalogZoneDescriptor(
+                previous.id(),
+                previous.name(),
+                Objects.requireNonNullElse(params.partitions(), previous.partitions()),
+                Objects.requireNonNullElse(params.replicas(), previous.replicas()),
+                Objects.requireNonNullElse(autoAdjust, previous.dataNodesAutoAdjust()),
+                Objects.requireNonNullElse(scaleUp, previous.dataNodesAutoAdjustScaleUp()),
+                Objects.requireNonNullElse(scaleDown, previous.dataNodesAutoAdjustScaleDown()),
+                Objects.requireNonNullElse(params.filter(), previous.filter()),
+                dataStorageDescriptor
+        );
     }
 }

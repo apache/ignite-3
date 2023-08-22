@@ -41,7 +41,6 @@ set(SOURCES
     sql_connection.cpp
     sql_environment.cpp
     sql_statement.cpp
-    protocol_version.cpp
     type_traits.cpp
     utility.cpp
     log.cpp
