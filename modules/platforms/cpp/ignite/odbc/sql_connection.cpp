@@ -271,6 +271,28 @@ bool sql_connection::receive(std::vector<std::byte> &msg, std::int32_t timeout) 
     return true;
 }
 
+bool sql_connection::receive_and_check_magic(std::vector<std::byte> &msg, std::int32_t timeout) {
+    msg.clear();
+    msg.resize(protocol::MAGIC_BYTES.size());
+
+    auto res = receive_all(msg.data(), msg.size(), timeout);
+    if (res != operation_result::SUCCESS) {
+        add_status_record(
+            sql_state::S08001_CANNOT_CONNECT, "Failed to get handshake response (Did you forget to enable SSL?).");
+
+        return false;
+    }
+
+    if (!std::equal(msg.begin(), msg.end(), protocol::MAGIC_BYTES.begin(), protocol::MAGIC_BYTES.end())) {
+        add_status_record(sql_state::S08001_CANNOT_CONNECT,
+            "Failed to receive magic bytes in handshake response. "
+            "Possible reasons: wrong port number used, TLS is enabled on server but not on client.");
+        return false;
+    }
+
+    return true;
+}
+
 sql_connection::operation_result sql_connection::receive_all(void *dst, std::size_t len, std::int32_t timeout) {
     std::size_t remain = len;
     auto *buffer = reinterpret_cast<std::byte *>(dst);
@@ -602,21 +624,7 @@ sql_result sql_connection::make_request_handshake() {
             return sql_result::AI_ERROR;
         }
 
-        message.clear();
-        message.resize(protocol::MAGIC_BYTES.size());
-
-        res = receive_all(message.data(), message.size(), m_login_timeout);
-        if (res != operation_result::SUCCESS) {
-            add_status_record(
-                sql_state::S08001_CANNOT_CONNECT, "Failed to get handshake response (Did you forget to enable SSL?).");
-
-            return sql_result::AI_ERROR;
-        }
-
-        if (!std::equal(message.begin(), message.end(), protocol::MAGIC_BYTES.begin(), protocol::MAGIC_BYTES.end())) {
-            add_status_record(sql_state::S08001_CANNOT_CONNECT,
-                "Failed to receive magic bytes in handshake response. "
-                "Possible reasons: wrong port number used, TLS is enabled on server but not on client.");
+        if (!receive_and_check_magic(message, m_login_timeout)) {
             return sql_result::AI_ERROR;
         }
 
@@ -626,26 +634,22 @@ sql_result sql_connection::make_request_handshake() {
             return sql_result::AI_ERROR;
         }
 
-        protocol::reader reader(message);
-
-        auto ver_major = reader.read_int16();
-        auto ver_minor = reader.read_int16();
-        auto ver_patch = reader.read_int16();
-
-        protocol::protocol_version ver(ver_major, ver_minor, ver_patch);
+        auto response = protocol::parse_handshake_response(message);
+        auto const &ver = response.context.get_version();
         LOG_MSG("Server-side protocol version: " << ver.to_string());
 
         // We now only support a single version
         if (ver != protocol::protocol_version::get_current()) {
             add_status_record(
                 sql_state::S08004_CONNECTION_REJECTED, "Unsupported server version: " + ver.to_string() + ".");
+
             return sql_result::AI_ERROR;
         }
 
-        auto err = protocol::read_error(reader);
-        if (err) {
-            add_status_record(
-                sql_state::S08004_CONNECTION_REJECTED, "Server rejected handshake with error: " + err->what_str());
+        if (response.error) {
+            add_status_record(sql_state::S08004_CONNECTION_REJECTED,
+                "Server rejected handshake with error: " + response.error->what_str());
+
             return sql_result::AI_ERROR;
         }
     } catch (const odbc_error &err) {
@@ -653,7 +657,7 @@ sql_result sql_connection::make_request_handshake() {
 
         return sql_result::AI_ERROR;
     } catch (const ignite_error &err) {
-        add_status_record(sql_state::S08004_CONNECTION_REJECTED, err.what_str());
+        add_status_record(sql_state::S08001_CANNOT_CONNECT, err.what_str());
 
         return sql_result::AI_ERROR;
     }

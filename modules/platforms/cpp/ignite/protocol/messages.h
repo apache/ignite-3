@@ -18,10 +18,25 @@
 #pragma once
 
 #include "ignite/protocol/protocol_version.h"
+#include "ignite/protocol/protocol_context.h"
+
+#include "ignite/common/bytes_view.h"
+#include "ignite/common/ignite_error.h"
 
 #include <vector>
 
 namespace ignite::protocol {
+
+/**
+ * Handshake response.
+ */
+struct handshake_response {
+    /** Error. */
+    std::optional<ignite_error> error{};
+
+    /** Protocol context. */
+    protocol_context context{};
+};
 
 /**
  * Make handshake request.
@@ -31,5 +46,13 @@ namespace ignite::protocol {
  * @return Message.
  */
 std::vector<std::byte> make_handshake_request(std::int8_t client_type, protocol_version ver);
+
+/**
+ * Parse handshake response.
+ *
+ * @param message Message to parse.
+ * @return Handshake response.
+ */
+handshake_response parse_handshake_response(bytes_view message);
 
 } // namespace ignite::protocol

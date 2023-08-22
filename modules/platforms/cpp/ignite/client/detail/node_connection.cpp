@@ -104,36 +104,21 @@ void node_connection::process_message(bytes_view msg) {
 ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
     m_logger->log_debug("Got handshake response");
 
-    protocol::reader reader(msg);
+    auto response = protocol::parse_handshake_response(msg);
+    auto const &ver = response.context.get_version();
 
-    auto ver_major = reader.read_int16();
-    auto ver_minor = reader.read_int16();
-    auto ver_patch = reader.read_int16();
-
-    protocol::protocol_version ver(ver_major, ver_minor, ver_patch);
     m_logger->log_debug("Server-side protocol version: " + ver.to_string());
 
     // We now only support a single version
     if (ver != protocol::protocol_version::get_current())
         return {ignite_error("Unsupported server version: " + ver.to_string())};
 
-    auto err = protocol::read_error(reader);
-    if (err) {
-        m_logger->log_warning("Handshake error: " + err.value().what_str());
-        return {ignite_error(err.value())};
+    if (response.error) {
+        m_logger->log_warning("Handshake error: " + response.error->what_str());
+        return {ignite_error(*response.error)};
     }
 
-    UNUSED_VALUE reader.read_int64(); // TODO: IGNITE-17606 Implement heartbeats
-    UNUSED_VALUE reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.
-    UNUSED_VALUE reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
-
-    auto cluster_id = reader.read_uuid();
-    reader.skip(); // Features.
-    reader.skip(); // Extensions.
-
-    m_protocol_context.set_version(ver);
-    m_protocol_context.set_cluster_id(cluster_id);
-
+    m_protocol_context = response.context;
     m_handshake_complete = true;
 
     return {};

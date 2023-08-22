@@ -144,6 +144,15 @@ public:
     bool receive(std::vector<std::byte> &msg, std::int32_t timeout);
 
     /**
+     * Receive next message.
+     *
+     * @param msg Buffer for message.
+     * @param timeout Timeout.
+     * @return @c true on success, @c false on timeout.
+     */
+    bool receive_and_check_magic(std::vector<std::byte> &msg, std::int32_t timeout);
+
+    /**
      * Synchronously send request message.
      * Uses provided timeout.
      *

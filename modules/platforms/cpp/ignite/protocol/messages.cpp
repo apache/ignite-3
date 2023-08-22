@@ -17,14 +17,11 @@
 
 #pragma once
 
+#include "ignite/protocol/messages.h"
 #include "ignite/protocol/buffer_adapter.h"
-#include "ignite/protocol/writer.h"
 #include "ignite/protocol/utils.h"
-#include "ignite/protocol/protocol_version.h"
-
-#include "ignite/common/bytes_view.h"
-
-#include <vector>
+#include "ignite/protocol/writer.h"
+#include "ignite/protocol/reader.h"
 
 namespace ignite::protocol {
 
@@ -48,6 +45,30 @@ std::vector<std::byte> make_handshake_request(std::int8_t client_type, protocol_
     });
 
     return message;
+}
+
+handshake_response parse_handshake_response(bytes_view message) {
+    handshake_response res{};
+
+    protocol::reader reader(message);
+
+    auto ver_major = reader.read_int16();
+    auto ver_minor = reader.read_int16();
+    auto ver_patch = reader.read_int16();
+
+    protocol::protocol_version ver(ver_major, ver_minor, ver_patch);
+    res.context.set_version(ver);
+    res.error = protocol::read_error(reader);
+
+    UNUSED_VALUE reader.read_int64(); // TODO: IGNITE-17606 Implement heartbeats
+    UNUSED_VALUE reader.read_string_nullable(); // Cluster node ID. Needed for partition-aware compute.
+    UNUSED_VALUE reader.read_string_nullable(); // Cluster node name. Needed for partition-aware compute.
+
+    res.context.set_cluster_id(reader.read_uuid());
+    reader.skip(); // Features.
+    reader.skip(); // Extensions.
+
+    return res;
 }
 
 } // namespace ignite::protocol
