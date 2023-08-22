@@ -387,7 +387,7 @@ private:
     std::mt19937 m_generator;
 
     /** Observable timestamp. */
-    std::atomic_int64_t m_observable_timestamp;
+    std::atomic_int64_t m_observable_timestamp{0};
 };
 
 } // namespace ignite::detail

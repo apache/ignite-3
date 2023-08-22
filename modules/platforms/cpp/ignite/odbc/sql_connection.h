@@ -282,6 +282,13 @@ public:
      */
     void mark_transaction_non_empty() { m_transaction_empty = false; }
 
+    /**
+     * Get observable timestamp.
+     *
+     * @return Observable timestamp.
+     */
+    std::int64_t get_observable_timestamp() const { return m_observable_timestamp.load(); }
+
 private:
     /**
      * Generate and get next request ID.
@@ -446,6 +453,14 @@ private:
     bool try_restore_connection();
 
     /**
+     * Safe connect.
+     *
+     * @param addr Address.
+     * @return @c true if connection was successful.
+     */
+    bool safe_connect(const end_point &addr);
+
+    /**
      * Retrieve timeout from parameter.
      *
      * @param value parameter.
@@ -454,12 +469,11 @@ private:
     std::int32_t retrieve_timeout(void *value);
 
     /**
-     * Safe connect.
+     * Handle new observable timestamp.
      *
-     * @param addr Address.
-     * @return @c true if connection was successful.
+     * @param timestamp Timestamp.
      */
-    bool safe_connect(const end_point &addr);
+    void on_observable_timestamp(std::int64_t timestamp);
 
     /**
      * Constructor.
@@ -501,6 +515,9 @@ private:
 
     /** Request ID generator. */
     std::atomic_int64_t m_req_id_gen{0};
+
+    /** Observable timestamp. */
+    std::atomic_int64_t m_observable_timestamp{0};
 };
 
 } // namespace ignite
