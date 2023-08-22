@@ -18,18 +18,58 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
+using System.Collections.Generic;
+using Ignite.Sql;
 using Ignite.Table;
 using Internal.Proto.BinaryTuple;
 using Internal.Table;
+using NUnit.Framework;
 
 /// <summary>
 /// Tests for <see cref="BinaryTupleIgniteTupleAdapterTests"/>. Ensures consistency with <see cref="IgniteTuple"/>.
 /// </summary>
+[TestFixture]
 public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
 {
     protected override IIgniteTuple CreateTuple(IIgniteTuple source)
     {
-        // TODO: Serialize to BinaryTuple and wrap.
-        return new BinaryTupleIgniteTupleAdapter(Array.Empty<byte>(), new Schema(0, 0, 0, 0, Array.Empty<Column>()), 0);
+        var cols = new List<Column>();
+        var builder = new BinaryTupleBuilder(source.FieldCount);
+
+        for (var i = 0; i < source.FieldCount; i++)
+        {
+            var name = source.GetName(i);
+            var val = source[i]!;
+            var type = GetColumnType(val);
+            var col = new Column(name, type, true, false, 0, i, 0, 0);
+
+            cols.Add(col);
+            builder.AppendObject(val, type);
+        }
+
+        var buf = builder.Build();
+        var schema = new Schema(0, 0, 0, 0, cols);
+
+        return new BinaryTupleIgniteTupleAdapter(buf, schema, cols.Count);
+
+        static ColumnType GetColumnType(object? obj)
+        {
+            if (obj == null || obj is string)
+            {
+                return ColumnType.String;
+            }
+
+            if (obj is int)
+            {
+                return ColumnType.Int32;
+            }
+
+            if (obj is long)
+            {
+                return ColumnType.Int64;
+            }
+
+            throw new NotSupportedException("Unsupported type: " + obj.GetType());
+        }
     }
 }
