@@ -94,10 +94,7 @@ namespace Apache.Ignite.Tests.Table
         {
             var tuple = CreateTuple(new IgniteTuple { ["Foo"] = 1 });
 
-            var ex = Assert.Throws<KeyNotFoundException>(() =>
-            {
-                var unused = tuple["bar"];
-            });
+            var ex = Assert.Throws<KeyNotFoundException>(() => { _ = tuple["bar"]; });
             Assert.AreEqual("The given key 'BAR' was not present in the dictionary.", ex!.Message);
         }
 

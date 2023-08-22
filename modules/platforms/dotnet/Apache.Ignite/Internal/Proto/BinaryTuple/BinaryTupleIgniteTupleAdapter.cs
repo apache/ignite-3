@@ -72,7 +72,12 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<B
     /// <inheritdoc/>
     public object? this[string name]
     {
-        get => this[GetOrdinal(name)];
+        get => GetOrdinal(name) switch
+        {
+            var ordinal and >= 0 => this[ordinal],
+            _ => throw new KeyNotFoundException(
+                $"The given key '{IgniteTupleCommon.ParseColumnName(name)}' was not present in the dictionary.")
+        };
         set => InitTuple()[name] = value;
     }
 
