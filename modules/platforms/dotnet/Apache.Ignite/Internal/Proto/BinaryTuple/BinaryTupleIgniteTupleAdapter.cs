@@ -30,7 +30,7 @@ using Table.Serialization;
 /// </summary>
 internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple
 {
-    private readonly int _schemaFieldCount; // TODO: Does it ever differ from _schema.Columns.Count?
+    private readonly int _schemaFieldCount;
 
     private Memory<byte> _data;
 
@@ -111,7 +111,7 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple
         Debug.Assert(_schema != null, "_schema != null");
 
         // Copy data to a mutable IgniteTuple.
-        _tuple = TupleSerializerHandler.Read(_data.Span, _schema, _schemaFieldCount);
+        _tuple = TupleSerializerHandler.ReadTuple(_data.Span, _schema, _schemaFieldCount);
 
         // Release schema and data.
         _schema = default;
