@@ -27,13 +27,21 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
  * Default {@link PartitionCommandsMarshaller} implementation.
  */
 public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller implements PartitionCommandsMarshaller {
+    /**
+     * Sent instead of a real required catalog version when there is no requirement.
+     * -1 so that it is encoded as 1 byte by {@link VarIntUtils}.
+     */
+    private static final int NO_VERSION_REQUIREMENT = -1;
+
     public PartitionCommandsMarshallerImpl(MessageSerializationRegistry serializationRegistry) {
         super(serializationRegistry);
     }
 
     @Override
     public byte[] marshall(Object o) {
-        int requiredCatalogVersion = o instanceof CatalogVersionAware ? ((CatalogVersionAware) o).requiredCatalogVersion() : -1;
+        int requiredCatalogVersion = o instanceof CatalogVersionAware
+                ? ((CatalogVersionAware) o).requiredCatalogVersion()
+                : NO_VERSION_REQUIREMENT;
 
         stream.setBuffer(buffer);
         stream.writeInt(requiredCatalogVersion);
