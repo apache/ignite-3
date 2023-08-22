@@ -145,7 +145,6 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
     /**
      * {@code CAST} to {@code VARBINARY} with different length with dynamic parameters.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19353")
     @Test
     public void testCastToDifferentLengthsWithDynamicParameters() {
         byte[] param = {1, 2, 3};
