@@ -36,6 +36,5 @@ public interface AppendEntriesRequestInterceptor {
      * @param done Done closure.
      * @return A message to return to the caller, or {@code null} if standard handling should be used.
      */
-    @Nullable
-    Message intercept(RaftServerService service, AppendEntriesRequest request,  RpcRequestClosure done);
+    @Nullable Message intercept(RaftServerService service, AppendEntriesRequest request,  RpcRequestClosure done);
 }
