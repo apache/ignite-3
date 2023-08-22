@@ -24,8 +24,8 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParamsAndPreviousValue;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -569,38 +569,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
 
-            Integer dataNodesAutoAdjust = Objects.requireNonNullElse(
-                    params.dataNodesAutoAdjust(),
-                    zone.dataNodesAutoAdjust()
-            );
-
-            Integer dataNodesAutoAdjustScaleUp = Objects.requireNonNullElse(
-                    params.dataNodesAutoAdjustScaleUp(),
-                    zone.dataNodesAutoAdjustScaleUp()
-            );
-
-            Integer dataNodesAutoAdjustScaleDown = Objects.requireNonNullElse(
-                    params.dataNodesAutoAdjustScaleDown(),
-                    zone.dataNodesAutoAdjustScaleDown()
-            );
-
-            validateZoneDataNodesAutoAdjustParametersCompatibility(
-                    dataNodesAutoAdjust,
-                    dataNodesAutoAdjustScaleUp,
-                    dataNodesAutoAdjustScaleDown
-            );
-
-            CatalogZoneDescriptor descriptor = new CatalogZoneDescriptor(
-                    zone.id(),
-                    zone.name(),
-                    Objects.requireNonNullElse(params.partitions(), zone.partitions()),
-                    Objects.requireNonNullElse(params.replicas(), zone.replicas()),
-                    dataNodesAutoAdjust,
-                    dataNodesAutoAdjustScaleUp,
-                    dataNodesAutoAdjustScaleDown,
-                    Objects.requireNonNullElse(params.filter(), zone.filter()),
-                    Objects.requireNonNullElse(dataStorage(params.dataStorage()), zone.dataStorage())
-            );
+            CatalogZoneDescriptor descriptor = fromParamsAndPreviousValue(params, zone);
 
             return List.of(new AlterZoneEntry(descriptor));
         });

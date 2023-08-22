@@ -1267,8 +1267,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .partitions(42)
                 .replicas(15)
                 .dataNodesAutoAdjust(73)
-                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                 .filter("expression")
                 .dataStorage(DataStorageParams.builder().engine("test_engine").dataRegion("test_region").build())
                 .build();
@@ -1425,8 +1423,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .partitions(42)
                 .replicas(15)
                 .dataNodesAutoAdjust(73)
-                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                 .filter("expression")
                 .build();
 
@@ -1434,7 +1430,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .zoneName(zoneName)
                 .partitions(10)
                 .replicas(2)
-                .dataNodesAutoAdjust(INFINITE_TIMER_VALUE)
                 .dataNodesAutoAdjustScaleUp(3)
                 .dataNodesAutoAdjustScaleDown(4)
                 .filter("newExpression")
