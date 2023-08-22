@@ -28,7 +28,7 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
     ignite_callback<result_set> &&callback) {
     auto tx0 = tx ? tx->m_impl : nullptr;
 
-    auto writer_func = [&statement, &args, &tx0](protocol::writer &writer) {
+    auto writer_func = [this, &statement, &args, &tx0](protocol::writer &writer) {
         if (tx0)
             writer.write(tx0->get_id());
         else
@@ -86,8 +86,7 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
             writer.write_binary(args_data);
         }
 
-        // TODO IGNITE-20057 C++ client: Track observable timestamp
-        writer.write(0); // observableTimestamp.
+        writer.write(m_connection->get_observable_timestamp());
     };
 
     auto reader_func = [](std::shared_ptr<node_connection> channel, bytes_view msg) -> result_set {
