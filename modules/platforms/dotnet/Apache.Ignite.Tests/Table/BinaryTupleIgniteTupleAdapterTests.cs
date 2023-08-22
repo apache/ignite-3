@@ -31,6 +31,8 @@ using NUnit.Framework;
 [TestFixture]
 public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
 {
+    protected override string GetShortClassName() => nameof(BinaryTupleIgniteTupleAdapter);
+
     protected override IIgniteTuple CreateTuple(IIgniteTuple source)
     {
         var cols = new List<Column>();

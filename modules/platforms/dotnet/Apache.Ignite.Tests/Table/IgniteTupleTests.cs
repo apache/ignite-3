@@ -102,14 +102,14 @@ namespace Apache.Ignite.Tests.Table
         public void TestToStringEmpty()
         {
             var tuple = CreateTuple(new IgniteTuple());
-            Assert.AreEqual("IgniteTuple { }", tuple.ToString());
+            Assert.AreEqual(GetShortClassName() + " { }", tuple.ToString());
         }
 
         [Test]
         public void TestToStringOneField()
         {
             var tuple = CreateTuple(new IgniteTuple { ["foo"] = 1 });
-            Assert.AreEqual("IgniteTuple { FOO = 1 }", tuple.ToString());
+            Assert.AreEqual(GetShortClassName() + " { FOO = 1 }", tuple.ToString());
         }
 
         [Test]
@@ -121,7 +121,7 @@ namespace Apache.Ignite.Tests.Table
                 ["b"] = "abcd"
             });
 
-            Assert.AreEqual("IgniteTuple { FOO = 1, B = abcd }", tuple.ToString());
+            Assert.AreEqual(GetShortClassName() + " { FOO = 1, B = abcd }", tuple.ToString());
         }
 
         [Test]
@@ -151,6 +151,8 @@ namespace Apache.Ignite.Tests.Table
             Assert.IsTrue(IIgniteTuple.Equals(tuple, customTuple));
             Assert.AreEqual(IIgniteTuple.GetHashCode(tuple), IIgniteTuple.GetHashCode(customTuple));
         }
+
+        protected virtual string GetShortClassName() => nameof(IgniteTuple);
 
         protected virtual IIgniteTuple CreateTuple(IIgniteTuple source) => source;
     }
