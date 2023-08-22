@@ -344,9 +344,7 @@ sql_result data_query::make_request_execute() {
             writer.write(m_query);
 
             m_params.write(writer);
-
-            // TODO IGNITE-20057 C++ client: Track observable timestamp
-            writer.write(0); // observableTimestamp.
+            writer.write(m_connection.get_observable_timestamp());
         });
 
         m_connection.mark_transaction_non_empty();

@@ -15,22 +15,43 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.testframework.jul;
+package org.apache.ignite.internal.sql.engine.exec.row;
 
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
+import java.util.Objects;
 
 /**
- * Adapter for {@link Handler} with empty implementations of all methods but {@link Handler#publish(LogRecord)}.
+ * Base class for types of fields of {@link RowSchema}.
  */
-public abstract class NoOpHandler extends Handler {
-    @Override
-    public void flush() {
-        // no-op
+public abstract class TypeSpec {
+
+    private final boolean nullable;
+
+    /** Constructor. */
+    public TypeSpec(boolean nullable) {
+        this.nullable = nullable;
     }
 
+    /** Returns {@code true} if values of this type can be {@code null}. */
+    public boolean isNullable() {
+        return nullable;
+    }
+
+    /** {@inheritDoc} */
     @Override
-    public void close() throws SecurityException {
-        // no-op
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        TypeSpec typeSpec = (TypeSpec) o;
+        return nullable == typeSpec.nullable;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return Objects.hash(nullable);
     }
 }

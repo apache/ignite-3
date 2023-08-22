@@ -17,11 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.lang.reflect.Type;
-import java.util.List;
-import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,32 +34,8 @@ public interface RowHandler<RowT> {
 
     String toString(RowT row);
 
-    /**
-     * Factory.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    default RowFactory<RowT> factory(IgniteTypeFactory typeFactory, RelDataType rowType) {
-        if (rowType.isStruct()) {
-            return factory(typeFactory, RelOptUtil.getFieldTypeList(rowType));
-        }
-
-        return factory(typeFactory.getJavaClass(rowType));
-    }
-
-    /**
-     * Factory.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    default RowFactory<RowT> factory(IgniteTypeFactory typeFactory, List<RelDataType> fieldTypes) {
-        Type[] types = new Type[fieldTypes.size()];
-        for (int i = 0; i < fieldTypes.size(); i++) {
-            types[i] = typeFactory.getJavaClass(fieldTypes.get(i));
-        }
-
-        return factory(types);
-    }
-
-    RowFactory<RowT> factory(Type... types);
+    /** Creates a factory that produces rows with fields defined by the given schema. */
+    RowFactory<RowT> factory(RowSchema rowSchema);
 
     /**
      * RowFactory interface.

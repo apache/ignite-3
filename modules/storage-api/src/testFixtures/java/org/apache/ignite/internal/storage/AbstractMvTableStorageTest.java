@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toHashIndexDescriptor;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toSortedIndexDescriptor;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
@@ -1035,8 +1036,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 return toListOfBinaryRows(mvPartitionStorage.scanVersions(row.get1()));
             });
 
-            assertThat(allVersions, hasSize(1));
-            assertRowMatches(allVersions.get(0), row.get2());
+            assertThat(allVersions, contains(equalToRow(row.get2())));
 
             IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), row.get2(), row.get1());
             IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), row.get2(), row.get1());

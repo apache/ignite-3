@@ -308,7 +308,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         }
 
         // We should never coerce DEFAULT, since it is going to break
-        // convertColumnList and DEFAULTs are not going to be replaced with
+        // SqlToRelConverter::convertColumnList and DEFAULTs are not going to be replaced with
         // values, produced by initializerFactory.newColumnDefaultValue.
         if (operand.getKind() == SqlKind.DEFAULT) {
             // DEFAULT is also of type ANY

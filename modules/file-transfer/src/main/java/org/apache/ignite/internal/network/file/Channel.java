@@ -15,18 +15,20 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Common;
+package org.apache.ignite.internal.network.file;
 
-using System;
-using System.Collections.Generic;
+import org.apache.ignite.network.ChannelType;
 
-public static class CollectionExtensions
-{
-    public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
-    {
-        foreach (var item in source)
-        {
-            action(item);
-        }
+/**
+ * Channel types used by the file transfer protocol.
+ */
+final class Channel {
+    /**
+     * File transfer channel.
+     */
+    static final ChannelType FILE_TRANSFER_CHANNEL = ChannelType.register((short) 2, "FileTransfer");
+
+    private Channel() {
+        // No-op.
     }
 }

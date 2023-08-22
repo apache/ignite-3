@@ -17,12 +17,9 @@
 
 package org.apache.ignite.internal.schema.row;
 
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.ROW_HAS_VALUE_FLAG;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -654,46 +651,13 @@ public class RowAssembler {
      * @return Created {@link BinaryRow}.
      */
     public BinaryRow build() {
-        boolean hasValue = flush();
-        ByteBuffer tupleBuffer = builder.build();
-
-        return build(tupleBuffer, schemaVersion, hasValue);
-    }
-
-    /**
-     * Builds serialized row from a BinaryTuple.
-     *
-     * @param binTupleBuffer Binary tuple buffer.
-     * @param schemaVersion Schema version.
-     * @return Created {@link BinaryRow}.
-     */
-    public static BinaryRow build(ByteBuffer binTupleBuffer, int schemaVersion, boolean hasValue) {
-        if (hasValue) {
-            byte flags = binTupleBuffer.get(0);
-
-            binTupleBuffer.put(0, (byte) (flags | ROW_HAS_VALUE_FLAG));
-        }
-
-        return new BinaryRowImpl(schemaVersion, binTupleBuffer);
-    }
-
-    /**
-     * Finish building row.
-     *
-     * @return {@code true} if row contains a value.
-     */
-    private boolean flush() {
         if (keyColumns == curCols) {
             throw new AssemblyException("Key column missed: colIdx=" + curCol);
-        } else {
-            if (curCol == 0) {
-                // Row has no value
-                return false;
-            } else if (valueColumns.length() != curCol) {
-                throw new AssemblyException("Value column missed: colIdx=" + curCol);
-            }
+        } else if (curCol != 0 && valueColumns.length() != curCol) {
+            throw new AssemblyException("Value column missed: colIdx=" + curCol);
         }
-        return true;
+
+        return new BinaryRowImpl(schemaVersion, builder.build());
     }
 
     /**

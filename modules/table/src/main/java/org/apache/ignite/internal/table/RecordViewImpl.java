@@ -388,8 +388,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param binaryRow Binary row.
      * @return Value object.
      */
-    private R unmarshal(BinaryRow binaryRow) {
-        if (binaryRow == null || !binaryRow.hasValue()) {
+    private @Nullable R unmarshal(@Nullable BinaryRow binaryRow) {
+        if (binaryRow == null) {
             return null;
         }
 
