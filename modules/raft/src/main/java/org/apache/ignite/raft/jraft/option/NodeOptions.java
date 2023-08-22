@@ -43,7 +43,7 @@ import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
-import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.NotNull;import org.jetbrains.annotations.Nullable;
 
 /**
  * Node options.
@@ -706,6 +706,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         this.electionTimeoutStrategy = electionTimeoutStrategy;
     }
 
+    @Nullable
     public Marshaller getCommandsMarshaller() {
         return commandsMarshaller;
     }
