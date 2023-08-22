@@ -326,7 +326,7 @@ network::data_buffer_owning sql_connection::receive_message(std::int64_t id, std
         UNUSED_VALUE flags; // Flags are unused for now.
 
         auto observable_timestamp = reader.read_int64();
-        UNUSED_VALUE observable_timestamp; // // TODO IGNITE-20057 C++ client: Track observable timestamp
+        on_observable_timestamp(observable_timestamp);
 
         auto err = protocol::read_error(reader);
         if (err) {
@@ -740,6 +740,16 @@ std::int32_t sql_connection::retrieve_timeout(void *value) {
     }
 
     return static_cast<std::int32_t>(u_timeout);
+}
+
+void sql_connection::on_observable_timestamp(std::int64_t timestamp) {
+    auto expected = m_observable_timestamp.load();
+    while (expected < timestamp) {
+        auto success = m_observable_timestamp.compare_exchange_weak(expected, timestamp);
+        if (success)
+            return;
+        expected = m_observable_timestamp.load();
+    }
 }
 
 } // namespace ignite

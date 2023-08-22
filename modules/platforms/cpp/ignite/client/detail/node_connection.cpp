@@ -22,9 +22,11 @@
 namespace ignite::detail {
 
 node_connection::node_connection(uint64_t id, std::shared_ptr<network::async_client_pool> pool,
-    std::shared_ptr<ignite_logger> logger, const ignite_client_configuration &cfg)
+    std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
+    const ignite_client_configuration &cfg)
     : m_id(id)
     , m_pool(std::move(pool))
+    , m_event_handler(std::move(event_handler))
     , m_logger(std::move(logger))
     , m_configuration(cfg) {
 }
@@ -92,7 +94,10 @@ void node_connection::process_message(bytes_view msg) {
     UNUSED_VALUE flags; // Flags are unused for now.
 
     auto observable_timestamp = reader.read_int64();
-    UNUSED_VALUE observable_timestamp; // // TODO IGNITE-20057 C++ client: Track observable timestamp
+    auto event_handler = m_event_handler.lock();
+    if (event_handler) {
+        event_handler->on_observable_timestamp_changed(observable_timestamp);
+    }
 
     auto handler = get_and_remove_handler(req_id);
     if (!handler) {

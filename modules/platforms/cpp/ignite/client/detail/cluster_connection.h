@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ignite/client/detail/connection_event_handler.h"
 #include "ignite/client/detail/node_connection.h"
 #include "ignite/client/detail/protocol_context.h"
 #include "ignite/client/detail/response_handler.h"
@@ -50,7 +51,9 @@ namespace ignite::detail {
  *
  * Considered established while there is connection to at least one server.
  */
-class cluster_connection : public std::enable_shared_from_this<cluster_connection>, public network::async_handler {
+class cluster_connection : public std::enable_shared_from_this<cluster_connection>,
+                           public network::async_handler,
+                           public connection_event_handler {
 public:
     /** Default TCP port. */
     static constexpr uint16_t DEFAULT_TCP_PORT = 10800;
@@ -260,6 +263,13 @@ public:
             op, tx, wr, [](protocol::reader &) {}, std::move(callback));
     }
 
+    /**
+     * Get observable timestamp.
+     *
+     * @return Observable timestamp.
+     */
+    std::int64_t get_observable_timestamp() const { return m_observable_timestamp.load(); }
+
 private:
     /**
      * Get random node connection.
@@ -313,6 +323,13 @@ private:
      * @param id Async client ID.
      */
     void on_message_sent(uint64_t id) override;
+
+    /**
+     * Handle observable timestamp.
+     *
+     * @param timestamp Timestamp.
+     */
+    void on_observable_timestamp_changed(std::int64_t timestamp) override;
 
     /**
      * Remove client.
@@ -369,6 +386,9 @@ private:
 
     /** Generator. */
     std::mt19937 m_generator;
+
+    /** Observable timestamp. */
+    std::atomic_int64_t m_observable_timestamp{0};
 };
 
 } // namespace ignite::detail

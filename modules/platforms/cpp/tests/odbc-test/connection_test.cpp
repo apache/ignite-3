@@ -35,7 +35,7 @@ TEST_F(connection_test, connection_success) {
 TEST_F(connection_test, odbc3_supported) {
     // Allocate an environment handle
     SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &m_env);
-    
+
     EXPECT_TRUE(m_env != SQL_NULL_HANDLE);
 
     // We want ODBC 3.8 support
@@ -48,7 +48,7 @@ TEST_F(connection_test, odbc3_supported) {
 
     // Connect string
     auto connect_str0 = to_sqlchar(get_basic_connection_string());
-    
+
     SQLCHAR out_str[ODBC_BUFFER_SIZE];
     SQLSMALLINT out_str_len;
 
