@@ -38,7 +38,6 @@ public class VarIntUtils {
      * Returns number of bytes that are needed to represent the given integer as a varint.
      *
      * @param val Int value.
-     * @return Number of bytes that are needed to represent the given integer as a varint.
      */
     public static int varIntLength(int val) {
         val++;
