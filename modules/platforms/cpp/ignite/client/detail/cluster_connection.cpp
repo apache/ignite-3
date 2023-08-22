@@ -162,7 +162,13 @@ void cluster_connection::on_message_sent(uint64_t id) {
 }
 
 void cluster_connection::on_observable_timestamp_changed(std::int64_t timestamp) {
-    // TODO IGNITE-20057 C++ client: Track observable timestamp
+    auto expected = m_observable_timestamp.load();
+    while (expected < timestamp) {
+        auto success = m_observable_timestamp.compare_exchange_weak(expected, timestamp);
+        if (success)
+            return;
+        expected = m_observable_timestamp.load();
+    }
 }
 
 void cluster_connection::remove_client(uint64_t id) {

@@ -262,6 +262,13 @@ public:
             op, tx, wr, [](protocol::reader &) {}, std::move(callback));
     }
 
+    /**
+     * Get observable timestamp.
+     *
+     * @return Observable timestamp.
+     */
+    std::int64_t get_observable_timestamp() const { return m_observable_timestamp.load(); }
+
 private:
     /**
      * Get random node connection.
@@ -378,6 +385,9 @@ private:
 
     /** Generator. */
     std::mt19937 m_generator;
+
+    /** Observable timestamp. */
+    std::atomic_int64_t m_observable_timestamp;
 };
 
 } // namespace ignite::detail
