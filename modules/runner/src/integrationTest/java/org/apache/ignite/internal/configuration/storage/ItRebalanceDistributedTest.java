@@ -39,9 +39,9 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
@@ -197,7 +197,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private static final String HOST = "localhost";
 
-    private static final int ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS = 10_000;
+    private static final int AWAIT_TIMEOUT_MILLIS = 10_000;
 
     private static final int NODE_COUNT = 3;
 
@@ -287,7 +287,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
-        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
         alterZone(node, ZONE_NAME, 2);
 
@@ -304,7 +304,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
-        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
         alterZone(node, ZONE_NAME, 2);
         alterZone(node, ZONE_NAME, 3);
@@ -322,7 +322,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
-        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
         alterZone(node, ZONE_NAME, 2);
         alterZone(node, ZONE_NAME, 3);
@@ -407,7 +407,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
-        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
         alterZone(node, ZONE_NAME, 1);
 
@@ -444,7 +444,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @Test
     @UseTestTxStateStorage
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20230")
     void testDestroyPartitionStoragesOnEvictNode() throws Exception {
         Node node = getNode(0);
 
@@ -453,8 +452,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
         Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(node, 0);
-
-        nodes.forEach(n -> prepareFinishHandleChangeStableAssignmentEventFuture(n, TABLE_NAME, 0));
 
         changeTableReplicasForSinglePartition(node, ZONE_NAME, 2);
 
@@ -469,8 +466,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 evictedAssignments,
                 hasSize(1)
         );
-
-        assertThat(collectFinishHandleChangeStableAssignmentEventFuture(null, TABLE_NAME, 0), willCompleteSuccessfully());
 
         Node evictedNode = findNodeByConsistentId(first(evictedAssignments).consistentId());
 
@@ -540,7 +535,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) throws Exception {
         assertTrue(waitForCondition(
                 () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum),
-                (long) ASSIGNMENTS_AWAIT_TIMEOUT_MILLIS * nodes.size()
+                (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
     }
 
@@ -1020,8 +1015,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static void checkInvokeDestroyedPartitionStorages(Node node, String tableName, int partitionId) {
         InternalTable internalTable = getInternalTable(node, tableName);
 
-        verify(internalTable.storage(), atLeast(1)).destroyPartition(partitionId);
-        verify(internalTable.txStateStorage(), atLeast(1)).destroyTxStateStorage(partitionId);
+        verify(internalTable.storage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
+                .destroyPartition(partitionId);
+        verify(internalTable.txStateStorage(), timeout(AWAIT_TIMEOUT_MILLIS).atLeast(1))
+                .destroyTxStateStorage(partitionId);
     }
 
     private static void throwExceptionOnInvokeDestroyPartitionStorages(Node node, String tableName, int partitionId) {
