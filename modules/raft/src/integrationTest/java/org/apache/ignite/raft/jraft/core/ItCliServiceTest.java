@@ -368,11 +368,11 @@ public class ItCliServiceTest {
         }
 
         for (PeerId peer : conf) {
-            assertTrue(cliService.snapshot(groupId, peer).isOk(), "Failed to trigger snapshot from peer" + peer);
+            assertTrue(cliService.snapshot(groupId, peer).isOk(), "Failed to trigger snapshot from peer = " + peer);
         }
 
         for (PeerId peer : conf.getLearners()) {
-            assertTrue(cliService.snapshot(groupId, peer).isOk(), "Failed to trigger snapshot from learner" + peer);
+            assertTrue(cliService.snapshot(groupId, peer).isOk(), "Failed to trigger snapshot from learner = " + peer);
         }
 
         for (MockStateMachine fsm : cluster.getFsms()) {
