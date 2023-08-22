@@ -72,7 +72,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
         assertAll(
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputContains("Failed to parse query: Encountered \"\" at line 1, column 6")
+                () -> assertErrOutputContains("Failed to parse query: Encountered \"<EOF>\" at line 1, column 6")
         );
     }
 

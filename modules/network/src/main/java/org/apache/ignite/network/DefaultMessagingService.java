@@ -139,6 +139,19 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     @Override
+    public CompletableFuture<Void> send(String recipientConsistentId, ChannelType channelType, NetworkMessage msg) {
+        ClusterNode recipient = topologyService.getByConsistentId(recipientConsistentId);
+
+        if (recipient == null) {
+            return failedFuture(
+                    new UnresolvableConsistentIdException("Recipient consistent ID cannot be resolved: " + recipientConsistentId)
+            );
+        }
+
+        return send0(recipient, channelType, msg, null);
+    }
+
+    @Override
     public CompletableFuture<Void> respond(ClusterNode recipient, ChannelType type, NetworkMessage msg, long correlationId) {
         return send0(recipient, type, msg, correlationId);
     }

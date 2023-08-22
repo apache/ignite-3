@@ -46,9 +46,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
 import java.util.stream.IntStream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.Cluster;
@@ -66,7 +63,8 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.jul.NoOpHandler;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
@@ -130,7 +128,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
     private Cluster cluster;
 
-    private Logger replicatorLogger;
+    private LogInspector replicatorLogInspector;
 
     private @Nullable Handler replicaLoggerHandler;
 
@@ -138,15 +136,17 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     void createCluster(TestInfo testInfo) {
         cluster = new Cluster(testInfo, workDir, NODE_BOOTSTRAP_CFG);
 
-        replicatorLogger = Logger.getLogger(Replicator.class.getName());
+        replicatorLogInspector = LogInspector.create(Replicator.class, true);
     }
 
     @AfterEach
     @Timeout(60)
     void shutdownCluster() {
         if (replicaLoggerHandler != null) {
-            replicatorLogger.removeHandler(replicaLoggerHandler);
+            replicatorLogInspector.removeHandler(replicaLoggerHandler);
         }
+
+        replicatorLogInspector.stop();
 
         cluster.shutdown();
     }
@@ -464,23 +464,18 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     private void reanimateNodeAndWaitForSnapshotInstalled(int nodeIndex) throws InterruptedException {
         CountDownLatch snapshotInstalledLatch = new CountDownLatch(1);
 
-        var handler = new NoOpHandler() {
-            @Override
-            public void publish(LogRecord record) {
-                if (record.getMessage().matches("Node .+ received InstallSnapshotResponse from .+_" + nodeIndex + " .+ success=true")) {
-                    snapshotInstalledLatch.countDown();
-                }
-            }
-        };
-
-        replicatorLogger.addHandler(handler);
+        Handler handler = replicatorLogInspector.addHandler(
+                evt -> evt.getMessage().getFormattedMessage().matches(
+                        "Node .+ received InstallSnapshotResponse from .+_" + nodeIndex + " .+ success=true"),
+                () -> snapshotInstalledLatch.countDown()
+        );
 
         try {
             reanimateNode(nodeIndex);
 
             assertTrue(snapshotInstalledLatch.await(60, TimeUnit.SECONDS), "Did not install a snapshot in time");
         } finally {
-            replicatorLogger.removeHandler(handler);
+            replicatorLogInspector.removeHandler(handler);
         }
     }
 
@@ -734,18 +729,15 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     void snapshotInstallTimeoutDoesNotBreakSubsequentInstallsWhenSecondAttemptIsIdenticalToFirst() throws Exception {
         AtomicBoolean snapshotInstallFailedDueToIdenticalRetry = new AtomicBoolean(false);
 
-        Logger snapshotExecutorLogger = Logger.getLogger(SnapshotExecutorImpl.class.getName());
+        LogInspector snapshotExecutorLogInspector = LogInspector.create(SnapshotExecutorImpl.class);
 
-        var snapshotInstallFailedDueToIdenticalRetryHandler = new NoOpHandler() {
-            @Override
-            public void publish(LogRecord record) {
-                if (record.getMessage().contains("Register DownloadingSnapshot failed: interrupted by retry installing request")) {
-                    snapshotInstallFailedDueToIdenticalRetry.set(true);
-                }
-            }
-        };
+        Handler snapshotInstallFailedDueToIdenticalRetryHandler =
+                snapshotExecutorLogInspector.addHandler(
+                        evt -> evt.getMessage().getFormattedMessage().contains(
+                                "Register DownloadingSnapshot failed: interrupted by retry installing request"),
+                        () -> snapshotInstallFailedDueToIdenticalRetry.set(true));
 
-        snapshotExecutorLogger.addHandler(snapshotInstallFailedDueToIdenticalRetryHandler);
+        snapshotExecutorLogInspector.start();
 
         try {
             prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, theCluster -> {
@@ -764,7 +756,8 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
             reanimateNode2AndWaitForSnapshotInstalled();
         } finally {
-            snapshotExecutorLogger.removeHandler(snapshotInstallFailedDueToIdenticalRetryHandler);
+            snapshotExecutorLogInspector.removeHandler(snapshotInstallFailedDueToIdenticalRetryHandler);
+            snapshotExecutorLogInspector.stop();
         }
     }
 
@@ -805,7 +798,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     /**
-     * Adds a listener for the {@link #replicatorLogger} to hear the success of the snapshot installation.
+     * Adds a listener for the {@link #replicatorLogInspector} to hear the success of the snapshot installation.
      */
     private void listenForSnapshotInstalledSuccessFromLogger(
             int nodeIndexFrom,
@@ -814,19 +807,9 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     ) {
         String regexp = "Node .+" + nodeIndexFrom + " received InstallSnapshotResponse from .+_" + nodeIndexTo + " .+ success=true";
 
-        replicaLoggerHandler = new NoOpHandler() {
-            @Override
-            public void publish(LogRecord record) {
-                if (record.getMessage().matches(regexp)) {
-                    snapshotInstallSuccessfullyFuture.complete(null);
-
-                    replicatorLogger.removeHandler(this);
-                    replicaLoggerHandler = null;
-                }
-            }
-        };
-
-        replicatorLogger.addHandler(replicaLoggerHandler);
+        replicaLoggerHandler = replicatorLogInspector.addHandler(
+                evt -> evt.getMessage().getFormattedMessage().matches(regexp),
+                () -> snapshotInstallSuccessfullyFuture.complete(null));
     }
 
     /**

@@ -50,7 +50,6 @@ dependencies {
     testImplementation project(':ignite-network')
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.junit
-    testImplementation libs.slf4j.jdk14
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-raft')

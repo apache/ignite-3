@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.testframework.jul;
+package org.apache.ignite.internal.network.file;
 
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
+import org.apache.ignite.network.ChannelType;
 
 /**
- * Adapter for {@link Handler} with empty implementations of all methods but {@link Handler#publish(LogRecord)}.
+ * Channel types used by the file transfer protocol.
  */
-public abstract class NoOpHandler extends Handler {
-    @Override
-    public void flush() {
-        // no-op
-    }
+final class Channel {
+    /**
+     * File transfer channel.
+     */
+    static final ChannelType FILE_TRANSFER_CHANNEL = ChannelType.register((short) 2, "FileTransfer");
 
-    @Override
-    public void close() throws SecurityException {
-        // no-op
+    private Channel() {
+        // No-op.
     }
 }

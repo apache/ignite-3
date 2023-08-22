@@ -68,7 +68,6 @@ dependencies {
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
     testImplementation libs.junit.pioneer
-    testImplementation libs.slf4j.jdk14
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
 
