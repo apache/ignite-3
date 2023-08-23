@@ -17,45 +17,17 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import java.util.List;
-
-/**
- * CREATE INDEX statement.
- */
-public class CreateHashIndexParams extends AbstractIndexCommandParams {
+/** CREATE INDEX statement. */
+public class CreateHashIndexParams extends AbstractCreateIndexCommandParams {
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
     }
 
-    /** Indexed columns. */
-    private List<String> columns;
-
-    /**
-     * Gets indexed columns.
-     */
-    public List<String> columns() {
-        return columns;
-    }
-
-    /**
-     * Parameters builder.
-     */
-    public static class Builder extends AbstractIndexCommandParams.AbstractBuilder<CreateHashIndexParams, CreateHashIndexParams.Builder> {
+    /** Parameters builder. */
+    public static class Builder extends AbstractCreateIndexBuilder<CreateHashIndexParams, Builder> {
         private Builder() {
             super(new CreateHashIndexParams());
-        }
-
-        /**
-         * Set columns names.
-         *
-         * @param columns Columns names.
-         * @return {@code this}.
-         */
-        public Builder columns(List<String> columns) {
-            params.columns = columns;
-
-            return this;
         }
     }
 }

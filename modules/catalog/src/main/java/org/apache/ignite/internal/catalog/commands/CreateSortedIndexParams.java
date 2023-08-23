@@ -20,53 +20,25 @@ package org.apache.ignite.internal.catalog.commands;
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 
-/**
- * CREATE INDEX statement.
- */
-public class CreateSortedIndexParams extends AbstractIndexCommandParams {
+/** CREATE INDEX statement. */
+public class CreateSortedIndexParams extends AbstractCreateIndexCommandParams {
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
     }
 
-    /** Indexed columns. */
-    private List<String> columns;
-
     /** Columns collations. */
     private List<CatalogColumnCollation> collations;
 
-    /**
-     * Gets indexed columns.
-     */
-    public List<String> columns() {
-        return columns;
-    }
-
-    /**
-     * Gets columns collations.
-     */
+    /** Gets columns collations. */
     public List<CatalogColumnCollation> collations() {
         return collations;
     }
 
-    /**
-     * Parameters builder.
-     */
-    public static class Builder extends AbstractBuilder<CreateSortedIndexParams, CreateSortedIndexParams.Builder> {
+    /** Parameters builder. */
+    public static class Builder extends AbstractCreateIndexBuilder<CreateSortedIndexParams, Builder> {
         private Builder() {
             super(new CreateSortedIndexParams());
-        }
-
-        /**
-         * Set columns names.
-         *
-         * @param columns Columns names.
-         * @return {@code this}.
-         */
-        public Builder columns(List<String> columns) {
-            params.columns = columns;
-
-            return this;
         }
 
         /**
