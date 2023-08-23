@@ -202,7 +202,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 nextTableId.getAndIncrement(),
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
-                name -> mockClusterNode("node", "local"),
+                name -> mockClusterNode(),
                 txManager == null
                         ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), () -> "local")
                         : txManager,
@@ -329,7 +329,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 placementDriver,
                 storageUpdateHandler,
                 new DummySchemas(schemaManager),
-                mockClusterNode("node", "local"),
+                mockClusterNode(),
                 mock(MvTableStorage.class),
                 mock(IndexBuilder.class),
                 mock(TablesConfiguration.class)
@@ -348,8 +348,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         );
     }
 
-    private static ClusterNode mockClusterNode(String name, String id) {
-        return new ClusterNodeImpl(id, name, new NetworkAddress("127.0.0.1", 20000));
+    private static ClusterNode mockClusterNode() {
+        return new ClusterNodeImpl("id", "node", new NetworkAddress("127.0.0.1", 20000));
     }
 
     /**
@@ -400,7 +400,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
-        return completedFuture(mock(ClusterNode.class));
+        return completedFuture(mockClusterNode());
     }
 
     /**
