@@ -78,6 +78,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                     }
 
                     if (!binaryTupleRebuildRequired(schema)) {
+                        // TODO: Call Column#validate() for every value in the BinaryTuple.
                         var binaryRow = new BinaryRowImpl(schema.version(), tupleReader.byteBuffer());
 
                         return Row.wrapBinaryRow(schema, binaryRow);
@@ -352,15 +353,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @return True if binary tuple rebuild is required; false if the tuple can be written to storage as is.
      */
     private static boolean binaryTupleRebuildRequired(SchemaDescriptor schema) {
-        // TODO IGNITE-20155 Java client connector skips NOT NULL and other column checks
         // Temporal columns require normalization according to the specified precision.
-        // return schema.hasTemporalColumns();
-
-        // TODO: Currently, the only possible constraint is NOT NULL.
-        // We can skip binary tuple rebuild if there are no NOT NULL columns.
-        // However, what if we add more constraints in the future?
-        // There is Column#validate() call, but this requires full deserialization.
-        return true;
+        return schema.hasTemporalColumns();
     }
 
     /**
