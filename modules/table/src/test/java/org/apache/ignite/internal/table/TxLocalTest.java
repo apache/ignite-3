@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -106,7 +107,7 @@ public class TxLocalTest extends TxAbstractTest {
                         .build());
             }
 
-        }).when(msgSvc).invoke((String) isNull(), any(), anyLong());
+        }).when(msgSvc).invoke(anyString(), any(), anyLong());
 
         PlacementDriver placementDriver = mock(PlacementDriver.class, RETURNS_DEEP_STUBS);
 
