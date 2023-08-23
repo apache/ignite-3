@@ -644,6 +644,7 @@ public class PartitionCommandListenerTest {
                 .rowsToUpdate(rows)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
 
         invokeBatchedCommand(msgFactory.txCleanupCommand()
@@ -681,6 +682,7 @@ public class PartitionCommandListenerTest {
                 .rowsToUpdate(rows)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
 
         invokeBatchedCommand(msgFactory.txCleanupCommand()
@@ -716,6 +718,7 @@ public class PartitionCommandListenerTest {
                 .rowsToUpdate(keyRows)
                 .txId(txId)
                 .safeTimeLong(hybridClock.nowLong())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build());
 
         invokeBatchedCommand(msgFactory.txCleanupCommand()

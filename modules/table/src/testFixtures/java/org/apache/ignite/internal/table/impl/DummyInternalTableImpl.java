@@ -86,6 +86,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
@@ -201,7 +202,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 nextTableId.getAndIncrement(),
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
-                name -> mock(ClusterNode.class),
+                name -> mockClusterNode("node", "local"),
                 txManager == null
                         ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), () -> "local")
                         : txManager,
@@ -328,7 +329,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 placementDriver,
                 storageUpdateHandler,
                 new DummySchemas(schemaManager),
-                mock(ClusterNode.class),
+                mockClusterNode("node", "local"),
                 mock(MvTableStorage.class),
                 mock(IndexBuilder.class),
                 mock(TablesConfiguration.class)
@@ -338,13 +339,17 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(safeTime.current()).thenReturn(new HybridTimestamp(1, 0));
 
         partitionListener = new PartitionListener(
-                txManager,
+                this.txManager,
                 new TestPartitionDataStorage(mvPartStorage),
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime,
                 new PendingComparableValuesTracker<>(0L)
         );
+    }
+
+    private static ClusterNode mockClusterNode(String name, String id) {
+        return new ClusterNodeImpl(id, name, new NetworkAddress("127.0.0.1", 20000));
     }
 
     /**

@@ -152,7 +152,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** Map of node indexes to transaction managers. */
     private final Map<Integer, TxManager> txManagers = new ConcurrentHashMap<>();
 
-    private ReplicaService replicaService;
+    private final ReplicaService replicaService = mock(ReplicaService.class);
 
     private final Function<String, ClusterNode> consistentIdToNode = addr
             -> new ClusterNodeImpl("node1", "node1", new NetworkAddress(addr, 3333));
@@ -185,8 +185,6 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
         PartitionReplicaListener partitionReplicaListener = mockPartitionReplicaListener(service);
 
-        replicaService = mock(ReplicaService.class);
-
         when(replicaService.invoke(any(ClusterNode.class), any()))
                 .thenAnswer(invocationOnMock -> {
                     ClusterNode node = invocationOnMock.getArgument(0);
@@ -195,10 +193,12 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 });
 
         for (int i = 0; i < nodes(); i++) {
-            TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i),
-                    () -> "local");
-            txManagers.put(i, txManager);
-            closeables.add(txManager::stop);
+            if (!txManagers.containsKey(i)) {
+                TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i),
+                        () -> "local");
+                txManagers.put(i, txManager);
+                closeables.add(txManager::stop);
+            }
         }
 
         TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1),
@@ -418,8 +418,17 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
                     );
 
+                    TxManager txManager = txManagers.computeIfAbsent(index, k -> {
+                        TxManager txMgr = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock,
+                                new TransactionIdGenerator(index), () -> "local");
+                        txMgr.start();
+                        closeables.add(txMgr::stop);
+
+                        return txMgr;
+                    });
+
                     PartitionListener listener = new PartitionListener(
-                            txManagers.get(index),
+                            txManager,
                             partitionDataStorage,
                             storageUpdateHandler,
                             new TestTxStateStorage(),
