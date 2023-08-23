@@ -98,7 +98,6 @@ import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -435,7 +434,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                     validateParsedStatement(context, result, params);
 
-                    QueryTransactionWrapper txWrapper = beginImplicitTxIfNeeded(result.queryType(), transactions, outerTx);
+                    QueryTransactionWrapper txWrapper =
+                            QueryTransactionWrapper.beginImplicitTxIfNeeded(result.queryType(), transactions, outerTx);
 
                     implicitTxRollbackAction.set(txWrapper::rollbackImplicit);
 
@@ -503,25 +503,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         start.completeAsync(() -> null, taskExecutor);
 
         return stage;
-    }
-
-    private static QueryTransactionWrapper beginImplicitTxIfNeeded(
-            SqlQueryType queryType,
-            IgniteTransactions transactions,
-            @Nullable InternalTransaction outerTx
-    ) {
-        if (outerTx == null) {
-            InternalTransaction tx = (InternalTransaction) transactions.begin(
-                    new TransactionOptions().readOnly(queryType != SqlQueryType.DML));
-
-            return new QueryTransactionWrapper(tx, true);
-        }
-
-        if (SqlQueryType.DDL == queryType) {
-            throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
-        }
-
-        return new QueryTransactionWrapper(outerTx, false);
     }
 
     @TestOnly

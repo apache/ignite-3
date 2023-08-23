@@ -27,15 +27,22 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncWrapper;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Test class for {@link JdbcQueryCursor}.
  */
+@ExtendWith(MockitoExtension.class)
 public class JdbcQueryCursorSelfTest {
+    @Mock
+    private QueryTransactionWrapper txTestWrapper;
+
     private static final List<Integer> ROWS = List.of(1, 2, 3);
 
     private static final int TOTAL_ROWS_COUNT = ROWS.size();
@@ -59,8 +66,7 @@ public class JdbcQueryCursorSelfTest {
         assertEquals(ROWS, results);
     }
 
-    private static List<Integer> fetchFullBatch(int maxRows, int fetchSize) {
-        QueryTransactionWrapper txTestWrapper = new QueryTransactionWrapper(null, false);
+    private List<Integer> fetchFullBatch(int maxRows, int fetchSize) {
         AsyncWrapper<Integer> asyncWrapper = new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run);
         JdbcQueryCursor<Integer> cursor = new JdbcQueryCursor<>(
                 maxRows, new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, txTestWrapper, asyncWrapper));
