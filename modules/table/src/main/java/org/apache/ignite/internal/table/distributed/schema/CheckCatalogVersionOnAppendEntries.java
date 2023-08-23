@@ -51,8 +51,7 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
     }
 
     @Override
-    @Nullable
-    public Message intercept(RaftServerService service, AppendEntriesRequest request, RpcRequestClosure done) {
+    public @Nullable Message intercept(RaftServerService service, AppendEntriesRequest request, RpcRequestClosure done) {
         if (request.entriesList() == null || request.data() == null) {
             return null;
         }
