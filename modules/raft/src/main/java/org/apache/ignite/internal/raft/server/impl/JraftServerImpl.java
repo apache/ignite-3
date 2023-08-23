@@ -124,7 +124,7 @@ public class JraftServerImpl implements RaftServer {
     /** Request executor. */
     private ExecutorService requestExecutor;
 
-    /** Marshaller for RAFT commands. */
+    /** Marshaller for RAFT commands that is used if a marshaller is not specified in {@link RaftGroupOptions}. */
     private final Marshaller defaultCommandsMarshaller;
 
     /** Raft service event interceptor. */
