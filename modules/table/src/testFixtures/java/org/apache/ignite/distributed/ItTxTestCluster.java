@@ -20,7 +20,7 @@ package org.apache.ignite.distributed;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -30,6 +30,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,8 +50,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -96,7 +95,6 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummySchemas;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -121,21 +119,23 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
-@ExtendWith(ConfigurationExtension.class)
-public abstract class ItTxDistributedAbstractTest extends IgniteAbstractTest {
-    //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
-    @InjectConfiguration("mock: { fsync: false }")
-    private static RaftConfiguration raftConfiguration;
+public class ItTxTestCluster {
+    private final RaftConfiguration raftConfig;
 
-    @InjectConfiguration
-    private static GcConfiguration gcConfig;
+    private final GcConfiguration gcConfig;
 
-    @InjectConfiguration("mock.tables.foo {}")
-    private static TablesConfiguration tablesConfig;
+    private final TablesConfiguration tablesConfig;
 
-    private static final IgniteLogger LOG = Loggers.forClass(ItTxDistributedTestSingleNode.class);
+    private final Path workDir;
+
+    private final int nodes;
+
+    private final int replicas;
+
+    private final boolean startClient;
+
+    private static final IgniteLogger LOG = Loggers.forClass(ItTxTestCluster.class);
 
     public static final int NODE_PORT_BASE = 20_000;
 
@@ -185,35 +185,28 @@ public abstract class ItTxDistributedAbstractTest extends IgniteAbstractTest {
         return null;
     };
 
-    /**
-     * Returns a count of nodes.
-     *
-     * @return Nodes.
-     */
-    protected abstract int nodes();
-
-    /**
-     * Returns a count of replicas.
-     *
-     * @return Replicas.
-     */
-    protected abstract int replicas();
-
-    /**
-     * Returns {@code true} to disable collocation by using dedicated client node.
-     *
-     * @return {@code true} to disable collocation.
-     */
-    protected abstract boolean startClient();
-
     private final TestInfo testInfo;
 
     /**
      * The constructor.
-     *
-     * @param testInfo Test info.
      */
-    public ItTxDistributedAbstractTest(TestInfo testInfo) {
+    public ItTxTestCluster(
+            TestInfo testInfo,
+            RaftConfiguration raftConfig,
+            GcConfiguration gcConfig,
+            TablesConfiguration tablesConfig,
+            Path workDir,
+            int nodes,
+            int replicas,
+            boolean startClient
+    ) {
+        this.raftConfig = raftConfig;
+        this.gcConfig = gcConfig;
+        this.tablesConfig = tablesConfig;
+        this.workDir = workDir;
+        this.nodes = nodes;
+        this.replicas = replicas;
+        this.startClient = startClient;
         this.testInfo = testInfo;
     }
 
@@ -221,9 +214,6 @@ public abstract class ItTxDistributedAbstractTest extends IgniteAbstractTest {
      * Initialize the test state.
      */
     protected void prepareCluster() throws Exception {
-        int nodes = nodes();
-        int replicas = replicas();
-
         assertTrue(nodes > 0);
         assertTrue(replicas > 0);
 
@@ -244,23 +234,23 @@ public abstract class ItTxDistributedAbstractTest extends IgniteAbstractTest {
             assertTrue(waitForTopology(node, nodes, 1000));
         }
 
-        log.info("The cluster has been started");
+        LOG.info("The cluster has been started");
 
-        if (startClient()) {
+        if (startClient) {
             client = startNode(testInfo, "client", NODE_PORT_BASE - 1, nodeFinder);
 
             assertTrue(waitForTopology(client, nodes + 1, 1000));
 
             clientClock = new HybridClockImpl();
 
-            log.info("Replica manager has been started, node=[" + client.topologyService().localMember() + ']');
+            LOG.info("Replica manager has been started, node=[" + client.topologyService().localMember() + ']');
 
             clientReplicaSvc = new ReplicaService(
                     client.messagingService(),
                     clientClock
             );
 
-            log.info("The client has been started");
+            LOG.info("The client has been started");
         }
 
         // Start raft servers. Each raft server can hold multiple groups.
@@ -283,7 +273,7 @@ public abstract class ItTxDistributedAbstractTest extends IgniteAbstractTest {
 
             var raftSrv = new Loza(
                     cluster.get(i),
-                    raftConfiguration,
+                    raftConfig,
                     workDir.resolve("node" + i),
                     clock
             );
@@ -309,7 +299,7 @@ public abstract class ItTxDistributedAbstractTest extends IgniteAbstractTest {
 
             replicaManagers.put(node.name(), replicaMgr);
 
-            log.info("Replica manager has been started, node=[" + node + ']');
+            LOG.info("Replica manager has been started, node=[" + node + ']');
 
             ReplicaService replicaSvc = new ReplicaService(
                     cluster.get(i).messagingService(),
@@ -327,13 +317,13 @@ public abstract class ItTxDistributedAbstractTest extends IgniteAbstractTest {
             txStateStorages.put(node.name(), new TestTxStateStorage());
         }
 
-        log.info("Raft servers have been started");
+        LOG.info("Raft servers have been started");
 
-        log.info("Partition groups have been started");
+        LOG.info("Partition groups have been started");
 
         localNodeName = cluster.get(0).topologyService().localMember().name();
 
-        if (startClient()) {
+        if (startClient) {
             clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock, new TransactionIdGenerator(-1),
                     () -> cluster.get(0).topologyService().localMember().id());
         } else {
@@ -344,6 +334,10 @@ public abstract class ItTxDistributedAbstractTest extends IgniteAbstractTest {
         assertNotNull(clientTxManager);
 
         igniteTransactions = new IgniteTransactionsImpl(clientTxManager);
+    }
+
+    public IgniteTransactions igniteTransactions() {
+        return igniteTransactions;
     }
 
     /**
@@ -358,7 +352,7 @@ public abstract class ItTxDistributedAbstractTest extends IgniteAbstractTest {
         List<Set<Assignment>> calculatedAssignments = AffinityUtils.calculateAssignments(
                 cluster.stream().map(node -> node.topologyService().localMember().name()).collect(toList()),
                 1,
-                replicas()
+                replicas
         );
 
         List<Set<String>> assignments = calculatedAssignments.stream()
@@ -492,9 +486,9 @@ public abstract class ItTxDistributedAbstractTest extends IgniteAbstractTest {
 
             PeersAndLearners membersConf = PeersAndLearners.fromConsistentIds(partAssignments);
 
-            if (startClient()) {
+            if (startClient) {
                 RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, client, FACTORY, raftConfiguration, membersConf, true, executor)
+                        .start(grpId, client, FACTORY, raftConfig, membersConf, true, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 clients.put(p, service);
@@ -503,7 +497,7 @@ public abstract class ItTxDistributedAbstractTest extends IgniteAbstractTest {
                 ClusterService tmpSvc = cluster.get(0);
 
                 RaftGroupService service = RaftGroupServiceImpl
-                        .start(grpId, tmpSvc, FACTORY, raftConfiguration, membersConf, true, executor)
+                        .start(grpId, tmpSvc, FACTORY, raftConfig, membersConf, true, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 Peer leader = service.leader();
@@ -516,7 +510,7 @@ public abstract class ItTxDistributedAbstractTest extends IgniteAbstractTest {
                         .orElseThrow();
 
                 RaftGroupService leaderClusterSvc = RaftGroupServiceImpl
-                        .start(grpId, leaderSrv, FACTORY, raftConfiguration, membersConf, true, executor)
+                        .start(grpId, leaderSrv, FACTORY, raftConfig, membersConf, true, executor)
                         .get(5, TimeUnit.SECONDS);
 
                 clients.put(p, leaderClusterSvc);
@@ -537,8 +531,8 @@ public abstract class ItTxDistributedAbstractTest extends IgniteAbstractTest {
                 clientTxManager,
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
-                startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
-                startClient() ? clientClock : clocks.get(localNodeName)
+                startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
+                startClient ? clientClock : clocks.get(localNodeName)
         ), new DummySchemaManagerImpl(schemaDescriptor), clientTxManager.lockManager());
     }
 
