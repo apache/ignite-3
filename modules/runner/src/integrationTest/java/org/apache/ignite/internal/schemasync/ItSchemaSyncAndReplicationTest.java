@@ -19,13 +19,14 @@ package org.apache.ignite.internal.schemasync;
 
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.logging.LogRecord;
@@ -75,12 +76,12 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
         listenerInhibitor.startInhibit();
 
         try {
-            CountDownLatch rejectionTriggered = rejectionDueToMetadataLagTriggered();
+            CompletableFuture<?> rejectionTriggered = rejectionDueToMetadataLagTriggered();
 
             updateTableSchemaAt(notInhibitedNodeIndex);
             putToTableAt(notInhibitedNodeIndex);
 
-            assertTrue(rejectionTriggered.await(10, TimeUnit.SECONDS), "Did not see rejections due to lagging metadata");
+            assertThat("Did not see rejections due to lagging metadata", rejectionTriggered, willSucceedIn(10, TimeUnit.SECONDS));
 
             assertTrue(solePartitionIsEmpty(nodeToInhibitMetaStorage), "Something was written to the partition");
 
@@ -127,16 +128,16 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
         cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId());
     }
 
-    private static CountDownLatch rejectionDueToMetadataLagTriggered() {
+    private static CompletableFuture<?> rejectionDueToMetadataLagTriggered() {
         Logger interceptorLogger = Logger.getLogger(CheckCatalogVersionOnAppendEntries.class.getName());
 
-        CountDownLatch rejectionTriggered = new CountDownLatch(1);
+        CompletableFuture<?> rejectionTriggered = new CompletableFuture<>();
 
         interceptorLogger.addHandler(new NoOpHandler() {
             @Override
             public void publish(LogRecord record) {
                 if (record.getMessage().startsWith("Metadata not yet available")) {
-                    rejectionTriggered.countDown();
+                    rejectionTriggered.complete(null);
                 }
             }
         });
