@@ -70,8 +70,7 @@ public abstract class BaseLogEntryCodecFactoryTest {
     @Test
     public void testEncodeDecodeEmpty() {
         assertThrows(NullPointerException.class, () -> {
-            assertNull(this.encoder.encode(null));
-            fail();
+            this.encoder.encode(null);
         });
 
         assertNull(this.decoder.decode(null));
