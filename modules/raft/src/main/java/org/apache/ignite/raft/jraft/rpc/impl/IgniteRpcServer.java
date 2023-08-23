@@ -91,7 +91,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
             Executor rpcExecutor,
             RaftServiceEventInterceptor serviceEventInterceptor,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
-            AppendEntriesRequestInterceptor appendEntriesRequestFilter
+            AppendEntriesRequestInterceptor appendEntriesRequestFilter,
+            ActionRequestInterceptor actionRequestInterceptor
     ) {
         this.service = service;
         this.nodeManager = nodeManager;
@@ -122,7 +123,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new RemoveLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ResetLearnersRequestProcessor(rpcExecutor, raftMessagesFactory));
         // common client integration
-        registerProcessor(new ActionRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new InterceptingActionRequestProcessor(rpcExecutor, raftMessagesFactory, actionRequestInterceptor));
         registerProcessor(new NotifyElectProcessor(raftMessagesFactory, serviceEventInterceptor));
         registerProcessor(new RaftGroupEventsProcessor(raftGroupEventsClientListener));
 

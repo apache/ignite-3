@@ -15,41 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.rpc.impl.core;
+package org.apache.ignite.raft.jraft.rpc.impl;
 
 import java.util.concurrent.Executor;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.Message;
-import org.apache.ignite.raft.jraft.rpc.RaftServerService;
-import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcContext;
 
 /**
- * Extension of the standard {@link AppendEntriesRequestProcessor} that allows to add some interception logic.
+ * Extension of the standard {@link ActionRequestProcessor} that allows to add some interception logic.
  *
- * @see AppendEntriesRequestInterceptor
+ * @see ActionRequestInterceptor
  */
-public class InterceptingAppendEntriesRequestProcessor extends AppendEntriesRequestProcessor {
-    private final AppendEntriesRequestInterceptor interceptor;
+public class InterceptingActionRequestProcessor extends ActionRequestProcessor {
+    private final ActionRequestInterceptor interceptor;
 
     /**
      * Constructor.
      */
-    public InterceptingAppendEntriesRequestProcessor(Executor executor, RaftMessagesFactory msgFactory,
-            AppendEntriesRequestInterceptor interceptor) {
+    public InterceptingActionRequestProcessor(Executor executor, RaftMessagesFactory msgFactory, ActionRequestInterceptor interceptor) {
         super(executor, msgFactory);
 
         this.interceptor = interceptor;
     }
 
     @Override
-    public Message processRequest0(RaftServerService service, AppendEntriesRequest request, RpcRequestClosure done) {
-        Message interceptionResult = interceptor.intercept(service, request,  done);
+    public void handleRequest(RpcContext rpcCtx, ActionRequest request) {
+        Message interceptionResult = interceptor.intercept(rpcCtx, request);
 
         if (interceptionResult != null) {
-            return interceptionResult;
+            rpcCtx.sendResponse(interceptionResult);
+        } else {
+            super.handleRequest(rpcCtx, request);
         }
-
-        return super.processRequest0(service, request, done);
     }
 }

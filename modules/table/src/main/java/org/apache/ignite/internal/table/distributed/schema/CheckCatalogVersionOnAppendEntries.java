@@ -66,11 +66,18 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
 
             if (requiredCatalogVersion != NO_VERSION_REQUIREMENT && !isMetadataAvailableFor(requiredCatalogVersion)) {
                 // TODO: IGNITE-20298 - throttle logging.
-                LOG.warn("Metadata not yet available, group {}, required level {}.", request.groupId(), requiredCatalogVersion);
+                LOG.warn(
+                        "Metadata not yet available, group {}, required level {}; rejecting AppendEntriesRequest with EBUSY.",
+                        request.groupId(), requiredCatalogVersion
+                );
 
                 return RaftRpcFactory.DEFAULT //
-                    .newResponse(node.getRaftOptions().getRaftMessagesFactory(), RaftError.EBUSY,
-                            "Metadata not yet available, group '%s', required level %d.", request.groupId(), requiredCatalogVersion);
+                    .newResponse(
+                            node.getRaftOptions().getRaftMessagesFactory(),
+                            RaftError.EBUSY,
+                            "Metadata not yet available, group '%s', required level %d; rejecting AppendEntriesRequest with EBUSY.",
+                            request.groupId(), requiredCatalogVersion
+                    );
             }
 
             offset += (int) entry.dataLen();
