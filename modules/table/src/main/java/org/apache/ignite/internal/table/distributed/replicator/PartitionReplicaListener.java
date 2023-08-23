@@ -384,25 +384,14 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 // To process replica touch for full transaction, we should have the safe time.
                 if (!req.full()) {
-                    try {
-                        replicaTouch(((ReadWriteReplicaRequest) request).transactionId(), senderId, null, false);
-                    } catch (AssertionError err) {
-                        if (e != null) {
-                            e.addSuppressed(err);
-                            result.completeExceptionally(e);
-                        }  else {
-                            result.completeExceptionally(err);
-                        }
-                    }
+                    replicaTouch(((ReadWriteReplicaRequest) request).transactionId(), senderId, null, false);
                 }
             }
 
-            if (!result.isDone()) {
-                if (e == null) {
-                    result.complete(v);
-                } else {
-                    result.completeExceptionally(e);
-                }
+            if (e == null) {
+                result.complete(v);
+            } else {
+                result.completeExceptionally(e);
             }
         });
 
