@@ -354,6 +354,11 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         // TODO IGNITE-20155 Java client connector skips NOT NULL and other column checks
         // Temporal columns require normalization according to the specified precision.
         // return schema.hasTemporalColumns();
+
+        // TODO: Currently, the only possible constraint is NOT NULL.
+        // We can skip binary tuple rebuild if there are no NOT NULL columns.
+        // However, what if we add more constraints in the future?
+        // There is Column#validate() call, but this requires full deserialization.
         return true;
     }
 
