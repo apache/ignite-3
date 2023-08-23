@@ -74,7 +74,7 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> CompletableFuture<Void> sendBatch(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId,
+    public CompletableFuture<Void> sendBatch(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId,
             boolean last, List<ByteBuffer> rows) {
 
         return messageService.send(

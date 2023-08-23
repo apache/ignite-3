@@ -47,7 +47,7 @@ public interface ExchangeService extends LifecycleAware {
      * @return A {@link CompletableFuture future} representing the result of operation,
      *      which completes when the data has been sent.
      */
-    <RowT> CompletableFuture<Void> sendBatch(String nodeName, UUID queryId, long fragmentId, long exchangeId, int batchId, boolean last,
+    CompletableFuture<Void> sendBatch(String nodeName, UUID queryId, long fragmentId, long exchangeId, int batchId, boolean last,
             List<ByteBuffer> rows);
 
     /**
