@@ -78,7 +78,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                     }
 
                     if (!binaryTupleRebuildRequired(schema)) {
-                        // TODO: Call Column#validate() for every value in the BinaryTuple.
+                        validateTuple(tuple, schema);
                         var binaryRow = new BinaryRowImpl(schema.version(), tupleReader.byteBuffer());
 
                         return Row.wrapBinaryRow(schema, binaryRow);
@@ -355,6 +355,21 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     private static boolean binaryTupleRebuildRequired(SchemaDescriptor schema) {
         // Temporal columns require normalization according to the specified precision.
         return schema.hasTemporalColumns();
+    }
+
+    /**
+     * Validates tuple against schema.
+     *
+     * @param tuple Tuple.
+     * @param schema Schema.
+     */
+    private static void validateTuple(Tuple tuple, SchemaDescriptor schema) {
+        for (int i = 0; i < schema.length(); i++) {
+            Column col = schema.column(i);
+            Object val = tuple.value(i);
+
+            col.validate(val);
+        }
     }
 
     /**
