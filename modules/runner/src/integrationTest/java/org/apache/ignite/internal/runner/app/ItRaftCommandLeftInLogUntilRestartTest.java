@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -187,7 +189,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
             RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
 
-            raftGroupService.peers().forEach(peer -> raftGroupService.snapshot(peer).join());
+            raftGroupService.peers().forEach(peer -> assertThat(raftGroupService.snapshot(peer), willCompleteSuccessfully()));
 
             leaderAndGroupRef.set(new IgniteBiTuple<>(leader, table.tableId() + "_part_0"));
 

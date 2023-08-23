@@ -135,6 +135,7 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -463,24 +464,26 @@ public class PartitionReplicaListener implements ReplicaListener {
             return safeReadFuture.thenCompose(unused -> scanSortedIndex(request, indexStorage));
         }
 
-        return safeReadFuture.thenCompose(unused -> retrieveExactEntriesUntilCursorEmpty(readTimestamp, cursorId, batchCount));
+        return safeReadFuture.thenCompose(unused -> retrieveExactEntriesUntilCursorEmpty(txId, readTimestamp, cursorId, batchCount));
     }
 
     /**
      * Extracts exact amount of entries, or less if cursor is become empty, from a cursor on the specific time.
      *
+     * @param txId Transaction id is used for RW only.
      * @param readTimestamp Timestamp of the moment when that moment when the data will be extracted.
      * @param cursorId Cursor id.
      * @param count Amount of entries which sill be extracted.
      * @return Result future.
      */
     private CompletableFuture<List<BinaryRow>> retrieveExactEntriesUntilCursorEmpty(
-            HybridTimestamp readTimestamp,
+            @Nullable UUID txId,
+            @Nullable HybridTimestamp readTimestamp,
             IgniteUuid cursorId,
             int count
     ) {
         @SuppressWarnings("resource") PartitionTimestampCursor cursor = (PartitionTimestampCursor) cursors.computeIfAbsent(cursorId,
-                id -> mvDataStorage.scan(readTimestamp));
+                id -> mvDataStorage.scan(readTimestamp == null ? HybridTimestamp.MAX_VALUE : readTimestamp));
 
         var resolutionFuts = new ArrayList<CompletableFuture<BinaryRow>>(count);
 
@@ -491,7 +494,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             BinaryRow candidate =
                     newestCommitTimestamp == null || !readResult.isWriteIntent() ? null : cursor.committed(newestCommitTimestamp);
 
-            resolutionFuts.add(resolveRoReadResult(readResult, readTimestamp, () -> candidate));
+            resolutionFuts.add(resolveReadResult(readResult, txId, readTimestamp, () -> candidate));
         }
 
         return allOf(resolutionFuts.toArray(new CompletableFuture[0])).thenCompose(unused -> {
@@ -506,7 +509,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
 
             if (rows.size() < count && cursor.hasNext()) {
-                return retrieveExactEntriesUntilCursorEmpty(readTimestamp, cursorId, count - rows.size()).thenApply(binaryRows -> {
+                return retrieveExactEntriesUntilCursorEmpty(txId, readTimestamp, cursorId, count - rows.size()).thenApply(binaryRows -> {
                     rows.addAll(binaryRows);
 
                     return rows;
@@ -514,6 +517,38 @@ public class PartitionReplicaListener implements ReplicaListener {
             } else {
                 return completedFuture(rows);
             }
+        });
+    }
+
+    /**
+     * Extracts exact amount of entries, or less if cursor is become empty, from a cursor on the specific time. Use it for RW.
+     *
+     * @param txId Transaction id.
+     * @param cursorId Cursor id.
+     * @return Future finishes with the resolved binary row.
+     */
+    private CompletableFuture<List<BinaryRow>> retrieveExactEntriesUntilCursorEmpty(UUID txId, IgniteUuid cursorId, int count) {
+        return retrieveExactEntriesUntilCursorEmpty(txId, null, cursorId, count).thenCompose(rows -> {
+            if (CollectionUtils.nullOrEmpty(rows)) {
+                return completedFuture(Collections.emptyList());
+            }
+
+            CompletableFuture[] futs = new CompletableFuture[rows.size()];
+
+            for (BinaryRow row : rows) {
+                futs[rows.indexOf(row)] = schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
+                        .thenCompose(validationResult -> {
+                            if (validationResult.isSuccessful()) {
+                                return completedFuture(row);
+                            } else {
+                                throw new IncompatibleSchemaException("Operation failed because schema "
+                                        + validationResult.fromSchemaVersion() + " is not backward-compatible with "
+                                        + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
+                            }
+                        });
+            }
+
+            return CompletableFuture.allOf(futs).thenApply((unused) -> rows);
         });
     }
 
@@ -700,41 +735,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.S).thenCompose(tblLock -> {
-            var batchRows = new ArrayList<BinaryRow>(batchCount);
-
-            @SuppressWarnings("resource") PartitionTimestampCursor cursor = (PartitionTimestampCursor) cursors.computeIfAbsent(cursorId,
-                    id -> mvDataStorage.scan(HybridTimestamp.MAX_VALUE));
-
-            return continueScanBatchRetrieval(cursor, batchCount, txId, batchRows);
-        });
-    }
-
-    private CompletableFuture<List<BinaryRow>> continueScanBatchRetrieval(
-            PartitionTimestampCursor cursor,
-            int batchCount,
-            UUID txId,
-            List<BinaryRow> batchRows
-    ) {
-        if (batchRows.size() < batchCount && cursor.hasNext()) {
-            ReadResult readResult = cursor.next();
-
-            HybridTimestamp newestCommitTimestamp = readResult.newestCommitTimestamp();
-
-            BinaryRow candidate =
-                    newestCommitTimestamp == null || !readResult.isWriteIntent() ? null : cursor.committed(newestCommitTimestamp);
-
-            return resolveAndCheckReadCompatibility(readResult, txId, () -> candidate)
-                    .thenCompose(resolvedReadResult -> {
-                        if (resolvedReadResult != null) {
-                            batchRows.add(resolvedReadResult);
-                        }
-
-                        return continueScanBatchRetrieval(cursor, batchCount, txId, batchRows);
-                    });
-        }
-
-        return completedFuture(batchRows);
+        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.S).thenCompose(tblLock ->
+                retrieveExactEntriesUntilCursorEmpty(txId, cursorId, batchCount));
     }
 
     /**
@@ -922,21 +924,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         RowId rowId = indexRow.rowId();
 
-        ReadResult readResult = mvDataStorage.read(rowId, timestamp);
-
-        return resolveRoReadResult(readResult, timestamp, () -> {
-            if (readResult.newestCommitTimestamp() == null) {
-                return null;
-            }
-
-            ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
-
-            assert !committedReadResult.isWriteIntent() :
-                    "The result is not committed [rowId=" + rowId + ", timestamp="
-                            + readResult.newestCommitTimestamp() + ']';
-
-            return committedReadResult.binaryRow();
-        }).thenComposeAsync(resolvedReadResult -> {
+        return resolvePlainReadResult(rowId, null, timestamp).thenComposeAsync(resolvedReadResult -> {
             if (resolvedReadResult != null && indexRowMatches(indexRow, resolvedReadResult, schemaAwareIndexStorage)) {
                 result.add(resolvedReadResult);
             }
@@ -980,20 +968,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S)
                             .thenComposeAsync(rowLock -> { // Table row S lock
-                                ReadResult readResult = mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE);
-                                return resolveAndCheckReadCompatibility(readResult, txId, () -> {
-                                    if (readResult.newestCommitTimestamp() == null) {
-                                        return null;
-                                    }
-
-                                    ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
-
-                                    assert !committedReadResult.isWriteIntent() :
-                                            "The result is not committed [rowId=" + rowId + ", timestamp="
-                                                    + readResult.newestCommitTimestamp() + ']';
-
-                                    return committedReadResult.binaryRow();
-                                }).thenCompose(resolvedReadResult -> {
+                                return resolvePlainReadResult(rowId, txId).thenCompose(resolvedReadResult -> {
                                     if (resolvedReadResult != null) {
                                         if (indexRowMatches(currentRow, resolvedReadResult, schemaAwareIndexStorage)) {
                                             result.add(resolvedReadResult);
@@ -1043,20 +1018,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S)
                 .thenComposeAsync(rowLock -> { // Table row S lock
-                    ReadResult readResult = mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE);
-                    return resolveAndCheckReadCompatibility(readResult, txId, () -> {
-                        if (readResult.newestCommitTimestamp() == null) {
-                            return null;
-                        }
-
-                        ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
-
-                        assert !committedReadResult.isWriteIntent() :
-                                "The result is not committed [rowId=" + rowId + ", timestamp="
-                                        + readResult.newestCommitTimestamp() + ']';
-
-                        return committedReadResult.binaryRow();
-                    }).thenCompose(resolvedReadResult -> {
+                    return resolvePlainReadResult(rowId, txId).thenCompose(resolvedReadResult -> {
                         if (resolvedReadResult != null) {
                             result.add(resolvedReadResult);
                         }
@@ -1065,6 +1027,58 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return continueIndexLookup(txId, indexCursor, batchSize, result);
                     });
                 }, scanRequestExecutor);
+    }
+
+    /**
+     * Resolves a result received from a direct storage read.
+     *
+     * @param rowId Row id to resolve.
+     * @param txId Transaction id is used for RW only.
+     * @param timestamp Read timestamp.
+     * @return Future finishes with the resolved binary row.
+     */
+    private CompletableFuture<BinaryRow> resolvePlainReadResult(RowId rowId, @Nullable UUID txId, @Nullable HybridTimestamp timestamp) {
+        ReadResult readResult = mvDataStorage.read(rowId, timestamp == null ? HybridTimestamp.MAX_VALUE : timestamp);
+
+        return resolveReadResult(readResult, txId, timestamp, () -> {
+            if (readResult.newestCommitTimestamp() == null) {
+                return null;
+            }
+
+            ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
+
+            assert !committedReadResult.isWriteIntent() :
+                    "The result is not committed [rowId=" + rowId + ", timestamp="
+                            + readResult.newestCommitTimestamp() + ']';
+
+            return committedReadResult.binaryRow();
+        });
+    }
+
+    /**
+     * Resolves a result received from a direct storage read. Use it for RW.
+     *
+     * @param rowId Row id.
+     * @param txId Transaction id.
+     * @return Future finishes with the resolved binary row.
+     */
+    private CompletableFuture<BinaryRow> resolvePlainReadResult(RowId rowId, UUID txId) {
+        return resolvePlainReadResult(rowId, txId, null).thenCompose(row -> {
+            if (row == null) {
+                return completedFuture(null);
+            }
+
+            return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
+                    .thenApply(validationResult -> {
+                        if (validationResult.isSuccessful()) {
+                            return row;
+                        } else {
+                            throw new IncompatibleSchemaException("Operation failed because schema "
+                                    + validationResult.fromSchemaVersion() + " is not backward-compatible with "
+                                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
+                        }
+                    });
+        });
     }
 
     private CompletableFuture<Void> continueReadOnlyIndexLookup(
@@ -1079,21 +1093,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         RowId rowId = indexCursor.next();
 
-        ReadResult readResult = mvDataStorage.read(rowId, timestamp);
-
-        return resolveRoReadResult(readResult, timestamp, () -> {
-            if (readResult.newestCommitTimestamp() == null) {
-                return null;
-            }
-
-            ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
-
-            assert !committedReadResult.isWriteIntent() :
-                    "The result is not committed [rowId=" + rowId + ", timestamp="
-                            + readResult.newestCommitTimestamp() + ']';
-
-            return committedReadResult.binaryRow();
-        }).thenComposeAsync(resolvedReadResult -> {
+        return resolvePlainReadResult(rowId, null, timestamp).thenComposeAsync(resolvedReadResult -> {
             if (resolvedReadResult != null) {
                 result.add(resolvedReadResult);
             }
@@ -1356,21 +1356,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         RowId rowId = cursor.next();
 
-        ReadResult readResult = mvDataStorage.read(rowId, HybridTimestamp.MAX_VALUE);
-
-        return resolveAndCheckReadCompatibility(readResult, txId, () -> {
-            if (readResult.newestCommitTimestamp() == null) {
-                return null;
-            }
-
-            ReadResult committedReadResult = mvDataStorage.read(rowId, readResult.newestCommitTimestamp());
-
-            assert !committedReadResult.isWriteIntent() :
-                    "The result is not committed [rowId=" + rowId + ", timestamp="
-                            + readResult.newestCommitTimestamp() + ']';
-
-            return committedReadResult.binaryRow();
-        }).thenCompose(row -> {
+        return resolvePlainReadResult(rowId, txId).thenCompose(row -> {
             if (row != null) {
                 return action.apply(rowId, row);
             } else {
@@ -2289,66 +2275,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
-    private CompletableFuture<BinaryRow> resolveAndCheckReadCompatibility(
-            ReadResult readResult,
-            UUID txId,
-            Supplier<BinaryRow> lastCommitted
-    ) {
-        return resolveRwReadResult(readResult, txId, lastCommitted).thenCompose(row -> {
-            if (row == null) {
-                return completedFuture(row);
-            }
-
-            return schemaCompatValidator.validateBackwards(row.schemaVersion(), tableId(), txId)
-                    .thenCompose(validationResult -> {
-                        if (validationResult.isSuccessful()) {
-                            return completedFuture(row);
-                        } else {
-                            throw new IncompatibleSchemaException("Operation failed because schema "
-                                    + validationResult.fromSchemaVersion() + " is not backward-compatible with "
-                                    + validationResult.toSchemaVersion() + " for table " + validationResult.failedTableId());
-                        }
-                    });
-        });
-    }
-
-    /**
-     * Resolves a read result for RW transaction.
-     *
-     * @param readResult Read result to resolve.
-     * @param txId Transaction id.
-     * @param lastCommitted Action to get the latest committed row.
-     * @return Resolved binary row.
-     */
-    @Nullable
-    private CompletableFuture<BinaryRow> resolveRwReadResult(ReadResult readResult, UUID txId, Supplier<BinaryRow> lastCommitted) {
-        // This is a safe join (waiting of the future result), because the resolution for RW transaction cannot lead to a network request.
-        return resolveReadResult(readResult, txId, null, lastCommitted);
-    }
-
-    /**
-     * Resolves a read result for RO transaction.
-     *
-     * @param readResult Read result to resolve.
-     * @param timestamp Timestamp.
-     * @param lastCommitted Action to get the latest committed row.
-     * @return Future to resolved binary row.
-     */
-    private CompletableFuture<BinaryRow> resolveRoReadResult(
-            ReadResult readResult,
-            HybridTimestamp timestamp,
-            Supplier<BinaryRow> lastCommitted
-    ) {
-        return resolveReadResult(readResult, null, timestamp, lastCommitted);
-    }
-
     /**
      * Resolves read result to the corresponding binary row. Following rules are used for read result resolution:
      * <ol>
-     *     <li>If txId is not null (RW request), assert that retrieved tx id matches proposed one or that retrieved tx id is null
+     *     <li>If timestamp is null (RW request), assert that retrieved tx id matches proposed one or that retrieved tx id is null
      *     and return binary row. Currently it's only possible to retrieve write intents if they belong to the same transaction,
      *     locks prevent reading write intents created by others.</li>
-     *     <li>If txId is null (RO request), perform write intent resolution if given readResult is a write intent itself
+     *     <li>If timestamp is not null (RO request), perform write intent resolution if given readResult is a write intent itself
      *     or return binary row otherwise.</li>
      * </ol>
      *
@@ -2370,7 +2303,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(readResult.binaryRow());
         } else {
             // RW resolution.
-            if (txId != null) {
+            if (timestamp == null) {
                 UUID retrievedResultTxId = readResult.transactionId();
 
                 if (txId.equals(retrievedResultTxId)) {
@@ -2415,7 +2348,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param commitGrpId Commit partition id.
      * @param txId Transaction id.
      * @param timestamp Timestamp.
-     * @return Future with boolean value, indicating whether the transaction was committed before timestamp.
+     * @return The future completes with true when the transaction is not completed yet and false otherwise.
      */
     private CompletableFuture<Boolean> resolveTxState(
             TablePartitionId commitGrpId,
