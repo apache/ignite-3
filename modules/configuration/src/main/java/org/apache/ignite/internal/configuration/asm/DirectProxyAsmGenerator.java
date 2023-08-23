@@ -65,7 +65,6 @@ import org.apache.ignite.internal.configuration.direct.DirectValueProxy;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
 
@@ -269,7 +268,6 @@ class DirectProxyAsmGenerator extends AbstractAsmGenerator {
     /**
      * Returns expression for {@code BarDirectProxy::new} lambda.
      */
-    @NotNull
     public static BytecodeExpression newDirectProxyLambda(SchemaClassesInfo schemaClassInfo) {
         return invokeDynamic(
                 LAMBDA_METAFACTORY,

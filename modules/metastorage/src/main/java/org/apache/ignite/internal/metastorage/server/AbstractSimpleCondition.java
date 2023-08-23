@@ -18,14 +18,12 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import org.apache.ignite.internal.metastorage.Entry;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * An abstract condition which could be applied to an entry identified by the key.
  */
 public abstract class AbstractSimpleCondition implements Condition {
     /** Entry key. */
-    @NotNull
     private final byte[][] keys;
 
     /**
@@ -33,25 +31,24 @@ public abstract class AbstractSimpleCondition implements Condition {
      *
      * @param key Key identifies an entry which the condition will applied to.
      */
-    public AbstractSimpleCondition(@NotNull byte[] key) {
+    public AbstractSimpleCondition(byte[] key) {
         keys = new byte[][]{ key };
     }
 
     /** {@inheritDoc} */
-    @NotNull
     public byte[] key() {
         return keys[0];
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull byte[][] keys() {
+    public byte[][] keys() {
         return keys;
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean test(@NotNull Entry... entries) {
+    public boolean test(Entry... entries) {
         return test(entries[0]);
     }
 
@@ -61,5 +58,5 @@ public abstract class AbstractSimpleCondition implements Condition {
      * @param entry Entry which will be tested on the condition. Can't be {@code null}.
      * @return {@code True} if the given entry satisfies to the condition, otherwise - {@code false}.
      */
-    protected abstract boolean test(@NotNull Entry entry);
+    protected abstract boolean test(Entry entry);
 }

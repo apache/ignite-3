@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -251,7 +252,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         var nodeFinder = new StaticNodeFinder(localAddresses);
 
-        clusterServices = new HashMap<>(nodes);
+        clusterServices = new ConcurrentHashMap<>(nodes);
 
         nodeFinder.findNodes().parallelStream()
                 .forEach(addr -> {

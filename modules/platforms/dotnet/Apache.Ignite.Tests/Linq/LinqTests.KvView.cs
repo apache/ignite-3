@@ -178,25 +178,25 @@ public partial class LinqTests
             .Select(x => new
             {
                 x.Key,
-                Count = x.Count(),
-                Sum = x.Sum(a => a.Key.Key),
-                Avg = x.Average(a => a.Key.Key),
-                Min = x.Min(a => a.Key.Key),
-                Max = x.Max(a => a.Key.Key)
+                Cnt = x.Count(),
+                SumC = x.Sum(a => a.Key.Key),
+                AvgC = x.Average(a => a.Key.Key),
+                MinC = x.Min(a => a.Key.Key),
+                MaxC = x.Max(a => a.Key.Key)
             })
             .OrderBy(x => x.Key);
 
         var res = query.ToList();
 
         Assert.AreEqual(2, res[2].Key);
-        Assert.AreEqual(1, res[2].Count);
-        Assert.AreEqual(2, res[2].Sum);
-        Assert.AreEqual(2, res[2].Avg);
-        Assert.AreEqual(2, res[2].Min);
-        Assert.AreEqual(2, res[2].Max);
+        Assert.AreEqual(1, res[2].Cnt);
+        Assert.AreEqual(2, res[2].SumC);
+        Assert.AreEqual(2, res[2].AvgC);
+        Assert.AreEqual(2, res[2].MinC);
+        Assert.AreEqual(2, res[2].MaxC);
 
         StringAssert.Contains(
-            "select _T0.KEY as _G0, count(*) as COUNT, sum(_T0.KEY) as SUM, avg(_T0.KEY) as AVG, min(_T0.KEY) as MIN, max(_T0.KEY) as MAX " +
+            "select _T0.KEY as _G0, count(*) as CNT, sum(_T0.KEY) as SUMC, avg(_T0.KEY) as AVGC, min(_T0.KEY) as MINC, max(_T0.KEY) as MAXC " +
             "from PUBLIC.TBL1 as _T0 " +
             "group by _G0 " +
             "order by _G0 asc",

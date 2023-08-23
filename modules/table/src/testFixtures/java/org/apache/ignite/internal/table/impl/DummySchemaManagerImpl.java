@@ -25,7 +25,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,7 +39,7 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
      *
      * @param schema Schema descriptor.
      */
-    public DummySchemaManagerImpl(@NotNull SchemaDescriptor schema) {
+    public DummySchemaManagerImpl(SchemaDescriptor schema) {
         assert schema != null;
 
         this.schema = schema;

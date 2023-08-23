@@ -41,7 +41,6 @@ import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataInput.Materializer;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.lang.IgniteUuid;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Built-in types marshalling.
@@ -254,7 +253,6 @@ class BuiltInMarshalling {
         return Enum.valueOf(enumClass, readString(input));
     }
 
-    @NotNull
     private static <T> Class<T> classByName(String className, ClassLoader classLoader) throws UnmarshalException {
         try {
             @SuppressWarnings("unchecked") Class<T> castedClass = (Class<T>) Class.forName(className, true, classLoader);

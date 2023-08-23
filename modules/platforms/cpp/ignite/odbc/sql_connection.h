@@ -21,7 +21,7 @@
 #include "ignite/odbc/config/connection_info.h"
 #include "ignite/odbc/diagnostic/diagnosable_adapter.h"
 #include "ignite/odbc/odbc_error.h"
-#include "ignite/odbc/protocol_version.h"
+#include "ignite/protocol/protocol_version.h"
 
 #include "ignite/network/data_buffer.h"
 #include "ignite/network/socket_client.h"
@@ -144,6 +144,15 @@ public:
     bool receive(std::vector<std::byte> &msg, std::int32_t timeout);
 
     /**
+     * Receive next message.
+     *
+     * @param msg Buffer for message.
+     * @param timeout Timeout.
+     * @return @c true on success, @c false on timeout.
+     */
+    bool receive_and_check_magic(std::vector<std::byte> &msg, std::int32_t timeout);
+
+    /**
      * Synchronously send request message.
      * Uses provided timeout.
      *
@@ -236,7 +245,7 @@ public:
      * @param func Function.
      */
     [[nodiscard]] static std::vector<std::byte> make_request(
-        std::int64_t id, detail::client_operation op, const std::function<void(protocol::writer &)> &func);
+        std::int64_t id, protocol::client_operation op, const std::function<void(protocol::writer &)> &func);
 
     /**
      * Get connection schema.
@@ -260,7 +269,7 @@ public:
      * @return Response.
      */
     network::data_buffer_owning sync_request(
-        detail::client_operation op, const std::function<void(protocol::writer &)> &wr) {
+        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr) {
         auto req_id = generate_next_req_id();
         auto request = make_request(req_id, op, wr);
 
@@ -281,6 +290,13 @@ public:
      * After this call connection assumes there is at least one operation performed with this transaction.
      */
     void mark_transaction_non_empty() { m_transaction_empty = false; }
+
+    /**
+     * Get observable timestamp.
+     *
+     * @return Observable timestamp.
+     */
+    std::int64_t get_observable_timestamp() const { return m_observable_timestamp.load(); }
 
 private:
     /**
@@ -446,6 +462,14 @@ private:
     bool try_restore_connection();
 
     /**
+     * Safe connect.
+     *
+     * @param addr Address.
+     * @return @c true if connection was successful.
+     */
+    bool safe_connect(const end_point &addr);
+
+    /**
      * Retrieve timeout from parameter.
      *
      * @param value parameter.
@@ -454,12 +478,11 @@ private:
     std::int32_t retrieve_timeout(void *value);
 
     /**
-     * Safe connect.
+     * Handle new observable timestamp.
      *
-     * @param addr Address.
-     * @return @c true if connection was successful.
+     * @param timestamp Timestamp.
      */
-    bool safe_connect(const end_point &addr);
+    void on_observable_timestamp(std::int64_t timestamp);
 
     /**
      * Constructor.
@@ -497,10 +520,13 @@ private:
     std::unique_ptr<network::socket_client> m_socket;
 
     /** Protocol version. */
-    protocol_version m_protocol_version;
+    protocol::protocol_version m_protocol_version;
 
     /** Request ID generator. */
     std::atomic_int64_t m_req_id_gen{0};
+
+    /** Observable timestamp. */
+    std::atomic_int64_t m_observable_timestamp{0};
 };
 
 } // namespace ignite

@@ -6,10 +6,10 @@ statement ok
 PRAGMA enable_verification
 
 statement ok
-CREATE TABLE students(id INTEGER, name VARCHAR, major VARCHAR, year INTEGER)
+CREATE TABLE students(id INTEGER, name VARCHAR, major VARCHAR, year_c INTEGER)
 
 statement ok
-CREATE TABLE exams(sid INTEGER, course VARCHAR, curriculum VARCHAR, grade INTEGER, year INTEGER)
+CREATE TABLE exams(sid INTEGER, course VARCHAR, curriculum VARCHAR, grade INTEGER, year_c INTEGER)
 
 statement ok
 INSERT INTO students VALUES (1, 'Mark', 'CS', 2017)
@@ -46,7 +46,7 @@ Dirk	Graphics	7
 Mark	Database Systems	10
 
 query TTI
-SELECT s.name, e.course, e.grade FROM students s, exams e WHERE s.id=e.sid AND (s.major = 'CS' OR s.major = 'Games Eng') AND e.grade <= (SELECT AVG(e2.grade) - 1 FROM exams e2 WHERE s.id=e2.sid OR (e2.curriculum=s.major AND s.year>=e2.year)) ORDER BY name, course;
+SELECT s.name, e.course, e.grade FROM students s, exams e WHERE s.id=e.sid AND (s.major = 'CS' OR s.major = 'Games Eng') AND e.grade <= (SELECT AVG(e2.grade) - 1 FROM exams e2 WHERE s.id=e2.sid OR (e2.curriculum=s.major AND s.year_c>=e2.year_c)) ORDER BY name, course;
 ----
 Dirk	Database Systems	7
 Dirk	Graphics	7

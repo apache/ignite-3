@@ -202,7 +202,6 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
 import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.apache.ignite.table.Table;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -546,7 +545,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         schemaManager.listen(SchemaEvent.CREATE, new EventListener<>() {
             @Override
-            public CompletableFuture<Boolean> notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
+            public CompletableFuture<Boolean> notify(SchemaEventParameters parameters, @Nullable Throwable exception) {
                 var eventParameters = new TableEventParameters(parameters.causalityToken(), parameters.tableId());
 
                 return fireEvent(TableEvent.ALTER, eventParameters).thenApply(v -> false);
@@ -1725,7 +1724,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A root exception which will be acceptable to throw for public API.
      */
     //TODO: IGNITE-16051 Implement exception converter for public API.
-    private @NotNull IgniteException getRootCause(Throwable t) {
+    private IgniteException getRootCause(Throwable t) {
         Throwable ex;
 
         if (t instanceof CompletionException) {

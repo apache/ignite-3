@@ -18,14 +18,12 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import org.apache.ignite.internal.metastorage.Entry;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Condition tests an entry on existence in meta storage. Entry exists if it is not empty and not tombstone.
  */
 public class ExistenceCondition extends AbstractSimpleCondition {
     /** Condition type. */
-    @NotNull
     private final Type type;
 
     /**
@@ -34,7 +32,7 @@ public class ExistenceCondition extends AbstractSimpleCondition {
      * @param type Condition type. Can't be {@code null}.
      * @param key  Key of entry which condition will be applied to. Can't be {@code null}.
      */
-    public ExistenceCondition(@NotNull Type type, @NotNull byte[] key) {
+    public ExistenceCondition(Type type, byte[] key) {
         super(key);
 
         this.type = type;
@@ -42,7 +40,7 @@ public class ExistenceCondition extends AbstractSimpleCondition {
 
     /** {@inheritDoc} */
     @Override
-    public boolean test(@NotNull Entry e) {
+    public boolean test(Entry e) {
         boolean res = !(e.empty() || e.tombstone());
 
         return type.test(res);

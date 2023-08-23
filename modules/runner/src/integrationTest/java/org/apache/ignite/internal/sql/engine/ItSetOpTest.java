@@ -17,15 +17,24 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
+import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Integration test for set op (EXCEPT, INTERSECT).
@@ -59,45 +68,52 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
                 {idx++, "Igor1", 13d},
                 {idx, "Igor1", 13d}
         });
+
+
     }
 
-    @Test
-    public void testExcept() {
-        var rows = sql("SELECT name FROM emp1 EXCEPT SELECT name FROM emp2");
+    @ParameterizedTest
+    @EnumSource(SetOpVariant.class)
+    public void testExcept(SetOpVariant setOp) {
+        var rows = sql(setOp, "SELECT name FROM emp1 EXCEPT SELECT name FROM emp2");
 
         assertEquals(1, rows.size());
         assertEquals("Igor", rows.get(0).get(0));
     }
 
-    @Test
-    public void testExceptFromEmpty() {
-        var rows = sql("SELECT name FROM emp1 WHERE salary < 0 EXCEPT SELECT name FROM emp2");
+    @ParameterizedTest
+    @EnumSource(SetOpVariant.class)
+    public void testExceptFromEmpty(SetOpVariant setOp) {
+        var rows = sql(setOp, "SELECT name FROM emp1 WHERE salary < 0 EXCEPT SELECT name FROM emp2");
 
         assertEquals(0, rows.size());
     }
 
-    @Test
-    public void testExceptSeveralColumns() {
-        var rows = sql("SELECT name, salary FROM emp1 EXCEPT SELECT name, salary FROM emp2");
+    @ParameterizedTest
+    @EnumSource(SetOpVariant.class)
+    public void testExceptSeveralColumns(SetOpVariant setOp) {
+        var rows = sql(setOp, "SELECT name, salary FROM emp1 EXCEPT SELECT name, salary FROM emp2");
 
         assertEquals(4, rows.size());
         assertEquals(3, countIf(rows, r -> r.get(0).equals("Igor")));
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Roman")));
     }
 
-    @Test
-    public void testExceptAll() {
-        var rows = sql("SELECT name FROM emp1 EXCEPT ALL SELECT name FROM emp2");
+    @ParameterizedTest
+    @EnumSource(SetOpVariant.class)
+    public void testExceptAll(SetOpVariant setOp) {
+        var rows = sql(setOp, "SELECT name FROM emp1 EXCEPT ALL SELECT name FROM emp2");
 
         assertEquals(4, rows.size());
         assertEquals(3, countIf(rows, r -> r.get(0).equals("Igor")));
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Igor1")));
     }
 
-    @Test
-    public void testExceptNested() {
+    @ParameterizedTest
+    @EnumSource(SetOpVariant.class)
+    public void testExceptNested(SetOpVariant setOp) {
         var rows =
-                sql("SELECT name FROM emp1 EXCEPT (SELECT name FROM emp1 EXCEPT SELECT name FROM emp2)");
+                sql(setOp, "SELECT name FROM emp1 EXCEPT (SELECT name FROM emp1 EXCEPT SELECT name FROM emp2)");
 
         assertEquals(2, rows.size());
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Roman")));
@@ -153,34 +169,38 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
         assertEquals(128, countIf(rows, r -> r.get(0).equals(3)));
     }
 
-    @Test
-    public void testIntersect() {
-        var rows = sql("SELECT name FROM emp1 INTERSECT SELECT name FROM emp2");
+    @ParameterizedTest
+    @EnumSource(SetOpVariant.class)
+    public void testIntersect(SetOpVariant setOp) {
+        var rows = sql(setOp, "SELECT name FROM emp1 INTERSECT SELECT name FROM emp2");
 
         assertEquals(2, rows.size());
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Igor1")));
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Roman")));
     }
 
-    @Test
-    public void testIntersectAll() {
-        var rows = sql("SELECT name FROM emp1 INTERSECT ALL SELECT name FROM emp2");
+    @ParameterizedTest
+    @EnumSource(SetOpVariant.class)
+    public void testIntersectAll(SetOpVariant setOp) {
+        var rows = sql(setOp, "SELECT name FROM emp1 INTERSECT ALL SELECT name FROM emp2");
 
         assertEquals(3, rows.size());
         assertEquals(2, countIf(rows, r -> r.get(0).equals("Igor1")));
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Roman")));
     }
 
-    @Test
-    public void testIntersectEmpty() {
-        var rows = sql("SELECT name FROM emp1 WHERE salary < 0 INTERSECT SELECT name FROM emp2");
+    @ParameterizedTest
+    @EnumSource(SetOpVariant.class)
+    public void testIntersectEmpty(SetOpVariant setOp) {
+        var rows = sql(setOp, "SELECT name FROM emp1 WHERE salary < 0 INTERSECT SELECT name FROM emp2");
 
         assertEquals(0, rows.size());
     }
 
-    @Test
-    public void testIntersectSeveralColumns() {
-        var rows = sql("SELECT name, salary FROM emp1 INTERSECT ALL SELECT name, salary FROM emp2");
+    @ParameterizedTest
+    @EnumSource(SetOpVariant.class)
+    public void testIntersectSeveralColumns(SetOpVariant setOp) {
+        var rows = sql(setOp, "SELECT name, salary FROM emp1 INTERSECT ALL SELECT name, salary FROM emp2");
 
         assertEquals(2, rows.size());
         assertEquals(2, countIf(rows, r -> r.get(0).equals("Igor1")));
@@ -222,15 +242,31 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
     /**
      * Test that set op node can be rewinded.
      */
-    @Test
-    public void testSetOpRewindability() {
-        sql("CREATE TABLE test(id int PRIMARY KEY, i INTEGER)");
-        sql("INSERT INTO test VALUES (1, 1), (2, 2)");
+    @ParameterizedTest
+    @MethodSource("rewindSetOpVariants")
+    public void testSetOpRewindability(SetOpVariant setOp, int tableNum) {
+        sql(format("CREATE TABLE test_{}(id int PRIMARY KEY, i INTEGER)", tableNum));
+        sql(format("INSERT INTO test_{} VALUES (1, 1), (2, 2)", tableNum));
 
-        assertQuery("SELECT (SELECT i FROM test EXCEPT SELECT test.i) FROM test")
+        String query = format("SELECT {} (SELECT i FROM test_{} EXCEPT SELECT test_{}.i) FROM test_{}",
+                setOp.hint(), tableNum, tableNum, tableNum, tableNum
+        );
+
+        assertQuery(query)
                 .returns(1)
                 .returns(2)
                 .check();
+    }
+
+    private static Stream<Arguments> rewindSetOpVariants() {
+        List<Arguments> arguments = new ArrayList<>();
+
+        SetOpVariant[] ops = SetOpVariant.values();
+        for (int i = 0; i < ops.length; i++) {
+            arguments.add(Arguments.of(ops[i], i));
+        }
+
+        return arguments.stream();
     }
 
     @Test
@@ -269,5 +305,28 @@ public class ItSetOpTest extends ClusterPerClassIntegrationTest {
 
     private <T> long countIf(Iterable<T> it, Predicate<T> pred) {
         return StreamSupport.stream(it.spliterator(), false).filter(pred).count();
+    }
+
+    private static List<List<Object>> sql(SetOpVariant setOp, String sql) {
+        // Wrap set query into SELECT because calcite does not allow to specify hints on set operation nodes (SqlCall nodes).
+        return sql(format("SELECT {} * FROM (" + sql + ")", setOp.hint()));
+    }
+
+    /**
+     * Set operation variant.
+     */
+    public enum SetOpVariant {
+        COLOCATED("MapReduceMinusConverterRule"),
+        MAP_REDUCE("ColocatedMinusConverterRule");
+
+        final String[] disabledRules;
+
+        SetOpVariant(String... disabledRules) {
+            this.disabledRules = disabledRules;
+        }
+
+        String hint() {
+            return HintUtils.toHint(IgniteHint.DISABLE_RULE, disabledRules);
+        }
     }
 }

@@ -959,6 +959,7 @@ TEST_F(key_value_binary_view_test, types_test) {
         {"timestamp2", ignite_timestamp(3875238472, 248760634)},
         {"blob", std::vector<std::byte>{std::byte(1), std::byte(2), std::byte(42)}},
         {"decimal", big_decimal(123456789098765)},
+        {"boolean", true},
     };
 
     kv_view.put(nullptr, get_tuple(42), inserted);

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.schema;
 
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
@@ -86,7 +85,7 @@ public class NativeType implements Comparable<NativeType> {
      * @param type Native type.
      * @return {@code true} if type or typeSpec doesn't match given one, {@code false} otherwise.
      */
-    public boolean mismatch(@NotNull NativeType type) {
+    public boolean mismatch(NativeType type) {
         return this != type && typeSpec != type.typeSpec;
     }
 

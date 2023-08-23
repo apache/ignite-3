@@ -51,7 +51,6 @@ import java.util.concurrent.Callable;
 import org.apache.ignite.internal.network.serialization.BuiltInType;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -76,13 +75,11 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         assertThat(unmarshalled.value, is(42));
     }
 
-    @NotNull
     private <T> T marshalAndUnmarshalNonNull(Object object) throws MarshalException, UnmarshalException {
         MarshalledObject marshalled = marshaller.marshal(object);
         return unmarshalNonNull(marshalled);
     }
 
-    @NotNull
     private <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
         T unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptorRegistry);
 

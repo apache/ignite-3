@@ -39,7 +39,6 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -211,7 +210,6 @@ public class FakeAsyncResultSet implements AsyncResultSet {
         return CompletableFuture.completedFuture(null);
     }
 
-    @NotNull
     private SqlRow getRow(Object... vals) {
         return new FakeSqlRow(List.of(vals), metadata());
     }

@@ -75,7 +75,6 @@ import org.apache.ignite.raft.server.counter.GetValueCommand;
 import org.apache.ignite.raft.server.counter.IncrementAndGetCommand;
 import org.apache.ignite.raft.server.snasphot.SnapshotInMemoryStorageFactory;
 import org.apache.ignite.raft.server.snasphot.UpdateCountRaftListener;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -171,7 +170,6 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
      *
      * @return Set of Disruptor threads.
      */
-    @NotNull
     private Set<Thread> getAllDisruptorCurrentThreads() {
         return Thread.getAllStackTraces().keySet().stream().filter(t ->
                         t.getName().contains("JRaft-FSMCaller-Disruptor")

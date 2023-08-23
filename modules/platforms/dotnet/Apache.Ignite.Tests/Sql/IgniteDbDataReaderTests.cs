@@ -664,7 +664,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         var dt = new DataTable();
         dt.Load(reader);
 
-        Assert.AreEqual(18, dt.Columns.Count);
+        Assert.AreEqual(19, dt.Columns.Count);
         Assert.AreEqual(0, dt.Rows.Count);
     }
 
@@ -684,7 +684,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         bool readRes = await reader.ReadAsync();
 
         Assert.IsFalse(readRes);
-        Assert.AreEqual(18, reader.FieldCount);
+        Assert.AreEqual(19, reader.FieldCount);
         Assert.IsFalse(reader.HasRows);
     }
 

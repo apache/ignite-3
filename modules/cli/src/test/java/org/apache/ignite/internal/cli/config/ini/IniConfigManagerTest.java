@@ -92,7 +92,7 @@ class IniConfigManagerTest {
     @DisabledOnOs(OS.WINDOWS)
     void secretConfigFileIsCreatedWithCorrectPermissions() throws IOException {
         // when
-        IniConfigManager manager = new IniConfigManager(configFile, secretConfigFile);
+        new IniConfigManager(configFile, secretConfigFile);
 
         // then
         Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(secretConfigFile.toPath());
