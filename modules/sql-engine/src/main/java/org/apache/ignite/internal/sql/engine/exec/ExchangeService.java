@@ -44,7 +44,6 @@ public interface ExchangeService extends LifecycleAware {
      * @param batchId The ID of the batch to which the data belongs.
      * @param last Indicates whether this is the last batch of data to be sent.
      * @param rows The data to be sent.
-     * @param <RowT> The type of the rows int the batch.
      * @return A {@link CompletableFuture future} representing the result of operation,
      *      which completes when the data has been sent.
      */
