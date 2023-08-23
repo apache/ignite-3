@@ -36,7 +36,7 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
@@ -108,24 +108,24 @@ public class TxLocalTest extends TxAbstractTest {
 
         }).when(msgSvc).invoke((String) isNull(), any(), anyLong());
 
-        PlacementDriver placementDriver = mock(PlacementDriver.class, RETURNS_DEEP_STUBS);
+        TransactionStateResolver transactionStateResolver = mock(TransactionStateResolver.class, RETURNS_DEEP_STUBS);
 
         doAnswer(invocationOnMock -> {
             TxStateReplicaRequest request = invocationOnMock.getArgument(1);
 
             return CompletableFuture.completedFuture(
                     tables.get(request.groupId()).txStateStorage().getTxStateStorage(0).get(request.txId()));
-        }).when(placementDriver).sendMetaRequest(any(), any());
+        }).when(transactionStateResolver).sendMetaRequest(any(), any());
 
         txManager = new TxManagerImpl(replicaSvc, lockManager, localClock, new TransactionIdGenerator(0xdeadbeef));
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
-        DummyInternalTableImpl table = new DummyInternalTableImpl(replicaSvc, txManager, true, placementDriver, ACCOUNTS_SCHEMA);
+        DummyInternalTableImpl table = new DummyInternalTableImpl(replicaSvc, txManager, true, transactionStateResolver, ACCOUNTS_SCHEMA);
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), lockManager);
 
-        DummyInternalTableImpl table2 = new DummyInternalTableImpl(replicaSvc, txManager, true, placementDriver, CUSTOMERS_SCHEMA);
+        DummyInternalTableImpl table2 = new DummyInternalTableImpl(replicaSvc, txManager, true, transactionStateResolver, CUSTOMERS_SCHEMA);
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), lockManager);
 

@@ -78,7 +78,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -221,7 +221,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 CLOCK,
                 safeTime,
                 new TestTxStateStorage(),
-                mock(PlacementDriver.class),
+                mock(TransactionStateResolver.class),
                 new StorageUpdateHandler(
                         PART_ID,
                         partitionDataStorage,

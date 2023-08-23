@@ -126,7 +126,7 @@ import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchem
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
@@ -243,7 +243,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** Another (not local) cluster node. */
     private final ClusterNode anotherNode = new ClusterNodeImpl("node2", "node2", NetworkAddress.from("127.0.0.2:127"));
 
-    private final PlacementDriver placementDriver = mock(PlacementDriver.class);
+    private final TransactionStateResolver transactionStateResolver = mock(TransactionStateResolver.class);
 
     private final PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMvPartitionStorage);
 
@@ -328,7 +328,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         HybridTimestamp txFixedTimestamp = clock.now();
 
-        lenient().when(placementDriver.sendMetaRequest(any(), any())).thenAnswer(invocationOnMock -> {
+        lenient().when(transactionStateResolver.sendMetaRequest(any(), any())).thenAnswer(invocationOnMock -> {
             TxMeta txMeta;
 
             if (txState == null) {
@@ -402,7 +402,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 clock,
                 safeTimeClock,
                 txStateStorage,
-                placementDriver,
+                transactionStateResolver,
                 new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,

@@ -74,7 +74,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -152,17 +152,17 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
-     * @param placementDriver Placement driver.
+     * @param transactionStateResolver Transaction state resolver.
      * @param schema Schema descriptor.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             TxManager txManager,
             boolean crossTableUsage,
-            PlacementDriver placementDriver,
+            TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema
     ) {
-        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, placementDriver, schema);
+        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, transactionStateResolver, schema);
     }
 
     /**
@@ -184,7 +184,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager, if {@code null}, then default one will be created.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
-     * @param placementDriver Placement driver.
+     * @param transactionStateResolver Transaction state resolver.
      * @param schema Schema descriptor.
      */
     public DummyInternalTableImpl(
@@ -192,7 +192,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             MvPartitionStorage mvPartStorage,
             @Nullable TxManager txManager,
             boolean crossTableUsage,
-            PlacementDriver placementDriver,
+            TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema
     ) {
         super(
@@ -319,7 +319,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 CLOCK,
                 safeTime,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
-                placementDriver,
+                transactionStateResolver,
                 storageUpdateHandler,
                 new DummySchemas(schemaManager),
                 mock(ClusterNode.class),

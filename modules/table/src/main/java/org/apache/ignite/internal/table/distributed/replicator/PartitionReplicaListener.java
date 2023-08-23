@@ -200,8 +200,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Safe time. */
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
-    /** Placement Driver. */
-    private final PlacementDriver placementDriver;
+    /** Transaction state resolver. */
+    private final TransactionStateResolver transactionStateResolver;
 
     /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
     private final Executor scanRequestExecutor;
@@ -259,7 +259,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param hybridClock Hybrid clock.
      * @param safeTime Safe time clock.
      * @param txStateStorage Transaction state storage.
-     * @param placementDriver Placement driver.
+     * @param transactionStateResolver Transaction state resolver.
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
      * @param localNode Instance of the local node.
      * @param mvTableStorage Table storage.
@@ -280,7 +280,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridClock hybridClock,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TxStateStorage txStateStorage,
-            PlacementDriver placementDriver,
+            TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             Schemas schemas,
             ClusterNode localNode,
@@ -299,7 +299,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.hybridClock = hybridClock;
         this.safeTime = safeTime;
         this.txStateStorage = txStateStorage;
-        this.placementDriver = placementDriver;
+        this.transactionStateResolver = transactionStateResolver;
         this.storageUpdateHandler = storageUpdateHandler;
         this.localNode = localNode;
         this.mvTableStorage = mvTableStorage;
@@ -2384,7 +2384,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         requireNonNull(timestamp, "timestamp");
 
-        return placementDriver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
+        return transactionStateResolver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
                         .groupId(commitGrpId)
                         .readTimestampLong(timestamp.longValue())
                         .txId(txId)

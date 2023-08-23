@@ -97,7 +97,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -438,10 +438,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 var mvTableStorage = new TestMvTableStorage(tblId, DEFAULT_PARTITION_COUNT);
                 var mvPartStorage = new TestMvPartitionStorage(0);
                 var txStateStorage = txStateStorages.get(assignment);
-                var placementDriver = new PlacementDriver(replicaServices.get(assignment), consistentIdToNode);
+                var transactionStateResolver = new TransactionStateResolver(replicaServices.get(assignment), consistentIdToNode);
 
                 for (int part = 0; part < assignments.size(); part++) {
-                    placementDriver.updateAssignment(grpIds.get(part), assignments.get(part));
+                    transactionStateResolver.updateAssignment(grpIds.get(part), assignments.get(part));
                 }
 
                 int partId = p;
@@ -519,7 +519,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 clocks.get(assignment),
                                                 safeTime,
                                                 txStateStorage,
-                                                placementDriver,
+                                                transactionStateResolver,
                                                 storageUpdateHandler,
                                                 new DummySchemas(schemaManager),
                                                 consistentIdToNode.apply(assignment),
