@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.rpc.impl;
+package org.apache.ignite.raft.jraft.rpc.impl.core;
 
 import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;import org.jetbrains.annotations.Nullable;
 
 /**
  * An {@link AppendEntriesRequestInterceptor} that never intercepts anything and always asks the standard handling
