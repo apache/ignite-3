@@ -27,7 +27,6 @@ import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * User-defined test {@link Tuple} implementation.
@@ -80,7 +79,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public int columnIndex(@NotNull String columnName) {
+    public int columnIndex(String columnName) {
         switch (IgniteNameUtils.parseSimpleName(columnName)) {
             case "ID":
                 return 0;
@@ -95,7 +94,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public <T> T valueOrDefault(@NotNull String columnName, T def) {
+    public <T> T valueOrDefault(String columnName, T def) {
         switch (IgniteNameUtils.parseSimpleName(columnName)) {
             case "ID":
                 return (T) id;
@@ -110,13 +109,13 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, Object value) {
+    public Tuple set(String columnName, Object value) {
         throw new UnsupportedOperationException("Tuple is immutable.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T> T value(@NotNull String columnName) {
+    public <T> T value(String columnName) {
         return valueOrDefault(columnName, null);
     }
 
@@ -137,7 +136,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public BinaryObject binaryObjectValue(@NotNull String columnName) {
+    public BinaryObject binaryObjectValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -161,7 +160,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public byte byteValue(@NotNull String columnName) {
+    public byte byteValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -173,7 +172,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public short shortValue(@NotNull String columnName) {
+    public short shortValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -185,7 +184,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public int intValue(@NotNull String columnName) {
+    public int intValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -197,7 +196,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public long longValue(@NotNull String columnName) {
+    public long longValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -209,7 +208,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public float floatValue(@NotNull String columnName) {
+    public float floatValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -221,7 +220,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public double doubleValue(@NotNull String columnName) {
+    public double doubleValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -233,7 +232,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public String stringValue(@NotNull String columnName) {
+    public String stringValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -245,7 +244,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public UUID uuidValue(@NotNull String columnName) {
+    public UUID uuidValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -257,7 +256,7 @@ public class CustomTuple implements Tuple {
 
     /** {@inheritDoc} */
     @Override
-    public BitSet bitmaskValue(@NotNull String columnName) {
+    public BitSet bitmaskValue(String columnName) {
         throw new UnsupportedOperationException();
     }
 
@@ -316,7 +315,6 @@ public class CustomTuple implements Tuple {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Iterator<Object> iterator() {
         throw new UnsupportedOperationException();

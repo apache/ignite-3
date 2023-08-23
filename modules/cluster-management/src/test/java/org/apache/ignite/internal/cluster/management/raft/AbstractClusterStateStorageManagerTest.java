@@ -132,7 +132,7 @@ public abstract class AbstractClusterStateStorageManagerTest {
 
         storageManager.putClusterState(newState);
 
-        var node3 = new ClusterNodeImpl("nonono", "nononono", new NetworkAddress("localhost", 123));
+        new ClusterNodeImpl("nonono", "nononono", new NetworkAddress("localhost", 123));
 
         storageManager.restoreSnapshot(workDir);
 

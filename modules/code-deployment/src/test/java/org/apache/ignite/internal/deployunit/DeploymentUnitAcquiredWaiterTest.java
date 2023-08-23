@@ -133,6 +133,8 @@ class DeploymentUnitAcquiredWaiterTest {
         // check unit2 is still not removed.
         await().during(DELAY_IN_MILLIS * 4, TimeUnit.MILLISECONDS)
                 .until(() -> removingUnits.contains(unit2), isEqual(false));
+
+        deploymentUnit2.release();
     }
 
     @Test

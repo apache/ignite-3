@@ -34,7 +34,6 @@ import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,13 +60,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple get(@Nullable Transaction tx, @NotNull Tuple keyRec) {
+    public Tuple get(@Nullable Transaction tx, Tuple keyRec) {
         return sync(getAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, @NotNull Tuple keyRec) {
+    public CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
         return tbl.doSchemaOutInOpAsync(
@@ -102,13 +101,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public void upsert(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public void upsert(@Nullable Transaction tx, Tuple rec) {
         sync(upsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
         return tbl.doSchemaOutOpAsync(
@@ -120,13 +119,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public void upsertAll(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
+    public void upsertAll(@Nullable Transaction tx, Collection<Tuple> recs) {
         sync(upsertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
+    public CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {
@@ -142,13 +141,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndUpsert(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public Tuple getAndUpsert(@Nullable Transaction tx, Tuple rec) {
         return sync(getAndUpsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndUpsertAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public CompletableFuture<Tuple> getAndUpsertAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
         return tbl.doSchemaOutInOpAsync(
@@ -161,13 +160,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean insert(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public boolean insert(@Nullable Transaction tx, Tuple rec) {
         return sync(insertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
         return tbl.doSchemaOutOpAsync(
@@ -179,13 +178,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> insertAll(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
+    public Collection<Tuple> insertAll(@Nullable Transaction tx, Collection<Tuple> recs) {
         return sync(insertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<Tuple>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
+    public CompletableFuture<Collection<Tuple>> insertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {
@@ -202,19 +201,19 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public boolean replace(@Nullable Transaction tx, Tuple rec) {
         return sync(replaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(@Nullable Transaction tx, @NotNull Tuple oldRec, @NotNull Tuple newRec) {
+    public boolean replace(@Nullable Transaction tx, Tuple oldRec, Tuple newRec) {
         return sync(replaceAsync(tx, oldRec, newRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
         return tbl.doSchemaOutOpAsync(
@@ -226,7 +225,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull Tuple oldRec, @NotNull Tuple newRec) {
+    public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, Tuple oldRec, Tuple newRec) {
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
 
@@ -242,13 +241,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndReplace(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public Tuple getAndReplace(@Nullable Transaction tx, Tuple rec) {
         return sync(getAndReplaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
         return tbl.doSchemaOutInOpAsync(
@@ -261,13 +260,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean delete(@Nullable Transaction tx, @NotNull Tuple keyRec) {
+    public boolean delete(@Nullable Transaction tx, Tuple keyRec) {
         return sync(deleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, @NotNull Tuple keyRec) {
+    public CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
         return tbl.doSchemaOutOpAsync(
@@ -279,13 +278,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public boolean deleteExact(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public boolean deleteExact(@Nullable Transaction tx, Tuple rec) {
         return sync(deleteExactAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, Tuple rec) {
         Objects.requireNonNull(rec);
 
         return tbl.doSchemaOutOpAsync(
@@ -297,13 +296,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndDelete(@Nullable Transaction tx, @NotNull Tuple keyRec) {
+    public Tuple getAndDelete(@Nullable Transaction tx, Tuple keyRec) {
         return sync(getAndDeleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndDeleteAsync(@Nullable Transaction tx, @NotNull Tuple keyRec) {
+    public CompletableFuture<Tuple> getAndDeleteAsync(@Nullable Transaction tx, Tuple keyRec) {
         Objects.requireNonNull(keyRec);
 
         return tbl.doSchemaOutInOpAsync(
@@ -316,13 +315,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> deleteAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
+    public Collection<Tuple> deleteAll(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         return sync(deleteAllAsync(tx, keyRecs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<Tuple>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keyRecs) {
+    public CompletableFuture<Collection<Tuple>> deleteAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
         if (keyRecs.isEmpty()) {
@@ -339,13 +338,13 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Tuple> deleteAllExact(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
+    public Collection<Tuple> deleteAllExact(@Nullable Transaction tx, Collection<Tuple> recs) {
         return sync(deleteAllExactAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> recs) {
+    public CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
         if (recs.isEmpty()) {

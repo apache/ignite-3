@@ -36,7 +36,6 @@ import org.apache.ignite.internal.metrics.configuration.MetricView;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.configuration.ExporterView;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.VisibleForTesting;
 
 
@@ -240,7 +239,6 @@ public class MetricManager implements IgniteComponent {
      *
      * @return Metrics snapshot.
      */
-    @NotNull
     public IgniteBiTuple<Map<String, MetricSet>, Long> metricSnapshot() {
         return registry.metricSnapshot();
     }

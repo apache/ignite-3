@@ -638,7 +638,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         mockMetastore();
 
         // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
-        TableManager tableManager = createTableManager(tblManagerFut, (mvTableStorage) -> {
+        createTableManager(tblManagerFut, (mvTableStorage) -> {
             doReturn(completedFuture(mvPartitionStorage)).when(mvTableStorage).createMvPartition(anyInt());
             doReturn(mvPartitionStorage).when(mvTableStorage).getMvPartition(anyInt());
             doReturn(completedFuture(null)).when(mvTableStorage).clearPartition(anyInt());

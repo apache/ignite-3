@@ -31,7 +31,6 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -116,7 +115,7 @@ public class TableSpoolExecutionTest extends AbstractExecutionTest {
                 boolean first = true;
 
                 @Override
-                public @NotNull Iterator<Object[]> iterator() {
+                public Iterator<Object[]> iterator() {
                     assertTrue(first, "Rewind table");
 
                     first = false;

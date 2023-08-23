@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -68,13 +69,10 @@ public abstract class BaseLogEntryCodecFactoryTest {
 
     @Test
     public void testEncodeDecodeEmpty() {
-        try {
-            assertNull(this.encoder.encode(null));
-            fail();
-        }
-        catch (NullPointerException e) {
-            assertTrue(true);
-        }
+        assertThrows(NullPointerException.class, () -> {
+            this.encoder.encode(null);
+        });
+
         assertNull(this.decoder.decode(null));
         assertNull(this.decoder.decode(new byte[0]));
     }
