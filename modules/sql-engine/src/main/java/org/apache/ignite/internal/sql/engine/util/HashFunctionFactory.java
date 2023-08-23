@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+
 /**
  * Factory for creating a function to calculate the hash of the specified fields of the row.
  */
@@ -49,8 +51,8 @@ public interface HashFunctionFactory<T> {
      * Creates a hash function to compute a composite hash of a row, given the types and values of the fields.
      *
      * @param fields Field ordinals of the row from which the hash is to be calculated.
-     * @param tableId Table ID.
+     * @param tableDescriptor Table descriptor.
      * @return Function to compute a composite hash of a row, given the types and values of the fields.
      */
-    RowHashFunction<T> create(int[] fields, int tableId);
+    RowHashFunction<T> create(int[] fields, TableDescriptor tableDescriptor);
 }
