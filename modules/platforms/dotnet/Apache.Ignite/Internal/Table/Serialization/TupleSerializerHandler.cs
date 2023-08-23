@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
     using Common;
     using Ignite.Table;
@@ -43,13 +44,20 @@ namespace Apache.Ignite.Internal.Table.Serialization
             // No-op.
         }
 
-        /// <inheritdoc/>
-        public IIgniteTuple Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
+        /// <summary>
+        /// Reads tuple from the buffer.
+        /// </summary>
+        /// <param name="buf">Buffer.</param>
+        /// <param name="schema">Schema.</param>
+        /// <param name="count">Column count to read.</param>
+        /// <returns>Tuple.</returns>
+        public static IgniteTuple ReadTuple(ReadOnlySpan<byte> buf, Schema schema, int count)
         {
-            var columns = schema.Columns;
-            var count = keyOnly ? schema.KeyColumnCount : columns.Count;
+            Debug.Assert(count <= schema.Columns.Count, "count <= schema.Columns.Count");
+
             var tuple = new IgniteTuple(count);
-            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), count);
+            var tupleReader = new BinaryTupleReader(buf, count);
+            var columns = schema.Columns;
 
             for (var index = 0; index < count; index++)
             {
@@ -59,6 +67,29 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
             return tuple;
         }
+
+        /// <summary>
+        /// Reads single column from the binary tuple.
+        /// </summary>
+        /// <param name="buf">Binary tuple buffer.</param>
+        /// <param name="schema">Schema.</param>
+        /// <param name="count">Column count.</param>
+        /// <param name="index">Column index.</param>
+        /// <returns>Column value.</returns>
+        public static object? ReadObject(ReadOnlySpan<byte> buf, Schema schema, int count, int index)
+        {
+            var tupleReader = new BinaryTupleReader(buf, count);
+            var column = schema.Columns[index];
+
+            return tupleReader.GetObject(index, column.Type, column.Scale);
+        }
+
+        /// <inheritdoc/>
+        public IIgniteTuple Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false) =>
+            new BinaryTupleIgniteTupleAdapter(
+                data: reader.ReadBinary().ToArray(),
+                schema: schema,
+                fieldCount: keyOnly ? schema.KeyColumnCount : schema.Columns.Count);
 
         /// <inheritdoc/>
         public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, int columnCount, Span<byte> noValueSet)

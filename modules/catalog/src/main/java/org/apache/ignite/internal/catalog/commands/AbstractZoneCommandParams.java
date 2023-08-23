@@ -22,7 +22,12 @@ package org.apache.ignite.internal.catalog.commands;
  */
 public class AbstractZoneCommandParams implements DdlCommandParams {
     /** Distribution zone name. */
-    protected String zoneName;
+    protected final String zoneName;
+
+    /** Constructor. */
+    AbstractZoneCommandParams(String zoneName) {
+        this.zoneName = zoneName;
+    }
 
     /**
      * Returns distribution zone name.
@@ -35,11 +40,9 @@ public class AbstractZoneCommandParams implements DdlCommandParams {
      * Parameters builder.
      */
     protected abstract static class AbstractBuilder<ParamT extends AbstractZoneCommandParams, BuilderT> {
-        protected ParamT params;
+        protected String zoneName;
 
-        AbstractBuilder(ParamT params) {
-            this.params = params;
-        }
+        private boolean paramsCreated;
 
         /**
          * Sets distribution zone name.
@@ -48,7 +51,7 @@ public class AbstractZoneCommandParams implements DdlCommandParams {
          * @return {@code this}.
          */
         public BuilderT zoneName(String zoneName) {
-            params.zoneName = zoneName;
+            this.zoneName = zoneName;
 
             return (BuilderT) this;
         }
@@ -56,12 +59,21 @@ public class AbstractZoneCommandParams implements DdlCommandParams {
         /**
          * Builds parameters.
          *
-         * @return Parameters.
+         * @throws IllegalStateException If the parameters have already been built by this builder.
          */
         public ParamT build() {
-            ParamT params0 = params;
-            params = null;
-            return params0;
+            if (paramsCreated) {
+                throw new IllegalStateException("Parameters have already been created, use another builder");
+            }
+
+            ParamT params = createParams();
+
+            paramsCreated = true;
+
+            return params;
         }
+
+        /** Creates parameters. */
+        protected abstract ParamT createParams();
     }
 }

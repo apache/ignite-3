@@ -18,12 +18,9 @@ package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
-import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.StateMachine;
@@ -44,8 +41,6 @@ import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Node options.
@@ -463,7 +458,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         return raftGrpEvtsLsnr;
     }
 
-    public void setRaftGrpEvtsLsnr(@NotNull JraftGroupEventsListener raftGrpEvtsLsnr) {
+    public void setRaftGrpEvtsLsnr(JraftGroupEventsListener raftGrpEvtsLsnr) {
         this.raftGrpEvtsLsnr = raftGrpEvtsLsnr;
     }
 

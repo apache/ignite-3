@@ -17,11 +17,12 @@
 
 #pragma once
 
+#include "ignite/client/detail/connection_event_handler.h"
 #include "ignite/client/detail/node_connection.h"
-#include "ignite/client/detail/protocol_context.h"
 #include "ignite/client/detail/response_handler.h"
 #include "ignite/client/detail/transaction/transaction_impl.h"
 #include "ignite/client/ignite_client_configuration.h"
+#include "ignite/protocol/protocol_context.h"
 
 #include "ignite/common/ignite_result.h"
 #include "ignite/network/async_client_pool.h"
@@ -50,7 +51,9 @@ namespace ignite::detail {
  *
  * Considered established while there is connection to at least one server.
  */
-class cluster_connection : public std::enable_shared_from_this<cluster_connection>, public network::async_handler {
+class cluster_connection : public std::enable_shared_from_this<cluster_connection>,
+                           public network::async_handler,
+                           public connection_event_handler {
 public:
     /** Default TCP port. */
     static constexpr uint16_t DEFAULT_TCP_PORT = 10800;
@@ -100,7 +103,7 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    void perform_request_handler(client_operation op, transaction_impl *tx,
+    void perform_request_handler(protocol::client_operation op, transaction_impl *tx,
         const std::function<void(protocol::writer &)> &wr, const std::shared_ptr<response_handler> &handler) {
         if (tx) {
             auto channel = tx->get_connection();
@@ -137,7 +140,7 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    void perform_request_raw(client_operation op, transaction_impl *tx,
+    void perform_request_raw(protocol::client_operation op, transaction_impl *tx,
         const std::function<void(protocol::writer &)> &wr,
         std::function<T(std::shared_ptr<node_connection>, bytes_view)> rd, ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_bytes<T>>(std::move(rd), std::move(callback));
@@ -156,8 +159,9 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    void perform_request(client_operation op, transaction_impl *tx, const std::function<void(protocol::writer &)> &wr,
-        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
+    void perform_request(protocol::client_operation op, transaction_impl *tx,
+        const std::function<void(protocol::writer &)> &wr, std::function<T(protocol::reader &)> rd,
+        ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
         perform_request_handler<T>(op, tx, wr, std::move(handler));
     }
@@ -173,7 +177,7 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    void perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
+    void perform_request(protocol::client_operation op, const std::function<void(protocol::writer &)> &wr,
         std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
         perform_request_handler<T>(op, nullptr, wr, std::move(handler));
@@ -190,7 +194,7 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    void perform_request(client_operation op, const std::function<void(protocol::writer &)> &wr,
+    void perform_request(protocol::client_operation op, const std::function<void(protocol::writer &)> &wr,
         std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> rd, ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader_connection<T>>(std::move(rd), std::move(callback));
         perform_request_handler<T>(op, nullptr, wr, std::move(handler));
@@ -206,7 +210,8 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    void perform_request_rd(client_operation op, std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
+    void perform_request_rd(
+        protocol::client_operation op, std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
         perform_request<T>(
             op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
     }
@@ -221,7 +226,7 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    void perform_request_rd(client_operation op,
+    void perform_request_rd(protocol::client_operation op,
         std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> rd, ignite_callback<T> callback) {
         perform_request<T>(
             op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
@@ -238,7 +243,7 @@ public:
      */
     template<typename T>
     void perform_request_wr(
-        client_operation op, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
+        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
         perform_request<T>(
             op, wr, [](protocol::reader &) {}, std::move(callback));
     }
@@ -254,11 +259,18 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    void perform_request_wr(client_operation op, transaction_impl *tx,
+    void perform_request_wr(protocol::client_operation op, transaction_impl *tx,
         const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
         perform_request<T>(
             op, tx, wr, [](protocol::reader &) {}, std::move(callback));
     }
+
+    /**
+     * Get observable timestamp.
+     *
+     * @return Observable timestamp.
+     */
+    std::int64_t get_observable_timestamp() const { return m_observable_timestamp.load(); }
 
 private:
     /**
@@ -315,6 +327,13 @@ private:
     void on_message_sent(uint64_t id) override;
 
     /**
+     * Handle observable timestamp.
+     *
+     * @param timestamp Timestamp.
+     */
+    void on_observable_timestamp_changed(std::int64_t timestamp) override;
+
+    /**
      * Remove client.
      *
      * @param id Connection ID.
@@ -333,7 +352,7 @@ private:
      *
      * @param context Protocol context.
      */
-    void initial_connect_result(const protocol_context &context);
+    void initial_connect_result(const protocol::protocol_context &context);
 
     /**
      * Find and return client.
@@ -369,6 +388,9 @@ private:
 
     /** Generator. */
     std::mt19937 m_generator;
+
+    /** Observable timestamp. */
+    std::atomic_int64_t m_observable_timestamp{0};
 };
 
 } // namespace ignite::detail

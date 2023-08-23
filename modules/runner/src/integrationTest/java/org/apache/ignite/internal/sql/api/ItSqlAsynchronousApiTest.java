@@ -280,8 +280,6 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         TxManager txManager = txManager();
 
-        int txPrevCnt = txManager.finished();
-
         for (int i = 0; i < ROW_COUNT; ++i) {
             CompletableFuture<AsyncResultSet<SqlRow>> fut = ses.executeAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)", i, i);
 
@@ -299,7 +297,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         }
 
         // No new transactions through ddl.
-        assertEquals(0, txManager.finished() - txPrevCnt);
+        assertEquals(0, txManager.pending());
     }
 
     /** Check correctness of explicit transaction rollback. */

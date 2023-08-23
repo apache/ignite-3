@@ -67,7 +67,6 @@ import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -421,7 +420,6 @@ public class MutableRowTupleAdapterTest {
         return truncateToDefaultPrecision(LocalTime.now());
     }
 
-    @NotNull
     private LocalDateTime truncatedLocalDateTimeNow() {
         return truncateToDefaultPrecision(LocalDateTime.now());
     }

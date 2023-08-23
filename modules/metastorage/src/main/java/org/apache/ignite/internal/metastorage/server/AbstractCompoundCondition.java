@@ -20,7 +20,6 @@ package org.apache.ignite.internal.metastorage.server;
 import java.util.Arrays;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Compound condition, which {@link #combine(boolean, boolean)} results of left and right conditions.
@@ -52,7 +51,7 @@ public abstract class AbstractCompoundCondition implements Condition {
      * {@inheritDoc}
      */
     @Override
-    public @NotNull byte[][] keys() {
+    public byte[][] keys() {
         return keys;
     }
 

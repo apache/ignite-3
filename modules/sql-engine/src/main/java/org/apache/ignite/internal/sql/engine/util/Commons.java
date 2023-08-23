@@ -104,7 +104,6 @@ import org.apache.ignite.lang.IgniteSystemProperties;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -240,7 +239,7 @@ public final class Commons {
     /**
      * Transforms a given list using map function.
      */
-    public static <T, R> List<R> transform(@NotNull List<T> src, @NotNull Function<T, R> mapFun) {
+    public static <T, R> List<R> transform(List<T> src, Function<T, R> mapFun) {
         if (nullOrEmpty(src)) {
             return Collections.emptyList();
         }
@@ -321,7 +320,7 @@ public final class Commons {
      * @param params Parameters.
      * @return Parameters map.
      */
-    public static Map<String, Object> populateParameters(@NotNull Map<String, Object> dst, @Nullable Object[] params) {
+    public static Map<String, Object> populateParameters(Map<String, Object> dst, @Nullable Object[] params) {
         if (!ArrayUtils.nullOrEmpty(params)) {
             for (int i = 0; i < params.length; i++) {
                 dst.put("?" + i, params[i]);
@@ -348,7 +347,7 @@ public final class Commons {
      * @param o   Resource to close. If it's {@code null} - it's no-op.
      * @param log Logger to log possible checked exception.
      */
-    public static void close(Object o, @NotNull IgniteLogger log) {
+    public static void close(Object o, IgniteLogger log) {
         if (o instanceof AutoCloseable) {
             try {
                 ((AutoCloseable) o).close();
@@ -406,7 +405,7 @@ public final class Commons {
      * CheckRange.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static void checkRange(@NotNull Object[] array, int idx) {
+    public static void checkRange(Object[] array, int idx) {
         if (idx < 0 || idx >= array.length) {
             throw new ArrayIndexOutOfBoundsException(idx);
         }

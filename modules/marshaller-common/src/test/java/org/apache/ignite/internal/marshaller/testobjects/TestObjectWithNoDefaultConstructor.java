@@ -43,6 +43,10 @@ public class TestObjectWithNoDefaultConstructor {
         primIntCol = intVal;
     }
 
+    public int intVal() {
+        return primIntCol;
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {

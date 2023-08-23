@@ -34,7 +34,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -101,7 +100,6 @@ public class RendezvousAffinityFunctionTest {
         }
     }
 
-    @NotNull
     private List<String> prepareNetworkTopology(int nodes) {
         return IntStream.range(0, nodes)
                 .mapToObj(i -> "Node " + i)

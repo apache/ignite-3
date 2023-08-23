@@ -29,7 +29,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.row.Row;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -65,7 +64,6 @@ public class FakeSchemaRegistry implements SchemaRegistry {
 
     /** {@inheritDoc} */
     @Override
-    @NotNull
     public SchemaDescriptor schema(int ver) {
         if (ver == 0) {
             // Use last version (any version may be used) for 0 version, that mean row doens't contain value.

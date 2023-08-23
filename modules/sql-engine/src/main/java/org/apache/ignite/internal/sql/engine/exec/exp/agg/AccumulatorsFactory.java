@@ -50,7 +50,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * AccumulatorsFactory.
@@ -184,7 +183,6 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             return new AccumulatorWrapperImpl(accumulator, call, inAdapter, outAdapter);
         }
 
-        @NotNull
         private Accumulator accumulator() {
             if (accFactory != null) {
                 return accFactory.get();
@@ -200,7 +198,6 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             return accumulator;
         }
 
-        @NotNull
         private Function<Object[], Object[]> createInAdapter(Accumulator accumulator) {
             if (type == AggregateType.REDUCE || nullOrEmpty(call.getArgList())) {
                 return Function.identity();
@@ -232,7 +229,6 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             };
         }
 
-        @NotNull
         private Function<Object, Object> createOutAdapter(Accumulator accumulator) {
             if (type == AggregateType.MAP) {
                 return Function.identity();

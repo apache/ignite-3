@@ -699,6 +699,17 @@ public class IgniteUtils {
     /**
      * Closes all provided objects.
      *
+     * @param closeables Collection of closeable objects to close.
+     * @throws Exception If failed to close.
+     * @see #closeAll(Collection)
+     */
+    public static void closeAllManually(Collection<? extends ManuallyCloseable> closeables) throws Exception {
+        closeAllManually(closeables.stream());
+    }
+
+    /**
+     * Closes all provided objects.
+     *
      * @param closeables Array of closeable objects to close.
      * @throws Exception If failed to close.
      * @see #closeAll(Collection)

@@ -18,12 +18,9 @@
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
@@ -75,12 +72,12 @@ public class DdlToCatalogCommandConverterTest {
         CreateZoneParams params = DdlToCatalogCommandConverter.convert(cmd);
 
         assertEquals(ZONE_NAME, params.zoneName());
-        assertEquals(DEFAULT_PARTITION_COUNT, params.partitions());
-        assertEquals(DEFAULT_REPLICA_COUNT, params.replicas());
-        assertEquals(INFINITE_TIMER_VALUE, params.dataNodesAutoAdjust());
-        assertEquals(INFINITE_TIMER_VALUE, params.dataNodesAutoAdjustScaleUp());
-        assertEquals(INFINITE_TIMER_VALUE, params.dataNodesAutoAdjustScaleDown());
-        assertEquals(DEFAULT_FILTER, params.filter());
+        assertNull(params.partitions());
+        assertNull(params.replicas());
+        assertNull(params.dataNodesAutoAdjust());
+        assertNull(params.dataNodesAutoAdjustScaleUp());
+        assertNull(params.dataNodesAutoAdjustScaleDown());
+        assertNull(params.filter());
         assertEquals(DEFAULT_STORAGE_ENGINE, params.dataStorage().engine());
         assertEquals(DEFAULT_DATA_REGION, params.dataStorage().dataRegion());
     }

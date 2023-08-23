@@ -44,7 +44,6 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core
-    testImplementation libs.slf4j.jdk14
 
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.mockito.core

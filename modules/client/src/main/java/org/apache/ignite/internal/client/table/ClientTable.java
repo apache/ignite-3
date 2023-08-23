@@ -50,7 +50,6 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -116,7 +115,7 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull String name() {
+    public String name() {
         return name;
     }
 
