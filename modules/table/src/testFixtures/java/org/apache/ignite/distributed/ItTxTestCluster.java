@@ -120,6 +120,9 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.TestInfo;
 
+/**
+ * Class that allows to mock a cluster for transaction tests' purposes.
+ */
 public class ItTxTestCluster {
     private final RaftConfiguration raftConfig;
 
@@ -159,7 +162,7 @@ public class ItTxTestCluster {
 
     protected TxManager clientTxManager;
 
-    protected List<RaftGroupService> raftClients;
+    protected Map<String, List<RaftGroupService>> raftClients = new HashMap<>();
 
     protected Map<String, TxStateStorage> txStateStorages;
 
@@ -519,8 +522,7 @@ public class ItTxTestCluster {
 
         CompletableFuture.allOf(partitionReadyFutures.toArray(new CompletableFuture[0])).join();
 
-        raftClients = new ArrayList<>();
-        raftClients.addAll(clients.values());
+        raftClients.computeIfAbsent(tableName, t -> new ArrayList<>()).addAll(clients.values());
 
         return new TableImpl(new InternalTableImpl(
                 tableName,
@@ -565,11 +567,13 @@ public class ItTxTestCluster {
     /**
      * Returns a raft manager for a group.
      *
-     * @param svc The service.
+     * @param tableName Table name.
      * @return Raft manager hosting a leader for group.
      */
-    protected Loza getLeader(RaftGroupService svc) {
-        Peer leader = svc.leader();
+    protected Loza getLeader(String tableName) {
+        var services = raftClients.get(tableName);
+
+        Peer leader = services.get(0).leader();
 
         assertNotNull(leader);
 
@@ -621,8 +625,8 @@ public class ItTxTestCluster {
             }
         }
 
-        if (raftClients != null) {
-            for (RaftGroupService svc : raftClients) {
+        for (Map.Entry<String, List<RaftGroupService>> e : raftClients.entrySet()) {
+            for (RaftGroupService svc : e.getValue()) {
                 svc.shutdown();
             }
         }
