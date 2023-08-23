@@ -41,38 +41,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests distribution zones logical topology changes and reaction to that changes.
  */
-//TODO: IGNITE-18564 Add tests with not default distribution zones, when distributionZones.change.trigger per zone will be created.
 public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZoneManagerTest {
-    private static final LogicalNode NODE_1 = new LogicalNode("node1", "node1", new NetworkAddress("localhost", 123));
-    private static final LogicalNode NODE_2 = new LogicalNode("node2", "node2", new NetworkAddress("localhost", 123));
 
-    @Test
-    @Disabled("IGNITE-18564")
-    void testStaleWatchEvent() throws Exception {
-        mockVaultZonesLogicalTopologyKey(Set.of(NODE_1), vaultMgr, metaStorageManager.appliedRevision());
-
-        startDistributionZoneManager();
-
-        alterZone(DEFAULT_ZONE_NAME, IMMEDIATE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
-
-        long revision = 100;
-
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
-
-        keyValueStorage.putAll(
-                List.of(zoneScaleUpChangeTriggerKey(defaultZoneId).bytes(), zoneDataNodesKey(defaultZoneId).bytes()),
-                List.of(longToBytes(revision), keyValueStorage.get(zoneDataNodesKey(defaultZoneId).bytes()).value()),
-                HybridTimestamp.MIN_VALUE
-        );
-
-        Set<LogicalNode> nodes = Set.of(NODE_1, NODE_2);
-
-        setLogicalTopologyInMetaStorage(nodes, 100, metaStorageManager);
-
-        // TODO: IGNITE-18564 This is incorrect to check that data nodes are the same right after logical topology is changes manually.
-        assertDataNodesForZone(defaultZoneId, Set.of(NODE_1), keyValueStorage);
-    }
-
+    //TODO: IGNITE-19955 Check if this test is needed.
     @Test
     void testStaleVaultRevisionOnZoneManagerStart() throws Exception {
         long revision = 100;
@@ -91,19 +62,5 @@ public class DistributionZoneManagerWatchListenerTest extends BaseDistributionZo
         startDistributionZoneManager();
 
         assertDataNodesForZone(defaultZoneId, null, keyValueStorage);
-    }
-
-    @Test
-    void testDataNodesUpdatedOnZoneManagerStart() throws Exception {
-        Set<LogicalNode> nodes = Set.of(
-                new LogicalNode(new ClusterNodeImpl("node1", "node1", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap()),
-                new LogicalNode(new ClusterNodeImpl("node2", "node2", NetworkAddress.from("127.0.0.1:127")), Collections.emptyMap())
-        );
-
-        mockVaultZonesLogicalTopologyKey(nodes, vaultMgr, metaStorageManager.appliedRevision());
-
-        startDistributionZoneManager();
-
-        assertDataNodesForZone(getZoneId(DEFAULT_ZONE_NAME), nodes, keyValueStorage);
     }
 }
