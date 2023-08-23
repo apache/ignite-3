@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
@@ -199,11 +198,7 @@ public class TxManagerImpl implements TxManager {
 
             TxState oldState = oldMeta == null ? null : oldMeta.txState();
 
-            assert checkTransitionCorrectness(oldState, newMeta.txState())
-                    : "Unable to change transaction meta, transaction state transition is incorrect, old meta = [" + oldMeta + "], "
-                        + "meta to set = [" + newMeta + ']';
-
-            return newMeta;
+            return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
         });
     }
 

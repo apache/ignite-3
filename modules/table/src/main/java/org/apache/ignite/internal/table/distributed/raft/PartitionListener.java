@@ -321,6 +321,8 @@ public class PartitionListener implements RaftGroupListener {
                 commandTerm
         );
 
+        txManager.updateTxMeta(txId, markFinishedOnReplica(cmd.commit()));
+
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
         if (!txStateChangeRes) {

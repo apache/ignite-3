@@ -487,17 +487,21 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         new RaftGroupEventsClientListener()
                 );
 
+                TxManager txManager = txManagers.get(assignment);
+
+                PartitionListener partitionListener = new PartitionListener(
+                        txManagers.get(assignment),
+                        partitionDataStorage,
+                        storageUpdateHandler,
+                        txStateStorage,
+                        safeTime,
+                        storageIndexTracker
+                );
+
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
                         new RaftNodeId(grpId, configuration.peer(assignment)),
                         configuration,
-                        new PartitionListener(
-                                txManagers.get(assignment),
-                                partitionDataStorage,
-                                storageUpdateHandler,
-                                txStateStorage,
-                                safeTime,
-                                storageIndexTracker
-                        ),
+                        partitionListener,
                         RaftGroupEventsListener.noopLsnr,
                         topologyAwareRaftGroupServiceFactory
                 ).thenAccept(
