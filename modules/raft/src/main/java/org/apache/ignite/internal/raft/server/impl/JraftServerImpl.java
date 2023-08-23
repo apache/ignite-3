@@ -130,6 +130,7 @@ public class JraftServerImpl implements RaftServer {
     /** Raft service event interceptor. */
     private final RaftServiceEventInterceptor serviceEventInterceptor;
 
+    /** Interceptor for AppendEntriesRequests. Not thread-safe, should be assigned and read in the same thread. */
     private AppendEntriesRequestInterceptor appendEntriesRequestInterceptor = new NullAppendEntriesRequestInterceptor();
 
     /** The number of parallel raft groups starts. */
@@ -199,7 +200,8 @@ public class JraftServerImpl implements RaftServer {
     }
 
     /**
-     * Sets {@link AppendEntriesRequestInterceptor} to use.
+     * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
+     * to {@link #start()} the component.
      *
      * @param appendEntriesRequestInterceptor Interceptor to use.
      */

@@ -148,12 +148,12 @@ public class Loza implements RaftManager {
     }
 
     /**
-     * Sets {@link AppendEntriesRequestInterceptor} to use.
+     * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
+     * to {@link #start()} the component.
      *
      * @param appendEntriesRequestInterceptor Interceptor to use.
      */
     public void appendEntriesRequestInterceptor(AppendEntriesRequestInterceptor appendEntriesRequestInterceptor) {
-
         raftServer.appendEntriesRequestInterceptor(appendEntriesRequestInterceptor);
     }
 
