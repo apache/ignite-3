@@ -45,10 +45,10 @@ public class Identity<RowT> implements Destination<RowT> {
     /** {@inheritDoc} */
     @Override
     public List<String> targets(RowT row) {
-        String node = (String) rowHandler.get(columnIndex, row);
+        Object node = rowHandler.get(columnIndex, row);
 
-        if (nodes.contains(node)) {
-            return List.of(node);
+        if (node instanceof String && nodes.contains(node)) {
+            return List.of((String) node);
         }
 
         throw new IllegalStateException("No target found.");

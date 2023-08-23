@@ -37,7 +37,8 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
 
 /**
- * This test verifies that queries defined in {@link TestCase TestCase} can be optimized with usage of colocated hash aggregates only.
+ * This test verifies that queries defined in {@link TestCase TestCase} can be optimized with usage of
+ * colocated hash aggregates only.
  *
  * <p>See {@link AbstractAggregatePlannerTest base class} for more details.
  */

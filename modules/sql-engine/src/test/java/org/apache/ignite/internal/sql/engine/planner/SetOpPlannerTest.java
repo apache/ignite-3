@@ -520,7 +520,6 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
         );
     }
 
-
     /**
      * Tests two SET operations (with ALL flag enabled for the first one) on tables with affinity and random distribution.
      *
