@@ -15,20 +15,32 @@
  * limitations under the License.
  */
 
+namespace Apache.Ignite.Internal.Table;
 
-package org.apache.ignite.internal.sql.engine.exec;
+using System;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+/// <summary>
+/// Common tuple utilities.
+/// </summary>
+internal static class IgniteTupleCommon
+{
+    /// <summary>
+    /// Parses column name. Removes quotes and converts to upper case.
+    /// </summary>
+    /// <param name="name">Name.</param>
+    /// <returns>Parsed name.</returns>
+    public static string ParseColumnName(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            throw new ArgumentException("Column name can not be null or empty.");
+        }
 
-/**
- * Resolves components required for execution.
- */
-public interface ExecutionDependencyResolver {
+        if (name.Length > 2 && name.StartsWith('"') && name.EndsWith('"'))
+        {
+            return name.Substring(1, name.Length - 2);
+        }
 
-    /**
-     * Resolves dependencies required to execute the given list of relations.
-     */
-    CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, IgniteSchema schema);
+        return name.ToUpperInvariant();
+    }
 }

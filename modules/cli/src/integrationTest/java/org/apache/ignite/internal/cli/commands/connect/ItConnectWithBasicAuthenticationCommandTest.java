@@ -83,7 +83,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
                 () -> assertOutputContains("Connected to http://localhost:10300")
         );
 
-        // And prompt shows user name and node name
+        // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
     }
 
@@ -130,7 +130,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
                 () -> assertOutputContains("Connected to http://localhost:10300")
         );
 
-        // And prompt shows user name and node name
+        // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
     }
 
@@ -205,7 +205,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
                         "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator())
         );
 
-        // And prompt shows user name and node name
+        // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
     }
 
@@ -258,7 +258,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
                         "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator())
         );
 
-        // And prompt shows user name and node name
+        // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
     }
 

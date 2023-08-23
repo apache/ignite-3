@@ -15,20 +15,35 @@
  * limitations under the License.
  */
 
+#pragma once
 
-package org.apache.ignite.internal.sql.engine.exec;
+#include <cstdint>
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+namespace ignite::detail {
+
+class node_connection;
 
 /**
- * Resolves components required for execution.
+ * Socket event handler.
  */
-public interface ExecutionDependencyResolver {
+class connection_event_handler {
+public:
+    // Default
+    connection_event_handler() = default;
+    virtual ~connection_event_handler() = default;
+
+    // Deleted
+    connection_event_handler(connection_event_handler &&) = delete;
+    connection_event_handler(const connection_event_handler &) = delete;
+    connection_event_handler &operator=(connection_event_handler &&) = delete;
+    connection_event_handler &operator=(const connection_event_handler &) = delete;
 
     /**
-     * Resolves dependencies required to execute the given list of relations.
+     * Handle observable timestamp.
+     *
+     * @param timestamp Timestamp.
      */
-    CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, IgniteSchema schema);
-}
+    virtual void on_observable_timestamp_changed(std::int64_t timestamp) = 0;
+};
+
+} // namespace ignite::detail
