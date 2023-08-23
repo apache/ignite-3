@@ -218,6 +218,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 NativeType colType = col.type();
 
                 Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
+                col.validate(val);
 
                 assert val != POISON_OBJECT;
 
