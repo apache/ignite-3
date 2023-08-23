@@ -128,7 +128,7 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends ClusterP
 
             @Override
             protected IgniteTransactions transactions() {
-                return CLUSTER_NODES.get(0).transactions();
+                return igniteTx();
             }
 
             @Override
