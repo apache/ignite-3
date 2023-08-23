@@ -29,8 +29,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.ReplicationGroupsUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -40,8 +38,9 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
-import org.apache.ignite.internal.testframework.jul.NoOpHandler;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -53,9 +52,16 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private static final String TABLE_NAME = "test";
 
+    private final LogInspector appendEntriesInterceptorInspector = LogInspector.create(CheckCatalogVersionOnAppendEntries.class, true);
+
     @Override
     protected int initialNodes() {
         return NODES_TO_START;
+    }
+
+    @AfterEach
+    void stopLogInspector() {
+        appendEntriesInterceptorInspector.stop();
     }
 
     /**
@@ -98,7 +104,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private void createTestTableWith3Replicas() throws InterruptedException {
         String zoneSql = "create zone test_zone with partitions=1, replicas=3";
-        String sql = "create table " + TABLE_NAME + " (key int primary key, value varchar(20))"
+        String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20))"
                 + " with primary_zone='TEST_ZONE'";
 
         cluster.doInSession(0, session -> {
@@ -128,19 +134,13 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
         cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId());
     }
 
-    private static CompletableFuture<?> rejectionDueToMetadataLagTriggered() {
-        Logger interceptorLogger = Logger.getLogger(CheckCatalogVersionOnAppendEntries.class.getName());
-
+    private CompletableFuture<?> rejectionDueToMetadataLagTriggered() {
         CompletableFuture<?> rejectionTriggered = new CompletableFuture<>();
 
-        interceptorLogger.addHandler(new NoOpHandler() {
-            @Override
-            public void publish(LogRecord record) {
-                if (record.getMessage().startsWith("Metadata not yet available")) {
-                    rejectionTriggered.complete(null);
-                }
-            }
-        });
+        appendEntriesInterceptorInspector.addHandler(
+                event -> event.getMessage().getFormattedMessage().startsWith("Metadata not yet available"),
+                () -> rejectionTriggered.complete(null)
+        );
 
         return rejectionTriggered;
     }
@@ -150,7 +150,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
                 .tables()
                 .table(TABLE_NAME)
                 .keyValueView()
-                .put(null, Tuple.create().set("key", 1), Tuple.create().set("value", "one"));
+                .put(null, Tuple.create().set("key", 1), Tuple.create().set("val", "one"));
     }
 
     private void updateTableSchemaAt(int nodeIndex) {
