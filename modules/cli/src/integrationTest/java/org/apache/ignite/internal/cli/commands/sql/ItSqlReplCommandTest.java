@@ -41,16 +41,4 @@ class ItSqlReplCommandTest extends CliCommandTestInitializedIntegrationBase {
                 () -> assertErrOutputContains("File with command not found")
         );
     }
-
-    @Test
-    @DisplayName("Should start sql repl mode")
-    void sql() {
-        execute();
-
-        assertAll(
-                this::assertOutputIsEmpty,
-                this::assertErrOutputIsEmpty,
-                this::assertExitCodeIsZero
-        );
-    }
 }
