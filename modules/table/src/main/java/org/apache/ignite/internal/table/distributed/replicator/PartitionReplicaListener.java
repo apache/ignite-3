@@ -326,25 +326,25 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId) {
-        CompletableFuture<?> result;
+        CompletableFuture<?> fut;
 
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             var req = (ReadWriteSingleRowReplicaRequest) request;
 
-            result = appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processSingleEntryAction(req, senderId));
+            fut = appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processSingleEntryAction(req, senderId));
         } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
             var req = (ReadWriteMultiRowReplicaRequest) request;
 
-            result = appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processMultiEntryAction(req, senderId));
+            fut = appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processMultiEntryAction(req, senderId));
         } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
             var req = (ReadWriteSwapRowReplicaRequest) request;
 
-            result = appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processTwoEntriesAction(req, senderId));
+            fut = appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processTwoEntriesAction(req, senderId));
         } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
             var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
 
             // Implicit RW scan can be committed locally on a last batch or error.
-            result = appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req, senderId))
+            fut = appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req, senderId))
                     .handle((rows, err) -> {
                         if (req.full() && (err != null || rows.size() < req.batchSize())) {
                             releaseTxLocks(req.transactionId());
@@ -359,35 +359,54 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadWriteScanCloseReplicaRequest) {
             processScanCloseAction((ReadWriteScanCloseReplicaRequest) request);
 
-            result = completedFuture(null);
+            fut = completedFuture(null);
         } else if (request instanceof TxFinishReplicaRequest) {
-            result = processTxFinishAction((TxFinishReplicaRequest) request);
+            fut = processTxFinishAction((TxFinishReplicaRequest) request);
         } else if (request instanceof TxCleanupReplicaRequest) {
-            result = processTxCleanupAction((TxCleanupReplicaRequest) request);
+            fut = processTxCleanupAction((TxCleanupReplicaRequest) request);
         } else if (request instanceof ReadOnlySingleRowReplicaRequest) {
-            result = processReadOnlySingleEntryAction((ReadOnlySingleRowReplicaRequest) request, isPrimary);
+            fut = processReadOnlySingleEntryAction((ReadOnlySingleRowReplicaRequest) request, isPrimary);
         } else if (request instanceof ReadOnlyMultiRowReplicaRequest) {
-            result = processReadOnlyMultiEntryAction((ReadOnlyMultiRowReplicaRequest) request, isPrimary);
+            fut = processReadOnlyMultiEntryAction((ReadOnlyMultiRowReplicaRequest) request, isPrimary);
         } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
-            result = processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, isPrimary);
+            fut = processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, isPrimary);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
-            result = processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request, isPrimary);
+            fut = processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request, isPrimary);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
 
-        return result.thenApply(v -> {
+        CompletableFuture<Object> result = new CompletableFuture<>();
+
+        fut.whenComplete((v, e) -> {
             if (request instanceof FullTxRequest && request instanceof ReadWriteReplicaRequest) {
                 var req = (FullTxRequest) request;
 
+                // To process replica touch for full transaction, we should have the safe time.
                 if (!req.full()) {
-                    // To process replica touch for full transaction, we should have the safe time.
-                    replicaTouch(((ReadWriteReplicaRequest) request).transactionId(), senderId, null, false);
+                    try {
+                        replicaTouch(((ReadWriteReplicaRequest) request).transactionId(), senderId, null, false);
+                    } catch (AssertionError err) {
+                        if (e != null) {
+                            e.addSuppressed(err);
+                            result.completeExceptionally(e);
+                        }  else {
+                            result.completeExceptionally(err);
+                        }
+                    }
                 }
             }
 
-            return v;
+            if (!result.isDone()) {
+                if (e == null) {
+                    result.complete(v);
+                } else {
+                    result.completeExceptionally(e);
+                }
+            }
         });
+
+        return result;
     }
 
     /**

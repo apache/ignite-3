@@ -193,6 +193,10 @@ public class TxManagerImpl implements TxManager {
         txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
+            if (newMeta == null) {
+                return null;
+            }
+
             TxState oldState = oldMeta == null ? null : oldMeta.txState();
 
             assert checkTransitionCorrectness(oldState, newMeta.txState())
@@ -208,15 +212,11 @@ public class TxManagerImpl implements TxManager {
     }
 
     private static TxStateMeta markCommittedOnReplica(TxStateMeta oldMeta) {
-        requireNonNull(oldMeta, "Transaction can't be marked as committed on a replica in which it was not enlisted");
-
-        return new TxStateMeta(COMMITED, oldMeta.txCoordinatorId(), oldMeta.commitTimestamp());
+        return oldMeta == null ? null : new TxStateMeta(COMMITED, oldMeta.txCoordinatorId(), oldMeta.commitTimestamp());
     }
 
     private static TxStateMeta markAbortedOnReplica(TxStateMeta oldMeta) {
-        requireNonNull(oldMeta, "Transaction can't be marked as aborted on a replica in which it was not enlisted");
-
-        return new TxStateMeta(ABORTED, oldMeta.txCoordinatorId(), oldMeta.commitTimestamp());
+        return oldMeta == null ? null : new TxStateMeta(ABORTED, oldMeta.txCoordinatorId(), oldMeta.commitTimestamp());
     }
 
     @Override
