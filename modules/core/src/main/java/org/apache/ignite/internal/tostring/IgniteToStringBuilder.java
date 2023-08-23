@@ -54,7 +54,6 @@ import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.lang.IgniteSystemProperties;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -2103,7 +2102,7 @@ public class IgniteToStringBuilder {
     private static boolean handleRecursion(
             StringBuilderLimitedLength buf,
             Object obj,
-            @NotNull Class<?> cls,
+            Class<?> cls,
             IdentityHashMap<Object, EntryReference> svdObjs
     ) {
         EntryReference ref = svdObjs.get(obj);

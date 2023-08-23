@@ -47,7 +47,6 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -149,7 +148,7 @@ public class HeapLockManager implements LockManager {
      *
      * @param key The key.
      */
-    private @NotNull LockState lockState(LockKey key) {
+    private LockState lockState(LockKey key) {
         return locks.computeIfAbsent(key, k -> new LockState(deadlockPreventionPolicy, delayedExecutor));
     }
 
@@ -636,7 +635,7 @@ public class HeapLockManager implements LockManager {
 
         /** {@inheritDoc} */
         @Override
-        public int compareTo(@NotNull WaiterImpl o) {
+        public int compareTo(WaiterImpl o) {
             return txId.compareTo(o.txId);
         }
 

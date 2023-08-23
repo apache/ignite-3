@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -51,8 +52,8 @@ public class MockStateMachine extends StateMachineAdapter {
     private volatile long snapshotIndex = -1L;
     private final List<ByteBuffer> logs = new ArrayList<>();
     private final PeerId peerId;
-    private volatile int saveSnapshotTimes;
-    private volatile int loadSnapshotTimes;
+    private final AtomicInteger saveSnapshotTimes = new AtomicInteger(0);
+    private final AtomicInteger loadSnapshotTimes= new AtomicInteger(0);
 
     public PeerId getPeerId() {
         return this.peerId;
@@ -64,11 +65,11 @@ public class MockStateMachine extends StateMachineAdapter {
     }
 
     public int getSaveSnapshotTimes() {
-        return this.saveSnapshotTimes;
+        return this.saveSnapshotTimes.get();
     }
 
     public int getLoadSnapshotTimes() {
-        return this.loadSnapshotTimes;
+        return this.loadSnapshotTimes.get();
     }
 
     public int getOnStartFollowingTimes() {
@@ -136,7 +137,7 @@ public class MockStateMachine extends StateMachineAdapter {
 
     @Override
     public void onSnapshotSave(final SnapshotWriter writer, final Closure done) {
-        this.saveSnapshotTimes++;
+        this.saveSnapshotTimes.incrementAndGet();
         final String path = writer.getPath() + File.separator + "data";
         final File file = new File(path);
         try (FileOutputStream fout = new FileOutputStream(file);
@@ -168,7 +169,7 @@ public class MockStateMachine extends StateMachineAdapter {
     public boolean onSnapshotLoad(final SnapshotReader reader) {
         SnapshotMeta meta = reader.load();
         this.lastAppliedIndex.set(meta.lastIncludedIndex());
-        this.loadSnapshotTimes++;
+        this.loadSnapshotTimes.incrementAndGet();
         final String path = reader.getPath() + File.separator + "data";
         final File file = new File(path);
         if (!file.exists()) {

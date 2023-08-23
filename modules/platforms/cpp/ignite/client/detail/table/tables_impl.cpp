@@ -36,7 +36,7 @@ void tables_impl::get_table_async(std::string_view name, ignite_callback<std::op
     };
 
     m_connection->perform_request<std::optional<table>>(
-        client_operation::TABLE_GET, writer_func, std::move(reader_func), std::move(callback));
+        protocol::client_operation::TABLE_GET, writer_func, std::move(reader_func), std::move(callback));
 }
 
 void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback) {
@@ -57,7 +57,7 @@ void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback)
     };
 
     m_connection->perform_request_rd<std::vector<table>>(
-        client_operation::TABLES_GET, std::move(reader_func), std::move(callback));
+        protocol::client_operation::TABLES_GET, std::move(reader_func), std::move(callback));
 }
 
 } // namespace ignite::detail

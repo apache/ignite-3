@@ -126,7 +126,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
     private final ExecutionContext<RowT> ctx;
 
-    private final HashFunctionFactory<RowT> hashFuncFactory;
+    private final DestinationFactory<RowT> destinationFactory;
 
     private final ExchangeService exchangeSvc;
 
@@ -143,7 +143,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
      * @param hashFuncFactory Factory to create a hash function for the row, from which the destination nodes are calculated.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSvc Exchange service.
-     * @param resolvedDependencies  Dependencies required to execute this query.
+     * @param resolvedDependencies Dependencies required to execute this query.
      */
     public LogicalRelImplementor(
             ExecutionContext<RowT> ctx,
@@ -151,23 +151,13 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSvc,
             ResolvedDependencies resolvedDependencies) {
-        this.hashFuncFactory = hashFuncFactory;
         this.mailboxRegistry = mailboxRegistry;
         this.exchangeSvc = exchangeSvc;
         this.ctx = ctx;
         this.resolvedDependencies = resolvedDependencies;
 
         expressionFactory = ctx.expressionFactory();
-    }
-
-    private Destination<RowT> getDestination(IgniteDistribution distribution) {
-        //TODO: IGNITE-20246 Drop this workaround for bad `distribution.destination` method signature.
-        if (distribution.function() instanceof IdentityDistribution) {
-            IdentityDistribution function = (IdentityDistribution) distribution.function();
-            return function.destination(ctx.rowHandler(), ctx.target(), distribution.getKeys());
-        }
-
-        return distribution.destination(hashFuncFactory, ctx.target());
+        destinationFactory = new DestinationFactory<>(hashFuncFactory, resolvedDependencies);
     }
 
     /** {@inheritDoc} */
@@ -175,7 +165,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteSender rel) {
         IgniteDistribution distribution = rel.distribution();
 
-        Destination<RowT> dest = getDestination(distribution);
+        Destination<RowT> dest = destinationFactory.createDestination(distribution, ctx.target());
 
         // Outbox fragment ID is used as exchange ID as well.
         Outbox<RowT> outbox = new Outbox<>(ctx, exchangeSvc, mailboxRegistry, rel.exchangeId(), rel.targetFragmentId(), dest);
@@ -206,11 +196,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteTrimExchange rel) {
-        IgniteDistribution distribution = rel.distribution();
+        assert TraitUtils.distribution(rel).getType() == HASH_DISTRIBUTED;
 
-        assert distribution.getType() == HASH_DISTRIBUTED;
+        Destination<RowT> dest = destinationFactory.createDestination(rel.distribution(), ctx.target());
 
-        Destination<RowT> dest = getDestination(distribution);
         String localNodeName = ctx.localNode().name();
 
         FilterNode<RowT> node = new FilterNode<>(ctx, r -> Objects.equals(localNodeName, first(dest.targets(r))));

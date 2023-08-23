@@ -29,7 +29,6 @@ import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Client SQL row.
@@ -70,11 +69,11 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public int columnIndex(@NotNull String columnName) {
+    public int columnIndex(String columnName) {
         return metadata.indexOf(columnName);
     }
 
-    private int columnIndexChecked(@NotNull String columnName) {
+    private int columnIndexChecked(String columnName) {
         int idx = columnIndex(columnName);
 
         if (idx == -1) {
@@ -86,7 +85,7 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public <T> T valueOrDefault(@NotNull String columnName, T defaultValue) {
+    public <T> T valueOrDefault(String columnName, T defaultValue) {
         T ret = (T) row.get(columnIndexChecked(columnName));
 
         return ret != null ? ret : defaultValue;
@@ -94,13 +93,13 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, Object value) {
+    public Tuple set(String columnName, Object value) {
         throw new UnsupportedOperationException("Operation not supported.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T> T value(@NotNull String columnName) throws IllegalArgumentException {
+    public <T> T value(String columnName) throws IllegalArgumentException {
         return (T) row.get(columnIndexChecked(columnName));
     }
 
@@ -112,7 +111,7 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public BinaryObject binaryObjectValue(@NotNull String columnName) {
+    public BinaryObject binaryObjectValue(String columnName) {
         return (BinaryObject) row.get(columnIndexChecked(columnName));
     }
 
@@ -136,7 +135,7 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public byte byteValue(@NotNull String columnName) {
+    public byte byteValue(String columnName) {
         return (byte) row.get(columnIndexChecked(columnName));
     }
 
@@ -148,7 +147,7 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public short shortValue(@NotNull String columnName) {
+    public short shortValue(String columnName) {
         return (short) row.get(columnIndexChecked(columnName));
     }
 
@@ -160,7 +159,7 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public int intValue(@NotNull String columnName) {
+    public int intValue(String columnName) {
         return (int) row.get(columnIndexChecked(columnName));
     }
 
@@ -172,7 +171,7 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public long longValue(@NotNull String columnName) {
+    public long longValue(String columnName) {
         return (long) row.get(columnIndexChecked(columnName));
     }
 
@@ -184,7 +183,7 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public float floatValue(@NotNull String columnName) {
+    public float floatValue(String columnName) {
         return (float) row.get(columnIndexChecked(columnName));
     }
 
@@ -196,7 +195,7 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public double doubleValue(@NotNull String columnName) {
+    public double doubleValue(String columnName) {
         return (double) row.get(columnIndexChecked(columnName));
     }
 
@@ -208,7 +207,7 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public String stringValue(@NotNull String columnName) {
+    public String stringValue(String columnName) {
         return (String) row.get(columnIndexChecked(columnName));
     }
 
@@ -220,7 +219,7 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public UUID uuidValue(@NotNull String columnName) {
+    public UUID uuidValue(String columnName) {
         return (UUID) row.get(columnIndexChecked(columnName));
     }
 
@@ -232,7 +231,7 @@ public class FakeSqlRow implements SqlRow {
 
     /** {@inheritDoc} */
     @Override
-    public BitSet bitmaskValue(@NotNull String columnName) {
+    public BitSet bitmaskValue(String columnName) {
         return (BitSet) row.get(columnIndexChecked(columnName));
     }
 
@@ -291,7 +290,6 @@ public class FakeSqlRow implements SqlRow {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Iterator<Object> iterator() {
         return row.iterator();

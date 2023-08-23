@@ -17,11 +17,11 @@
 
 #pragma once
 
-#include "ignite/client/detail/protocol_version.h"
+#include "ignite/protocol/protocol_version.h"
 
 #include "ignite/common/uuid.h"
 
-namespace ignite::detail {
+namespace ignite::protocol {
 
 /**
  * Represents connection to the cluster.
@@ -30,9 +30,6 @@ namespace ignite::detail {
  */
 class protocol_context {
 public:
-    /** The latest currently supported version. */
-    static constexpr protocol_version CURRENT_VERSION{3, 0, 0};
-
     /**
      * Get protocol version.
      *
@@ -63,10 +60,10 @@ public:
 
 private:
     /** Protocol version. */
-    protocol_version m_version{CURRENT_VERSION};
+    protocol_version m_version{protocol_version::get_current()};
 
     /** Cluster ID. */
     uuid m_cluster_id;
 };
 
-} // namespace ignite::detail
+} // namespace ignite::protocol

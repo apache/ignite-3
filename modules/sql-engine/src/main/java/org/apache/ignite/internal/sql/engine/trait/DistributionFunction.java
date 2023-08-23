@@ -17,11 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.trait;
 
-import static org.apache.ignite.internal.util.CollectionUtils.first;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelDistribution.Type;
@@ -67,16 +62,6 @@ public abstract class DistributionFunction {
     public static DistributionFunction affinity(int tableId, Object zoneId) {
         return new AffinityDistribution(tableId, zoneId);
     }
-
-    /**
-     * Creates a destination based on this function algorithm, given nodes mapping and given distribution keys.
-     *
-     * @param hashFuncFactory Factory to create a hash function for the row, from which the destination nodes are calculated.
-     * @param group           Target mapping.
-     * @param keys            Distribution keys.
-     * @return Destination function.
-     */
-    abstract <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup group, ImmutableIntList keys);
 
     /**
      * Get function name. This name used for equality checking and in {@link RelNode#getDigest()}.
@@ -153,11 +138,6 @@ public abstract class DistributionFunction {
             return RelDistribution.Type.ANY;
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup m, ImmutableIntList k) {
-            throw new IllegalStateException();
-        }
     }
 
     private static final class BroadcastDistribution extends DistributionFunction {
@@ -169,13 +149,6 @@ public abstract class DistributionFunction {
             return RelDistribution.Type.BROADCAST_DISTRIBUTED;
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup m, ImmutableIntList k) {
-            assert m != null && !nullOrEmpty(m.nodeNames());
-
-            return new AllNodes<>(m.nodeNames());
-        }
     }
 
     private static final class RandomDistribution extends DistributionFunction {
@@ -187,13 +160,6 @@ public abstract class DistributionFunction {
             return RelDistribution.Type.RANDOM_DISTRIBUTED;
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup m, ImmutableIntList k) {
-            assert m != null && !nullOrEmpty(m.nodeNames());
-
-            return new RandomNode<>(m.nodeNames());
-        }
     }
 
     private static final class SingletonDistribution extends DistributionFunction {
@@ -205,15 +171,6 @@ public abstract class DistributionFunction {
             return RelDistribution.Type.SINGLETON;
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup m, ImmutableIntList k) {
-            if (m == null || m.nodeNames() == null || m.nodeNames().size() != 1) {
-                throw new IllegalStateException();
-            }
-
-            return new AllNodes<>(Collections.singletonList(Objects.requireNonNull(first(m.nodeNames()))));
-        }
     }
 
     private static class HashDistribution extends DistributionFunction {
@@ -225,25 +182,6 @@ public abstract class DistributionFunction {
             return RelDistribution.Type.HASH_DISTRIBUTED;
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup m, ImmutableIntList k) {
-            assert m != null && !nullOrEmpty(m.assignments()) && !k.isEmpty();
-
-            List<List<String>> assignments = Commons.transform(m.assignments(), v -> Commons.transform(v, NodeWithTerm::name));
-
-            if (IgniteUtils.assertionsEnabled()) {
-                for (List<String> assignment : assignments) {
-                    assert nullOrEmpty(assignment) || assignment.size() == 1;
-                }
-            }
-
-            return destination(assignments, hashFuncFactory, k.toIntArray());
-        }
-
-        protected <RowT> Destination<RowT> destination(List<List<String>> assignments, HashFunctionFactory<RowT> funcFactory, int[] keys) {
-            return new Partitioned<>(assignments, funcFactory.create(keys));
-        }
     }
 
     /**
@@ -277,11 +215,6 @@ public abstract class DistributionFunction {
 
         public Object zoneId() {
             return zoneId;
-        }
-
-        @Override
-        protected <RowT> Destination<RowT> destination(List<List<String>> assignments, HashFunctionFactory<RowT> funcFactory, int[] keys) {
-            return new Partitioned<>(assignments, funcFactory.create(keys, tableId));
         }
 
         /** {@inheritDoc} */

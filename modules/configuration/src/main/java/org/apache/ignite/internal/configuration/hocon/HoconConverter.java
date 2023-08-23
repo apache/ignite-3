@@ -24,7 +24,6 @@ import java.util.List;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Hocon converter.
@@ -40,7 +39,7 @@ public class HoconConverter {
      */
     public static ConfigValue represent(
             ConfigurationRegistry registry,
-            @NotNull List<String> path
+            List<String> path
     ) throws IllegalArgumentException {
         Object res = registry.represent(
                 path,

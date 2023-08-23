@@ -20,12 +20,12 @@ namespace Apache.Ignite.Table
     using System;
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
-    using Internal.Common;
+    using Internal.Table;
 
     /// <summary>
     /// Ignite tuple.
     /// </summary>
-    public sealed class IgniteTuple : IIgniteTuple, IEquatable<IgniteTuple>
+    public sealed class IgniteTuple : IIgniteTuple, IEquatable<IgniteTuple>, IEquatable<IIgniteTuple>
     {
         /** Key-value pairs. */
         [SuppressMessage("Microsoft.Design", "CA1002:DoNotExposeGenericLists", Justification = "Private.")]
@@ -57,10 +57,10 @@ namespace Apache.Ignite.Table
         /// <inheritdoc/>
         public object? this[string name]
         {
-            get => _pairs[_indexes[ParseName(name)]].Value;
+            get => _pairs[_indexes[IgniteTupleCommon.ParseColumnName(name)]].Value;
             set
             {
-                name = ParseName(name);
+                name = IgniteTupleCommon.ParseColumnName(name);
 
                 var pair = (name, value);
 
@@ -81,52 +81,21 @@ namespace Apache.Ignite.Table
         public string GetName(int ordinal) => _pairs[ordinal].Key;
 
         /// <inheritdoc/>
-        public int GetOrdinal(string name) => _indexes.TryGetValue(ParseName(name), out var index) ? index : -1;
+        public int GetOrdinal(string name) => _indexes.TryGetValue(IgniteTupleCommon.ParseColumnName(name), out var index) ? index : -1;
 
         /// <inheritdoc />
-        public override string ToString()
-        {
-            var builder = new IgniteToStringBuilder(GetType());
-
-            for (var i = 0; i < FieldCount; i++)
-            {
-                builder.Append(this[i], GetName(i));
-            }
-
-            return builder.Build();
-        }
+        public override string ToString() => IIgniteTuple.ToString(this);
 
         /// <inheritdoc />
-        public bool Equals(IgniteTuple? other)
-        {
-            return IIgniteTuple.Equals(this, other);
-        }
+        public bool Equals(IgniteTuple? other) => IIgniteTuple.Equals(this, other);
 
         /// <inheritdoc />
-        public override bool Equals(object? obj)
-        {
-            return obj is IgniteTuple other && Equals(other);
-        }
+        public bool Equals(IIgniteTuple? other) => IIgniteTuple.Equals(this, other);
 
         /// <inheritdoc />
-        public override int GetHashCode()
-        {
-            return IIgniteTuple.GetHashCode(this);
-        }
+        public override bool Equals(object? obj) => obj is IIgniteTuple other && Equals(other);
 
-        private static string ParseName(string name)
-        {
-            if (string.IsNullOrEmpty(name))
-            {
-                throw new ArgumentException("Column name can not be null or empty.");
-            }
-
-            if (name.Length > 2 && name.StartsWith('"') && name.EndsWith('"'))
-            {
-                return name.Substring(1, name.Length - 2);
-            }
-
-            return name.ToUpperInvariant();
-        }
+        /// <inheritdoc />
+        public override int GetHashCode() => IIgniteTuple.GetHashCode(this);
     }
 }

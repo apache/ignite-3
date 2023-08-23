@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SC
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -183,26 +182,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             }
 
             return lastSchemaFut;
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteTable tableById(int id) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-        try {
-            IgniteTable table = tablesVv.latest().get(id);
-
-            if (table == null) {
-                throw new IgniteInternalException(INTERNAL_ERR,
-                        format("Table not found [tableId={}]", id));
-            }
-
-            return table;
         } finally {
             busyLock.leaveBusy();
         }

@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.deployunit.exception.DeploymentUnitReadException;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Unit content representation.
@@ -74,7 +73,6 @@ public class UnitContent implements Iterable<Entry<String, byte[]>> {
         return files.hashCode();
     }
 
-    @NotNull
     @Override
     public Iterator<Entry<String, byte[]>> iterator() {
         return files.entrySet().iterator();
