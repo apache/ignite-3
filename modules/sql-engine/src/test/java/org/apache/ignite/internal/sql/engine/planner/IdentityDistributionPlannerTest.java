@@ -25,6 +25,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -135,6 +136,31 @@ public class IdentityDistributionPlannerTest extends AbstractPlannerTest {
                         .and(hasDistribution(IgniteDistributions.identity(0)))
                         .and(input(0, isInstanceOf(IgniteIndexScan.class)))
                         .and(input(1, isInstanceOf(IgniteIndexScan.class)))
+                ))
+        ));
+    }
+
+    /**
+     * Join of the tables with identity and broadcast distribution is expected to be colocated.
+     */
+    @Test
+    public void joinTableWithIdentityAndBroadcastDistributions() throws Exception {
+        TestTable tbl1 = complexTable("TEST_TBL1", DEFAULT_TBL_SIZE, IgniteDistributions.identity(0));
+        TestTable tbl2 = complexTable("TEST_TBL2", DEFAULT_TBL_SIZE, IgniteDistributions.broadcast());
+
+        IgniteSchema schema = createSchema(tbl1, tbl2);
+
+        String sql = "select count(*) "
+                + "from TEST_TBL1 t1 "
+                + "join TEST_TBL2 t2 on t1.id1 = t2.id1";
+
+        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                .and(nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
+                        .and(hasDistribution(IgniteDistributions.identity(0)))
+                        .and(input(0, isInstanceOf(IgniteIndexScan.class)))
+                        .and(input(1, isInstanceOf(IgniteTrimExchange.class)
+                                .and(input(isInstanceOf(IgniteIndexScan.class)))
+                        ))
                 ))
         ));
     }
