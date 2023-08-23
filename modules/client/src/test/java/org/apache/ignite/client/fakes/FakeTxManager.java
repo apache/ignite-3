@@ -56,8 +56,8 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction begin() {
-        return begin(false, null);
+    public InternalTransaction beginLocal(boolean readOnly) {
+        return begin(readOnly, null);
     }
 
     @Override
@@ -155,6 +155,10 @@ public class FakeTxManager implements TxManager {
     @Override
     public LockManager lockManager() {
         return null;
+    }
+
+    @Override
+    public void finishFull(InternalTransaction tx, boolean commit) {
     }
 
     @Override

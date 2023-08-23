@@ -37,7 +37,7 @@ class ReadOnlyTransactionImplTest {
     @Test
     void effectiveSchemaTimestampIsReadTimestamp() {
         HybridTimestamp readTimestamp = new HybridClockImpl().now();
-        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(readTimestamp);
+        UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(readTimestamp, true);
 
         var tx = new ReadOnlyTransactionImpl(txManager, txId, readTimestamp);
 

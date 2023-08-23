@@ -232,7 +232,7 @@ public class RepeatedFinishReadWriteTransactionTest {
         }
 
         @Override
-        public InternalTransaction begin() {
+        public InternalTransaction beginLocal(boolean readOnly) {
             return null;
         }
 
@@ -254,6 +254,11 @@ public class RepeatedFinishReadWriteTransactionTest {
         @Override
         public LockManager lockManager() {
             return null;
+        }
+
+        @Override
+        public void finishFull(InternalTransaction tx, boolean commit) {
+
         }
 
         @Override

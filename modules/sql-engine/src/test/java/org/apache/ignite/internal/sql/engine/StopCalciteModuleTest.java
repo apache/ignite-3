@@ -262,7 +262,7 @@ public class StopCalciteModuleTest {
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
         when(tbl.storage().getTableDescriptor()).thenReturn(new StorageTableDescriptor(tblId, 1, "none"));
 
-        when(txManager.begin(anyBoolean(), any())).thenReturn(new NoOpTransaction(localNode.name()));
+        when(txManager.beginImplicit(anyBoolean())).thenReturn(new NoOpTransaction(localNode.name()));
 
         qryProc.start();
 

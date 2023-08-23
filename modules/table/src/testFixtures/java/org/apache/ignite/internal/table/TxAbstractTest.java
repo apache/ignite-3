@@ -1541,7 +1541,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                     }
 
                     while (!stop.get() && firstErr.get() == null) {
-                        InternalTransaction tx = txManager(accounts).begin();
+                        InternalTransaction tx = txManager(accounts).beginLocal(false);
 
                         var table = accounts.recordView();
 
