@@ -1240,10 +1240,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         int partitions = zoneDescriptor.partitions();
 
-        InternalTableImpl internalTable = new InternalTableImpl(tableName, tableId,
+        InternalTableImpl internalTable = new InternalTableImpl(
+                tableName,
+                tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
-                partitions, clusterNodeResolver, txManager, tableStorage,
-                txStateStorage, replicaSvc, clock);
+                partitions,
+                clusterNodeResolver,
+                txManager,
+                tableStorage,
+                txStateStorage,
+                replicaSvc,
+                clock,
+                null
+        );
 
         var table = new TableImpl(internalTable, lockMgr);
 

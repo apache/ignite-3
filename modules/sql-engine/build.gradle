@@ -82,6 +82,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation(testFixtures(project(':ignite-distribution-zones')))
+    testImplementation(testFixtures(project(':ignite-placement-driver-api')))
 
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core

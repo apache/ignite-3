@@ -59,6 +59,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -382,7 +383,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
-                startClient() ? clientClock : clocks.get(localNodeName)
+                startClient() ? clientClock : clocks.get(localNodeName),
+                new TestPlacementDriver()
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), clientTxManager.lockManager());
 
         this.customers = new TableImpl(new InternalTableImpl(
@@ -395,7 +397,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
-                startClient() ? clientClock : clocks.get(localNodeName)
+                startClient() ? clientClock : clocks.get(localNodeName),
+                new TestPlacementDriver()
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), clientTxManager.lockManager());
 
         log.info("Tables have been started");

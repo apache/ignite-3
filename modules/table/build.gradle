@@ -43,6 +43,7 @@ dependencies {
     implementation project(':ignite-vault')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-catalog')
+    implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -57,12 +58,14 @@ dependencies {
     testImplementation project(':ignite-schema')
     testImplementation project(':ignite-page-memory')
     testImplementation project(':ignite-storage-rocksdb')
+    testImplementation project(':ignite-placement-driver-api')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-schema')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-transactions')))
     testImplementation(testFixtures(project(':ignite-storage-api')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
+    testImplementation(testFixtures(project(':ignite-placement-driver-api')))
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
@@ -85,6 +88,7 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-storage-api')))
     testFixturesImplementation(testFixtures(project(':ignite-transactions')))
     testFixturesImplementation(testFixtures(project(':ignite-cluster-management')))
+    testFixturesImplementation(testFixtures(project(':ignite-placement-driver-api')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core
@@ -106,6 +110,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-storage-api')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
     integrationTestImplementation(testFixtures(project(':ignite-cluster-management')))
+    integrationTestImplementation(testFixtures(project(':ignite-placement-driver-api')))
     integrationTestImplementation libs.fastutil.core
 }
 
