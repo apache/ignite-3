@@ -35,6 +35,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+/**
+ * Class for testing local map of tx states.
+ */
 @ExtendWith(ConfigurationExtension.class)
 public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
