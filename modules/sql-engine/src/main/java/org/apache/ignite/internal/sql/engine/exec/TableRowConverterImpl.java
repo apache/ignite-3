@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.List;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -57,26 +58,23 @@ public class TableRowConverterImpl implements TableRowConverter {
 
         assert handler == ectx.rowHandler();
 
-        RowT res = factory.create();
-
-        assert handler.columnCount(res) == (requiredColumns == null ? desc.columnsCount() : requiredColumns.cardinality());
-
         Row row = schemaRegistry.resolve(binaryRow, schemaDescriptor);
 
-        if (requiredColumns == null) {
-            for (int i = 0; i < desc.columnsCount(); i++) {
-                ColumnDescriptor colDesc = desc.columnDescriptor(i);
+        // IgniteUtils.dumpStack(null, ">xxx> wrap");
 
-                handler.set(i, res, TypeUtils.toInternal(row.value(colDesc.physicalIndex())));
-            }
-        } else {
+        if (requiredColumns != null) {
+            List<Integer> requiredColumns0 = new ArrayList<>();
+
             for (int i = 0, j = requiredColumns.nextSetBit(0); j != -1; j = requiredColumns.nextSetBit(j + 1), i++) {
                 ColumnDescriptor colDesc = desc.columnDescriptor(j);
 
-                handler.set(i, res, TypeUtils.toInternal(row.value(colDesc.physicalIndex())));
+                requiredColumns0.add(colDesc.physicalIndex());
             }
+
+            return factory.wrap(row, requiredColumns0);
         }
 
-        return res;
+        return factory.wrap(row, null);
+
     }
 }

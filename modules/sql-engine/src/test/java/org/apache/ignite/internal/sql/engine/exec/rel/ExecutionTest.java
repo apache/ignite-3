@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -43,6 +44,9 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.SqlRowWrapper;
+import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -575,6 +579,33 @@ public class ExecutionTest extends AbstractExecutionTest {
         assertThrowsWithCause(root::hasNext, AssertionError.class);
 
         watchDog.interrupt();
+    }
+
+    @Test
+    public void testRowFactoryAssemblyEx() {
+        ExecutionContext<SqlRowWrapper> ctx = executionContextBinaryTuple(false);
+
+        RowSchema rowSchema = RowSchema.builder()
+                .addField(new BaseTypeSpec(NativeTypes.INT32, false))
+                .addField(new BaseTypeSpec(NativeTypes.STRING, true))
+                .addField(new BaseTypeSpec(NativeTypes.BOOLEAN, true))
+                .build();
+
+        RowFactory<SqlRowWrapper> rowFactory = ctx.rowHandler().factory(rowSchema);
+
+        SqlRowWrapper row1 = rowFactory.create();
+
+        ctx.rowHandler().set(0, row1, 1);
+        ctx.rowHandler().set(1, row1, "2");
+        ctx.rowHandler().set(2, row1, false);
+
+        ByteBuffer bb = ctx.rowHandler().toByteBuffer(row1);
+
+        SqlRowWrapper row2 = rowFactory.create(bb);
+
+        for (int i = 0; i < row1.columnsCount(); i++) {
+            assertEquals(row1.get(i), row2.get(i));
+        }
     }
 
     /** {@inheritDoc} */

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
@@ -38,6 +39,8 @@ import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
+import org.apache.ignite.internal.sql.engine.exec.SqlRowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
@@ -109,6 +112,33 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
                 "fake-test-node",
                 fragmentDesc,
                 ArrayRowHandler.INSTANCE,
+                Map.of(),
+                TxAttributes.fromTx(new NoOpTransaction("fake-test-node"))
+        );
+    }
+
+    ExecutionContext<SqlRowWrapper> executionContextBinaryTuple(boolean withDelays) {
+        if (withDelays) {
+            StripedThreadPoolExecutor testExecutor = new IgniteTestStripedThreadPoolExecutor(8,
+                    NamedThreadFactory.threadPrefix("fake-test-node", "sqlTestExec"),
+                    new LogUncaughtExceptionHandler(log),
+                    false,
+                    0);
+            IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
+        }
+
+        FragmentDescription fragmentDesc = new FragmentDescription(0, true, null, null, Long2ObjectMaps.emptyMap());
+
+        return new ExecutionContext<>(
+                BaseQueryContext.builder()
+                        .logger(log)
+                        .build(),
+                taskExecutor,
+                UUID.randomUUID(),
+                new ClusterNodeImpl("1", "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
+                "fake-test-node",
+                fragmentDesc,
+                SqlRowHandler.INSTANCE,
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node"))
         );
@@ -342,6 +372,11 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
             @Override
             public Object[] create(Object... fields) {
                 return fields;
+            }
+
+            @Override
+            public Object[] create(ByteBuffer raw) {
+                throw new UnsupportedOperationException();
             }
         };
     }

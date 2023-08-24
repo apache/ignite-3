@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.ByteUtils;
 
 /**
  * Handler for rows that implemented as a simple objects array.
@@ -27,7 +29,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 public class ArrayRowHandler implements RowHandler<Object[]> {
     public static final RowHandler<Object[]> INSTANCE = new ArrayRowHandler();
 
-    private ArrayRowHandler() {
+    ArrayRowHandler() {
     }
 
     /** {@inheritDoc} */
@@ -52,6 +54,13 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
     @Override
     public int columnCount(Object[] row) {
         return row.length;
+    }
+
+    @Override
+    public ByteBuffer toByteBuffer(Object[] row) {
+        byte[] raw = ByteUtils.toBytes(row);
+
+        return ByteBuffer.wrap(raw);
     }
 
     /** {@inheritDoc} */
@@ -84,6 +93,12 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
                 assert fields.length == rowLen;
 
                 return fields;
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public Object[] create(ByteBuffer raw) {
+                return ByteUtils.fromBytes(raw.array());
             }
         };
     }

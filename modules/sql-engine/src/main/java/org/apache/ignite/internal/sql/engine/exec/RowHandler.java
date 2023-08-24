@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.nio.ByteBuffer;
+import java.util.List;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,6 +37,8 @@ public interface RowHandler<RowT> {
 
     String toString(RowT row);
 
+    ByteBuffer toByteBuffer(RowT row);
+
     /** Creates a factory that produces rows with fields defined by the given schema. */
     RowFactory<RowT> factory(RowSchema rowSchema);
 
@@ -48,5 +53,11 @@ public interface RowHandler<RowT> {
         RowT create();
 
         RowT create(Object... fields);
+
+        RowT create(ByteBuffer raw);
+
+        default RowT wrap(Row row, @Nullable List<Integer> columns) {
+            throw new UnsupportedOperationException();
+        }
     }
 }
