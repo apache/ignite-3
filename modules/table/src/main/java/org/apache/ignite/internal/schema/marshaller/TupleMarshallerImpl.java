@@ -78,8 +78,9 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
                     if (!binaryTupleRebuildRequired(schema)) {
                         validateTuple(tuple, schema);
-                        var binaryRow = new BinaryRowImpl(schema.version(), tupleReader.byteBuffer());
 
+                        // BinaryTuple from client has matching schema version, and all valued are valid. Use it as is.
+                        var binaryRow = new BinaryRowImpl(schema.version(), tupleReader.byteBuffer());
                         return Row.wrapBinaryRow(schema, binaryRow);
                     }
                 }
