@@ -38,6 +38,7 @@ namespace Apache.Ignite.Tests
         protected const string TableAllColumnsSqlName = "TBL_ALL_COLUMNS_SQL";
 
         protected const string TableInt8Name = "TBL_INT8";
+        protected const string TableBoolName = "TBL_BOOL";
         protected const string TableInt16Name = "TBL_INT16";
         protected const string TableInt32Name = "TBL_INT32";
         protected const string TableInt64Name = "TBL_INT64";
