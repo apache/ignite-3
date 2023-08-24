@@ -16,7 +16,7 @@
   -->
 
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="PMD [pmdMain]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Checks">
+  <configuration default="false" name="PMD [pmdMain pmdTest]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Checks">
     <ExternalSystemSettings>
       <option name="executionName" />
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -28,6 +28,7 @@
       <option name="taskNames">
         <list>
           <option value="pmdMain" />
+          <option value="pmdTest" />
         </list>
       </option>
       <option name="vmOptions" />
