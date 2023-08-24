@@ -21,7 +21,6 @@ import java.lang.System.Logger.Level;
 import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Ignite logger wraps system logger for more convenient access.
@@ -35,7 +34,7 @@ public class IgniteLogger {
      *
      * @param delegate The delegate to create facade for.
      */
-    IgniteLogger(@NotNull System.Logger delegate) {
+    IgniteLogger(System.Logger delegate) {
         this.delegate = delegate;
     }
 

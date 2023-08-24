@@ -134,7 +134,7 @@ public class TestNode implements LifecycleAware {
                 dependencyResolver,
                 (ctx, deps) -> new LogicalRelImplementor<Object[]>(
                         ctx,
-                        new HashFunctionFactoryImpl<>(schemaManager, rowHandler),
+                        new HashFunctionFactoryImpl<>(rowHandler),
                         mailboxRegistry,
                         exchangeService,
                         deps

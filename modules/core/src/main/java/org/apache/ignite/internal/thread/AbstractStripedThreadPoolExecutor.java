@@ -29,7 +29,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * An abstract executor that executes submitted tasks using pooled grid threads.
@@ -83,21 +82,18 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public <T> Future<T> submit(Callable<T> task) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public <T> Future<T> submit(Runnable task, T res) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Future<?> submit(Runnable task) {
         throw new UnsupportedOperationException();
@@ -166,14 +162,12 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks) {
         throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks,
             long timeout,
@@ -182,7 +176,6 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public <T> T invokeAny(Collection<? extends Callable<T>> tasks) {
         throw new UnsupportedOperationException();

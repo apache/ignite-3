@@ -27,7 +27,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -130,7 +129,6 @@ final class Script implements Iterable<Command>, AutoCloseable {
         }
     }
 
-    @NotNull
     @Override
     public Iterator<Command> iterator() {
         Command cmd0 = nextCommand();

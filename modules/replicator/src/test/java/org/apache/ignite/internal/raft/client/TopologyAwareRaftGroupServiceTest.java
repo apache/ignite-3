@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -337,8 +336,6 @@ public class TopologyAwareRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         PeersAndLearners peersAndLearners = peersAndLearners(clusterServices, isServerAddress, nodes);
-
-        Set<String> placementDriverNodesNames = peersAndLearners.peers().stream().map(Peer::consistentId).collect(toSet());
 
         for (NetworkAddress addr : addresses) {
             var cluster = clusterServices.get(addr);

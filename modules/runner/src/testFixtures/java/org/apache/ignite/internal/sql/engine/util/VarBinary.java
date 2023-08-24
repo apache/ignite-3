@@ -21,7 +21,6 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * A wrapper for {@link NativeTypes#BYTES} that implements {@link Comparable} interface.
@@ -65,7 +64,7 @@ public final class VarBinary implements NativeTypeWrapper<VarBinary> {
 
     /** {@inheritDoc} */
     @Override
-    public int compareTo(@NotNull VarBinary o) {
+    public int compareTo(VarBinary o) {
         return Arrays.compare(bytes, o.bytes);
     }
 
