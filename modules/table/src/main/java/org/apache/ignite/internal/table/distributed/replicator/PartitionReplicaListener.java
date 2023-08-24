@@ -2744,14 +2744,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
-        txManager.updateTxMeta(txId, old -> {
-            requireNonNull(old, "Can't mark as finished a transaction that had not touch the primary replica before, txId=[" + txId + ']');
-
-            return new TxStateMeta(
-                    commit ? COMMITED : ABORTED,
-                    old.txCoordinatorId(),
-                    commit ? commitTimestamp : null
-            );
-        });
+        txManager.updateTxMeta(txId, old -> old == null
+                ? null
+                : new TxStateMeta(commit ? COMMITED : ABORTED, old.txCoordinatorId(), commit ? commitTimestamp : null));
     }
 }
