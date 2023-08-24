@@ -562,7 +562,7 @@ public final class IgniteTestUtils {
      * @throws InterruptedException If waiting was interrupted.
      */
     public static boolean waitForCondition(BooleanSupplier cond, long timeoutMillis) throws InterruptedException {
-        return waitForCondition(cond, 50, timeoutMillis);
+        return waitForCondition(cond, 10, timeoutMillis);
     }
 
     /**

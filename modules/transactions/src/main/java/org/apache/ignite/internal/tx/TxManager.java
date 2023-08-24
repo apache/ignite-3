@@ -28,6 +28,7 @@ import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -149,4 +150,6 @@ public interface TxManager extends IgniteComponent {
      * @return Future of all read-only transactions with read timestamp less or equals the given new low watermark.
      */
     CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark);
+
+    boolean addInflight(@NotNull UUID tx);
 }

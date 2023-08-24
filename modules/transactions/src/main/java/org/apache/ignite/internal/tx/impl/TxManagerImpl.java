@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLo
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.Comparator;
@@ -35,20 +36,28 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BiFunction;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
+import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.NetworkMessageHandler;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -57,7 +66,7 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
-public class TxManagerImpl implements TxManager {
+public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -77,6 +86,8 @@ public class TxManagerImpl implements TxManager {
     @TestOnly
     private final ConcurrentHashMap<UUID, TxState> states = new ConcurrentHashMap<>();
 
+    private final ConcurrentHashMap<UUID, IgniteBiTuple<Integer, CompletableFuture<Void>>> map = new ConcurrentHashMap<>();
+
     /** Future of a read-only transaction by it {@link TxIdAndTimestamp}. */
     private final ConcurrentNavigableMap<TxIdAndTimestamp, CompletableFuture<Void>> readOnlyTxFutureById = new ConcurrentSkipListMap<>(
             Comparator.comparing(TxIdAndTimestamp::getReadTimestamp).thenComparing(TxIdAndTimestamp::getTxId)
@@ -90,6 +101,9 @@ public class TxManagerImpl implements TxManager {
 
     /** Lock to update and read the low watermark. */
     private final ReadWriteLock lowWatermarkReadWriteLock = new ReentrantReadWriteLock();
+
+    /** Busy lock to stop synchronously. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /**
      * The constructor.
@@ -202,21 +216,26 @@ public class TxManagerImpl implements TxManager {
     ) {
         assert groups != null && !groups.isEmpty();
 
-        HybridTimestamp commitTimestamp = commit ? clock.now() : null;
+        IgniteBiTuple<Integer, CompletableFuture<Void>> tup = map.get(txId);
 
-        TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
-                .txId(txId)
-                .timestampLong(clock.nowLong())
-                .groupId(commitPartition)
-                .groups(groups)
-                .commit(commit)
-                .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                .term(term)
-                .build();
+        // Wait for commit acks first, then proceed with the finish request.
+        return tup.get2().thenCompose(res -> {
+            HybridTimestamp commitTimestamp = commit ? clock.now() : null;
 
-        return replicaService.invoke(recipientNode, req)
-                // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
-                .thenRun(() -> changeState(txId, PENDING, commit ? COMMITED : ABORTED));
+            TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
+                    .txId(txId)
+                    .timestampLong(clock.nowLong())
+                    .groupId(commitPartition)
+                    .groups(groups)
+                    .commit(commit)
+                    .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
+                    .term(term)
+                    .build();
+
+            return replicaService.invoke(recipientNode, req)
+                    // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
+                    .thenRun(() -> changeState(txId, PENDING, commit ? COMMITED : ABORTED));
+        });
     }
 
     @Override
@@ -259,12 +278,12 @@ public class TxManagerImpl implements TxManager {
 
     @Override
     public void start() {
-        // No-op.
+        replicaService.messagingService().addMessageHandler(ReplicaMessageGroup.class, this);
     }
 
     @Override
     public void stop() {
-        // No-op.
+        busyLock.block();
     }
 
     @Override
@@ -305,6 +324,58 @@ public class TxManagerImpl implements TxManager {
             return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
         } finally {
             lowWatermarkReadWriteLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public boolean addInflight(@NotNull UUID txId) {
+        IgniteBiTuple<Integer, CompletableFuture<Void>> newVal = map.compute(txId, (uuid, tuple) -> {
+            if (tuple == null) {
+                tuple = new IgniteBiTuple<>(0, new CompletableFuture<>());
+            }
+
+            tuple.set1(tuple.get1() + 1);
+
+            return tuple;
+        });
+
+        if (newVal.get1() < 0) { // Fail on overflow. Limits the number of tx ops.
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
+        if (!(message instanceof ReplicaResponse)) {
+            return;
+        }
+
+        // Process directly sent response.
+        ReplicaResponse request = (ReplicaResponse) message;
+
+        if (!busyLock.enterBusy()) {
+            // TODO just ignore ?
+            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
+
+        Object result = request.result();
+
+        if (result instanceof UUID) {
+            UUID txId = (UUID) result;
+
+            IgniteBiTuple<Integer, CompletableFuture<Void>> tuple = map.compute(txId, (uuid, tuple0) -> {
+                assert tuple0 != null;
+
+                tuple0.set1(tuple0.get1() - 1);
+
+                return tuple0;
+            });
+
+            if (tuple.get1() == 0) {
+                tuple.get2().complete(null); // Avoid completion under lock.
+            }
         }
     }
 }

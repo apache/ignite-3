@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -60,9 +59,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** Enlisted partitions: partition id -> (primary replica node, raft term). */
     private final Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
-
-    /** Enlisted operation futures in this transaction. */
-    private final List<CompletableFuture<?>> enlistedResults = new CopyOnWriteArrayList<>();
 
     /** A partition which stores the transaction state. */
     private volatile TablePartitionId commitPart;
@@ -112,62 +108,46 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17688 Add proper exception handling.
-        CompletableFuture<Void> mainFinishFut = CompletableFuture
-                .allOf(enlistedResults.toArray(new CompletableFuture[0]))
-                .thenCompose(
-                        ignored -> {
-                            if (!enlisted.isEmpty()) {
-                                Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups = new LinkedHashMap<>();
+        if (!enlisted.isEmpty()) {
+            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups = new LinkedHashMap<>();
 
-                                enlisted.forEach((groupId, groupMeta) -> {
-                                    ClusterNode recipientNode = groupMeta.get1();
+            enlisted.forEach((groupId, groupMeta) -> {
+                ClusterNode recipientNode = groupMeta.get1();
 
-                                    if (groups.containsKey(recipientNode)) {
-                                        groups.get(recipientNode).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
-                                    } else {
-                                        List<IgniteBiTuple<TablePartitionId, Long>> items = new ArrayList<>();
+                if (groups.containsKey(recipientNode)) {
+                    groups.get(recipientNode).add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
+                } else {
+                    List<IgniteBiTuple<TablePartitionId, Long>> items = new ArrayList<>();
 
-                                        items.add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
+                    items.add(new IgniteBiTuple<>(groupId, groupMeta.get2()));
 
-                                        groups.put(recipientNode, items);
-                                    }
-                                });
+                    groups.put(recipientNode, items);
+                }
+            });
 
-                                ClusterNode recipientNode = enlisted.get(commitPart).get1();
-                                Long term = enlisted.get(commitPart).get2();
+            ClusterNode recipientNode = enlisted.get(commitPart).get1();
+            Long term = enlisted.get(commitPart).get2();
 
-                                LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
-                                        recipientNode, term, commit, id(), groups);
+            LOG.debug("Finish [recipientNode={}, term={} commit={}, txId={}, groups={}",
+                    recipientNode, term, commit, id(), groups);
 
-                                assert recipientNode != null;
-                                assert term != null;
+            assert recipientNode != null;
+            assert term != null;
 
-                                return txManager.finish(
-                                        commitPart,
-                                        recipientNode,
-                                        term,
-                                        commit,
-                                        groups,
-                                        id()
-                                );
-                            } else {
-                                // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
-                                txManager.changeState(id(), PENDING, commit ? COMMITED : ABORTED);
+            return txManager.finish(
+                    commitPart,
+                    recipientNode,
+                    term,
+                    commit,
+                    groups,
+                    id()
+            );
+        } else {
+            // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
+            txManager.changeState(id(), PENDING, commit ? COMMITED : ABORTED);
 
-                                return completedFuture(null);
-                            }
-                        }
-                );
-
-        mainFinishFut.handle((res, e) -> finishFut.complete(null));
-
-        return mainFinishFut;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void enlistResultFuture(CompletableFuture<?> resultFuture) {
-        enlistedResults.add(resultFuture);
+            return completedFuture(null);
+        }
     }
 
     /** {@inheritDoc} */
@@ -186,4 +166,5 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     public HybridTimestamp startTimestamp() {
         return TransactionIds.beginTimestamp(id());
     }
+
 }

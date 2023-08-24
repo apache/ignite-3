@@ -221,4 +221,8 @@ public class ReplicaService {
     public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request, String storageId) {
         return sendToReplica(node.name(), request);
     }
+
+    public MessagingService messagingService() {
+        return messagingService;
+    }
 }

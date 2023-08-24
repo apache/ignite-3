@@ -235,14 +235,14 @@ public class ReplicaManager implements IgniteComponent {
             // replicaFut is always completed here.
             Replica replica = replicaFut.join();
 
-            CompletableFuture<?> result = replica.processRequest(request);
+            CompletableFuture<CompletionResult> result = replica.processRequest(request);
 
             HybridTimestamp finalSendTimestamp = sendTimestamp;
             result.handle((res, ex) -> {
                 NetworkMessage msg;
 
                 if (ex == null) {
-                    msg = prepareReplicaResponse(finalSendTimestamp, res);
+                    msg = prepareReplicaResponse(finalSendTimestamp, res.result());
                 } else {
                     LOG.warn("Failed to process replica request [request={}]", ex, request);
 
@@ -259,6 +259,32 @@ public class ReplicaManager implements IgniteComponent {
                     } else if (isConnectivityRelatedException(ex)) {
                         stopLeaseProlongation(request.groupId(), null);
                     }
+                }
+
+                // Handle delayed response.
+                if (res.delayedResult() != null) {
+                    CompletableFuture<?> nested = res.delayedResult();
+                    nested.handle((res0, ex0) -> {
+                        NetworkMessage msg0;
+
+                        if (ex == null) {
+                            msg0 = prepareReplicaResponse(finalSendTimestamp, res0);
+                        } else {
+                            LOG.warn("Failed to process delayed replica response [request={}]", ex, request);
+
+                            msg0 = prepareReplicaErrorResponse(finalSendTimestamp, ex);
+                        }
+
+                        ClusterNode sender = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId);
+
+                        if (sender != null) {
+                            clusterNetSvc.messagingService().weakSend(sender, msg0);
+                        } else {
+                            LOG.warn("Failed to send delayed response, recipient is off the cluster topology [msg={}]", msg0);
+                        }
+
+                        return null;
+                    });
                 }
 
                 return null;
@@ -505,7 +531,7 @@ public class ReplicaManager implements IgniteComponent {
     /**
      * Extract a hybrid timestamp from timestamp aware request or return null.
      */
-    private HybridTimestamp extractTimestamp(ReplicaRequest request) {
+    private static @Nullable HybridTimestamp extractTimestamp(ReplicaRequest request) {
         if (request instanceof TimestampAware) {
             return ((TimestampAware) request).timestamp();
         } else {

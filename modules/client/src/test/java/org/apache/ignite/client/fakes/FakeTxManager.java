@@ -103,12 +103,8 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public void enlistResultFuture(CompletableFuture<?> resultFuture) {
-            }
-
-            @Override
             public void commit() throws TransactionException {
-
+                // No-op.
             }
 
             @Override
@@ -118,7 +114,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public void rollback() throws TransactionException {
-
+                // No-op.
             }
 
             @Override

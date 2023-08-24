@@ -362,6 +362,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
         if (startClient()) {
             clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock, new TransactionIdGenerator(-1));
+            clientTxManager.start();
         } else {
             // Collocated mode.
             clientTxManager = txManagers.get(localNodeName);

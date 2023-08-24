@@ -41,6 +41,7 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.replicator.CompletionResult;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -77,8 +78,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * Tests handling requests from {@link ReplicaService} to {@link ReplicaManager} when the {@link Replica}
- * is not started.
+ * Tests handling requests from {@link ReplicaService} to {@link ReplicaManager} when the {@link Replica} is not started.
  */
 public class ReplicaUnavailableTest extends IgniteAbstractTest {
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
@@ -163,9 +163,9 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 completedFuture(null),
-                                request0 -> completedFuture(replicaMessageFactory.replicaResponse()
+                                request0 -> completedFuture(new CompletionResult(replicaMessageFactory.replicaResponse()
                                         .result(Integer.valueOf(5))
-                                        .build()),
+                                        .build(), null)),
                                 mock(TopologyAwareRaftGroupService.class),
                                 new PendingComparableValuesTracker<>(0L)
                         );
@@ -265,9 +265,9 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 new CompletableFuture<>(),
-                                request0 -> completedFuture(replicaMessageFactory.replicaResponse()
+                                request0 -> completedFuture(new CompletionResult(replicaMessageFactory.replicaResponse()
                                         .result(Integer.valueOf(5))
-                                        .build()),
+                                        .build(), null)),
                                 mock(TopologyAwareRaftGroupService.class),
                                 new PendingComparableValuesTracker<>(0L)
                         );

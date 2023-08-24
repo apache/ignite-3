@@ -30,6 +30,7 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
@@ -78,10 +79,13 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
+import org.apache.ignite.internal.table.distributed.replication.request.MultipleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
+import org.apache.ignite.internal.table.distributed.replication.request.SingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
@@ -266,7 +270,7 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(tx0, partId, term -> fac.apply(tx0, partGroupId, term), ATTEMPTS_TO_ENLIST_PARTITION);
+            fut = enlistWithRetry(tx0, partId, term -> fac.apply(tx0, partGroupId, term), ATTEMPTS_TO_ENLIST_PARTITION, implicit);
         }
 
         return postEnlist(fut, false, tx0, implicit);
@@ -339,7 +343,8 @@ public class InternalTableImpl implements InternalTable {
                         tx0,
                         partitionId,
                         term -> fac.apply(rowBatch.requestedRows, tx0, partGroupId, term, implicit && singlePart),
-                        ATTEMPTS_TO_ENLIST_PARTITION
+                        ATTEMPTS_TO_ENLIST_PARTITION,
+                        implicit && singlePart
                 );
             }
 
@@ -410,7 +415,7 @@ public class InternalTableImpl implements InternalTable {
                 throw new TransactionException("Failed to invoke the replica request.");
             }
         } else {
-            fut = enlistWithRetry(tx, partId, term -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION);
+            fut = enlistWithRetry(tx, partId, term -> requestBuilder.term(term).build(), ATTEMPTS_TO_ENLIST_PARTITION, false);
         }
 
         return postEnlist(fut, false, tx, false);
@@ -434,23 +439,54 @@ public class InternalTableImpl implements InternalTable {
      * @param partId Partition number.
      * @param mapFunc Function to create replica request with new raft term.
      * @param attempts Number of attempts.
+     * @param full {@code True} if is a full transaction.
      * @return The future.
      */
     private <R> CompletableFuture<R> enlistWithRetry(
             InternalTransaction tx,
             int partId,
             Function<Long, ReplicaRequest> mapFunc,
-            int attempts
+            int attempts,
+            boolean full
     ) {
         CompletableFuture<R> result = new CompletableFuture<>();
 
         enlist(partId, tx).<R>thenCompose(
                         primaryReplicaAndTerm -> {
                             try {
-                                return replicaSvc.invoke(
-                                        primaryReplicaAndTerm.get1(),
-                                        mapFunc.apply(primaryReplicaAndTerm.get2())
-                                );
+                                ReplicaRequest request = mapFunc.apply(primaryReplicaAndTerm.get2());
+                                if (full) {
+                                    return replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+                                } else {
+                                    // Enlist only write requests.
+                                    if (request instanceof SingleRowReplicaRequest) {
+                                        SingleRowReplicaRequest req0 = (SingleRowReplicaRequest) request;
+
+                                        if (req0.requestType() != RequestType.RW_GET && !txManager.addInflight(tx.id())) {
+                                            return failedFuture(
+                                                    new TransactionException(TX_UNEXPECTED_STATE_ERR, IgniteStringFormatter.format(
+                                                            "Failed to enlist an operation into a transaction, tx is already finished [tableName={}, "
+                                                                    + "partId={}]",
+                                                            tableName,
+                                                            partId
+                                                    )));
+                                        }
+                                    }
+                                    if (request instanceof MultipleRowReplicaRequest) {
+                                        MultipleRowReplicaRequest req0 = (MultipleRowReplicaRequest) request;
+
+                                        if (req0.requestType() != RequestType.RW_GET_ALL && !txManager.addInflight(tx.id())) {
+                                            return failedFuture(
+                                                    new TransactionException(TX_UNEXPECTED_STATE_ERR, IgniteStringFormatter.format(
+                                                            "Failed to enlist an operation into a transaction, tx is already finished [tableName={}, "
+                                                                    + "partId={}]",
+                                                            tableName,
+                                                            partId
+                                                    )));
+                                        }
+                                    }
+                                    return replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
+                                }
                             } catch (PrimaryReplicaMissException e) {
                                 throw new TransactionException(e);
                             } catch (Throwable e) {
@@ -468,7 +504,7 @@ public class InternalTableImpl implements InternalTable {
                 .handle((res0, e) -> {
                     if (e != null) {
                         if (e.getCause() instanceof PrimaryReplicaMissException && attempts > 0) {
-                            return enlistWithRetry(tx, partId, mapFunc, attempts - 1).handle((r2, e2) -> {
+                            return enlistWithRetry(tx, partId, mapFunc, attempts - 1, full).handle((r2, e2) -> {
                                 if (e2 != null) {
                                     return result.completeExceptionally(e2);
                                 } else {
@@ -492,7 +528,7 @@ public class InternalTableImpl implements InternalTable {
      * @param fut The future.
      * @param autoCommit {@code True} for auto commit.
      * @param tx0 The transaction.
-     * @param full If this is full transaction.
+     * @param full {@code True} if this is a full transaction.
      * @param <T> Operation return type.
      * @return The future.
      */
@@ -517,8 +553,6 @@ public class InternalTableImpl implements InternalTable {
                     throw e0;
                 }); // Preserve failed state.
             } else {
-                tx0.enlistResultFuture(fut);
-
                 if (autoCommit) {
                     return tx0.commitAsync()
                             .exceptionally(ex -> {
@@ -686,7 +720,8 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 partition,
                 term -> upsertAllInternal(rows, tx, partGroupId, term, true),
-                ATTEMPTS_TO_ENLIST_PARTITION
+                ATTEMPTS_TO_ENLIST_PARTITION,
+                true
         );
 
         return postEnlist(fut, false, tx, true); // Will be committed in one RTT.

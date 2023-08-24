@@ -157,11 +157,6 @@ public final class NoOpTransaction implements InternalTransaction {
         return nodeAndTerm;
     }
 
-    @Override
-    public void enlistResultFuture(CompletableFuture<?> resultFuture) {
-        resultFuture.complete(null);
-    }
-
     /** Returns a {@link CompletableFuture} that completes when this transaction commits. */
     public CompletableFuture<Void> commitFuture() {
         return commitFut;

@@ -70,7 +70,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         tx.assignCommitPartition(partId);
 
-        tx.enlistResultFuture(completedFuture(null));
+        // tx.enlistResultFuture(completedFuture(null));
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -120,7 +120,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         tx.assignCommitPartition(partId);
 
-        tx.enlistResultFuture(completedFuture(null));
+        // tx.enlistResultFuture(completedFuture(null));
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -166,7 +166,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         tx.assignCommitPartition(partId);
 
-        tx.enlistResultFuture(completedFuture(null));
+        // tx.enlistResultFuture(completedFuture(null));
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 
@@ -201,7 +201,7 @@ public class RepeatedFinishReadWriteTransactionTest {
 
         tx.assignCommitPartition(partId);
 
-        tx.enlistResultFuture(completedFuture(null));
+        // tx.enlistResultFuture(completedFuture(null));
 
         CompletableFuture<Object> fut = new CompletableFuture<>();
 

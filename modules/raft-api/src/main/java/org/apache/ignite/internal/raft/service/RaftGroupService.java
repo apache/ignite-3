@@ -245,6 +245,5 @@ public interface RaftGroupService {
      *
      * @return Cluster service.
      */
-    @TestOnly
     ClusterService clusterService();
 }
