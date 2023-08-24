@@ -458,42 +458,40 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         return CompletableFuture.supplyAsync(() -> {
-                    ParsedResult result = parserService.parse(sql);
+            ParsedResult result = parserService.parse(sql);
 
-                    validateParsedStatement(context, result, params);
+            validateParsedStatement(context, result, params);
 
-                    return result;
-                }, taskExecutor)
-                .thenCompose(result -> {
-                    QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, outerTx);
+            return result;
+        }, taskExecutor).thenCompose(result -> {
+            QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, outerTx);
 
-                    CompletableFuture<AsyncSqlCursor<List<Object>>> start = new CompletableFuture<>()
-                            .thenCompose(ignore ->
-                                    // TODO IGNITE-18733: wait for actual metadata for TX.
-                                    waitActualSchema(schemaName, txWrapper.unwrap().startTimestamp())
-                            ).thenComposeAsync(schema -> {
-                                BaseQueryContext ctx = BaseQueryContext.builder()
-                                        .frameworkConfig(
-                                                Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                                        .defaultSchema(schema)
-                                                        .build()
-                                        )
-                                        .logger(LOG)
-                                        .cancel(queryCancel)
-                                        .parameters(params)
-                                        .build();
+            CompletableFuture<AsyncSqlCursor<List<Object>>> start = new CompletableFuture<>();
 
-                                return prepareSvc.prepareAsync(result, ctx)
-                                        .thenApply(plan -> executePlan(session, txWrapper, ctx, plan));
-                            });
+            CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
+                    .thenCompose(ignore -> waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp()))
+                    .thenCompose(schema -> {
+                        BaseQueryContext ctx = BaseQueryContext.builder()
+                                .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
+                                .logger(LOG)
+                                .cancel(queryCancel)
+                                .parameters(params).build();
 
-                    start.whenComplete((res, ex) -> txWrapper.rollbackImplicit());
+                        return prepareSvc.prepareAsync(result, ctx).thenApply(plan -> executePlan(session, txWrapper, ctx, plan));
+                    }).whenComplete((res, ex) -> {
+                        if (ex != null) {
+                            txWrapper.rollbackImplicit();
+                        }
+                    });
 
-                    return start.completeAsync(null, taskExecutor);
-                });
+            start.completeAsync(() -> null, taskExecutor);
+
+            return stage;
+        });
     }
 
-    private CompletableFuture<SchemaPlus> waitActualSchema(String schemaName, HybridTimestamp timestamp) {
+    private CompletableFuture<SchemaPlus> waitForActualSchema(String schemaName, HybridTimestamp timestamp) {
+        // TODO IGNITE-18733: wait for actual metadata for TX.
         SchemaPlus schema = sqlSchemaManager.schema(schemaName, timestamp.longValue());
 
         if (schema == null) {
@@ -502,7 +500,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         return CompletableFuture.completedFuture(schema);
     }
 
-    private AsyncSqlCursorImpl<List<Object>> executePlan(Session session, QueryTransactionWrapper txWrapper, BaseQueryContext ctx,
+    private AsyncSqlCursor<List<Object>> executePlan(Session session, QueryTransactionWrapper txWrapper, BaseQueryContext ctx,
             QueryPlan plan) {
         var dataCursor = executionSrvc.executePlan(txWrapper.unwrap(), plan, ctx);
 
