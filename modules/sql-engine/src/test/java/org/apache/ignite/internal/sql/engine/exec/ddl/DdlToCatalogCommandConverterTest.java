@@ -17,17 +17,32 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
+import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.constant;
+import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import java.util.List;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.junit.jupiter.api.Test;
@@ -37,6 +52,8 @@ import org.junit.jupiter.api.Test;
  */
 public class DdlToCatalogCommandConverterTest {
     private static final String ZONE_NAME = "zone_test";
+
+    private static final String TABLE_NAME = "table_test";
 
     @Test
     void testConvertCreateZoneCommand() {
@@ -146,5 +163,53 @@ public class DdlToCatalogCommandConverterTest {
 
         assertEquals(ZONE_NAME, params.zoneName());
         assertEquals(ZONE_NAME + "_new", params.newZoneName());
+    }
+
+    @Test
+    void testConvertCreateTableCommand() {
+        CreateTableCommand cmd = new CreateTableCommand();
+        cmd.schemaName(DEFAULT_SCHEMA_NAME);
+        cmd.zone(ZONE_NAME);
+        cmd.tableName(TABLE_NAME);
+        cmd.columns(List.of(new ColumnDefinition("key", createRelDataType(INTEGER), constant(0))));
+        cmd.primaryKeyColumns(List.of("key"));
+        cmd.colocationColumns(List.of("key"));
+
+        CreateTableParams params = DdlToCatalogCommandConverter.convert(cmd);
+
+        assertEquals(DEFAULT_SCHEMA_NAME, params.schemaName());
+        assertEquals(ZONE_NAME, params.zone());
+        assertEquals(TABLE_NAME, params.tableName());
+        assertEquals(List.of("key"), params.primaryKeyColumns());
+        assertEquals(List.of("key"), params.colocationColumns());
+
+        // Check columns.
+        assertThat(params.columns(), hasSize(1));
+
+        ColumnParams column = params.columns().get(0);
+        assertEquals("key", column.name());
+        assertEquals(INT32, column.type());
+    }
+
+    @Test
+    void testConvertCreateTableCommandWithoutColocationColumns() {
+        CreateTableCommand cmd = new CreateTableCommand();
+        cmd.schemaName(DEFAULT_SCHEMA_NAME);
+        cmd.zone(ZONE_NAME);
+        cmd.tableName(TABLE_NAME);
+        cmd.columns(List.of(new ColumnDefinition("key", createRelDataType(INTEGER), constant(0))));
+        cmd.primaryKeyColumns(List.of("key"));
+
+        CreateTableParams params = DdlToCatalogCommandConverter.convert(cmd);
+
+        assertEquals(List.of("key"), params.colocationColumns());
+    }
+
+    private static RelDataType createRelDataType(SqlTypeName type) {
+        RelDataType mock = mock(RelDataType.class);
+
+        when(mock.getSqlTypeName()).thenReturn(type);
+
+        return mock;
     }
 }

@@ -19,11 +19,13 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateAlterZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateHashIndexParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateSortedIndexParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateTableParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateZoneParams;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropIndexParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropTableParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropZoneParams;
@@ -98,6 +100,7 @@ import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 import org.apache.ignite.lang.ErrorGroups.Index;
+import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
@@ -383,16 +386,14 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> dropColumn(AlterTableDropColumnParams params) {
-        if (params.columns().isEmpty()) {
-            return completedFuture(null);
-        }
-
         return saveUpdateAndWaitForActivation(catalog -> {
+            validateDropColumnParams(params);
+
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            validateAlterTableDropColumnParams(params, schema, table);
+            validateDropColumnColumns(schema, table, params);
 
             return List.of(
                     new DropColumnsEntry(table.id(), params.columns())
@@ -753,36 +754,6 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         );
     }
 
-    private static void validateAlterTableDropColumnParams(
-            AlterTableDropColumnParams params,
-            CatalogSchemaDescriptor schema,
-            CatalogTableDescriptor table
-    ) {
-        for (String columnName : params.columns()) {
-            if (table.column(columnName) == null) {
-                throw new ColumnNotFoundException(schema.name(), params.tableName(), columnName);
-            }
-
-            if (table.isPrimaryKeyColumn(columnName)) {
-                throw new SqlException(
-                        STMT_VALIDATION_ERR,
-                        "Can't drop primary key column: [name=" + columnName + ']'
-                );
-            }
-        }
-
-        Arrays.stream(schema.indexes())
-                .filter(index -> index.tableId() == table.id())
-                .forEach(index -> params.columns().stream()
-                        .filter(index::hasColumn)
-                        .findAny()
-                        .ifPresent(columnName -> {
-                            throw new SqlException(
-                                    STMT_VALIDATION_ERR,
-                                    format("Can't drop indexed column: [columnName={}, indexName={}]", columnName, index.name()));
-                        }));
-    }
-
     private static void validateAlterTableColumn(
             CatalogTableColumnDescriptor origin,
             CatalogTableColumnDescriptor target,
@@ -864,14 +835,45 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     private static void validateIndexColumns(CatalogTableDescriptor table, AbstractCreateIndexCommandParams params) {
-        for (String indexColumn : params.columns()) {
-            if (table.columnDescriptor(indexColumn) == null) {
-                throw new ColumnNotFoundException(indexColumn);
-            }
-        }
+        validateColumnsExistsInTable(table, params.columns());
 
         if (params.unique() && !params.columns().containsAll(table.colocationColumns())) {
             throw new IgniteException(Index.INVALID_INDEX_DEFINITION_ERR, "Unique index must include all colocation columns");
+        }
+    }
+
+    private void validateDropColumnColumns(
+            CatalogSchemaDescriptor schema,
+            CatalogTableDescriptor table,
+            AlterTableDropColumnParams params
+    ) {
+        validateColumnsExistsInTable(table, params.columns());
+
+        List<String> inPrimaryKeyColumns = params.columns().stream()
+                .filter(table::isPrimaryKeyColumn)
+                .collect(toList());
+
+        if (!inPrimaryKeyColumns.isEmpty()) {
+            throw new IgniteException(Table.TABLE_DEFINITION_ERR, "Can't drop primary key columns: " + inPrimaryKeyColumns);
+        }
+
+        Arrays.stream(schema.indexes())
+                .filter(index -> index.tableId() == table.id())
+                .forEach(index -> params.columns().stream()
+                        .filter(index::hasColumn)
+                        .findAny()
+                        .ifPresent(columnName -> {
+                            throw new SqlException(
+                                    STMT_VALIDATION_ERR,
+                                    format("Can't drop indexed column: [columnName={}, indexName={}]", columnName, index.name()));
+                        }));
+    }
+
+    private static void validateColumnsExistsInTable(CatalogTableDescriptor table, Collection<String> columns) {
+        for (String column : columns) {
+            if (table.columnDescriptor(column) == null) {
+                throw new ColumnNotFoundException(column);
+            }
         }
     }
 }

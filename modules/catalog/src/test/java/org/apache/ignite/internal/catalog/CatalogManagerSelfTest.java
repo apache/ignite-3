@@ -73,14 +73,12 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -369,16 +367,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testDropColumn() {
         assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
-        // Validate dropping column
-        AlterTableDropColumnParams params = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of("VAL"))
-                .build();
-
         long beforeAddedTimestamp = clock.nowLong();
 
-        assertThat(manager.dropColumn(params), willBe(nullValue()));
+        assertThat(manager.dropColumn(dropColumnParams("VAL")), willBe(nullValue()));
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.activeSchema(beforeAddedTimestamp);
@@ -393,63 +384,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotNull(schema.table(TABLE_NAME));
 
         assertNull(schema.table(TABLE_NAME).column("VAL"));
-    }
-
-    @Test
-    public void testCreateDropColumnIfTableNotExists() {
-        assertNull(manager.table(TABLE_NAME, clock.nowLong()));
-
-        // Try to add a new column.
-        AlterTableAddColumnParams addColumnParams = AlterTableAddColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(columnParams(NEW_COLUMN_NAME, INT32, true)))
-                .build();
-
-        assertThat(manager.addColumn(addColumnParams), willThrow(TableNotFoundException.class));
-
-        // Try to drop column.
-        AlterTableDropColumnParams dropColumnParams = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of("VAL"))
-                .build();
-
-        assertThat(manager.dropColumn(dropColumnParams), willThrow(TableNotFoundException.class));
-    }
-
-    @Test
-    public void testDropIndexedColumn() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
-
-        // Try to drop indexed column
-        AlterTableDropColumnParams params = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of("VAL"))
-                .build();
-
-        assertThat(manager.dropColumn(params), willThrow(SqlException.class,
-                "Can't drop indexed column: [columnName=VAL, indexName=myIndex]"));
-
-        // Try to drop PK column
-        params = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of("ID"))
-                .build();
-
-        assertThat(manager.dropColumn(params), willThrow(SqlException.class, "Can't drop primary key column: [name=ID]"));
-
-        // Validate actual catalog
-        CatalogSchemaDescriptor schema = manager.activeSchema(clock.nowLong());
-        assertNotNull(schema);
-        assertNotNull(schema.table(TABLE_NAME));
-        assertSame(manager.schema(2), schema);
-
-        assertNotNull(schema.table(TABLE_NAME).column("ID"));
-        assertNotNull(schema.table(TABLE_NAME).column("VAL"));
     }
 
     @Test
@@ -486,33 +420,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME_2));
 
         // Drop multiple columns.
-        AlterTableDropColumnParams dropColumnParams = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of(NEW_COLUMN_NAME, NEW_COLUMN_NAME_2))
-                .build();
-
-        assertThat(manager.dropColumn(dropColumnParams), willBe(nullValue()));
+        assertThat(manager.dropColumn(dropColumnParams(NEW_COLUMN_NAME, NEW_COLUMN_NAME_2)), willBe(nullValue()));
 
         // Validate both columns dropped.
         schema = manager.activeSchema(clock.nowLong());
 
         assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
         assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME_2));
-
-        // Check dropping of non-existing column
-        dropColumnParams = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of(NEW_COLUMN_NAME, "VAL"))
-                .build();
-
-        assertThat(manager.dropColumn(dropColumnParams), willThrow(ColumnNotFoundException.class));
-
-        // Validate no column dropped.
-        schema = manager.activeSchema(clock.nowLong());
-
-        assertNotNull(schema.table(TABLE_NAME).column("VAL"));
     }
 
     /**
@@ -1420,12 +1334,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .columns(List.of(columnParamsBuilder(NEW_COLUMN_NAME, INT32, true).defaultValue(constant(42)).build()))
                 .build();
 
-        AlterTableDropColumnParams dropColumnParams = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of(NEW_COLUMN_NAME))
-                .build();
-
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
         when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
 
@@ -1443,11 +1351,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         verify(eventListener).notify(any(AddColumnEventParameters.class), isNull());
 
         // Drop column.
-        assertThat(manager.dropColumn(dropColumnParams), willBe(nullValue()));
+        assertThat(manager.dropColumn(dropColumnParams(NEW_COLUMN_NAME)), willBe(nullValue()));
         verify(eventListener).notify(any(DropColumnEventParameters.class), isNull());
-
-        // Try drop column once again.
-        assertThat(manager.dropColumn(dropColumnParams), willThrow(ColumnNotFoundException.class));
 
         verifyNoMoreInteractions(eventListener);
     }
@@ -1615,14 +1520,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void dropColumnIncrementsTableVersion() {
         createSomeTable(TABLE_NAME);
 
-        CompletableFuture<Void> future = manager.dropColumn(
-                AlterTableDropColumnParams.builder()
-                        .schemaName(SCHEMA_NAME)
-                        .tableName(TABLE_NAME)
-                        .columns(Set.of("val1"))
-                        .build()
-        );
-        assertThat(future, willCompleteSuccessfully());
+        assertThat(manager.dropColumn(dropColumnParams("val1")), willCompleteSuccessfully());
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
 
@@ -1761,6 +1659,39 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.createIndex(simpleIndex()), willCompleteSuccessfully());
 
         assertThat(manager.createTable(simpleTable(INDEX_NAME)), willThrowFast(IndexAlreadyExistsException.class));
+    }
+
+    @Test
+    void testDropColumnWithNotExistingTable() {
+        assertThat(manager.dropColumn(dropColumnParams("key")), willThrowFast(TableNotFoundException.class));
+    }
+
+    @Test
+    void testDropColumnWithMissingTableColumns() {
+        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+        assertThat(manager.dropColumn(dropColumnParams("fake")), willThrowFast(ColumnNotFoundException.class));
+    }
+
+    @Test
+    void testDropColumnWithPrimaryKeyColumns() {
+        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+        assertThat(
+                manager.dropColumn(dropColumnParams("ID")),
+                willThrowFast(IgniteException.class, "Can't drop primary key columns: [ID]")
+        );
+    }
+
+    @Test
+    void testDropColumnWithIndexColumns() {
+        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.createIndex(simpleIndex()), willCompleteSuccessfully());
+
+        assertThat(
+                manager.dropColumn(dropColumnParams("VAL")),
+                willThrowFast(IgniteException.class, String.format("Can't drop indexed column: [columnName=VAL, indexName=%s]", INDEX_NAME))
+        );
     }
 
     private void createSomeTable(String tableName) {

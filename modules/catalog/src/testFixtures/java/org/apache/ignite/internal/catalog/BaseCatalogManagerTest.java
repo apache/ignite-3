@@ -25,7 +25,9 @@ import static org.mockito.Mockito.spy;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
@@ -200,5 +202,9 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     protected static DropTableParams dropTableParams(String tableName) {
         return DropTableParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).build();
+    }
+
+    protected static AlterTableDropColumnParams dropColumnParams(String... columns) {
+        return AlterTableDropColumnParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).columns(Set.of(columns)).build();
     }
 }

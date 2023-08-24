@@ -30,6 +30,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AbstractTableCommandParams;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
@@ -82,9 +83,7 @@ class CatalogParamsValidationUtils {
     static void validateCreateSortedIndexParams(CreateSortedIndexParams params) {
         validateCommonCreateIndexParams(params);
 
-        if (CollectionUtils.nullOrEmpty(params.collations())) {
-            throw new CatalogValidationException(Index.INVALID_INDEX_DEFINITION_ERR, "Columns collations not specified");
-        }
+        validateCollectionIsNotEmpty(params.collations(), Index.INVALID_INDEX_DEFINITION_ERR, "Columns collations not specified");
 
         if (params.collations().size() != params.columns().size()) {
             throw new CatalogValidationException(Index.INVALID_INDEX_DEFINITION_ERR, "Columns collations doesn't match number of columns");
@@ -150,6 +149,12 @@ class CatalogParamsValidationUtils {
                 Table.TABLE_DEFINITION_ERR,
                 "Colocation columns missing in primary key columns: {}"
         );
+    }
+
+    static void validateDropColumnParams(AlterTableDropColumnParams params) {
+        validateCommonTableParams(params);
+
+        validateCollectionIsNotEmpty(params.columns(), Table.TABLE_DEFINITION_ERR, "Columns not specified");
     }
 
     private static void validateUpdateZoneFieldsParameters(
@@ -263,20 +268,12 @@ class CatalogParamsValidationUtils {
 
         validateNameField(params.tableName(), Index.INVALID_INDEX_DEFINITION_ERR, "Missing table name");
 
-        if (CollectionUtils.nullOrEmpty(params.columns())) {
-            throw new CatalogValidationException(Index.INVALID_INDEX_DEFINITION_ERR, "Columns not specified");
-        }
-
-        params.columns().stream()
-                .filter(Predicate.not(new HashSet<>()::add))
-                .findAny()
-                .ifPresent(columnName -> {
-                    throw new CatalogValidationException(
-                            Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Duplicate columns are present: {}",
-                            params.columns()
-                    );
-                });
+        validateColumns(
+                params.columns(),
+                Index.INVALID_INDEX_DEFINITION_ERR,
+                "Columns not specified",
+                "Duplicate columns are present: {}"
+        );
     }
 
     private static void validateNameField(String name, int errorCode, String errorMessage) {

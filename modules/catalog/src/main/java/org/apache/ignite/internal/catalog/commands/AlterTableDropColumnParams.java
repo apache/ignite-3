@@ -17,32 +17,28 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import java.util.Collections;
 import java.util.Set;
 
-/**
- * ALTER TABLE ... DROP COLUMN statement.
- */
-@SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
+/** ALTER TABLE ... DROP COLUMN statement. */
 public class AlterTableDropColumnParams extends AbstractTableCommandParams {
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
     }
 
+    private AlterTableDropColumnParams() {
+        // No-op.
+    }
+
     /** Columns. */
     private Set<String> cols;
 
-    /**
-     * Gets columns that should be dropped from a table.
-     */
+    /** Returns columns that should be dropped from a table. */
     public Set<String> columns() {
-        return Collections.unmodifiableSet(cols);
+        return cols;
     }
 
-    /**
-     * Parameters builder.
-     */
+    /** Parameters builder. */
     public static class Builder extends AbstractTableBuilder<AlterTableDropColumnParams, Builder> {
         private Builder() {
             super(new AlterTableDropColumnParams());
@@ -55,7 +51,8 @@ public class AlterTableDropColumnParams extends AbstractTableCommandParams {
          * @return {@code this}.
          */
         public Builder columns(Set<String> cols) {
-            params.cols = cols;
+            params.cols = Set.copyOf(cols);
+
             return this;
         }
     }

@@ -34,6 +34,8 @@ import static org.hamcrest.Matchers.nullValue;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
@@ -747,6 +749,27 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
         assertThat(
                 manager.createTable(simpleTableParamsWithoutColocationColumns(List.of("foo", "bar"))),
                 willThrowFast(CatalogValidationException.class, "Colocation columns missing in primary key columns: [foo, bar]")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnDropColumn() {
+        assertThat(
+                manager.dropColumn(AlterTableDropColumnParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateColumnsOnDropColumn() {
+        assertThat(
+                manager.dropColumn(AlterTableDropColumnParams.builder().tableName(TABLE_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.dropColumn(AlterTableDropColumnParams.builder().tableName(TABLE_NAME).columns(Set.of()).build()),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
         );
     }
 
