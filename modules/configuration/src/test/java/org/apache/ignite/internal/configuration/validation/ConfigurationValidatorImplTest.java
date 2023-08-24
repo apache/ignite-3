@@ -50,6 +50,7 @@ import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -65,7 +66,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Test class for {@link ConfigurationValidatorImpl}.
  */
 @ExtendWith(MockitoExtension.class)
-public class ConfigurationValidatorImplTest {
+public class ConfigurationValidatorImplTest extends BaseIgniteAbstractTest {
 
     private static ConfigurationAsmGenerator cgen;
 

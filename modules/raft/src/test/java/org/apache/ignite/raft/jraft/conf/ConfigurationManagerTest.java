@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.conf;
 
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class ConfigurationManagerTest {
+public class ConfigurationManagerTest extends BaseIgniteAbstractTest {
     private ConfigurationManager confManager;
 
     @BeforeEach

@@ -37,6 +37,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -45,7 +46,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class GradualTaskExecutorTest {
+class GradualTaskExecutorTest extends BaseIgniteAbstractTest {
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     private final GradualTaskExecutor executor = new GradualTaskExecutor(executorService);

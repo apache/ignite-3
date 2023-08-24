@@ -48,6 +48,7 @@ import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,7 +60,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for the {@link TransferableObjectProcessor} incremental compilation.
  */
 @ExtendWith(MockitoExtension.class)
-public class TransferableObjectProcessorIncrementalTest {
+public class TransferableObjectProcessorIncrementalTest extends BaseIgniteAbstractTest {
     /**
      * Package name of the test sources.
      */

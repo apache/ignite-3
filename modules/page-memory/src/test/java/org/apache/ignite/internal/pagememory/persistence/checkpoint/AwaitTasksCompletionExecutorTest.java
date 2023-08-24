@@ -27,12 +27,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link AwaitTasksCompletionExecutor} testing.
  */
-public class AwaitTasksCompletionExecutorTest {
+public class AwaitTasksCompletionExecutorTest extends BaseIgniteAbstractTest {
     @Test
     void testNoTasks() throws Exception {
         Runnable updateHeartbeat = mock(Runnable.class);

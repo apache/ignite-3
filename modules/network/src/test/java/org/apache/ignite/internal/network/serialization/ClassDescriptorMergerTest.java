@@ -27,9 +27,10 @@ import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
-class ClassDescriptorMergerTest {
+class ClassDescriptorMergerTest extends BaseIgniteAbstractTest {
     @Test
     void mergesMatchingFields() {
         List<FieldDescriptor> localFields = List.of(

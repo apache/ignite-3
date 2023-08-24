@@ -45,8 +45,6 @@ import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -57,6 +55,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,9 +68,7 @@ import org.junit.jupiter.api.Test;
  * @param <S> Type of specific index implementation.
  * @param <D> Type of index descriptor for that specific implementation.
  */
-public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends StorageIndexDescriptor> {
-    private static final IgniteLogger log = Loggers.forClass(AbstractIndexStorageTest.class);
-
+public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends StorageIndexDescriptor> extends BaseIgniteAbstractTest {
     /** Definitions of all supported column types. */
     @SuppressWarnings("WeakerAccess") // May be used in "@VariableSource", that's why it's public.
     public static final List<ColumnDefinition> ALL_TYPES_COLUMN_DEFINITIONS = allTypesColumnDefinitions();

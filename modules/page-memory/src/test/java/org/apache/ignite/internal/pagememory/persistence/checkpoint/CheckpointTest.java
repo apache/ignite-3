@@ -25,12 +25,13 @@ import static org.mockito.Mockito.mock;
 import java.util.List;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link Checkpoint} testing.
  */
-public class CheckpointTest {
+public class CheckpointTest extends BaseIgniteAbstractTest {
     @Test
     void testHasDelta() {
         CheckpointProgressImpl progress = mock(CheckpointProgressImpl.class);

@@ -68,6 +68,7 @@ dependencies {
     testFixturesImplementation project(':ignite-replicator')
     testFixturesImplementation project(':ignite-rocksdb-common')
     testFixturesImplementation project(':ignite-vault')
+    testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.mockito.core
 }
