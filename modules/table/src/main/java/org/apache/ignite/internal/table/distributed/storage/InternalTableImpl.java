@@ -1141,7 +1141,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    // TODO: IGNITE-17256 Use a placement driver for getting a primary replica.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 The method should be removed, SQL engine should use placementDriver directly
     @Override
     public List<String> assignments() {
         awaitLeaderInitialization();
@@ -1155,6 +1155,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-19619 The method should be removed, SQL engine should use placementDriver directly
     public CompletableFuture<List<PrimaryReplica>> primaryReplicas() {
         List<Entry<RaftGroupService>> entries = new ArrayList<>(raftGroupServiceByPartitionId.int2ObjectEntrySet());
         List<CompletableFuture<PrimaryReplica>> result = new ArrayList<>();
@@ -1162,11 +1163,13 @@ public class InternalTableImpl implements InternalTable {
         entries.sort(Comparator.comparingInt(Entry::getIntKey));
 
         for (Entry<RaftGroupService> e : entries) {
-            CompletableFuture<LeaderWithTerm> f = e.getValue().refreshAndGetLeaderWithTerm();
+            // TODO: sanpwc timeout
+            CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(e.getValue().groupId(), clock.now())
+                    .orTimeout(10, TimeUnit.SECONDS);
 
-            result.add(f.thenApply(lt -> {
-                ClusterNode node = clusterNodeResolver.apply(lt.leader().consistentId());
-                return new PrimaryReplica(node, lt.term());
+            result.add(f.thenApply(primaryReplica -> {
+                ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
+                return new PrimaryReplica(node, primaryReplica.getStartTime().longValue());
             }));
         }
 
@@ -1551,16 +1554,18 @@ public class InternalTableImpl implements InternalTable {
      * @return Cluster node to evalute read-only request.
      */
     protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
-        RaftGroupService svc = raftGroupServiceByPartitionId.get(partId);
+        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
-        return svc.refreshAndGetLeaderWithTerm().handle((res, e) -> {
+        // TODO: sanpwc timeout
+        return placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now())
+                .orTimeout(10, TimeUnit.SECONDS).handle((res, e) -> {
             if (e != null) {
                 throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
             } else {
-                if (res == null || res.leader() == null) {
+                if (res == null || res.getLeaseholder() == null) {
                     throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
                 } else {
-                    return clusterNodeResolver.apply(res.leader().consistentId());
+                    return clusterNodeResolver.apply(res.getLeaseholder());
                 }
             }
         });
