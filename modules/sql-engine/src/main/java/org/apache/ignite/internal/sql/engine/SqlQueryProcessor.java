@@ -27,11 +27,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
@@ -43,6 +41,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
@@ -68,6 +67,7 @@ import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandlerWrapper;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
@@ -98,11 +98,12 @@ import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- *  SqlQueryProcessor.
+ * SqlQueryProcessor.
  *  TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class SqlQueryProcessor implements QueryProcessor {
@@ -120,8 +121,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
 
     /**
-     * Duration in milliseconds after which the session will be considered expired if no action have been performed
-     * on behalf of this session during this period.
+     * Duration in milliseconds after which the session will be considered expired if no action have been performed on behalf of this
+     * session during this period.
      */
     private static final long DEFAULT_SESSION_IDLE_TIMEOUT = TimeUnit.MINUTES.toMillis(15);
 
@@ -213,6 +214,34 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.clock = clock;
         this.catalogManager = catalogManager;
         this.metricManager = metricManager;
+    }
+
+    /**
+     * Creates a new transaction wrapper using an existing outer transaction or starting a new "implicit" transaction.
+     *
+     * @param queryType Query type.
+     * @param transactions Transactions facade.
+     * @param outerTx Outer transaction.
+     * @return Wrapper for an active transaction.
+     * @throws SqlException If an outer transaction was started for a {@link SqlQueryType#DDL DDL} query.
+     */
+    public static QueryTransactionWrapper wrapTxOrStartImplicit(
+            SqlQueryType queryType,
+            IgniteTransactions transactions,
+            @Nullable InternalTransaction outerTx
+    ) {
+        if (outerTx == null) {
+            InternalTransaction tx = (InternalTransaction) transactions.begin(
+                    new TransactionOptions().readOnly(queryType != SqlQueryType.DML));
+
+            return new QueryTransactionWrapper(tx, true);
+        }
+
+        if (SqlQueryType.DDL == queryType) {
+            throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
+        }
+
+        return new QueryTransactionWrapper(outerTx, false);
     }
 
     /** {@inheritDoc} */
@@ -413,8 +442,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         InternalTransaction outerTx = context.unwrap(InternalTransaction.class);
 
-        AtomicReference<Runnable> implicitTxRollbackAction = new AtomicReference<>(() -> {});
-
         QueryCancel queryCancel = new QueryCancel();
 
         AsyncCloseable closeableResource = () -> CompletableFuture.runAsync(
@@ -430,83 +457,81 @@ public class SqlQueryProcessor implements QueryProcessor {
             return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
         }
 
-        CompletableFuture<Void> start = new CompletableFuture<>();
-
-        CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
-                .thenCompose(ignored -> {
+        return CompletableFuture.supplyAsync(() -> {
                     ParsedResult result = parserService.parse(sql);
 
                     validateParsedStatement(context, result, params);
 
-                    QueryTransactionWrapper txWrapper =
-                            QueryTransactionWrapper.beginImplicitTxIfNeeded(result.queryType(), transactions, outerTx);
+                    return result;
+                }, taskExecutor)
+                .thenCompose(result -> {
+                    QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, outerTx);
 
-                    implicitTxRollbackAction.set(txWrapper::rollbackImplicit);
+                    CompletableFuture<AsyncSqlCursor<List<Object>>> start = new CompletableFuture<>()
+                            .thenCompose(ignore ->
+                                    // TODO IGNITE-18733: wait for actual metadata for TX.
+                                    waitActualSchema(schemaName, txWrapper.unwrap().startTimestamp())
+                            ).thenComposeAsync(schema -> {
+                                BaseQueryContext ctx = BaseQueryContext.builder()
+                                        .frameworkConfig(
+                                                Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                                        .defaultSchema(schema)
+                                                        .build()
+                                        )
+                                        .logger(LOG)
+                                        .cancel(queryCancel)
+                                        .parameters(params)
+                                        .build();
 
-                    // TODO IGNITE-18733: wait for actual metadata for TX.
-                    SchemaPlus schema = sqlSchemaManager.schema(schemaName, txWrapper.unwrap().startTimestamp().longValue());
+                                return prepareSvc.prepareAsync(result, ctx)
+                                        .thenApply(plan -> executePlan(session, txWrapper, ctx, plan));
+                            });
 
-                    if (schema == null) {
-                        return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
+                    start.whenComplete((res, ex) -> txWrapper.rollbackImplicit());
+
+                    return start.completeAsync(null, taskExecutor);
+                });
+    }
+
+    private CompletableFuture<SchemaPlus> waitActualSchema(String schemaName, HybridTimestamp timestamp) {
+        SchemaPlus schema = sqlSchemaManager.schema(schemaName, timestamp.longValue());
+
+        if (schema == null) {
+            return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
+        }
+        return CompletableFuture.completedFuture(schema);
+    }
+
+    private AsyncSqlCursorImpl<List<Object>> executePlan(Session session, QueryTransactionWrapper txWrapper, BaseQueryContext ctx,
+            QueryPlan plan) {
+        var dataCursor = executionSrvc.executePlan(txWrapper.unwrap(), plan, ctx);
+
+        SqlQueryType queryType = plan.type();
+        assert queryType != null : "Expected a full plan but got a fragment: " + plan;
+
+        numberOfOpenCursors.incrementAndGet();
+
+        return new AsyncSqlCursorImpl<>(
+                queryType,
+                plan.metadata(),
+                txWrapper,
+                new AsyncCursor<List<Object>>() {
+                    @Override
+                    public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
+                        session.touch();
+
+                        return dataCursor.requestNextAsync(rows);
                     }
 
-                    BaseQueryContext ctx = BaseQueryContext.builder()
-                            .frameworkConfig(
-                                    Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                            .defaultSchema(schema)
-                                            .build()
-                            )
-                            .logger(LOG)
-                            .cancel(queryCancel)
-                            .parameters(params)
-                            .build();
+                    @Override
+                    public CompletableFuture<Void> closeAsync() {
+                        session.touch();
+                        numberOfOpenCursors.decrementAndGet();
 
-                    return prepareSvc.prepareAsync(result, ctx)
-                            .thenApply(plan -> {
-                                var dataCursor = executionSrvc.executePlan(txWrapper.unwrap(), plan, ctx);
-
-                                SqlQueryType queryType = plan.type();
-                                assert queryType != null : "Expected a full plan but got a fragment: " + plan;
-
-                                numberOfOpenCursors.incrementAndGet();
-
-                                return new AsyncSqlCursorImpl<>(
-                                        queryType,
-                                        plan.metadata(),
-                                        txWrapper,
-                                        new AsyncCursor<List<Object>>() {
-                                            @Override
-                                            public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
-                                                session.touch();
-
-                                                return dataCursor.requestNextAsync(rows);
-                                            }
-
-                                            @Override
-                                            public CompletableFuture<Void> closeAsync() {
-                                                session.touch();
-                                                numberOfOpenCursors.decrementAndGet();
-
-                                                return dataCursor.closeAsync();
-                                            }
-                                        }
-                                );
-                            });
-                });
-
-        stage.whenComplete((cur, ex) -> {
-            if (ex instanceof CancellationException) {
-                queryCancel.cancel();
-            }
-
-            if (ex != null) {
-                implicitTxRollbackAction.get().run();
-            }
-        });
-
-        start.completeAsync(() -> null, taskExecutor);
-
-        return stage;
+                        return dataCursor.closeAsync();
+                    }
+                }
+        );
     }
 
     @TestOnly
@@ -539,11 +564,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableCreated(
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                    DEFAULT_SCHEMA_NAME,
-                    parameters.tableId(),
-                    parameters.causalityToken()
-            )
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
+                            DEFAULT_SCHEMA_NAME,
+                            parameters.tableId(),
+                            parameters.causalityToken()
+                    )
                     .thenApply(v -> false);
         }
     }
@@ -557,11 +582,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableUpdated(
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                    DEFAULT_SCHEMA_NAME,
-                    parameters.tableId(),
-                    parameters.causalityToken()
-            )
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
+                            DEFAULT_SCHEMA_NAME,
+                            parameters.tableId(),
+                            parameters.causalityToken()
+                    )
                     .thenApply(v -> false);
         }
     }
@@ -575,11 +600,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableDropped(
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                    DEFAULT_SCHEMA_NAME,
-                    parameters.tableId(),
-                    parameters.causalityToken()
-            )
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
+                            DEFAULT_SCHEMA_NAME,
+                            parameters.tableId(),
+                            parameters.causalityToken()
+                    )
                     .thenApply(v -> false);
         }
     }
@@ -593,12 +618,12 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexDropped(
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                    DEFAULT_SCHEMA_NAME,
-                    parameters.tableId(),
-                    parameters.indexId(),
-                    parameters.causalityToken()
-            )
+                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
+                            DEFAULT_SCHEMA_NAME,
+                            parameters.tableId(),
+                            parameters.indexId(),
+                            parameters.causalityToken()
+                    )
                     .thenApply(v -> false);
         }
     }
@@ -612,11 +637,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public CompletableFuture<Boolean> notify(IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexCreated(
-                    parameters.tableId(),
-                    parameters.indexId(),
-                    parameters.indexDescriptor(),
-                    parameters.causalityToken()
-            )
+                            parameters.tableId(),
+                            parameters.indexId(),
+                            parameters.indexDescriptor(),
+                            parameters.causalityToken()
+                    )
                     .thenApply(v -> false);
         }
     }

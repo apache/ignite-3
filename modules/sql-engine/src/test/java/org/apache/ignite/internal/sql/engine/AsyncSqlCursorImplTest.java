@@ -116,10 +116,7 @@ public class AsyncSqlCursorImplTest {
 
     private static QueryTransactionWrapper newTxWrapper(boolean implicit) {
         InternalTransaction tx = NoOpTransaction.readOnly("TX");
-        IgniteTransactions transactions = Mockito.mock(IgniteTransactions.class);
 
-        when(transactions.begin(any())).thenReturn(tx);
-
-        return QueryTransactionWrapper.beginImplicitTxIfNeeded(SqlQueryType.QUERY, transactions, implicit ? null : tx);
+        return new QueryTransactionWrapper(tx, implicit);
     }
 }

@@ -17,13 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.sql.SqlException;
-import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.TransactionOptions;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper for the transaction that encapsulates the management of an implicit transaction.
@@ -33,32 +27,9 @@ public class QueryTransactionWrapper {
 
     private final InternalTransaction transaction;
 
-    /**
-     * Creates a new transaction wrapper using an existing outer transaction or starting a new "implicit" transaction.
-     *
-     * @param queryType Query type.
-     * @param transactions Transactions facade.
-     * @param outerTx Outer transaction.
-     * @return Wrapper for an active transaction.
-     * @throws SqlException If an outer transaction was started for a {@link SqlQueryType#DDL DDL} query.
-     */
-    public static QueryTransactionWrapper beginImplicitTxIfNeeded(
-            SqlQueryType queryType,
-            IgniteTransactions transactions,
-            @Nullable InternalTransaction outerTx
-    ) {
-        if (outerTx == null) {
-            InternalTransaction tx = (InternalTransaction) transactions.begin(
-                    new TransactionOptions().readOnly(queryType != SqlQueryType.DML));
-
-            return new QueryTransactionWrapper(tx, true);
-        }
-
-        if (SqlQueryType.DDL == queryType) {
-            throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
-        }
-
-        return new QueryTransactionWrapper(outerTx, false);
+    QueryTransactionWrapper(InternalTransaction transaction, boolean implicit) {
+        this.transaction = transaction;
+        this.implicit = implicit;
     }
 
     /**
@@ -84,10 +55,5 @@ public class QueryTransactionWrapper {
         if (implicit) {
             transaction.rollback();
         }
-    }
-
-    private QueryTransactionWrapper(InternalTransaction transaction, boolean implicit) {
-        this.transaction = transaction;
-        this.implicit = implicit;
     }
 }
