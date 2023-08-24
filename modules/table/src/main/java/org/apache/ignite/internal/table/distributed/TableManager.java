@@ -111,6 +111,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -373,6 +374,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final ConfiguredTablesCache configuredTablesCache;
 
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
+
     /**
      * Creates a new table manager.
      *
@@ -393,6 +397,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         volatile tables.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
+     * @param placementDriver Placement driver.
      */
     public TableManager(
             String nodeName,
@@ -418,7 +423,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             VaultManager vaultManager,
             ClusterManagementGroupManager cmgMgr,
-            DistributionZoneManager distributionZoneManager
+            DistributionZoneManager distributionZoneManager,
+            PlacementDriver placementDriver
     ) {
         this.tablesCfg = tablesCfg;
         this.zonesConfig = zonesConfig;
@@ -441,6 +447,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.cmgMgr = cmgMgr;
         this.distributionZoneManager = distributionZoneManager;
+        this.placementDriver = placementDriver;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -1251,7 +1258,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 txStateStorage,
                 replicaSvc,
                 clock,
-                null
+                placementDriver
         );
 
         var table = new TableImpl(internalTable, lockMgr);

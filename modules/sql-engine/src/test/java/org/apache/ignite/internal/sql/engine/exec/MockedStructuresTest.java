@@ -66,6 +66,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -204,6 +205,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     SqlQueryProcessor queryProc;
 
+    // TODO: sanpwc Remove? Seems that it's not used.
     /** Test node. */
     private final ClusterNode node = new ClusterNodeImpl(
             UUID.randomUUID().toString(),
@@ -592,7 +594,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     private TableManager createTableManager() {
         TableManager tableManager = new TableManager(
-                "",
+                NODE_NAME,
                 revisionUpdater,
                 tblsCfg,
                 dstZnsCfg,
@@ -615,7 +617,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 vaultManager,
                 cmgMgr,
-                distributionZoneManager
+                distributionZoneManager,
+                new TestPlacementDriver(NODE_NAME) // "fix Peer(test)"
         );
 
         tableManager.start();

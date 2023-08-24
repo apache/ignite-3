@@ -8,6 +8,17 @@ import org.jetbrains.annotations.TestOnly;
 @TestOnly
 public class TestPlacementDriver implements PlacementDriver {
 
+    private final String leaseholder;
+
+    // TODO: sanpwc remove.
+    public TestPlacementDriver() {
+        this.leaseholder = null;
+    }
+
+    public TestPlacementDriver(String leaseholder) {
+        this.leaseholder = leaseholder;
+    }
+
     @Override
     public CompletableFuture<LeaseMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp) {
         return null;
