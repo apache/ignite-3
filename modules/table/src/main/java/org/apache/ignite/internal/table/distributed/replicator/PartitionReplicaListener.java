@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDe
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
-import static org.apache.ignite.internal.tx.impl.TxManagerImpl.markFinishedOnReplica;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.filter;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
@@ -1154,7 +1153,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             String txCoordinatorId
     ) {
-        CompletableFuture<?> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit);
+        CompletableFuture<?> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit, txCoordinatorId);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17578 Cleanup process should be asynchronous.
         CompletableFuture<?>[] cleanupFutures = new CompletableFuture[request.groups().size()];
@@ -1203,6 +1202,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .txId(txId)
                 .commit(commit)
                 .safeTimeLong(currentTimestamp.longValue())
+                .txCoordinatorId(txCoordinatorId)
                 .tablePartitionIds(
                         aggregatedGroupIds.stream()
                                 .map(PartitionReplicaListener::tablePartitionId)
@@ -1284,6 +1284,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     .commit(request.commit())
                     .commitTimestampLong(request.commitTimestampLong())
                     .safeTimeLong(hybridClock.nowLong())
+                    .txCoordinatorId(getTxCoordinatorId(request.txId()))
                     .build();
 
             cleanupLocally(request.txId(), request.commit(), request.commitTimestamp());
@@ -1293,6 +1294,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                     .thenCompose(ignored -> allOffFuturesExceptionIgnored(txReadFutures, request)
                             .thenRun(() -> releaseTxLocks(request.txId())));
         });
+    }
+
+    private String getTxCoordinatorId(UUID txId) {
+        TxStateMeta meta = txManager.stateMeta(txId);
+
+        assert meta != null : "Trying to cleanup a transaction that was not enlisted, txId=" + txId;
+
+        return meta.txCoordinatorId();
     }
 
     /**

@@ -181,6 +181,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .txId(UUID.randomUUID())
                 .commit(true)
                 .commitTimestampLong(clock.nowLong())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         TxCleanupCommand readCmd = copyCommand(cmd);
@@ -207,6 +208,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(clock.nowLong())
                 .tablePartitionIds(grps)
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         FinishTxCommand readCmd = copyCommand(cmd);
@@ -228,6 +230,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .commit(finishTxCommand.commit())
                     .tablePartitionIds(finishTxCommand.tablePartitionIds())
                     .commitTimestampLong(finishTxCommand.commitTimestampLong())
+                    .txCoordinatorId(finishTxCommand.txCoordinatorId())
                     .build();
         } else if (cmd instanceof TxCleanupCommand) {
             TxCleanupCommand txCleanupCommand = (TxCleanupCommand) cmd;
@@ -236,6 +239,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .txId(txCleanupCommand.txId())
                     .commit(txCleanupCommand.commit())
                     .commitTimestampLong(txCleanupCommand.commitTimestampLong())
+                    .txCoordinatorId(txCleanupCommand.txCoordinatorId())
                     .build();
         } else if (cmd instanceof UpdateCommand) {
             UpdateCommand updateCommand = (UpdateCommand) cmd;

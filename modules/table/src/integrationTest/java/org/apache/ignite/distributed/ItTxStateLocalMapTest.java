@@ -17,6 +17,7 @@
 
 package org.apache.ignite.distributed;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
@@ -26,8 +27,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -40,11 +44,13 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Class for testing local map of tx states.
@@ -66,6 +72,8 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     private final TestInfo testInfo;
 
     private ItTxTestCluster testCluster;
+
+    private TableImpl table;
 
     /**
      * The constructor.
@@ -96,6 +104,8 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
         );
 
         testCluster.prepareCluster();
+
+        table = testCluster.startTable("table", 1, TABLE_SCHEMA);
     }
 
     @AfterEach
@@ -103,66 +113,62 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
         testCluster.shutdownCluster();
     }
 
-    @Test
-    public void testUpsertCommit() throws Exception {
-        TableImpl table = testCluster.startTable("table", 1, TABLE_SCHEMA);
-
-        ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) testCluster.igniteTransactions().begin();
-
-        table.recordView().upsert(tx, makeValue(1, 1));
-
-        ClusterNode coord = testCluster.cluster.get(0).topologyService().localMember();
-        String coordinatorId = coord.id();
-
-        checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, null));
-
-        tx.commit();
-
-        checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(COMMITED, coordinatorId, testCluster.clocks.get(coord.name()).now()));
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    public void testUpsert(boolean commit) {
+        testTransaction(tx -> table.recordView().upsert(tx, makeValue(1, 1)), true, commit);
     }
 
-    @Test
-    public void testGetAbort() throws Exception {
-        TableImpl table = testCluster.startTable("table", 1, TABLE_SCHEMA);
-
-        ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) testCluster.igniteTransactions().begin();
-
-        table.recordView().get(tx, makeKey(1));
-
-        ClusterNode coord = testCluster.cluster.get(0).topologyService().localMember();
-        String coordinatorId = coord.id();
-
-        tx.rollback();
-
-        checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(ABORTED, coordinatorId, null));
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    public void testGet(boolean commit) {
+        testTransaction(tx -> table.recordView().get(tx, makeKey(1)), false, commit);
     }
 
-    @Test
-    public void testUpdateAll() throws Exception {
-        TableImpl table = testCluster.startTable("table", 1, TABLE_SCHEMA);
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    public void testUpdateAll(boolean commit) {
+        testTransaction(tx -> table.recordView().upsertAll(tx, List.of(makeValue(1, 1), makeValue(2, 2))), true, commit);
+    }
 
-        ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) testCluster.igniteTransactions().begin();
-
-        List<Tuple> values = List.of(makeValue(1, 1), makeValue(2, 2));
-
-        table.recordView().upsertAll(tx, values);
-
+    private void testTransaction(Consumer<Transaction> touchOp, boolean checkAfterTouch, boolean commit) {
         ClusterNode coord = testCluster.cluster.get(0).topologyService().localMember();
         String coordinatorId = coord.id();
 
-        checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, null));
+        ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) testCluster.igniteTransactions().begin();
 
-        tx.rollback();
+        checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, null), List.of(0));
+        checkLocalTxStateOnNodes(tx.id(), null, IntStream.range(1, NODES).boxed().collect(toList()));
 
-        checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(ABORTED, coordinatorId, null));
+        touchOp.accept(tx);
+
+        if (checkAfterTouch) {
+            checkLocalTxStateOnNodes(tx.id(), new TxStateMeta(PENDING, coordinatorId, null));
+        }
+
+        if (commit) {
+            tx.commit();
+        } else {
+            tx.rollback();
+        }
+
+        checkLocalTxStateOnNodes(
+                tx.id(),
+                new TxStateMeta(commit ? COMMITED : ABORTED, coordinatorId, commit ? testCluster.clocks.get(coord.name()).now() : null)
+        );
     }
 
     private void checkLocalTxStateOnNodes(UUID txId, TxStateMeta expected) {
-        for (int i = 0; i < NODES; i++) {
+        checkLocalTxStateOnNodes(txId, expected, IntStream.range(0, NODES).boxed().collect(toList()));
+    }
+
+    private void checkLocalTxStateOnNodes(UUID txId, TxStateMeta expected, List<Integer> nodesToCheck) {
+        for (int i : nodesToCheck) {
             AtomicReference<TxStateMeta> meta = new AtomicReference<>();
 
             try {
                 int finalI = i;
+
                 assertTrue(waitForCondition(() -> {
                     meta.set(testCluster.txManagers.get(testCluster.cluster.get(finalI).nodeName()).stateMeta(txId));
 
@@ -172,21 +178,27 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                         return false;
                     }
 
-                    if (expected.commitTimestamp() == null) {
-                        return meta.get().commitTimestamp() == null;
-                    } else if (meta.get().commitTimestamp() == null) {
-                        return false;
-                    }
-
-                    return (expected.txState() == meta.get().txState() && expected.txCoordinatorId().equals(meta.get().txCoordinatorId())
-                        && (expected.commitTimestamp() == null && meta.get().commitTimestamp() == null
-                            || expected.commitTimestamp().compareTo(meta.get().commitTimestamp()) > 0));
+                    return (expected.txState() == meta.get().txState()
+                            && expected.txCoordinatorId().equals(meta.get().txCoordinatorId())
+                            && checkTimestamps(expected.commitTimestamp(), meta.get().commitTimestamp()));
                 }, 5_000));
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } catch (AssertionError e) {
                 throw new AssertionError("node index=" + i + ", expected=" + expected + ", actual=" + meta.get(), e);
             }
+        }
+    }
+
+    private boolean checkTimestamps(HybridTimestamp expected, HybridTimestamp actual) {
+        if (expected == null) {
+            return actual == null;
+        } else {
+            if (actual == null) {
+                return false;
+            }
+
+            return expected.compareTo(actual) > 0;
         }
     }
 

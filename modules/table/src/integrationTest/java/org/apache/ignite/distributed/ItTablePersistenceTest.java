@@ -280,6 +280,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         .commitTimestampLong(req0.commitTimestampLong())
                         .tablePartitionIds(asList(tablePartitionId(new TablePartitionId(1, 0))))
                         .safeTimeLong(hybridClock.nowLong())
+                        .txCoordinatorId(UUID.randomUUID().toString())
                         .build();
 
                 return service.run(cmd)
@@ -289,6 +290,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                                     .commit(req0.commit())
                                     .commitTimestampLong(req0.commitTimestampLong())
                                     .safeTimeLong(hybridClock.nowLong())
+                                    .txCoordinatorId(UUID.randomUUID().toString())
                                     .build();
 
                             return service.run(cleanupCmd);
