@@ -342,7 +342,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
         log.info("Leader is transferring [from={}, to={}]", leader, localPeer);
 
-        raftGroupService.transferLeadership(localPeer).join();
+        assertThat(raftGroupService.transferLeadership(localPeer), willCompleteSuccessfully());
     }
 
     /**
