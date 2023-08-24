@@ -25,7 +25,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
+import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
@@ -184,7 +184,7 @@ class DdlToCatalogCommandConverter {
     }
 
 
-    static AbstractIndexCommandParams convert(CreateIndexCommand cmd) {
+    static AbstractCreateIndexCommandParams convert(CreateIndexCommand cmd) {
         switch (cmd.type()) {
             case HASH:
                 return CreateHashIndexParams.builder()
