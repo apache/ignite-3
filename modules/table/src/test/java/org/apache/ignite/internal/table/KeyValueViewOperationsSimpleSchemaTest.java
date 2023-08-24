@@ -50,7 +50,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -702,7 +701,6 @@ public class KeyValueViewOperationsSimpleSchemaTest extends BaseIgniteAbstractTe
         );
     }
 
-    @NotNull
     private TableImpl createTable(SchemaDescriptor schema) {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address())

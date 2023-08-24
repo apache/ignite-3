@@ -50,7 +50,6 @@ import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -260,7 +259,6 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @NotNull
         @Override
         public Iterator<Object[]> iterator() {
             return new Iterator<>() {

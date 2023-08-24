@@ -71,7 +71,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.sql.ColumnType;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -156,8 +155,7 @@ public class TypeUtils {
      * CreateRowType.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    @NotNull
-    public static RelDataType createRowType(@NotNull IgniteTypeFactory typeFactory, @NotNull Class<?>... fields) {
+    public static RelDataType createRowType(IgniteTypeFactory typeFactory, Class<?>... fields) {
         List<RelDataType> types = Arrays.stream(fields)
                 .map(typeFactory::createJavaType)
                 .collect(Collectors.toList());
@@ -169,8 +167,7 @@ public class TypeUtils {
      * CreateRowType.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    @NotNull
-    public static RelDataType createRowType(@NotNull IgniteTypeFactory typeFactory, @NotNull RelDataType... fields) {
+    public static RelDataType createRowType(IgniteTypeFactory typeFactory, RelDataType... fields) {
         List<RelDataType> types = Arrays.asList(fields);
 
         return createRowType(typeFactory, types, "$F");
@@ -638,8 +635,6 @@ public class TypeUtils {
             NativeType nativeType = IgniteTypeFactory.relDataTypeToNative(type);
             return RowSchemaTypes.nativeTypeWithNullability(nativeType, nullable);
         } else if (SqlTypeName.ANY == type.getSqlTypeName()) {
-            // TODO: After https://issues.apache.org/jira/browse/IGNITE-19096 is fixed
-            //  it should be possible to remove branch.
             // TODO Some JSON functions that return ANY as well : https://issues.apache.org/jira/browse/IGNITE-20163
             return new BaseTypeSpec(null, nullable);
         } else if (SqlTypeUtil.isNull(type)) {

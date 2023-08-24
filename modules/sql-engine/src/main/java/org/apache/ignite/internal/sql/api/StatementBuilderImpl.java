@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,7 +46,7 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull String query() {
+    public String query() {
         return query;
     }
 
@@ -61,7 +60,7 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public long queryTimeout(@NotNull TimeUnit timeUnit) {
+    public long queryTimeout(TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
         return timeUnit.convert(queryTimeoutMs == null ? 0 : queryTimeoutMs, TimeUnit.MILLISECONDS);
@@ -69,7 +68,7 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder queryTimeout(long timeout, @NotNull TimeUnit timeUnit) {
+    public StatementBuilder queryTimeout(long timeout, TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
         queryTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
@@ -85,7 +84,7 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder defaultSchema(@NotNull String schema) {
+    public StatementBuilder defaultSchema(String schema) {
         defaultSchema = schema;
 
         return this;
@@ -107,13 +106,13 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable Object property(@NotNull String name) {
+    public @Nullable Object property(String name) {
         return properties.get(name);
     }
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder property(@NotNull String name, @Nullable Object value) {
+    public StatementBuilder property(String name, @Nullable Object value) {
         properties.put(name, value);
 
         return this;

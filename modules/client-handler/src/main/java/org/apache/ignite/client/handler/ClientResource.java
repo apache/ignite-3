@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler;
 
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,7 +30,7 @@ public class ClientResource {
     /** Release delegate. */
     private final @Nullable Runnable releaseRunnable;
 
-    public ClientResource(@NotNull Object obj, @Nullable Runnable releaseRunnable) {
+    public ClientResource(Object obj, @Nullable Runnable releaseRunnable) {
         this.obj = obj;
         this.releaseRunnable = releaseRunnable;
     }

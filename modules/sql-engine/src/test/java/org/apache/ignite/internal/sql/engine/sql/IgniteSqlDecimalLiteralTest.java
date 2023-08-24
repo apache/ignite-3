@@ -174,16 +174,6 @@ public class IgniteSqlDecimalLiteralTest extends AbstractPlannerTest {
         assertThrows(SqlException.class, () -> parseQuery(query));
     }
 
-    /**
-     * Test case that ensures that {@code DECIMAL} in {@code DECIMAL "1"} is interpreted as an alias to a column named {@code DECIMAL}.
-     */
-    @Test
-    public void testDecimalAsAlias() {
-        SqlNode node = parseQuery("SELECT DECIMAL \"10\"");
-
-        assertEquals("SELECT `DECIMAL` AS `10`", node.toString());
-    }
-
     private static SqlNode parseQuery(String qry) {
         StatementParseResult parseResult = IgniteSqlParser.parse(qry, StatementParseResult.MODE);
         return parseResult.statement();

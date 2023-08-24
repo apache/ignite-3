@@ -341,7 +341,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         knockoutNode(2);
 
-        executeDmlWithRetry(0, "insert into test(key, value) values (1, 'one')");
+        executeDmlWithRetry(0, "insert into test(key, val) values (1, 'one')");
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
         causeLogTruncationOnSolePartitionLeader(0);
@@ -357,7 +357,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         String zoneSql = "create zone test_zone"
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
                 + " with partitions=1, replicas=3;";
-        String sql = "create table test (key int primary key, value varchar(20))"
+        String sql = "create table test (key int primary key, val varchar(20))"
                 + " with primary_zone='TEST_ZONE'";
 
         cluster.doInSession(0, session -> {
@@ -556,7 +556,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         Transaction tx = cluster.node(0).transactions().begin();
 
         cluster.doInSession(0, session -> {
-            executeUpdate("insert into test(key, value) values (1, 'one')", session, tx);
+            executeUpdate("insert into test(key, val) values (1, 'one')", session, tx);
 
             knockoutNode(2);
 
@@ -584,7 +584,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         // this should be possibly replaced with executeDmlWithRetry.
         cluster.doInSession(0, session -> {
-            executeUpdate("insert into test(key, value) values (2, 'two')", session);
+            executeUpdate("insert into test(key, val) values (2, 'two')", session);
         });
 
         transferLeadershipOnSolePartitionTo(2);
@@ -612,7 +612,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             for (int i = 2; !installedSnapshot.get(); i++) {
                 int key = i;
                 cluster.doInSession(0, session -> {
-                    executeUpdate("insert into test(key, value) values (" + key + ", 'extra')", session);
+                    executeUpdate("insert into test(key, val) values (" + key + ", 'extra')", session);
                     lastLoadedKey.set(key);
                 });
             }
@@ -649,7 +649,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         knockoutNode(0);
 
         cluster.doInSession(2, session -> {
-            executeUpdate("insert into test(key, value) values (2, 'two')", session);
+            executeUpdate("insert into test(key, val) values (2, 'two')", session);
         });
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.

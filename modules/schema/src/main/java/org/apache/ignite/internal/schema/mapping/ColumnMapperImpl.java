@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema.mapping;
 
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -48,7 +47,7 @@ class ColumnMapperImpl implements ColumnMapper {
 
     /** {@inheritDoc} */
     @Override
-    public ColumnMapperImpl add(@NotNull Column col) {
+    public ColumnMapperImpl add(Column col) {
         add0(col.schemaIndex(), -1, col);
 
         return this;

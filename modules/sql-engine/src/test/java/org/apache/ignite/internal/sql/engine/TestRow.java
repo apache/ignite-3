@@ -29,7 +29,6 @@ import java.util.UUID;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Dummy table storage implementation.
@@ -269,7 +268,6 @@ class TestRow implements SqlRow {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Iterator<Object> iterator() {
         throw new UnsupportedOperationException();
