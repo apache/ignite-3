@@ -29,11 +29,13 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryContext;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.testframework.IntegrationTestBase;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInstance;
@@ -88,8 +90,8 @@ public abstract class CliIntegrationTestBase extends IntegrationTestBase {
     }
 
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
-        var queryEngine = ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
-        var transactions = CLUSTER_NODES.get(0).transactions();
+        QueryProcessor queryEngine = ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
+        IgniteTransactions transactions = CLUSTER_NODES.get(0).transactions();
 
         SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
 
