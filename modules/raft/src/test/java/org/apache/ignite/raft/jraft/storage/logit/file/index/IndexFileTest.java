@@ -33,7 +33,6 @@ import org.junit.jupiter.api.Test;
 public class IndexFileTest extends BaseLogitStorageTest {
 
     private static final int  FILE_SIZE   = 10 * 10 + FileHeader.HEADER_SIZE;
-    private static final long BASE_OFFSET = 0;
     private IndexFile offsetIndex;
 
     @BeforeEach
