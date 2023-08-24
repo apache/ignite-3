@@ -89,7 +89,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     {
         var table = await Client.Tables.GetTableAsync(tableName);
 
-        Assert.IsNotNull(table, tableName);
+        Assert.IsNotNull(table, "Table must exist: " + tableName);
 
         await TestKey(val, table!.GetRecordView<T>());
     }
