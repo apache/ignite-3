@@ -43,4 +43,5 @@ public record PocoAllColumnsSqlNullable(
     [property:Column("TIMESTAMP")] Instant? Timestamp = null,
     [property:Column("BLOB")] byte[]? Blob = null,
     [property:Column("DECIMAL")] decimal? Decimal = null,
-    [property:Column("UUID")] Guid? Uuid = null);
+    [property:Column("UUID")] Guid? Uuid = null,
+    bool? Boolean = null);

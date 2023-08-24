@@ -36,8 +36,8 @@ using Table;
 public class IgniteDbDataReaderTests : IgniteTestsBase
 {
     private const string AllColumnsQuery = "select \"KEY\", \"STR\", \"INT8\", \"INT16\", \"INT32\", \"INT64\", \"FLOAT\", " +
-                                           "\"DOUBLE\", \"DATE\", \"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\", \"UUID\" " +
-                                           "from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
+                                           "\"DOUBLE\", \"DATE\", \"TIME\", \"DATETIME\", \"TIMESTAMP\", \"BLOB\", \"DECIMAL\", \"UUID\", " +
+                                           "\"BOOLEAN\" from TBL_ALL_COLUMNS_SQL ORDER BY KEY";
 
     private static readonly LocalDate LocalDate = new(2023, 01, 18);
     private static readonly LocalTime LocalTime = new(09, 28);
@@ -66,7 +66,8 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
             Timestamp: Instant,
             Blob: Bytes,
             Decimal: 8.7M,
-            Uuid: Guid);
+            Uuid: Guid,
+            Boolean: true);
 
         var pocoAllColumns2 = new PocoAllColumnsSqlNullable(
             Key: 2,
@@ -121,7 +122,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
     {
         await using var reader = await ExecuteReader();
 
-        Assert.AreEqual(15, reader.FieldCount);
+        Assert.AreEqual(16, reader.FieldCount);
 
         Assert.AreEqual(1, reader.GetInt64("KEY"));
         Assert.AreEqual("v-1", reader.GetString("STR"));
@@ -138,6 +139,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         Assert.AreEqual(8.7m, reader.GetDecimal("DECIMAL"));
         Assert.AreEqual(2, reader.GetBytes("BLOB", 0, null!, 0, 0));
         Assert.AreEqual(Guid, reader.GetGuid("UUID"));
+        Assert.IsTrue(reader.GetBoolean("BOOLEAN"));
     }
 
     [Test]
@@ -381,7 +383,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
 
         ReadOnlyCollection<DbColumn> schema = async ? await reader.GetColumnSchemaAsync() : reader.GetColumnSchema();
 
-        Assert.AreEqual(15, schema.Count);
+        Assert.AreEqual(16, schema.Count);
 
         Assert.AreEqual("KEY", schema[0].ColumnName);
         Assert.AreEqual(0, schema[0].ColumnOrdinal);
@@ -596,7 +598,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         foreach (DbDataRecord row in reader)
         {
             // DbDataRecord delegates to methods in DbDataReader, no need to test everything here.
-            Assert.AreEqual(15, row.FieldCount);
+            Assert.AreEqual(16, row.FieldCount);
             Assert.AreEqual("KEY", row.GetName(0));
         }
     }
@@ -652,7 +654,7 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         var dt = new DataTable();
         dt.Load(reader);
 
-        Assert.AreEqual(15, dt.Columns.Count);
+        Assert.AreEqual(16, dt.Columns.Count);
         Assert.AreEqual(9, dt.Rows.Count);
     }
 
