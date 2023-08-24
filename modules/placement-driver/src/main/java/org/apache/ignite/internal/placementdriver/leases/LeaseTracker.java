@@ -45,7 +45,7 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.placementdriver.LeaseMeta;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -77,7 +77,7 @@ public class LeaseTracker implements PlacementDriver {
     private volatile Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
 
     /** Map of primary replica waiters. */
-    private final Map<ReplicationGroupId, PendingIndependentComparableValuesTracker<HybridTimestamp, LeaseMeta>> primaryReplicaWaiters
+    private final Map<ReplicationGroupId, PendingIndependentComparableValuesTracker<HybridTimestamp, ReplicaMeta>> primaryReplicaWaiters
             = new ConcurrentHashMap<>();
 
     /** Listener to update a leases cache. */
@@ -208,12 +208,12 @@ public class LeaseTracker implements PlacementDriver {
     }
 
     @Override
-    public CompletableFuture<LeaseMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp) {
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp) {
         return inBusyLockAsync(busyLock, () -> getOrCreatePrimaryReplicaWaiter(groupId).waitFor(timestamp));
     }
 
     @Override
-    public CompletableFuture<LeaseMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+    public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
         return inBusyLockAsync(busyLock, () -> {
             Map<ReplicationGroupId, Lease> leasesMap = leases.leaseByGroupId();
 
@@ -254,7 +254,7 @@ public class LeaseTracker implements PlacementDriver {
         });
     }
 
-    private PendingIndependentComparableValuesTracker<HybridTimestamp, LeaseMeta> getOrCreatePrimaryReplicaWaiter(
+    private PendingIndependentComparableValuesTracker<HybridTimestamp, ReplicaMeta> getOrCreatePrimaryReplicaWaiter(
             ReplicationGroupId groupId
     ) {
         return primaryReplicaWaiters.computeIfAbsent(groupId, key -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE));

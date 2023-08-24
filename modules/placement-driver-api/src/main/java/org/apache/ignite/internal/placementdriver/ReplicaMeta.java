@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import java.io.Serializable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
  * Replica lease meta.
  */
-public interface LeaseMeta {
+public interface ReplicaMeta extends Serializable {
     /**
      * Get a leaseholder node.
      *
