@@ -1758,7 +1758,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     void testCreateTableWithSameNameAsExistingIndex() {
         assertThat(manager.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
-        assertThat(manager.createIndex(simpleIndex(INDEX_NAME, TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.createIndex(simpleIndex()), willCompleteSuccessfully());
 
         assertThat(manager.createTable(simpleTable(INDEX_NAME)), willThrowFast(IndexAlreadyExistsException.class));
     }
