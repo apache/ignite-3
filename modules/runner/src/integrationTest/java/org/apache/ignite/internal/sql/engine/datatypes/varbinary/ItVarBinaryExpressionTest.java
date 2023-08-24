@@ -117,18 +117,6 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
      */
     @Test
     public void testCastToDifferentLengths() {
-        checkQuery("SELECT CAST('123' AS VARBINARY(2))")
-                .returns(VarBinary.fromUtf8String("12"))
-                .check();
-
-        checkQuery("SELECT CAST('123' AS VARBINARY(100))")
-                .returns((VarBinary.fromUtf8String("123")))
-                .check();
-
-        checkQuery("SELECT CAST('123' AS VARBINARY)")
-                .returns((VarBinary.fromUtf8String("123")))
-                .check();
-
         checkQuery("SELECT CAST(X'ffffff' AS VARBINARY(2))")
                 .returns((varBinary(new byte[]{(byte) 0xfff, (byte) 0xff})))
                 .check();

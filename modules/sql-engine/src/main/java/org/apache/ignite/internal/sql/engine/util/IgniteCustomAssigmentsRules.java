@@ -23,6 +23,19 @@ import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.DAY_INTERVAL_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.EXACT_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.FRACTIONAL_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_DAY;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_DAY_HOUR;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_DAY_MINUTE;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_DAY_SECOND;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_HOUR;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_HOUR_MINUTE;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_HOUR_SECOND;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_MINUTE;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_MINUTE_SECOND;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_MONTH;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_SECOND;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_YEAR;
+import static org.apache.calcite.sql.type.SqlTypeName.INTERVAL_YEAR_MONTH;
 import static org.apache.calcite.sql.type.SqlTypeName.YEAR_INTERVAL_TYPES;
 
 import com.google.common.cache.CacheBuilder;
@@ -34,6 +47,7 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -65,29 +79,13 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
 
         Set<SqlTypeName> rule = EnumSet.noneOf(SqlTypeName.class);
 
-        // IntervalYearMonth is assignable from...
-        for (SqlTypeName interval : YEAR_INTERVAL_TYPES) {
-            rules.add(interval, YEAR_INTERVAL_TYPES);
-        }
-        for (SqlTypeName interval : DAY_INTERVAL_TYPES) {
-            rules.add(interval, DAY_INTERVAL_TYPES);
-        }
-
         // MULTISET is assignable from...
         rules.add(SqlTypeName.MULTISET, EnumSet.of(SqlTypeName.MULTISET));
 
         rule.clear();
         rule.addAll(EXACT_TYPES);
-        rule.addAll(APPROX_TYPES);
+        rule.addAll(FRACTIONAL_TYPES);
         rule.addAll(CHAR_TYPES);
-
-        // TINYINT is assignable from...
-        // SMALLINT is assignable from...
-        // INTEGER is assignable from...
-        // BIGINT is assignable from...
-        for (SqlTypeName type : EXACT_TYPES) {
-            rules.add(type, rule);
-        }
 
         // FLOAT (up to 64 bit floating point) is assignable from...
         // REAL (32 bit floating point) is assignable from...
@@ -97,30 +95,32 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
             rules.add(type, rule);
         }
 
-        // VARBINARY is assignable from...
+        rule.add(INTERVAL_YEAR);
+        rule.add(INTERVAL_MONTH);
+        rule.add(INTERVAL_DAY);
+        rule.add(INTERVAL_HOUR);
+        rule.add(INTERVAL_MINUTE);
+        rule.add(INTERVAL_SECOND);
+
+        // TINYINT is assignable from...
+        // SMALLINT is assignable from...
+        // INTEGER is assignable from...
+        // BIGINT is assignable from...
+        for (SqlTypeName type : EXACT_TYPES) {
+            rules.add(type, rule);
+        }
+
+        // BINARY, VARBINARY is assignable from...
         rule.clear();
         rule.addAll(BINARY_TYPES);
-        rule.addAll(CHAR_TYPES);
-        rules.add(SqlTypeName.VARBINARY, rule);
+        for (SqlTypeName type : BINARY_TYPES) {
+            rules.add(type, rule);
+        }
 
         // CHAR is assignable from...
-        rule.clear();
-        rule.addAll(CHAR_TYPES);
-        rule.addAll(BINARY_TYPES);
-        rule.addAll(EXACT_TYPES);
-        rule.addAll(APPROX_TYPES);
-        rule.addAll(DAY_INTERVAL_TYPES);
-        rule.addAll(YEAR_INTERVAL_TYPES);
-        rule.add(SqlTypeName.BOOLEAN);
-        rule.add(SqlTypeName.DATE);
-        rule.add(SqlTypeName.TIME);
-        rule.add(SqlTypeName.TIMESTAMP);
-        rules.add(SqlTypeName.CHAR, rule);
-
         // VARCHAR is assignable from...
         rule.clear();
         rule.addAll(CHAR_TYPES);
-        rule.addAll(BINARY_TYPES);
         rule.addAll(EXACT_TYPES);
         rule.addAll(APPROX_TYPES);
         rule.addAll(DAY_INTERVAL_TYPES);
@@ -129,16 +129,12 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
         rule.add(SqlTypeName.DATE);
         rule.add(SqlTypeName.TIME);
         rule.add(SqlTypeName.TIMESTAMP);
+
+        rules.add(SqlTypeName.CHAR, rule);
         rules.add(SqlTypeName.VARCHAR, rule);
 
         // BOOLEAN is assignable from...
         rules.add(SqlTypeName.BOOLEAN, EnumSet.of(SqlTypeName.BOOLEAN, SqlTypeName.CHAR, SqlTypeName.VARCHAR));
-
-        // BINARY is assignable from...
-        rule.clear();
-        rule.addAll(BINARY_TYPES);
-        rule.addAll(CHAR_TYPES);
-        rules.add(SqlTypeName.BINARY, rule);
 
         // DATE is assignable from...
         rule.clear();
@@ -180,15 +176,39 @@ public class IgniteCustomAssigmentsRules implements SqlTypeMappingRule {
         rule.addAll(CHAR_TYPES);
         rule.addAll(YEAR_INTERVAL_TYPES);
 
-        for (SqlTypeName type : YEAR_INTERVAL_TYPES) {
-            rules.add(type, rule);
-        }
+        // IntervalYearMonth is assignable from...
+        rules.add(INTERVAL_YEAR_MONTH, rule);
 
         rule.clear();
         rule.addAll(CHAR_TYPES);
         rule.addAll(DAY_INTERVAL_TYPES);
 
-        for (SqlTypeName type : DAY_INTERVAL_TYPES) {
+        List<SqlTypeName> multiIntervals = List.of(INTERVAL_DAY_HOUR, INTERVAL_DAY_MINUTE, INTERVAL_DAY_SECOND, INTERVAL_HOUR_MINUTE,
+                INTERVAL_HOUR_SECOND, INTERVAL_MINUTE_SECOND);
+
+        // IntervalDayHourMinuteSecond is assignable from...
+        for (SqlTypeName type : multiIntervals) {
+            rules.add(type, rule);
+        }
+
+        rule.clear();
+        rule.addAll(CHAR_TYPES);
+        rule.addAll(EXACT_TYPES);
+        rule.addAll(YEAR_INTERVAL_TYPES);
+
+        List<SqlTypeName> singleYearIntervals = List.of(INTERVAL_YEAR, INTERVAL_MONTH);
+
+        for (SqlTypeName type : singleYearIntervals) {
+            rules.add(type, rule);
+        }
+
+        rule.removeAll(YEAR_INTERVAL_TYPES);
+        rule.addAll(DAY_INTERVAL_TYPES);
+
+        List<SqlTypeName> singleDayIntervals = List.of(INTERVAL_DAY, INTERVAL_HOUR, INTERVAL_MINUTE,
+                INTERVAL_SECOND);
+
+        for (SqlTypeName type : singleDayIntervals) {
             rules.add(type, rule);
         }
 

@@ -38,7 +38,6 @@ import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -64,7 +63,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(@NotNull Tuple tuple) throws TupleMarshallerException {
+    public Row marshal(Tuple tuple) throws TupleMarshallerException {
         try {
             SchemaDescriptor schema = schemaReg.schema();
 
@@ -103,7 +102,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException {
+    public Row marshal(Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException {
         try {
             SchemaDescriptor schema = schemaReg.schema();
 
@@ -137,7 +136,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @return Row.
      * @throws SchemaMismatchException If failed to write tuple column.
      */
-    @NotNull
     private Row buildRow(SchemaDescriptor schema, InternalTuple keyTuple0, InternalTuple valTuple0) throws SchemaMismatchException {
         RowAssembler rowBuilder = createAssembler(schema, keyTuple0, valTuple0);
 
@@ -166,7 +164,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshalKey(@NotNull Tuple keyTuple) throws TupleMarshallerException {
+    public Row marshalKey(Tuple keyTuple) throws TupleMarshallerException {
         try {
             final SchemaDescriptor schema = schemaReg.schema();
 
@@ -201,7 +199,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @return Internal tuple.
      * @throws SchemaMismatchException If tuple doesn't match the schema.
      */
-    private @NotNull InternalTuple toInternalTuple(SchemaDescriptor schema, Tuple tuple, boolean keyFlag) throws SchemaMismatchException {
+    private InternalTuple toInternalTuple(SchemaDescriptor schema, Tuple tuple, boolean keyFlag) throws SchemaMismatchException {
         if (tuple == null) {
             return InternalTuple.NO_VALUE;
         }
@@ -296,7 +294,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param schema   Schema to check against.
      * @return Column names.
      */
-    @NotNull
     private Set<String> extraColumnNames(Tuple tuple, boolean keyTuple, SchemaDescriptor schema) {
         Set<String> cols = new HashSet<>();
 

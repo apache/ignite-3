@@ -263,10 +263,10 @@ public partial class LinqSqlGenerationTests
     public void TestGroupBySubQuery()
     {
         AssertSql(
-            "select (_T0.KEY + ?) as _G0, count(*) as COUNT from PUBLIC.tbl1 as _T0 group by _G0",
+            "select (_T0.KEY + ?) as _G0, count(*) as CNT from PUBLIC.tbl1 as _T0 group by _G0",
             q => q.Select(x => new { x.Key, Key2 = x.Key + 1 })
                 .GroupBy(x => x.Key2)
-                .Select(g => new { g.Key, Count = g.Count() })
+                .Select(g => new { g.Key, Cnt = g.Count() })
                 .ToList());
     }
 
