@@ -886,6 +886,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     AppendTimestamp((Instant)value, precision);
                     break;
 
+                case ColumnType.Boolean:
+                    AppendBool((bool)value);
+                    break;
+
                 default:
                     throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + colType);
             }
