@@ -146,7 +146,7 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public @Nullable TxState state(UUID txId) {
+    public @Nullable TxStateMeta stateMeta(UUID txId) {
         return null;
     }
 

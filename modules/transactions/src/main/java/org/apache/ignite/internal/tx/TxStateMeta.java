@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction state meta.
@@ -36,7 +37,7 @@ public class TxStateMeta {
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitTimestamp Commit timestamp.
      */
-    public TxStateMeta(TxState txState, String txCoordinatorId, HybridTimestamp commitTimestamp) {
+    public TxStateMeta(TxState txState, String txCoordinatorId, @Nullable HybridTimestamp commitTimestamp) {
         this.txState = txState;
         this.txCoordinatorId = txCoordinatorId;
         this.commitTimestamp = commitTimestamp;
@@ -50,8 +51,36 @@ public class TxStateMeta {
         return txCoordinatorId;
     }
 
-    public HybridTimestamp commitTimestamp() {
+    public @Nullable HybridTimestamp commitTimestamp() {
         return commitTimestamp;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        TxStateMeta that = (TxStateMeta) o;
+
+        if (txState != that.txState) {
+            return false;
+        }
+        if (txCoordinatorId != null ? !txCoordinatorId.equals(that.txCoordinatorId) : that.txCoordinatorId != null) {
+            return false;
+        }
+        return commitTimestamp != null ? commitTimestamp.equals(that.commitTimestamp) : that.commitTimestamp == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = txState != null ? txState.hashCode() : 0;
+        result = 31 * result + (txCoordinatorId != null ? txCoordinatorId.hashCode() : 0);
+        result = 31 * result + (commitTimestamp != null ? commitTimestamp.hashCode() : 0);
+        return result;
     }
 
     @Override

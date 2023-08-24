@@ -181,10 +181,8 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public TxState state(UUID txId) {
-        TxStateMeta meta = txStateMap.get(txId);
-
-        return meta == null ? null : meta.txState();
+    public TxStateMeta stateMeta(UUID txId) {
+        return txStateMap.get(txId);
     }
 
     @Override
@@ -200,18 +198,6 @@ public class TxManagerImpl implements TxManager {
 
             return checkTransitionCorrectness(oldState, newMeta.txState()) ? newMeta : oldMeta;
         });
-    }
-
-    public static Function<TxStateMeta, TxStateMeta> markFinishedOnReplica(boolean commit) {
-        return commit ? TxManagerImpl::markCommittedOnReplica : TxManagerImpl::markAbortedOnReplica;
-    }
-
-    private static TxStateMeta markCommittedOnReplica(TxStateMeta oldMeta) {
-        return oldMeta == null ? null : new TxStateMeta(COMMITED, oldMeta.txCoordinatorId(), oldMeta.commitTimestamp());
-    }
-
-    private static TxStateMeta markAbortedOnReplica(TxStateMeta oldMeta) {
-        return oldMeta == null ? null : new TxStateMeta(ABORTED, oldMeta.txCoordinatorId(), oldMeta.commitTimestamp());
     }
 
     @Override

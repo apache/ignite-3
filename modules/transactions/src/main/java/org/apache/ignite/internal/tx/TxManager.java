@@ -59,12 +59,12 @@ public interface TxManager extends IgniteComponent {
     InternalTransaction begin(boolean readOnly, @Nullable HybridTimestamp observableTimestamp);
 
     /**
-     * Returns a transaction state.
+     * Returns a transaction state meta.
      *
      * @param txId Transaction id.
-     * @return The state or null if the state is unknown.
+     * @return The state meta or null if the state is unknown.
      */
-    @Nullable TxState state(UUID txId);
+    @Nullable TxStateMeta stateMeta(UUID txId);
 
     /**
      * Atomically changes the state meta of a transaction.

@@ -77,6 +77,7 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -321,7 +322,7 @@ public class PartitionListener implements RaftGroupListener {
                 commandTerm
         );
 
-        txManager.updateTxMeta(txId, markFinishedOnReplica(cmd.commit()));
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp());
 
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
@@ -360,7 +361,7 @@ public class PartitionListener implements RaftGroupListener {
 
         UUID txId = cmd.txId();
 
-        txManager.updateTxMeta(txId, markFinishedOnReplica(cmd.commit()));
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp());
 
         Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
 
@@ -558,6 +559,15 @@ public class PartitionListener implements RaftGroupListener {
                 full ? COMMITED : PENDING,
                 txCoordinatorId,
                 full ? commitTimestamp : null
+        ));
+        System.out.println("qqq replica touch meta=" + txManager.stateMeta(txId));
+    }
+
+    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp, String txCoordinatorId) {
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(
+                commit ? COMMITED : ABORTED,
+                txCoordinatorId,
+                commit ? commitTimestamp : null
         ));
     }
 }

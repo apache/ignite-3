@@ -26,6 +26,8 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toIndexDescriptor;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
+import static org.apache.ignite.internal.tx.TxState.ABORTED;
+import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.impl.TxManagerImpl.markFinishedOnReplica;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.filter;
@@ -361,7 +363,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             fut = completedFuture(null);
         } else if (request instanceof TxFinishReplicaRequest) {
-            fut = processTxFinishAction((TxFinishReplicaRequest) request);
+            fut = processTxFinishAction((TxFinishReplicaRequest) request, senderId);
         } else if (request instanceof TxCleanupReplicaRequest) {
             fut = processTxCleanupAction((TxCleanupReplicaRequest) request);
         } else if (request instanceof ReadOnlySingleRowReplicaRequest) {
@@ -1113,10 +1115,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      * </ol>
      *
      * @param request Transaction finish request.
+     * @param txCoordinatorId Transaction coordinator id.
      * @return future result of the operation.
      */
     // TODO: need to properly handle primary replica changes https://issues.apache.org/jira/browse/IGNITE-17615
-    private CompletableFuture<Void> processTxFinishAction(TxFinishReplicaRequest request) {
+    private CompletableFuture<Void> processTxFinishAction(TxFinishReplicaRequest request, String txCoordinatorId) {
         List<TablePartitionId> aggregatedGroupIds = request.groups().values().stream()
                 .flatMap(List::stream)
                 .map(IgniteBiTuple::get1)
@@ -1127,12 +1130,12 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (request.commit()) {
             return schemaCompatValidator.validateForward(txId, aggregatedGroupIds, request.commitTimestamp())
                     .thenCompose(validationResult -> {
-                        return finishAndCleanup(request, validationResult.isSuccessful(), aggregatedGroupIds, txId)
+                        return finishAndCleanup(request, validationResult.isSuccessful(), aggregatedGroupIds, txId, txCoordinatorId)
                                 .thenAccept(unused -> throwIfSchemaValidationOnCommitFailed(validationResult));
                     });
         } else {
             // Aborting.
-            return finishAndCleanup(request, false, aggregatedGroupIds, txId);
+            return finishAndCleanup(request, false, aggregatedGroupIds, txId, txCoordinatorId);
         }
     }
 
@@ -1148,7 +1151,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             TxFinishReplicaRequest request,
             boolean commit,
             List<TablePartitionId> aggregatedGroupIds,
-            UUID txId
+            UUID txId,
+            String txCoordinatorId
     ) {
         CompletableFuture<?> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit);
 
@@ -1178,9 +1182,15 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param aggregatedGroupIds Partition identifies which are enlisted in the transaction.
      * @param txId Transaction id.
      * @param commit True is the transaction is committed, false otherwise.
+     * @param txCoordinatorId Transaction coordinator id.
      * @return Future to wait of the finish.
      */
-    private CompletableFuture<Object> finishTransaction(List<TablePartitionId> aggregatedGroupIds, UUID txId, boolean commit) {
+    private CompletableFuture<Object> finishTransaction(
+            List<TablePartitionId> aggregatedGroupIds,
+            UUID txId,
+            boolean commit,
+            String txCoordinatorId
+    ) {
         // TODO: IGNITE-20034 Timestamp from request is not using until the issue has not been fixed (request.commitTimestamp())
         var fut = new CompletableFuture<TxMeta>();
 
@@ -1204,9 +1214,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return raftClient.run(finishTxCmdBldr.build()).whenComplete((o, throwable) -> {
-            fut.complete(new TxMeta(commit ? TxState.COMMITED : TxState.ABORTED, aggregatedGroupIds, commitTimestamp));
+            fut.complete(new TxMeta(commit ? COMMITED : ABORTED, aggregatedGroupIds, commitTimestamp));
 
-            txManager.updateTxMeta(txId, markFinishedOnReplica(commit));
+            markFinished(txId, commit, commitTimestamp);
 
             txTimestampUpdateMap.remove(txId);
         });
@@ -1233,7 +1243,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return failedFuture(e);
         }
 
-        txManager.updateTxMeta(request.txId(), markFinishedOnReplica(request.commit()));
+        markFinished(request.txId(), request.commit(), request.commitTimestamp());
 
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
         List<CompletableFuture<?>> txReadFutures = new ArrayList<>();
@@ -1254,7 +1264,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             txOps.futures.clear();
 
-            txOps.state = request.commit() ? TxState.COMMITED : TxState.ABORTED;
+            txOps.state = request.commit() ? COMMITED : ABORTED;
 
             return txOps;
         });
@@ -1391,7 +1401,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     txOps = new TxCleanupReadyFutureList();
                 }
 
-                if (txOps.state == TxState.ABORTED || txOps.state == TxState.COMMITED) {
+                if (txOps.state == ABORTED || txOps.state == COMMITED) {
                     fut.completeExceptionally(
                             new TransactionException(TX_FAILED_READ_WRITE_OPERATION_ERR, "Transaction is already finished."));
                 } else {
@@ -2462,10 +2472,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenApply(txMeta -> {
                     if (txMeta == null) {
                         return true;
-                    } else if (txMeta.txState() == TxState.COMMITED) {
+                    } else if (txMeta.txState() == COMMITED) {
                         return txMeta.commitTimestamp().compareTo(timestamp) > 0;
                     } else {
-                        assert txMeta.txState() == TxState.ABORTED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
+                        assert txMeta.txState() == ABORTED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
 
                         return true;
                     }
@@ -2745,9 +2755,21 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private void replicaTouch(UUID txId, String txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
-                full ? TxState.COMMITED : TxState.PENDING,
+                full ? COMMITED : TxState.PENDING,
                 txCoordinatorId,
                 full ? commitTimestamp : null
         ));
+    }
+
+    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+        txManager.updateTxMeta(txId, old -> {
+            requireNonNull(old, "Can't mark as finished a transaction that had not touch the primary replica before, txId=[" + txId + ']');
+
+            return new TxStateMeta(
+                    commit ? COMMITED : ABORTED,
+                    old.txCoordinatorId(),
+                    commit ? commitTimestamp : null
+            );
+        });
     }
 }
