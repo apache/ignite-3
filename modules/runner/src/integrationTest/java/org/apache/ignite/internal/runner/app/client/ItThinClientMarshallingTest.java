@@ -268,6 +268,55 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         assertEquals("v", tupleView.get(null, Tuple.create().set("KEY", key)).value("VAL"));
     }
 
+    @Test
+    public void testNullKeyTupleFields() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var tupleView = table.recordView();
+
+        Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, Tuple.create().set("KEY", null)), IgniteException.class);
+        assertThat(ex.getMessage(), startsWith(
+                "Failed to set column (null was passed, but column is not nullable): [col=Column [schemaIndex=0, columnOrder=0, name=KEY"));
+    }
+
+    @Test
+    public void testNullValTupleFields() {
+        var tableName = "testNullValTupleFields";
+        ignite().sql().createSession().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+
+        Table table = ignite().tables().table(tableName);
+        var tupleView = table.recordView();
+
+        Tuple rec = Tuple.create().set("KEY", 1).set("VAL", null);
+        Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, rec), IgniteException.class);
+        assertThat(ex.getMessage(), startsWith(
+                "Failed to set column (null was passed, but column is not nullable): [col=Column [schemaIndex=1, columnOrder=1, name=VAL"));
+    }
+
+    @Test
+    public void testKvNullKeyTupleFields() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        var tupleView = table.keyValueView();
+
+        Throwable ex = assertThrowsWithCause(() -> tupleView.put(null, Tuple.create(), Tuple.create()), IgniteException.class);
+        assertEquals("Missed key column: KEY", ex.getMessage());
+    }
+
+    @Test
+    public void testKvNullValTupleFields() {
+        var tableName = "testKvNullValTupleFields";
+        ignite().sql().createSession().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+
+        Table table = ignite().tables().table(tableName);
+        var tupleView = table.keyValueView();
+
+        Throwable ex = assertThrowsWithCause(
+                () -> tupleView.put(null, Tuple.create().set("KEY", 1), Tuple.create().set("VAL", null)),
+                IgniteException.class);
+
+        assertThat(ex.getMessage(), startsWith(
+                "Failed to set column (null was passed, but column is not nullable): [col=Column [schemaIndex=1, columnOrder=1, name=VAL"));
+    }
+
     private static class TestPojo2 {
         public int key;
 

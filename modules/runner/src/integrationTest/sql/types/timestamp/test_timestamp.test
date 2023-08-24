@@ -6,10 +6,10 @@ statement ok
 PRAGMA enable_verification
 
 statement ok
-CREATE TABLE IF NOT EXISTS timestamp (t TIMESTAMP);
+CREATE TABLE IF NOT EXISTS timestamp_t (t TIMESTAMP);
 
 statement ok
-INSERT INTO timestamp VALUES ('2008-01-01 00:00:01'), ('2007-01-01 00:00:01'), ('2008-02-01 00:00:01'), ('2008-01-02 00:00:01'), ('2008-01-01 10:00:00'), ('2008-01-01 00:10:00'), ('2008-01-01 00:00:10')
+INSERT INTO timestamp_t VALUES ('2008-01-01 00:00:01'), ('2007-01-01 00:00:01'), ('2008-02-01 00:00:01'), ('2008-01-02 00:00:01'), ('2008-01-01 10:00:00'), ('2008-01-01 00:10:00'), ('2008-01-01 00:00:10')
 
 query T
 SELECT timestamp '2017-07-23 13:10:11';
@@ -27,37 +27,37 @@ statement error
 SELECT timestamp '2017-07-23A13:10:11';
 
 query T
-SELECT t FROM timestamp ORDER BY t LIMIT 1;
+SELECT t FROM timestamp_t ORDER BY t LIMIT 1;
 ----
 2007-01-01T00:00:01
 
 query T
-SELECT MIN(t) FROM timestamp;
+SELECT MIN(t) FROM timestamp_t;
 ----
 2007-01-01T00:00:01
 
 query T
-SELECT MAX(t) FROM timestamp;
+SELECT MAX(t) FROM timestamp_t;
 ----
 2008-02-01T00:00:01
 
 statement error
-SELECT SUM(t) FROM timestamp
+SELECT SUM(t) FROM timestamp_t
 
 statement error
-SELECT AVG(t) FROM timestamp
+SELECT AVG(t) FROM timestamp_t
 
 statement error
-SELECT t+t FROM timestamp
+SELECT t+t FROM timestamp_t
 
 statement error
-SELECT t*t FROM timestamp
+SELECT t*t FROM timestamp_t
 
 statement error
-SELECT t/t FROM timestamp
+SELECT t/t FROM timestamp_t
 
 statement error
-SELECT t%t FROM timestamp
+SELECT t%t FROM timestamp_t
 
 query I
 SELECT YEAR(TIMESTAMP '1992-01-01 01:01:01');
@@ -80,12 +80,12 @@ SELECT (TIMESTAMP '1992-01-01 01:01:01')::TIME;
 01:01:01
 
 query T
-SELECT t::DATE FROM timestamp WHERE EXTRACT(YEAR from t)=2007 ORDER BY 1
+SELECT t::DATE FROM timestamp_t WHERE EXTRACT(YEAR from t)=2007 ORDER BY 1
 ----
 2007-01-01
 
 query T
-SELECT t::TIME FROM timestamp WHERE EXTRACT(YEAR from t)=2007 ORDER BY 1
+SELECT t::TIME FROM timestamp_t WHERE EXTRACT(YEAR from t)=2007 ORDER BY 1
 ----
 00:00:01
 

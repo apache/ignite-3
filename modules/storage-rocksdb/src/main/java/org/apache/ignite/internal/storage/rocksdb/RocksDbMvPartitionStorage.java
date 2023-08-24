@@ -75,7 +75,6 @@ import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import org.rocksdb.Slice;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteBatchWithIndex;
 
@@ -821,21 +820,17 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
+            ByteBuffer prefix = prepareDirectKeyBuf(rowId)
+                    .position(0)
+                    .limit(ROW_PREFIX_SIZE);
 
-            byte[] lowerBound = copyOf(keyBuf.array(), ROW_PREFIX_SIZE);
-
-            incrementRowId(keyBuf);
-
-            Slice upperBound = new Slice(copyOf(keyBuf.array(), ROW_PREFIX_SIZE));
-
-            var options = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
+            var options = new ReadOptions().setPrefixSameAsStart(true);
 
             RocksIterator it = db.newIterator(helper.partCf, options);
 
             it = helper.wrapIterator(it, helper.partCf);
 
-            it.seek(lowerBound);
+            it.seek(prefix);
 
             return new RocksIteratorAdapter<ReadResult>(it) {
                 @Override
@@ -871,7 +866,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                     super.close();
 
-                    RocksUtils.closeAll(options, upperBound);
+                    RocksUtils.closeAll(options);
                 }
             };
         });
@@ -966,11 +961,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            try (
-                    var upperBound = new Slice(helper.partitionEndPrefix());
-                    var options = new ReadOptions().setIterateUpperBound(upperBound);
-                    RocksIterator it = db.newIterator(helper.partCf, options)
-            ) {
+            try (RocksIterator it = db.newIterator(helper.partCf, helper.scanReadOpts)) {
                 it.seek(helper.partitionStartPrefix());
 
                 long size = 0;

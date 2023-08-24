@@ -212,6 +212,7 @@ SqlNode ColumnNameWithSortDirection() :
         }
     )?
     (
+        LOOKAHEAD(2)
         <NULLS> <FIRST> {
             col = SqlStdOperatorTable.NULLS_FIRST.createCall(getPos(), col);
         }
@@ -276,6 +277,7 @@ SqlCreate SqlCreateIndex(Span s, boolean replace) :
     (
         columnList = ColumnNameWithSortDirectionList()
     |
+        LOOKAHEAD(2)
         <USING> <TREE> {
             s.add(this);
 
@@ -441,14 +443,17 @@ SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
 {
     id = SimpleIdentifier()
     (
+        LOOKAHEAD(2)
         <SET> <DATA> <TYPE> { s.add(this); } type = DataTypeEx() nullable = NullableOptDefaultNull() dflt = DefaultLiteralOrNull() {
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, type, dflt, nullable == null ? null : !nullable);
         }
     |
+        LOOKAHEAD(2)
         <SET> <NOT> <NULL> {
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, null, true);
         }
     |
+        LOOKAHEAD(2)
         <DROP> <NOT> <NULL> {
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, null, false);
         }
@@ -493,7 +498,7 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
         SqlIdentifier engine = null;
 }
 {
-    <ZONE>
+    <ZONE> { s.add(this); }
         ifNotExists = IfNotExistsOpt()
         id = CompoundIdentifier()
     [
@@ -561,6 +566,7 @@ SqlNode SqlAlterZone() :
     <ZONE>
     ifExists = IfExistsOpt()
     zoneId = CompoundIdentifier()
+
     (
       <RENAME> <TO> newZoneId = SimpleIdentifier() {
         return new IgniteSqlAlterZoneRenameTo(s.end(this), zoneId, newZoneId, ifExists);
