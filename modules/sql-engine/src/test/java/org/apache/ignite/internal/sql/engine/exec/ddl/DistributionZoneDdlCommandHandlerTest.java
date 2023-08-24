@@ -52,7 +52,6 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
     @BeforeEach
     void before() {
         catalogManager = mock(CatalogManager.class, invocation -> completedFuture(null));
-        catalogManager = mock(CatalogManager.class, invocation -> completedFuture(null));
 
         commandHandler = new DdlCommandHandler(mock(TableManager.class), catalogManager);
     }
