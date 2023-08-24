@@ -23,7 +23,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
@@ -81,7 +80,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
-import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -188,7 +186,6 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -218,14 +215,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Transaction storage flush delay. */
     private static final int TX_STATE_STORAGE_FLUSH_DELAY = 1000;
     private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
-
-    /**
-     * If this property is set to {@code true} then an attempt to get the configuration property directly from Meta storage will be skipped,
-     * and the local property will be returned.
-     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through Meta storage,
-     * TODO: will be removed after fix of the issue.
-     */
-    private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
 
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
@@ -277,14 +266,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdVv;
 
     /**
-     * Versioned store for local partition set by table id. Completed strictly after {@link #tablesByIdVv} and strictly before
-     * {@link #assignmentsUpdatedVv}.
+     * Versioned store for local partition set by table id.
+     * Completed strictly after {@link #tablesByIdVv} and strictly before {@link #assignmentsUpdatedVv}.
      */
     private final IncrementalVersionedValue<Map<Integer, PartitionSet>> localPartsByTableIdVv;
 
     /**
-     * Versioned store for tracking RAFT groups initialization and starting completion. Only explicitly updated in
-     * {@link #createTablePartitionsLocally(long, CompletableFuture, TableImpl)}. Completed strictly after {@link #localPartsByTableIdVv}.
+     * Versioned store for tracking RAFT groups initialization and starting completion.
+     * Only explicitly updated in {@link #createTablePartitionsLocally(long, CompletableFuture, TableImpl)}.
+     * Completed strictly after {@link #localPartsByTableIdVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
@@ -371,11 +361,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final IndexBuilder indexBuilder;
 
-    private final ConfiguredTablesCache configuredTablesCache;
-
     private final Marshaller raftCommandsMarshaller;
-
-    private final SchemaSyncService schemaSyncService;
 
     /** Versioned value used only at manager startup to correctly fire table creation events. */
     private final IncrementalVersionedValue<Void> startVv;
@@ -502,8 +488,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc);
 
         indexBuilder = new IndexBuilder(nodeName, cpus);
-
-        configuredTablesCache = new ConfiguredTablesCache(tablesCfg, getMetadataLocallyOnly);
 
         raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
 
@@ -1812,14 +1796,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
-        return supplyAsync(() -> inBusyLock(busyLock, this::directTableIds), ioExecutor)
-                .thenCompose(tableIds -> inBusyLock(busyLock, () -> {
+        return schemaSyncService.waitForMetadataCompleteness(clock.now())
+                .thenCompose(ignore -> inBusyLock(busyLock, () -> {
+                    Set<Integer> tableIds = latestTablesById().keySet();
+
                     var tableFuts = new CompletableFuture[tableIds.size()];
 
                     var i = 0;
 
-                    for (int tblId : tableIds) {
-                        tableFuts[i++] = tableAsyncInternal(tblId, false);
+                    for (int id : tableIds) {
+                        tableFuts[i++] = tableReadyFuture(id);
                     }
 
                     return allOf(tableFuts).thenApply(unused -> inBusyLock(busyLock, () -> {
@@ -1839,12 +1825,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Collects a list of direct table ids.
+     * Return actual table id by given name or {@code null} if table doesn't exist.
+     * TODO IGNITE-19499: Use id from Catalog here.
      *
-     * @return A list of direct table ids.
+     * @param tableName Table name.
+     * @return Table id or {@code null} if not found.
      */
-    private @Nullable Integer resolveTableName(String tableName, HybridTimestamp timestamp) {
-        CatalogTableDescriptor tableDescriptor = catalogManager.table(tableName, timestamp.longValue());
+    private @Nullable Integer tableNameToId(String tableName, HybridTimestamp timestamp) {
+        CatalogTableDescriptor tableDescriptor = catalogService.table(tableName, timestamp.longValue());
 
         // TODO IGNITE-19499: Drop the rest of code and return Id from catalog instead.
         // return tableDescriptor == null ? null : tableDescriptor.id();
@@ -1853,12 +1841,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            TableConfiguration exTblCfg = directProxy(tablesCfg.tables()).get(tblName);
+            TableConfiguration tableCfg = tablesCfg.tables().get(tableName);
 
-            if (exTblCfg == null) {
+            if (tableCfg == null) {
                 return null;
             } else {
-                return exTblCfg.id().value();
+                return tableCfg.id().value();
             }
         } catch (NoSuchElementException e) {
             return null;
@@ -1866,8 +1854,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Returns the tables by ID future for the given causality token. The future will only be completed when corresponding assignments
-     * update completes.
+     * Returns the tables by ID future for the given causality token.
+     * The future will only be completed when corresponding assignments update completes.
      *
      * @param causalityToken Causality token.
      * @return The future with tables map.
@@ -1913,6 +1901,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /** {@inheritDoc} */
+    // TODO IGNITE-19499: This blocking method should be dropped or should return table instantly.
     @Override
     public TableImpl table(int id) throws NodeStoppingException {
         return join(tableAsync(id));
@@ -1968,7 +1957,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return tableAsyncInternal(id, true);
+            return tableAsyncInternal(id);
         } finally {
             busyLock.leaveBusy();
         }
@@ -2007,10 +1996,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Gets a table by name, if it was created before. Doesn't parse canonical name.
      *
-     * @param name Table name.
+     * @param tableName Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
-    public CompletableFuture<TableImpl> tableAsyncInternal(String name) {
+    private CompletableFuture<TableImpl> tableAsyncInternal(String tableName) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
@@ -2020,43 +2009,67 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return schemaSyncService.waitForMetadataCompleteness(now)
                     .thenComposeAsync(ignore -> {
-                        Integer tableId = resolveTableName(tableName, now);
+                        Integer tableId = tableNameToId(tableName, now);
 
                         if (tableId == null) {
+                            // Table isn't configured.
                             return completedFuture(null);
                         }
 
-                        return tableAsyncInternal(tableId, false);
-                    }));
+                        TableImpl table = latestTablesById().get(tableId);
+
+                        if (table != null) {
+                            // Table was published.
+                            return completedFuture(table);
+                        }
+
+                        // Wait for table initialization.
+                        return tableReadyFuture(tableId);
+                    }, ioExecutor);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     /**
-     * Internal method for getting table by id.
+     * Gets a table by id, if it was created before.
+     *
+     * @param tableId Table id.
+     * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
+     */
+    private CompletableFuture<TableImpl> tableAsyncInternal(int tableId) {
+        HybridTimestamp now = clock.now();
+
+        return schemaSyncService.waitForMetadataCompleteness(now)
+                .thenComposeAsync(ignore -> {
+                    TableImpl table = latestTablesById().get(tableId);
+
+                    if (table != null) {
+                        // Table was published.
+                        return completedFuture(table);
+                    }
+
+                    if (catalogService.table(tableId, now.longValue()) == null) {
+                        return completedFuture(null);
+                    }
+
+                    // Wait for table initialization.
+                    return tableReadyFuture(tableId);
+                }, ioExecutor);
+    }
+
+    /**
+     * Internal method for getting a table future, which is completed when the table will be published.
      *
      * @param id Table id.
-     * @param checkConfiguration {@code True} when the method checks a configuration before trying to get a table, {@code false}
-     *         otherwise.
      * @return Future representing pending completion of the operation.
      */
-    public CompletableFuture<TableImpl> tableAsyncInternal(int id, boolean checkConfiguration) {
-        CompletableFuture<Boolean> tblCfgFut = checkConfiguration
-                ? supplyAsync(() -> inBusyLock(busyLock, () -> isTableConfigured(id)), ioExecutor)
-                : completedFuture(true);
+    private CompletableFuture<TableImpl> tableReadyFuture(int id) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
 
-        return tblCfgFut.thenCompose(isCfg -> inBusyLock(busyLock, () -> {
-            if (!isCfg) {
-                return completedFuture(null);
-            }
-
-            TableImpl tbl = latestTablesById().get(id);
-
-            if (tbl != null) {
-                return completedFuture(tbl);
-            }
-
+        try {
             CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
 
             CompletionListener<Void> tablesListener = (token, v, th) -> {
@@ -2067,10 +2080,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (e != null) {
                             getTblFut.completeExceptionally(e);
                         } else {
-                            TableImpl table = tables.get(id);
+                            TableImpl table0 = tables.get(id);
 
-                            if (table != null) {
-                                getTblFut.complete(table);
+                            if (table0 != null) {
+                                getTblFut.complete(table0);
                             }
                         }
                     });
@@ -2083,26 +2096,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             // This check is needed for the case when we have registered tablesListener,
             // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
-            tbl = latestTablesById().get(id);
+            TableImpl table = latestTablesById().get(id);
 
-            if (tbl != null) {
+            if (table != null) {
                 assignmentsUpdatedVv.removeWhenComplete(tablesListener);
 
-                return completedFuture(tbl);
+                return completedFuture(table);
             }
 
             return getTblFut.whenComplete((unused, throwable) -> assignmentsUpdatedVv.removeWhenComplete(tablesListener));
-        }));
-    }
-
-    /**
-     * Checks that the table is configured with specific id.
-     *
-     * @param id Table id.
-     * @return True when the table is configured into cluster, false otherwise.
-     */
-    private boolean isTableConfigured(int id) {
-        return configuredTablesCache.isTableConfigured(id);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
@@ -2475,19 +2480,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private PartitionMover createPartitionMover(InternalTable internalTable, int partId) {
         return new PartitionMover(busyLock, () -> internalTable.partitionRaftGroupService(partId));
-    }
-
-    /**
-     * Gets a direct accessor for the configuration distributed property. If the metadata access only locally configured the method will
-     * return local property accessor.
-     *
-     * @param property Distributed configuration property to receive direct access.
-     * @param <T> Type of the property accessor.
-     * @return An accessor for distributive property.
-     * @see #getMetadataLocallyOnly
-     */
-    private <T extends ConfigurationProperty<?>> T directProxy(T property) {
-        return getMetadataLocallyOnly ? property : (T) property.directProxy();
     }
 
     private static PeersAndLearners configurationFromAssignments(Collection<Assignment> assignments) {
