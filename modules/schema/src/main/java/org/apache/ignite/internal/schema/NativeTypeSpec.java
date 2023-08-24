@@ -356,7 +356,7 @@ public enum NativeTypeSpec {
      * @param val Object to map.
      * @return Native type.
      */
-    public static @Nullable NativeTypeSpec fromObject(Object val) {
+    public static @Nullable NativeTypeSpec fromObject(@Nullable Object val) {
         return val != null ? fromClass(val.getClass()) : null;
     }
 

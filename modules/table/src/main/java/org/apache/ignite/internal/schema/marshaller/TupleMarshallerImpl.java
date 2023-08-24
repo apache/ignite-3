@@ -77,8 +77,10 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                     }
 
                     if (!binaryTupleRebuildRequired(schema)) {
-                        var binaryRow = new BinaryRowImpl(schema.version(), tupleReader.byteBuffer());
+                        validateTuple(tuple, schema);
 
+                        // BinaryTuple from client has matching schema version, and all values are valid. Use buffer as is.
+                        var binaryRow = new BinaryRowImpl(schema.version(), tupleReader.byteBuffer());
                         return Row.wrapBinaryRow(schema, binaryRow);
                     }
                 }
@@ -216,6 +218,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 NativeType colType = col.type();
 
                 Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
+                col.validate(val);
 
                 assert val != POISON_OBJECT;
 
@@ -348,10 +351,23 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @return True if binary tuple rebuild is required; false if the tuple can be written to storage as is.
      */
     private static boolean binaryTupleRebuildRequired(SchemaDescriptor schema) {
-        // TODO IGNITE-20155 Java client connector skips NOT NULL and other column checks
         // Temporal columns require normalization according to the specified precision.
-        // return schema.hasTemporalColumns();
-        return true;
+        return schema.hasTemporalColumns();
+    }
+
+    /**
+     * Validates tuple against schema.
+     *
+     * @param tuple Tuple.
+     * @param schema Schema.
+     */
+    private static void validateTuple(Tuple tuple, SchemaDescriptor schema) {
+        for (int i = 0; i < schema.length(); i++) {
+            Column col = schema.column(i);
+            Object val = tuple.value(i);
+
+            col.validate(val);
+        }
     }
 
     /**
