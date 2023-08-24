@@ -25,13 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.google.common.collect.Streams;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import javax.annotation.Nullable;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.tx.TxManager;
@@ -57,6 +55,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.hamcrest.MatcherAssert;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -256,7 +255,9 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         ResultSet<SqlRow> rs = ses.execute(null, "SELECT ID FROM TEST");
 
-        Set<Integer> set = Streams.stream(rs).map(r -> r.intValue(0)).collect(Collectors.toSet());
+        Set<Integer> set = new HashSet<>();
+
+        rs.forEachRemaining(r -> set.add(r.intValue(0)));
 
         rs.close();
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.externalize;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.sql.engine.util.Commons.rexBuilder;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -95,6 +96,7 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSelectKeyword;
 import org.apache.calcite.sql.SqlSyntax;
 import org.apache.calcite.sql.SqlWindow;
+import org.apache.calcite.sql.fun.SqlLiteralAggFunction;
 import org.apache.calcite.sql.fun.SqlTrimFunction;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
@@ -337,6 +339,18 @@ class RelJson {
         map.put("operands", node.getArgList());
         map.put("filter", node.filterArg);
         map.put("name", node.getName());
+        // workaround, will be discussed in dev list
+        //
+        // briefly, after deserialization and object assembly:
+        // RelJsonReader.RelInputImpl.toAggCall
+        // further call to: AggregateCall.create will call
+        // final List<RelDataType> preTypes = RexUtil.types(rexList); <-- empty rexList
+        // type = aggFunction.inferReturnType(callBinding); <-- with empty preTypes which raise exception from:
+        // SqlLiteralAggFunction.inferReturnType
+        if (node.getAggregation() == SqlLiteralAggFunction.INSTANCE) {
+            RexNode boolLiteral = rexBuilder().makeLiteral(true);
+            map.put("rexList", toJson(boolLiteral));
+        }
         return map;
     }
 
