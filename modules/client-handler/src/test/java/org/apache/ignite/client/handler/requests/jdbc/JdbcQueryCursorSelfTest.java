@@ -41,7 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class JdbcQueryCursorSelfTest {
     @Mock
-    private QueryTransactionWrapper txTestWrapper;
+    private QueryTransactionWrapper txWrapper;
 
     private static final List<Integer> ROWS = List.of(1, 2, 3);
 
@@ -67,9 +67,9 @@ public class JdbcQueryCursorSelfTest {
     }
 
     private List<Integer> fetchFullBatch(int maxRows, int fetchSize) {
-        AsyncWrapper<Integer> asyncWrapper = new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run);
-        JdbcQueryCursor<Integer> cursor = new JdbcQueryCursor<>(
-                maxRows, new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, txTestWrapper, asyncWrapper));
+        JdbcQueryCursor<Integer> cursor = new JdbcQueryCursor<>(maxRows,
+                new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, txWrapper,
+                        new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run)));
 
         List<Integer> results = new ArrayList<>(maxRows);
         BatchedResult<Integer> requestResult;

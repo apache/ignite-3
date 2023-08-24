@@ -72,9 +72,13 @@ public final class TestQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(SessionId sessionId, QueryContext context,
-            IgniteTransactions transactions, String qry, Object... params) {
-
+    public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
+            SessionId sessionId,
+            QueryContext context,
+            IgniteTransactions transactions,
+            String qry,
+            Object... params
+    ) {
         Object[] unwrappedParams = Arrays.stream(params).map(NativeTypeWrapper::unwrap).toArray();
 
         return queryProcessor.querySingleAsync(sessionId, context, transactions, qry, unwrappedParams);

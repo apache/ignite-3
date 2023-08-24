@@ -89,6 +89,7 @@ public abstract class CliIntegrationTestBase extends IntegrationTestBase {
 
     protected static List<List<Object>> sql(@Nullable Transaction tx, String sql, Object... args) {
         var queryEngine = ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
+        var transactions = CLUSTER_NODES.get(0).transactions();
 
         SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
 
@@ -96,7 +97,7 @@ public abstract class CliIntegrationTestBase extends IntegrationTestBase {
             var context = QueryContext.create(SqlQueryType.ALL, tx);
 
             return getAllFromCursor(
-                    await(queryEngine.querySingleAsync(sessionId, context, CLUSTER_NODES.get(0).transactions(), sql, args))
+                    await(queryEngine.querySingleAsync(sessionId, context, transactions, sql, args))
             );
         } finally {
             queryEngine.closeSession(sessionId);

@@ -361,7 +361,11 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
-            SessionId sessionId, QueryContext context, IgniteTransactions transactions, String qry, Object... params
+            SessionId sessionId,
+            QueryContext context,
+            IgniteTransactions transactions,
+            String qry,
+            Object... params
     ) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
