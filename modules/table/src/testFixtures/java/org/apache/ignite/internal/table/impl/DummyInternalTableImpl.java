@@ -327,7 +327,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(ClusterNode.class),
                 mock(MvTableStorage.class),
                 mock(IndexBuilder.class),
-                mock(TablesConfiguration.class)
+                mock(TablesConfiguration.class),
+                new TestPlacementDriver()
         );
 
         lenient().when(safeTime.waitFor(any())).thenReturn(completedFuture(null));

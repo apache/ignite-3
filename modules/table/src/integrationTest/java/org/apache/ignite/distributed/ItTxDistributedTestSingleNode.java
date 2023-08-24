@@ -59,6 +59,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -182,6 +183,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     protected final List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
+    protected PlacementDriver placementDriver;
+
     private ScheduledThreadPoolExecutor executor;
 
     private final Function<String, ClusterNode> consistentIdToNode = consistentId -> {
@@ -263,6 +266,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         for (ClusterService node : cluster) {
             assertTrue(waitForTopology(node, nodes, 1000));
         }
+
+        placementDriver = new TestPlacementDriver(cluster.get(0).nodeName());
 
         log.info("The cluster has been started");
 
@@ -384,7 +389,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName),
-                new TestPlacementDriver()
+                placementDriver
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), clientTxManager.lockManager());
 
         this.customers = new TableImpl(new InternalTableImpl(
@@ -398,7 +403,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 mock(TxStateTableStorage.class),
                 startClient() ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient() ? clientClock : clocks.get(localNodeName),
-                new TestPlacementDriver()
+                placementDriver
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), clientTxManager.lockManager());
 
         log.info("Tables have been started");
@@ -528,7 +533,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 consistentIdToNode.apply(assignment),
                                                 mvTableStorage,
                                                 mock(IndexBuilder.class),
-                                                tablesConfig
+                                                tablesConfig,
+                                                placementDriver
                                         ),
                                         raftSvc,
                                         storageIndexTracker

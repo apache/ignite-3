@@ -67,6 +67,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -244,6 +245,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
     private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
 
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
+
     /**
      * The constructor.
      *
@@ -265,6 +269,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param mvTableStorage Table storage.
      * @param indexBuilder Index builder.
      * @param tablesConfig Tables configuration.
+     * @param placementDriver Placement driver.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -286,7 +291,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             ClusterNode localNode,
             MvTableStorage mvTableStorage,
             IndexBuilder indexBuilder,
-            TablesConfiguration tablesConfig
+            TablesConfiguration tablesConfig,
+            PlacementDriver placementDriver
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -305,6 +311,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.mvTableStorage = mvTableStorage;
         this.indexBuilder = indexBuilder;
         this.tablesConfig = tablesConfig;
+        this.placementDriver = placementDriver;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 

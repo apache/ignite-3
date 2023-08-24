@@ -1003,7 +1003,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 localNode(),
                 table.internalTable().storage(),
                 indexBuilder,
-                tablesCfg
+                tablesCfg,
+                placementDriver
         );
     }
 
