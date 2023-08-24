@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateAddColumnParams;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateAlterColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateAlterZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateHashIndexParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateSortedIndexParams;
@@ -39,7 +40,6 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
@@ -403,6 +403,8 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> alterColumn(AlterColumnParams params) {
         return saveUpdateAndWaitForActivation(catalog -> {
+            validateAlterColumnParams(params);
+
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
@@ -413,7 +415,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
             if (origin.equals(target)) {
                 // No modifications required.
-                return Collections.emptyList();
+                return List.of();
             }
 
             boolean isPkColumn = table.isPrimaryKeyColumn(origin.name());

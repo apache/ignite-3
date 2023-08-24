@@ -35,6 +35,7 @@ import static org.hamcrest.Matchers.nullValue;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
@@ -807,6 +808,22 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
         assertThat(
                 manager.addColumn(addColumnParams(columnParams("key", INT32), columnParams("key", INT64))),
                 willThrowFast(CatalogValidationException.class, "Duplicate columns are present: [key]")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnAlterColumn() {
+        assertThat(
+                manager.alterColumn(AlterColumnParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateColumnNameOnAlterColumn() {
+        assertThat(
+                manager.alterColumn(AlterColumnParams.builder().tableName(TABLE_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Missing column name")
         );
     }
 
