@@ -392,7 +392,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            validateDropColumnColumns(schema, table, params);
+            ensureColumnCanBeDropped(schema, table, params);
 
             return List.of(
                     new DropColumnsEntry(table.id(), params.columns())
@@ -843,7 +843,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         }
     }
 
-    private void validateDropColumnColumns(
+    private static void ensureColumnCanBeDropped(
             CatalogSchemaDescriptor schema,
             CatalogTableDescriptor table,
             AlterTableDropColumnParams params
