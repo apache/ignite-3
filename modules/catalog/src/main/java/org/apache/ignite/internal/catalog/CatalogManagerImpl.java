@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateAddColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateAlterZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateHashIndexParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateSortedIndexParams;
@@ -359,11 +360,9 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> addColumn(AlterTableAddColumnParams params) {
-        if (params.columns().isEmpty()) {
-            return completedFuture(null);
-        }
-
         return saveUpdateAndWaitForActivation(catalog -> {
+            validateAddColumnParams(params);
+
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());

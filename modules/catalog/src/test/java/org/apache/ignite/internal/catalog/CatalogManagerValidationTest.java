@@ -35,6 +35,7 @@ import static org.hamcrest.Matchers.nullValue;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -770,6 +771,42 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
         assertThat(
                 manager.dropColumn(AlterTableDropColumnParams.builder().tableName(TABLE_NAME).columns(Set.of()).build()),
                 willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnAddColumn() {
+        assertThat(
+                manager.addColumn(AlterTableAddColumnParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateColumnsOnAddColumn() {
+        assertThat(
+                manager.addColumn(AlterTableAddColumnParams.builder().tableName(TABLE_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.addColumn(AlterTableAddColumnParams.builder().tableName(TABLE_NAME).columns(List.of()).build()),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.addColumn(addColumnParams(ColumnParams.builder().build())),
+                willThrowFast(CatalogValidationException.class, "Missing column name")
+        );
+
+        assertThat(
+                manager.addColumn(addColumnParams(ColumnParams.builder().name("key").build())),
+                willThrowFast(CatalogValidationException.class, "Missing column type: key")
+        );
+
+        assertThat(
+                manager.addColumn(addColumnParams(columnParams("key", INT32), columnParams("key", INT64))),
+                willThrowFast(CatalogValidationException.class, "Duplicate columns are present: [key]")
         );
     }
 

@@ -78,7 +78,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams.Builder;
-import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -326,15 +325,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testAddColumn() {
         assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
-        AlterTableAddColumnParams params = AlterTableAddColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(columnParamsBuilder(NEW_COLUMN_NAME, STRING, true).defaultValue(constant("Ignite!")).build()))
-                .build();
-
         long beforeAddedTimestamp = clock.nowLong();
 
-        assertThat(manager.addColumn(params), willBe(nullValue()));
+        assertThat(
+                manager.addColumn(addColumnParams(
+                        columnParamsBuilder(NEW_COLUMN_NAME, STRING, true).defaultValue(constant("Ignite!")).build()
+                )),
+                willBe(nullValue())
+        );
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.activeSchema(beforeAddedTimestamp);
@@ -391,13 +389,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         // Add duplicate column.
-        AlterTableAddColumnParams addColumnParams = AlterTableAddColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(columnParams(NEW_COLUMN_NAME, INT32, true), columnParams("VAL", INT32, true)))
-                .build();
-
-        assertThat(manager.addColumn(addColumnParams), willThrow(ColumnAlreadyExistsException.class));
+        assertThat(
+                manager.addColumn(addColumnParams(columnParams(NEW_COLUMN_NAME, INT32, true), columnParams("VAL", INT32, true))),
+                willThrow(ColumnAlreadyExistsException.class)
+        );
 
         // Validate no column added.
         CatalogSchemaDescriptor schema = manager.activeSchema(clock.nowLong());
@@ -405,13 +400,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
 
         // Add multiple columns.
-        addColumnParams = AlterTableAddColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(columnParams(NEW_COLUMN_NAME, INT32, true), columnParams(NEW_COLUMN_NAME_2, INT32, true)))
-                .build();
-
-        assertThat(manager.addColumn(addColumnParams), willBe(nullValue()));
+        assertThat(
+                manager.addColumn(addColumnParams(
+                        columnParams(NEW_COLUMN_NAME, INT32, true), columnParams(NEW_COLUMN_NAME_2, INT32, true)
+                )),
+                willBe(nullValue())
+        );
 
         // Validate both columns added.
         schema = manager.activeSchema(clock.nowLong());
@@ -1328,26 +1322,20 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testColumnEvents() {
-        AlterTableAddColumnParams addColumnParams = AlterTableAddColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(columnParamsBuilder(NEW_COLUMN_NAME, INT32, true).defaultValue(constant(42)).build()))
-                .build();
-
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
         when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
 
         manager.listen(CatalogEvent.TABLE_ALTER, eventListener);
 
         // Try to add column without table.
-        assertThat(manager.addColumn(addColumnParams), willThrow(TableNotFoundException.class));
+        assertThat(manager.addColumn(addColumnParams(columnParams(NEW_COLUMN_NAME, INT32))), willThrow(TableNotFoundException.class));
         verifyNoInteractions(eventListener);
 
         // Create table.
         assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         // Add column.
-        assertThat(manager.addColumn(addColumnParams), willBe(nullValue()));
+        assertThat(manager.addColumn(addColumnParams(columnParams(NEW_COLUMN_NAME, INT32))), willBe(nullValue()));
         verify(eventListener).notify(any(AddColumnEventParameters.class), isNull());
 
         // Drop column.
@@ -1502,14 +1490,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void addColumnIncrementsTableVersion() {
         createSomeTable(TABLE_NAME);
 
-        CompletableFuture<Void> future = manager.addColumn(
-                AlterTableAddColumnParams.builder()
-                        .schemaName(SCHEMA_NAME)
-                        .tableName(TABLE_NAME)
-                        .columns(List.of(columnParams("val2", INT32)))
-                        .build()
-        );
-        assertThat(future, willCompleteSuccessfully());
+        assertThat(manager.addColumn(addColumnParams(columnParams("val2", INT32))), willCompleteSuccessfully());
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
 
@@ -1692,6 +1673,18 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 manager.dropColumn(dropColumnParams("VAL")),
                 willThrowFast(IgniteException.class, String.format("Can't drop indexed column: [columnName=VAL, indexName=%s]", INDEX_NAME))
         );
+    }
+
+    @Test
+    void testAddColumnWithNotExistingTable() {
+        assertThat(manager.addColumn(addColumnParams(columnParams("key", INT32))), willThrowFast(TableNotFoundException.class));
+    }
+
+    @Test
+    void testAddColumnWithExistsColumn() {
+        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+        assertThat(manager.addColumn(addColumnParams(columnParams("ID", INT32))), willThrowFast(ColumnAlreadyExistsException.class));
     }
 
     private void createSomeTable(String tableName) {

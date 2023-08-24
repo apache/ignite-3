@@ -30,6 +30,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AbstractTableCommandParams;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -155,6 +156,22 @@ class CatalogParamsValidationUtils {
         validateCommonTableParams(params);
 
         validateCollectionIsNotEmpty(params.columns(), Table.TABLE_DEFINITION_ERR, "Columns not specified");
+    }
+
+    static void validateAddColumnParams(AlterTableAddColumnParams params) {
+        validateCommonTableParams(params);
+
+        List<String> columnNames = Objects.<List<ColumnParams>>requireNonNullElse(params.columns(), List.of()).stream()
+                .peek(CatalogParamsValidationUtils::validateColumnParams)
+                .map(ColumnParams::name)
+                .collect(toList());
+
+        validateColumns(
+                columnNames,
+                Table.TABLE_DEFINITION_ERR,
+                "Columns not specified",
+                "Duplicate columns are present: {}"
+        );
     }
 
     private static void validateUpdateZoneFieldsParameters(
