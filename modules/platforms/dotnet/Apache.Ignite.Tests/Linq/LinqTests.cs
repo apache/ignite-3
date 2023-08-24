@@ -113,7 +113,8 @@ public partial class LinqTests : IgniteTestsBase
                 Instant.FromUnixTimeSeconds(i + 1),
                 new byte[] { 1, 2 },
                 i + 7.7m,
-                new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, (byte)(i + 1)));
+                new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, (byte)(i + 1)),
+                i % 2 == 0);
 
             await PocoAllColumnsSqlNullableView.UpsertAsync(null, pocoAllColumns);
         }
@@ -584,6 +585,7 @@ public partial class LinqTests : IgniteTestsBase
         Assert.AreEqual(Instant.FromUnixTimeSeconds(1), res[0].Timestamp);
         Assert.AreEqual(new byte[] { 1, 2 }, res[0].Blob);
         Assert.AreEqual(new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1), res[0].Uuid);
+        Assert.IsTrue(res[0].Boolean);
     }
 
     [Test]
@@ -607,6 +609,7 @@ public partial class LinqTests : IgniteTestsBase
         Assert.AreEqual(Instant.FromUnixTimeSeconds(1), res[0].Timestamp);
         Assert.AreEqual(new byte[] { 1, 2 }, res[0].Blob);
         Assert.AreEqual(new Guid(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1), res[0].Uuid);
+        Assert.IsTrue(res[0].Boolean);
     }
 
     [Test]
@@ -631,6 +634,7 @@ public partial class LinqTests : IgniteTestsBase
         Assert.IsNull(res[0].Timestamp);
         Assert.IsNull(res[0].Blob);
         Assert.IsNull(res[0].Uuid);
+        Assert.IsNull(res[0].Boolean);
     }
 
     [Test]
