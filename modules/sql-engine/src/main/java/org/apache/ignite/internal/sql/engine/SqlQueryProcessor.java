@@ -121,8 +121,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     private static final long SESSION_EXPIRE_CHECK_PERIOD = TimeUnit.SECONDS.toMillis(1);
 
     /**
-     * Duration in milliseconds after which the session will be considered expired if no action have been performed on behalf of this
-     * session during this period.
+     * Duration in milliseconds after which the session will be considered expired if no action have been performed
+     * on behalf of this session during this period.
      */
     private static final long DEFAULT_SESSION_IDLE_TIMEOUT = TimeUnit.MINUTES.toMillis(15);
 
@@ -214,34 +214,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.clock = clock;
         this.catalogManager = catalogManager;
         this.metricManager = metricManager;
-    }
-
-    /**
-     * Creates a new transaction wrapper using an existing outer transaction or starting a new "implicit" transaction.
-     *
-     * @param queryType Query type.
-     * @param transactions Transactions facade.
-     * @param outerTx Outer transaction.
-     * @return Wrapper for an active transaction.
-     * @throws SqlException If an outer transaction was started for a {@link SqlQueryType#DDL DDL} query.
-     */
-    static QueryTransactionWrapper wrapTxOrStartImplicit(
-            SqlQueryType queryType,
-            IgniteTransactions transactions,
-            @Nullable InternalTransaction outerTx
-    ) {
-        if (outerTx == null) {
-            InternalTransaction tx = (InternalTransaction) transactions.begin(
-                    new TransactionOptions().readOnly(queryType != SqlQueryType.DML));
-
-            return new QueryTransactionWrapper(tx, true);
-        }
-
-        if (SqlQueryType.DDL == queryType) {
-            throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
-        }
-
-        return new QueryTransactionWrapper(outerTx, false);
     }
 
     /** {@inheritDoc} */
@@ -500,8 +472,12 @@ public class SqlQueryProcessor implements QueryProcessor {
         return CompletableFuture.completedFuture(schema);
     }
 
-    private AsyncSqlCursor<List<Object>> executePlan(Session session, QueryTransactionWrapper txWrapper, BaseQueryContext ctx,
-            QueryPlan plan) {
+    private AsyncSqlCursor<List<Object>> executePlan(
+            Session session,
+            QueryTransactionWrapper txWrapper,
+            BaseQueryContext ctx,
+            QueryPlan plan
+    ) {
         var dataCursor = executionSrvc.executePlan(txWrapper.unwrap(), plan, ctx);
 
         SqlQueryType queryType = plan.type();
@@ -530,6 +506,34 @@ public class SqlQueryProcessor implements QueryProcessor {
                     }
                 }
         );
+    }
+
+    /**
+     * Creates a new transaction wrapper using an existing outer transaction or starting a new "implicit" transaction.
+     *
+     * @param queryType Query type.
+     * @param transactions Transactions facade.
+     * @param outerTx Outer transaction.
+     * @return Wrapper for an active transaction.
+     * @throws SqlException If an outer transaction was started for a {@link SqlQueryType#DDL DDL} query.
+     */
+    static QueryTransactionWrapper wrapTxOrStartImplicit(
+            SqlQueryType queryType,
+            IgniteTransactions transactions,
+            @Nullable InternalTransaction outerTx
+    ) {
+        if (outerTx == null) {
+            InternalTransaction tx = (InternalTransaction) transactions.begin(
+                    new TransactionOptions().readOnly(queryType != SqlQueryType.DML));
+
+            return new QueryTransactionWrapper(tx, true);
+        }
+
+        if (SqlQueryType.DDL == queryType) {
+            throw new SqlException(STMT_VALIDATION_ERR, "DDL doesn't support transactions.");
+        }
+
+        return new QueryTransactionWrapper(outerTx, false);
     }
 
     @TestOnly

@@ -23,7 +23,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -90,23 +89,27 @@ public class QueryTransactionWrapperSelfTest {
 
     @Test
     public void testCommitImplicit() {
-        when(transactions.begin(any())).thenReturn(new NoOpTransaction("test"));
-
-        QueryTransactionWrapper wrapper = wrapTxOrStartImplicit(SqlQueryType.QUERY, transactions, null);
-
-        assertThat(wrapper.unwrap(), instanceOf(NoOpTransaction.class));
+        QueryTransactionWrapper wrapper = prepareImplicitTx();
         NoOpTransaction tx = (NoOpTransaction) wrapper.unwrap();
-
-        assertFalse(tx.commitFuture().isDone());
 
         wrapper.commitImplicit();
 
-        assertTrue(tx.commitFuture().isDone());
-        assertFalse(tx.rollbackFuture().isDone());
+        assertThat(tx.commitFuture().isDone(), equalTo(true));
+        assertThat(tx.rollbackFuture().isDone(), equalTo(false));
     }
 
     @Test
     public void testRollbackImplicit() {
+        QueryTransactionWrapper wrapper = prepareImplicitTx();
+        NoOpTransaction tx = (NoOpTransaction) wrapper.unwrap();
+
+        wrapper.rollbackImplicit();
+
+        assertThat(tx.rollbackFuture().isDone(), equalTo(true));
+        assertThat(tx.commitFuture().isDone(), equalTo(false));
+    }
+
+    private QueryTransactionWrapper prepareImplicitTx() {
         when(transactions.begin(any())).thenReturn(new NoOpTransaction("test"));
 
         QueryTransactionWrapper wrapper = wrapTxOrStartImplicit(SqlQueryType.QUERY, transactions, null);
@@ -115,11 +118,9 @@ public class QueryTransactionWrapperSelfTest {
         NoOpTransaction tx = (NoOpTransaction) wrapper.unwrap();
 
         assertFalse(tx.rollbackFuture().isDone());
-
-        wrapper.rollbackImplicit();
-
-        assertTrue(tx.rollbackFuture().isDone());
         assertFalse(tx.commitFuture().isDone());
+
+        return wrapper;
     }
 }
 
