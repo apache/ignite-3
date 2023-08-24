@@ -59,6 +59,7 @@ struct all_fields_type {
     ignite::ignite_timestamp m_timestamp2;
     std::vector<std::byte> m_blob;
     ignite::big_decimal m_decimal;
+    bool m_boolean{false};
 };
 
 namespace ignite {
@@ -86,6 +87,7 @@ inline ignite_tuple convert_to_tuple(all_fields_type &&value) {
     tuple.set("timestamp2", value.m_timestamp2);
     tuple.set("blob", value.m_blob);
     tuple.set("decimal", value.m_decimal);
+    tuple.set("boolean", value.m_boolean);
 
     return tuple;
 }
@@ -115,6 +117,7 @@ inline all_fields_type convert_from_tuple(ignite_tuple &&value) {
         res.m_timestamp2 = value.get<ignite_timestamp>("timestamp2");
         res.m_blob = value.get<std::vector<std::byte>>("blob");
         res.m_decimal = value.get<big_decimal>("decimal");
+        res.m_boolean = value.get<bool>("boolean");
     }
 
     return res;

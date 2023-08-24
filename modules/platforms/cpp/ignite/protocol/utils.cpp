@@ -213,7 +213,7 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
 
     switch (value.get_type()) {
         case ignite_type::BOOLEAN: {
-            claim_type_and_scale(builder, ignite_type::INT8);
+            claim_type_and_scale(builder, ignite_type::BOOLEAN);
             builder.claim_bool(value.get<bool>());
             break;
         }
@@ -324,7 +324,7 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
 
     switch (value.get_type()) {
         case ignite_type::BOOLEAN: {
-            append_type_and_scale(builder, ignite_type::INT8);
+            append_type_and_scale(builder, ignite_type::BOOLEAN);
             builder.append_bool(value.get<bool>());
             break;
         }
