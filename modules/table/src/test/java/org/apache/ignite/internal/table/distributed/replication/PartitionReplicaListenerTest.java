@@ -41,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -138,6 +139,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -286,6 +288,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** The state is used to resolve write intent. */
     @Nullable
     private TxState txState;
+    private TxStateMeta txStateMeta;
 
     /** Secondary sorted index. */
     private TableSchemaAwareIndexStorage sortedIndexStorage;
@@ -387,6 +390,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage()))
         );
+
+        /*txManager = new TxManagerImpl(
+                mock(ReplicaService.class),
+                mock(LockManager.class),
+                clock,
+                mock(TransactionIdGenerator.class),
+                () -> "local"
+        );*/
 
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
@@ -913,6 +924,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void testWriteIntentOnPrimaryReplicaInsertUpdateDelete() throws MarshallerException {
+        mockTxManagerLocalStateMap();
+
         UUID txId = TestTransactionIds.newTransactionId();
 
         BinaryRow testRow = binaryRow(0);
@@ -965,6 +978,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void testWriteIntentOnPrimaryReplicaMultiRowOps() throws MarshallerException {
+        mockTxManagerLocalStateMap();
+
         UUID txId = TestTransactionIds.newTransactionId();
         BinaryRow row0 = binaryRow(0);
         BinaryRow row1 = binaryRow(1);
@@ -1043,6 +1058,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void testWriteIntentOnPrimaryReplicaSingleUpdate() {
+        mockTxManagerLocalStateMap();
+
         UUID txId = TestTransactionIds.newTransactionId();
         AtomicInteger counter = new AtomicInteger();
 
@@ -1068,6 +1085,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @Test
     public void testWriteIntentOnPrimaryReplicaUpdateAll() {
+        mockTxManagerLocalStateMap();
+
         UUID txId = TestTransactionIds.newTransactionId();
         AtomicInteger counter = new AtomicInteger();
 
@@ -1150,6 +1169,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             // Imitation of tx commit.
             txStateStorage.put(txId, new TxMeta(TxState.COMMITED, new ArrayList<>(), now));
+            txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.COMMITED, UUID.randomUUID().toString(), now));
 
             CompletableFuture<?> replicaCleanupFut = partitionReplicaListener.invoke(
                     TX_MESSAGES_FACTORY.txCleanupReplicaRequest()
@@ -1193,6 +1213,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             @Values(booleans = {false, true}) boolean committed,
             @Values(booleans = {false, true}) boolean multiple
     ) throws MarshallerException {
+        mockTxManagerLocalStateMap();
+
         BinaryRow br1 = binaryRow(1);
 
         BinaryRow br1Pk = kvMarshaller.marshal(new TestKey(1, "k" + 1));
@@ -1655,12 +1677,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private void cleanup(UUID txId) {
+        HybridTimestamp commitTs = clock.now();
+
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.COMMITED, UUID.randomUUID().toString(), commitTs));
+
         partitionReplicaListener.invoke(
                 TX_MESSAGES_FACTORY.txCleanupReplicaRequest()
                     .groupId(grpId)
                     .txId(txId)
                     .commit(true)
-                    .commitTimestampLong(clock.nowLong())
+                    .commitTimestampLong(commitTs.longValue())
                     .term(1L)
                     .build(),
                 localNode.id()
@@ -1740,6 +1766,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .binaryTuple(binaryRow.tupleSlice())
                 .schemaVersion(binaryRow.schemaVersion())
                 .build();
+    }
+
+    private void mockTxManagerLocalStateMap() {
+        doAnswer(invocation -> {
+            Function<TxStateMeta, TxStateMeta> updater = invocation.getArgument(1);
+            txStateMeta = updater.apply(txStateMeta);
+            return null;
+        }).when(txManager).updateTxMeta(any(), any());
+
+        doAnswer(invocation -> txStateMeta).when(txManager).stateMeta(any());
     }
 
     /**
