@@ -28,7 +28,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,13 +46,12 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      * @param txManager The tx manager.
      * @param id The id.
      */
-    public IgniteAbstractTransactionImpl(TxManager txManager, @NotNull UUID id) {
+    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id) {
         this.txManager = txManager;
         this.id = id;
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public UUID id() {
         return id;

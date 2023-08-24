@@ -20,6 +20,8 @@ package org.apache.ignite.jdbc;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.INVALID_TRANSACTION_LEVEL;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.UNSUPPORTED_OPERATION;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -72,7 +74,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
 
             SQLException ex = assertThrows(SQLException.class, () -> stmt.executeUpdate("non sql stuff"));
 
-            assertTrue(ex.getMessage().contains("Failed to parse query"));
+            assertThat(ex.getMessage(), containsString("Failed to parse query"));
         }
 
         try (Statement stmt = conn.createStatement()) {
@@ -90,7 +92,7 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
                     () -> stmt.executeUpdate("CREATE TABLE ACCOUNTS (ACCOUNT_ID INT PRIMARY KEY)")
             );
 
-            assertTrue(ex.getMessage().contains("Table already exists"));
+            assertThat(ex.getMessage(), containsString("Table already exists"));
         }
     }
 

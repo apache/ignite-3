@@ -29,7 +29,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.util.ObjectFactory;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Marshaller utility class.
@@ -77,7 +76,7 @@ public final class MarshallerUtil {
      * @param cls Type.
      * @return Binary mode.
      */
-    public static @NotNull BinaryMode mode(@NotNull Class<?> cls) {
+    public static BinaryMode mode(Class<?> cls) {
         // Primitives.
         if (cls == boolean.class) {
             return BinaryMode.P_BOOLEAN;

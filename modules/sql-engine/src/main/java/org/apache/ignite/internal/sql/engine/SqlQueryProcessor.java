@@ -99,7 +99,6 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.sql.SqlException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -547,7 +546,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+        public CompletableFuture<Boolean> notify(TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableCreated(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
@@ -565,7 +564,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+        public CompletableFuture<Boolean> notify(TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableUpdated(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
@@ -583,7 +582,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+        public CompletableFuture<Boolean> notify(TableEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onTableDropped(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
@@ -601,7 +600,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
+        public CompletableFuture<Boolean> notify(IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexDropped(
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
                     DEFAULT_SCHEMA_NAME,
@@ -620,7 +619,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         /** {@inheritDoc} */
         @Override
-        public CompletableFuture<Boolean> notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
+        public CompletableFuture<Boolean> notify(IndexEventParameters parameters, @Nullable Throwable exception) {
             return schemaHolder.onIndexCreated(
                     parameters.tableId(),
                     parameters.indexId(),

@@ -20,6 +20,7 @@ assertj = "3.22.0"
 asm = "9.1"
 compileTesting = "0.19"
 fliptables = "1.1.0"
+fmpp = "0.9.16"
 jackson = "2.14.1"
 jakarta = "2.0.0"
 jansi = "2.4.0"
@@ -44,6 +45,7 @@ micronautReactor="2.5.0"
 mockito = "5.4.0"
 picocli = "4.7.0"
 slf4j = "2.0.7"
+log4j = "2.19.0"
 spoon = "8.4.0-beta-18"
 swagger = "2.2.8"
 swaggerLegacy = "1.6.4"
@@ -59,7 +61,7 @@ avatica = "1.23.0"
 jsonpath = "2.4.0"
 classgraph = "4.8.110"
 javassist = "3.28.0-GA"
-rocksdb = "7.9.2"
+rocksdb = "8.3.2"
 disruptor = "3.3.7"
 metrics = "4.0.2"
 jctools = "3.3.0"
@@ -153,7 +155,13 @@ jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ver
 jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
 
 typesafe-config = { module = "com.typesafe:config", version.ref = "typesafe" }
+
 slf4j-jdk14 = { module = "org.slf4j:slf4j-jdk14", version.ref = "slf4j" }
+slf4j-log4j = { module = "org.apache.logging.log4j:log4j-slf4j2-impl", version.ref = "log4j" }
+
+log4j-api = { module = "org.apache.logging.log4j:log4j-api", version.ref = "log4j" }
+log4j-core = { module = "org.apache.logging.log4j:log4j-core", version.ref = "log4j" }
+log4j-bridge = { module = "org.apache.logging.log4j:log4j-jpl", version.ref = "log4j" }
 
 gson-core = { module = "com.google.code.gson:gson", version.ref = "gson" }
 gson-fire = { module = "io.gsonfire:gson-fire", version.ref = "gsonFire" }
@@ -223,6 +231,7 @@ caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "c
 calcite-core = { module = "org.apache.calcite:calcite-core", version.ref = "calcite" }
 calcite-linq4j = { module = "org.apache.calcite:calcite-linq4j", version.ref = "calcite" }
 calcite-avatica = { module = "org.apache.calcite.avatica:avatica-core", version.ref = "avatica" }
+fmpp = { module = "net.sourceforge.fmpp:fmpp", version.ref = "fmpp" }
 
 value-annotations = { module = "org.immutables:value-annotations", version.ref = "value" }
 value-annotation-processor = { module = "org.immutables:value", version.ref = "value" }

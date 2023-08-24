@@ -117,18 +117,6 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
      */
     @Test
     public void testCastToDifferentLengths() {
-        checkQuery("SELECT CAST('123' AS VARBINARY(2))")
-                .returns(VarBinary.fromUtf8String("12"))
-                .check();
-
-        checkQuery("SELECT CAST('123' AS VARBINARY(100))")
-                .returns((VarBinary.fromUtf8String("123")))
-                .check();
-
-        checkQuery("SELECT CAST('123' AS VARBINARY)")
-                .returns((VarBinary.fromUtf8String("123")))
-                .check();
-
         checkQuery("SELECT CAST(X'ffffff' AS VARBINARY(2))")
                 .returns((varBinary(new byte[]{(byte) 0xfff, (byte) 0xff})))
                 .check();
@@ -145,7 +133,6 @@ public class ItVarBinaryExpressionTest extends BaseExpressionDataTypeTest<VarBin
     /**
      * {@code CAST} to {@code VARBINARY} with different length with dynamic parameters.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19353")
     @Test
     public void testCastToDifferentLengthsWithDynamicParameters() {
         byte[] param = {1, 2, 3};

@@ -31,7 +31,6 @@ import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.OneColumnMapper;
 import org.apache.ignite.table.mapper.PojoMapper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,7 +48,7 @@ public abstract class Marshaller {
      */
     static <T> Marshaller createMarshaller(
             Column[] cols,
-            @NotNull Mapper<T> mapper,
+            Mapper<T> mapper,
             boolean requireAllFields,
             boolean allowUnmappedFields) {
         if (mapper.targetType() == Void.class) {
@@ -70,7 +69,7 @@ public abstract class Marshaller {
      * @param mapper Mapper.
      * @return Marshaller.
      */
-    static <T> SimpleMarshaller simpleMarshaller(Column[] cols, @NotNull OneColumnMapper<T> mapper) {
+    static <T> SimpleMarshaller simpleMarshaller(Column[] cols, OneColumnMapper<T> mapper) {
         final Class<T> targetType = mapper.targetType();
 
         Column col = (mapper.mappedColumn() == null && cols.length == 1)
@@ -96,7 +95,7 @@ public abstract class Marshaller {
      */
     private static <T> ObjectMarshaller pojoMarshaller(
             Column[] cols,
-            @NotNull PojoMapper<T> mapper,
+            PojoMapper<T> mapper,
             boolean requireAllFields,
             boolean allowUnmappedFields) {
         final Class<T> targetType = mapper.targetType();

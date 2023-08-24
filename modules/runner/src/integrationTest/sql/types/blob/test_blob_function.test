@@ -8,22 +8,11 @@ PRAGMA enable_verification
 statement ok
 CREATE TABLE blobs (b varbinary);
 
-statement ok
+statement error
 INSERT INTO blobs VALUES ('a'::binary)
 
-# conventional concat
-query T
-SELECT (b || 'ZZ'::varbinary)::varchar FROM blobs
-----
-aZZ
-
-query T
-SELECT 'abc '::varbinary || 'klm *'::varbinary || x'EFBFBD'::varbinary || 'T'::varbinary
-----
-616263206b6c6d202aefbfbd54
-
 statement ok
-INSERT INTO blobs VALUES ('abc '::varbinary || 'klm *'::varbinary || x'EFBFBD'::varbinary || 'T'::varbinary)
+INSERT INTO blobs VALUES (x'aa'::binary), (x'bbcc')
 
 query I
 SELECT COUNT(*) FROM blobs
@@ -35,7 +24,7 @@ query I
 SELECT OCTET_LENGTH(b) FROM blobs ORDER BY 1
 ----
 1
-13
+2
 
 # HEX strings
 statement ok
@@ -45,9 +34,9 @@ statement ok
 INSERT INTO blobs VALUES (x'FF'::binary)
 
 query T
-SELECT b || 'ZZ'::varbinary FROM blobs
+SELECT b || x'BB'::varbinary FROM blobs
 ----
-ff5a5a
+ffbb
 
 query T
 SELECT b || x'5A5A'::varbinary FROM blobs
@@ -65,19 +54,17 @@ DELETE FROM blobs
 statement ok
 INSERT INTO blobs VALUES (x'FF'::binary)
 
-statement ok
+statement error
 INSERT INTO blobs VALUES ('FF'::varbinary)
 
 statement ok
 INSERT INTO blobs VALUES (x'55AAFF55AAFF55AAFF01'::varbinary)
 
-statement ok
+statement error
 INSERT INTO blobs VALUES ('55AAFF55AAFF55AAFF01'::varbinary)
 
 query I
 SELECT OCTET_LENGTH(b) FROM blobs ORDER BY 1
 ----
 1
-2
 10
-20

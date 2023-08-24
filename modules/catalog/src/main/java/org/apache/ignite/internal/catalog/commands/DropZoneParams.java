@@ -21,6 +21,11 @@ package org.apache.ignite.internal.catalog.commands;
  * DROP ZONE statement.
  */
 public class DropZoneParams extends AbstractZoneCommandParams {
+    /** Constructor. */
+    private DropZoneParams(String zoneName) {
+        super(zoneName);
+    }
+
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
@@ -30,8 +35,9 @@ public class DropZoneParams extends AbstractZoneCommandParams {
      * Parameters builder.
      */
     public static class Builder extends AbstractBuilder<DropZoneParams, Builder> {
-        Builder() {
-            super(new DropZoneParams());
+        @Override
+        protected DropZoneParams createParams() {
+            return new DropZoneParams(zoneName);
         }
     }
 }

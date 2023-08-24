@@ -5,17 +5,15 @@
 statement ok
 PRAGMA enable_verification
 
-# BLOB to VARCHAR -> CastFromBlob, it always results in a hex representation
+# BLOB to VARCHAR -> CastFromBlob, which is forbidden.
+statement error
 query T
 SELECT 'a'::binary::VARCHAR
-----
-a
 
 # VARCHAR to BLOB -> CastToBlob
+statement error
 query T
 SELECT 'a'::VARCHAR::binary
-----
-61
 
 # Hex string with BLOB
 query T
@@ -24,28 +22,24 @@ SELECT x'2000FF'::varbinary
 2000ff
 
 # CastFromBlob with hex string
+statement error
 query T
 SELECT x'612061'::VARBINARY::VARCHAR
-----
-a a
 
 # CastFromBlob and after CastToBlob with hex string
+statement error
 query T
 SELECT x'612061'::VARBINARY::VARCHAR::VARBINARY
-----
-612061
 
 # CastFromBlob -> CastToBlob -> CastFromBlob with hex string
+statement error
 query T
 SELECT x'612061'::VARBINARY::VARCHAR::VARBINARY::VARCHAR
-----
-a a
 
 # CastToBlob -> CastFromBlob -> CastToBlob with hex string
+statement error
 query T
 SELECT x'612061'::VARCHAR::VARBINARY::VARCHAR::VARBINARY
-----
-612061
 
 statement error
 SELECT 1::VARBINARY

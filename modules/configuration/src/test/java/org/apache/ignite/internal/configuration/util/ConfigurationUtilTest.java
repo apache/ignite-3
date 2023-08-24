@@ -80,7 +80,6 @@ import org.apache.ignite.internal.configuration.tree.ConverterToMapVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -1126,7 +1125,6 @@ public class ConfigurationUtilTest {
      * @param patch     Closure to change inner node.
      * @return Flat map with all changes from the patch.
      */
-    @NotNull
     private Map<String, Serializable> flattenedMap(
             SuperRoot superRoot,
             RootKey<?, ?> rootKey,

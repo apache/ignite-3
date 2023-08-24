@@ -386,7 +386,7 @@ public partial class LinqTests : IgniteTestsBase
         Assert.AreEqual(7.7m, res[0].Decimal);
 
         StringAssert.Contains(
-            "select _T0.DECIMAL, _T0.DOUBLE " +
+            "select _T0.\"DECIMAL\", _T0.\"DOUBLE\" " +
             "from PUBLIC.TBL_ALL_COLUMNS_SQL as _T0 " +
             "where (_T0.KEY < ?) " +
             "order by _T0.KEY asc, _T0.INT8 desc, _T0.INT16 asc",

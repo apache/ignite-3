@@ -21,7 +21,6 @@ import java.util.Objects;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Row to Tuple adapter.
@@ -77,7 +76,7 @@ public class TableRow extends MutableRowTupleAdapter {
          *
          * @param row Row
          */
-        KeyRowChunk(@NotNull Row row) {
+        KeyRowChunk(Row row) {
             super(row);
         }
 
@@ -89,7 +88,7 @@ public class TableRow extends MutableRowTupleAdapter {
 
         /** {@inheritDoc} */
         @Override
-        public int columnIndex(@NotNull String columnName) {
+        public int columnIndex(String columnName) {
             if (tuple != null) {
                 return tuple.columnIndex(columnName);
             }
@@ -103,7 +102,7 @@ public class TableRow extends MutableRowTupleAdapter {
 
         /** {@inheritDoc} */
         @Override
-        protected Column rowColumnByName(@NotNull String columnName) {
+        protected Column rowColumnByName(String columnName) {
             final Column col = super.rowColumnByName(columnName);
 
             if (!schema().isKeyColumn(col.schemaIndex())) {
@@ -131,7 +130,7 @@ public class TableRow extends MutableRowTupleAdapter {
          *
          * @param row Row.
          */
-        ValueRowChunk(@NotNull Row row) {
+        ValueRowChunk(Row row) {
             super(row);
         }
 
@@ -143,7 +142,7 @@ public class TableRow extends MutableRowTupleAdapter {
 
         /** {@inheritDoc} */
         @Override
-        public int columnIndex(@NotNull String columnName) {
+        public int columnIndex(String columnName) {
             if (tuple != null) {
                 return tuple.columnIndex(columnName);
             }
@@ -158,7 +157,7 @@ public class TableRow extends MutableRowTupleAdapter {
 
         /** {@inheritDoc} */
         @Override
-        protected Column rowColumnByName(@NotNull String columnName) {
+        protected Column rowColumnByName(String columnName) {
             final Column col = super.rowColumnByName(columnName);
 
             if (schema().isKeyColumn(col.schemaIndex())) {

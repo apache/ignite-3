@@ -190,6 +190,8 @@ std::optional<ignite_error> read_error(reader &reader) {
     auto code = reader.read_object_or_default<std::int32_t>(65537);
     auto class_name = reader.read_string();
     auto message = reader.read_string_nullable();
+    auto java_stack_trace = reader.read_string_nullable();
+    UNUSED_VALUE java_stack_trace;
 
     std::stringstream err_msg_builder;
 
@@ -211,7 +213,7 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
 
     switch (value.get_type()) {
         case ignite_type::BOOLEAN: {
-            claim_type_and_scale(builder, ignite_type::INT8);
+            claim_type_and_scale(builder, ignite_type::BOOLEAN);
             builder.claim_bool(value.get<bool>());
             break;
         }
@@ -322,7 +324,7 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
 
     switch (value.get_type()) {
         case ignite_type::BOOLEAN: {
-            append_type_and_scale(builder, ignite_type::INT8);
+            append_type_and_scale(builder, ignite_type::BOOLEAN);
             builder.append_bool(value.get<bool>());
             break;
         }

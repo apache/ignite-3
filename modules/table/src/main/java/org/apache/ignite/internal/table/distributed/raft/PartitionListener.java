@@ -131,7 +131,7 @@ public class PartitionListener implements RaftGroupListener {
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
 
-        // TODO: IGNITE-18502 Implement a pending update storage
+        // TODO: IGNITE-18502 Excessive full partition scan on node start
         try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
             while (cursor.hasNext()) {
                 ReadResult readResult = cursor.next();

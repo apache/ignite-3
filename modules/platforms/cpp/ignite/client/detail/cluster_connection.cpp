@@ -76,7 +76,7 @@ void cluster_connection::on_connection_success(const end_point &addr, uint64_t i
     m_logger->log_info("Established connection with remote host " + addr.to_string());
     m_logger->log_debug("Connection ID: " + std::to_string(id));
 
-    auto connection = node_connection::make_new(id, m_pool, m_logger, m_configuration);
+    auto connection = node_connection::make_new(id, m_pool, weak_from_this(), m_logger, m_configuration);
     {
         [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 
@@ -161,6 +161,16 @@ void cluster_connection::on_message_sent(uint64_t id) {
         m_logger->log_debug("Message sent successfully on Connection ID " + std::to_string(id));
 }
 
+void cluster_connection::on_observable_timestamp_changed(std::int64_t timestamp) {
+    auto expected = m_observable_timestamp.load();
+    while (expected < timestamp) {
+        auto success = m_observable_timestamp.compare_exchange_weak(expected, timestamp);
+        if (success)
+            return;
+        expected = m_observable_timestamp.load();
+    }
+}
+
 void cluster_connection::remove_client(uint64_t id) {
     [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 
@@ -177,7 +187,7 @@ void cluster_connection::initial_connect_result(ignite_result<void> &&res) {
     m_on_initial_connect = {};
 }
 
-void cluster_connection::initial_connect_result(const protocol_context &context) {
+void cluster_connection::initial_connect_result(const protocol::protocol_context &context) {
     [[maybe_unused]] std::lock_guard<std::mutex> lock(m_on_initial_connect_mutex);
 
     if (!m_on_initial_connect)

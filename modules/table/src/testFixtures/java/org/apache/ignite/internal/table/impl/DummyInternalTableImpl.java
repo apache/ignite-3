@@ -89,7 +89,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -387,7 +386,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull List<String> assignments() {
+    public List<String> assignments() {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 

@@ -62,8 +62,6 @@ class DefaultUserObjectMarshallerWithSerializableTest {
 
     private static boolean nonSerializableParentConstructorCalled;
     private static boolean constructorCalled;
-    private static boolean writeObjectCalled;
-    private static boolean readObjectCalled;
 
     @Test
     void marshalsAndUnmarshalsSerializable() throws Exception {
@@ -510,18 +508,6 @@ class DefaultUserObjectMarshallerWithSerializableTest {
 
         private Object readResolve() {
             return new IndirectSelfRefWithResolveToSelf(value + READ_RESOLVE_INCREMENT, ref);
-        }
-    }
-
-    private static class WithWriteObjectButNoReadObject implements Serializable {
-        private void writeObject(ObjectOutputStream stream) {
-            writeObjectCalled = true;
-        }
-    }
-
-    private static class WithReadObjectButNoWriteObject implements Serializable {
-        private void readObject(ObjectInputStream stream) {
-            readObjectCalled = true;
         }
     }
 

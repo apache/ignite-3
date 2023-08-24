@@ -31,7 +31,6 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * MergeJoinNode.
@@ -213,7 +212,6 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
      * Create.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    @NotNull
     public static <RowT> MergeJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType leftRowType,
             RelDataType rightRowType, JoinRelType joinType, Comparator<RowT> comp) {
         switch (joinType) {

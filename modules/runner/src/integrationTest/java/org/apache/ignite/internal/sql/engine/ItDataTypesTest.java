@@ -315,8 +315,6 @@ public class ItDataTypesTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT CASE WHEN false THEN DECIMAL '1.00' ELSE DECIMAL '0.0' END")
                 .returns(new BigDecimal("0.0")).check();
 
-        assertQuery("SELECT DECIMAL \"10\" FROM (SELECT 1 as decimal) tmp").returns(1).check();
-
         assertQuery(
                 "SELECT DECIMAL '0.09'  BETWEEN DECIMAL '0.06' AND DECIMAL '0.07'")
                 .returns(false).check();

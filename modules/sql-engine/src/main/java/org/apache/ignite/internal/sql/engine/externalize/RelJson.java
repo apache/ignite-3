@@ -101,7 +101,6 @@ import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlNameMatchers;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
@@ -532,13 +531,14 @@ class RelJson {
                     keys.add(toJson(key));
                 }
 
+                map.put("func", distribution.function().name());
                 map.put("keys", keys);
 
                 DistributionFunction function = distribution.function();
 
                 if (function.affinity()) {
                     map.put("zoneId", ((AffinityDistribution) function).zoneId());
-                    map.put("tableId", Integer.toString(((AffinityDistribution) function).tableId()));
+                    map.put("tableId", ((AffinityDistribution) function).tableId());
                 }
 
                 return map;
@@ -671,16 +671,22 @@ class RelJson {
         }
 
         Map<String, Object> map = (Map<String, Object>) distribution;
-        String tableIdStr = (String) map.get("tableId");
+        String functionName = (String) map.get("func");
 
-        if (tableIdStr != null) {
-            int tableId = Integer.parseInt(tableIdStr);
-            Object zoneId = map.get("zoneId");
+        List<Integer> keys = (List<Integer>) map.get("keys");
 
-            return IgniteDistributions.affinity((List<Integer>) map.get("keys"), tableId, zoneId);
+        switch (functionName) {
+            case "hash":
+                return IgniteDistributions.hash(keys, DistributionFunction.hash());
+            default: {
+                assert functionName.startsWith("affinity");
+
+                int tableId = (int) map.get("tableId");
+                Object zoneId = map.get("zoneId");
+
+                return IgniteDistributions.affinity(keys, tableId, zoneId);
+            }
         }
-
-        return IgniteDistributions.hash(ImmutableIntList.copyOf((List<Integer>) map.get("keys")), DistributionFunction.hash());
     }
 
     RelDataType toType(RelDataTypeFactory typeFactory, Object o) {

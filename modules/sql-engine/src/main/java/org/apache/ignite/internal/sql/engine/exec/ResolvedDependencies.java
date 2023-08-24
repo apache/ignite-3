@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 
 /**
  * Provides access to resolved dependencies.
@@ -56,6 +57,14 @@ public class ResolvedDependencies {
     public CompletableFuture<ColocationGroup> fetchColocationGroup(int tableId) {
         ExecutableTable executableTable = getTable(tableId);
         return executableTable.fetchColocationGroup();
+    }
+
+    /**
+     * Returns a descriptor for a table with the given id.
+     */
+    public TableDescriptor tableDescriptor(int tableId) {
+        ExecutableTable executableTable = getTable(tableId);
+        return executableTable.tableDescriptor();
     }
 
     public Set<Integer> tableIds() {
