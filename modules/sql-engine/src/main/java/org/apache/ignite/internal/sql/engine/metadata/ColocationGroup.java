@@ -33,7 +33,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * ColocationGroup.
@@ -298,7 +297,6 @@ public class ColocationGroup implements Serializable {
         return !nullOrEmpty(this.nodeNames) ? this : forNodes0(nodeNames);
     }
 
-    @NotNull
     private ColocationGroup forNodes0(List<String> nodeNames) {
         return new ColocationGroup(sourceIds, nodeNames, assignments);
     }

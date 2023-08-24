@@ -30,7 +30,6 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -160,7 +159,7 @@ public class SchemaDescriptor {
      * @param name Column name.
      * @return Column.
      */
-    public @Nullable Column column(@NotNull String name) {
+    public @Nullable Column column(String name) {
         return colMap.get(name);
     }
 

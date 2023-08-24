@@ -17,16 +17,19 @@
 
 package org.apache.ignite.internal.table.distributed.replication;
 
+import static java.util.Collections.singletonList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -46,7 +49,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -79,7 +81,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
@@ -130,7 +131,6 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
-import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -155,6 +155,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.tx.TransactionException;
+import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -333,11 +334,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             if (txState == null) {
                 txMeta = null;
             } else if (txState == TxState.COMMITED) {
-                txMeta = new TxMeta(TxState.COMMITED, Collections.singletonList(grpId), txFixedTimestamp);
+                txMeta = new TxMeta(TxState.COMMITED, singletonList(grpId), txFixedTimestamp);
             } else {
                 assert txState == TxState.ABORTED : "Sate is " + txState;
 
-                txMeta = new TxMeta(TxState.ABORTED, Collections.singletonList(grpId), txFixedTimestamp);
+                txMeta = new TxMeta(TxState.ABORTED, singletonList(grpId), txFixedTimestamp);
             }
             return completedFuture(txMeta);
         });
@@ -382,8 +383,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         IndexLocker pkLocker = new HashIndexLocker(pkIndexId, true, lockManager, row2Tuple);
         IndexLocker sortedIndexLocker = new SortedIndexLocker(sortedIndexId, partId, lockManager, indexStorage, row2Tuple);
         IndexLocker hashIndexLocker = new HashIndexLocker(hashIndexId, false, lockManager, row2Tuple);
-
-        DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
 
         IndexUpdateHandler indexUpdateHandler = new IndexUpdateHandler(
                 DummyInternalTableImpl.createTableIndexStoragesSupplier(Map.of(pkStorage().id(), pkStorage()))
@@ -474,7 +473,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     public void testTxStateReplicaRequestCommitState() throws Exception {
         UUID txId = TestTransactionIds.newTransactionId();
 
-        txStateStorage.put(txId, new TxMeta(TxState.COMMITED, Collections.singletonList(grpId), clock.now()));
+        txStateStorage.put(txId, new TxMeta(TxState.COMMITED, singletonList(grpId), clock.now()));
 
         HybridTimestamp readTimestamp = clock.now();
 
@@ -1104,7 +1103,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
                 BinaryRow row = testMvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE).binaryRow();
 
-                if (binaryRow.equals(row)) {
+                if (equalToRow(binaryRow).matches(row)) {
                     found = true;
                 }
             }
@@ -1246,25 +1245,28 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
 
         if (multiple) {
-            Set<BinaryRow> allRows = insertFirst ? Set.of(br1Pk, br2Pk) : Set.of(br1Pk);
-            Set<BinaryRow> allRowsButModified = insertFirst ? Set.of(br2) : Set.of();
-            Set<BinaryRow> expected = committed
+            List<BinaryRow> allRowsPks = insertFirst ? List.of(br1Pk, br2Pk) : List.of(br1Pk);
+            List<BinaryRow> allRows = insertFirst ? List.of(br1, br2) : List.of(br1);
+            List<BinaryRow> allRowsButModified = insertFirst ? Arrays.asList(null, br2) : singletonList((BinaryRow) null);
+            List<BinaryRow> expected = committed
                     ? (upsertAfterDelete ? allRows : allRowsButModified)
-                    : (insertFirst ? allRows : Set.of());
-            Set<BinaryRow> res = new HashSet<>(roGetAll(allRows, clock.nowLong()));
+                    : (insertFirst ? allRows : singletonList((BinaryRow) null));
+            List<BinaryRow> res = roGetAll(allRowsPks, clock.nowLong());
 
             assertEquals(allRows.size(), res.size());
-            for (BinaryRow e : expected) {
-                // TODO: IGNITE-19430 - should there be an assertion in the next line?
-                res.contains(e);
-            }
+
+            List<Matcher<? super BinaryRow>> matchers = expected.stream()
+                    .map(row -> row == null ? nullValue(BinaryRow.class) : equalToRow(row))
+                    .collect(toList());
+
+            assertThat(res, contains(matchers));
         } else {
             BinaryRow res = roGet(br1Pk, clock.nowLong());
             BinaryRow expected = committed
                     ? (upsertAfterDelete ? br1 : null)
                     : (insertFirst ? br1 : null);
 
-            assertEquals(expected, res);
+            assertThat(res, is(expected == null ? nullValue(BinaryRow.class) : equalToRow(expected)));
         }
 
         cleanup(tx1);
@@ -1694,9 +1696,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private static BinaryRow binaryRow(TestKey key, TestValue value, KvMarshaller<TestKey, TestValue> marshaller) {
         try {
-            Row row = marshaller.marshal(key, value);
-
-            return new BinaryRowImpl(row.schemaVersion(), row.tupleSlice());
+            return marshaller.marshal(key, value);
         } catch (MarshallerException e) {
             throw new AssertionError(e);
         }

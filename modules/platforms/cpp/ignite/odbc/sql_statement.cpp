@@ -1026,6 +1026,7 @@ sql_result sql_statement::internal_describe_param(
 
 sql_result sql_statement::update_params_meta() {
     auto *qry0 = m_current_query.get();
+    UNUSED_VALUE qry0;
 
     assert(qry0);
     assert(qry0->get_type() == query_type::DATA);

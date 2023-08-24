@@ -473,7 +473,6 @@ public class KeyValueViewOperationsTest extends BaseIgniteAbstractTest {
     @Test
     public void getNullableAndReplace() {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
-        final TestKeyObject key2 = TestKeyObject.randomObject(rnd);
         final TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
         final TestObjectWithAllTypes obj2 = TestObjectWithAllTypes.randomObject(rnd);
         final TestObjectWithAllTypes obj3 = TestObjectWithAllTypes.randomObject(rnd);
@@ -562,9 +561,8 @@ public class KeyValueViewOperationsTest extends BaseIgniteAbstractTest {
     public void nullKeyValidation() {
         KeyValueViewImpl<TestKeyObject, TestObjectWithAllTypes> tbl = kvView();
 
-        final TestKeyObject key = TestKeyObject.randomObject(rnd);
-        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
-        final TestObjectWithAllTypes val2 = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes val2 = TestObjectWithAllTypes.randomObject(rnd);
 
         // Null key.
         assertThrows(NullPointerException.class, () -> tbl.contains(null, null));

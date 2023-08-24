@@ -30,10 +30,4 @@ internal record Column(
     int ColocationIndex,
     int SchemaIndex,
     int Scale,
-    int Precision)
-{
-    /// <summary>
-    /// Gets a value indicating whether this column participates in colocation.
-    /// </summary>
-    public bool IsColocation => ColocationIndex >= 0;
-}
+    int Precision);

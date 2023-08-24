@@ -54,7 +54,6 @@ dependencies {
     testImplementation libs.netty.common
     testImplementation libs.hamcrest.core
     testImplementation libs.jmh.core
-    testImplementation libs.slf4j.jdk14
 
     testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
     testFixturesImplementation project(':ignite-core')

@@ -32,7 +32,7 @@ public class ItVarBinaryDmlTest extends BaseDmlDataTypeTest<VarBinary> {
     /** {@code INSERT} into a column with DEFAULT constraint. */
     @Test
     public void testDefault() {
-        runSql("CREATE TABLE t_def (id INT PRIMARY KEY, test_key VARBINARY DEFAULT $0_lit)");
+        runSql("CREATE TABLE t_def (id INT PRIMARY KEY, test_key VARBINARY DEFAULT $0)");
         runSql("INSERT INTO t_def (id) VALUES (0)");
 
         VarBinary value = values.get(0);

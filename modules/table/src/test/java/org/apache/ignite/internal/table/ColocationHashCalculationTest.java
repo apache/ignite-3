@@ -42,7 +42,6 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -182,7 +181,7 @@ public class ColocationHashCalculationTest {
         }
     }
 
-    private static Row generateRandomRow(Random rnd, @NotNull SchemaDescriptor schema) throws TupleMarshallerException {
+    private static Row generateRandomRow(Random rnd, SchemaDescriptor schema) throws TupleMarshallerException {
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
 
         Tuple t = Tuple.create();

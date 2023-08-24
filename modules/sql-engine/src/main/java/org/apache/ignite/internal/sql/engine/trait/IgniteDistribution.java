@@ -20,8 +20,6 @@ package org.apache.ignite.internal.sql.engine.trait;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mappings;
-import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 
 /**
  * Ignite distribution trait.
@@ -31,15 +29,6 @@ public interface IgniteDistribution extends RelDistribution {
      * Get distribution function.
      */
     DistributionFunction function();
-
-    /**
-     * Creates a destination based on this function algorithm, given nodes mapping and distribution keys.
-     *
-     * @param hashFuncFactory Factory to create a hash function for the row, from which the destination nodes are calculated.
-     * @param targetGroup     Target mapping.
-     * @return Destination function.
-     */
-    <RowT> Destination<RowT> destination(HashFunctionFactory<RowT> hashFuncFactory, ColocationGroup targetGroup);
 
     /** {@inheritDoc} */
     @Override

@@ -828,7 +828,7 @@ public class KvMarshallerTest {
      * Test object represents a user object of arbitrary type.
      */
     static class TestPojo implements Serializable {
-        private static final long serialVersionUid = -1L;
+        private static final long serialVersionUID = -1L;
 
         int intField;
 
