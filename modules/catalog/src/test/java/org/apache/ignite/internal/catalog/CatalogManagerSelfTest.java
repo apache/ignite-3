@@ -31,6 +31,8 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_V
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -91,7 +93,6 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -119,6 +120,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -143,7 +145,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     private static final String TABLE_NAME_2 = "myTable2";
     private static final String NEW_COLUMN_NAME = "NEWCOL";
     private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
-    private static final String INDEX_NAME = "myIndex";
 
     @Test
     public void testEmptyCatalog() {
@@ -420,7 +421,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void testDropIndexedColumn() {
         assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.createIndex(simpleIndex(INDEX_NAME, TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
 
         // Try to drop indexed column
         AlterTableDropColumnParams params = AlterTableDropColumnParams.builder()
@@ -896,15 +897,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testDropTableWithIndex() {
-        CreateHashIndexParams params = CreateHashIndexParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .indexName(INDEX_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of("VAL"))
-                .build();
-
         assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.createIndex(params), willBe(nullValue()));
+        assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
 
         long beforeDropTimestamp = clock.nowLong();
 
@@ -945,14 +939,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testCreateHashIndex() {
         assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
-        CreateHashIndexParams params = CreateHashIndexParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .indexName(INDEX_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of("VAL", "ID"))
-                .build();
-
-        assertThat(manager.createIndex(params), willBe(nullValue()));
+        assertThat(manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("VAL", "ID"))), willBe(nullValue()));
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(1);
@@ -983,14 +970,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testCreateSortedIndex() {
         assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
-        CreateSortedIndexParams params = CreateSortedIndexParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .indexName(INDEX_NAME)
-                .tableName(TABLE_NAME)
-                .unique()
-                .columns(List.of("VAL", "ID"))
-                .collations(List.of(CatalogColumnCollation.DESC_NULLS_FIRST, CatalogColumnCollation.ASC_NULLS_LAST))
-                .build();
+        CreateSortedIndexParams params = createSortedIndexParams(
+                INDEX_NAME,
+                true,
+                List.of("VAL", "ID"),
+                List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST)
+        );
 
         assertThat(manager.createIndex(params), willBe(nullValue()));
 
@@ -1017,38 +1002,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals("VAL", index.columns().get(0).name());
         assertEquals("ID", index.columns().get(1).name());
-        assertEquals(CatalogColumnCollation.DESC_NULLS_FIRST, index.columns().get(0).collation());
-        assertEquals(CatalogColumnCollation.ASC_NULLS_LAST, index.columns().get(1).collation());
+        assertEquals(DESC_NULLS_FIRST, index.columns().get(0).collation());
+        assertEquals(ASC_NULLS_LAST, index.columns().get(1).collation());
         assertTrue(index.unique());
         assertFalse(index.writeOnly());
-    }
-
-    @Test
-    public void testCreateIndexWithSameName() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-
-        CreateHashIndexParams params = CreateHashIndexParams.builder()
-                .indexName(INDEX_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of("VAL"))
-                .build();
-
-        assertThat(manager.createIndex(params), willBe(nullValue()));
-        assertThat(manager.createIndex(params), willThrow(IndexAlreadyExistsException.class));
-    }
-
-    @Test
-    public void testCreateIndexOnDuplicateColumns() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-
-        CreateHashIndexParams params = CreateHashIndexParams.builder()
-                .indexName(INDEX_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of("VAL", "VAL"))
-                .build();
-
-        assertThat(manager.createIndex(params),
-                willThrow(IgniteInternalException.class, "Can't create index on duplicate columns: VAL, VAL"));
     }
 
     @Test
@@ -1152,12 +1109,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateIndexEvents() {
-        CreateHashIndexParams createIndexParams = CreateHashIndexParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .indexName(INDEX_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of("ID"))
-                .build();
+        CreateHashIndexParams createIndexParams = createHashIndexParams(INDEX_NAME, List.of("ID"));
 
         DropIndexParams dropIndexParams = DropIndexParams.builder().indexName(INDEX_NAME).build();
 
@@ -1564,17 +1516,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     void testGetTableIdOnDropIndexEvent() {
         assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
-        assertThat(
-                manager.createIndex(
-                        CreateHashIndexParams.builder()
-                                .schemaName(SCHEMA_NAME)
-                                .tableName(TABLE_NAME)
-                                .indexName(INDEX_NAME)
-                                .columns(List.of("VAL"))
-                                .build()
-                ),
-                willBe(nullValue())
-        );
+        assertThat(manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("VAL"))), willBe(nullValue()));
 
         int tableId = manager.table(TABLE_NAME, clock.nowLong()).id();
         int pkIndexId = manager.index(createPkIndexName(TABLE_NAME), clock.nowLong()).id();
@@ -1618,7 +1560,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertEquals(1, manager.latestCatalogVersion());
 
-        assertThat(manager.createIndex(simpleIndex(INDEX_NAME, TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
         assertEquals(2, manager.latestCatalogVersion());
     }
 
@@ -1635,7 +1577,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     void testIndexes() {
         assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.createIndex(simpleIndex(INDEX_NAME, TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
 
         assertThat(manager.indexes(0), empty());
         assertThat(manager.indexes(1), hasItems(index(1, createPkIndexName(TABLE_NAME))));
@@ -1723,6 +1665,85 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    void testCreateIndexWithAlreadyExistingName() {
+        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.createIndex(simpleIndex()), willCompleteSuccessfully());
+
+        assertThat(
+                manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("VAL"))),
+                willThrowFast(IndexAlreadyExistsException.class)
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
+                willThrowFast(IndexAlreadyExistsException.class)
+        );
+    }
+
+    @Test
+    void testCreateIndexWithSameNameAsExistingTable() {
+        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+        assertThat(
+                manager.createIndex(createHashIndexParams(TABLE_NAME, List.of("VAL"))),
+                willThrowFast(TableAlreadyExistsException.class)
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(TABLE_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
+                willThrowFast(TableAlreadyExistsException.class)
+        );
+    }
+
+    @Test
+    void testCreateIndexWithNotExistingTable() {
+        assertThat(
+                manager.createIndex(createHashIndexParams(TABLE_NAME, List.of("VAL"))),
+                willThrowFast(TableNotFoundException.class)
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(TABLE_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
+                willThrowFast(TableNotFoundException.class)
+        );
+    }
+
+    @Test
+    void testCreateIndexWithMissingTableColumns() {
+        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+        assertThat(
+                manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("fake"))),
+                willThrowFast(ColumnNotFoundException.class)
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("fake"), List.of(ASC_NULLS_LAST))),
+                willThrowFast(ColumnNotFoundException.class)
+        );
+    }
+
+    @Test
+    void testCreateUniqIndexWithMissingTableColocationColumns() {
+        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+        assertThat(
+                manager.createIndex(createHashIndexParams(INDEX_NAME, true, List.of("VAL"))),
+                willThrowFast(IgniteException.class, "Unique index must include all colocation columns")
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, true, List.of("VAL"), List.of(ASC_NULLS_LAST))),
+                willThrowFast(IgniteException.class, "Unique index must include all colocation columns")
+        );
+    }
+
+    @Test
+    void testDropNotExistingIndex() {
+        assertThat(manager.dropIndex(DropIndexParams.builder().indexName(INDEX_NAME).build()), willThrowFast(IndexNotFoundException.class));
+    }
+
+    @Test
     void testDropNotExistingTable() {
         assertThat(manager.dropTable(dropTableParams(TABLE_NAME)), willThrowFast(TableNotFoundException.class));
     }
@@ -1806,14 +1827,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         return createTableParams(tableName, cols, List.of(cols.get(0).name()), List.of(cols.get(0).name()));
     }
 
-    private static CreateSortedIndexParams simpleIndex(String indexName, String tableName) {
-        return CreateSortedIndexParams.builder()
-                .indexName(indexName)
-                .tableName(tableName)
-                .unique()
-                .columns(List.of("VAL"))
-                .collations(List.of(CatalogColumnCollation.ASC_NULLS_LAST))
-                .build();
+    private static CreateSortedIndexParams simpleIndex() {
+        return createSortedIndexParams(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST));
     }
 
     private static class TestColumnTypeParams {

@@ -27,9 +27,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams.Builder;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -53,6 +56,8 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test";
 
     protected static final String TABLE_NAME = "test_table";
+
+    protected static final String INDEX_NAME = "myIndex";
 
     final HybridClock clock = new HybridClockImpl();
 
@@ -91,6 +96,64 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .filter(Objects::nonNull)
                 .map(component -> component::stop)
         );
+    }
+
+    protected static CreateHashIndexParams createHashIndexParams(
+            String indexName,
+            boolean uniq,
+            @Nullable List<String> indexColumns
+    ) {
+        CreateHashIndexParams.Builder builder = CreateHashIndexParams.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .indexName(indexName);
+
+        builder.unique(uniq);
+
+        if (indexColumns != null) {
+            builder.columns(indexColumns);
+        }
+
+        return builder.build();
+    }
+
+    protected static CreateHashIndexParams createHashIndexParams(
+            String indexName,
+            @Nullable List<String> indexColumns
+    ) {
+        return createHashIndexParams(indexName, false, indexColumns);
+    }
+
+    protected static CreateSortedIndexParams createSortedIndexParams(
+            String indexName,
+            boolean uniq,
+            @Nullable List<String> indexColumns,
+            @Nullable List<CatalogColumnCollation> columnsCollations
+    ) {
+        CreateSortedIndexParams.Builder builder = CreateSortedIndexParams.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .indexName(indexName);
+
+        builder.unique(uniq);
+
+        if (indexColumns != null) {
+            builder.columns(indexColumns);
+        }
+
+        if (columnsCollations != null) {
+            builder.collations(columnsCollations);
+        }
+
+        return builder.build();
+    }
+
+    protected static CreateSortedIndexParams createSortedIndexParams(
+            String indexName,
+            @Nullable List<String> indexColumns,
+            @Nullable List<CatalogColumnCollation> columnsCollations
+    ) {
+        return createSortedIndexParams(indexName, false, indexColumns, columnsCollations);
     }
 
     protected static CreateTableParams createTableParams(
