@@ -386,16 +386,14 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result future.
      */
     private CompletableFuture<LeaderOrTxState> processTxStateReplicaRequest(TxStateReplicaRequest request) {
-        return raftClient.refreshAndGetLeaderWithTerm()
-                .thenCompose(replicaAndTerm -> {
-                    Peer leader = replicaAndTerm.leader();
-
-                    if (isLocalPeer(leader)) {
+        return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
+                .thenCompose(primaryReplica -> {
+                    if (isLocalPeer(primaryReplica.getLeaseholder())) {
                         CompletableFuture<TxMeta> txStateFut = getTxStateConcurrently(request);
 
                         return txStateFut.thenApply(txMeta -> new LeaderOrTxState(null, txMeta));
                     } else {
-                        return completedFuture(new LeaderOrTxState(leader.consistentId(), null));
+                        return completedFuture(new LeaderOrTxState(primaryReplica.getLeaseholder(), null));
                     }
                 });
     }
@@ -2235,19 +2233,21 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         if (expectedTerm != null) {
-            return raftClient.refreshAndGetLeaderWithTerm()
-                    .thenCompose(replicaAndTerm -> {
-                                long currentTerm = replicaAndTerm.term();
+            return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
+                    .thenCompose(primaryReplica -> {
+                                long currentEnlistmentConsistencyToken = primaryReplica.getStartTime().longValue();
 
-                                if (expectedTerm == currentTerm) {
+                                if (expectedTerm.equals(currentEnlistmentConsistencyToken)) {
+                                    // TODO: sanpwc check exp time and now and throw something if not matched.
                                     return completedFuture(null);
                                 } else {
-                                    return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentTerm));
+                                    return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
                                 }
                             }
                     );
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
-            return raftClient.refreshAndGetLeaderWithTerm().thenApply(replicaAndTerm -> isLocalPeer(replicaAndTerm.leader()));
+            return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now()).
+                    thenApply(primaryReplica -> isLocalPeer(primaryReplica.getLeaseholder()));
         } else {
             return completedFuture(null);
         }
@@ -2596,8 +2596,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         return replicationGroupId.tableId();
     }
 
-    private boolean isLocalPeer(Peer peer) {
-        return peer.consistentId().equals(localNode.name());
+    private boolean isLocalPeer(String nodeName) {
+        return nodeName.equals(localNode.name());
     }
 
     private void inBusyLock(Runnable runnable) {

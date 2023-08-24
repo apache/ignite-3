@@ -220,6 +220,7 @@ public class LeaseTracker implements PlacementDriver {
             Lease lease = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);
 
             if (lease.getExpirationTime().after(timestamp)) {
+                // TODO: sanpwc Seems that we should await only accepted leases. Same for awaitPrimaryReplica.
                 return completedFuture(lease);
             }
 
