@@ -80,6 +80,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesView;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.raft.Loza;
@@ -809,6 +810,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
 
+        SchemaSyncService schemaSyncService = mock(SchemaSyncService.class);
+        when(schemaSyncService.waitForMetadataCompleteness(any(HybridTimestamp.class))).thenReturn(completedFuture(null));
+
         TableManager tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -834,7 +838,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 vaultManager,
                 cmgMgr,
                 distributionZoneManager,
-                mock(SchemaSyncService.class),
+                schemaSyncService,
                 mock(CatalogService.class),
                 new HybridTimestampTracker()
         ) {
