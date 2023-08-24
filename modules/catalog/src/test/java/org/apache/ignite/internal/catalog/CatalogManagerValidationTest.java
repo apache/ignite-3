@@ -25,11 +25,17 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 
+import java.util.List;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.jetbrains.annotations.Nullable;
@@ -550,6 +556,98 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
         );
     }
 
+    @Test
+    void testValidateTableNameOnTableDrop() {
+        assertThat(
+                manager.dropTable(DropTableParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnTableCreation() {
+        assertThat(
+                manager.createTable(CreateTableParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateColumnsOnTableCreation() {
+        assertThat(
+                manager.createTable(createTableParams(TABLE_NAME, null, null, null)),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(createTableParams(TABLE_NAME, List.of(), null, null)),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(createTableParams(TABLE_NAME, List.of(ColumnParams.builder().build()), null, null)),
+                willThrowFast(CatalogValidationException.class, "Missing column name")
+        );
+
+        assertThat(
+                manager.createTable(createTableParams(TABLE_NAME, List.of(ColumnParams.builder().name("key").build()), null, null)),
+                willThrowFast(CatalogValidationException.class, "Missing column type: key")
+        );
+
+        assertThat(
+                manager.createTable(
+                        createTableParams(TABLE_NAME, List.of(columnParams("key", INT32), columnParams("key", INT64)), null, null)
+                ),
+                willThrowFast(CatalogValidationException.class, "Duplicate columns are present: [key]")
+        );
+    }
+
+    @Test
+    void testValidatePrimaryKeyColumnsOnTableCreation() {
+        assertThat(
+                manager.createTable(simpleTableParamsWithoutPrimaryKeys(null)),
+                willThrowFast(CatalogValidationException.class, "Primary key columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithoutPrimaryKeys(List.of())),
+                willThrowFast(CatalogValidationException.class, "Primary key columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithoutPrimaryKeys(List.of("key", "key"))),
+                willThrowFast(CatalogValidationException.class, "Duplicate primary key columns are present: [key]")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithoutPrimaryKeys(List.of("foo", "bar"))),
+                willThrowFast(CatalogValidationException.class, "Primary key columns missing in columns: [foo, bar]")
+        );
+    }
+
+    @Test
+    void testValidatePrimaryColocationColumnsOnTableCreation() {
+        assertThat(
+                manager.createTable(simpleTableParamsWithoutColocationColumns(null)),
+                willThrowFast(CatalogValidationException.class, "Colocation columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithoutColocationColumns(List.of())),
+                willThrowFast(CatalogValidationException.class, "Colocation columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithoutColocationColumns(List.of("key", "key"))),
+                willThrowFast(CatalogValidationException.class, "Duplicate colocation columns are present: [key]")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithoutColocationColumns(List.of("foo", "bar"))),
+                willThrowFast(CatalogValidationException.class, "Colocation columns missing in primary key columns: [foo, bar]")
+        );
+    }
+
     private static CreateZoneParams.Builder createZoneBuilder(String zoneName) {
         return CreateZoneParams.builder().zoneName(zoneName);
     }
@@ -581,5 +679,18 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
                 .dataNodesAutoAdjustScaleUp(scaleUp)
                 .dataNodesAutoAdjustScaleDown(scaleDown)
                 .build();
+    }
+
+    private CreateTableParams simpleTableParamsWithoutPrimaryKeys(@Nullable List<String> primaryKeys) {
+        return createTableParams(TABLE_NAME, List.of(columnParams("key", INT32), columnParams("val", INT64)), primaryKeys, null);
+    }
+
+    private CreateTableParams simpleTableParamsWithoutColocationColumns(@Nullable List<String> colocationColumns) {
+        return createTableParams(
+                TABLE_NAME,
+                List.of(columnParams("key", INT32), columnParams("val", INT64)),
+                List.of("key"),
+                colocationColumns
+        );
     }
 }

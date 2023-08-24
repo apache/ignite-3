@@ -17,12 +17,19 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.spy;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams.Builder;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -34,6 +41,8 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
+import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -42,6 +51,8 @@ import org.junit.jupiter.api.BeforeEach;
  */
 public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test";
+
+    protected static final String TABLE_NAME = "test_table";
 
     final HybridClock clock = new HybridClockImpl();
 
@@ -80,5 +91,51 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .filter(Objects::nonNull)
                 .map(component -> component::stop)
         );
+    }
+
+    protected static CreateTableParams createTableParams(
+            String tableName,
+            @Nullable List<ColumnParams> columns,
+            @Nullable List<String> primaryKeys,
+            @Nullable List<String> colocationColumns
+    ) {
+        Builder builder = CreateTableParams.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .zone(DEFAULT_ZONE_NAME)
+                .tableName(tableName);
+
+        if (columns != null) {
+            builder.columns(columns);
+        }
+
+        if (primaryKeys != null) {
+            builder.primaryKeyColumns(primaryKeys);
+        }
+
+        if (colocationColumns != null) {
+            builder.colocationColumns(colocationColumns);
+        }
+
+        return builder.build();
+    }
+
+    protected static ColumnParams columnParams(String name, ColumnType type) {
+        return columnParams(name, type, false);
+    }
+
+    protected static ColumnParams columnParams(String name, ColumnType type, boolean nullable) {
+        return columnParamsBuilder(name, type, nullable).build();
+    }
+
+    protected static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type) {
+        return columnParamsBuilder(name, type, false);
+    }
+
+    protected static ColumnParams.Builder columnParamsBuilder(String name, ColumnType type, boolean nullable) {
+        return ColumnParams.builder().name(name).nullable(nullable).type(type);
+    }
+
+    protected static DropTableParams dropTableParams(String tableName) {
+        return DropTableParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).build();
     }
 }

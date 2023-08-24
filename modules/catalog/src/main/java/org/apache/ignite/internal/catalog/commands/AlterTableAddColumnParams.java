@@ -41,7 +41,7 @@ public class AlterTableAddColumnParams extends AbstractTableCommandParams {
     /**
      * Parameters builder.
      */
-    public static class Builder extends AbstractTableCommandParams.AbstractBuilder<AlterTableAddColumnParams, Builder> {
+    public static class Builder extends AbstractTableBuilder<AlterTableAddColumnParams, Builder> {
         private Builder() {
             super(new AlterTableAddColumnParams());
         }

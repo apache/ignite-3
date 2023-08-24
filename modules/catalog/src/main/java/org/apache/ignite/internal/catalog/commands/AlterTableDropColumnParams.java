@@ -43,7 +43,7 @@ public class AlterTableDropColumnParams extends AbstractTableCommandParams {
     /**
      * Parameters builder.
      */
-    public static class Builder extends AbstractTableCommandParams.AbstractBuilder<AlterTableDropColumnParams, Builder> {
+    public static class Builder extends AbstractTableBuilder<AlterTableDropColumnParams, Builder> {
         private Builder() {
             super(new AlterTableDropColumnParams());
         }

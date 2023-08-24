@@ -82,7 +82,7 @@ public class AlterColumnParams extends AbstractTableCommandParams {
     /**
      * Parameters builder.
      */
-    public static class Builder extends AbstractBuilder<AlterColumnParams, Builder> {
+    public static class Builder extends AbstractTableBuilder<AlterColumnParams, Builder> {
         private Builder() {
             super(new AlterColumnParams());
         }

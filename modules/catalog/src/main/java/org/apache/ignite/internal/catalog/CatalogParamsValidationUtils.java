@@ -17,15 +17,27 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Predicate;
+import org.apache.ignite.internal.catalog.commands.AbstractTableCommandParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
+import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,6 +78,54 @@ class CatalogParamsValidationUtils {
         validateZoneName(params.newZoneName(), "Missing new zone name");
     }
 
+    static void validateDropTableParams(DropTableParams params) {
+        validateCommonTableParams(params);
+    }
+
+    static void validateCreateTableParams(CreateTableParams params) {
+        validateCommonTableParams(params);
+
+        List<String> columnNames = Objects.<List<ColumnParams>>requireNonNullElse(params.columns(), List.of()).stream()
+                .peek(CatalogParamsValidationUtils::validateColumnParams)
+                .map(ColumnParams::name)
+                .collect(toList());
+
+        validateColumns(
+                columnNames,
+                Table.TABLE_DEFINITION_ERR,
+                "Columns not specified",
+                "Duplicate columns are present: {}"
+        );
+
+        validateColumns(
+                params.primaryKeyColumns(),
+                Table.TABLE_DEFINITION_ERR,
+                "Primary key columns not specified",
+                "Duplicate primary key columns are present: {}"
+        );
+
+        validateColumnsContainsInAnotherColumns(
+                params.primaryKeyColumns(),
+                columnNames,
+                Table.TABLE_DEFINITION_ERR,
+                "Primary key columns missing in columns: {}"
+        );
+
+        validateColumns(
+                params.colocationColumns(),
+                Table.TABLE_DEFINITION_ERR,
+                "Colocation columns not specified",
+                "Duplicate colocation columns are present: {}"
+        );
+
+        validateColumnsContainsInAnotherColumns(
+                params.colocationColumns(),
+                params.primaryKeyColumns(),
+                Table.TABLE_DEFINITION_ERR,
+                "Colocation columns missing in primary key columns: {}"
+        );
+    }
+
     private static void validateUpdateZoneFieldsParameters(
             String zoneName,
             @Nullable Integer partitions,
@@ -98,12 +158,7 @@ class CatalogParamsValidationUtils {
     }
 
     private static void validateZoneName(String zoneName, String errorMessage) {
-        if (StringUtils.nullOrBlank(zoneName)) {
-            throw new CatalogValidationException(
-                    DistributionZones.ZONE_DEFINITION_ERR,
-                    errorMessage
-            );
-        }
+        validateNameField(zoneName, DistributionZones.ZONE_DEFINITION_ERR, errorMessage);
     }
 
     private static void validateZonePartitions(@Nullable Integer partitions) {
@@ -170,6 +225,63 @@ class CatalogParamsValidationUtils {
                     "{}: [value={}, min={}" + (max == null ? ']' : ", max={}]"),
                     errorPrefix, value, min, max
             );
+        }
+    }
+
+    private static void validateNameField(String name, int errorCode, String errorMessage) {
+        if (StringUtils.nullOrBlank(name)) {
+            throw new CatalogValidationException(errorCode, errorMessage);
+        }
+    }
+
+    private static void validateCollectionIsNotEmpty(Collection<?> collection, int errorCode, String errorMessage) {
+        if (CollectionUtils.nullOrEmpty(collection)) {
+            throw new CatalogValidationException(errorCode, errorMessage);
+        }
+    }
+
+    private static void validateColumns(
+            List<String> columns,
+            int errorCode,
+            String emptyColumnsErrorMessage,
+            String duplicateColumnsErrorMessageFormat
+    ) {
+        validateCollectionIsNotEmpty(columns, errorCode, emptyColumnsErrorMessage);
+
+        List<String> duplicates = columns.stream()
+                .filter(Predicate.not(new HashSet<>()::add))
+                .collect(toList());
+
+        if (!duplicates.isEmpty()) {
+            throw new CatalogValidationException(errorCode, duplicateColumnsErrorMessageFormat, duplicates);
+        }
+    }
+
+    private static void validateColumnsContainsInAnotherColumns(
+            List<String> columns,
+            List<String> anotherColumns,
+            int errorCode,
+            String errorMessageFormat
+    ) {
+        List<String> notContains = columns.stream()
+                .filter(Predicate.not(anotherColumns::contains))
+                .collect(toList());
+
+        if (!notContains.isEmpty()) {
+            throw new CatalogValidationException(errorCode, errorMessageFormat, notContains);
+        }
+    }
+
+    private static void validateCommonTableParams(AbstractTableCommandParams params) {
+        validateNameField(params.tableName(), Table.TABLE_DEFINITION_ERR, "Missing table name");
+    }
+
+    // TODO: IGNITE-19938 Add validation column length, precision and scale
+    private static void validateColumnParams(ColumnParams params) {
+        validateNameField(params.name(), Table.TABLE_DEFINITION_ERR, "Missing column name");
+
+        if (params.type() == null) {
+            throw new CatalogValidationException(Table.TABLE_DEFINITION_ERR, "Missing column type: " + params.name());
         }
     }
 }

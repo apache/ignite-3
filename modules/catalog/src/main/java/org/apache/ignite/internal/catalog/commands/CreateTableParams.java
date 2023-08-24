@@ -20,67 +20,51 @@ package org.apache.ignite.internal.catalog.commands;
 import java.util.List;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * CREATE TABLE statement.
- */
+/** CREATE TABLE statement. */
 public class CreateTableParams extends AbstractTableCommandParams {
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
     }
 
+    private CreateTableParams() {
+        // No-op.
+    }
+
     /** Primary key columns. */
-    @Nullable
     private List<String> pkCols;
 
     /** Colocation columns. */
-    @Nullable
     private List<String> colocationCols;
 
     /** Columns. */
     private List<ColumnParams> cols;
 
-    /** Distribution zone name. */
-    @Nullable
-    private String zone;
+    /** Distribution zone name, {@code null} means to use the default zone. */
+    private @Nullable String zone;
 
-    private CreateTableParams() {
-    }
-
-    /**
-     * Gets table columns.
-     */
+    /** Returns table columns. */
     public List<ColumnParams> columns() {
         return cols;
     }
 
-    /**
-     * Gets primary key columns.
-     */
+    /** Returns primary key columns. */
     public List<String> primaryKeyColumns() {
         return pkCols;
     }
 
-    /**
-     * Gets colocation column names.
-     */
-    @Nullable
+    /** Returns colocation column names. */
     public List<String> colocationColumns() {
         return colocationCols;
     }
 
-    /**
-     * Gets zone name.
-     */
-    @Nullable
-    public String zone() {
+    /** Returns zone name, {@code null} means to use the default distribution zone. */
+    public @Nullable String zone() {
         return zone;
     }
 
-    /**
-     * Parameters builder.
-     */
-    public static class Builder extends AbstractBuilder<CreateTableParams, Builder> {
+    /** Parameters builder. */
+    public static class Builder extends AbstractTableBuilder<CreateTableParams, Builder> {
         private Builder() {
             super(new CreateTableParams());
         }
@@ -90,9 +74,10 @@ public class CreateTableParams extends AbstractTableCommandParams {
          *
          * @param cols Columns.
          * @return {@code this}.
+         * @throws NullPointerException If the columns is {@code null} or one of its elements.
          */
         public Builder columns(List<ColumnParams> cols) {
-            params.cols = cols;
+            params.cols = List.copyOf(cols);
 
             return this;
         }
@@ -101,9 +86,10 @@ public class CreateTableParams extends AbstractTableCommandParams {
          * Sets primary key columns.
          *
          * @return {@code this}.
+         * @throws NullPointerException If the primary key columns is {@code null} or one of its elements.
          */
         public Builder primaryKeyColumns(List<String> pkCols) {
-            params.pkCols = pkCols;
+            params.pkCols = List.copyOf(pkCols);
 
             return this;
         }
@@ -113,8 +99,9 @@ public class CreateTableParams extends AbstractTableCommandParams {
          *
          * @param colocationCols Colocation column names.
          * @return {@code this}.
+         * @throws NullPointerException If the colocation column names is {@code null} or one of its elements.
          */
-        public Builder colocationColumns(@Nullable List<String> colocationCols) {
+        public Builder colocationColumns(List<String> colocationCols) {
             params.colocationCols = colocationCols;
 
             return this;
@@ -123,7 +110,7 @@ public class CreateTableParams extends AbstractTableCommandParams {
         /**
          * Sets zone name.
          *
-         * @param zoneName Zone name.
+         * @param zoneName Zone name, {@code null} to use to use the default distribution zone.
          * @return {@code this}.
          */
         public Builder zone(@Nullable String zoneName) {

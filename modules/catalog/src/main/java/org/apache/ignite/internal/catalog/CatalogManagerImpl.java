@@ -19,9 +19,10 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateAlterZoneParams;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateTableParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateZoneParams;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropTableParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
@@ -38,12 +39,10 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
@@ -54,12 +53,10 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
-import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -310,13 +307,11 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> createTable(CreateTableParams params) {
         return saveUpdateAndWaitForActivation(catalog -> {
+            validateCreateTableParams(params);
+
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
-            if (schema.table(params.tableName()) != null) {
-                throw new TableAlreadyExistsException(schema.name(), params.tableName());
-            }
-
-            validateCreateTableParams(params);
+            ensureNoTableOrIndexExistsWithSameName(schema, params.tableName());
 
             CatalogZoneDescriptor zone = getZone(catalog, Objects.requireNonNullElse(params.zone(), DEFAULT_ZONE_NAME));
 
@@ -337,6 +332,8 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> dropTable(DropTableParams params) {
         return saveUpdateAndWaitForActivation(catalog -> {
+            validateDropTableParams(params);
+
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
@@ -748,85 +745,6 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         );
     }
 
-    private static void validateCreateTableParams(CreateTableParams params) {
-        // Table must have columns.
-        if (params.columns().isEmpty()) {
-            throw new IgniteInternalException(ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR, "Table must include at least one column.");
-        }
-
-        // Column names must be unique.
-        params.columns().stream()
-                .map(ColumnParams::name)
-                .filter(Predicate.not(new HashSet<>()::add))
-                .findAny()
-                .ifPresent(columnName -> {
-                    throw new IgniteInternalException(
-                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Can't create table with duplicate columns: {}",
-                            params.columns().stream().map(ColumnParams::name).collect(joining(", "))
-                    );
-                });
-
-        // Table must have PK columns.
-        if (params.primaryKeyColumns().isEmpty()) {
-            throw new IgniteInternalException(
-                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                    "Table without primary key is not supported."
-            );
-        }
-
-        // PK columns must be valid columns.
-        Set<String> columns = params.columns().stream().map(ColumnParams::name).collect(Collectors.toSet());
-        params.primaryKeyColumns().stream()
-                .filter(Predicate.not(columns::contains))
-                .findAny()
-                .ifPresent(columnName -> {
-                    throw new IgniteInternalException(
-                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Invalid primary key columns: {}",
-                            params.columns().stream().map(ColumnParams::name).collect(joining(", "))
-                    );
-                });
-
-        // PK column names must be unique.
-        params.primaryKeyColumns().stream()
-                .filter(Predicate.not(new HashSet<>()::add))
-                .findAny()
-                .ifPresent(columnName -> {
-                    throw new IgniteInternalException(
-                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Primary key columns contains duplicates: {}",
-                            String.join(", ", params.primaryKeyColumns())
-                    );
-                });
-
-        List<String> colocationCols = params.colocationColumns();
-        if (colocationCols != null) {
-            // Colocation columns must be unique
-            colocationCols.stream()
-                    .filter(Predicate.not(new HashSet<>()::add))
-                    .findAny()
-                    .ifPresent(columnName -> {
-                        throw new IgniteInternalException(
-                                ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                                "Colocation columns contains duplicates: {}",
-                                String.join(", ", colocationCols)
-                        );
-                    });
-
-            // Colocation column must be valid PK column
-            Set<String> pkColumns = new HashSet<>(params.primaryKeyColumns());
-            List<String> outstandingColumns = colocationCols.stream()
-                    .filter(Predicate.not(pkColumns::contains))
-                    .collect(Collectors.toList());
-            if (!outstandingColumns.isEmpty()) {
-                throw new IgniteInternalException(
-                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                        "Colocation columns must be subset of primary key: outstandingColumns=" + outstandingColumns);
-            }
-        }
-    }
-
     private static void validateAlterTableDropColumnParams(
             AlterTableDropColumnParams params,
             CatalogSchemaDescriptor schema,
@@ -965,7 +883,13 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         listen(evt, (EventListener<CatalogEventParameters>) closure);
     }
 
-    private static @Nullable CatalogDataStorageDescriptor dataStorage(@Nullable DataStorageParams params) {
-        return params == null ? null : fromParams(params);
+    private static void ensureNoTableOrIndexExistsWithSameName(CatalogSchemaDescriptor schema, String name) {
+        if (schema.index(name) != null) {
+            throw new IndexAlreadyExistsException(schema.name(), name);
+        }
+
+        if (schema.table(name) != null) {
+            throw new TableAlreadyExistsException(schema.name(), name);
+        }
     }
 }
