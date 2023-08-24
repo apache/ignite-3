@@ -786,9 +786,7 @@ public class ExecutionServiceImplTest {
                     MailboxRegistry mailboxRegistry,
                     ExchangeService exchangeService,
                     ResolvedDependencies deps) {
-                IgniteSchema schema = ctx.getRootSchema().unwrap(IgniteSchema.class);
-
-                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(schema, ctx.rowHandler());
+                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(ctx.rowHandler());
 
                 return new LogicalRelImplementor<>(ctx, funcFactory, mailboxRegistry, exchangeService, deps) {
                     @Override

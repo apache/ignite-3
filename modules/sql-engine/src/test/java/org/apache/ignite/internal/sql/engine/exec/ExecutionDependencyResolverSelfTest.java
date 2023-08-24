@@ -285,7 +285,7 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
                 throw new IllegalStateException("Unable to plan: " + sql, e);
             }
 
-            return resolver.resolveDependencies(List.of(rel), 1);
+            return resolver.resolveDependencies(List.of(rel), igniteSchema);
         }
 
         void checkDependencies(ResolvedDependencies dependencies, int tableId) {
@@ -329,6 +329,11 @@ public class ExecutionDependencyResolverSelfTest extends AbstractPlannerTest {
         @Override
         public CompletableFuture<ColocationGroup> fetchColocationGroup() {
             return colocationGroup;
+        }
+
+        @Override
+        public TableDescriptor tableDescriptor() {
+            return updates.descriptor();
         }
     }
 

@@ -60,7 +60,6 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
@@ -134,7 +133,7 @@ public class TestNode implements LifecycleAware {
                 dependencyResolver,
                 (ctx, deps) -> new LogicalRelImplementor<Object[]>(
                         ctx,
-                        new HashFunctionFactoryImpl<>(ctx.getRootSchema().unwrap(IgniteSchema.class), rowHandler),
+                        new HashFunctionFactoryImpl<>(rowHandler),
                         mailboxRegistry,
                         exchangeService,
                         deps

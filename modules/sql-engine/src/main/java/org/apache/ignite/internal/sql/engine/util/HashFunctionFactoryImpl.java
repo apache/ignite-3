@@ -23,7 +23,6 @@ import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
@@ -33,27 +32,22 @@ import org.apache.ignite.internal.util.HashCalculator;
  */
 public class HashFunctionFactoryImpl<T> implements HashFunctionFactory<T> {
     private final RowHandler<T> rowHandler;
-    private final IgniteSchema schema;
 
-    public HashFunctionFactoryImpl(IgniteSchema schema, RowHandler<T> rowHandler) {
-        this.schema = schema;
+    public HashFunctionFactoryImpl(RowHandler<T> rowHandler) {
         this.rowHandler = rowHandler;
     }
 
     /** {@inheritDoc} */
     @Override
-    public RowHashFunction<T> create(int[] fields, int tableId) {
+    public RowHashFunction<T> create(int[] fields, TableDescriptor tableDescriptor) {
         int fieldCnt = fields.length;
         NativeType[] fieldTypes = new NativeType[fieldCnt];
-
-        TableDescriptor tblDesc = schema.getTable(tableId).descriptor();
-
-        ImmutableIntList colocationColumns = tblDesc.distribution().getKeys();
+        ImmutableIntList colocationColumns = tableDescriptor.distribution().getKeys();
 
         assert colocationColumns.size() == fieldCnt : "fieldsCount=" + fieldCnt + ", colocationColumns=" + colocationColumns;
 
         for (int i = 0; i < fieldCnt; i++) {
-            ColumnDescriptor colDesc = tblDesc.columnDescriptor(colocationColumns.getInt(i));
+            ColumnDescriptor colDesc = tableDescriptor.columnDescriptor(colocationColumns.getInt(i));
 
             fieldTypes[i] = colDesc.physicalType();
         }

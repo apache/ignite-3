@@ -162,6 +162,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExchangeService exchangeSrvc,
             ExecutionDependencyResolver dependencyResolver
     ) {
+        HashFunctionFactoryImpl<RowT> rowHashFunctionFactory = new HashFunctionFactoryImpl<>(handler);
+
         return new ExecutionServiceImpl<>(
                 msgSrvc,
                 topSrvc,
@@ -173,7 +175,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 dependencyResolver,
                 (ctx, deps) -> new LogicalRelImplementor<>(
                         ctx,
-                        new HashFunctionFactoryImpl<>(ctx.getRootSchema().unwrap(IgniteSchema.class), handler),
+                        rowHashFunctionFactory,
                         mailboxRegistry,
                         exchangeSrvc,
                         deps)
@@ -607,9 +609,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             start.thenCompose(none -> {
                 IgniteRel treeRoot = relationalTreeFromJsonString(fragmentString, ctx);
-                int schemaVersion = ctx.schemaVersion();
+                IgniteSchema igniteSchema = ctx.schema().unwrap(IgniteSchema.class);
 
-                return dependencyResolver.resolveDependencies(List.of(treeRoot), schemaVersion).thenComposeAsync(deps -> {
+                return dependencyResolver.resolveDependencies(List.of(treeRoot), igniteSchema).thenComposeAsync(deps -> {
                     return executeFragment(treeRoot, deps, context);
                 }, exec);
             }).exceptionally(ex -> {
@@ -643,7 +645,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private AsyncCursor<List<Object>> execute(InternalTransaction tx, MultiStepPlan notMappedPlan) {
             Iterable<IgniteRel> fragmentRoots = TransformingIterator.newIterable(notMappedPlan.fragments(), Fragment::root);
 
-            CompletableFuture<ResolvedDependencies> depsFut = dependencyResolver.resolveDependencies(fragmentRoots, ctx.schemaVersion());
+            IgniteSchema igniteSchema = ctx.schema().unwrap(IgniteSchema.class);
+
+            CompletableFuture<ResolvedDependencies> depsFut = dependencyResolver.resolveDependencies(fragmentRoots, igniteSchema);
 
             CompletableFuture<MultiStepPlan> f = depsFut.thenCompose(deps -> mapFragments(notMappedPlan, deps));
 

@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 
 /**
@@ -62,6 +63,14 @@ public class ResolvedDependencies {
     /** TODO IGNITE-19499: Drop temporal method. */
     public InternalTable internalTable(int tableId) {
         return getTable(tableId).internalTable();
+    }
+
+    /**
+     * Returns a descriptor for a table with the given id.
+     */
+    public TableDescriptor tableDescriptor(int tableId) {
+        ExecutableTable executableTable = getTable(tableId);
+        return executableTable.tableDescriptor();
     }
 
     public Set<Integer> tableIds() {

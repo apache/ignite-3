@@ -27,10 +27,17 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
+import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
 /**
  * Acquires dependencies from appropriate component managers.
@@ -47,10 +54,28 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
      * {@inheritDoc}
      */
     @Override
-    public CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, int schemaVersion) {
+    public CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, IgniteSchema schema) {
         Map<Integer, CompletableFuture<ExecutableTable>> tableMap = new HashMap<>();
 
         IgniteRelShuttle shuttle = new IgniteRelShuttle() {
+            @Override
+            public IgniteRel visit(IgniteSender rel) {
+                IgniteDistribution distribution = TraitUtils.distribution(rel);
+
+                resolveDistributionFunction(distribution);
+
+                return super.visit(rel);
+            }
+
+            @Override
+            public IgniteRel visit(IgniteTrimExchange rel) {
+                IgniteDistribution distribution = TraitUtils.distribution(rel);
+
+                resolveDistributionFunction(distribution);
+
+                return super.visit(rel);
+            }
+
             @Override
             public IgniteRel visit(IgniteTableModify rel) {
                 IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
@@ -76,6 +101,16 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
                 resolveTable(igniteTable);
 
                 return rel;
+            }
+
+            private void resolveDistributionFunction(IgniteDistribution distribution) {
+                DistributionFunction function = distribution.function();
+
+                if (function.affinity()) {
+                    int tableId = ((AffinityDistribution) function).tableId();
+
+                    resolveTable(schema.getTable(tableId));
+                }
             }
 
             private void resolveTable(IgniteTable igniteTable) {
