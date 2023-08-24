@@ -44,6 +44,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         // Use only nullable variants for reference types (string, bitmask). Use separate methods for value types.
         private static readonly MethodInfo AppendByte = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendByte))!;
         private static readonly MethodInfo AppendByteNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendByteNullable))!;
+        private static readonly MethodInfo AppendBool = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBool))!;
+        private static readonly MethodInfo AppendBoolNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendBoolNullable))!;
         private static readonly MethodInfo AppendShort = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendShort))!;
         private static readonly MethodInfo AppendShortNullable = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendShortNullable))!;
         private static readonly MethodInfo AppendInt = typeof(BinaryTupleBuilder).GetMethod(nameof(BinaryTupleBuilder.AppendInt))!;
@@ -110,6 +112,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
             { typeof(string), AppendString },
             { typeof(sbyte), AppendByte },
             { typeof(sbyte?), AppendByteNullable },
+            { typeof(bool), AppendBool },
+            { typeof(bool?), AppendBoolNullable },
             { typeof(short), AppendShort },
             { typeof(short?), AppendShortNullable },
             { typeof(int), AppendInt },
