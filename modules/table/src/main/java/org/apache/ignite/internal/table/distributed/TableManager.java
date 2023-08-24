@@ -277,15 +277,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdVv;
 
     /**
-     * Versioned store for local partition set by table id.
-     * Completed strictly after {@link #tablesByIdVv} and strictly before {@link #assignmentsUpdatedVv}.
+     * Versioned store for local partition set by table id. Completed strictly after {@link #tablesByIdVv} and strictly before
+     * {@link #assignmentsUpdatedVv}.
      */
     private final IncrementalVersionedValue<Map<Integer, PartitionSet>> localPartsByTableIdVv;
 
     /**
-     * Versioned store for tracking RAFT groups initialization and starting completion.
-     * Only explicitly updated in {@link #createTablePartitionsLocally(long, CompletableFuture, TableImpl)}.
-     * Completed strictly after {@link #localPartsByTableIdVv}.
+     * Versioned store for tracking RAFT groups initialization and starting completion. Only explicitly updated in
+     * {@link #createTablePartitionsLocally(long, CompletableFuture, TableImpl)}. Completed strictly after {@link #localPartsByTableIdVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
@@ -375,6 +374,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final ConfiguredTablesCache configuredTablesCache;
 
     private final Marshaller raftCommandsMarshaller;
+
+    private final SchemaSyncService schemaSyncService;
 
     /** Versioned value used only at manager startup to correctly fire table creation events. */
     private final IncrementalVersionedValue<Void> startVv;
@@ -1842,18 +1843,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @return A list of direct table ids.
      */
-    private List<Integer> directTableIds() {
-        return configuredTablesCache.configuredTableIds();
-    }
+    private @Nullable Integer resolveTableName(String tableName, HybridTimestamp timestamp) {
+        CatalogTableDescriptor tableDescriptor = catalogManager.table(tableName, timestamp.longValue());
 
-    /**
-     * Gets direct id of table with {@code tblName}.
-     *
-     * @param tblName Name of the table.
-     * @return Direct id of the table, or {@code null} if the table with the {@code tblName} has not been found.
-     */
-    @Nullable
-    private Integer directTableId(String tblName) {
+        // TODO IGNITE-19499: Drop the rest of code and return Id from catalog instead.
+        // return tableDescriptor == null ? null : tableDescriptor.id();
+        if (tableDescriptor == null) {
+            return null;
+        }
+
         try {
             TableConfiguration exTblCfg = directProxy(tablesCfg.tables()).get(tblName);
 
@@ -1868,8 +1866,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Returns the tables by ID future for the given causality token.
-     * The future will only be completed when corresponding assignments update completes.
+     * Returns the tables by ID future for the given causality token. The future will only be completed when corresponding assignments
+     * update completes.
      *
      * @param causalityToken Causality token.
      * @return The future with tables map.
@@ -2018,8 +2016,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            return supplyAsync(() -> inBusyLock(busyLock, () -> directTableId(name)), ioExecutor)
-                    .thenCompose(tableId -> inBusyLock(busyLock, () -> {
+            HybridTimestamp now = clock.now();
+
+            return schemaSyncService.waitForMetadataCompleteness(now)
+                    .thenComposeAsync(ignore -> {
+                        Integer tableId = resolveTableName(tableName, now);
+
                         if (tableId == null) {
                             return completedFuture(null);
                         }

@@ -112,6 +112,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Catalog service implementation.
@@ -120,7 +121,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     private static final int MAX_RETRY_COUNT = 10;
 
     /** Safe time to wait before new Catalog version activation. */
-    private static final int DEFAULT_DELAY_DURATION = 0;
+    private static final int DEFAULT_DELAY_DURATION = 100;
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CatalogManagerImpl.class);
@@ -142,15 +143,9 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     /**
      * Constructor.
      */
+    @TestOnly
     public CatalogManagerImpl(UpdateLog updateLog, ClockWaiter clockWaiter) {
-        this(updateLog, clockWaiter, DEFAULT_DELAY_DURATION);
-    }
-
-    /**
-     * Constructor.
-     */
-    CatalogManagerImpl(UpdateLog updateLog, ClockWaiter clockWaiter, long delayDurationMs) {
-        this(updateLog, clockWaiter, () -> delayDurationMs);
+        this(updateLog, clockWaiter, () -> DEFAULT_DELAY_DURATION);
     }
 
     /**
