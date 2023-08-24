@@ -24,6 +24,10 @@ public class CreateHashIndexParams extends AbstractCreateIndexCommandParams {
         return new Builder();
     }
 
+    private CreateHashIndexParams() {
+        // No-op.
+    }
+
     /** Parameters builder. */
     public static class Builder extends AbstractCreateIndexBuilder<CreateHashIndexParams, Builder> {
         private Builder() {

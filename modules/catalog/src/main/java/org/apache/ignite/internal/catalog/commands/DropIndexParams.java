@@ -24,9 +24,11 @@ public class DropIndexParams extends AbstractCreateIndexCommandParams {
         return new Builder();
     }
 
-    /**
-     * Parameters builder.
-     */
+    private DropIndexParams() {
+        // No-op.
+    }
+
+    /** Parameters builder. */
     public static class Builder extends AbstractIndexBuilder<DropIndexParams, Builder> {
         private Builder() {
             super(new DropIndexParams());

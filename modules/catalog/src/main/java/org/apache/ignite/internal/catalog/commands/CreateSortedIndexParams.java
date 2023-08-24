@@ -27,6 +27,10 @@ public class CreateSortedIndexParams extends AbstractCreateIndexCommandParams {
         return new Builder();
     }
 
+    private CreateSortedIndexParams() {
+        // No-op.
+    }
+
     /** Columns collations. */
     private List<CatalogColumnCollation> collations;
 

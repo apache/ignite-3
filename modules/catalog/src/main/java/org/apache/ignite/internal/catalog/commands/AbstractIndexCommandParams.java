@@ -49,7 +49,7 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
         /**
          * Sets schema name.
          *
-         * @param schemaName Schema name, {@code null} to use to use the default schema..
+         * @param schemaName Schema name, {@code null} to use to use the default schema.
          * @return {@code this}.
          */
         public BuilderT schemaName(@Nullable String schemaName) {
