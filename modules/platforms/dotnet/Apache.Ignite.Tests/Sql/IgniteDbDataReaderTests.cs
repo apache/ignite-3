@@ -446,7 +446,10 @@ public class IgniteDbDataReaderTests : IgniteTestsBase
         var values = new object[reader.FieldCount];
         var count = reader.GetValues(values);
 
-        var expected = new object[] { 1, "v-1", 2, 3, 4, 5, 6.5f, 7.5d, LocalDate, LocalTime, LocalDateTime, Instant, Bytes, 8.7m, Guid };
+        var expected = new object[]
+        {
+            1, "v-1", 2, 3, 4, 5, 6.5f, 7.5d, LocalDate, LocalTime, LocalDateTime, Instant, Bytes, 8.7m, Guid, true
+        };
 
         CollectionAssert.AreEqual(expected, values);
         Assert.AreEqual(reader.FieldCount, count);
