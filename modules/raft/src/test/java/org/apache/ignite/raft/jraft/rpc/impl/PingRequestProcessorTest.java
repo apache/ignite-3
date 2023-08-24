@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.test.MockAsyncContext;
@@ -24,7 +25,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class PingRequestProcessorTest {
+public class PingRequestProcessorTest extends BaseIgniteAbstractTest {
     @Test
     public void testHandlePing() throws Exception {
         PingRequestProcessor processor = new PingRequestProcessor(null, new RaftMessagesFactory());

@@ -21,10 +21,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.junit.jupiter.api.Test;
 
-class IncomingSnapshotReaderTest {
+class IncomingSnapshotReaderTest extends BaseIgniteAbstractTest {
     @Test
     void returnsEmptyPath() {
         try (var reader = new IncomingSnapshotReader(mock(SnapshotMeta.class))) {

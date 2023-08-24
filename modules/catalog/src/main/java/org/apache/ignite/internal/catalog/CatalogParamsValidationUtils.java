@@ -21,11 +21,20 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTI
 
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
+import java.util.HashSet;
+import java.util.function.Predicate;
+import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
+import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
+import org.apache.ignite.lang.ErrorGroups.Index;
 import org.apache.ignite.lang.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,6 +64,26 @@ class CatalogParamsValidationUtils {
                 params.dataNodesAutoAdjustScaleDown(),
                 params.filter()
         );
+    }
+
+    static void validateCreateHashIndexParams(CreateHashIndexParams params) {
+        validateCommonCreateIndexParams(params);
+    }
+
+    static void validateCreateSortedIndexParams(CreateSortedIndexParams params) {
+        validateCommonCreateIndexParams(params);
+
+        if (CollectionUtils.nullOrEmpty(params.collations())) {
+            throw new CatalogValidationException(Index.INVALID_INDEX_DEFINITION_ERR, "Columns collations not specified");
+        }
+
+        if (params.collations().size() != params.columns().size()) {
+            throw new CatalogValidationException(Index.INVALID_INDEX_DEFINITION_ERR, "Columns collations doesn't match number of columns");
+        }
+    }
+
+    static void validateDropIndexParams(DropIndexParams params) {
+        validateCommonIndexParams(params);
     }
 
     static void validateDropZoneParams(DropZoneParams params) {
@@ -98,12 +127,7 @@ class CatalogParamsValidationUtils {
     }
 
     private static void validateZoneName(String zoneName, String errorMessage) {
-        if (StringUtils.nullOrBlank(zoneName)) {
-            throw new CatalogValidationException(
-                    DistributionZones.ZONE_DEFINITION_ERR,
-                    errorMessage
-            );
-        }
+        validateNameField(zoneName, DistributionZones.ZONE_DEFINITION_ERR, errorMessage);
     }
 
     private static void validateZonePartitions(@Nullable Integer partitions) {
@@ -170,6 +194,37 @@ class CatalogParamsValidationUtils {
                     "{}: [value={}, min={}" + (max == null ? ']' : ", max={}]"),
                     errorPrefix, value, min, max
             );
+        }
+    }
+
+    private static void validateCommonIndexParams(AbstractIndexCommandParams params) {
+        validateNameField(params.indexName(), Index.INVALID_INDEX_DEFINITION_ERR, "Missing index name");
+    }
+
+    private static void validateCommonCreateIndexParams(AbstractCreateIndexCommandParams params) {
+        validateCommonIndexParams(params);
+
+        validateNameField(params.tableName(), Index.INVALID_INDEX_DEFINITION_ERR, "Missing table name");
+
+        if (CollectionUtils.nullOrEmpty(params.columns())) {
+            throw new CatalogValidationException(Index.INVALID_INDEX_DEFINITION_ERR, "Columns not specified");
+        }
+
+        params.columns().stream()
+                .filter(Predicate.not(new HashSet<>()::add))
+                .findAny()
+                .ifPresent(columnName -> {
+                    throw new CatalogValidationException(
+                            Index.INVALID_INDEX_DEFINITION_ERR,
+                            "Duplicate columns are present: {}",
+                            params.columns()
+                    );
+                });
+    }
+
+    private static void validateNameField(String name, int errorCode, String errorMessage) {
+        if (StringUtils.nullOrBlank(name)) {
+            throw new CatalogValidationException(errorCode, errorMessage);
         }
     }
 }

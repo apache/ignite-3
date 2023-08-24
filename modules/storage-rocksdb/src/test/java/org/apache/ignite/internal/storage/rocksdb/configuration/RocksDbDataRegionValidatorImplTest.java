@@ -35,6 +35,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineView;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -43,7 +44,7 @@ import org.mockito.ArgumentCaptor;
  * For {@link RocksDbDataRegionValidatorImpl} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class RocksDbDataRegionValidatorImplTest {
+public class RocksDbDataRegionValidatorImplTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private RocksDbStorageEngineConfiguration engineConfig;
 

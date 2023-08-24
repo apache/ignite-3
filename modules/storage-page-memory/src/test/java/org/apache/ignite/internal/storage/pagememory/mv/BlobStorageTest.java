@@ -41,6 +41,7 @@ import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFragmentIo;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,7 +52,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(MockitoExtension.class)
-class BlobStorageTest {
+class BlobStorageTest extends BaseIgniteAbstractTest {
     private static final int PAGE_SIZE = 1024;
 
     @InjectConfiguration

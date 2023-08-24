@@ -30,12 +30,13 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 
 @ExtendWith(ConfigurationExtension.class)
-class AuthenticationProvidersValidatorTest {
+class AuthenticationProvidersValidatorTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private AuthenticationConfiguration authenticationConfiguration;
