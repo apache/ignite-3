@@ -225,7 +225,7 @@ public class SqlQueryProcessor implements QueryProcessor {
      * @return Wrapper for an active transaction.
      * @throws SqlException If an outer transaction was started for a {@link SqlQueryType#DDL DDL} query.
      */
-    public static QueryTransactionWrapper wrapTxOrStartImplicit(
+    static QueryTransactionWrapper wrapTxOrStartImplicit(
             SqlQueryType queryType,
             IgniteTransactions transactions,
             @Nullable InternalTransaction outerTx

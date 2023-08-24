@@ -21,8 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.List;
@@ -33,23 +31,17 @@ import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.exec.AsyncWrapper;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.Named;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests for {@link AsyncSqlCursorImpl}.
  */
-@ExtendWith(MockitoExtension.class)
 public class AsyncSqlCursorImplTest {
 
     private static final ResultSetMetadata RESULT_SET_METADATA = new ResultSetMetadataImpl(Collections.emptyList());
@@ -115,8 +107,6 @@ public class AsyncSqlCursorImplTest {
     }
 
     private static QueryTransactionWrapper newTxWrapper(boolean implicit) {
-        InternalTransaction tx = NoOpTransaction.readOnly("TX");
-
-        return new QueryTransactionWrapper(tx, implicit);
+        return new QueryTransactionWrapper(NoOpTransaction.readOnly("TX"), implicit);
     }
 }
