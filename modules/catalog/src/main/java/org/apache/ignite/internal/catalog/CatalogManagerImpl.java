@@ -437,11 +437,11 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
-            checkNotExistsIndexOrTable(schema, params.indexName());
+            ensureNoTableOrIndexExistsWithSameName(schema, params.indexName());
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            checkIndexColumns(table, params);
+            validateIndexColumns(table, params);
 
             CatalogHashIndexDescriptor index = fromParams(catalog.objectIdGenState(), table.id(), params);
 
@@ -459,11 +459,11 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
-            checkNotExistsIndexOrTable(schema, params.indexName());
+            ensureNoTableOrIndexExistsWithSameName(schema, params.indexName());
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            checkIndexColumns(table, params);
+            validateIndexColumns(table, params);
 
             CatalogSortedIndexDescriptor index = fromParams(catalog.objectIdGenState(), table.id(), params);
 
@@ -915,7 +915,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                 .tableName(params.tableName())
                 .indexName(params.tableName() + "_PK")
                 .columns(params.primaryKeyColumns())
-                .unique()
+                .unique(true)
                 .build();
     }
 
@@ -926,7 +926,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     ) {
         validateCreateHashIndexParams(params);
 
-        checkIndexColumns(table, params);
+        validateIndexColumns(table, params);
 
         return fromParams(indexId, table.id(), params);
     }
@@ -936,17 +936,17 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         listen(evt, (EventListener<CatalogEventParameters>) closure);
     }
 
-    private static void checkNotExistsIndexOrTable(CatalogSchemaDescriptor schema, String indexName) {
-        if (schema.index(indexName) != null) {
-            throw new IndexAlreadyExistsException(schema.name(), indexName);
+    private static void ensureNoTableOrIndexExistsWithSameName(CatalogSchemaDescriptor schema, String name) {
+        if (schema.index(name) != null) {
+            throw new IndexAlreadyExistsException(schema.name(), name);
         }
 
-        if (schema.table(indexName) != null) {
-            throw new TableAlreadyExistsException(schema.name(), indexName);
+        if (schema.table(name) != null) {
+            throw new TableAlreadyExistsException(schema.name(), name);
         }
     }
 
-    private static void checkIndexColumns(CatalogTableDescriptor table, AbstractCreateIndexCommandParams params) {
+    private static void validateIndexColumns(CatalogTableDescriptor table, AbstractCreateIndexCommandParams params) {
         for (String indexColumn : params.columns()) {
             if (table.columnDescriptor(indexColumn) == null) {
                 throw new ColumnNotFoundException(indexColumn);

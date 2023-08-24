@@ -102,9 +102,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .tableName(TABLE_NAME)
                 .indexName(indexName);
 
-        if (uniq) {
-            builder.unique();
-        }
+        builder.unique(uniq);
 
         if (indexColumns != null) {
             builder.columns(indexColumns);
@@ -131,9 +129,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .tableName(TABLE_NAME)
                 .indexName(indexName);
 
-        if (uniq) {
-            builder.unique();
-        }
+        builder.unique(uniq);
 
         if (indexColumns != null) {
             builder.columns(indexColumns);

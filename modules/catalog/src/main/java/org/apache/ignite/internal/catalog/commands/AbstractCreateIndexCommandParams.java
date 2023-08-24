@@ -67,10 +67,11 @@ public abstract class AbstractCreateIndexCommandParams extends AbstractIndexComm
         /**
          * Sets unique flag.
          *
+         * @param uniq {@code true} if index is unique, {@code false} otherwise.
          * @return {@code this}.
          */
-        public BuilderT unique() {
-            params.unique = true;
+        public BuilderT unique(boolean uniq) {
+            params.unique = uniq;
 
             return (BuilderT) this;
         }
@@ -80,9 +81,10 @@ public abstract class AbstractCreateIndexCommandParams extends AbstractIndexComm
          *
          * @param columns Columns names.
          * @return {@code this}.
+         * @throws NullPointerException If the columns is {@code null} or one of its elements.
          */
         public BuilderT columns(List<String> columns) {
-            params.columns = columns;
+            params.columns = List.copyOf(columns);
 
             return (BuilderT) this;
         }

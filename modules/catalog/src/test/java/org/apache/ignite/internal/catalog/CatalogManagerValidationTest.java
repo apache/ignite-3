@@ -558,7 +558,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    void testValidateTableNameOnIndexCreate() {
+    void testValidateTableNameOnIndexCreation() {
         assertThat(
                 manager.createIndex(CreateHashIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
                 willThrowFast(CatalogValidationException.class, "Missing table name")
@@ -571,7 +571,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    void testValidateIndexNameOnIndexCreate() {
+    void testValidateIndexNameOnIndexCreation() {
         assertThat(
                 manager.createIndex(CreateHashIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).build()),
                 willThrowFast(CatalogValidationException.class, "Missing index name")
@@ -584,7 +584,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    void testValidateIndexColumnsNotSpecifiedOnIndexCreate() {
+    void testValidateIndexColumnsNotSpecifiedOnIndexCreation() {
         assertThat(
                 manager.createIndex(createHashIndexParams(INDEX_NAME, null)),
                 willThrowFast(CatalogValidationException.class, "Columns not specified")
@@ -607,20 +607,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    void testValidateIndexColumnsContainsNullOnIndexCreate() {
-        assertThat(
-                manager.createIndex(createHashIndexParams(INDEX_NAME, Arrays.asList("key", null))),
-                willThrowFast(CatalogValidationException.class, "One of the columns is null")
-        );
-
-        assertThat(
-                manager.createIndex(createSortedIndexParams(INDEX_NAME, Arrays.asList("key", null), null)),
-                willThrowFast(CatalogValidationException.class, "One of the columns is null")
-        );
-    }
-
-    @Test
-    void testValidateIndexColumnsDuplicatesOnIndexCreate() {
+    void testValidateIndexColumnsDuplicatesOnIndexCreation() {
         assertThat(
                 manager.createIndex(createHashIndexParams(INDEX_NAME, Arrays.asList("key", "key"))),
                 willThrowFast(CatalogValidationException.class, "Duplicate columns are present")
@@ -633,7 +620,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    void testValidateIndexColumnsCollationsNotSpecifiedOnIndexCreate() {
+    void testValidateIndexColumnsCollationsNotSpecifiedOnIndexCreation() {
         assertThat(
                 manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("key"), null)),
                 willThrowFast(CatalogValidationException.class, "Columns collations not specified")
@@ -646,17 +633,14 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    void testValidateIndexColumnsCollationsContainsNullOnIndexCreate() {
+    void testValidateIndexColumnsCollationsNotScameSizeWithColumnsOnIndexCreation() {
         assertThat(
-                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("key", "val"), Arrays.asList(ASC_NULLS_FIRST, null))),
-                willThrowFast(CatalogValidationException.class, "One of the columns collations is null")
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("key", "val"), List.of(ASC_NULLS_FIRST))),
+                willThrowFast(CatalogValidationException.class, "Columns collations doesn't match number of columns")
         );
-    }
 
-    @Test
-    void testValidateIndexColumnsCollationsNotScameSizeWithColumnsOnIndexCreate() {
         assertThat(
-                manager.createIndex(createSortedIndexParams(INDEX_NAME, Arrays.asList("key", "val"), List.of(ASC_NULLS_FIRST))),
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("key"), List.of(ASC_NULLS_FIRST, ASC_NULLS_FIRST))),
                 willThrowFast(CatalogValidationException.class, "Columns collations doesn't match number of columns")
         );
     }

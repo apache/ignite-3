@@ -46,9 +46,10 @@ public class CreateSortedIndexParams extends AbstractCreateIndexCommandParams {
          *
          * @param collations Columns collations.
          * @return {@code this}.
+         * @throws NullPointerException If the columns is {@code null} or one of its elements.
          */
         public Builder collations(List<CatalogColumnCollation> collations) {
-            params.collations = collations;
+            params.collations = List.copyOf(collations);
 
             return this;
         }

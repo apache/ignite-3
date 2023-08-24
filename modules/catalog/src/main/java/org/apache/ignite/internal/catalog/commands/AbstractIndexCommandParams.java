@@ -24,7 +24,7 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
     /** Index name. */
     protected String indexName;
 
-    /** Schema name. */
+    /** Schema name, {@code null} means to use the default schema. */
     protected @Nullable String schemaName;
 
     /** Returns index name. */
@@ -32,7 +32,7 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
         return indexName;
     }
 
-    /** Returns schema name. */
+    /** Returns schema name, {@code null} means to use the default schema. */
     public @Nullable String schemaName() {
         return schemaName;
     }
@@ -49,10 +49,10 @@ public abstract class AbstractIndexCommandParams implements DdlCommandParams {
         /**
          * Sets schema name.
          *
-         * @param schemaName Schema name.
+         * @param schemaName Schema name, {@code null} to use to use the default schema..
          * @return {@code this}.
          */
-        public BuilderT schemaName(String schemaName) {
+        public BuilderT schemaName(@Nullable String schemaName) {
             params.schemaName = schemaName;
 
             return (BuilderT) this;

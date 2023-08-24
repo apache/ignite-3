@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTI
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
 import java.util.HashSet;
-import java.util.Objects;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
@@ -76,14 +75,6 @@ class CatalogParamsValidationUtils {
 
         if (CollectionUtils.nullOrEmpty(params.collations())) {
             throw new CatalogValidationException(Index.INVALID_INDEX_DEFINITION_ERR, "Columns collations not specified");
-        }
-
-        if (params.collations().stream().anyMatch(Objects::isNull)) {
-            throw new CatalogValidationException(
-                    Index.INVALID_INDEX_DEFINITION_ERR,
-                    "One of the columns collations is null: {}",
-                    params.columns()
-            );
         }
 
         if (params.collations().size() != params.columns().size()) {
@@ -217,10 +208,6 @@ class CatalogParamsValidationUtils {
 
         if (CollectionUtils.nullOrEmpty(params.columns())) {
             throw new CatalogValidationException(Index.INVALID_INDEX_DEFINITION_ERR, "Columns not specified");
-        }
-
-        if (params.columns().stream().anyMatch(Objects::isNull)) {
-            throw new CatalogValidationException(Index.INVALID_INDEX_DEFINITION_ERR, "One of the columns is null: {}", params.columns());
         }
 
         params.columns().stream()
