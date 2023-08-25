@@ -27,7 +27,7 @@ import org.apache.ignite.network.annotations.MessageGroup;
  */
 public interface MessagingService {
     /**
-     * Tries to send the given message asynchronously to the specific member without any delivery guarantees.
+     * Send the given message asynchronously with <b>at most once</b> delivery guarantee.
      *
      * @param recipient Recipient of the message.
      * @param msg       Message which should be delivered.
@@ -42,6 +42,7 @@ public interface MessagingService {
      *     <li>Messages send to same receiver will be delivered in the same order as they were sent;</li>
      *     <li>If a message N has been successfully delivered to a member implies that all messages to same receiver
      *     preceding N have also been successfully delivered.</li>
+     *     <li>A message is delivered only once</li>
      * </ul>
      *
      * <p>Please note that the guarantees only work for same (sender, receiver) pairs. That is, if A sends m1 and m2
@@ -64,6 +65,7 @@ public interface MessagingService {
      *     <li>Messages send to same receiver will be delivered in the same order as they were sent;</li>
      *     <li>If a message N has been successfully delivered to a member implies that all messages to same receiver
      *     preceding N have also been successfully delivered.</li>
+     *     <li>A message is delivered only once</li>
      * </ul>
      *
      * <p>Please note that the guarantees only work for same (sender, receiver) pairs. That is, if A sends m1 and m2

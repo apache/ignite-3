@@ -151,5 +151,11 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark);
 
+    /**
+     * Registers the innfligh update for a transaction.
+     *
+     * @param tx The transaction.
+     * @return {@code True} if the inflight was registered. The update must be failed on false.
+     */
     boolean addInflight(@NotNull UUID tx);
 }

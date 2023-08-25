@@ -36,7 +36,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BiFunction;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -86,7 +85,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @TestOnly
     private final ConcurrentHashMap<UUID, TxState> states = new ConcurrentHashMap<>();
 
-    private final ConcurrentHashMap<UUID, IgniteBiTuple<Integer, CompletableFuture<Void>>> map = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, TxContext> map = new ConcurrentHashMap<>();
 
     /** Future of a read-only transaction by it {@link TxIdAndTimestamp}. */
     private final ConcurrentNavigableMap<TxIdAndTimestamp, CompletableFuture<Void>> readOnlyTxFutureById = new ConcurrentSkipListMap<>(
@@ -104,6 +103,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    /** {@code True} if this transaction is locked for updates. */
+    private volatile boolean locked;
 
     /**
      * The constructor.
@@ -216,10 +218,21 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     ) {
         assert groups != null && !groups.isEmpty();
 
-        IgniteBiTuple<Integer, CompletableFuture<Void>> tup = map.get(txId);
+        TxContext tuple = map.compute(txId, (uuid, tuple0) -> {
+            assert tuple0 != null;
+
+            tuple0.locked = true;
+
+            return tuple0;
+        });
+
+        // All inflights have been completed before the finish.
+        if (tuple.inflights == 0 && tuple.locked) {
+            tuple.finishFut.complete(null);
+        }
 
         // Wait for commit acks first, then proceed with the finish request.
-        return tup.get2().thenCompose(res -> {
+        return tuple.finishFut.thenCompose(res -> {
             HybridTimestamp commitTimestamp = commit ? clock.now() : null;
 
             TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
@@ -329,21 +342,25 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public boolean addInflight(@NotNull UUID txId) {
-        IgniteBiTuple<Integer, CompletableFuture<Void>> newVal = map.compute(txId, (uuid, tuple) -> {
+        boolean[] res = {true};
+
+        map.compute(txId, (uuid, tuple) -> {
             if (tuple == null) {
-                tuple = new IgniteBiTuple<>(0, new CompletableFuture<>());
+                tuple = new TxContext();
             }
 
-            tuple.set1(tuple.get1() + 1);
+            if (tuple.locked) {
+                res[0] = false;
+                return tuple;
+            } else {
+                //noinspection NonAtomicOperationOnVolatileField
+                tuple.inflights++;
+            }
 
             return tuple;
         });
 
-        if (newVal.get1() < 0) { // Fail on overflow. Limits the number of tx ops.
-            return false;
-        }
-
-        return true;
+        return res[0];
     }
 
     @Override
@@ -365,17 +382,24 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         if (result instanceof UUID) {
             UUID txId = (UUID) result;
 
-            IgniteBiTuple<Integer, CompletableFuture<Void>> tuple = map.compute(txId, (uuid, tuple0) -> {
-                assert tuple0 != null;
+            TxContext tuple = map.compute(txId, (uuid, ctx) -> {
+                assert ctx != null;
 
-                tuple0.set1(tuple0.get1() - 1);
+                //noinspection NonAtomicOperationOnVolatileField
+                ctx.inflights--;
 
-                return tuple0;
+                return ctx;
             });
 
-            if (tuple.get1() == 0) {
-                tuple.get2().complete(null); // Avoid completion under lock.
+            if (tuple.inflights == 0 && tuple.locked) {
+                tuple.finishFut.complete(null); // Avoid completion under lock.
             }
         }
+    }
+
+    private static class TxContext {
+        volatile long inflights = 0; // Updated under lock.
+        final CompletableFuture<Void> finishFut = new CompletableFuture<>();
+        volatile boolean locked = false; // Used as a shared flag.
     }
 }

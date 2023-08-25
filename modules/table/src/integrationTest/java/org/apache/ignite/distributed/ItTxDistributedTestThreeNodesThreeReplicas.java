@@ -82,7 +82,6 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
                 RpcRequests.AppendEntriesRequest tmp = (AppendEntriesRequest) msg;
 
                 if (tmp.entriesList() != null && !tmp.entriesList().isEmpty()) {
-                    log.info("Send data AER {}", tmp.entriesList());
                     return true;
                 }
             }
@@ -94,10 +93,12 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
 
         ReadWriteTransactionImpl tx = (ReadWriteTransactionImpl) igniteTransactions.begin();
         CompletableFuture<Void> fut = accounts.recordView().upsertAsync(tx, makeValue(1, 100.));
+        // Update must complete now despite the blocked replication protocol.
         assertTrue(IgniteTestUtils.waitForCondition(fut::isDone, 5_000), "The update future is not completed within timeout");
 
         server.stopBlockMessages(new RaftNodeId(groupId, leader));
 
-        tx.commit();
+        CompletableFuture<Void> commitFut = tx.commitAsync();
+        assertTrue(IgniteTestUtils.waitForCondition(commitFut::isDone, 5_000), "The commit future is not completed within timeout");
     }
 }

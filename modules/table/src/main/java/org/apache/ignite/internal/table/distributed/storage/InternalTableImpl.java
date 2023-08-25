@@ -86,6 +86,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
 import org.apache.ignite.internal.table.distributed.replication.request.SingleRowReplicaRequest;
+import org.apache.ignite.internal.table.distributed.replication.request.SwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
@@ -459,32 +460,21 @@ public class InternalTableImpl implements InternalTable {
                                     return replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
                                 } else {
                                     // Enlist only write requests.
-                                    if (request instanceof SingleRowReplicaRequest) {
-                                        SingleRowReplicaRequest req0 = (SingleRowReplicaRequest) request;
-
-                                        if (req0.requestType() != RequestType.RW_GET && !txManager.addInflight(tx.id())) {
-                                            return failedFuture(
-                                                    new TransactionException(TX_UNEXPECTED_STATE_ERR, IgniteStringFormatter.format(
-                                                            "Failed to enlist an operation into a transaction, tx is already finished [tableName={}, "
-                                                                    + "partId={}]",
-                                                            tableName,
-                                                            partId
-                                                    )));
-                                        }
+                                    if ((request instanceof SingleRowReplicaRequest
+                                            && ((SingleRowReplicaRequest) request).requestType() != RequestType.RW_GET ||
+                                            request instanceof MultipleRowReplicaRequest
+                                                    && ((MultipleRowReplicaRequest) request).requestType() != RequestType.RW_GET_ALL ||
+                                            request instanceof SwapRowReplicaRequest)
+                                            && !txManager.addInflight(tx.id())) {
+                                        return failedFuture(
+                                                new TransactionException(TX_UNEXPECTED_STATE_ERR, IgniteStringFormatter.format(
+                                                        "Failed to enlist an operation into a transaction, tx is already finished "
+                                                                + "[tableName={}, partId={}]",
+                                                        tableName,
+                                                        partId
+                                                )));
                                     }
-                                    if (request instanceof MultipleRowReplicaRequest) {
-                                        MultipleRowReplicaRequest req0 = (MultipleRowReplicaRequest) request;
 
-                                        if (req0.requestType() != RequestType.RW_GET_ALL && !txManager.addInflight(tx.id())) {
-                                            return failedFuture(
-                                                    new TransactionException(TX_UNEXPECTED_STATE_ERR, IgniteStringFormatter.format(
-                                                            "Failed to enlist an operation into a transaction, tx is already finished [tableName={}, "
-                                                                    + "partId={}]",
-                                                            tableName,
-                                                            partId
-                                                    )));
-                                        }
-                                    }
                                     return replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
                                 }
                             } catch (PrimaryReplicaMissException e) {
