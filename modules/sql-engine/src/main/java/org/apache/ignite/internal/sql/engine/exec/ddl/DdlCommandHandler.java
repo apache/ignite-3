@@ -19,22 +19,18 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
@@ -54,7 +50,6 @@ import org.apache.ignite.internal.schema.configuration.ColumnChange;
 import org.apache.ignite.internal.schema.configuration.ColumnTypeChange;
 import org.apache.ignite.internal.schema.configuration.ColumnView;
 import org.apache.ignite.internal.schema.configuration.PrimaryKeyView;
-import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.ValueSerializationHelper;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultChange;
@@ -81,7 +76,6 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.ErrorGroups;
-import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
@@ -261,44 +255,7 @@ public class DdlCommandHandler {
 
     /** Handles create table command. */
     private CompletableFuture<Boolean> handleCreateTable(CreateTableCommand cmd) {
-        cmd.columns().stream()
-                .map(ColumnDefinition::name)
-                .filter(Predicate.not(new HashSet<>()::add))
-                .findAny()
-                .ifPresent(col -> {
-                    throw new SqlException(Table.TABLE_DEFINITION_ERR, "Can't create table with duplicate columns: "
-                            + cmd.columns().stream().map(ColumnDefinition::name).collect(Collectors.joining(", ")));
-                });
-
-        Consumer<TableChange> tblChanger = tableChange -> {
-            tableChange.changeColumns(columnsChange -> {
-                for (var col : cmd.columns()) {
-                    columnsChange.create(col.name(), columnChange -> convertColumnDefinition(col, columnChange));
-                }
-            });
-
-            var colocationKeys = cmd.colocationColumns();
-
-            if (nullOrEmpty(colocationKeys)) {
-                colocationKeys = cmd.primaryKeyColumns();
-            }
-
-            var colocationKeys0 = colocationKeys;
-
-            tableChange.changePrimaryKey(pkChange -> pkChange.changeColumns(cmd.primaryKeyColumns().toArray(String[]::new))
-                    .changeColocationColumns(colocationKeys0.toArray(String[]::new)));
-        };
-
-        String zoneName;
-
-        if (cmd.zone() != null) {
-            zoneName = cmd.zone();
-        } else {
-            zoneName = DEFAULT_ZONE_NAME;
-        }
-
-        return tableManager.createTableAsync(cmd.tableName(), zoneName, tblChanger)
-                .thenApply(Objects::nonNull)
+        return catalogManager.createTable(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifTableExists(), TableAlreadyExistsException.class));
     }
 
