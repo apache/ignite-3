@@ -26,6 +26,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.jetbrains.annotations.Nullable;
 
@@ -59,6 +60,20 @@ public class TableTestUtils {
                 .primaryKeyColumns(pkColumns);
 
         assertThat(catalogManager.createTable(builder.build()), willCompleteSuccessfully());
+    }
+
+    /**
+     * Drops table in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param schemaName Schema name.
+     * @param tableName Table name.
+     */
+    public static void dropTable(CatalogManager catalogManager, String schemaName, String tableName) {
+        assertThat(
+                catalogManager.dropTable(DropTableParams.builder().schemaName(schemaName).tableName(tableName).build()),
+                willCompleteSuccessfully()
+        );
     }
 
     /**

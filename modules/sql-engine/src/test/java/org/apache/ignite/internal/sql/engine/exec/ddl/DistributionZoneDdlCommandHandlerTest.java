@@ -38,7 +38,6 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,7 +61,6 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
 
         commandHandler = new DdlCommandHandler(
                 distributionZoneManager,
-                mock(TableManager.class),
                 mock(DataStorageManager.class),
                 catalogManager
         );

@@ -36,7 +36,6 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.schema.configuration.ColumnChange;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultChange;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -242,13 +241,9 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      * @param newName New column name.
      */
     protected static void renameColumn(List<Ignite> nodes, String oldName, String newName) {
-        await(((TableManager) nodes.get(0).tables()).alterTableAsync(TABLE,
-                tblChanger -> {
-                    tblChanger.changeColumns(
-                            colListChanger -> colListChanger
-                                .rename(IgniteNameUtils.parseSimpleName(oldName), IgniteNameUtils.parseSimpleName(newName)));
-                    return true;
-            }));
+        try (Session session = nodes.get(0).sql().createSession()) {
+            session.execute(null, String.format("ALTER TABLE %s RENAME COLUMN %s TO %s", TABLE, oldName, newName));
+        }
     }
 
     /**
@@ -259,16 +254,9 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      * @param defSup Default value supplier.
      */
     protected static void changeDefault(List<Ignite> nodes, String colName, Supplier<Object> defSup) {
-        await(((TableManager) nodes.get(0).tables()).alterTableAsync(TABLE, tblChanger -> {
-            tblChanger.changeColumns(
-                    colListChanger -> colListChanger
-                            .update(
-                                    IgniteNameUtils.parseSimpleName(colName),
-                                    colChanger -> colChanger.changeDefaultValueProvider(colDefChange -> colDefChange.convert(
-                                            ConstantValueDefaultChange.class).changeDefaultValue(defSup.get().toString()))
-                            ));
-            return true;
-        }));
+        try (Session session = nodes.get(0).sql().createSession()) {
+            session.execute(null, String.format("ALTER TABLE %s ALTER COLUMN %s SET %s", TABLE, colName, defSup.get()));
+        }
     }
 
     /**

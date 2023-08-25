@@ -48,7 +48,6 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.impl.TestPersistStorageConfigurationSchema;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -108,7 +107,6 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
         commandHandler = new DdlCommandHandler(
                 distributionZoneManager,
-                mock(TableManager.class),
                 mock(DataStorageManager.class),
                 mock(CatalogManager.class, invocation -> completedFuture(null))
         );

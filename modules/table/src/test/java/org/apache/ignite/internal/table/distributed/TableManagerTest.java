@@ -21,8 +21,10 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -59,13 +61,14 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -79,6 +82,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesView;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -92,16 +96,10 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageView;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -111,6 +109,7 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataSto
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -255,8 +254,17 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** The future will be completed after each tests of this class. */
     private CompletableFuture<TableManager> tblManagerFut;
 
+    /** Hybrid clock. */
+    private final HybridClock clock = new HybridClockImpl();
+
+    /** Catalog manager. */
+    private CatalogManager catalogManager;
+
     @BeforeEach
     void before() throws NodeStoppingException {
+        catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock);
+        catalogManager.start();
+
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
 
         TopologyService topologyService = mock(TopologyService.class);
@@ -304,7 +312,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                     tblManagerFut.join().stop();
                 },
                 dsm == null ? null : dsm::stop,
-                sm == null ? null : sm::stop
+                sm == null ? null : sm::stop,
+                catalogManager == null ? null : catalogManager::stop
         );
     }
 
@@ -323,22 +332,11 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         createZone(PARTITIONS, REPLICAS);
 
-        TableDefinition scmTbl = createTableDefinition(PRECONFIGURED_TABLE_NAME);
-
-        CompletableFuture<Void> createTableConfigFuture = tblsCfg.tables().change(tablesChange ->
-                tablesChange.create(scmTbl.name(), tableChange -> {
-                    (SchemaConfigurationConverter.convert(scmTbl, tableChange)).changeZoneId(getZoneId(ZONE_NAME));
-
-                    var extConfCh = ((ExtendedTableChange) tableChange);
-
-                    extConfCh.changeSchemaId(1);
-                }));
-
-        assertThat(createTableConfigFuture, willCompleteSuccessfully());
+        createTable(PRECONFIGURED_TABLE_NAME);
 
         assertEquals(1, tableManager.tables().size());
 
-        assertNotNull(tableManager.table(scmTbl.name()));
+        assertNotNull(tableManager.table(PRECONFIGURED_TABLE_NAME));
 
         checkTableDataStorage(tblsCfg.tables().value(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
     }
@@ -370,7 +368,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableManager tableManager = tblManagerFut.join();
 
-        await(tableManager.dropTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME));
+        dropTable(DYNAMIC_TABLE_FOR_DROP_NAME);
 
         verify(mvTableStorage).destroy();
         verify(txStateTableStorage).destroy();
@@ -393,32 +391,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         tableManager.beforeNodeStop();
         tableManager.stop();
 
-        createZone(PARTITIONS, REPLICAS);
-
-        Consumer<TableChange> createTableChange = (TableChange change) ->
-                SchemaConfigurationConverter.convert(createTableDefinition(DYNAMIC_TABLE_FOR_DROP_NAME), change);
-
-        Function<TableChange, Boolean> addColumnChange = (TableChange change) -> {
-            change.changeColumns(cols -> {
-                int colIdx = change.columns().namedListKeys().stream().mapToInt(Integer::parseInt).max().getAsInt() + 1;
-
-                cols.create(String.valueOf(colIdx),
-                        colChg -> SchemaConfigurationConverter.convert(SchemaBuilders.column("name", ColumnType.string()).build(),
-                                colChg));
-
-            });
-
-            return true;
-        };
-
         TableManager igniteTables = tableManager;
-
-        assertThrows(IgniteException.class,
-                () -> igniteTables.createTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME, ZONE_NAME, createTableChange));
-
-        assertThrows(IgniteException.class, () -> igniteTables.alterTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME, addColumnChange));
-
-        assertThrows(IgniteException.class, () -> igniteTables.dropTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME));
 
         assertThrows(IgniteException.class, () -> igniteTables.tables());
         assertThrows(IgniteException.class, () -> igniteTables.tablesAsync());
@@ -582,24 +555,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertEquals(1, getAllTablesFut.join().size());
     }
 
-    /**
-     * Tries to create a table that already exists.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testDoubledCreateTable() throws Exception {
-        Table table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
-
-        assertNotNull(table);
-
-        assertThrows(RuntimeException.class,
-                () -> await(tblManagerFut.join().createTableAsync(DYNAMIC_TABLE_NAME, ZONE_NAME,
-                        tblCh -> SchemaConfigurationConverter.convert(createTableDefinition(DYNAMIC_TABLE_NAME), tblCh))));
-
-        assertSame(table, tblManagerFut.join().table(DYNAMIC_TABLE_NAME));
-    }
-
     @Test
     void testStoragesGetClearedInMiddleOfFailedTxStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(true);
@@ -652,19 +607,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
         });
 
-        TableDefinition scmTbl = createTableDefinition(PRECONFIGURED_TABLE_NAME);
-
-        CompletableFuture<Void> cfgChangeFuture = tblsCfg.tables()
-                .change(namedListChange -> namedListChange.create(scmTbl.name(),
-                        tableChange -> {
-                            SchemaConfigurationConverter.convert(scmTbl, tableChange);
-
-                            ((ExtendedTableChange) tableChange)
-                                    .changeSchemaId(1)
-                                    .changeZoneId(getZoneId(ZONE_NAME));
-                        }));
-
-        assertThat(cfgChangeFuture, willCompleteSuccessfully());
+        createTable(PRECONFIGURED_TABLE_NAME);
 
         verify(txStateStorage, timeout(1000)).clear();
         verify(mvTableStorage, timeout(1000)).clearPartition(anyInt());
@@ -746,25 +689,19 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         int tablesBeforeCreation = tableManager.tables().size();
 
-        TableDefinition tableDefinition = createTableDefinition(tableName);
-
-        tblsCfg.tables().listen(ctx -> {
-            boolean createTbl = ctx.newValue().get(tableDefinition.name()) != null
-                    && ctx.oldValue().get(tableDefinition.name()) == null;
-
-            boolean dropTbl = ctx.oldValue().get(tableDefinition.name()) != null
-                    && ctx.newValue().get(tableDefinition.name()) == null;
-
-            if (!createTbl && !dropTbl) {
-                return completedFuture(null);
-            }
-
-            if (phaser != null) {
+        if (phaser != null) {
+            catalogManager.listen(TABLE_CREATE, (parameters, exception) -> {
                 phaser.arriveAndAwaitAdvance();
-            }
 
-            return completedFuture(null);
-        });
+                return completedFuture(false);
+            });
+
+            catalogManager.listen(TABLE_DROP, (parameters, exception) -> {
+                phaser.arriveAndAwaitAdvance();
+
+                return completedFuture(false);
+            });
+        }
 
         CountDownLatch createTblLatch = new CountDownLatch(1);
 
@@ -776,13 +713,11 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         createZone(PARTITIONS, REPLICAS);
 
-        CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.name(), ZONE_NAME,
-                tblCh -> SchemaConfigurationConverter.convert(tableDefinition, tblCh)
-        );
+        createTable(tableName);
 
         assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
 
-        TableImpl tbl2 = (TableImpl) tbl2Fut.get();
+        TableImpl tbl2 = tableManager.tableImpl(tableName);
 
         assertNotNull(tbl2);
 
@@ -830,13 +765,13 @@ public class TableManagerTest extends IgniteAbstractTest {
                 msm,
                 sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
                 budgetView -> new LocalLogStorageFactory(),
-                new HybridClockImpl(),
+                clock,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 vaultManager,
                 cmgMgr,
                 distributionZoneManager,
-                mock(CatalogManager.class)
+                catalogManager
         ) {
 
             @Override
@@ -927,10 +862,21 @@ public class TableManagerTest extends IgniteAbstractTest {
                 .orElse(null);
     }
 
-    private static TableDefinition createTableDefinition(String tableName) {
-        return SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, tableName).columns(
-                SchemaBuilders.column("key", ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
-        ).withPrimaryKey("key").build();
+    private void createTable(String tableName) {
+        TableTestUtils.createTable(
+                catalogManager,
+                DEFAULT_SCHEMA_NAME,
+                ZONE_NAME,
+                tableName,
+                List.of(
+                        ColumnParams.builder().name("key").type(INT64).build(),
+                        ColumnParams.builder().name("val").type(INT64).nullable(true).build()
+                ),
+                List.of("key")
+        );
+    }
+
+    private void dropTable(String tableName) {
+        TableTestUtils.dropTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName);
     }
 }
