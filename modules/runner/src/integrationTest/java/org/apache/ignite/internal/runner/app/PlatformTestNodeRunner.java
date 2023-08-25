@@ -438,6 +438,7 @@ public class PlatformTestNodeRunner {
         assertThat(ignite.catalogManager().createTable(createTableParamsAllSql), willBe(nullValue()));
 
         createTwoColumnTable(node, ColumnType.INT8);
+        createTwoColumnTable(node, ColumnType.BOOLEAN);
         createTwoColumnTable(node, ColumnType.INT16);
         createTwoColumnTable(node, ColumnType.INT32);
         createTwoColumnTable(node, ColumnType.INT64);

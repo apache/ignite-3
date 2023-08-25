@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.trait;
 
 import java.util.Objects;
 import org.apache.calcite.rel.RelDistribution;
+import org.apache.calcite.rel.RelDistribution.Type;
 import org.apache.calcite.rel.RelNode;
 
 /**
@@ -102,6 +103,10 @@ public abstract class DistributionFunction {
 
     public static DistributionFunction hash() {
         return HashDistribution.INSTANCE;
+    }
+
+    public static DistributionFunction identity() {
+        return IdentityDistribution.INSTANCE;
     }
 
     /**
@@ -209,6 +214,25 @@ public abstract class DistributionFunction {
         @Override
         protected String name0() {
             return "affinity[tableId=" + tableId + ", zoneId=" + zoneId + ']';
+        }
+    }
+
+    /**
+     * Distribution function, which treats column's raw value as a destination.
+     */
+    public static final class IdentityDistribution extends DistributionFunction {
+        public static final DistributionFunction INSTANCE = new IdentityDistribution();
+
+        /** {@inheritDoc} */
+        @Override
+        public Type type() {
+            return Type.HASH_DISTRIBUTED;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected String name0() {
+            return "identity";
         }
     }
 }

@@ -75,34 +75,23 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
-        /// Calculates the null map size.
+        /// Converts byte to bool.
         /// </summary>
-        /// <param name="numElements">Number of tuple elements.</param>
-        /// <returns>Null map size in bytes.</returns>
-        public static int NullMapSize(int numElements)
+        /// <param name="value">Byte value.</param>
+        /// <returns>Bool value.</returns>
+        public static bool ByteToBool(sbyte value)
         {
-            return (numElements + 7) / 8;
+            Debug.Assert(value is 0 or 1, "value is 0 or 1");
+
+            return value != 0;
         }
 
         /// <summary>
-        /// Returns offset of the byte that contains null-bit of a given tuple element.
+        /// Converts bool to byte.
         /// </summary>
-        /// <param name="index">Tuple element index.</param>
-        /// <returns>Offset of the required byte relative to the tuple start.</returns>
-        public static int NullOffset(int index)
-        {
-            return HeaderSize + index / 8;
-        }
-
-        /// <summary>
-        /// Returns a null-bit mask corresponding to a given tuple element.
-        /// </summary>
-        /// <param name="index">Tuple element index.</param>
-        /// <returns>Mask to extract the required null-bit.</returns>
-        public static byte NullMask(int index)
-        {
-            return (byte)(1 << (index % 8));
-        }
+        /// <param name="value">Bool value.</param>
+        /// <returns>Byte value.</returns>
+        public static sbyte BoolToByte(bool value) => value ? (sbyte) 1 : (sbyte) 0;
 
         /// <summary>
         /// Converts decimal to unscaled BigInteger.
