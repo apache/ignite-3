@@ -364,7 +364,8 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("BLOB").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).nullable(true)
                                 .build(),
                         ColumnParams.builder().name("DECIMAL").type(org.apache.ignite.sql.ColumnType.DECIMAL).precision(19).scale(3)
-                                .nullable(true).build()
+                                .nullable(true).build(),
+                        ColumnParams.builder().name("BOOLEAN").type(org.apache.ignite.sql.ColumnType.BOOLEAN).nullable(true).build()
                 ))
                 .primaryKeyColumns(List.of(keyCol))
                 .build();
@@ -428,7 +429,8 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("BLOB").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).nullable(true)
                                 .build(),
                         ColumnParams.builder().name("DECIMAL").type(org.apache.ignite.sql.ColumnType.DECIMAL).precision(19).scale(3)
-                                .nullable(true).build()
+                                .nullable(true).build(),
+                        ColumnParams.builder().name("BOOLEAN").type(org.apache.ignite.sql.ColumnType.BOOLEAN).nullable(true).build()
                 ))
                 .primaryKeyColumns(List.of(keyCol))
                 .build();
