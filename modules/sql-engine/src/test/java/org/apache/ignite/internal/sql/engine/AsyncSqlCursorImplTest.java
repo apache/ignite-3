@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collections;
 import java.util.List;
@@ -48,70 +47,66 @@ public class AsyncSqlCursorImplTest {
     private static final ResultSetMetadata RESULT_SET_METADATA = new ResultSetMetadataImpl(Collections.emptyList());
 
     /** Cursor should trigger commit of implicit transaction (if any) only if data is fully read. */
-    @ParameterizedTest
+    @ParameterizedTest(name = "{0}")
     @MethodSource("transactions")
-    public void testTriggerCommitAfterDataIsFullyRead(NoOpTransaction implicitTx) {
+    public void testTriggerCommitAfterDataIsFullyRead(boolean implicit, QueryTransactionWrapper txWrapper) {
         List<Integer> list = List.of(1, 2, 3);
 
-        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, implicitTx,
+        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper,
                 new AsyncWrapper<>(CompletableFuture.completedFuture(list.iterator()), Runnable::run));
 
         int requestRows = 2;
         BatchedResult<Integer> in1 = cursor.requestNextAsync(requestRows).join();
         assertEquals(in1.items(), list.subList(0, requestRows));
 
-        if (implicitTx != null) {
-            CompletableFuture<Void> f = implicitTx.commitFuture();
-            assertFalse(f.isDone(), "Implicit transaction should have not been committed because there is more data.");
-        }
+        assertFalse(((NoOpTransaction) txWrapper.unwrap()).commitFuture().isDone(),
+                "Implicit transaction should have not been committed because there is more data.");
 
         BatchedResult<Integer> in2 = cursor.requestNextAsync(requestRows).join();
         assertEquals(in2.items(), list.subList(requestRows, list.size()));
 
-        if (implicitTx != null) {
-            CompletableFuture<Void> f = implicitTx.commitFuture();
-            assertTrue(f.isDone(), "Implicit transaction should been committed because there is no more data");
-        }
+        CompletableFuture<Void> f = ((NoOpTransaction) txWrapper.unwrap()).commitFuture();
+        assertEquals(implicit, f.isDone(), "Implicit transaction should been committed because there is no more data");
     }
 
     /** Exception on read should trigger rollback of implicit transaction, if any. */
-    @ParameterizedTest
+    @ParameterizedTest(name = "{0}")
     @MethodSource("transactions")
-    public void testExceptionRollbacksImplicitTx(NoOpTransaction implicitTx) {
+    public void testExceptionRollbacksImplicitTx(boolean implicit, QueryTransactionWrapper txWrapper) {
         IgniteException err = new IgniteException(Common.INTERNAL_ERR);
 
-        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, implicitTx,
+        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper,
                 new AsyncWrapper<>(CompletableFuture.failedFuture(err), Runnable::run));
 
         CompletionException t = assertThrows(CompletionException.class, () -> cursor.requestNextAsync(1).join());
 
-        if (implicitTx != null) {
-            CompletableFuture<Void> f = implicitTx.rollbackFuture();
-            assertTrue(f.isDone(), "Implicit transaction should have been rolled back: " + f);
-        }
+        CompletableFuture<Void> f = ((NoOpTransaction) txWrapper.unwrap()).rollbackFuture();
+        assertEquals(implicit, f.isDone(), "Implicit transaction should have been rolled back: " + f);
 
         IgniteException igniteErr = assertInstanceOf(IgniteException.class, t.getCause());
         assertEquals(err.codeAsString(), igniteErr.codeAsString());
     }
 
     /** Cursor close should trigger commit of implicit transaction, if any. */
-    @ParameterizedTest
+    @ParameterizedTest(name = "{0}")
     @MethodSource("transactions")
-    public void testCloseCommitsImplicitTx(NoOpTransaction implicitTx) {
+    public void testCloseCommitsImplicitTx(boolean implicit, QueryTransactionWrapper txWrapper) {
         AsyncCursor<Integer> data = new AsyncWrapper<>(List.of(1, 2, 3, 4).iterator());
-        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, implicitTx, data);
+        AsyncSqlCursorImpl<Integer> cursor = new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, RESULT_SET_METADATA, txWrapper, data);
         cursor.closeAsync().join();
 
-        if (implicitTx != null) {
-            CompletableFuture<Void> f = implicitTx.commitFuture();
-            assertTrue(f.isDone(), "Implicit transaction should have been committed: " + f);
-        }
+        CompletableFuture<Void> f = ((NoOpTransaction) txWrapper.unwrap()).commitFuture();
+        assertEquals(implicit, f.isDone(), "Implicit transaction should have been committed: " + f);
     }
 
     private static Stream<Arguments> transactions() {
         return Stream.of(
-                Arguments.of(Named.named("implicit-tx", NoOpTransaction.readOnly("TX"))),
-                Arguments.of(Named.named("no implicit-tx", null))
+                Arguments.of(Named.named("implicit-tx", true), newTxWrapper(true)),
+                Arguments.of(Named.named("explicit-tx", false), newTxWrapper(false))
         );
+    }
+
+    private static QueryTransactionWrapper newTxWrapper(boolean implicit) {
+        return new QueryTransactionWrapper(NoOpTransaction.readOnly("TX"), implicit);
     }
 }
