@@ -83,7 +83,9 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener {
-    TxManager txManager;
+    /** Transaction manager. */
+    private final TxManager txManager;
+
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 

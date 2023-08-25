@@ -125,6 +125,8 @@ public class ReplicaManager implements IgniteComponent {
     // TODO: IGNITE-20063 Maybe get rid of it
     private final ExecutorService executor;
 
+    private String localNodeId;
+
     /**
      * Constructor for a replica service.
      *
@@ -479,6 +481,8 @@ public class ReplicaManager implements IgniteComponent {
                     }
                 }
         );
+
+        localNodeId = clusterNetSvc.topologyService().localMember().id();
     }
 
     /** {@inheritDoc} */
@@ -610,7 +614,7 @@ public class ReplicaManager implements IgniteComponent {
                         .groupId(r.join().groupId())
                         .build();
 
-                r.join().processRequest(req, clusterNetSvc.topologyService().localMember().id());
+                r.join().processRequest(req, localNodeId);
             }
         });
     }
