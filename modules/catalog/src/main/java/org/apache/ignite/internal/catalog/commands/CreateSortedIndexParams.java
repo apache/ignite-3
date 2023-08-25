@@ -20,53 +20,29 @@ package org.apache.ignite.internal.catalog.commands;
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 
-/**
- * CREATE INDEX statement.
- */
-public class CreateSortedIndexParams extends AbstractIndexCommandParams {
+/** CREATE INDEX statement. */
+public class CreateSortedIndexParams extends AbstractCreateIndexCommandParams {
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
     }
 
-    /** Indexed columns. */
-    private List<String> columns;
+    private CreateSortedIndexParams() {
+        // No-op.
+    }
 
     /** Columns collations. */
     private List<CatalogColumnCollation> collations;
 
-    /**
-     * Gets indexed columns.
-     */
-    public List<String> columns() {
-        return columns;
-    }
-
-    /**
-     * Gets columns collations.
-     */
+    /** Gets columns collations. */
     public List<CatalogColumnCollation> collations() {
         return collations;
     }
 
-    /**
-     * Parameters builder.
-     */
-    public static class Builder extends AbstractBuilder<CreateSortedIndexParams, CreateSortedIndexParams.Builder> {
+    /** Parameters builder. */
+    public static class Builder extends AbstractCreateIndexBuilder<CreateSortedIndexParams, Builder> {
         private Builder() {
             super(new CreateSortedIndexParams());
-        }
-
-        /**
-         * Set columns names.
-         *
-         * @param columns Columns names.
-         * @return {@code this}.
-         */
-        public Builder columns(List<String> columns) {
-            params.columns = columns;
-
-            return this;
         }
 
         /**
@@ -74,9 +50,10 @@ public class CreateSortedIndexParams extends AbstractIndexCommandParams {
          *
          * @param collations Columns collations.
          * @return {@code this}.
+         * @throws NullPointerException If the columns is {@code null} or one of its elements.
          */
         public Builder collations(List<CatalogColumnCollation> collations) {
-            params.collations = collations;
+            params.collations = List.copyOf(collations);
 
             return this;
         }

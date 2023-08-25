@@ -55,6 +55,7 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.invocation.InvocationOnMock;
@@ -63,7 +64,7 @@ import org.mockito.invocation.InvocationOnMock;
  * For {@link CheckpointManager} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class CheckpointManagerTest {
+public class CheckpointManagerTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private PageMemoryCheckpointConfiguration checkpointConfig;
 

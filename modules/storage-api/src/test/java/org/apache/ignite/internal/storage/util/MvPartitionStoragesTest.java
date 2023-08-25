@@ -41,6 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -48,7 +49,7 @@ import org.junit.jupiter.api.function.Executable;
 /**
  * Class for testing {@link MvPartitionStorages}.
  */
-public class MvPartitionStoragesTest {
+public class MvPartitionStoragesTest extends BaseIgniteAbstractTest {
     private static final int PARTITIONS = 10;
 
     private MvPartitionStorages<MvPartitionStorage> mvPartitionStorages;

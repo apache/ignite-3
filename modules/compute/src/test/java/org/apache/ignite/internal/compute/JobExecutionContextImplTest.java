@@ -23,13 +23,14 @@ import static org.hamcrest.Matchers.sameInstance;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class JobExecutionContextImplTest {
+class JobExecutionContextImplTest extends BaseIgniteAbstractTest {
     @Mock
     private Ignite ignite;
 

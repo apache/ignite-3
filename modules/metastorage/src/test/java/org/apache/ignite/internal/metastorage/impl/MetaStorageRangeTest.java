@@ -44,6 +44,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -60,7 +61,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test for cursor created by {@link MetaStorageService#range(ByteArray, ByteArray)} commands.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public abstract class MetaStorageRangeTest {
+public abstract class MetaStorageRangeTest extends BaseIgniteAbstractTest {
     private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
 
     private KeyValueStorage storage;

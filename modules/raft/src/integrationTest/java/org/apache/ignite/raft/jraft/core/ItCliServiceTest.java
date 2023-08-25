@@ -47,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterService;
@@ -76,7 +77,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Jraft cli tests.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItCliServiceTest {
+public class ItCliServiceTest extends BaseIgniteAbstractTest {
     /**
      * The logger.
      */

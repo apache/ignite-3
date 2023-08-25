@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.IOException;
 import java.net.SocketException;
 import java.nio.file.Path;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteException;
@@ -36,7 +37,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 /** SSL client integration test. */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItSslClientHandlerTest {
+public class ItSslClientHandlerTest extends BaseIgniteAbstractTest {
     private ClientHandlerModule serverModule;
 
     private TestServer testServer;

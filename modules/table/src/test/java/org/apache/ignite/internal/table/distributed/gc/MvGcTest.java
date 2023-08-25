@@ -45,6 +45,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -59,7 +60,7 @@ import org.junit.jupiter.api.function.Executable;
  * For testing {@link MvGc}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class MvGcTest {
+public class MvGcTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 0;
 
     private MvGc gc;

@@ -42,6 +42,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
@@ -51,7 +52,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Base test for MV storages, contains pojo classes, their descriptor and a marshaller instance.
  */
-public abstract class BaseMvStoragesTest {
+public abstract class BaseMvStoragesTest extends BaseIgniteAbstractTest {
     /** Default reflection marshaller factory. */
     private static final MarshallerFactory MARSHALLER_FACTORY = new ReflectionMarshallerFactory();
 
