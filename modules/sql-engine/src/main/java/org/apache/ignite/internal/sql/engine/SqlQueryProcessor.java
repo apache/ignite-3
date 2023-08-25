@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -429,19 +430,16 @@ public class SqlQueryProcessor implements QueryProcessor {
             return CompletableFuture.failedFuture(new SessionNotFoundException(sessionId));
         }
 
-        return CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<AsyncSqlCursor<List<Object>>> start = new CompletableFuture<>();
+
+        CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
 
             validateParsedStatement(context, result, params);
 
-            return result;
-        }, taskExecutor).thenCompose(result -> {
             QueryTransactionWrapper txWrapper = wrapTxOrStartImplicit(result.queryType(), transactions, outerTx);
 
-            CompletableFuture<AsyncSqlCursor<List<Object>>> start = new CompletableFuture<>();
-
-            CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
-                    .thenCompose(ignore -> waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp()))
+            return waitForActualSchema(schemaName, txWrapper.unwrap().startTimestamp())
                     .thenCompose(schema -> {
                         BaseQueryContext ctx = BaseQueryContext.builder()
                                 .frameworkConfig(Frameworks.newConfigBuilder(FRAMEWORK_CONFIG).defaultSchema(schema).build())
@@ -455,21 +453,33 @@ public class SqlQueryProcessor implements QueryProcessor {
                             txWrapper.rollbackImplicit();
                         }
                     });
-
-            start.completeAsync(() -> null, taskExecutor);
-
-            return stage;
         });
+
+        // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
+        stage.whenComplete((cur, ex) -> {
+            if (ex instanceof CancellationException) {
+                queryCancel.cancel();
+            }
+        });
+
+        start.completeAsync(() -> null, taskExecutor);
+
+        return stage;
     }
 
     private CompletableFuture<SchemaPlus> waitForActualSchema(String schemaName, HybridTimestamp timestamp) {
-        // TODO IGNITE-18733: wait for actual metadata for TX.
-        SchemaPlus schema = sqlSchemaManager.schema(schemaName, timestamp.longValue());
+        try {
+            // TODO IGNITE-18733: wait for actual metadata for TX.
+            SchemaPlus schema = sqlSchemaManager.schema(schemaName, timestamp.longValue());
 
-        if (schema == null) {
-            return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
+            if (schema == null) {
+                return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
+            }
+
+            return CompletableFuture.completedFuture(schema);
+        } catch (Throwable t) {
+            return CompletableFuture.failedFuture(t);
         }
-        return CompletableFuture.completedFuture(schema);
     }
 
     private AsyncSqlCursor<List<Object>> executePlan(
