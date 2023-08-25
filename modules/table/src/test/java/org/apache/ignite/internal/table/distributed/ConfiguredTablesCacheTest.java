@@ -29,12 +29,13 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
-class ConfiguredTablesCacheTest {
+class ConfiguredTablesCacheTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tablesConfig;
 

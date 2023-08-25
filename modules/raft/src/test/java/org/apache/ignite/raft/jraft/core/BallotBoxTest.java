@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -42,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 @ExtendWith(MockitoExtension.class)
-public class BallotBoxTest {
+public class BallotBoxTest extends BaseIgniteAbstractTest {
     private BallotBox box;
     @Mock
     private FSMCaller waiter;

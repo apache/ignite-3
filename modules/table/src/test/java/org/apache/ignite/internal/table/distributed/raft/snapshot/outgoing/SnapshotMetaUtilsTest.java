@@ -23,13 +23,14 @@ import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class SnapshotMetaUtilsTest {
+class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
     @Test
     void buildsSnapshotMeta() {
         RaftGroupConfiguration config = new RaftGroupConfiguration(

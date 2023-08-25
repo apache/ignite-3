@@ -49,8 +49,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -75,6 +73,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.utils.PrimaryReplica;
@@ -98,10 +97,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Stop Calcite module test.
  */
 @ExtendWith(MockitoExtension.class)
-public class StopCalciteModuleTest {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(StopCalciteModuleTest.class);
-
+public class StopCalciteModuleTest extends BaseIgniteAbstractTest {
     private static final int ROWS = 5;
 
     private static final String NODE_NAME = "mock-node-name";
@@ -227,8 +223,6 @@ public class StopCalciteModuleTest {
                 s.onComplete();
             };
         }).when(tbl).scan(anyInt(), any(), any());
-
-        LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
     }
 
     @Test

@@ -47,6 +47,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -60,7 +61,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test suite for {@link DeploymentUnitStoreImpl}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class DeploymentUnitStoreImplTest {
+public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
     private static final String LOCAL_NODE = "localNode";
 
     private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());

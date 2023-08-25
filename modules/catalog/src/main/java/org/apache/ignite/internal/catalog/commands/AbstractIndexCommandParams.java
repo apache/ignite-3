@@ -17,108 +17,60 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-/**
- * Abstract index ddl command.
- */
+import org.jetbrains.annotations.Nullable;
+
+/** Abstract create index ddl command. */
 public abstract class AbstractIndexCommandParams implements DdlCommandParams {
     /** Index name. */
     protected String indexName;
 
-    /** Schema name where this new index will be created. */
-    protected String schema;
+    /** Schema name, {@code null} means to use the default schema. */
+    protected @Nullable String schemaName;
 
-    /** Table name. */
-    protected String tableName;
-
-    /** Unique index flag. */
-    protected boolean unique;
-
-    /**
-     * Returns index simple name.
-     */
+    /** Returns index name. */
     public String indexName() {
         return indexName;
     }
 
-    /**
-     * Returns schema name.
-     */
-    public String schemaName() {
-        return schema;
+    /** Returns schema name, {@code null} means to use the default schema. */
+    public @Nullable String schemaName() {
+        return schemaName;
     }
 
-    /**
-     * Returns table name.
-     */
-    public String tableName() {
-        return tableName;
-    }
-
-    /**
-     * Returns {@code true} if index is unique, {@code false} otherwise.
-     */
-    public boolean unique() {
-        return unique;
-    }
-
-    /**
-     * Parameters builder.
-     */
-    protected abstract static class AbstractBuilder<ParamT extends AbstractIndexCommandParams, BuilderT> {
+    /** Parameters builder. */
+    protected abstract static class AbstractIndexBuilder<ParamT extends AbstractCreateIndexCommandParams, BuilderT> {
         protected ParamT params;
 
-        AbstractBuilder(ParamT params) {
+        /** Constructor. */
+        AbstractIndexBuilder(ParamT params) {
             this.params = params;
         }
 
         /**
          * Sets schema name.
          *
-         * @param schemaName Schema name.
+         * @param schemaName Schema name, {@code null} to use to use the default schema.
          * @return {@code this}.
          */
-        public BuilderT schemaName(String schemaName) {
-            params.schema = schemaName;
+        public BuilderT schemaName(@Nullable String schemaName) {
+            params.schemaName = schemaName;
+
             return (BuilderT) this;
         }
 
         /**
-         * Sets index simple name.
+         * Sets index name.
          *
-         * @param indexName Index simple name.
+         * @param indexName Index name.
          * @return {@code this}.
          */
         public BuilderT indexName(String indexName) {
             params.indexName = indexName;
-            return (BuilderT) this;
-        }
-
-        /**
-         * Set table name.
-         *
-         * @param tableName Table name.
-         * @return {@code this}.
-         */
-        public BuilderT tableName(String tableName) {
-            params.tableName = tableName;
 
             return (BuilderT) this;
         }
 
-        /**
-         * Sets unique flag.
-         */
-        public BuilderT unique() {
-            params.unique = true;
-
-            return (BuilderT) this;
-        }
-
-        /**
-         * Builds parameters.
-         *
-         * @return Parameters.
-         */
+        /** Builds parameters. */
         public ParamT build() {
             ParamT params0 = params;
             params = null;

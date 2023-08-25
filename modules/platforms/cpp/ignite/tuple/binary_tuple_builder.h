@@ -58,6 +58,7 @@ namespace ignite {
  * 5. Finally, the resulting binary tuple is obtained with the @ref build call.
  */
 class binary_tuple_builder {
+protected:
     const tuple_num_t element_count; /**< Total number of elements. */
 
     tuple_num_t element_index; /**< Index of the next element to add. */

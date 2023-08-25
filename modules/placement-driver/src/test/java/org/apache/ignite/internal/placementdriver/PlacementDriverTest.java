@@ -42,6 +42,7 @@ import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -52,7 +53,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Tests to verify {@link PlacementDriver} implemented by {@link LeaseTracker}. */
-public class PlacementDriverTest {
+public class PlacementDriverTest extends BaseIgniteAbstractTest {
     private static final HybridTimestamp AWAIT_TIME_10_000 = new HybridTimestamp(10_000, 0);
 
     private static final ByteArray FAKE_KEY = new ByteArray("foobar");

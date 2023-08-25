@@ -36,6 +36,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -49,7 +50,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests to verify {@link UpdateLogImpl}. */
 @SuppressWarnings("ConstantConditions")
-class UpdateLogImplTest {
+class UpdateLogImplTest extends BaseIgniteAbstractTest {
     private KeyValueStorage keyValueStorage;
 
     private MetaStorageManager metastore;

@@ -43,8 +43,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.configuration.ConfigurationValue;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStoreIo;
@@ -52,15 +50,14 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap;
 import org.apache.ignite.internal.pagememory.persistence.store.LongOperationAsyncExecutor;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link Compactor} testing.
  */
-public class CompactorTest {
+public class CompactorTest extends BaseIgniteAbstractTest {
     private static final int PAGE_SIZE = 1024;
-
-    private final IgniteLogger log = Loggers.forClass(CompactorTest.class);
 
     @Test
     void testStartAndStop() throws Exception {

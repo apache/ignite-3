@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -38,7 +39,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public abstract class AbstractCliRequestProcessorTest<T extends Message> {
+public abstract class AbstractCliRequestProcessorTest<T extends Message> extends BaseIgniteAbstractTest {
     @Mock
     private Node node;
     private final String groupId = "test";

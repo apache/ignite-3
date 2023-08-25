@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.SocketException;
 import java.nio.file.Path;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -35,7 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Client handler metrics tests. See also {@code org.apache.ignite.client.MetricsTest}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItClientHandlerMetricsTest {
+public class ItClientHandlerMetricsTest extends BaseIgniteAbstractTest {
     private TestServer testServer;
 
     @WorkDirectory

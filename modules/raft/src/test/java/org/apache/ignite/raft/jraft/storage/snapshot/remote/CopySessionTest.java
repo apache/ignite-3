@@ -20,6 +20,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.TimerManager;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -49,7 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 @ExtendWith(MockitoExtension.class)
-public class CopySessionTest {
+public class CopySessionTest extends BaseIgniteAbstractTest {
     private CopySession session;
     @Mock
     private RaftClientService rpcService;
