@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWin
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.BITMASK;
+import static org.apache.ignite.sql.ColumnType.BOOLEAN;
 import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
 import static org.apache.ignite.sql.ColumnType.DATE;
 import static org.apache.ignite.sql.ColumnType.DATETIME;
@@ -315,7 +316,8 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("TIMESTAMP").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP2").type(DATETIME).precision(4).nullable(true).build(),
                         ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).nullable(true).build(),
-                        ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build()
+                        ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
+                        ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
                 ),
                 List.of(keyCol)
         );
@@ -344,6 +346,7 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).nullable(true).build(),
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build()),
+                ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
                 List.of(keyCol)
         );
 
