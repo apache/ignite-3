@@ -18,17 +18,10 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.nio.ByteBuffer;
+import java.util.BitSet;
 import java.util.List;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
-import org.apache.ignite.internal.sql.engine.exec.row.NullTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.exec.row.RowType;
-import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -89,16 +82,6 @@ public class SqlRowHandler implements RowHandler<SqlRowWrapper> {
     public RowFactory<SqlRowWrapper> factory(RowSchema rowSchema) {
         int rowLen = rowSchema.fields().size();
 
-        Element[] elements = new Element[rowLen];
-
-        for (int i = 0; i < rowLen; i++) {
-            TypeSpec type = rowSchema.fields().get(i);
-
-            elements[i] = new Element(toNativeType(rowSchema.fields().get(i)), type.isNullable());
-        }
-
-        BinaryTupleSchema schema = BinaryTupleSchema.create(elements);
-
         return new RowFactory<>() {
             /** {@inheritDoc} */
             @Override
@@ -109,7 +92,7 @@ public class SqlRowHandler implements RowHandler<SqlRowWrapper> {
             /** {@inheritDoc} */
             @Override
             public SqlRowWrapper create() {
-                return new SqlArrayRow(new Object[rowLen], schema);
+                return new SqlArrayRow(new Object[rowLen], rowSchema);
             }
 
             /** {@inheritDoc} */
@@ -117,37 +100,20 @@ public class SqlRowHandler implements RowHandler<SqlRowWrapper> {
             public SqlRowWrapper create(Object... fields) {
                 assert fields.length == rowLen;
 
-                return new SqlArrayRow(fields, schema);
+                return new SqlArrayRow(fields, rowSchema);
             }
 
             /** {@inheritDoc} */
             @Override
             public SqlRowWrapper create(ByteBuffer buf) {
-                return new SqlBinaryRowWrapper(schema, buf);
+                return new SqlBinaryRowWrapper(rowSchema, buf);
             }
 
             @Override
-            public SqlRowWrapper wrap(Row row, List<Integer> columns) {
-                return new SqlBinaryRowWrapper(row.binaryTupleSchema(), row, columns);
+            public SqlRowWrapper wrap(Row row, List<Integer> columns, BitSet cols) {
+                // return new SqlBinaryRowWrapper(row.binaryTupleSchema(), row, columns);
+                return new SqlBinaryRowWrapper(rowSchema, row, columns, cols);
             }
         };
-    }
-
-    private NativeType toNativeType(TypeSpec type) {
-        if (type instanceof RowType) {
-            // todo
-            return toNativeType(((RowType) type).fields().get(0));
-        }
-
-        if (type instanceof BaseTypeSpec) {
-            return ((BaseTypeSpec) type).nativeType();
-        }
-
-        // todo appendNull()
-        if (type instanceof NullTypeSpec) {
-            return NativeTypes.fromObject(Boolean.TRUE);
-        }
-
-        throw new UnsupportedOperationException("Not implemented for type " + type.getClass());
     }
 }

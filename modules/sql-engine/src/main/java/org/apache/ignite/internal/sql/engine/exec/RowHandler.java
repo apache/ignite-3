@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.nio.ByteBuffer;
+import java.util.BitSet;
 import java.util.List;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
@@ -56,7 +57,7 @@ public interface RowHandler<RowT> {
 
         RowT create(ByteBuffer raw);
 
-        default RowT wrap(Row row, @Nullable List<Integer> columns) {
+        default RowT wrap(Row row, @Nullable List<Integer> columns, BitSet reqCols) {
             throw new UnsupportedOperationException();
         }
     }

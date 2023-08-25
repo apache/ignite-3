@@ -21,20 +21,18 @@ import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryIm
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 
 /**
  * TODO Sql array row.
  */
 public class SqlArrayRow implements SqlRowWrapper {
     private final Object[] row;
-    private final BinaryTupleSchema schema;
+    private final RowSchema rowSchema;
 
-    SqlArrayRow(Object[] row, BinaryTupleSchema schema) {
+    SqlArrayRow(Object[] row, RowSchema rowSchema) {
         this.row = row;
-        this.schema = schema;
+        this.rowSchema = rowSchema;
     }
 
     @Override
@@ -64,9 +62,7 @@ public class SqlArrayRow implements SqlRowWrapper {
                 break; // No more columns in prefix.
             }
 
-            Element element = schema.element(i);
-
-            BinaryRowConverter.appendValue(tupleBuilder, element, val);
+            SqlRowSchemaConverterUtils.appendRow(tupleBuilder, rowSchema, i, val);
         }
 
         return tupleBuilder.build();

@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.nio.ByteBuffer;
+import java.util.BitSet;
 import java.util.List;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.row.InternalTuple;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,20 +32,20 @@ import org.jetbrains.annotations.Nullable;
 public class SqlBinaryRowWrapper implements SqlRowWrapper {
     private final InternalTuple row;
 
-    private final BinaryTupleSchema schema;
-
     private final List<Integer> requiredColumns;
 
-    SqlBinaryRowWrapper(BinaryTupleSchema schema, ByteBuffer buf) {
-        this.schema = schema;
-        this.row = new BinaryTuple(schema.elementCount(), buf);
+    private final RowSchema rowSchema;
+
+    SqlBinaryRowWrapper(RowSchema rowSchema, ByteBuffer buf) {
+        this.rowSchema = rowSchema;
+        this.row = new BinaryTuple(rowSchema.fields().size(), buf);
         this.requiredColumns = null;
     }
 
-    SqlBinaryRowWrapper(BinaryTupleSchema schema, InternalTuple row, List<Integer> requiredColumns) {
-        this.schema = schema;
+    SqlBinaryRowWrapper(RowSchema rowSchema, InternalTuple row, List<Integer> requiredColumns, BitSet cols) {
         this.row = row;
         this.requiredColumns = requiredColumns;
+        this.rowSchema = rowSchema;
     }
 
     @Override
@@ -56,7 +57,9 @@ public class SqlBinaryRowWrapper implements SqlRowWrapper {
     public @Nullable Object get(int i) {
         int x = requiredColumns == null ? i : requiredColumns.get(i);
 
-        return TypeUtils.toInternal(schema.value(row, x));
+        Object val = SqlRowSchemaConverterUtils.readRow(rowSchema, i, row, x);
+
+        return TypeUtils.toInternal(val);
     }
 
     @Override
