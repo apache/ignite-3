@@ -195,7 +195,7 @@ public class IndexScanNodeExecutionTest extends AbstractExecutionTest {
 
         RowSchema.Builder rowSchemaBuilder = RowSchema.builder();
 
-        for (RelFieldCollation fieldCollation : indexDescriptor.collation().getFieldCollations()) {
+        for (RelFieldCollation ignored : indexDescriptor.collation().getFieldCollations()) {
             rowSchemaBuilder = rowSchemaBuilder.addField(NativeTypes.INT32);
         }
 
