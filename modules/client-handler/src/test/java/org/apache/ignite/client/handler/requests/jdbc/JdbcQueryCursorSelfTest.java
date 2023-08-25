@@ -27,6 +27,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncWrapper;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -39,7 +40,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Test class for {@link JdbcQueryCursor}.
  */
 @ExtendWith(MockitoExtension.class)
-public class JdbcQueryCursorSelfTest {
+public class JdbcQueryCursorSelfTest extends BaseIgniteAbstractTest {
     @Mock
     private QueryTransactionWrapper txWrapper;
 

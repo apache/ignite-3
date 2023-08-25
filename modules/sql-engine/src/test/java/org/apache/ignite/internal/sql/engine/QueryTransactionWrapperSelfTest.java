@@ -31,6 +31,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.TransactionOptions;
@@ -43,7 +44,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for class {@link QueryTransactionWrapper}.
  */
 @ExtendWith(MockitoExtension.class)
-public class QueryTransactionWrapperSelfTest {
+public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     @Mock
     private IgniteTransactions transactions;
 
