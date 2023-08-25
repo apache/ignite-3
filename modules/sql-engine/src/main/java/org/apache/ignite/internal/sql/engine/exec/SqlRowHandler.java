@@ -22,6 +22,8 @@ import java.util.BitSet;
 import java.util.List;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
+import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -60,7 +62,21 @@ public class SqlRowHandler implements RowHandler<SqlRowWrapper> {
         }
 
         // todo do we need any schema
-        return new SqlArrayRow(arr, null);
+        Builder builder = RowSchema.builder();
+
+        List<TypeSpec> leftFields = left.rowSchema().fields();
+
+        for (TypeSpec typeSpec : leftFields) {
+            builder.addField(typeSpec);
+        }
+
+        List<TypeSpec> rightFields = right.rowSchema().fields();
+
+        for (TypeSpec typeSpec : rightFields) {
+            builder.addField(typeSpec);
+        }
+
+        return new SqlArrayRow(arr, builder.build());
     }
 
     @Override

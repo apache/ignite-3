@@ -72,4 +72,9 @@ public class SqlBinaryRowWrapper implements SqlRowWrapper {
     public ByteBuffer toByteBuffer() {
         return row.byteBuffer();
     }
+
+    @Override
+    public RowSchema rowSchema() {
+        return rowSchema;
+    }
 }

@@ -67,4 +67,9 @@ public class SqlArrayRow implements SqlRowWrapper {
 
         return tupleBuilder.build();
     }
+
+    @Override
+    public RowSchema rowSchema() {
+        return rowSchema;
+    }
 }

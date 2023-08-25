@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,4 +32,6 @@ public interface SqlRowWrapper /*implements Serializable*/ {
     void set(int i, Object v);
 
     ByteBuffer toByteBuffer();
+
+    RowSchema rowSchema();
 }
