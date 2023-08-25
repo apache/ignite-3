@@ -138,19 +138,21 @@ class CatalogParamsValidationUtils {
                 "Primary key columns missing in columns: {}"
         );
 
-        validateColumns(
-                params.colocationColumns(),
-                Table.TABLE_DEFINITION_ERR,
-                "Colocation columns not specified",
-                "Duplicate colocation columns are present: {}"
-        );
+        if (params.colocationColumns() != null) {
+            validateColumns(
+                    params.colocationColumns(),
+                    Table.TABLE_DEFINITION_ERR,
+                    "Colocation columns not specified",
+                    "Duplicate colocation columns are present: {}"
+            );
 
-        validateColumnsContainsInAnotherColumns(
-                params.colocationColumns(),
-                params.primaryKeyColumns(),
-                Table.TABLE_DEFINITION_ERR,
-                "Colocation columns missing in primary key columns: {}"
-        );
+            validateColumnsContainsInAnotherColumns(
+                    params.colocationColumns(),
+                    params.primaryKeyColumns(),
+                    Table.TABLE_DEFINITION_ERR,
+                    "Colocation columns missing in primary key columns: {}"
+            );
+        }
     }
 
     static void validateDropColumnParams(AlterTableDropColumnParams params) {
