@@ -17,67 +17,59 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-/**
- * Abstract table ddl command.
- */
-public class AbstractTableCommandParams implements DdlCommandParams {
+import org.jetbrains.annotations.Nullable;
+
+/** Abstract table ddl command. */
+public abstract class AbstractTableCommandParams implements DdlCommandParams {
     /** Table name. */
     protected String tableName;
 
-    /** Schema name where this new table will be created. */
-    protected String schema;
+    /** Schema name, {@code null} means to use the default schema. */
+    protected @Nullable String schema;
 
-    /**
-     * Returns table simple name.
-     */
+    /** Returns table name. */
     public String tableName() {
         return tableName;
     }
 
-    /**
-     * Returns schema name.
-     */
-    public String schemaName() {
+    /** Returns schema name, {@code null} means to use the default schema. */
+    public @Nullable String schemaName() {
         return schema;
     }
 
-    /**
-     * Parameters builder.
-     */
-    protected abstract static class AbstractBuilder<ParamT extends AbstractTableCommandParams, BuilderT> {
+    /** Parameters builder. */
+    protected abstract static class AbstractTableBuilder<ParamT extends AbstractTableCommandParams, BuilderT> {
         protected ParamT params;
 
-        AbstractBuilder(ParamT params) {
+        AbstractTableBuilder(ParamT params) {
             this.params = params;
         }
 
         /**
          * Sets schema name.
          *
-         * @param schemaName Schema name.
+         * @param schemaName Schema name, {@code null} to use to use the default schema.
          * @return {@code this}.
          */
-        public BuilderT schemaName(String schemaName) {
+        public BuilderT schemaName(@Nullable String schemaName) {
             params.schema = schemaName;
+
             return (BuilderT) this;
         }
 
         /**
-         * Sets table simple name.
+         * Sets table name.
          *
-         * @param tableName Table simple name.
+         * @param tableName Table name.
          * @return {@code this}.
          */
         public BuilderT tableName(String tableName) {
             params.tableName = tableName;
+
             return (BuilderT) this;
         }
 
-        /**
-         * Builds parameters.
-         *
-         * @return Parameters.
-         */
+        /** Builds parameters. */
         public ParamT build() {
             ParamT params0 = params;
             params = null;
