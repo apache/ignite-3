@@ -39,8 +39,7 @@ class ItConnectToBasicAuthClusterTest extends ItConnectToClusterTestBase {
     @DisplayName("Should ask for auth configuration connect to last connected cluster HTTPS url")
     void connectOnStartAskAuth() throws IOException {
         // Given prompt before connect
-        String promptBefore = getPrompt();
-        assertThat(promptBefore).isEqualTo("[disconnected]> ");
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
         // And answer to the reconnect question is "y", to the auth configuration question is "y",
         // username and password are provided
