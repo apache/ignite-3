@@ -34,6 +34,7 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -65,17 +66,20 @@ class DdlToCatalogCommandConverter {
     static CreateTableParams convert(CreateTableCommand cmd) {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
-        return CreateTableParams.builder()
+        Builder builder = CreateTableParams.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
 
                 .columns(columns)
-                .colocationColumns(cmd.colocationColumns())
                 .primaryKeyColumns(cmd.primaryKeyColumns())
 
-                .zone(cmd.zone())
+                .zone(cmd.zone());
 
-                .build();
+        if (cmd.colocationColumns() != null) {
+            builder.colocationColumns(cmd.colocationColumns());
+        }
+
+        return builder.build();
     }
 
     static DropTableParams convert(DropTableCommand cmd) {

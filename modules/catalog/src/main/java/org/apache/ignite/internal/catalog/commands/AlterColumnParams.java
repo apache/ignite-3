@@ -21,116 +21,151 @@ import java.util.function.Function;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * ALTER TABLE ... ALTER COLUMN statement.
- */
-@SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
+/** ALTER TABLE ... ALTER COLUMN statement. */
 public class AlterColumnParams extends AbstractTableCommandParams {
+    /** Creates parameters builder. */
+    public static AlterColumnParams.Builder builder() {
+        return new AlterColumnParams.Builder();
+    }
+
+    private AlterColumnParams() {
+        // No-op.
+    }
+
     private String columnName;
 
-    private ColumnType type;
+    private @Nullable ColumnType type;
 
-    private Integer precision;
+    private @Nullable Integer precision;
 
-    private Integer length;
+    private @Nullable Integer length;
 
-    private Integer scale;
+    private @Nullable Integer scale;
 
-    private Boolean notNull;
+    private @Nullable Boolean notNull;
 
-    private Function<ColumnType, DefaultValue> defaultResolver;
+    private @Nullable Function<ColumnType, DefaultValue> defaultResolver;
 
     /** Returns column name. */
     public String columnName() {
         return columnName;
     }
 
-    /** Returns column type. */
+    /** Returns column type, {@code null} if not set. */
     public @Nullable ColumnType type() {
         return type;
     }
 
-    /** Returns column precision. */
+    /** Returns column precision, {@code null} if not set. */
     public @Nullable Integer precision() {
         return precision;
     }
 
-    /** Returns column length. */
+    /** Returns column length, {@code null} if not set. */
     public @Nullable Integer length() {
         return length;
     }
 
-    /** Returns column scale. */
+    /** Returns column scale, {@code null} if not set. */
     public @Nullable Integer scale() {
         return scale;
     }
 
-    /** Returns the {@code NOT NULL} constraint change flag. */
+    /** Returns the {@code NOT NULL} constraint change flag, {@code null} if not set. */
     public @Nullable Boolean notNull() {
         return notNull;
     }
 
-    /** Returns a default value depending on the column type. */
+    /** Returns a default value depending on the column type, {@code null} if not set. */
     public @Nullable DefaultValue defaultValue(ColumnType type) {
         return defaultResolver == null ? null : defaultResolver.apply(type);
     }
 
-    public static AlterColumnParams.Builder builder() {
-        return new AlterColumnParams.Builder();
-    }
-
-    /**
-     * Parameters builder.
-     */
-    public static class Builder extends AbstractBuilder<AlterColumnParams, Builder> {
+    /** Parameters builder. */
+    public static class Builder extends AbstractTableBuilder<AlterColumnParams, Builder> {
         private Builder() {
             super(new AlterColumnParams());
         }
 
-        /** Sets column name. */
+        /**
+         * Sets column name.
+         *
+         * @param name Colum name.
+         * @return {@code this}.
+         */
         public Builder columnName(String name) {
             params.columnName = name;
 
             return this;
         }
 
-        /** Sets column type. */
+        /**
+         * Sets column type.
+         *
+         * @param type Column type.
+         * @return {@code this}.
+         */
         public Builder type(ColumnType type) {
             params.type = type;
 
             return this;
         }
 
-        /** Sets column precision. */
+        /**
+         * Sets column precision.
+         *
+         * @param precision Column precision.
+         * @return {@code this}.
+         */
         public Builder precision(int precision) {
             params.precision = precision;
 
             return this;
         }
 
-        /** Sets column length. */
+        /**
+         * Sets column length.
+         *
+         * @param length Column length.
+         * @return {@code this}.
+         */
         public Builder length(int length) {
             params.length = length;
 
             return this;
         }
 
-        /** Sets column scale. */
+        /**
+         * Sets column scale.
+         *
+         * @param scale Column scale.
+         * @return {@code this}.
+         */
         public Builder scale(int scale) {
             params.scale = scale;
 
             return this;
         }
 
-        /** Sets the {@code NOT NULL} constraint change flag. */
-        public Builder notNull(@Nullable Boolean notNull) {
+        /**
+         * Sets the {@code NOT NULL} constraint change flag.
+         *
+         * @param notNull {@code NOT NULL} constraint change flag.
+         * @return {@code this}.
+         */
+        public Builder notNull(Boolean notNull) {
             params.notNull = notNull;
 
             return this;
         }
 
-        /** Sets function that resolves a default value depending on the type of the column. */
-        public Builder defaultValueResolver(@Nullable Function<ColumnType, DefaultValue> resolveDfltFunc) {
+        /**
+         * Sets function that resolves a default value depending on the type of the column.
+         *
+         * @param resolveDfltFunc Function that resolves a default value depending on the type of the column.
+         * @return {@code this}.
+         */
+        public Builder defaultValueResolver(Function<ColumnType, DefaultValue> resolveDfltFunc) {
             params.defaultResolver = resolveDfltFunc;
 
             return this;

@@ -161,6 +161,39 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends a bool.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendBool(bool value)
+        {
+            var v = BinaryTupleCommon.BoolToByte(value);
+
+            if (GetHashOrder() is { } hashOrder)
+            {
+                PutHash(hashOrder, HashUtils.Hash32(v));
+            }
+
+            PutByte(v);
+            OnWrite();
+        }
+
+        /// <summary>
+        /// Appends a bool.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        public void AppendBoolNullable(bool? value)
+        {
+            if (value == null)
+            {
+                AppendNull();
+            }
+            else
+            {
+                AppendBool(value.Value);
+            }
+        }
+
+        /// <summary>
         /// Appends a short.
         /// </summary>
         /// <param name="value">Value.</param>
@@ -851,6 +884,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                 case ColumnType.Timestamp:
                     AppendTimestamp((Instant)value, precision);
+                    break;
+
+                case ColumnType.Boolean:
+                    AppendBool((bool)value);
                     break;
 
                 default:
