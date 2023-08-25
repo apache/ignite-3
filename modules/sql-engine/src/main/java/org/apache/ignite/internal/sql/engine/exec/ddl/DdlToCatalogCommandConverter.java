@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
@@ -33,8 +34,6 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -42,6 +41,7 @@ import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.catalog.commands.builders.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
@@ -63,23 +63,20 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
  * Converter for DDL command classes to Catalog command params classes.
  */
 class DdlToCatalogCommandConverter {
-    static CreateTableParams convert(CreateTableCommand cmd) {
+    static CatalogCommand convert(CreateTableCommandBuilder commandBuilder, CreateTableCommand cmd) {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
-        Builder builder = CreateTableParams.builder()
+        return commandBuilder
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
 
                 .columns(columns)
                 .primaryKeyColumns(cmd.primaryKeyColumns())
+                .colocationColumns(cmd.colocationColumns())
 
-                .zone(cmd.zone());
+                .zone(cmd.zone())
 
-        if (cmd.colocationColumns() != null) {
-            builder.colocationColumns(cmd.colocationColumns());
-        }
-
-        return builder.build();
+                .build();
     }
 
     static DropTableParams convert(DropTableCommand cmd) {

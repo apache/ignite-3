@@ -32,9 +32,8 @@ import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams.Builder;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.builders.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -159,24 +158,19 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         return createSortedIndexParams(indexName, false, indexColumns, columnsCollations);
     }
 
-    protected static CreateTableParams createTableParams(
+    protected static CatalogCommand createTableCommand(
+            CreateTableCommandBuilder builder,
             String tableName,
-            @Nullable List<ColumnParams> columns,
-            @Nullable List<String> primaryKeys,
+            List<ColumnParams> columns,
+            List<String> primaryKeys,
             @Nullable List<String> colocationColumns
     ) {
-        Builder builder = CreateTableParams.builder()
+        builder
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(DEFAULT_ZONE_NAME)
-                .tableName(tableName);
-
-        if (columns != null) {
-            builder.columns(columns);
-        }
-
-        if (primaryKeys != null) {
-            builder.primaryKeyColumns(primaryKeys);
-        }
+                .tableName(tableName)
+                .columns(columns)
+                .primaryKeyColumns(primaryKeys);
 
         if (colocationColumns != null) {
             builder.colocationColumns(colocationColumns);

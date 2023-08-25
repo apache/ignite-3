@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateAlterZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateHashIndexParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateSortedIndexParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateTableParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropIndexParams;
@@ -56,12 +55,13 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.catalog.commands.builders.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.builders.CreateTableCommandBuilderImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -80,7 +80,6 @@ import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.Fireable;
 import org.apache.ignite.internal.catalog.storage.NewColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
-import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -313,28 +312,13 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     @Override
-    public CompletableFuture<Void> createTable(CreateTableParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateCreateTableParams(params);
+    public CompletableFuture<Void> execute(CatalogCommand command) {
+        return saveUpdateAndWaitForActivation((UpdateProducer) command);
+    }
 
-            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
-
-            ensureNoTableOrIndexExistsWithSameName(schema, params.tableName());
-
-            CatalogZoneDescriptor zone = getZone(catalog, Objects.requireNonNullElse(params.zone(), DEFAULT_ZONE_NAME));
-
-            int id = catalog.objectIdGenState();
-
-            CatalogTableDescriptor table = fromParams(id++, zone.id(), params);
-
-            CatalogIndexDescriptor pkIndex = createPkIndex(table, id++, createPkIndexParams(params));
-
-            return List.of(
-                    new NewTableEntry(table),
-                    new NewIndexEntry(pkIndex),
-                    new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
-            );
-        });
+    @Override
+    public CreateTableCommandBuilder createTableCommandBuilder() {
+        return new CreateTableCommandBuilderImpl();
     }
 
     @Override
@@ -685,11 +669,6 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         throw new SqlException(STMT_VALIDATION_ERR, format(msg, params));
     }
 
-    @FunctionalInterface
-    interface UpdateProducer {
-        List<UpdateEntry> get(Catalog catalog);
-    }
-
     private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
         long activationTimestamp = metaStorageUpdateTimestamp.addPhysicalTime(update.delayDurationMs()).longValue();
 
@@ -796,28 +775,6 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         } else if (target.precision() < origin.precision()) {
             throwUnsupportedDdl("Cannot decrease precision to {} for column '{}'.", target.precision(), origin.name());
         }
-    }
-
-    private static CreateHashIndexParams createPkIndexParams(CreateTableParams params) {
-        return CreateHashIndexParams.builder()
-                .schemaName(params.schemaName())
-                .tableName(params.tableName())
-                .indexName(params.tableName() + "_PK")
-                .columns(params.primaryKeyColumns())
-                .unique(true)
-                .build();
-    }
-
-    private static CatalogHashIndexDescriptor createPkIndex(
-            CatalogTableDescriptor table,
-            int indexId,
-            CreateHashIndexParams params
-    ) {
-        validateCreateHashIndexParams(params);
-
-        validateIndexColumns(table, params);
-
-        return fromParams(indexId, table.id(), params);
     }
 
     @Override

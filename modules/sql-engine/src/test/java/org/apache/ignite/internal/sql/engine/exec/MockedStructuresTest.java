@@ -49,6 +49,7 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.builders.CreateTableCommandBuilderImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -288,7 +289,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         schemaManager.start();
 
         catalogManager = mock(CatalogManager.class);
-        when(catalogManager.createTable(any())).thenReturn(completedFuture(null));
+        when(catalogManager.createTableCommandBuilder()).thenReturn(new CreateTableCommandBuilderImpl());
+        when(catalogManager.execute(any())).thenReturn(completedFuture(null));
         when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
 
         cmgMgr = mock(ClusterManagementGroupManager.class);

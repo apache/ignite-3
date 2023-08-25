@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
@@ -25,6 +26,15 @@ import org.apache.ignite.lang.IgniteStringFormatter;
  */
 public class CatalogValidationException extends IgniteInternalException {
     private static final long serialVersionUID = 2692301541251354006L;
+
+    /**
+     * Constructor.
+     *
+     * @param message Error message.
+     */
+    public CatalogValidationException(String message) {
+        super(Common.INTERNAL_ERR, message);
+    }
 
     /**
      * Constructor.
