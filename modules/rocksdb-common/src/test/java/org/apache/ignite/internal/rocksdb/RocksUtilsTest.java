@@ -26,6 +26,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 
 import java.util.Arrays;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,7 +37,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.rocksdb.AbstractNativeReference;
 
 @ExtendWith(MockitoExtension.class)
-class RocksUtilsTest {
+class RocksUtilsTest extends BaseIgniteAbstractTest {
     @Mock
     private AbstractNativeReference ref1;
 

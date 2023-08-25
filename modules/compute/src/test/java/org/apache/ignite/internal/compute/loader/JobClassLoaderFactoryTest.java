@@ -32,13 +32,14 @@ import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class JobClassLoaderFactoryTest {
+class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
     private final Path unitsDir = Path.of(JobClassLoaderFactory.class.getClassLoader().getResource("units").getPath());
 
     private final JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory();

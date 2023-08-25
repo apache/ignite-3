@@ -22,6 +22,7 @@ import java.math.BigInteger;
 import java.util.BitSet;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
@@ -202,7 +203,7 @@ public class NativeTypes {
      * @return {@code null} for {@code null} value. Otherwise returns NativeType according to the value's type.
      */
     @Contract("null -> null")
-    public static NativeType fromObject(Object val) {
+    public static @Nullable NativeType fromObject(@Nullable Object val) {
         NativeTypeSpec spec = NativeTypeSpec.fromObject(val);
 
         if (spec == null) {

@@ -30,6 +30,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -37,7 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * For {@link PersistentPageMemoryDataRegion} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class PersistentPageMemoryDataRegionTest {
+public class PersistentPageMemoryDataRegionTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private PersistentPageMemoryDataRegionConfiguration dataRegionConfig;
 
