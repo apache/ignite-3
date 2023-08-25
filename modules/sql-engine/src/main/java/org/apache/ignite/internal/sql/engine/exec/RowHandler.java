@@ -28,7 +28,7 @@ public interface RowHandler<RowT> {
     /**
      * Extract appropriate field.
      *
-     * @param field position.
+     * @param field index position.
      * @param row object to be extracted from.
      */
     @Nullable Object get(int field, RowT row);
@@ -36,8 +36,8 @@ public interface RowHandler<RowT> {
     /** Set incoming row field.
      *
      * @param field Field position to be processed.
-     * @param row which field need to be changed.
-     * @param val value should be set.
+     * @param row Row which field need to be changed.
+     * @param val Value which should be set.
      */
     void set(int field, RowT row, @Nullable Object val);
 
