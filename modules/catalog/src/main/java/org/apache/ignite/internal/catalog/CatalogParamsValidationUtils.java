@@ -131,7 +131,7 @@ class CatalogParamsValidationUtils {
                 "Duplicate primary key columns are present: {}"
         );
 
-        validateColumnsContainsInAnotherColumns(
+        validateColumnsAreContainedInAnotherColumns(
                 params.primaryKeyColumns(),
                 columnNames,
                 Table.TABLE_DEFINITION_ERR,
@@ -146,7 +146,7 @@ class CatalogParamsValidationUtils {
                     "Duplicate colocation columns are present: {}"
             );
 
-            validateColumnsContainsInAnotherColumns(
+            validateColumnsAreContainedInAnotherColumns(
                     params.colocationColumns(),
                     params.primaryKeyColumns(),
                     Table.TABLE_DEFINITION_ERR,
@@ -332,18 +332,18 @@ class CatalogParamsValidationUtils {
         }
     }
 
-    private static void validateColumnsContainsInAnotherColumns(
-            List<String> columns,
+    private static void validateColumnsAreContainedInAnotherColumns(
+            List<String> columnsToCheck,
             List<String> anotherColumns,
             int errorCode,
             String errorMessageFormat
     ) {
-        List<String> notContains = columns.stream()
+        List<String> notContained = columnsToCheck.stream()
                 .filter(Predicate.not(anotherColumns::contains))
                 .collect(toList());
 
-        if (!notContains.isEmpty()) {
-            throw new CatalogValidationException(errorCode, errorMessageFormat, notContains);
+        if (!notContained.isEmpty()) {
+            throw new CatalogValidationException(errorCode, errorMessageFormat, notContained);
         }
     }
 

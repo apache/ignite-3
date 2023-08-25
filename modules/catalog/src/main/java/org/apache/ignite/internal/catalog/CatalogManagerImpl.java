@@ -836,7 +836,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     private static void validateIndexColumns(CatalogTableDescriptor table, AbstractCreateIndexCommandParams params) {
-        validateColumnsExistsInTable(table, params.columns());
+        validateColumnsExistInTable(table, params.columns());
 
         if (params.unique() && !params.columns().containsAll(table.colocationColumns())) {
             throw new IgniteException(Index.INVALID_INDEX_DEFINITION_ERR, "Unique index must include all colocation columns");
@@ -848,14 +848,14 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
             CatalogTableDescriptor table,
             AlterTableDropColumnParams params
     ) {
-        validateColumnsExistsInTable(table, params.columns());
+        validateColumnsExistInTable(table, params.columns());
 
         List<String> inPrimaryKeyColumns = params.columns().stream()
                 .filter(table::isPrimaryKeyColumn)
                 .collect(toList());
 
         if (!inPrimaryKeyColumns.isEmpty()) {
-            throw new IgniteException(Table.TABLE_DEFINITION_ERR, "Can't drop primary key columns: " + inPrimaryKeyColumns);
+            throw new CatalogValidationException(Table.TABLE_DEFINITION_ERR, "Can't drop primary key columns: " + inPrimaryKeyColumns);
         }
 
         Arrays.stream(schema.indexes())
@@ -864,13 +864,13 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                         .filter(index::hasColumn)
                         .findAny()
                         .ifPresent(columnName -> {
-                            throw new SqlException(
+                            throw new CatalogValidationException(
                                     STMT_VALIDATION_ERR,
                                     format("Can't drop indexed column: [columnName={}, indexName={}]", columnName, index.name()));
                         }));
     }
 
-    private static void validateColumnsExistsInTable(CatalogTableDescriptor table, Collection<String> columns) {
+    private static void validateColumnsExistInTable(CatalogTableDescriptor table, Collection<String> columns) {
         for (String column : columns) {
             if (table.columnDescriptor(column) == null) {
                 throw new ColumnNotFoundException(column);

@@ -711,22 +711,22 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     @Test
     void testValidatePrimaryKeyColumnsOnTableCreation() {
         assertThat(
-                manager.createTable(simpleTableParamsWithoutPrimaryKeys(null)),
+                manager.createTable(simpleTableParamsWithPrimaryKeys(null)),
                 willThrowFast(CatalogValidationException.class, "Primary key columns not specified")
         );
 
         assertThat(
-                manager.createTable(simpleTableParamsWithoutPrimaryKeys(List.of())),
+                manager.createTable(simpleTableParamsWithPrimaryKeys(List.of())),
                 willThrowFast(CatalogValidationException.class, "Primary key columns not specified")
         );
 
         assertThat(
-                manager.createTable(simpleTableParamsWithoutPrimaryKeys(List.of("key", "key"))),
+                manager.createTable(simpleTableParamsWithPrimaryKeys(List.of("key", "key"))),
                 willThrowFast(CatalogValidationException.class, "Duplicate primary key columns are present: [key]")
         );
 
         assertThat(
-                manager.createTable(simpleTableParamsWithoutPrimaryKeys(List.of("foo", "bar"))),
+                manager.createTable(simpleTableParamsWithPrimaryKeys(List.of("foo", "bar"))),
                 willThrowFast(CatalogValidationException.class, "Primary key columns missing in columns: [foo, bar]")
         );
     }
@@ -734,17 +734,17 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     @Test
     void testValidatePrimaryColocationColumnsOnTableCreation() {
         assertThat(
-                manager.createTable(simpleTableParamsWithoutColocationColumns(List.of())),
+                manager.createTable(simpleTableParamsWithColocationColumns(List.of())),
                 willThrowFast(CatalogValidationException.class, "Colocation columns not specified")
         );
 
         assertThat(
-                manager.createTable(simpleTableParamsWithoutColocationColumns(List.of("key", "key"))),
+                manager.createTable(simpleTableParamsWithColocationColumns(List.of("key", "key"))),
                 willThrowFast(CatalogValidationException.class, "Duplicate colocation columns are present: [key]")
         );
 
         assertThat(
-                manager.createTable(simpleTableParamsWithoutColocationColumns(List.of("foo", "bar"))),
+                manager.createTable(simpleTableParamsWithColocationColumns(List.of("foo", "bar"))),
                 willThrowFast(CatalogValidationException.class, "Colocation columns missing in primary key columns: [foo, bar]")
         );
     }
@@ -855,11 +855,11 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
                 .build();
     }
 
-    private CreateTableParams simpleTableParamsWithoutPrimaryKeys(@Nullable List<String> primaryKeys) {
+    private CreateTableParams simpleTableParamsWithPrimaryKeys(@Nullable List<String> primaryKeys) {
         return createTableParams(TABLE_NAME, List.of(columnParams("key", INT32), columnParams("val", INT64)), primaryKeys, null);
     }
 
-    private CreateTableParams simpleTableParamsWithoutColocationColumns(@Nullable List<String> colocationColumns) {
+    private CreateTableParams simpleTableParamsWithColocationColumns(@Nullable List<String> colocationColumns) {
         return createTableParams(
                 TABLE_NAME,
                 List.of(columnParams("key", INT32), columnParams("val", INT64)),

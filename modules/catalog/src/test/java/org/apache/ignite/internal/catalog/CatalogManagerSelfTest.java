@@ -1660,7 +1660,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.dropColumn(dropColumnParams("ID")),
-                willThrowFast(IgniteException.class, "Can't drop primary key columns: [ID]")
+                willThrowFast(CatalogValidationException.class, "Can't drop primary key columns: [ID]")
         );
     }
 
@@ -1671,7 +1671,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.dropColumn(dropColumnParams("VAL")),
-                willThrowFast(IgniteException.class, String.format("Can't drop indexed column: [columnName=VAL, indexName=%s]", INDEX_NAME))
+                willThrowFast(
+                        CatalogValidationException.class,
+                        String.format("Can't drop indexed column: [columnName=VAL, indexName=%s]", INDEX_NAME)
+                )
         );
     }
 
@@ -1681,7 +1684,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    void testAddColumnWithExistsColumn() {
+    void testAddColumnWithExistingName() {
         assertThat(manager.createTable(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         assertThat(manager.addColumn(addColumnParams(columnParams("ID", INT32))), willThrowFast(ColumnAlreadyExistsException.class));
