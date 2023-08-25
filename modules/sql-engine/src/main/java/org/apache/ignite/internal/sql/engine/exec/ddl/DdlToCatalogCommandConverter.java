@@ -70,7 +70,7 @@ class DdlToCatalogCommandConverter {
                 .tableName(cmd.tableName())
 
                 .columns(columns)
-                .colocationColumns(Objects.requireNonNullElse(cmd.colocationColumns(), cmd.primaryKeyColumns()))
+                .colocationColumns(cmd.colocationColumns())
                 .primaryKeyColumns(cmd.primaryKeyColumns())
 
                 .zone(cmd.zone())

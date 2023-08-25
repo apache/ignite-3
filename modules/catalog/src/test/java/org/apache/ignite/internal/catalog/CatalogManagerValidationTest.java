@@ -734,11 +734,6 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     @Test
     void testValidatePrimaryColocationColumnsOnTableCreation() {
         assertThat(
-                manager.createTable(simpleTableParamsWithoutColocationColumns(null)),
-                willThrowFast(CatalogValidationException.class, "Colocation columns not specified")
-        );
-
-        assertThat(
                 manager.createTable(simpleTableParamsWithoutColocationColumns(List.of())),
                 willThrowFast(CatalogValidationException.class, "Colocation columns not specified")
         );

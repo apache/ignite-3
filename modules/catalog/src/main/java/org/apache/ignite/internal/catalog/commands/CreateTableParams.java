@@ -37,8 +37,8 @@ public class CreateTableParams extends AbstractTableCommandParams {
     /** Colocation columns. */
     private List<String> colocationCols;
 
-    /** Columns. */
-    private List<ColumnParams> cols;
+    /** Columns, {@code null} if not set. */
+    private @Nullable List<ColumnParams> cols;
 
     /** Distribution zone name, {@code null} means to use the default zone. */
     private @Nullable String zone;
@@ -53,8 +53,8 @@ public class CreateTableParams extends AbstractTableCommandParams {
         return pkCols;
     }
 
-    /** Returns colocation column names. */
-    public List<String> colocationColumns() {
+    /** Returns colocation column names, {@code null} if not set. */
+    public @Nullable List<String> colocationColumns() {
         return colocationCols;
     }
 
