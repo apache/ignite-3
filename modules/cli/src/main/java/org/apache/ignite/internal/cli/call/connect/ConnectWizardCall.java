@@ -150,11 +150,6 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
     }
 
     private void checkConnection(ConnectCallInput input) throws ApiException {
-        ApiClientSettings settings = ApiClientSettings.builder()
-                .basePath(input.url())
-                .basicAuthenticationUsername(input.username())
-                .basicAuthenticationPassword(input.password())
-                .build();
         ApiClient client = clientFactory.getClient(input.url(), input.username(), input.password());
         new NodeConfigurationApi(client).getNodeConfiguration();
     }
