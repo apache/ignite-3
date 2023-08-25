@@ -17,18 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -63,43 +61,24 @@ public class TableRowConverterImpl implements TableRowConverter {
 
         Row row = schemaRegistry.resolve(binaryRow, schemaDescriptor);
 
-        // IgniteUtils.dumpStack(null, ">xxx> wrap");
-
-        if (requiredColumns != null) {
-            List<Integer> requiredColumns0 = new ArrayList<>();
-
-            for (int i = 0, j = requiredColumns.nextSetBit(0); j != -1; j = requiredColumns.nextSetBit(j + 1), i++) {
-                ColumnDescriptor colDesc = desc.columnDescriptor(j);
-
-                requiredColumns0.add(colDesc.physicalIndex());
-            }
-//
-//            Collections.sort(requiredColumns0);
-//
-//            List<Integer> rightIndexes = new ArrayList<>();
-//
-//            for (Integer n : requiredColumns0) {
-//                rightIndexes.add(n);
-//            }
-
-            return factory.wrap(row, requiredColumns0, requiredColumns);
+        if (requiredColumns == null) {
+            return factory.wrap(row);
         }
 
-        return factory.wrap(row, null, null);
+        BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(requiredColumns.cardinality());
 
-//        if (requiredColumns == null) {
-//            for (int i = 0; i < desc.columnsCount(); i++) {
-//                ColumnDescriptor colDesc = desc.columnDescriptor(i);
-//
-//                handler.set(i, res, TypeUtils.toInternal(row.value(colDesc.physicalIndex())));
-//            }
-//        } else {
-//            for (int i = 0, j = requiredColumns.nextSetBit(0); j != -1; j = requiredColumns.nextSetBit(j + 1), i++) {
-//                ColumnDescriptor colDesc = desc.columnDescriptor(j);
-//
-//                handler.set(i, res, TypeUtils.toInternal(row.value(colDesc.physicalIndex())));
-//            }
-//        }
+        BinaryTupleSchema binarySchema = row.binaryTupleSchema();
 
+        for (int i = 0, j = requiredColumns.nextSetBit(0); j != -1; j = requiredColumns.nextSetBit(j + 1), i++) {
+            int index = desc.columnDescriptor(j).physicalIndex();
+
+            BinaryRowConverter.appendValue(
+                    tupleBuilder,
+                    binarySchema.element(index),
+                    binarySchema.value(row, index)
+            );
+        }
+
+        return factory.wrap(new BinaryTuple(requiredColumns.cardinality(), tupleBuilder.build()));
     }
 }

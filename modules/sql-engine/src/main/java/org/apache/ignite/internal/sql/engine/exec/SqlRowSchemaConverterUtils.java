@@ -111,7 +111,7 @@ public class SqlRowSchemaConverterUtils {
         }
     }
 
-    private static NativeType toNativeType(TypeSpec type) {
+    public static NativeType toNativeType(TypeSpec type) {
         if (type instanceof RowType) {
             // todo
             return toNativeType(((RowType) type).fields().get(0));

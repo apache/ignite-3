@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.exec;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.List;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
@@ -126,9 +128,8 @@ public class SqlRowHandler implements RowHandler<SqlRowWrapper> {
             }
 
             @Override
-            public SqlRowWrapper wrap(Row row, List<Integer> columns, BitSet cols) {
-                // return new SqlBinaryRowWrapper(row.binaryTupleSchema(), row, columns);
-                return new SqlBinaryRowWrapper(rowSchema, row, columns, cols);
+            public SqlRowWrapper wrap(InternalTuple row) {
+                return new SqlBinaryRowWrapper(rowSchema, row);
             }
         };
     }

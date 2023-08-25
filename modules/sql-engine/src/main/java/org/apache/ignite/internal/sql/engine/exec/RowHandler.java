@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.exec;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 import java.util.List;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.jetbrains.annotations.Nullable;
@@ -91,7 +93,7 @@ public interface RowHandler<RowT> {
          */
         RowT create(ByteBuffer raw);
 
-        default RowT wrap(Row row, @Nullable List<Integer> columns, BitSet reqCols) {
+        default RowT wrap(InternalTuple row) {
             throw new UnsupportedOperationException();
         }
     }
