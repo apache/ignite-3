@@ -30,6 +30,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.EnumSet;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups;
@@ -66,10 +67,13 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
                 }
         );
 
-        assertThat(wrapTxOrStartImplicit(SqlQueryType.QUERY, transactions, null).unwrap().isReadOnly(), equalTo(true));
         assertThat(wrapTxOrStartImplicit(SqlQueryType.DML, transactions, null).unwrap().isReadOnly(), equalTo(false));
 
-        verify(transactions, times(2)).begin(any());
+        for (SqlQueryType type : EnumSet.complementOf(EnumSet.of(SqlQueryType.DML))) {
+            assertThat(wrapTxOrStartImplicit(type, transactions, null).unwrap().isReadOnly(), equalTo(true));
+        }
+
+        verify(transactions, times(SqlQueryType.values().length)).begin(any());
         verifyNoMoreInteractions(transactions);
     }
 
