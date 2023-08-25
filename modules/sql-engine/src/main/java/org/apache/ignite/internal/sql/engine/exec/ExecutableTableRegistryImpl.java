@@ -168,6 +168,12 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
                 return ColocationGroup.forAssignments(assignments);
             });
         }
+
+        /** {@inheritDoc} */
+        @Override
+        public TableDescriptor tableDescriptor() {
+            return updatableTable.descriptor();
+        }
     }
 
     private static CacheKey cacheKey(int tableId, int version) {

@@ -42,7 +42,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -213,7 +212,7 @@ public class FragmentMapping implements Serializable {
      * FindGroup.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public @NotNull ColocationGroup findGroup(long sourceId) {
+    public ColocationGroup findGroup(long sourceId) {
         List<ColocationGroup> groups = colocationGroups.stream()
                 .filter(c -> c.belongs(sourceId))
                 .collect(Collectors.toList());

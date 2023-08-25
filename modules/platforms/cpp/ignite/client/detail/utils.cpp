@@ -35,6 +35,9 @@ namespace ignite::detail {
  */
 void claim_column(binary_tuple_builder &builder, ignite_type typ, const primitive &value, std::int32_t scale) {
     switch (typ) {
+        case ignite_type::BOOLEAN:
+            builder.claim_bool(value.get<bool>());
+            break;
         case ignite_type::INT8:
             builder.claim_int8(value.get<std::int8_t>());
             break;
@@ -107,6 +110,9 @@ void claim_column(binary_tuple_builder &builder, ignite_type typ, const primitiv
  */
 void append_column(binary_tuple_builder &builder, ignite_type typ, const primitive &value, std::int32_t scale) {
     switch (typ) {
+        case ignite_type::BOOLEAN:
+            builder.append_bool(value.get<bool>());
+            break;
         case ignite_type::INT8:
             builder.append_int8(value.get<std::int8_t>());
             break;

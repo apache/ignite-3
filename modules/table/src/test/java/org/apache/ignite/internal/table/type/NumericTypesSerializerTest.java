@@ -36,7 +36,6 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -275,7 +274,6 @@ public class NumericTypesSerializerTest {
         assertEquals(firstRow, secondRow);
     }
 
-    @NotNull
     private Tuple createTuple() {
         return Tuple.create();
     }

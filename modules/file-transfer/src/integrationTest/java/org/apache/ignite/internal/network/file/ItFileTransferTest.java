@@ -47,6 +47,7 @@ import org.apache.ignite.internal.network.file.TestCluster.Node;
 import org.apache.ignite.internal.network.file.exception.FileTransferException;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
 import org.apache.ignite.internal.network.file.messages.Identifier;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
@@ -61,7 +62,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItFileTransferTest {
+public class ItFileTransferTest extends BaseIgniteAbstractTest {
     private static final String DOWNLOADS_DIR = "downloads";
 
     @WorkDirectory

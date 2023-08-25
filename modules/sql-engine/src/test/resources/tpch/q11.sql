@@ -3,7 +3,7 @@
 
 SELECT
     ps_partkey,
-    sum(ps_supplycost * ps_availqty) AS value
+    sum(ps_supplycost * ps_availqty) AS val
 FROM
     partsupp,
     supplier,
@@ -27,4 +27,4 @@ HAVING
    AND n_name = 'GERMANY'
     )
 ORDER BY
-    value DESC
+    val DESC

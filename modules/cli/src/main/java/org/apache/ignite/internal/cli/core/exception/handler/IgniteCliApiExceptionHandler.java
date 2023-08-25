@@ -36,7 +36,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.InvalidParam;
 import org.apache.ignite.rest.client.model.Problem;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Exception handler for {@link IgniteCliApiException}.
@@ -125,7 +124,6 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
                 .traceId(problem.getTraceId());
     }
 
-    @NotNull
     private static String extractInvalidParams(List<InvalidParam> invalidParams) {
         return invalidParams.stream()
                 .map(invalidParam -> "" + invalidParam.getName() + ": " + invalidParam.getReason())

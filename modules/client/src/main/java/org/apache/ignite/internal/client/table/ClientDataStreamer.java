@@ -26,7 +26,6 @@ import org.apache.ignite.internal.streamer.StreamerOptions;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
 import org.apache.ignite.table.DataStreamerOptions;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Client data streamer.
@@ -49,7 +48,6 @@ class ClientDataStreamer {
         return subscriber.completionFuture();
     }
 
-    @NotNull
     private static StreamerOptions streamerOptions(DataStreamerOptions options) {
         return new StreamerOptions() {
             @Override

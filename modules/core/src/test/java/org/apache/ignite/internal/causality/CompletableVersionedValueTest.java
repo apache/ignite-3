@@ -37,6 +37,7 @@ import static org.mockito.Mockito.verify;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
@@ -44,7 +45,7 @@ import org.junit.jupiter.api.Test;
  * Tests of causality token implementation based on versioned value.
  * {@link CompletableVersionedValue}
  */
-public class CompletableVersionedValueTest {
+public class CompletableVersionedValueTest extends BaseIgniteAbstractTest {
     /** Test value. */
     private static final int TEST_VALUE = 1;
 

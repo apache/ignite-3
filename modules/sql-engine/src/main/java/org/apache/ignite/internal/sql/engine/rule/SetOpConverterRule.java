@@ -168,8 +168,7 @@ public class SetOpConverterRule {
 
         /** {@inheritDoc} */
         @Override
-        PhysicalNode createReduceNode(RelOptCluster cluster, RelTraitSet traits, RelNode input, boolean all,
-                RelDataType rowType) {
+        PhysicalNode createReduceNode(RelOptCluster cluster, RelTraitSet traits, RelNode input, boolean all, RelDataType rowType) {
             return new IgniteReduceIntersect(cluster, traits, input, all, rowType);
         }
     }

@@ -58,7 +58,6 @@ import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -132,7 +131,7 @@ public class UpgradingRowAdapterTest {
 
         schema2.columnMapping(new ColumnMapper() {
             @Override
-            public ColumnMapper add(@NotNull Column col) {
+            public ColumnMapper add(Column col) {
                 return null;
             }
 

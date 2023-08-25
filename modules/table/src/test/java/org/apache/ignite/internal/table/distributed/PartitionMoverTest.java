@@ -37,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for the {@link PartitionMover} class.
  */
-class PartitionMoverTest {
+class PartitionMoverTest extends BaseIgniteAbstractTest {
     private static final long TERM = 123;
 
     private static final PeersAndLearners PEERS_AND_LEARNERS = PeersAndLearners.fromConsistentIds(

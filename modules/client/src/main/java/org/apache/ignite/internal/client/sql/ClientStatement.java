@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,13 +69,13 @@ public class ClientStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull String query() {
+    public String query() {
         return query;
     }
 
     /** {@inheritDoc} */
     @Override
-    public long queryTimeout(@NotNull TimeUnit timeUnit) {
+    public long queryTimeout(TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
         return queryTimeoutMs == null ? 0 : timeUnit.convert(queryTimeoutMs, TimeUnit.MILLISECONDS);
@@ -114,7 +113,7 @@ public class ClientStatement implements Statement {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable Object property(@NotNull String name) {
+    public @Nullable Object property(String name) {
         return properties == null ? null : properties.get(name);
     }
 

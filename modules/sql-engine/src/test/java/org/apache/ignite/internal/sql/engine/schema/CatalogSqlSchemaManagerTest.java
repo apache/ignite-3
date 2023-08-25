@@ -61,6 +61,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -73,7 +74,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for {@link CatalogSqlSchemaManager}.
  */
 @ExtendWith(MockitoExtension.class)
-public class CatalogSqlSchemaManagerTest {
+public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
     private static final AtomicInteger ID = new AtomicInteger();
 

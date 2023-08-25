@@ -26,7 +26,6 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.PojoMapper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,7 +55,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
      * @param schema Schema descriptor.
      * @param mapper Mapper for record objects.
      */
-    public RecordMarshallerImpl(SchemaDescriptor schema, @NotNull Mapper<R> mapper) {
+    public RecordMarshallerImpl(SchemaDescriptor schema, Mapper<R> mapper) {
         assert mapper instanceof PojoMapper;
 
         this.schema = schema;
@@ -80,7 +79,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(@NotNull R rec) throws MarshallerException {
+    public Row marshal(R rec) throws MarshallerException {
         assert recClass.isInstance(rec);
 
         final RowAssembler asm = createAssembler(Objects.requireNonNull(rec), rec);
@@ -92,7 +91,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshalKey(@NotNull R rec) throws MarshallerException {
+    public Row marshalKey(R rec) throws MarshallerException {
         assert recClass.isInstance(rec);
 
         final RowAssembler asm = createAssembler(Objects.requireNonNull(rec));
@@ -103,9 +102,8 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
-    public R unmarshal(@NotNull Row row) throws MarshallerException {
+    public R unmarshal(Row row) throws MarshallerException {
         final Object o = recMarsh.readObject(row);
 
         assert recClass.isInstance(o);

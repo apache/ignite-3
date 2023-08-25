@@ -34,7 +34,6 @@ import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.Intersect;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Minus;
 import org.apache.calcite.rel.core.Spool;
@@ -103,6 +102,9 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
+import org.apache.ignite.internal.sql.engine.rel.set.IgniteIntersect;
+import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapSetOp;
+import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
@@ -125,7 +127,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
     private final ExecutionContext<RowT> ctx;
 
-    private final HashFunctionFactory<RowT> hashFuncFactory;
+    private final DestinationFactory<RowT> destinationFactory;
 
     private final ExchangeService exchangeSvc;
 
@@ -142,7 +144,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
      * @param hashFuncFactory Factory to create a hash function for the row, from which the destination nodes are calculated.
      * @param mailboxRegistry Mailbox registry.
      * @param exchangeSvc Exchange service.
-     * @param resolvedDependencies  Dependencies required to execute this query.
+     * @param resolvedDependencies Dependencies required to execute this query.
      */
     public LogicalRelImplementor(
             ExecutionContext<RowT> ctx,
@@ -150,13 +152,13 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSvc,
             ResolvedDependencies resolvedDependencies) {
-        this.hashFuncFactory = hashFuncFactory;
         this.mailboxRegistry = mailboxRegistry;
         this.exchangeSvc = exchangeSvc;
         this.ctx = ctx;
         this.resolvedDependencies = resolvedDependencies;
 
         expressionFactory = ctx.expressionFactory();
+        destinationFactory = new DestinationFactory<>(hashFuncFactory, resolvedDependencies);
     }
 
     /** {@inheritDoc} */
@@ -164,7 +166,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteSender rel) {
         IgniteDistribution distribution = rel.distribution();
 
-        Destination<RowT> dest = distribution.destination(hashFuncFactory, ctx.target());
+        Destination<RowT> dest = destinationFactory.createDestination(distribution, ctx.target());
 
         // Outbox fragment ID is used as exchange ID as well.
         Outbox<RowT> outbox = new Outbox<>(ctx, exchangeSvc, mailboxRegistry, rel.exchangeId(), rel.targetFragmentId(), dest);
@@ -197,8 +199,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteTrimExchange rel) {
         assert TraitUtils.distribution(rel).getType() == HASH_DISTRIBUTED;
 
-        IgniteDistribution distr = rel.distribution();
-        Destination<RowT> dest = distr.destination(hashFuncFactory, ctx.group(rel.sourceId()));
+        Destination<RowT> dest = destinationFactory.createDestination(rel.distribution(), ctx.target());
+
         String localNodeName = ctx.localNode().name();
 
         FilterNode<RowT> node = new FilterNode<>(ctx, r -> Objects.equals(localNodeName, first(dest.targets(r))));
@@ -550,15 +552,36 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
         List<Node<RowT>> inputs = Commons.transform(rel.getInputs(), this::visit);
+        int columnNum;
+
+        if (rel instanceof IgniteMapSetOp) {
+            columnNum = rel.getInput(0).getRowType().getFieldCount();
+        } else {
+            columnNum = rowType.getFieldCount();
+        }
 
         AbstractSetOpNode<RowT> node;
 
         if (rel instanceof Minus) {
-            node = new MinusNode<>(ctx, rel.aggregateType(), rel.all(), rowFactory);
-        } else if (rel instanceof Intersect) {
-            node = new IntersectNode<>(ctx, rel.aggregateType(), rel.all(), rowFactory, rel.getInputs().size());
+            node = new MinusNode<>(ctx, columnNum, rel.aggregateType(), rel.all(), rowFactory);
+        } else if (rel instanceof IgniteIntersect) {
+            int inputsNum;
+
+            if (rel instanceof IgniteReduceIntersect) {
+                // MAP phase of intersect operator produces (c1, c2, .., cN, counters_input1, ... counters_inputM),
+                // so the number of input relations is equal to the number of input cols to reduce phase
+                // minus the number of output columns produced by a set operator (See IgniteMapSetOp::buildRowType).
+                int inputCols = rel.getInput(0).getRowType().getFieldCount();
+                int outputCols = rel.getRowType().getFieldCount();
+
+                inputsNum = inputCols - outputCols;
+            } else {
+                inputsNum = rel.getInputs().size();
+            }
+
+            node = new IntersectNode<>(ctx, columnNum, rel.aggregateType(), rel.all(), rowFactory, inputsNum);
         } else {
-            throw new AssertionError();
+            throw new AssertionError("Unexpected set node: " + rel);
         }
 
         node.register(inputs);

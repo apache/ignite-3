@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -32,6 +34,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -183,6 +187,10 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
 
             assertTrue(IgniteTestUtils.waitForCondition(() -> appliedIndexNode0.get() == appliedIndexNode1.get(), 10_000));
 
+            RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
+
+            raftGroupService.peers().forEach(peer -> assertThat(raftGroupService.snapshot(peer), willCompleteSuccessfully()));
+
             leaderAndGroupRef.set(new IgniteBiTuple<>(leader, table.tableId() + "_part_0"));
 
             afterBlock.accept(tx);
@@ -193,6 +201,9 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
         }
 
         stopNodes();
+
+        log.info("Restart the cluster");
+
         startCluster();
 
         var node0Started = (IgniteImpl) CLUSTER_NODES.get(0);
@@ -294,6 +305,44 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
                 new RuntimeException(IgniteStringFormatter.format("Cannot check a row {}", row), e);
             }
         }
+
+        transferLeadershipToLocalNode(ignite);
+
+        for (Object[] row : dataSet) {
+            try {
+                Tuple txTuple = table.keyValueView().get(null, Tuple.create().set("ID", row[0]));
+
+                assertNotNull(txTuple);
+
+                assertEquals(row[1], txTuple.value("NAME"));
+                assertEquals(row[2], txTuple.value("SALARY"));
+            } catch (Exception e) {
+                new RuntimeException(IgniteStringFormatter.format("Cannot check a row {} when the local node leader", row), e);
+            }
+        }
+    }
+
+    /**
+     * Transfers the leader to the local node related to the Ignite instance.
+     *
+     * @param ignite Ignite instance.
+     */
+    private static void transferLeadershipToLocalNode(IgniteImpl ignite) {
+        TableImpl table = (TableImpl) ignite.tables().table(DEFAULT_TABLE_NAME);
+
+        RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);
+
+        List<Peer> peers = raftGroupService.peers();
+        assertNotNull(peers);
+
+        Peer leader = raftGroupService.leader();
+        assertNotNull(leader);
+
+        Peer localPeer = peers.stream().filter(peer -> peer.consistentId().equals(ignite.name())).findFirst().get();
+
+        log.info("Leader is transferring [from={}, to={}]", leader, localPeer);
+
+        assertThat(raftGroupService.transferLeadership(localPeer), willCompleteSuccessfully());
     }
 
     /**

@@ -92,9 +92,6 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     private static final LogicalNode NODE_2 =
             new LogicalNode("node_id_2", "node_name_2", new NetworkAddress("localhost", 123));
 
-    private static final LogicalNode NODE_3 =
-            new LogicalNode("node_id_3", "node_name_3", new NetworkAddress("localhost", 123));
-
     private static final Set<LogicalNode> ONE_NODE = Set.of(NODE_0);
     private static final Set<String> ONE_NODE_NAME = Set.of(NODE_0.name());
 

@@ -25,9 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.io.ObjectInput;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
-class DefaultSchemaMismatchHandlerTest {
+class DefaultSchemaMismatchHandlerTest extends BaseIgniteAbstractTest {
     private final DefaultSchemaMismatchHandler handler = new DefaultSchemaMismatchHandler();
 
     @Test

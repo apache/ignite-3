@@ -34,7 +34,6 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import sun.misc.Unsafe;
 
@@ -221,7 +220,6 @@ public abstract class GridUnsafe {
      * @param constructor Constructor to use. Should create an instance of a direct ByteBuffer.
      * @return Byte buffer wrapping the given memory.
      */
-    @NotNull
     private static ByteBuffer wrapPointerDirectBufferConstructor(long ptr, int len, MethodHandle constructor) {
         try {
             ByteBuffer newDirectBuf = (ByteBuffer) constructor.invokeExact(ptr, len);
@@ -242,12 +240,11 @@ public abstract class GridUnsafe {
      * @param javaNioAccessObj Object to invoke method.
      * @return Byte buffer wrapping the given memory.
      */
-    @NotNull
     private static ByteBuffer wrapPointerJavaNio(
             long ptr,
             int len,
-            @NotNull MethodHandle newDirectBufMh,
-            @NotNull Object javaNioAccessObj
+            MethodHandle newDirectBufMh,
+            Object javaNioAccessObj
     ) {
         try {
             ByteBuffer buf = (ByteBuffer) newDirectBufMh.invokeExact(javaNioAccessObj, ptr, len, NULL_OBJ);
@@ -1691,7 +1688,6 @@ public abstract class GridUnsafe {
      *
      * @return Misc package name.
      */
-    @NotNull
     private static String miscPackage() {
         int javaVer = majorJavaVersion(jdkVersion());
 
@@ -1704,7 +1700,6 @@ public abstract class GridUnsafe {
      *
      * @return constructor for creating direct ByteBuffers.
      */
-    @NotNull
     private static MethodHandle createAndTestNewDirectBufferCtor() {
         MethodHandle ctorCandidate = createNewDirectBufferCtor();
 
@@ -1730,7 +1725,6 @@ public abstract class GridUnsafe {
      *
      * @return constructor for creating direct ByteBuffers.
      */
-    @NotNull
     private static MethodHandle createNewDirectBufferCtor() {
         try {
             ByteBuffer buf = ByteBuffer.allocateDirect(1).order(NATIVE_BYTE_ORDER);

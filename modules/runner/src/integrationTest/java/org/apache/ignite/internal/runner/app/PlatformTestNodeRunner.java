@@ -312,7 +312,8 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("timestamp", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
                 SchemaBuilders.column("timestamp2", ColumnType.timestamp(4)).asNullable(true).build(),
                 SchemaBuilders.column("blob", ColumnType.blob()).asNullable(true).build(),
-                SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
+                SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build(),
+                SchemaBuilders.column("boolean", ColumnType.BOOLEAN).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
         await(((TableManager) node.tables()).createTableAsync(schTblAll.name(), ZONE_NAME, tblCh ->
@@ -377,7 +378,8 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column("timestamp", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
                 SchemaBuilders.column("timestamp2", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
                 SchemaBuilders.column("blob", ColumnType.blob()).asNullable(true).build(),
-                SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build()
+                SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build(),
+                SchemaBuilders.column("boolean", ColumnType.BOOLEAN).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
         await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), ZONE_NAME, tblCh ->

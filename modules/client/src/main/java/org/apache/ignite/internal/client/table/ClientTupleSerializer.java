@@ -42,7 +42,6 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,7 +69,7 @@ public class ClientTupleSerializer {
      */
     void writeTuple(
             @Nullable Transaction tx,
-            @NotNull Tuple tuple,
+            Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out
     ) {
@@ -87,7 +86,7 @@ public class ClientTupleSerializer {
      */
     void writeTuple(
             @Nullable Transaction tx,
-            @NotNull Tuple tuple,
+            Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
             boolean keyOnly
@@ -106,7 +105,7 @@ public class ClientTupleSerializer {
      */
     void writeTuple(
             @Nullable Transaction tx,
-            @NotNull Tuple tuple,
+            Tuple tuple,
             ClientSchema schema,
             PayloadOutputChannel out,
             boolean keyOnly,
@@ -129,7 +128,7 @@ public class ClientTupleSerializer {
      * @param out Out.
      * @param keyOnly Key only.
      */
-    public static void writeTupleRaw(@NotNull Tuple tuple, ClientSchema schema, PayloadOutputChannel out, boolean keyOnly) {
+    public static void writeTupleRaw(Tuple tuple, ClientSchema schema, PayloadOutputChannel out, boolean keyOnly) {
         var columns = schema.columns();
         var count = keyOnly ? schema.keyColumnCount() : columns.length;
 
@@ -167,7 +166,7 @@ public class ClientTupleSerializer {
      */
     void writeKvTuple(
             @Nullable Transaction tx,
-            @NotNull Tuple key,
+            Tuple key,
             @Nullable Tuple val,
             ClientSchema schema,
             PayloadOutputChannel out,
@@ -247,7 +246,7 @@ public class ClientTupleSerializer {
      */
     void writeTuples(
             @Nullable Transaction tx,
-            @NotNull Collection<Tuple> tuples,
+            Collection<Tuple> tuples,
             ClientSchema schema,
             PayloadOutputChannel out,
             boolean keyOnly
@@ -360,7 +359,7 @@ public class ClientTupleSerializer {
      * @param rec Tuple.
      * @return Partition awareness provider.
      */
-    public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, @NotNull Tuple rec) {
+    public static PartitionAwarenessProvider getPartitionAwarenessProvider(@Nullable Transaction tx, Tuple rec) {
         if (tx != null) {
             //noinspection resource
             return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().name());
@@ -377,7 +376,7 @@ public class ClientTupleSerializer {
      * @return Partition awareness provider.
      */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(
-            @Nullable Transaction tx, Mapper<?> mapper, @NotNull Object rec) {
+            @Nullable Transaction tx, Mapper<?> mapper, Object rec) {
         if (tx != null) {
             //noinspection resource
             return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().name());
@@ -418,7 +417,7 @@ public class ClientTupleSerializer {
         return hashCalc.hash();
     }
 
-    private static void throwSchemaMismatchException(@NotNull Tuple tuple, ClientSchema schema, TuplePart part) {
+    private static void throwSchemaMismatchException(Tuple tuple, ClientSchema schema, TuplePart part) {
         ClientColumn[] columns = schema.columns();
         Set<String> extraColumns = new HashSet<>();
         int start = part == TuplePart.VAL ? schema.keyColumnCount() : 0;

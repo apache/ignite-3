@@ -62,6 +62,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -75,7 +76,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test class to verify {@link IndexManager}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class IndexManagerTest {
+public class IndexManagerTest extends BaseIgniteAbstractTest {
     private static final String TABLE_NAME = "tName";
 
     @InjectConfiguration(

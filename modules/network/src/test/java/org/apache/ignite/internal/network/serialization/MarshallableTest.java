@@ -51,6 +51,7 @@ import org.apache.ignite.internal.network.netty.OutboundEncoder;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalException;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.jetbrains.annotations.Nullable;
@@ -59,7 +60,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests marshallable serialization.
  */
-public class MarshallableTest {
+public class MarshallableTest extends BaseIgniteAbstractTest {
     /** {@link ByteBuf} allocator. */
     private final UnpooledByteBufAllocator allocator = UnpooledByteBufAllocator.DEFAULT;
 

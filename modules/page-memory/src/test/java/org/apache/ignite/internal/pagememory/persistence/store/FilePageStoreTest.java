@@ -51,6 +51,7 @@ import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
@@ -60,7 +61,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * For {@link FilePageStore} testing.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class FilePageStoreTest {
+public class FilePageStoreTest extends BaseIgniteAbstractTest {
     private static final int PAGE_SIZE = 1024;
 
     @WorkDirectory

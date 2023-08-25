@@ -59,8 +59,6 @@ import java.util.stream.Collectors;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -103,6 +101,7 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -121,9 +120,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test class to verify {@link ExecutionServiceImplTest}.
  */
-public class ExecutionServiceImplTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ExecutionServiceImpl.class);
-
+public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     /** Timeout in ms for async operations. */
     private static final long TIMEOUT_IN_MS = 2_000;
 
@@ -181,7 +178,7 @@ public class ExecutionServiceImplTest {
             try {
                 executer.stop();
             } catch (Exception e) {
-                LOG.error("Unable to stop executor", e);
+                log.error("Unable to stop executor", e);
             }
         });
 
@@ -640,7 +637,7 @@ public class ExecutionServiceImplTest {
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
-                .logger(LOG)
+                .logger(log)
                 .build();
     }
 
@@ -786,9 +783,7 @@ public class ExecutionServiceImplTest {
                     MailboxRegistry mailboxRegistry,
                     ExchangeService exchangeService,
                     ResolvedDependencies deps) {
-                IgniteSchema schema = ctx.getRootSchema().unwrap(IgniteSchema.class);
-
-                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(schema, ctx.rowHandler());
+                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(ctx.rowHandler());
 
                 return new LogicalRelImplementor<>(ctx, funcFactory, mailboxRegistry, exchangeService, deps) {
                     @Override

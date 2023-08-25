@@ -53,6 +53,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -69,7 +70,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * For {@link FilePageStoreManager} testing.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class FilePageStoreManagerTest {
+public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
     /** To be used in a loop. {@link RepeatedTest} cannot be combined with {@link ParameterizedTest}. */
     private static final int REPEATS = 100;
 

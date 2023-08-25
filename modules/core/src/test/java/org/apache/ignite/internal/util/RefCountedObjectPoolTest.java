@@ -76,7 +76,7 @@ class RefCountedObjectPoolTest {
 
         Integer val2 = pool.acquire(key, ignored -> 200);
         assertSame(val1, val2);
-        assertFalse(pool.release(key));;
+        assertFalse(pool.release(key));
 
         assertTrue(pool.isAcquired(key));
 

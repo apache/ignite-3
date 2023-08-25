@@ -53,7 +53,6 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Util class for methods needed for the rebalance process.
@@ -106,7 +105,7 @@ public class RebalanceUtil {
      * @param tableCfgPartAssignments Table configuration assignments.
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
-    public static @NotNull CompletableFuture<Void> updatePendingAssignmentsKeys(
+    public static CompletableFuture<Void> updatePendingAssignmentsKeys(
             CatalogTableDescriptor tableDescriptor,
             TablePartitionId partId,
             Collection<String> dataNodes,
