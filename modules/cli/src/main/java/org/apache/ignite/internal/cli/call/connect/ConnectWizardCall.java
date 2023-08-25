@@ -60,26 +60,26 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
     public CallOutput<String> execute(ConnectCallInput input) {
         CallOutput<String> output = connectCall.execute(input);
         if (output.hasError()) {
-            return processErrorOutput(input, output.errorCause());
+            return processErrorOutput(input, output);
         }
         return output;
     }
 
-    private CallOutput<String> processErrorOutput(ConnectCallInput input, Throwable throwable) {
-        if (throwable.getCause() instanceof ApiException) {
-            ApiException cause = (ApiException) throwable.getCause();
+    private CallOutput<String> processErrorOutput(ConnectCallInput input, CallOutput<String> output) {
+        if (output.errorCause().getCause() instanceof ApiException) {
+            ApiException cause = (ApiException) output.errorCause().getCause();
             Throwable apiCause = cause.getCause();
 
             if (apiCause instanceof SSLException) { // Configure SSL
-                return configureSsl(input);
+                return configureSsl(input, output);
             } else if (cause.getCode() == HttpStatus.UNAUTHORIZED.getCode()) { // Configure rest basic authentication
-                return configureAuth(input);
+                return configureAuth(input, output);
             }
         }
-        return DefaultCallOutput.empty();
+        return output;
     }
 
-    private CallOutput<String> configureSsl(ConnectCallInput input) {
+    private CallOutput<String> configureSsl(ConnectCallInput input, CallOutput<String> output) {
 
         FlowBuilder<Void, SslConfig> flowBuilder = ConnectToClusterQuestion.askQuestionOnSslError();
         Flowable<SslConfig> result = flowBuilder.build().start(Flowable.empty());
@@ -97,16 +97,16 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
                 } else {
                     // SSL params are correct but auth params not provided
                     saveConfigSsl(result.value());
-                    return configureAuth(input);
+                    return configureAuth(input, output);
                 }
             } catch (IgniteCliApiException cliApiException) {
                 return DefaultCallOutput.failure(cliApiException);
             }
         }
-        return DefaultCallOutput.empty();
+        return output;
     }
 
-    private CallOutput<String> configureAuth(ConnectCallInput input) {
+    private CallOutput<String> configureAuth(ConnectCallInput input, CallOutput<String> output) {
         FlowBuilder<Void, AuthConfig> flowBuilder = ConnectToClusterQuestion.askQuestionOnAuthError();
         Flowable<AuthConfig> result = flowBuilder.build().start(Flowable.empty());
         if (result.hasResult()) {
@@ -123,7 +123,7 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
                 return DefaultCallOutput.failure(new IgniteCliApiException(e, input.url()));
             }
         }
-        return DefaultCallOutput.empty();
+        return output;
     }
 
     private void checkConnectionSsl(ConnectSslConfigCallInput input) throws ApiException {

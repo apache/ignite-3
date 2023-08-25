@@ -87,7 +87,7 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
         } else if (e.getCause() instanceof IOException) {
             errorComponentBuilder
                     .header("SSL error")
-                    .details("Trust-store password was incorrect")
+                    .details(e.getCause().getMessage())
                     .verbose(e.getMessage());
         } else if (e.getCause() instanceof IllegalArgumentException) {
             errorComponentBuilder

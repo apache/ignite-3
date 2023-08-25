@@ -88,9 +88,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
         }
         try {
             // Try without authentication first to check whether the authentication is enabled on the cluster.
-            if (nullOrBlank(input.username()) && nullOrBlank(input.password())) {
-                sessionInfo = connectWithoutAuthentication(nodeUrl);
-            }
+            sessionInfo = connectWithoutAuthentication(nodeUrl);
             if (sessionInfo == null) {
                 // Try with authentication
                 if (!nullOrBlank(input.username()) && !nullOrBlank(input.password())) {
