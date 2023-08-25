@@ -59,7 +59,6 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
     @Override
     public ByteBuffer toByteBuffer(Object[] row) {
         byte[] raw = ByteUtils.toBytes(row);
-
         return ByteBuffer.wrap(raw);
     }
 
