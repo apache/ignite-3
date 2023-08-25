@@ -29,24 +29,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.IgniteIntegrationTest;
-import org.apache.ignite.internal.schema.configuration.ColumnChange;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.function.Executable;
 
@@ -126,50 +120,6 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
                 .collect(toList());
 
         IgniteUtils.closeAll(closeables);
-    }
-
-    /**
-     * Check unsupported column type change.
-     */
-    @Test
-    public void testChangeColumnType() throws Exception {
-        List<Ignite> grid = startGrid();
-
-        createTable(grid);
-
-        assertColumnChangeFailed(grid, "valStr", c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")));
-
-        assertColumnChangeFailed(grid, "valInt",
-                colChanger -> colChanger.changeType(t -> t.changeType(ColumnType.blob().typeSpec().name())));
-
-        assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changePrecision(10)));
-        assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeScale(10)));
-        assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeType(t -> t.changeLength(1)));
-
-        assertColumnChangeFailed(grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changePrecision(-1)));
-        assertColumnChangeFailed(grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changePrecision(10)));
-        assertColumnChangeFailed(grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changeScale(2)));
-        assertColumnChangeFailed(grid, "valBigInt", colChanger -> colChanger.changeType(t -> t.changeLength(10)));
-
-        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(-1)));
-        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(0)));
-        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(-2)));
-        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changePrecision(10)));
-        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeScale(2)));
-        assertColumnChangeFailed(grid, "valDecimal", colChanger -> colChanger.changeType(c -> c.changeLength(10)));
-    }
-
-    /**
-     * Check unsupported nullability change.
-     */
-    @Test
-    public void testChangeColumnsNullability() throws Exception {
-        List<Ignite> grid = startGrid();
-
-        createTable(grid);
-
-        assertColumnChangeFailed(grid, "valStr", colChanger -> colChanger.changeNullable(true));
-        assertColumnChangeFailed(grid, "valInt", colChanger -> colChanger.changeNullable(false));
     }
 
     /**
@@ -257,24 +207,6 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
         try (Session session = nodes.get(0).sql().createSession()) {
             session.execute(null, String.format("ALTER TABLE %s ALTER COLUMN %s SET %s", TABLE, colName, defSup.get()));
         }
-    }
-
-    /**
-     * Ensure configuration validation failed.
-     *
-     * @param grid Grid.
-     * @param colName Column to change.
-     * @param colChanger Column configuration changer.
-     */
-    private static void assertColumnChangeFailed(List<Ignite> grid, String colName, Consumer<ColumnChange> colChanger) {
-        assertThrows(IgniteException.class, () ->
-                await(((TableManager) grid.get(0).tables()).alterTableAsync(TABLE, tblChanger -> {
-                    tblChanger.changeColumns(
-                            listChanger ->
-                                    listChanger.update(IgniteNameUtils.parseSimpleName(colName), colChanger));
-                    return true;
-                }))
-        );
     }
 
     protected static <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {
