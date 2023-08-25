@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="All checks [check]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Tests">
+  <configuration default="false" name="All checks [PMD, modernizer, checkstyle]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Checks">
     <ExternalSystemSettings>
       <option name="executionName" />
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -10,7 +10,13 @@
       </option>
       <option name="taskNames">
         <list>
-          <option value="check" />
+          <option value="pmdMain" />
+          <option value="pmdTest" />
+          <option value="modernizer" />
+          <option value="checkstyleMain" />
+          <option value="checkstyleIntegrationTest" />
+          <option value="checkstyleTest" />
+          <option value="checkstyleTestFixtures" />
         </list>
       </option>
       <option name="vmOptions" />
