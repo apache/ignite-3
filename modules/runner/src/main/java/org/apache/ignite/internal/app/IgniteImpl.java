@@ -523,7 +523,6 @@ public class IgniteImpl implements Ignite {
                 name,
                 registry,
                 tablesConfig,
-                zonesConfig,
                 gcConfig,
                 clusterSvc,
                 raftMgr,
@@ -542,7 +541,6 @@ public class IgniteImpl implements Ignite {
                 outgoingSnapshotsManager,
                 topologyAwareRaftGroupServiceFactory,
                 vaultMgr,
-                cmgMgr,
                 distributionZoneManager,
                 catalogManager
         );

@@ -298,7 +298,8 @@ public class PlatformTestNodeRunner {
                 DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 TABLE_NAME_ALL_COLUMNS,
-                List.of(ColumnParams.builder().name(keyCol).type(INT64).build(),
+                List.of(
+                        ColumnParams.builder().name(keyCol).type(INT64).build(),
                         ColumnParams.builder().name("STR").type(STRING).nullable(true).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
@@ -328,7 +329,8 @@ public class PlatformTestNodeRunner {
                 DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 TABLE_NAME_ALL_COLUMNS_SQL,
-                List.of(ColumnParams.builder().name(keyCol).type(INT64).build(),
+                List.of(
+                        ColumnParams.builder().name(keyCol).type(INT64).build(),
                         ColumnParams.builder().name("STR").type(STRING).nullable(true).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
@@ -345,8 +347,9 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("TIMESTAMP").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).nullable(true).build(),
-                        ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build()),
-                ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
+                        ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
+                        ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
+                ),
                 List.of(keyCol)
         );
 

@@ -359,7 +359,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 name,
                 registry,
                 tablesConfig,
-                zonesConfig,
                 gcConfig,
                 clusterSvc,
                 raftMgr,
@@ -378,8 +377,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 topologyAwareRaftGroupServiceFactory,
                 vault,
-                null,
-                null,
+                distributionZoneManager,
                 catalogManager
         );
 

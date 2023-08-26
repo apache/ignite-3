@@ -71,7 +71,6 @@ import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
@@ -240,8 +239,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private SchemaManager sm;
 
-    private ClusterManagementGroupManager cmgMgr;
-
     private DistributionZoneManager distributionZoneManager;
 
     /** Test node. */
@@ -282,11 +279,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             });
         };
 
-        cmgMgr = mock(ClusterManagementGroupManager.class);
-
         LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(0, emptySet());
-
-        when(cmgMgr.logicalTopology()).thenReturn(completedFuture(logicalTopologySnapshot));
 
         distributionZoneManager = mock(DistributionZoneManager.class);
 
@@ -750,7 +743,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 NODE_NAME,
                 revisionUpdater,
                 tblsCfg,
-                distributionZonesConfiguration,
                 gcConfig,
                 clusterService,
                 rm,
@@ -769,7 +761,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 vaultManager,
-                cmgMgr,
                 distributionZoneManager,
                 catalogManager
         ) {

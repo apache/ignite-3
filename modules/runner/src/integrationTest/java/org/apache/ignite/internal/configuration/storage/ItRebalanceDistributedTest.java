@@ -794,7 +794,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     name,
                     registry,
                     tablesCfg,
-                    zonesCfg,
                     gcConfig,
                     clusterService,
                     raftManager,
@@ -813,7 +812,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
                     topologyAwareRaftGroupServiceFactory,
                     vaultManager,
-                    cmgManager,
                     distributionZoneManager,
                     catalogManager
             ) {

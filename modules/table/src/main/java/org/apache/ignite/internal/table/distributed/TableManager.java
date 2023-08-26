@@ -85,15 +85,14 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
-import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -125,9 +124,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -217,9 +214,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Tables configuration. */
     // TODO: IGNITE-19499 избавиться
     private final TablesConfiguration tablesCfg;
-
-    /** Distribution zones configuration. */
-    private final DistributionZonesConfiguration zonesConfig;
 
     /** Garbage collector configuration. */
     private final GcConfiguration gcConfig;
@@ -325,8 +319,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
 
-    private final ClusterManagementGroupManager cmgMgr;
-
     private final DistributionZoneManager distributionZoneManager;
 
     /** Partitions storage path. */
@@ -371,7 +363,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param nodeName Node name.
      * @param registry Registry for versioned values.
      * @param tablesCfg Tables configuration.
-     * @param zonesConfig Distribution zones configuration.
      * @param gcConfig Garbage collector configuration.
      * @param raftMgr Raft manager.
      * @param replicaMgr Replica manager.
@@ -391,7 +382,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             String nodeName,
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             TablesConfiguration tablesCfg,
-            DistributionZonesConfiguration zonesConfig,
             GcConfiguration gcConfig,
             ClusterService clusterService,
             RaftManager raftMgr,
@@ -410,12 +400,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             VaultManager vaultManager,
-            ClusterManagementGroupManager cmgMgr,
             DistributionZoneManager distributionZoneManager,
             CatalogManager catalogManager
     ) {
         this.tablesCfg = tablesCfg;
-        this.zonesConfig = zonesConfig;
         this.gcConfig = gcConfig;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
@@ -433,7 +421,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.clock = clock;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
-        this.cmgMgr = cmgMgr;
         this.distributionZoneManager = distributionZoneManager;
         this.catalogManager = catalogManager;
 
@@ -603,7 +590,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     causalityToken,
                     parameters.tableDescriptor(),
                     zoneDescriptor,
-                    assignmentsFuture
+                    assignmentsFuture,
+                    catalogVersion
             ).whenComplete((v, e) -> {
                 if (e == null) {
                     for (var listener : assignmentsChangeListeners) {
@@ -1201,13 +1189,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
      * @param assignmentsFuture Future with assignments.
+     * @param catalogVersion Catalog version on which the table was created.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
     private CompletableFuture<Void> createTableLocally(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
-            CompletableFuture<List<Set<Assignment>>> assignmentsFuture
+            CompletableFuture<List<Set<Assignment>>> assignmentsFuture,
+            int catalogVersion
     ) {
         String tableName = tableDescriptor.name();
         int tableId = tableDescriptor.id();
@@ -1227,7 +1217,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         var table = new TableImpl(internalTable, lockMgr);
 
         // TODO: IGNITE-19082 Need another way to wait for indexes
-        table.addIndexesToWait(collectTableIndexIds(tableId));
+        table.addIndexesToWait(collectTableIndexIds(tableId, catalogVersion));
 
         tablesByIdVv.update(causalityToken, (previous, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
@@ -1779,7 +1769,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param th Throwable.
      * @return Public throwable.
      */
-    private RuntimeException convertThrowable(Throwable th) {
+    private static RuntimeException convertThrowable(Throwable th) {
         if (th instanceof RuntimeException) {
             return (RuntimeException) th;
         }
@@ -2302,11 +2292,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    // TODO: IGNITE-19499 Only catalog should be used
-    private int[] collectTableIndexIds(int tableId) {
-        return tablesCfg.value().indexes().stream()
-                .filter(tableIndexView -> tableIndexView.tableId() == tableId)
-                .mapToInt(TableIndexView::id)
+    private int[] collectTableIndexIds(int tableId, int catalogVersion) {
+        return catalogManager.indexes(catalogVersion).stream()
+                .filter(indexDescriptor -> indexDescriptor.tableId() == tableId)
+                .mapToInt(CatalogIndexDescriptor::id)
                 .toArray();
     }
 
@@ -2402,12 +2391,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         assert recoveryFinishFuture.isDone();
 
+        int catalogVersion = catalogManager.latestCatalogVersion();
         long causalityToken = recoveryFinishFuture.join();
 
         List<CompletableFuture<?>> fireEventFutures = new ArrayList<>();
 
-        for (TableView tableView : tablesCfg.tables().value()) {
-            fireEventFutures.add(fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableView.id())));
+        for (CatalogTableDescriptor tableDescriptor : catalogManager.tables(catalogVersion)) {
+            fireEventFutures.add(fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableDescriptor.id())));
         }
 
         startVv.update(causalityToken, (unused, throwable) -> allOf(fireEventFutures.toArray(CompletableFuture[]::new)))
