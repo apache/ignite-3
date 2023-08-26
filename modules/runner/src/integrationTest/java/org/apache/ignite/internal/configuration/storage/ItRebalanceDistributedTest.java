@@ -124,7 +124,6 @@ import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
@@ -607,6 +606,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         /** The future have to be complete after the node start and all Meta storage watches are deployd. */
         private CompletableFuture<Void> deployWatchesFut;
 
+        /** Hybrid clock. */
+        private final HybridClock clock = new HybridClockImpl();
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -641,11 +643,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             lockManager = new HeapLockManager();
 
-            HybridClock hybridClock = new HybridClockImpl();
-
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            raftManager = new Loza(clusterService, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
+            raftManager = new Loza(clusterService, raftConfiguration, dir, clock, raftGroupEventsClientListener);
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -664,16 +664,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     name,
                     clusterService,
                     cmgManager,
-                    hybridClock,
+                    clock,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class)
             );
 
             ReplicaService replicaSvc = new ReplicaService(
                     clusterService.messagingService(),
-                    hybridClock
+                    clock
             );
 
-            txManager = new TxManagerImpl(replicaSvc, lockManager, hybridClock, new TransactionIdGenerator(addr.port()));
+            txManager = new TxManagerImpl(replicaSvc, lockManager, clock, new TransactionIdGenerator(addr.port()));
 
             String nodeName = clusterService.nodeName();
 
@@ -697,7 +697,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     logicalTopologyService,
                     raftManager,
                     keyValueStorage,
-                    hybridClock,
+                    clock,
                     topologyAwareRaftGroupServiceFactory,
                     metaStorageConfiguration
             );
@@ -770,7 +770,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     clusterService);
 
-            clockWaiter = new ClockWaiter(name, hybridClock);
+            clockWaiter = new ClockWaiter(name, clock);
 
             catalogManager = new CatalogManagerImpl(
                     new UpdateLogImpl(metaStorageManager),
@@ -1099,10 +1099,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static @Nullable Integer getTableId(Node node, String tableName) {
-        TableConfiguration tableConfig = node.clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY).tables()
-                .get(tableName);
-
-        return tableConfig == null ? null : tableConfig.id().value();
+        return TableTestUtils.getTableId(node.catalogManager, tableName, node.clock.nowLong());
     }
 
     private Node getNode(int nodeIndex) {

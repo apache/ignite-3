@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
@@ -25,13 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
@@ -210,19 +207,15 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void checkSchemaUpdatedWithEqAlterColumn() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        Ignite node = CLUSTER_NODES.get(0);
+        IgniteImpl node = (IgniteImpl) CLUSTER_NODES.get(0);
 
-        ConfigurationManager cfgMgr = IgniteTestUtils.getFieldValue(node, "clusterCfgMgr");
-
-        TablesConfiguration tablesConfiguration = cfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
-
-        int schIdBefore = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
+        int tableVersionBefore = getTableStrict(node.catalogManager(), "TEST", node.clock().nowLong()).tableVersion();
 
         sql("ALTER TABLE TEST ADD COLUMN (VAL1 INT)");
 
-        int schIdAfter = ((ExtendedTableView) tablesConfiguration.tables().get("TEST").value()).schemaId();
+        int tableVersionAfter = getTableStrict(node.catalogManager(), "TEST", node.clock().nowLong()).tableVersion();
 
-        assertEquals(schIdBefore + 1, schIdAfter);
+        assertEquals(tableVersionBefore + 1, tableVersionAfter);
     }
 
     /**
