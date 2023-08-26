@@ -963,7 +963,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 localNode(),
                 table.internalTable().storage(),
                 indexBuilder,
-                tablesCfg
+                catalogManager
         );
     }
 
@@ -979,7 +979,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         );
     }
 
-    private PartitionKey partitionKey(InternalTable internalTbl, int partId) {
+    private static PartitionKey partitionKey(InternalTable internalTbl, int partId) {
         return new PartitionKey(internalTbl.tableId(), partId);
     }
 
@@ -1580,24 +1580,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
         try {
             return tablesById(causalityToken).thenApply(tablesById -> tablesById.get(id));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Asynchronously gets the table using causality token.
-     *
-     * @param causalityToken Causality token.
-     * @param name Table name.
-     * @return Future.
-     */
-    public CompletableFuture<TableImpl> tableAsync(long causalityToken, String name) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return tablesById(causalityToken).thenApply(tablesById -> findTableImplByName(tablesById.values(), name));
         } finally {
             busyLock.leaveBusy();
         }

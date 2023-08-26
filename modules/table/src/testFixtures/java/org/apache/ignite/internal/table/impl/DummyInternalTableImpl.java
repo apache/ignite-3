@@ -35,6 +35,7 @@ import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -57,7 +58,6 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -325,7 +325,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(ClusterNode.class),
                 mock(MvTableStorage.class),
                 mock(IndexBuilder.class),
-                mock(TablesConfiguration.class)
+                mock(CatalogService.class)
         );
 
         lenient().when(safeTime.waitFor(any())).thenReturn(completedFuture(null));

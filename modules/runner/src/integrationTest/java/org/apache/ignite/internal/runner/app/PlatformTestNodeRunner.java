@@ -85,7 +85,6 @@ import org.apache.ignite.table.Tuple;
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
  */
 @SuppressWarnings("CallToSystemGetenv")
-// TODO: IGNITE-19499 Use catalog only
 public class PlatformTestNodeRunner {
     /** Test node name. */
     private static final String NODE_NAME = PlatformTestNodeRunner.class.getCanonicalName();

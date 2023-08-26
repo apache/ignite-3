@@ -545,7 +545,7 @@ public class IgniteImpl implements Ignite {
                 catalogManager
         );
 
-        indexManager = new IndexManager(tablesConfig, schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
+        indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
 
         qryEngine = new SqlQueryProcessor(
                 registry,

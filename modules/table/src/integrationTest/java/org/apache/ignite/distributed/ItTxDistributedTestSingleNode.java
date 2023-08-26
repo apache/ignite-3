@@ -47,6 +47,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -77,7 +78,6 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -145,9 +145,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     @InjectConfiguration
     private static GcConfiguration gcConfig;
-
-    @InjectConfiguration("mock.tables.foo {}")
-    private static TablesConfiguration tablesConfig;
 
     private static final IgniteLogger LOG = Loggers.forClass(ItTxDistributedTestSingleNode.class);
 
@@ -525,7 +522,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 consistentIdToNode.apply(assignment),
                                                 mvTableStorage,
                                                 mock(IndexBuilder.class),
-                                                tablesConfig
+                                                mock(CatalogService.class)
                                         ),
                                         raftSvc,
                                         storageIndexTracker

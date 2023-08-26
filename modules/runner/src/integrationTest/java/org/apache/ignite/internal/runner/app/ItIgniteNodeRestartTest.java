@@ -381,7 +381,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 catalogManager
         );
 
-        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
+        var indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
 
         var metricManager = new MetricManager();
 

@@ -68,6 +68,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -87,7 +88,6 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
@@ -183,7 +183,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static final int FUTURE_SCHEMA_ROW_INDEXED_VALUE = 0;
 
     /** Table id. */
-    private final int tblId = 1;
+    private static final int tblId = 1;
 
     private final Map<UUID, Set<RowId>> pendingRows = new ConcurrentHashMap<>();
 
@@ -298,10 +298,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static final AtomicInteger nextMonotonicInt = new AtomicInteger(1);
 
     @BeforeEach
-    public void beforeTest(
-            @InjectConfiguration GcConfiguration gcConfig,
-            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig
-    ) {
+    public void beforeTest(@InjectConfiguration GcConfiguration gcConfig) {
         lenient().when(mockRaftClient.refreshAndGetLeaderWithTerm()).thenAnswer(invocationOnMock -> {
             if (!localLeader) {
                 return completedFuture(new LeaderWithTerm(new Peer(anotherNode.name()), 1L));
@@ -415,7 +412,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 localNode,
                 new TestMvTableStorage(tblId, DEFAULT_PARTITION_COUNT),
                 mock(IndexBuilder.class),
-                tablesConfig
+                mock(CatalogService.class)
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
