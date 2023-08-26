@@ -451,6 +451,12 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
+                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.BOOLEAN).build(),
+                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.BOOLEAN).nullable(true).build()
+        );
+
+        createTwoColumnTable(
+                ignite,
                 ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.INT16).build(),
                 ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.INT16).nullable(true).build()
         );

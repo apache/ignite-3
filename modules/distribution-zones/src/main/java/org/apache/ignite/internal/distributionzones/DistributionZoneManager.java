@@ -258,8 +258,6 @@ public class DistributionZoneManager implements IgniteComponent {
         inBusyLock(busyLock, () -> {
             registerCatalogEventListenersOnStartManagerBusy();
 
-            rebalanceEngine.start();
-
             logicalTopologyService.addEventListener(topologyEventListener);
 
             metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), topologyWatchListener);
@@ -267,6 +265,8 @@ public class DistributionZoneManager implements IgniteComponent {
             restoreGlobalStateFromVault();
 
             startZonesOnStartManagerBusy();
+
+            rebalanceEngine.start();
         });
     }
 
@@ -387,11 +387,8 @@ public class DistributionZoneManager implements IgniteComponent {
 
         vaultMgr.put(zonesFilterUpdateRevision(), longToBytes(causalityToken)).join();
 
-        saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken);
-
-        causalityDataNodesEngine.onUpdateFilter(causalityToken, zoneId, newFilter);
-
-        return completedFuture(null);
+        return saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken)
+                .thenAccept(unused -> causalityDataNodesEngine.onUpdateFilter(causalityToken, zoneId, newFilter));
     }
 
     /**
@@ -412,7 +409,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             ZoneState prevZoneState = zonesState.putIfAbsent(zoneId, zoneState);
 
-            assert prevZoneState == null : "Zone's state was created twice: zoneId=" + zoneId;
+            assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + ']';
 
             Set<Node> dataNodes = logicalTopology.stream().map(NodeWithAttributes::node).collect(toSet());
 
@@ -425,7 +422,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
             ZoneState prevZoneState = zonesState.putIfAbsent(zoneId, zoneState);
 
-            assert prevZoneState == null : "Zone's state was created twice: zoneId=" + zoneId;
+            assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + ']';
 
             Optional<Long> maxScaleUpRevision = zoneState.highestRevision(true);
 
@@ -1395,6 +1392,7 @@ public class DistributionZoneManager implements IgniteComponent {
         int catalogVersion = catalogManager.latestCatalogVersion();
         long causalityToken = recoveryFinishedFuture.join();
 
+        // TODO: IGNITE-20287 Clean up abandoned resources for dropped zones from volt and metastore
         for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
             createOrRestoreZoneStateBusy(zone, causalityToken);
         }
