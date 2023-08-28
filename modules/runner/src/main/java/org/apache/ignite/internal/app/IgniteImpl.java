@@ -492,8 +492,6 @@ public class IgniteImpl implements Ignite {
                 )
         );
 
-        schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
-
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry.getConfiguration(
                 SchemaSynchronizationConfiguration.KEY
         );
@@ -503,6 +501,8 @@ public class IgniteImpl implements Ignite {
                 clockWaiter,
                 () -> schemaSyncConfig.delayDuration().value()
         );
+
+        schemaManager = new SchemaManager(registry, metaStorageMgr, catalogManager);
 
         distributionZoneManager = new DistributionZoneManager(
                 name,

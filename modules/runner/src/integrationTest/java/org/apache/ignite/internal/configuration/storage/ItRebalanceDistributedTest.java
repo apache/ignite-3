@@ -777,7 +777,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clockWaiter
             );
 
-            schemaManager = new SchemaManager(registry, tablesCfg, metaStorageManager);
+            schemaManager = new SchemaManager(registry, metaStorageManager, catalogManager);
 
             distributionZoneManager = new DistributionZoneManager(
                     name,

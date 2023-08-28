@@ -74,6 +74,9 @@ public class ErrorGroups {
 
         /** Schema version mismatch. */
         public static final int SCHEMA_VERSION_MISMATCH_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 7);
+
+        /** Error registering the table schema. */
+        public static final int SCHEMA_REGISTRATION_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 8);
     }
 
     /** Client error group. */
