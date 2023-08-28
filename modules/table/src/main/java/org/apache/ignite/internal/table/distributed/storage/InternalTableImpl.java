@@ -64,7 +64,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -1559,16 +1558,16 @@ public class InternalTableImpl implements InternalTable {
         // TODO: sanpwc timeout
         return placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now())
                 .orTimeout(10, TimeUnit.SECONDS).handle((res, e) -> {
-            if (e != null) {
-                throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
-            } else {
-                if (res == null || res.getLeaseholder() == null) {
-                    throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
-                } else {
-                    return clusterNodeResolver.apply(res.getLeaseholder());
-                }
-            }
-        });
+                    if (e != null) {
+                        throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
+                    } else {
+                        if (res == null || res.getLeaseholder() == null) {
+                            throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
+                        } else {
+                            return clusterNodeResolver.apply(res.getLeaseholder());
+                        }
+                    }
+                });
     }
 
     /**
