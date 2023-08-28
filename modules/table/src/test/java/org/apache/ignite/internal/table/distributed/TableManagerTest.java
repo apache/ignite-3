@@ -642,7 +642,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         ));
 
         try (MockedStatic<SchemaUtils> schemaServiceMock = mockStatic(SchemaUtils.class)) {
-            schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(anyInt(), any()))
+            schemaServiceMock.when(() -> SchemaUtils.prepareSchemaDescriptor(any()))
                     .thenReturn(mock(SchemaDescriptor.class));
         }
 

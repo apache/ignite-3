@@ -344,7 +344,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
-                tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
                 vault,

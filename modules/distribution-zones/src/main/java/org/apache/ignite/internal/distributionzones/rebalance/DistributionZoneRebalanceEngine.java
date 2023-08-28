@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -251,8 +250,6 @@ public class DistributionZoneRebalanceEngine {
     private List<CatalogTableDescriptor> findTablesByZoneId(int zoneId, int catalogVersion) {
         return catalogService.tables(catalogVersion).stream()
                 .filter(table -> table.zoneId() == zoneId)
-                // TODO: IGNITE-19499 Get rid of this line
-                .map(tableDescriptor -> distributionZoneManager.getTableFromConfig(tableDescriptor.name())).filter(Objects::nonNull)
                 .collect(toList());
     }
 

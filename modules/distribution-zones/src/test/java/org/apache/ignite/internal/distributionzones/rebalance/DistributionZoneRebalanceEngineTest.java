@@ -41,7 +41,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -223,10 +222,6 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
-
-        // TODO: IGNITE-19499 Get rid of
-        when(distributionZoneManager.getTableFromConfig(anyString()))
-                .then(invocation -> catalogManager.table(invocation.getArgument(0), clock.nowLong()));
     }
 
     @AfterEach
