@@ -225,7 +225,6 @@ public class SystemViewTest {
         }
     }
 
-
     private static void expectColumn(SystemViewColumn<?, ?> col, String name, Class<?> type) {
         assertEquals(name, col.name(), "name");
         assertSame(type, col.type(), "type");
