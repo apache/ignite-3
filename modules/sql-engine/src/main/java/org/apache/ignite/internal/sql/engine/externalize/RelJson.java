@@ -676,6 +676,11 @@ class RelJson {
         List<Integer> keys = (List<Integer>) map.get("keys");
 
         switch (functionName) {
+            case "identity": {
+                assert keys.size() == 1;
+
+                return IgniteDistributions.identity(keys.get(0));
+            }
             case "hash":
                 return IgniteDistributions.hash(keys, DistributionFunction.hash());
             default: {

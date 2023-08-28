@@ -28,6 +28,7 @@ import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
@@ -36,7 +37,7 @@ import org.junit.jupiter.api.Test;
 /**
  * For {@link OutgoingSnapshotReader} testing.
  */
-public class OutgoingSnapshotReaderTest {
+public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
     @Test
     void testForChoosingMaximumAppliedIndexForMeta() {
         PartitionAccess partitionAccess = mock(PartitionAccess.class);

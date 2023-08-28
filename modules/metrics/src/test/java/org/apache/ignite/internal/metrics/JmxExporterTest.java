@@ -45,6 +45,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
 import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.AfterEach;
@@ -56,7 +57,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for {@link JmxExporter}.
  */
 @ExtendWith({ConfigurationExtension.class})
-public class JmxExporterTest {
+public class JmxExporterTest extends BaseIgniteAbstractTest {
     @InjectConfiguration(value = "mock.exporters = {jmx = {exporterName = jmx}}")
     private MetricConfiguration metricConfiguration;
 

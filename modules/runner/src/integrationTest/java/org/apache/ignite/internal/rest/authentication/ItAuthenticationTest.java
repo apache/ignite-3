@@ -41,6 +41,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.rest.RestNode;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -52,7 +53,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests for the REST authentication configuration. */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItAuthenticationTest {
+public class ItAuthenticationTest extends BaseIgniteAbstractTest {
 
     /** HTTP client that is expected to be defined in subclasses. */
     private HttpClient client;

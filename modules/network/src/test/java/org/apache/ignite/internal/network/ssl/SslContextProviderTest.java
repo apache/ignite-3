@@ -37,6 +37,7 @@ import java.security.cert.CertificateException;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.configuration.SslConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,7 +46,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
 @ExtendWith(ConfigurationExtension.class)
-class SslContextProviderTest {
+class SslContextProviderTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private SslConfiguration configuration;

@@ -43,4 +43,5 @@ public record PocoAllColumnsSql(
     [property:Column("TIMESTAMP")] Instant Timestamp,
     [property:Column("BLOB")] byte[] Blob,
     [property:Column("DECIMAL")] decimal Decimal,
-    [property:Column("UUID")] Guid Uuid);
+    [property:Column("UUID")] Guid Uuid,
+    bool Boolean);

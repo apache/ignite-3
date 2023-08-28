@@ -103,7 +103,7 @@ public class ColumnFamily {
      * @throws RocksDBException If failed.
      * @see RocksDB#get(ColumnFamilyHandle, byte[])
      */
-    public byte @Nullable [] get(byte [] key) throws RocksDBException {
+    public byte @Nullable [] get(byte[] key) throws RocksDBException {
         return db.get(cfHandle, key);
     }
 
@@ -115,7 +115,7 @@ public class ColumnFamily {
      * @throws RocksDBException If failed.
      * @see RocksDB#put(ColumnFamilyHandle, byte[], byte[])
      */
-    public void put(byte [] key, byte [] value) throws RocksDBException {
+    public void put(byte[] key, byte[] value) throws RocksDBException {
         db.put(cfHandle, key, value);
     }
 
@@ -128,7 +128,7 @@ public class ColumnFamily {
      * @throws RocksDBException If failed.
      * @see WriteBatch#put(ColumnFamilyHandle, byte[], byte[])
      */
-    public void put(WriteBatch batch, byte [] key, byte [] value) throws RocksDBException {
+    public void put(WriteBatch batch, byte[] key, byte[] value) throws RocksDBException {
         batch.put(cfHandle, key, value);
     }
 
@@ -139,7 +139,7 @@ public class ColumnFamily {
      * @throws RocksDBException If failed.
      * @see RocksDB#delete(ColumnFamilyHandle, byte[])
      */
-    public void delete(byte [] key) throws RocksDBException {
+    public void delete(byte[] key) throws RocksDBException {
         db.delete(cfHandle, key);
     }
 
@@ -151,7 +151,7 @@ public class ColumnFamily {
      * @throws RocksDBException If failed.
      * @see WriteBatch#delete(ColumnFamilyHandle, byte[])
      */
-    public void delete(WriteBatch batch, byte [] key) throws RocksDBException {
+    public void delete(WriteBatch batch, byte[] key) throws RocksDBException {
         batch.delete(cfHandle, key);
     }
 

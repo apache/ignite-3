@@ -562,7 +562,8 @@ namespace Apache.Ignite.Tests.Table
                 ["DateTime"] = dt,
                 ["Timestamp"] = Instant.FromDateTimeUtc(DateTime.UtcNow),
                 ["Blob"] = new byte[] { 1, 2, 3 },
-                ["Decimal"] = 123.456m
+                ["Decimal"] = 123.456m,
+                ["Boolean"] = true
             };
 
             await tupleView.UpsertAsync(null, tuple);
@@ -584,6 +585,7 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(tuple["Timestamp"], res["Timestamp"]);
             Assert.AreEqual(tuple["Time"], res["Time"]);
             Assert.AreEqual(tuple["DateTime"], res["DateTime"]);
+            Assert.AreEqual(tuple["Boolean"], res["Boolean"]);
         }
 
         [Test]

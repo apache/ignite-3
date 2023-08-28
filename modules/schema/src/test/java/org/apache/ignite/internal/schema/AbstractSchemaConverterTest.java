@@ -37,12 +37,13 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType.DecimalColumnType;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
  * Abstract class for schema converter tests.
  */
-public class AbstractSchemaConverterTest {
+public class AbstractSchemaConverterTest extends BaseIgniteAbstractTest {
     protected static final Map<NativeTypeSpec, List<Object>> DEFAULT_VALUES_TO_TEST;
 
     static {

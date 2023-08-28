@@ -38,6 +38,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     public async Task TestAllKeyTypes()
     {
         await TestKey((sbyte)1, TableInt8Name);
+        await TestKey(true, TableBoolName);
         await TestKey((short)1, TableInt16Name);
         await TestKey(1, TableInt32Name);
         await TestKey(1L, TableInt64Name);
@@ -88,7 +89,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     {
         var table = await Client.Tables.GetTableAsync(tableName);
 
-        Assert.IsNotNull(table, tableName);
+        Assert.IsNotNull(table, "Table must exist: " + tableName);
 
         await TestKey(val, table!.GetRecordView<T>());
     }

@@ -326,6 +326,7 @@ public class PlatformTestNodeRunner {
         ));
 
         createTwoColumnTable(node, ColumnType.INT8);
+        createTwoColumnTable(node, ColumnType.BOOLEAN);
         createTwoColumnTable(node, ColumnType.INT16);
         createTwoColumnTable(node, ColumnType.INT32);
         createTwoColumnTable(node, ColumnType.INT64);

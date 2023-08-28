@@ -28,6 +28,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
+import org.apache.ignite.tx.IgniteTransactions;
 
 /**
  * {@link QueryProcessor} that handles test {@link NativeTypeWrapper native type wrappers} .
@@ -71,11 +72,15 @@ public final class TestQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(SessionId sessionId, QueryContext context, String qry,
-            Object... params) {
-
+    public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
+            SessionId sessionId,
+            QueryContext context,
+            IgniteTransactions transactions,
+            String qry,
+            Object... params
+    ) {
         Object[] unwrappedParams = Arrays.stream(params).map(NativeTypeWrapper::unwrap).toArray();
 
-        return queryProcessor.querySingleAsync(sessionId, context, qry, unwrappedParams);
+        return queryProcessor.querySingleAsync(sessionId, context, transactions, qry, unwrappedParams);
     }
 }

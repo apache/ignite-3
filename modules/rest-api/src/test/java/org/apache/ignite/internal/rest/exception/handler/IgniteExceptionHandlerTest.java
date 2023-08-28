@@ -33,6 +33,7 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.Problem.ProblemBuilder;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,7 +41,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class IgniteExceptionHandlerTest {
+class IgniteExceptionHandlerTest extends BaseIgniteAbstractTest {
     private HttpRequest<?> request;
 
     private IgniteExceptionHandler exceptionHandler;

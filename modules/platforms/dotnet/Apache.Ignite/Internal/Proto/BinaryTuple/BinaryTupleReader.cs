@@ -93,18 +93,17 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public bool GetByteAsBool(int index) => GetByteAsBoolNullable(index) ?? ThrowNullElementException<bool>(index);
+        public bool GetBool(int index) => GetBoolNullable(index) ?? ThrowNullElementException<bool>(index);
 
         /// <summary>
         /// Gets a byte value as bool.
         /// </summary>
         /// <param name="index">Index.</param>
         /// <returns>Value.</returns>
-        public bool? GetByteAsBoolNullable(int index) => GetByteNullable(index) switch
+        public bool? GetBoolNullable(int index) => GetByteNullable(index) switch
         {
             null => null,
-            1 => true,
-            _ => false
+            { } b => BinaryTupleCommon.ByteToBool(b)
         };
 
         /// <summary>
@@ -482,7 +481,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 ColumnType.Datetime => GetDateTimeNullable(index),
                 ColumnType.Timestamp => GetTimestampNullable(index),
                 ColumnType.Number => GetNumberNullable(index),
-                ColumnType.Boolean => GetByteAsBoolNullable(index),
+                ColumnType.Boolean => GetBoolNullable(index),
                 ColumnType.Period => GetPeriodNullable(index),
                 ColumnType.Duration => GetDurationNullable(index),
                 _ => throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + columnType)

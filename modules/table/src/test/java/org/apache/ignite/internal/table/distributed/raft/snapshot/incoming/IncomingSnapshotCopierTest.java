@@ -85,6 +85,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -109,7 +110,7 @@ import org.mockito.Answers;
 /**
  * For {@link IncomingSnapshotCopier} testing.
  */
-public class IncomingSnapshotCopierTest {
+public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     private static final int TABLE_ID = 1;
 
     private static final String NODE_NAME = "node";

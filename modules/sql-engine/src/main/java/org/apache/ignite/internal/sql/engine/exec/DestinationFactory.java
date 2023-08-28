@@ -31,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.trait.AllNodes;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
+import org.apache.ignite.internal.sql.engine.trait.Identity;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.Partitioned;
 import org.apache.ignite.internal.sql.engine.trait.RandomNode;
@@ -43,16 +44,19 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * physical representation - {@link Destination} function.
  */
 class DestinationFactory<RowT> {
+    private final RowHandler<RowT> rowHandler;
     private final HashFunctionFactory<RowT> hashFunctionFactory;
     private final ResolvedDependencies dependencies;
 
     /**
      * Constructor.
      *
+     * @param rowHandler Row handler.
      * @param hashFunctionFactory Hash-function factory required to resolve hash-based distributions.
      * @param dependencies Dependencies required to resolve row value dependent distributions.
      */
-    DestinationFactory(HashFunctionFactory<RowT> hashFunctionFactory, ResolvedDependencies dependencies) {
+    DestinationFactory(RowHandler<RowT> rowHandler, HashFunctionFactory<RowT> hashFunctionFactory, ResolvedDependencies dependencies) {
+        this.rowHandler = rowHandler;
         this.hashFunctionFactory = hashFunctionFactory;
         this.dependencies = dependencies;
     }
@@ -82,6 +86,12 @@ class DestinationFactory<RowT> {
                 return new RandomNode<>(group.nodeNames());
             case HASH_DISTRIBUTED: {
                 ImmutableIntList keys = distribution.getKeys();
+
+                if ("identity".equals(function.name())) {
+                    assert !nullOrEmpty(group.nodeNames()) && !nullOrEmpty(keys) && keys.size() == 1;
+
+                    return new Identity<>(rowHandler, keys.get(0), group.nodeNames());
+                }
 
                 assert !nullOrEmpty(group.assignments()) && !nullOrEmpty(keys);
 

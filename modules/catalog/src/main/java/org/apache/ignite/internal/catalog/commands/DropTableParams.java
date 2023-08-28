@@ -17,19 +17,20 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-/**
- * DROP TABLE statement.
- */
+/** DROP TABLE statement. */
 public class DropTableParams extends AbstractTableCommandParams {
+    /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
     }
 
-    /**
-     * Parameters builder.
-     */
-    public static class Builder extends AbstractBuilder<DropTableParams, Builder> {
-        Builder() {
+    private DropTableParams() {
+        // No-op.
+    }
+
+    /** Parameters builder. */
+    public static class Builder extends AbstractTableBuilder<DropTableParams, Builder> {
+        private Builder() {
             super(new DropTableParams());
         }
     }
