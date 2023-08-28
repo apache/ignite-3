@@ -34,6 +34,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -159,7 +160,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                     mock(TxStateTableStorage.class),
                     replicaSvc,
                     mock(HybridClock.class),
-                    new TestPlacementDriver()
+                    mock(PlacementDriver.class)
             );
             this.dataAmount = dataAmount;
 

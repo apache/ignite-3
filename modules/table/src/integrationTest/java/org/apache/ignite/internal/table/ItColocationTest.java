@@ -239,7 +239,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new TestTxStateTableStorage(),
                 replicaService,
                 Mockito.mock(HybridClock.class),
-                new TestPlacementDriver()
+                new TestPlacementDriver(clusterNode.name())
         );
     }
 

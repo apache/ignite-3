@@ -99,6 +99,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
+    private static final ClusterNode LOCAL_NODE = mock(ClusterNode.class);
+
     public static final HybridClock CLOCK = new TestHybridClock(new LongSupplier() {
         @Override
         public long getAsLong() {
@@ -201,7 +203,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 nextTableId.getAndIncrement(),
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
-                name -> mock(ClusterNode.class),
+                name -> LOCAL_NODE,
                 txManager == null
                         ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef))
                         : txManager,
@@ -209,7 +211,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestTxStateTableStorage(),
                 replicaSvc,
                 CLOCK,
-                new TestPlacementDriver()
+                new TestPlacementDriver(LOCAL_NODE.name())
         );
         RaftGroupService svc = raftGroupServiceByPartitionId.get(0);
 
@@ -324,11 +326,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 transactionStateResolver,
                 storageUpdateHandler,
                 new DummySchemas(schemaManager),
-                mock(ClusterNode.class),
+                LOCAL_NODE,
                 mock(MvTableStorage.class),
                 mock(IndexBuilder.class),
                 mock(TablesConfiguration.class),
-                new TestPlacementDriver()
+                new TestPlacementDriver(LOCAL_NODE.name())
         );
 
         lenient().when(safeTime.waitFor(any())).thenReturn(completedFuture(null));
@@ -391,7 +393,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
-        return completedFuture(mock(ClusterNode.class));
+        return completedFuture(LOCAL_NODE);
     }
 
     /**

@@ -201,6 +201,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TEST_MV_PARTITION_STORAGE);
 
+        ClusterNode localNode = mock(ClusterNode.class);
+
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
                 mockRaftClient,
@@ -232,11 +234,11 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
                 ),
                 new DummySchemas(schemaManager),
-                mock(ClusterNode.class),
+                localNode,
                 new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT),
                 mock(IndexBuilder.class),
                 tablesConfig,
-                new TestPlacementDriver()
+                new TestPlacementDriver(localNode.name())
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

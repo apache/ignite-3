@@ -27,11 +27,6 @@ public class TestPlacementDriver implements PlacementDriver {
 
     private final TestReplicaMetaImpl primaryReplica;
 
-    // TODO: sanpwc remove.
-    public TestPlacementDriver() {
-        this.primaryReplica = null;
-    }
-
     public TestPlacementDriver(String leaseholder) {
         this.primaryReplica = new TestReplicaMetaImpl(leaseholder);
     }

@@ -112,6 +112,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
+    private static final String NODE_NAME = "node1";
+
     /** Factory to create RAFT command messages. */
     private final TableMessagesFactory msgFactory = new TableMessagesFactory();
 
@@ -155,7 +157,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     private ReplicaService replicaService;
 
     private final Function<String, ClusterNode> consistentIdToNode = addr
-            -> new ClusterNodeImpl("node1", "node1", new NetworkAddress(addr, 3333));
+            -> new ClusterNodeImpl(NODE_NAME, NODE_NAME, new NetworkAddress(addr, 3333));
 
     private final HybridClock hybridClock = new HybridClockImpl();
 
@@ -210,7 +212,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 new TestTxStateTableStorage(),
                 replicaService,
                 hybridClock,
-                new TestPlacementDriver()
+                new TestPlacementDriver(NODE_NAME)
         );
 
         closeables.add(() -> table.close());
