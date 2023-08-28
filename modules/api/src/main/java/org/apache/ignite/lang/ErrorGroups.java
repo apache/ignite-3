@@ -400,4 +400,15 @@ public class ErrorGroups {
         /** Class loader error. */
         public static final int CLASS_LOADER_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 2);
     }
+
+    /**
+     * System view error group.
+     */
+    public static class SysView {
+
+        public static final ErrorGroup SYSTEM_VIEWS_ERR_GROUP = ErrorGroup.newGroup("SYSVIEWS", (short) 17);
+
+        /** System view definition error. */
+        public static final int VIEW_DEFINITION_ERR = SYSTEM_VIEWS_ERR_GROUP.registerErrorCode((short) 1);
+    }
 }

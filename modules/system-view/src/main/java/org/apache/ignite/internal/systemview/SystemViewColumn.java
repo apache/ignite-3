@@ -19,6 +19,8 @@ package org.apache.ignite.internal.systemview;
 
 import java.util.Objects;
 import java.util.function.Function;
+import org.apache.ignite.lang.ErrorGroups.SysView;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * System view column.
@@ -36,9 +38,19 @@ public class SystemViewColumn<T, C> {
     private final Class<C> type;
 
     SystemViewColumn(String name, Class<C> type, Function<T, C> value) {
-        this.name = Objects.requireNonNull(name, "name");
-        this.type = Objects.requireNonNull(type, "type");
-        this.value = Objects.requireNonNull(value, "value");
+        if (name == null) {
+            throw new IgniteException(SysView.VIEW_DEFINITION_ERR, "Column name null can not be null");
+        }
+        if (type == null) {
+            throw new IgniteException(SysView.VIEW_DEFINITION_ERR, "Column type null can not be null");
+        }
+        if (value == null) {
+            throw new IgniteException(SysView.VIEW_DEFINITION_ERR, "Column value null can not be null");
+        }
+
+        this.name = name;
+        this.type = type;
+        this.value = value;
     }
 
     /**

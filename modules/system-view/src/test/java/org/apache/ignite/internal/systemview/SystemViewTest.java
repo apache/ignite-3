@@ -27,6 +27,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.systemview.NodeSystemView.Builder;
 import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.ErrorGroups.SysView;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -89,7 +92,7 @@ public class SystemViewTest {
                     .addColumn("c1", int.class, (d) -> 0)
                     .dataProvider(dataProvider())
                     .build();
-        }, "nodeNameColumnAlias");
+        }, "Node name column alias can not be null");
     }
 
     /**
@@ -136,7 +139,7 @@ public class SystemViewTest {
                         .addColumn("c1", int.class, (d) -> 0)
                         .dataProvider(dataProvider())
                         .build();
-            }, "name");
+            }, "Name can not be null");
         }
 
         /** Reject a view without name. */
@@ -147,7 +150,7 @@ public class SystemViewTest {
                         .addColumn("c1", int.class, (d) -> 0)
                         .dataProvider(dataProvider())
                         .build();
-            }, "name");
+            }, "Name can not be null");
         }
 
         /** Reject a view without columns. */
@@ -158,7 +161,7 @@ public class SystemViewTest {
                         .name("dummy")
                         .dataProvider(dataProvider())
                         .build();
-            }, "SystemView should have at least one column");
+            }, "Columns should not be empty");
         }
 
         /** Reject a view with {@code null} column name. */
@@ -170,7 +173,7 @@ public class SystemViewTest {
                         .addColumn(null, int.class, (d) -> 0)
                         .dataProvider(dataProvider())
                         .build();
-            }, "name");
+            }, "Column name null can not be null");
         }
 
         /** Reject a view with {@code null} column type. */
@@ -182,7 +185,7 @@ public class SystemViewTest {
                         .addColumn("c1", null, (d) -> 0)
                         .dataProvider(dataProvider())
                         .build();
-            }, "type");
+            }, "Column type null can not be null");
         }
 
         /** Reject a view with {@code null} column value function. */
@@ -194,7 +197,7 @@ public class SystemViewTest {
                         .addColumn("c1", int.class, null)
                         .dataProvider(dataProvider())
                         .build();
-            }, "value");
+            }, "Column value null can not be null");
         }
 
 
@@ -206,7 +209,7 @@ public class SystemViewTest {
                         .name("dummy")
                         .addColumn("c1", int.class, (d) -> 0)
                         .build();
-            }, "dataProvider");
+            }, "DataProvider can not be null");
         }
 
         /** Reject a view with {@code null} data provider. */
@@ -218,7 +221,7 @@ public class SystemViewTest {
                         .addColumn("c1", int.class, (d) -> 0)
                         .dataProvider(null)
                         .build();
-            }, "dataProvider");
+            }, "DataProvider can not be null");
         }
     }
 
@@ -235,7 +238,8 @@ public class SystemViewTest {
     }
 
     private static void expectThrows(Class<? extends Throwable> type, Executable action, String errorMessage) {
-        Throwable t = assertThrows(type, action);
+        IgniteException t = assertThrows(IgniteException.class, action);
+        assertEquals(SysView.VIEW_DEFINITION_ERR, t.code(), "error code");
         assertEquals(errorMessage, t.getMessage());
     }
 
