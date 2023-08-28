@@ -234,7 +234,6 @@ public class SystemViewTest {
 
     private static final class Dummy {
 
-
     }
 
     private static void expectThrows(Class<? extends Throwable> type, Executable action, String errorMessage) {
