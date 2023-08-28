@@ -19,7 +19,6 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
@@ -51,7 +50,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -62,16 +60,11 @@ import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters.Builder;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesView;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -132,7 +125,7 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter
     ) {
-        createZone(catalogManager, zoneName, null, null, dataNodesAutoAdjustScaleDown, dataNodesAutoAdjustScaleDown, filter, null);
+        createZone(catalogManager, zoneName, null, null, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter, null);
     }
 
     private static void createZone(
@@ -172,95 +165,6 @@ public class DistributionZonesTestUtil {
         }
 
         assertThat(catalogManager.createZone(builder.build()), willCompleteSuccessfully());
-    }
-
-    /**
-     * Creates distribution zone.
-     *
-     * @param zoneManager Zone manager.
-     * @param zoneName Zone name.
-     * @param partitions Zone number of partitions.
-     * @param replicas Zone number of replicas.
-     * @param dataStorageChangeConsumer Consumer of {@link DataStorageChange}, which sets the right data storage options.
-     */
-    public static void createZone(
-            DistributionZoneManager zoneManager,
-            String zoneName,
-            int partitions,
-            int replicas,
-            @Nullable Consumer<DataStorageChange> dataStorageChangeConsumer
-    ) {
-        var distributionZoneCfgBuilder = new Builder(zoneName)
-                .replicas(replicas)
-                .partitions(partitions)
-                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
-
-        if (dataStorageChangeConsumer != null) {
-            distributionZoneCfgBuilder.dataStorageChangeConsumer(dataStorageChangeConsumer);
-        }
-
-        assertThat(zoneManager.createZone(distributionZoneCfgBuilder.build()), willCompleteSuccessfully());
-    }
-
-    /**
-     * Creates distribution zone.
-     *
-     * @param zoneManager Zone manager.
-     * @param zoneName Zone name.
-     * @param partitions Zone number of partitions.
-     * @param replicas Zone number of replicas.
-     */
-    public static void createZone(
-            DistributionZoneManager zoneManager,
-            String zoneName,
-            int partitions,
-            int replicas
-    ) {
-        createZone(zoneManager, zoneName, partitions, replicas, null);
-    }
-
-    /**
-     * Creates a distribution zone in the configuration.
-     *
-     * @param distributionZoneManager Distributed zone manager.
-     * @param zoneName Zone name.
-     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
-     *         {@code null} if not set.
-     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
-     *         {@code null} if not set.
-     * @param filter Nodes filter, {@code null} if not set.
-     */
-    public static void createZone(
-            DistributionZoneManager distributionZoneManager,
-            String zoneName,
-            @Nullable Integer dataNodesAutoAdjustScaleUp,
-            @Nullable Integer dataNodesAutoAdjustScaleDown,
-            @Nullable String filter
-    ) {
-        assertThat(
-                distributionZoneManager.createZone(
-                        createParameters(zoneName, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter)
-                ),
-                willCompleteSuccessfully()
-        );
-    }
-
-    /**
-     * Alter the number of zone replicas.
-     *
-     * @param zoneManager Zone manager.
-     * @param zoneName Zone name.
-     * @param replicas The new number of zone replicas.
-     * @return A future, which will be completed, when update operation finished.
-     */
-    public static CompletableFuture<Void> alterZoneReplicas(DistributionZoneManager zoneManager, String zoneName, int replicas) {
-        var distributionZoneCfgBuilder = new Builder(zoneName)
-                .replicas(replicas)
-                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
-
-        return zoneManager.alterZone(zoneName, distributionZoneCfgBuilder.build());
     }
 
     /**
@@ -595,44 +499,6 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Alters a distribution zone in the configuration.
-     *
-     * @param distributionZoneManager Distributed zone manager.
-     * @param zoneName Zone name.
-     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch,
-     *         {@code null} if not set.
-     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch,
-     *         {@code null} if not set.
-     * @param filter Nodes filter, {@code null} if not set.
-     */
-    public static void alterZone(
-            DistributionZoneManager distributionZoneManager,
-            String zoneName,
-            @Nullable Integer dataNodesAutoAdjustScaleUp,
-            @Nullable Integer dataNodesAutoAdjustScaleDown,
-            @Nullable String filter
-    ) {
-        assertThat(
-                distributionZoneManager.alterZone(
-                        zoneName,
-                        createParameters(zoneName, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter)
-                ),
-                willCompleteSuccessfully()
-        );
-    }
-
-    /**
-     * Alters a distribution zone in the catalog.
-     *
-     * @param catalogManager Catalog manager.
-     * @param zoneName Zone name.
-     * @param replicas New number of zone replicas.
-     */
-    public static void alterZone(CatalogManager catalogManager, String zoneName, int replicas) {
-        alterZone(catalogManager, zoneName, replicas, null, null, null);
-    }
-
-    /**
      * Alters a distribution zone in the catalog.
      *
      * @param catalogManager Catalog manager.
@@ -651,6 +517,17 @@ public class DistributionZonesTestUtil {
             @Nullable String filter
     ) {
         alterZone(catalogManager, zoneName, null, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown, filter);
+    }
+
+    /**
+     * Alters a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param replicas New number of zone replicas.
+     */
+    public static void alterZone(CatalogManager catalogManager, String zoneName, int replicas) {
+        alterZone(catalogManager, zoneName, replicas, null, null, null);
     }
 
     private static void alterZone(
@@ -683,19 +560,6 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Drops a distribution zone in the configuration.
-     *
-     * @param distributionZoneManager Distributed zone manager.
-     * @param zoneName Zone name.
-     */
-    public static void dropZone(
-            DistributionZoneManager distributionZoneManager,
-            String zoneName
-    ) {
-        assertThat(distributionZoneManager.dropZone(zoneName), willCompleteSuccessfully());
-    }
-
-    /**
      * Drops a distribution zone from the catalog.
      *
      * @param catalogManager Catalog manager.
@@ -705,27 +569,15 @@ public class DistributionZonesTestUtil {
         assertThat(catalogManager.dropZone(DropZoneParams.builder().zoneName(zoneName).build()), willCompleteSuccessfully());
     }
 
-    private static DistributionZoneConfigurationParameters createParameters(
-            String zoneName,
-            @Nullable Integer dataNodesAutoAdjustScaleUp,
-            @Nullable Integer dataNodesAutoAdjustScaleDown,
-            @Nullable String filter
-    ) {
-        DistributionZoneConfigurationParameters.Builder builder = new DistributionZoneConfigurationParameters.Builder(zoneName);
-
-        if (dataNodesAutoAdjustScaleUp != null) {
-            builder.dataNodesAutoAdjustScaleUp(dataNodesAutoAdjustScaleUp);
-        }
-
-        if (dataNodesAutoAdjustScaleDown != null) {
-            builder.dataNodesAutoAdjustScaleDown(dataNodesAutoAdjustScaleDown);
-        }
-
-        if (filter != null) {
-            builder.filter(filter);
-        }
-
-        return builder.build();
+    /**
+     * Returns distributed zone by ID from catalog, {@code null} if zone is absent.
+     *
+     * @param catalogService Catalog service.
+     * @param zoneId Zone ID.
+     * @param timestamp Timestamp.
+     */
+    public static @Nullable CatalogZoneDescriptor getZoneById(CatalogService catalogService, int zoneId, long timestamp) {
+        return catalogService.zone(zoneId, timestamp);
     }
 
     /**
@@ -739,41 +591,6 @@ public class DistributionZonesTestUtil {
         CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
 
         return zone == null ? null : zone.id();
-    }
-
-    /**
-     * Returns the zone ID from the configuration, {@code null} if the zone was not found.
-     *
-     * @param config Zones configuration.
-     * @param zoneName Zone name.
-     */
-    public static @Nullable Integer getZoneId(DistributionZonesConfiguration config, String zoneName) {
-        DistributionZonesView zonesView = config.value();
-
-        DistributionZoneView defaultZone = zonesView.defaultDistributionZone();
-
-        if (defaultZone.name().equals(zoneName)) {
-            return defaultZone.zoneId();
-        } else {
-            DistributionZoneView zone = zonesView.distributionZones().get(zoneName);
-
-            return zone == null ? null : zone.zoneId();
-        }
-    }
-
-    /**
-     * Returns the zone ID from the configuration, {@code null} if the zone was not found.
-     *
-     * @param config Zones configuration.
-     * @param zoneName Zone name.
-     * @throws AssertionError If the zone was not found.
-     */
-    public static int getZoneIdStrict(DistributionZonesConfiguration config, String zoneName) {
-        Integer zoneId = getZoneId(config, zoneName);
-
-        assertNotNull(zoneId, zoneName);
-
-        return zoneId;
     }
 
     /**

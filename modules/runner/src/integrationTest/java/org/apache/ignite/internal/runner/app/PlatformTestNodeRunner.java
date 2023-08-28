@@ -360,6 +360,12 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
+                ColumnParams.builder().name("KEY").type(BOOLEAN).build(),
+                ColumnParams.builder().name("VAL").type(BOOLEAN).nullable(true).build()
+        );
+
+        createTwoColumnTable(
+                ignite,
                 ColumnParams.builder().name("KEY").type(INT16).build(),
                 ColumnParams.builder().name("VAL").type(INT16).nullable(true).build()
         );

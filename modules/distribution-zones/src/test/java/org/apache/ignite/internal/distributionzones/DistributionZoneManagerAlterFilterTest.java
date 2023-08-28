@@ -252,7 +252,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         if (DEFAULT_ZONE_NAME.equals(zoneName)) {
             alterZone(DEFAULT_ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER);
         } else {
-            createZone(zoneName, scaleUpTimer, scaleDownTimer, FILTER);
+            createZone(ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER);
         }
 
         assertDataNodesFromManager(distributionZoneManager, () -> metaStorageManager.appliedRevision(), getZoneId(zoneName), Set.of(A, C),

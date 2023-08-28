@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZoneReplicas;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -94,7 +93,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -133,7 +131,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
-import org.apache.ignite.internal.storage.impl.schema.TestDataStorageChange;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
@@ -185,7 +183,6 @@ import org.mockito.Mockito;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 @Timeout(120)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-20114")
 public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
 
@@ -709,7 +706,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY,
-                            DistributionZonesConfiguration.KEY,
                             GcConfiguration.KEY
                     ),
                     List.of(ExtendedTableConfigurationSchema.class),
@@ -729,7 +725,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY,
-                            DistributionZonesConfiguration.KEY,
                             GcConfiguration.KEY
                     ),
                     cfgStorage,
@@ -743,8 +738,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager.registerRevisionUpdateListener(function::apply);
 
             TablesConfiguration tablesCfg = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
-
-            DistributionZonesConfiguration zonesCfg = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
 
             GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
@@ -782,7 +775,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             distributionZoneManager = new DistributionZoneManager(
                     name,
                     registry,
-                    zonesCfg,
                     tablesCfg,
                     metaStorageManager,
                     logicalTopologyService,
@@ -1071,17 +1063,17 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testDataStorage) {
-        DistributionZonesTestUtil.createZone(
-                node.distributionZoneManager,
+        DistributionZonesTestUtil.createZoneWithDataStorage(
+                node.catalogManager,
                 zoneName,
                 partitions,
                 replicas,
-                testDataStorage ? (dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class)) : null
+                testDataStorage ? TestStorageEngine.ENGINE_NAME : null
         );
     }
 
     private static void alterZone(Node node, String zoneName, int replicas) {
-        alterZoneReplicas(node.distributionZoneManager, zoneName, replicas);
+        DistributionZonesTestUtil.alterZone(node.catalogManager, zoneName, replicas);
     }
 
     private static void createTable(Node node, String zoneName, String tableName) {

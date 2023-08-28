@@ -661,14 +661,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param causalityToken Causality token.
      * @param assignmentsFuture Table assignments.
-     * @param zoneId Distributed zone ID.
      * @param table Initialized table entity.
      * @return future, which will be completed when the partitions creations done.
      */
     private CompletableFuture<?> createTablePartitionsLocally(
             long causalityToken,
             CompletableFuture<List<Set<Assignment>>> assignmentsFuture,
-            int zoneId,
             TableImpl table
     ) {
         int tableId = table.tableId();
@@ -1236,7 +1234,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
         }));
 
-        CompletableFuture<?> createPartsFut = createTablePartitionsLocally(causalityToken, assignmentsFuture, zoneDescriptor.id(), table);
+        CompletableFuture<?> createPartsFut = createTablePartitionsLocally(causalityToken, assignmentsFuture, table);
 
         pendingTables.put(tableId, table);
         startedTables.put(tableId, table);
@@ -2349,7 +2347,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private CatalogZoneDescriptor getZoneDescriptor(CatalogTableDescriptor tableDescriptor, int catalogVersion) {
-
         CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(tableDescriptor.zoneId(), catalogVersion);
 
         assert zoneDescriptor != null :

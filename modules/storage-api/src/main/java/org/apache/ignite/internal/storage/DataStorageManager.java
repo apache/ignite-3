@@ -23,7 +23,6 @@ import java.util.function.Consumer;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageChange;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
@@ -76,13 +75,12 @@ public class DataStorageManager implements IgniteComponent {
     }
 
     /**
-     * Creates a consumer that will change the {@link DataStorageConfigurationSchema data storage} for the {@link
-     * DistributionZoneConfiguration#dataStorage}.
+     * Creates a consumer that will change the {@link DataStorageConfigurationSchema data storage}.
      *
      * @param dataStorage Data storage.
      * @param values {@link Value Values} for the data storage. Mapping: field name -> field value.
      */
-    // TODO: IGNITE-20114 Get rid of
+    // TODO: IGNITE-20263 Get rid of
     public Consumer<DataStorageChange> zoneDataStorageConsumer(String dataStorage, Map<String, Object> values) {
         ConfigurationSource configurationSource = new ConfigurationSource() {
             /** {@inheritDoc} */

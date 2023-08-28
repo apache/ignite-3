@@ -224,15 +224,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
 
-        // TODO: IGNITE-20114 Get rid of lines below
-        int defaultZoneId = getZoneId(DEFAULT_ZONE_NAME);
-        int zoneId0 = getZoneId(ZONE_NAME_0);
-        int zoneId1 = getZoneId(ZONE_NAME_1);
-
-        when(distributionZoneManager.getZoneName(defaultZoneId)).thenReturn(DEFAULT_ZONE_NAME);
-        when(distributionZoneManager.getZoneName(zoneId0)).thenReturn(ZONE_NAME_0);
-        when(distributionZoneManager.getZoneName(zoneId1)).thenReturn(ZONE_NAME_1);
-
+        // TODO: IGNITE-19499 Get rid of
         when(distributionZoneManager.getTableFromConfig(anyString()))
                 .then(invocation -> catalogManager.table(invocation.getArgument(0), clock.nowLong()));
     }

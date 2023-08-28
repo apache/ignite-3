@@ -41,7 +41,6 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexManager;
@@ -174,9 +173,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Transaction manager. */
     private final TxManager txManager;
 
-    /** Distribution zones manager. */
-    private final DistributionZoneManager distributionZoneManager;
-
     /** Clock. */
     private final HybridClock clock;
 
@@ -198,7 +194,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             TxManager txManager,
-            DistributionZoneManager distributionZoneManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
             HybridClock clock,
@@ -211,7 +206,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
         this.txManager = txManager;
-        this.distributionZoneManager = distributionZoneManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
         this.clock = clock;
@@ -259,11 +253,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.prepareSvc = prepareSvc;
 
-        var ddlCommandHandler = new DdlCommandHandler(
-                distributionZoneManager,
-                dataStorageManager,
-                catalogManager
-        );
+        var ddlCommandHandler = new DdlCommandHandler(catalogManager);
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, TABLE_CACHE_SIZE);
 
