@@ -65,7 +65,9 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
             int requiredCatalogVersion = readRequiredCatalogVersionForMeta(allData, entry, node.getOptions().requiredCommandsMarshaller());
 
             if (requiredCatalogVersion != NO_VERSION_REQUIREMENT && !isMetadataAvailableFor(requiredCatalogVersion)) {
+                // TODO: IGNITE-20298 - throttle logging.
                 LOG.warn("Metadata not yet available, group {}, required level {}.", request.groupId(), requiredCatalogVersion);
+
                 return RaftRpcFactory.DEFAULT //
                     .newResponse(node.getRaftOptions().getRaftMessagesFactory(), RaftError.EBUSY,
                             "Metadata not yet available, group '%s', required level %d.", request.groupId(), requiredCatalogVersion);
