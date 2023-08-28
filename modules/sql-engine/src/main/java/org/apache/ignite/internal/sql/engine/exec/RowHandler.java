@@ -28,8 +28,8 @@ public interface RowHandler<RowT> {
     /**
      * Extract appropriate field.
      *
-     * @param field index position.
-     * @param row object to be extracted from.
+     * @param field Field position to be processed.
+     * @param row Object to be extracted from.
      */
     @Nullable Object get(int field, RowT row);
 
@@ -50,7 +50,7 @@ public interface RowHandler<RowT> {
     /**
      * Assembly row representation as ByteBuffer.
      *
-     * @param row incoming data.
+     * @param row Incoming data to be processed.
      * @return {@link ByteBuffer} representation.
      */
     ByteBuffer toByteBuffer(RowT row);
@@ -75,8 +75,8 @@ public interface RowHandler<RowT> {
         /**
          * Create row using incoming objects.
          *
-         * @param fields sequential objects definitions output row will be created from.
-         * @return row representation.
+         * @param fields Sequential objects definitions output row will be created from.
+         * @return Instantiation defined representation.
          */
         RowT create(Object... fields);
 
@@ -84,7 +84,7 @@ public interface RowHandler<RowT> {
          * Create row using incoming {@link ByteBuffer}.
          *
          * @param raw {@link ByteBuffer} representation.
-         * @return row representation.
+         * @return Instantiation defined representation.
          */
         RowT create(ByteBuffer raw);
     }
