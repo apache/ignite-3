@@ -2597,7 +2597,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private boolean isLocalPeer(String nodeName) {
-        return nodeName.equals(localNode.name());
+        return localNode.name().equals(nodeName);
     }
 
     private void inBusyLock(Runnable runnable) {
