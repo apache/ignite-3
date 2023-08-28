@@ -249,12 +249,13 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     @Test
     public void select() throws Exception {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
 
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 4).build();
+
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            ses.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
 
         ResultSet<SqlRow> rs = ses.execute(null, "SELECT ID FROM TEST");
 
@@ -272,12 +273,12 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     @Test
     public void errors() throws InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT NOT NULL)");
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
-
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(2).build();
+
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            ses.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
 
         // Parse error.
         checkError(SqlException.class, STMT_PARSE_ERR, "Failed to parse query", ses, "SELECT ID FROM");
@@ -420,12 +421,13 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     @Test
     public void resultSetCloseShouldFinishImplicitTransaction() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
 
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(2).build();
+
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            ses.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
 
         ResultSet<?> rs = ses.execute(null, "SELECT * FROM TEST");
         assertEquals(1, txManager().pending());

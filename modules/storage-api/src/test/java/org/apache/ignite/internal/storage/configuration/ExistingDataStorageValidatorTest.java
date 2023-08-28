@@ -26,12 +26,13 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.configuration.storage.ExistingDataStorage;
 import org.apache.ignite.internal.storage.DataStorageModule;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link ExistingDataStorageValidator} testing.
  */
-public class ExistingDataStorageValidatorTest {
+public class ExistingDataStorageValidatorTest extends BaseIgniteAbstractTest {
     @Test
     void testFailValidation() {
         ExistingDataStorage annotation = mock(ExistingDataStorage.class);

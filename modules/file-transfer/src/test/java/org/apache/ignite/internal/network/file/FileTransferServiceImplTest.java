@@ -54,6 +54,7 @@ import org.apache.ignite.internal.network.file.messages.FileTransferInitMessage;
 import org.apache.ignite.internal.network.file.messages.FileTransferInitResponse;
 import org.apache.ignite.internal.network.file.messages.FileTransferMessageType;
 import org.apache.ignite.internal.network.file.messages.Identifier;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -69,7 +70,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-class FileTransferServiceImplTest {
+class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
     private static final String SOURCE_CONSISTENT_ID = "source";
 
     private static final String TARGET_CONSISTENT_ID = "target";

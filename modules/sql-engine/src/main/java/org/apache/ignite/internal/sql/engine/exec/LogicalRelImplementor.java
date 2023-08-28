@@ -158,7 +158,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         this.resolvedDependencies = resolvedDependencies;
 
         expressionFactory = ctx.expressionFactory();
-        destinationFactory = new DestinationFactory<>(hashFuncFactory, resolvedDependencies);
+        destinationFactory = new DestinationFactory<>(ctx.rowHandler(), hashFuncFactory, resolvedDependencies);
     }
 
     /** {@inheritDoc} */
@@ -620,9 +620,15 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteReceiver rel) {
+        RelDataType rowType = rel.getRowType();
+
+        RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
+
         Inbox<RowT> inbox = new Inbox<>(ctx, exchangeSvc, mailboxRegistry,
                 ctx.remotes(rel.exchangeId()), expressionFactory.comparator(rel.collation()),
-                rel.exchangeId(), rel.sourceFragmentId());
+                rowFactory, rel.exchangeId(), rel.sourceFragmentId());
 
         mailboxRegistry.register(inbox);
 

@@ -48,6 +48,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,7 +60,7 @@ import org.mockito.Mockito;
 /**
  * Unit tests for PreparedStatement methods.
  */
-public class PreparedStatementParamsTest {
+public class PreparedStatementParamsTest extends BaseIgniteAbstractTest {
 
     /** Values for supported JDBC types. */
     private static final Map<JDBCType, Object> SUPPORTED_TYPES = new HashMap<>();

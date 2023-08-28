@@ -33,6 +33,7 @@ dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
 
+    testImplementation testFixtures(project(":ignite-core"))
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core
 

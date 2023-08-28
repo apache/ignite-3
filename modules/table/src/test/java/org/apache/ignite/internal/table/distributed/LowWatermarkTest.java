@@ -46,6 +46,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -61,7 +62,7 @@ import org.mockito.InOrder;
  * For {@link LowWatermark} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class LowWatermarkTest {
+public class LowWatermarkTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private LowWatermarkConfiguration lowWatermarkConfig;
 

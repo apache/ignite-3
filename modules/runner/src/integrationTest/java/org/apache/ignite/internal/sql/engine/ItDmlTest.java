@@ -32,11 +32,13 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -187,6 +189,17 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT count(*) FROM test")
                 .returns(0L)
                 .check();
+    }
+
+    @Test
+    public void testNullDefault() {
+        sql("CREATE TABLE test_null_def (id INTEGER PRIMARY KEY, col INTEGER DEFAULT NULL)");
+
+        sql("INSERT INTO test_null_def VALUES(1, DEFAULT)");
+        assertQuery("SELECT col FROM test_null_def WHERE id = 1").returns(null).check();
+
+        sql("INSERT INTO test_null_def (id, col) VALUES(2, DEFAULT)");
+        assertQuery("SELECT col FROM test_null_def WHERE id = 2").returns(null).check();
     }
 
     /**Test full MERGE command. */
@@ -440,9 +453,8 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertEquals(3, pkVals.size());
     }
 
-    @Test
-    public void testInsertDefaultValue() {
-        var args = List.of(
+    private static Stream<DefaultValueArg> defaultValueArgs() {
+        return Stream.of(
                 new DefaultValueArg("BOOLEAN", "TRUE", Boolean.TRUE),
                 new DefaultValueArg("BOOLEAN NOT NULL", "TRUE", Boolean.TRUE),
 
@@ -476,8 +488,11 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 // TODO: IGNITE-17374
                 // new DefaultValueArg("VARBINARY", "x'010203'", new byte[]{1, 2, 3})
         );
+    }
 
-        checkDefaultValue(args);
+    @Test
+    public void testInsertDefaultValue() {
+        checkDefaultValue(defaultValueArgs().collect(Collectors.toList()));
 
         checkWrongDefault("VARCHAR", "10");
         checkWrongDefault("INT", "'10'");
@@ -493,6 +508,14 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         checkWrongDefault("VARBINARY", "'10'");
         checkWrongDefault("VARBINARY", "10");
+    }
+
+    @Test
+    public void testInsertDefaultNullValue() {
+        checkDefaultValue(defaultValueArgs()
+                .filter(a -> !a.sqlType.endsWith("NOT NULL"))
+                .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
+                .collect(Collectors.toList()));
     }
 
     private void checkDefaultValue(List<DefaultValueArg> args) {
@@ -566,10 +589,15 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         final String sqlVal;
         final Object expectedVal;
 
-        private DefaultValueArg(String sqlType, String sqlVal, Object expectedVal) {
+        private DefaultValueArg(String sqlType, String sqlVal, @Nullable Object expectedVal) {
             this.sqlType = sqlType;
             this.sqlVal = sqlVal;
             this.expectedVal = expectedVal;
+        }
+
+        @Override
+        public String toString() {
+            return sqlType + " sql val: " + sqlVal + " java val: " + expectedVal;
         }
     }
 

@@ -646,7 +646,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         public boolean test(RowT r) {
             scalar.execute(ctx, r, out);
 
-            return Boolean.TRUE == hnd.get(0, out);
+            return Boolean.TRUE.equals(hnd.get(0, out));
         }
     }
 
@@ -662,7 +662,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         @Override
         public boolean test(RowT r1, RowT r2) {
             scalar.execute(ctx, r1, r2, out);
-            return Boolean.TRUE == hnd.get(0, out);
+            return Boolean.TRUE.equals(hnd.get(0, out));
         }
     }
 

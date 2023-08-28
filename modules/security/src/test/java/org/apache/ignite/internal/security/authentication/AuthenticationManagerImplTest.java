@@ -30,13 +30,14 @@ import org.apache.ignite.internal.configuration.AuthenticationView;
 import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.security.AuthenticationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 
 @ExtendWith(ConfigurationExtension.class)
-class AuthenticationManagerImplTest {
+class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
     private final AuthenticationManagerImpl manager = new AuthenticationManagerImpl();
 

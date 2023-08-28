@@ -480,7 +480,8 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
                 createExchangeService(taskExecutor, serviceFactory.forNode(localNode.name()), mailboxRegistry));
 
         Inbox<Object[]> inbox = new Inbox<>(
-                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
+                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, rowFactory(),
+                SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
         );
 
         mailboxRegistry.register(inbox);

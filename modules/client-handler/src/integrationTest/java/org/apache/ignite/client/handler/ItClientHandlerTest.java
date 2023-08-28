@@ -36,6 +36,7 @@ import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
 import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +48,7 @@ import org.msgpack.core.MessagePack;
  * Client connector integration tests with real sockets.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ItClientHandlerTest {
+public class ItClientHandlerTest extends BaseIgniteAbstractTest {
     private ClientHandlerModule serverModule;
 
     private TestServer testServer;

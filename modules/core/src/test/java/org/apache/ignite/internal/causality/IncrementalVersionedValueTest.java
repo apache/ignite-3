@@ -52,6 +52,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
@@ -60,7 +61,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link IncrementalVersionedValue}.
  */
-public class IncrementalVersionedValueTest {
+public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
     /** Test value. */
     private static final int TEST_VALUE = 1;
 

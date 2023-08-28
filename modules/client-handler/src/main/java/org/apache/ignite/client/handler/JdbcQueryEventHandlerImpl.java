@@ -165,6 +165,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
                 context,
+                igniteTransactions,
                 req.sqlQuery(),
                 req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments()
         ));
@@ -271,6 +272,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connCtx.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
                 queryContext,
+                igniteTransactions,
                 sql,
                 arg == null ? OBJECT_EMPTY_ARRAY : arg
         ));
