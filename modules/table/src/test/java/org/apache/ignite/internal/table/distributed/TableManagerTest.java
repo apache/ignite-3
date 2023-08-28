@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -35,7 +34,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -61,11 +59,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
-import java.util.stream.Stream;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -76,9 +74,8 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZoneView;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesView;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -97,7 +94,6 @@ import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableChange;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageView;
 import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -165,14 +161,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Count of replicas. */
     private static final int REPLICAS = 1;
 
-    /** Default zone id. */
-    private static final int DEFAULT_ZONE_ID = 0;
-
     /** Zone name. */
     private static final String ZONE_NAME = "zone1";
-
-    /** Zone id. */
-    private static final int ZONE_ID = 1;
 
     /** Schema manager. */
     @Mock
@@ -223,10 +213,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TablesConfiguration tblsCfg;
 
-    /** Distribution zones configuration. */
-    @InjectConfiguration
-    private DistributionZonesConfiguration distributionZonesConfiguration;
-
     /** Garbage collector configuration. */
     @InjectConfiguration
     private GcConfiguration gcConfig;
@@ -255,8 +241,17 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** The future will be completed after each tests of this class. */
     private CompletableFuture<TableManager> tblManagerFut;
 
+    /** Hybrid clock. */
+    private final HybridClock clock = new HybridClockImpl();
+
+    /** Catalog manager. */
+    private CatalogManager catalogManager;
+
     @BeforeEach
     void before() throws NodeStoppingException {
+        catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock);
+        catalogManager.start();
+
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
 
         TopologyService topologyService = mock(TopologyService.class);
@@ -282,9 +277,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         distributionZoneManager = mock(DistributionZoneManager.class);
 
-        when(distributionZoneManager.zoneIdAsyncInternal(anyString()))
-                .then(invocation -> completedFuture(getZoneId(invocation.getArgument(0))));
-
         when(distributionZoneManager.dataNodes(anyLong(), anyInt())).thenReturn(completedFuture(emptySet()));
 
         when(replicaMgr.stopReplica(any())).thenReturn(completedFuture(true));
@@ -304,7 +296,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                     tblManagerFut.join().stop();
                 },
                 dsm == null ? null : dsm::stop,
-                sm == null ? null : sm::stop
+                sm == null ? null : sm::stop,
+                catalogManager == null ? null : catalogManager::stop
         );
     }
 
@@ -640,7 +633,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockMetastore();
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
 
         // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
         createTableManager(tblManagerFut, (mvTableStorage) -> {
@@ -815,7 +808,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 NODE_NAME,
                 revisionUpdater,
                 tblsCfg,
-                distributionZonesConfiguration,
                 gcConfig,
                 clusterService,
                 rm,
@@ -830,13 +822,13 @@ public class TableManagerTest extends IgniteAbstractTest {
                 msm,
                 sm = new SchemaManager(revisionUpdater, tblsCfg, msm),
                 budgetView -> new LocalLogStorageFactory(),
-                new HybridClockImpl(),
+                clock,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 vaultManager,
                 cmgMgr,
                 distributionZoneManager,
-                mock(CatalogManager.class)
+                catalogManager
         ) {
 
             @Override
@@ -895,36 +887,17 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     private void createZone(int partitions, int replicas) {
-        CompletableFuture<Void> createZoneFuture = distributionZonesConfiguration.distributionZones().change(zones ->
-                zones.create(ZONE_NAME, ch -> {
-                    ch.changeZoneId(ZONE_ID);
-                    ch.changePartitions(partitions);
-                    ch.changeReplicas(replicas);
-                }));
-
-        assertThat(createZoneFuture, willCompleteSuccessfully());
+        DistributionZonesTestUtil.createZone(catalogManager, ZONE_NAME, partitions, replicas);
     }
 
     private int getZoneId(String zoneName) {
-        switch (zoneName) {
-            case DEFAULT_ZONE_NAME:
-                return DEFAULT_ZONE_ID;
-            case ZONE_NAME:
-                return ZONE_ID;
-            default:
-                throw new IllegalArgumentException(zoneName);
-        }
+        return DistributionZonesTestUtil.getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
     }
 
     private @Nullable String getZoneDataStorage(int zoneId) {
-        DistributionZonesView zonesView = distributionZonesConfiguration.value();
+        CatalogZoneDescriptor zoneDescriptor = DistributionZonesTestUtil.getZoneById(catalogManager, zoneId, clock.nowLong());
 
-        return Stream.concat(Stream.of(zonesView.defaultDistributionZone()), zonesView.distributionZones().stream())
-                .filter(zoneView -> zoneId == zoneView.zoneId())
-                .findFirst()
-                .map(DistributionZoneView::dataStorage)
-                .map(DataStorageView::name)
-                .orElse(null);
+        return zoneDescriptor == null ? null : zoneDescriptor.dataStorage().engine();
     }
 
     private static TableDefinition createTableDefinition(String tableName) {

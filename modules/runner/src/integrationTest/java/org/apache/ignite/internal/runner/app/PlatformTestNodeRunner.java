@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
@@ -48,7 +47,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
-import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
@@ -267,19 +265,9 @@ public class PlatformTestNodeRunner {
     private static void createTables(Ignite node) {
         var keyCol = "KEY";
 
+        createZone(((IgniteImpl) node).catalogManager(), ZONE_NAME, 10, 1);
+
         IgniteImpl ignite = ((IgniteImpl) node);
-
-        CreateZoneParams createZoneParams = CreateZoneParams.builder()
-                .zoneName(ZONE_NAME)
-                .partitions(10)
-                .replicas(1)
-                .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
-                .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE)
-                .build();
-
-        assertThat(ignite.catalogManager().createZone(createZoneParams), willBe(nullValue()));
-
-        createZone(((IgniteImpl) node).distributionZoneManager(), ZONE_NAME, 10, 1);
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
@@ -459,6 +447,12 @@ public class PlatformTestNodeRunner {
                 ignite,
                 ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.INT8).build(),
                 ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.INT8).nullable(true).build()
+        );
+
+        createTwoColumnTable(
+                ignite,
+                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.BOOLEAN).build(),
+                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.BOOLEAN).nullable(true).build()
         );
 
         createTwoColumnTable(

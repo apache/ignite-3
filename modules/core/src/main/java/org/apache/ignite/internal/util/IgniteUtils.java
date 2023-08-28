@@ -1184,6 +1184,16 @@ public class IgniteUtils {
      * @throws Exception If failed to stop.
      */
     public static void stopAll(IgniteComponent... components) throws Exception {
-        closeAll(Arrays.stream(components).filter(Objects::nonNull).map(component -> component::stop));
+        stopAll(Arrays.stream(components));
+    }
+
+    /**
+     * Stops all ignite components.
+     *
+     * @param components Stream of ignite components to close.
+     * @throws Exception If failed to stop.
+     */
+    public static void stopAll(Stream<? extends IgniteComponent> components) throws Exception {
+        closeAll(components.filter(Objects::nonNull).map(component -> component::stop));
     }
 }

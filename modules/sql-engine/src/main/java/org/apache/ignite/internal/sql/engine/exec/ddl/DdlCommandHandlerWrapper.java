@@ -19,15 +19,12 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
-import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -40,14 +37,8 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
     /**
      * Constructor.
      */
-    public DdlCommandHandlerWrapper(
-            DistributionZoneManager distributionZoneManager,
-            TableManager tableManager,
-            IndexManager indexManager,
-            DataStorageManager dataStorageManager,
-            CatalogManager catalogManager
-    ) {
-        super(distributionZoneManager, tableManager, dataStorageManager, catalogManager);
+    public DdlCommandHandlerWrapper(TableManager tableManager, CatalogManager catalogManager) {
+        super(tableManager, catalogManager);
     }
 
     /** Handles ddl commands. */

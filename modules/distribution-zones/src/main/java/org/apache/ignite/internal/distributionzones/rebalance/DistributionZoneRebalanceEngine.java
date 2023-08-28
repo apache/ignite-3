@@ -49,7 +49,6 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Zone rebalance manager.
@@ -143,9 +142,7 @@ public class DistributionZoneRebalanceEngine {
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
                     int catalogVersion = catalogService.latestCatalogVersion();
 
-                    // TODO: IGNITE-20114 Should be get from the catalog directly
-                    // CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
-                    CatalogZoneDescriptor zoneDescriptor = getZone(zoneId, catalogVersion);
+                    CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
 
                     if (zoneDescriptor == null) {
                         // Zone has been removed.
@@ -163,11 +160,6 @@ public class DistributionZoneRebalanceEngine {
                     }
 
                     for (CatalogTableDescriptor tableDescriptor : findTablesByZoneId(zoneId, catalogVersion)) {
-                        // TODO: IGNITE-20114 NullPointerException may appear when creating a table immediately after creating a zone,
-                        //  perhaps we somehow need to work more carefully with the list of tables and get not the latest, but stable, i.e.
-                        //  those that have already been created and added their distribution to the metastorage. If we can’t fix it right
-                        //  away, then it will probably work out in IGNITE-19499 or a new ticket. This problem reproduced in
-                        //  ItAggregatesTest.
                         CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
                                 tableDescriptor,
                                 zoneDescriptor,
@@ -221,9 +213,7 @@ public class DistributionZoneRebalanceEngine {
 
     private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters, int oldReplicas) {
         return IgniteUtils.inBusyLockAsync(busyLock, () -> {
-            // TODO: IGNITE-20114 Should be get from the catalog event parameters
-            // int zoneId = parameters.zoneDescriptor().id();
-            int zoneId = distributionZoneManager.getZoneId(parameters.zoneDescriptor().name());
+            int zoneId = parameters.zoneDescriptor().id();
             long causalityToken = parameters.causalityToken();
 
             return distributionZoneManager.dataNodes(causalityToken, zoneId)
@@ -261,25 +251,12 @@ public class DistributionZoneRebalanceEngine {
     private List<CatalogTableDescriptor> findTablesByZoneId(int zoneId, int catalogVersion) {
         return catalogService.tables(catalogVersion).stream()
                 .filter(table -> table.zoneId() == zoneId)
-                // TODO: IGNITE-20114 Get rid of this line
+                // TODO: IGNITE-19499 Get rid of this line
                 .map(tableDescriptor -> distributionZoneManager.getTableFromConfig(tableDescriptor.name())).filter(Objects::nonNull)
                 .collect(toList());
     }
 
-    private @Nullable CatalogZoneDescriptor getZone(int configZoneId, int catalogVersion) {
-        String zoneName = distributionZoneManager.getZoneName(configZoneId);
-
-        if (zoneName == null) {
-            return null;
-        }
-
-        return catalogService.zones(catalogVersion).stream()
-                .filter(zone -> zoneName.equalsIgnoreCase(zone.name()))
-                .findFirst()
-                .orElse(null);
-    }
-
     private static String tableInfo(CatalogTableDescriptor tableDescriptor) {
-        return tableDescriptor.id() + '/' + tableDescriptor.name();
+        return tableDescriptor.id() + "/" + tableDescriptor.name();
     }
 }

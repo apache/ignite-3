@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZoneReplicas;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -73,6 +72,7 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -91,7 +91,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -135,7 +134,7 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.impl.TestDataStorageModule;
-import org.apache.ignite.internal.storage.impl.schema.TestDataStorageChange;
+import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.storage.impl.schema.TestDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
@@ -145,6 +144,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -186,7 +186,6 @@ import org.mockito.Mockito;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 @Timeout(120)
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-20114")
 public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
 
@@ -709,7 +708,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY,
-                            DistributionZonesConfiguration.KEY,
                             GcConfiguration.KEY
                     ),
                     List.of(ExtendedTableConfigurationSchema.class),
@@ -729,7 +727,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY,
-                            DistributionZonesConfiguration.KEY,
                             GcConfiguration.KEY
                     ),
                     cfgStorage,
@@ -743,8 +740,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager.registerRevisionUpdateListener(function::apply);
 
             TablesConfiguration tablesCfg = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
-
-            DistributionZonesConfiguration zonesCfg = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
 
             GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
@@ -782,7 +777,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             distributionZoneManager = new DistributionZoneManager(
                     name,
                     registry,
-                    zonesCfg,
                     tablesCfg,
                     metaStorageManager,
                     logicalTopologyService,
@@ -794,7 +788,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     name,
                     registry,
                     tablesCfg,
-                    zonesCfg,
                     gcConfig,
                     clusterService,
                     raftManager,
@@ -1073,21 +1066,33 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static void createZone(Node node, String zoneName, int partitions, int replicas, boolean testDataStorage) {
-        DistributionZonesTestUtil.createZone(
-                node.distributionZoneManager,
+        DistributionZonesTestUtil.createZoneWithDataStorage(
+                node.catalogManager,
                 zoneName,
                 partitions,
                 replicas,
-                testDataStorage ? (dataStorageChange -> dataStorageChange.convert(TestDataStorageChange.class)) : null
+                testDataStorage ? TestStorageEngine.ENGINE_NAME : null
         );
     }
 
     private static void alterZone(Node node, String zoneName, int replicas) {
-        alterZoneReplicas(node.distributionZoneManager, zoneName, replicas);
+        DistributionZonesTestUtil.alterZone(node.catalogManager, zoneName, replicas);
     }
 
     private static void createTable(Node node, String zoneName, String tableName) {
-        TableDefinition schTbl1 = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, tableName).columns(
+        TableTestUtils.createTable(
+                node.catalogManager,
+                DEFAULT_SCHEMA_NAME,
+                zoneName,
+                tableName,
+                List.of(
+                        ColumnParams.builder().name("key").type(org.apache.ignite.sql.ColumnType.INT64).build(),
+                        ColumnParams.builder().name("val").type(org.apache.ignite.sql.ColumnType.INT32).nullable(true).build()
+                ),
+                List.of("key")
+        );
+
+        TableDefinition tableDefinition = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, tableName).columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
         ).withPrimaryKey("key").build();
@@ -1095,7 +1100,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         CompletableFuture<Table> createTableFuture = node.tableManager.createTableAsync(
                 tableName,
                 zoneName,
-                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
+                tblChanger -> SchemaConfigurationConverter.convert(tableDefinition, tblChanger)
         );
 
         assertThat(createTableFuture, willCompleteSuccessfully());

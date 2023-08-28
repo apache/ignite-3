@@ -79,7 +79,6 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -323,8 +322,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         Path storagePath = getPartitionsStorePath(dir);
 
-        DistributionZonesConfiguration zonesConfig = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
-
         DataStorageManager dataStorageManager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
@@ -347,7 +344,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
-                zonesConfig,
                 tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
@@ -359,7 +355,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 name,
                 registry,
                 tablesConfig,
-                zonesConfig,
                 gcConfig,
                 clusterSvc,
                 raftMgr,
@@ -395,7 +390,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 schemaManager,
                 dataStorageManager,
                 txManager,
-                distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
                 replicaSvc,
                 clock,
@@ -453,7 +447,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopology,
                 cfgStorage,
                 distributedConfigurationGenerator,
-                clusterConfigRegistry
+                clusterConfigRegistry,
+                clock
         );
 
         partialNodes.add(partialNode);

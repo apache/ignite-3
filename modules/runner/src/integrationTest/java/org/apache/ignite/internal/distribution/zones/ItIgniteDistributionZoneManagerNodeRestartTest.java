@@ -54,6 +54,7 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -77,7 +78,6 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -209,10 +209,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-        DistributionZonesConfiguration zonesConfiguration = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
-
-        TablesConfiguration tablesConfiguration = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
-
         LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
         var clock = new HybridClockImpl();
@@ -224,8 +220,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 revisionUpdater,
-                zonesConfiguration,
-                tablesConfiguration,
+                mock(TablesConfiguration.class),
                 metastore,
                 logicalTopologyService,
                 vault,
@@ -273,7 +268,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 logicalTopology,
                 cfgStorage,
                 distributedConfigurationGenerator,
-                clusterConfigRegistry
+                clusterConfigRegistry,
+                clock
         );
 
         partialNodes.add(partialNode);
@@ -622,12 +618,16 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         return getStartedComponent(node, DistributionZoneManager.class);
     }
 
+    private static CatalogManager getCatalogManager(PartialNode node) {
+        return getStartedComponent(node, CatalogManager.class);
+    }
+
     private static int getZoneId(PartialNode node, String zoneName) {
-        return getDistributionZoneManager(node).getZoneId(zoneName);
+        return DistributionZonesTestUtil.getZoneId(getCatalogManager(node), zoneName, node.clock().nowLong());
     }
 
     private static void createZone(PartialNode node, String zoneName, int scaleUp, int scaleDown) {
-        DistributionZonesTestUtil.createZone(getDistributionZoneManager(node), zoneName, scaleUp, scaleDown, (String) null);
+        DistributionZonesTestUtil.createZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, null);
     }
 
     private static void alterZone(
@@ -637,6 +637,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             @Nullable Integer scaleDown,
             @Nullable String filter
     ) {
-        DistributionZonesTestUtil.alterZone(getDistributionZoneManager(node), zoneName, scaleUp, scaleDown, filter);
+        DistributionZonesTestUtil.alterZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, filter);
     }
 }

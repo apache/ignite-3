@@ -80,7 +80,6 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
@@ -289,6 +288,7 @@ public class IgniteImpl implements Ignite {
     private final RestAddressReporter restAddressReporter;
 
     private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+
     private final CatalogManager catalogManager;
 
     private final AuthenticationManager authenticationManager;
@@ -439,8 +439,6 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-        DistributionZonesConfiguration zonesConfig = clusterConfigRegistry.getConfiguration(DistributionZonesConfiguration.KEY);
-
         TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
         distributedConfigurationUpdater = new DistributedConfigurationUpdater(
@@ -494,6 +492,10 @@ public class IgniteImpl implements Ignite {
 
         schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
+        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
+
+        outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
+
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry.getConfiguration(
                 SchemaSynchronizationConfiguration.KEY
         );
@@ -507,7 +509,6 @@ public class IgniteImpl implements Ignite {
         distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
-                zonesConfig,
                 tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
@@ -515,15 +516,10 @@ public class IgniteImpl implements Ignite {
                 catalogManager
         );
 
-        volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
-
-        outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
-
         distributedTblMgr = new TableManager(
                 name,
                 registry,
                 tablesConfig,
-                zonesConfig,
                 gcConfig,
                 clusterSvc,
                 raftMgr,
@@ -557,7 +553,6 @@ public class IgniteImpl implements Ignite {
                 schemaManager,
                 dataStorageMgr,
                 txManager,
-                distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
                 replicaSvc,
                 clock,

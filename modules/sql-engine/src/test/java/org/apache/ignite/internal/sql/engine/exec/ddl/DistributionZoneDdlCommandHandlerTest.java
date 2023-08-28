@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -30,14 +29,11 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
-import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
-import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,21 +47,13 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
 
     private DdlCommandHandler commandHandler;
 
-    private DistributionZoneManager distributionZoneManager;
-
     private CatalogManager catalogManager;
 
     @BeforeEach
     void before() {
-        distributionZoneManager = mock(DistributionZoneManager.class, invocation -> completedFuture(null));
         catalogManager = mock(CatalogManager.class, invocation -> completedFuture(null));
 
-        commandHandler = new DdlCommandHandler(
-                distributionZoneManager,
-                mock(TableManager.class),
-                mock(DataStorageManager.class),
-                catalogManager
-        );
+        commandHandler = new DdlCommandHandler(mock(TableManager.class), catalogManager);
     }
 
     @Test
@@ -76,7 +64,6 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
         invokeHandler(cmd);
 
         verify(catalogManager).createZone(any(CreateZoneParams.class));
-        verify(distributionZoneManager).createZone(any(DistributionZoneConfigurationParameters.class));
     }
 
     @Test
@@ -88,7 +75,6 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
         invokeHandler(renameCmd);
 
         verify(catalogManager).renameZone(any(RenameZoneParams.class));
-        verify(distributionZoneManager).alterZone(eq(ZONE_NAME), any(DistributionZoneConfigurationParameters.class));
     }
 
     @Test
@@ -99,7 +85,6 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
         invokeHandler(cmd);
 
         verify(catalogManager).alterZone(any(AlterZoneParams.class));
-        verify(distributionZoneManager).alterZone(eq(ZONE_NAME), any(DistributionZoneConfigurationParameters.class));
     }
 
     @Test
@@ -110,7 +95,6 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
         invokeHandler(cmd);
 
         verify(catalogManager).dropZone(any(DropZoneParams.class));
-        verify(distributionZoneManager).dropZone(ZONE_NAME);
     }
 
     private void invokeHandler(DdlCommand cmd) {
