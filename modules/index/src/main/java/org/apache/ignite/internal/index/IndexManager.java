@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -49,10 +48,10 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
@@ -73,7 +72,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
     /** Schema manager. */
-    private final SchemaManager schemaManager;
+    private final CatalogSchemaManager schemaManager;
 
     /** Table manager. */
     private final TableManager tableManager;
@@ -101,13 +100,13 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param catalogManager Catalog manager.
      */
     public IndexManager(
-            SchemaManager schemaManager,
+            CatalogSchemaManager schemaManager,
             TableManager tableManager,
             CatalogManager catalogManager,
             MetaStorageManager metaStorageManager,
             Consumer<LongFunction<CompletableFuture<?>>> registry
     ) {
-        this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
+        this.schemaManager = schemaManager;
         this.tableManager = tableManager;
         this.catalogManager = catalogManager;
         this.metaStorageManager = metaStorageManager;

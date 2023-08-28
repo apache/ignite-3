@@ -52,7 +52,7 @@ import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -109,7 +109,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         when(tableManagerMock.localPartitionSetAsync(anyLong(), anyInt())).thenReturn(completedFuture(PartitionSet.EMPTY_SET));
 
-        SchemaManager schManager = mock(SchemaManager.class);
+        CatalogSchemaManager schManager = mock(CatalogSchemaManager.class);
 
         when(schManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(null));
 

@@ -99,7 +99,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -339,7 +339,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageMgr), clockWaiter);
 
-        SchemaManager schemaManager = new SchemaManager(registry, metaStorageMgr, catalogManager);
+        CatalogSchemaManager schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageMgr);
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,

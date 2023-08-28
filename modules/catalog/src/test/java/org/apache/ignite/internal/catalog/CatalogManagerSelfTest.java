@@ -83,6 +83,7 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -1734,6 +1735,23 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         }
 
         return manager.alterColumn(builder.build());
+    }
+
+    private static CreateTableParams simpleTable(String name) {
+        List<ColumnParams> cols = List.of(
+                columnParams("ID", INT32),
+                columnParamsBuilder("VAL", INT32, true).defaultValue(constant(null)).build(),
+                columnParamsBuilder("VAL_NOT_NULL", INT32).defaultValue(constant(1)).build(),
+                columnParams("DEC", DECIMAL, true),
+                columnParams("STR", STRING, true),
+                columnParamsBuilder("DEC_SCALE", DECIMAL).scale(3).build()
+        );
+
+        return simpleTable(name, cols);
+    }
+
+    private static CreateTableParams simpleTable(String tableName, List<ColumnParams> cols) {
+        return createTableParams(tableName, cols, List.of(cols.get(0).name()), List.of(cols.get(0).name()));
     }
 
     private static CreateSortedIndexParams simpleIndex() {

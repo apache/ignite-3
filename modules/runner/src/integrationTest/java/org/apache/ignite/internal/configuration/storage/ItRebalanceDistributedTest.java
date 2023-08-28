@@ -119,7 +119,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
-import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -583,7 +583,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final ClusterManagementGroupManager cmgManager;
 
-        private final SchemaManager schemaManager;
+        private final CatalogSchemaManager schemaManager;
 
         private final CatalogManager catalogManager;
 
@@ -770,7 +770,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clockWaiter
             );
 
-            schemaManager = new SchemaManager(registry, metaStorageManager, catalogManager);
+            schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageManager);
 
             distributionZoneManager = new DistributionZoneManager(
                     name,

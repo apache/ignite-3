@@ -51,7 +51,7 @@ import org.apache.ignite.internal.manager.Event;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
@@ -146,7 +146,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final IndexManager indexManager;
 
-    private final SchemaManager schemaManager;
+    private final CatalogSchemaManager schemaManager;
 
     private final DataStorageManager dataStorageManager;
 
@@ -191,7 +191,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             ClusterService clusterSrvc,
             TableManager tableManager,
             IndexManager indexManager,
-            SchemaManager schemaManager,
+            CatalogSchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             TxManager txManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,

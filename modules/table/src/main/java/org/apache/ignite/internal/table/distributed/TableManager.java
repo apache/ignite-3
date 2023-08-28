@@ -121,7 +121,7 @@ import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -292,7 +292,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Schema manager. */
-    private final SchemaManager schemaManager;
+    private final CatalogSchemaManager schemaManager;
 
     private final LogStorageFactoryCreator volatileLogStorageFactoryCreator;
 
@@ -394,7 +394,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             DataStorageManager dataStorageMgr,
             Path storagePath,
             MetaStorageManager metaStorageMgr,
-            SchemaManager schemaManager,
+            CatalogSchemaManager schemaManager,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             HybridClock clock,
             OutgoingSnapshotsManager outgoingSnapshotsManager,

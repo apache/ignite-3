@@ -25,10 +25,10 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
@@ -55,7 +55,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
     private TableManager tableManager;
 
     @Mock
-    private SchemaManager schemaManager;
+    private CatalogSchemaManager schemaManager;
 
     @Mock
     private TableDescriptor descriptor;

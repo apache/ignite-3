@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.benchmarks;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
@@ -122,7 +122,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
                         .toArray(Column[]::new)
         );
 
-        SchemaRegistry reg = new SchemaRegistryImpl(v -> completedFuture(null), () -> completedFuture(INITIAL_SCHEMA_VERSION), schema) {
+        SchemaRegistry reg = new SchemaRegistryImpl(v -> completedFuture(null), () -> completedFuture(INITIAL_TABLE_VERSION), schema) {
             @Override
             public SchemaDescriptor schema() {
                 return schema;
