@@ -200,7 +200,6 @@ public class SystemViewTest {
             }, "Column value null can not be null");
         }
 
-
         /** Reject a view without data provider. */
         @Test
         public void rejectViewWithoutDataProvider() {
