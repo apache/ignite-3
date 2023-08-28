@@ -62,7 +62,7 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
         int offset = 0;
 
         for (RaftOutter.EntryMeta entry : request.entriesList()) {
-            int requiredCatalogVersion = readRequiredCatalogVersionForMeta(allData, entry, node.getOptions().requiredCommandsMarshaller());
+            int requiredCatalogVersion = readRequiredCatalogVersionForMeta(allData, entry, node.getOptions().getCommandsMarshaller());
 
             if (requiredCatalogVersion != NO_VERSION_REQUIREMENT && !isMetadataAvailableFor(requiredCatalogVersion)) {
                 // TODO: IGNITE-20298 - throttle logging.

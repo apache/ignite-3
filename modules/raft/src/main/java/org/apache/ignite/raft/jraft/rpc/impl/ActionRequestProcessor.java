@@ -87,7 +87,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param rpcCtx  The context.
      */
     private void applyWrite(Node node, ActionRequest request, RpcContext rpcCtx) {
-        Marshaller commandsMarshaller = node.getOptions().requiredCommandsMarshaller();
+        Marshaller commandsMarshaller = node.getOptions().getCommandsMarshaller();
+
+        assert commandsMarshaller != null;
 
         node.apply(new Task(ByteBuffer.wrap(commandsMarshaller.marshall(request.command())),
                 new CommandClosureImpl<>(request.command()) {

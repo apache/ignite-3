@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -713,9 +712,5 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setCommandsMarshaller(Marshaller commandsMarshaller) {
         this.commandsMarshaller = commandsMarshaller;
-    }
-
-    public Marshaller requiredCommandsMarshaller() {
-        return Objects.requireNonNull(commandsMarshaller);
     }
 }
