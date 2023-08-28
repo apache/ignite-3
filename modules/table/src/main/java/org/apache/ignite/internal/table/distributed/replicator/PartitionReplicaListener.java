@@ -2245,9 +2245,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 }
                             }
                     );
+            // TODO: sanpwc that should be reworked.
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
             return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now()).
-                    thenApply(primaryReplica -> isLocalPeer(primaryReplica.getLeaseholder()));
+                    thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
         } else {
             return completedFuture(null);
         }

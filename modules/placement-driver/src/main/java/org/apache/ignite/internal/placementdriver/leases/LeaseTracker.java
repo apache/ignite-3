@@ -226,7 +226,7 @@ public class LeaseTracker implements PlacementDriver {
 
             return msManager
                     .clusterTime()
-                    .waitFor(timestamp.addPhysicalTime(10_000))
+                    .waitFor(timestamp)
                     .thenApply(ignored -> inBusyLock(busyLock, () -> {
                         Lease lease0 = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);
 
