@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.systemview;
 
-import java.util.Objects;
 import java.util.function.Function;
 import org.apache.ignite.lang.ErrorGroups.SysView;
 import org.apache.ignite.lang.IgniteException;
