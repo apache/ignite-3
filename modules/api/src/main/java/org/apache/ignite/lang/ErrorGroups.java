@@ -19,6 +19,7 @@ package org.apache.ignite.lang;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.lang.reflect.Field;
 import java.util.Locale;
 
 /**
@@ -28,6 +29,22 @@ import java.util.Locale;
 public class ErrorGroups {
     /** List of all registered error groups. */
     private static final Int2ObjectMap<ErrorGroup> registeredGroups = new Int2ObjectOpenHashMap<>();
+
+    /**
+     * Initializes and register all error groups and error codes.
+     */
+    public static synchronized void initialize() {
+        for (Class<?> cls : ErrorGroups.class.getDeclaredClasses()) {
+            for (Field f : cls.getDeclaredFields()) {
+                try {
+                    // Initialize static fields.
+                    f.get(null);
+                } catch (IllegalAccessException ignored) {
+                    // No-op.
+                }
+            }
+        }
+    }
 
     /**
      * Creates a new error group with the given {@code groupName} and {@code groupCode}.
