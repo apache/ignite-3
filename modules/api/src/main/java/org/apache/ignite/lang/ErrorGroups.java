@@ -406,6 +406,7 @@ public class ErrorGroups {
      */
     public static class SysView {
 
+        /** System views error group. */
         public static final ErrorGroup SYSVIEWS_ERR_GROUP = ErrorGroup.newGroup("SYSVIEWS", (short) 17);
 
         /** System view definition error. */
