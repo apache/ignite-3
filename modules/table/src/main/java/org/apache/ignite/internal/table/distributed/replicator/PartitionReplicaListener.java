@@ -385,7 +385,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result future.
      */
     private CompletableFuture<LeaderOrTxState> processTxStateReplicaRequest(TxStateReplicaRequest request) {
-        return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
+        return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now().addPhysicalTime(HybridTimestamp.CLOCK_SKEW))
                 .thenCompose(primaryReplica -> {
                     if (isLocalPeer(primaryReplica.getLeaseholder())) {
                         CompletableFuture<TxMeta> txStateFut = getTxStateConcurrently(request);
@@ -2232,7 +2232,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         if (expectedTerm != null) {
-            return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
+            return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now().addPhysicalTime(HybridTimestamp.CLOCK_SKEW))
                     .thenCompose(primaryReplica -> {
                                 long currentEnlistmentConsistencyToken = primaryReplica.getStartTime().longValue();
 
@@ -2246,7 +2246,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     );
             // TODO: sanpwc that should be reworked.
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
-            return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
+            return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now().addPhysicalTime(HybridTimestamp.CLOCK_SKEW))
                     .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
         } else {
             return completedFuture(null);

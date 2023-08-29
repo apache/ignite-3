@@ -181,9 +181,11 @@ public class LeaseTracker implements PlacementDriver {
 
                         leasesMap.put(grpId, lease);
 
-                        primaryReplicaWaiters
-                                .computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
-                                .update(lease.getExpirationTime(), lease);
+                        if (lease.isAccepted()) {
+                            primaryReplicaWaiters
+                                    .computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
+                                    .update(lease.getExpirationTime(), lease);
+                        }
                     }
 
                     for (Iterator<Map.Entry<ReplicationGroupId, Lease>> iterator = leasesMap.entrySet().iterator(); iterator.hasNext();) {
