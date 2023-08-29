@@ -1945,8 +1945,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         assert commitPartitionId != null || request.requestType() == RequestType.RW_GET :
                 "Commit partition is null [type=" + request.requestType() + ']';
 
-        boolean full = request.full();
-
         switch (request.requestType()) {
             case RW_GET: {
                 return resolveRowByPk(binaryTuple(searchRow), txId, (rowId, row) -> {
