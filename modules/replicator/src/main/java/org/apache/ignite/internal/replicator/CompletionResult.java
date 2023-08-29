@@ -4,18 +4,18 @@ import java.util.concurrent.CompletableFuture;
 
 public class CompletionResult {
     private final Object res;
-    private final CompletableFuture<?> delayedRes;
+    private final Object delayedRes;
 
-    public CompletionResult(Object res, CompletableFuture<?> delayedRes) {
+    public CompletionResult(Object res, Object delayedRes) {
         this.res = res;
         this.delayedRes = delayedRes;
     }
 
-    public CompletableFuture<?> delayedResult() {
-        return delayedRes;
-    }
-
     public Object result() {
         return res;
+    }
+
+    public Object delayedResult() {
+        return delayedRes;
     }
 }

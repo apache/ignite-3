@@ -263,7 +263,10 @@ public class ReplicaManager implements IgniteComponent {
 
                 // Handle delayed response.
                 if (res.delayedResult() != null) {
-                    CompletableFuture<?> nested = res.delayedResult();
+                    assert res.delayedResult() instanceof CompletableFuture : "Unexpected result from a replication, should always be null";
+
+                    // Delayed result is always expected to be null
+                    CompletableFuture<?> nested = (CompletableFuture<?>) res.delayedResult();
                     nested.handle((res0, ex0) -> {
                         NetworkMessage msg0;
 

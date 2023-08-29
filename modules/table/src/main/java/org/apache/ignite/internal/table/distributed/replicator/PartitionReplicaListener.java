@@ -1942,9 +1942,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForDelete(row, rowId, txId)
-                            .thenCompose(ignored -> updateCommand(request, rowId.uuid(), null, txId, full))
+                            .thenCompose(ignored -> updateCommand(request, rowId.uuid(), null))
                             .thenCompose(this::applyUpdateCommand)
-                            .thenApply(ignored -> new CompletionResult(true, null));
+                            .thenApply(res -> new CompletionResult(true, res));
                 });
             }
             case RW_GET_AND_DELETE: {
@@ -1954,9 +1954,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForDelete(row, rowId, txId)
-                            .thenCompose(ignored -> updateCommand(request, rowId.uuid(), null, txId, null))
+                            .thenCompose(ignored -> updateCommand(request, rowId.uuid(), null))
                             .thenCompose(this::applyUpdateCommand)
-                            .thenApply(ignored -> new CompletionResult(row, null));
+                            .thenApply(res -> new CompletionResult(row, res));
                 });
             }
             case RW_DELETE_EXACT: {
@@ -1971,9 +1971,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     return completedFuture(new CompletionResult(false, null));
                                 }
 
-                                return updateCommand(request, validatedRowId.uuid(), null, txId, full)
+                                return updateCommand(request, validatedRowId.uuid(), null)
                                         .thenCompose(this::applyUpdateCommand)
-                                        .thenApply(ignored -> new CompletionResult(true, null));
+                                        .thenApply(res -> new CompletionResult(true, res));
                             });
                 });
             }
@@ -1988,12 +1988,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return takeLocksForInsert(searchRow, rowId0, txId)
                             .thenCompose(rowIdLock -> updateCommand(request, rowId0.uuid(), searchRow)
                                     .thenCompose(this::applyUpdateCommand)
-                                    .thenApply(ignored -> rowIdLock))
-                            .thenApply(rowIdLock -> {
+                                    .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
+                            .thenApply(tuple -> {
                                 // Release short term locks.
-                                rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+                                tuple.get2().get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
-                                return new CompletionResult(true, null);
+                                return new CompletionResult(true, tuple.get1());
                             });
                 });
             }
@@ -2008,15 +2008,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(rowIdLock -> updateCommand(request, rowId0.uuid(), searchRow, txId, full)
+                            .thenCompose(rowIdLock -> updateCommand(request, rowId0.uuid(), searchRow)
                                     .thenCompose(this::applyUpdateCommand)
                                     .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
                             .thenApply(tuple -> {
                                 // Release short term locks.
                                 tuple.get2().get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
-                                return tuple.get1() instanceof CompletableFuture ? new CompletionResult(null,
-                                        (CompletableFuture<?>) tuple.get1()) : new CompletionResult(tuple.get1(), null);
+                                return new CompletionResult(null, tuple.get1());
                             });
                 });
             }
@@ -2033,12 +2032,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return lockFut
                             .thenCompose(rowIdLock -> updateCommand(request, rowId0.uuid(), searchRow)
                                     .thenCompose(this::applyUpdateCommand)
-                                    .thenApply(ignored -> rowIdLock))
-                            .thenApply(rowIdLock -> {
+                                    .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
+                            .thenApply(tuple -> {
                                 // Release short term locks.
-                                rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+                                tuple.get2().get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
-                                return new CompletionResult(row, null);
+                                return new CompletionResult(row, tuple.get1());
                             });
                 });
             }
@@ -2051,12 +2050,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return takeLocksForUpdate(searchRow, rowId, txId)
                             .thenCompose(rowIdLock -> updateCommand(request, rowId.uuid(), searchRow)
                                     .thenCompose(this::applyUpdateCommand)
-                                    .thenApply(ignored -> rowIdLock))
-                            .thenApply(rowIdLock -> {
+                                    .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
+                            .thenApply(tuple -> {
                                 // Release short term locks.
-                                rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+                                tuple.get2().get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
-                                return new CompletionResult(row, null);
+                                return new CompletionResult(row, tuple.get1());
                             });
                 });
             }
@@ -2067,14 +2066,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
-                            .thenCompose(rowLock -> updateCommand(request, rowId.uuid(), searchRow)
+                            .thenCompose(rowIdLock -> updateCommand(request, rowId.uuid(), searchRow)
                                     .thenCompose(this::applyUpdateCommand)
-                                    .thenApply(ignored -> rowLock))
-                            .thenApply(rowIdLock -> {
+                                    .thenApply(res -> new IgniteBiTuple<>(res, rowIdLock)))
+                            .thenApply(tuple -> {
                                 // Release short term locks.
-                                rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
+                                tuple.get2().get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
-                                return new CompletionResult(true, null);
+                                return new CompletionResult(true, tuple.get1());
                             });
                 });
             }

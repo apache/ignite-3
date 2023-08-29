@@ -66,6 +66,9 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager, NetworkMessageHandler {
+    /** Hint for maximum concurrent txns. */
+    private static final int MAX_CONCURRENT_TXNS = 1024;
+
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -85,7 +88,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @TestOnly
     private final ConcurrentHashMap<UUID, TxState> states = new ConcurrentHashMap<>();
 
-    private final ConcurrentHashMap<UUID, TxContext> map = new ConcurrentHashMap<>();
+    /** Txn contexts. */
+    private final ConcurrentHashMap<UUID, TxContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS);
 
     /** Future of a read-only transaction by it {@link TxIdAndTimestamp}. */
     private final ConcurrentNavigableMap<TxIdAndTimestamp, CompletableFuture<Void>> readOnlyTxFutureById = new ConcurrentSkipListMap<>(
@@ -218,7 +222,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     ) {
         assert groups != null && !groups.isEmpty();
 
-        TxContext tuple = map.compute(txId, (uuid, tuple0) -> {
+        TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
             assert tuple0 != null;
 
             tuple0.locked = true;
@@ -344,7 +348,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public boolean addInflight(@NotNull UUID txId) {
         boolean[] res = {true};
 
-        map.compute(txId, (uuid, tuple) -> {
+        txCtxMap.compute(txId, (uuid, tuple) -> {
             if (tuple == null) {
                 tuple = new TxContext();
             }
@@ -382,7 +386,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         if (result instanceof UUID) {
             UUID txId = (UUID) result;
 
-            TxContext tuple = map.compute(txId, (uuid, ctx) -> {
+            TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
                 assert ctx != null;
 
                 //noinspection NonAtomicOperationOnVolatileField

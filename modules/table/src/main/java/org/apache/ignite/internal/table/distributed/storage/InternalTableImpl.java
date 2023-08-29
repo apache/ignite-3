@@ -459,7 +459,7 @@ public class InternalTableImpl implements InternalTable {
                                 if (full) {
                                     return replicaSvc.invoke(primaryReplicaAndTerm.get1(), request);
                                 } else {
-                                    // Enlist only write requests.
+                                    // Track only write requests.
                                     if ((request instanceof SingleRowReplicaRequest
                                             && ((SingleRowReplicaRequest) request).requestType() != RequestType.RW_GET ||
                                             request instanceof MultipleRowReplicaRequest
@@ -468,7 +468,7 @@ public class InternalTableImpl implements InternalTable {
                                             && !txManager.addInflight(tx.id())) {
                                         return failedFuture(
                                                 new TransactionException(TX_UNEXPECTED_STATE_ERR, IgniteStringFormatter.format(
-                                                        "Failed to enlist an operation into a transaction, tx is already finished "
+                                                        "Failed to enlist an operation into a transaction, tx is locked for updates "
                                                                 + "[tableName={}, partId={}]",
                                                         tableName,
                                                         partId
