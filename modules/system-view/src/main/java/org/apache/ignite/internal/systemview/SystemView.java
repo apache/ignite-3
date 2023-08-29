@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.systemview;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.lang.util.StringUtils;
@@ -75,6 +79,14 @@ public abstract class SystemView<T> {
 
         if (columns.isEmpty()) {
             throw new IllegalArgumentException("Columns can not be empty");
+        }
+
+        List<String> duplicates = columns.stream().map(SystemViewColumn::name)
+                .filter(Predicate.not(new HashSet<>()::add))
+                .collect(toList());
+
+        if (!duplicates.isEmpty()) {
+            throw new IllegalArgumentException("Columns can not contain duplicates. Duplicates: " + duplicates);
         }
 
         Objects.requireNonNull(dataProvider, "DataProvider can not be null");

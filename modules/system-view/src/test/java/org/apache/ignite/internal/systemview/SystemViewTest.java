@@ -165,6 +165,20 @@ public class SystemViewTest {
             }, "Columns can not be empty");
         }
 
+        /** Reject a view without columns. */
+        @Test
+        public void rejectViewWithDuplicateColumns() {
+            expectThrows(IllegalArgumentException.class, () -> {
+                newBuilder()
+                        .name("dummy")
+                        .addColumn("c1", int.class, (d) -> 0)
+                        .addColumn("c2", long.class, (d) -> 1L)
+                        .addColumn("c1", String.class, (d) -> "3")
+                        .dataProvider(dataProvider())
+                        .build();
+            }, "Columns can not contain duplicates. Duplicates: [c1]");
+        }
+
         /** Reject a view with {@code null} column name. */
         @ParameterizedTest
         @MethodSource("invalidNames")
