@@ -111,17 +111,22 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
                                 sessionInfo.nodeUrl()));
             }
 
-            stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), nodeUrl);
-
-            eventPublisher.publish(Events.connect(sessionInfo));
-
-            return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
+            return success(sessionInfo);
         } catch (Exception e) {
             if (session.info() != null) {
                 eventPublisher.publish(Events.disconnect());
             }
             return DefaultCallOutput.failure(handleException(e, nodeUrl));
         }
+    }
+
+    CallOutput<String> success(SessionInfo sessionInfo) {
+        stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), sessionInfo.nodeUrl());
+
+        eventPublisher.publish(Events.connect(sessionInfo));
+
+        return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s",
+                UiElements.url(sessionInfo.nodeUrl())).render());
     }
 
     @Nullable
