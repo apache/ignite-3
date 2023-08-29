@@ -86,7 +86,7 @@ public abstract class SystemView<T> {
                 .collect(toList());
 
         if (!duplicates.isEmpty()) {
-            throw new IllegalArgumentException("Columns can not contain duplicates. Duplicates: " + duplicates);
+            throw new IllegalArgumentException("Column names must be unique. Duplicates: " + duplicates);
         }
 
         Objects.requireNonNull(dataProvider, "DataProvider can not be null");

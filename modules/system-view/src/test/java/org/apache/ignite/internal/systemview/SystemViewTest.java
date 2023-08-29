@@ -176,7 +176,7 @@ public class SystemViewTest {
                         .addColumn("c1", String.class, (d) -> "3")
                         .dataProvider(dataProvider())
                         .build();
-            }, "Columns can not contain duplicates. Duplicates: [c1]");
+            }, "Column names must be unique. Duplicates: [c1]");
         }
 
         /** Reject a view with {@code null} column name. */
