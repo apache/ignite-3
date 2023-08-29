@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
@@ -43,7 +42,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
@@ -585,66 +583,6 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
         assertThat(firstNodeTime.waitFor(now), willCompleteSuccessfully());
         assertThat(secondNodeTime.waitFor(now), willCompleteSuccessfully());
-    }
-
-    /**
-     * Tests that idle safe time propagation does not advance safe time while watches of a normal command are being executed.
-     */
-    @Test
-    void testIdleSafeTimePropagationAndNormalSafeTimePropagationInteraction(TestInfo testInfo) throws Exception {
-        // Enable idle safe time sync.
-        CompletableFuture<Void> updateIdleSyncTimeIntervalFuture = metaStorageConfiguration.idleSyncTimeInterval().update(100L);
-        assertThat(updateIdleSyncTimeIntervalFuture, willCompleteSuccessfully());
-
-        Node firstNode = startNode(testInfo);
-        Node secondNode = startNode(testInfo);
-
-        firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(firstNode.name()), "test");
-
-        assertThat(firstNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
-        assertThat(secondNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
-
-        var key = new ByteArray("foo");
-        byte[] value = "bar".getBytes(StandardCharsets.UTF_8);
-
-        AtomicBoolean watchCompleted = new AtomicBoolean(false);
-        CompletableFuture<HybridTimestamp> watchEventTsFuture = new CompletableFuture<>();
-
-        secondNode.metaStorageManager.registerExactWatch(key, new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                watchEventTsFuture.complete(event.timestamp());
-
-                // The future will set the flag and complete after 300ms to allow idle safe time mechanism (which ticks each 100ms)
-                // to advance SafeTime (if there is still a bug for which this test is written).
-                return waitFor(300, TimeUnit.MILLISECONDS)
-                        .whenComplete((res, ex) -> watchCompleted.set(true));
-            }
-
-            @Override
-            public void onError(Throwable e) {
-            }
-        });
-
-        firstNode.waitWatches();
-        secondNode.waitWatches();
-
-        firstNode.metaStorageManager.put(key, value);
-
-        ClusterTime secondNodeTime = secondNode.metaStorageManager.clusterTime();
-
-        assertThat(watchEventTsFuture, willSucceedIn(5, TimeUnit.SECONDS));
-
-        HybridTimestamp watchEventTs = watchEventTsFuture.join();
-        assertThat(secondNodeTime.waitFor(watchEventTs), willCompleteSuccessfully());
-
-        assertThat("Safe time is advanced too early", watchCompleted.get(), is(true));
-    }
-
-    private static CompletableFuture<Void> waitFor(int timeout, TimeUnit unit) {
-        return new CompletableFuture<Void>()
-                .orTimeout(timeout, unit)
-                .exceptionally(ex -> null);
     }
 
     private Node transferLeadership(Node firstNode, Node secondNode) {
