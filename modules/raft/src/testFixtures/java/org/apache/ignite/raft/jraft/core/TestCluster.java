@@ -46,6 +46,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
+import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -264,6 +265,8 @@ public class TestCluster {
 
             nodeOptions.setRpcClient(rpcClient);
 
+            nodeOptions.setCommandsMarshaller(commandsMarshaller(clusterService));
+
             ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
 
             var rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
@@ -300,6 +303,10 @@ public class TestCluster {
         finally {
             this.lock.unlock();
         }
+    }
+
+    public static ThreadLocalOptimizedMarshaller commandsMarshaller(ClusterService clusterService) {
+        return new ThreadLocalOptimizedMarshaller(clusterService.serializationRegistry());
     }
 
     public Node getNode(PeerId peerId) {

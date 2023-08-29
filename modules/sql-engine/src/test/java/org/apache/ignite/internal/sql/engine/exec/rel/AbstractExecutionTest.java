@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
@@ -342,6 +344,11 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
             @Override
             public Object[] create(Object... fields) {
                 return fields;
+            }
+
+            @Override
+            public Object[] create(ByteBuffer raw) {
+                return ByteUtils.fromBytes(raw.array());
             }
         };
     }

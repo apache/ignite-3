@@ -83,7 +83,7 @@ import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
-import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -154,6 +154,8 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Snaps
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -183,6 +185,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
+import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -321,6 +324,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final DistributionZoneManager distributionZoneManager;
 
+    private final SchemaSyncService schemaSyncService;
+
+    private final CatalogService catalogService;
+
     /** Partitions storage path. */
     private final Path storagePath;
 
@@ -352,7 +359,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final ConfiguredTablesCache configuredTablesCache;
 
-    private final CatalogManager catalogManager;
+    private final Marshaller raftCommandsMarshaller;
 
     /** Versioned value used only at manager startup to correctly fire table creation events. */
     private final IncrementalVersionedValue<Void> startVv;
@@ -376,7 +383,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         volatile tables.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
-     * @param catalogManager Catalog manager.
      */
     public TableManager(
             String nodeName,
@@ -401,7 +407,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             VaultManager vaultManager,
             DistributionZoneManager distributionZoneManager,
-            CatalogManager catalogManager
+            SchemaSyncService schemaSyncService,
+            CatalogService catalogService
     ) {
         this.tablesCfg = tablesCfg;
         this.gcConfig = gcConfig;
@@ -422,7 +429,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.distributionZoneManager = distributionZoneManager;
-        this.catalogManager = catalogManager;
+        this.schemaSyncService = schemaSyncService;
+        this.catalogService = catalogService;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -479,6 +487,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         configuredTablesCache = new ConfiguredTablesCache(tablesCfg, getMetadataLocallyOnly);
 
+        raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
+
         startVv = new IncrementalVersionedValue<>(registry);
     }
 
@@ -495,13 +505,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
 
-            catalogManager.listen(TABLE_CREATE, (parameters, exception) -> {
+            catalogService.listen(TABLE_CREATE, (parameters, exception) -> {
                 assert exception == null : parameters;
 
                 return onTableCreate((CreateTableEventParameters) parameters).thenApply(unused -> false);
             });
 
-            catalogManager.listen(TABLE_DROP, (parameters, exception) -> {
+            catalogService.listen(TABLE_DROP, (parameters, exception) -> {
                 assert exception == null : parameters;
 
                 return onTableDelete(((DropTableEventParameters) parameters)).thenApply(unused -> false);
@@ -961,7 +971,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 localNode(),
                 table.internalTable().storage(),
                 indexBuilder,
-                catalogManager
+                schemaSyncService,
+                catalogService
         );
     }
 
@@ -1041,6 +1052,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 ),
                 incomingSnapshotsExecutor
         ));
+
+        raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
 
         return raftGroupOptions;
     }
@@ -1268,7 +1281,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         MvTableStorage tableStorage = engine.createMvTable(
                 new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.dataRegion()),
-                new StorageIndexDescriptorSupplier(catalogManager)
+                new StorageIndexDescriptorSupplier(catalogService)
         );
 
         tableStorage.start();
@@ -1412,7 +1425,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private Set<Assignment> calculateAssignments(TablePartitionId tablePartitionId) {
-        int catalogVersion = catalogManager.latestCatalogVersion();
+        int catalogVersion = catalogService.latestCatalogVersion();
 
         CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalogVersion);
 
@@ -2045,7 +2058,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionId);
 
                     // It is safe to get the latest version of the catalog as we are in the metastore thread.
-                    int catalogVersion = catalogManager.latestCatalogVersion();
+                    int catalogVersion = catalogService.latestCatalogVersion();
 
                     return tablesById(evt.revision())
                             .thenCompose(tables -> inBusyLockAsync(busyLock, () -> {
@@ -2273,7 +2286,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private int[] collectTableIndexIds(int tableId, int catalogVersion) {
-        return catalogManager.indexes(catalogVersion).stream()
+        return catalogService.indexes(catalogVersion).stream()
                 .filter(indexDescriptor -> indexDescriptor.tableId() == tableId)
                 .mapToInt(CatalogIndexDescriptor::id)
                 .toArray();
@@ -2339,7 +2352,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private CatalogTableDescriptor getTableDescriptor(int tableId, int catalogVersion) {
-        CatalogTableDescriptor tableDescriptor = catalogManager.table(tableId, catalogVersion);
+        CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, catalogVersion);
 
         assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
 
@@ -2347,7 +2360,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private CatalogZoneDescriptor getZoneDescriptor(CatalogTableDescriptor tableDescriptor, int catalogVersion) {
-        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(tableDescriptor.zoneId(), catalogVersion);
+        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
 
         assert zoneDescriptor != null :
                 "tableId=" + tableDescriptor.id() + ", zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
@@ -2370,12 +2383,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         assert recoveryFinishFuture.isDone();
 
-        int catalogVersion = catalogManager.latestCatalogVersion();
+        int catalogVersion = catalogService.latestCatalogVersion();
         long causalityToken = recoveryFinishFuture.join();
 
         List<CompletableFuture<?>> fireEventFutures = new ArrayList<>();
 
-        for (CatalogTableDescriptor tableDescriptor : catalogManager.tables(catalogVersion)) {
+        for (CatalogTableDescriptor tableDescriptor : catalogService.tables(catalogVersion)) {
             fireEventFutures.add(fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableDescriptor.id())));
         }
 

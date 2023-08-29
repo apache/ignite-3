@@ -42,12 +42,4 @@ public interface StreamerOptions {
      * @return Auto flush frequency.
      */
     int autoFlushFrequency();
-
-    /**
-     * Gets the retry limit for a batch. If a batch fails to be sent to the cluster, the streamer will retry it a number of times.
-     * If all retries fail, the streamer will be aborted.
-     *
-     * @return Retry limit.
-     */
-    int retryLimit();
 }

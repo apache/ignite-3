@@ -24,6 +24,7 @@ import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.tx.IgniteTransactions;
 
 /**
  * QueryProcessor interface.
@@ -61,8 +62,10 @@ public interface QueryProcessor extends IgniteComponent {
      *
      * <p>If the query string contains more than one statement the IgniteException will be thrown.
      *
+     * @param sessionId A session identifier.
      * @param context User query context.
-     * @param qry Single statement SQL query .
+     * @param transactions Transactions facade.
+     * @param qry Single statement SQL query.
      * @param params Query parameters.
      * @return Sql cursor.
      *
@@ -71,6 +74,7 @@ public interface QueryProcessor extends IgniteComponent {
     CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
             SessionId sessionId,
             QueryContext context,
+            IgniteTransactions transactions,
             String qry,
             Object... params
     );

@@ -541,7 +541,13 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         try {
             var context = QueryContext.create(SqlQueryType.ALL);
 
-            CompletableFuture<AsyncSqlCursor<List<Object>>> queryFuture = queryEngine.querySingleAsync(sessionId, context, sql, args);
+            CompletableFuture<AsyncSqlCursor<List<Object>>> queryFuture = queryEngine.querySingleAsync(
+                    sessionId,
+                    context,
+                    node().transactions(),
+                    sql,
+                    args
+            );
 
             assertThat(queryFuture, willCompleteSuccessfully());
 

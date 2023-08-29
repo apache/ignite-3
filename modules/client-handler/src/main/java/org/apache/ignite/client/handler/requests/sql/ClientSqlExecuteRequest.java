@@ -79,7 +79,7 @@ public class ClientSqlExecuteRequest {
             arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
         }
 
-        // TODO IGNITE-19898 SQL implicit RO transaction should use observation timestamp.
+        // TODO IGNITE-20232 Propagate observable timestamp to sql engine using internal API.
         HybridTimestamp unused = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
 
         return session
@@ -87,7 +87,7 @@ public class ClientSqlExecuteRequest {
                 .thenCompose(asyncResultSet -> {
                     //noinspection StatementWithEmptyBody
                     if (tx == null) {
-                        // TODO IGNITE-19898 Return readTimestamp from implicit RO TX to the client
+                        // TODO IGNITE-20232 Propagate observable timestamp to sql engine using internal API.
                         // out.meta(asyncResultSet.tx().readTimestamp());
                     }
 

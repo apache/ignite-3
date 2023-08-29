@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,29 +25,67 @@ import org.jetbrains.annotations.Nullable;
  * Universal accessor and mutator for rows. It also has factory methods.
  */
 public interface RowHandler<RowT> {
+    /**
+     * Extract appropriate field.
+     *
+     * @param field Field position to be processed.
+     * @param row Object to be extracted from.
+     */
     @Nullable Object get(int field, RowT row);
 
+    /** Set incoming row field.
+     *
+     * @param field Field position to be processed.
+     * @param row Row which field need to be changed.
+     * @param val Value which should be set.
+     */
     void set(int field, RowT row, @Nullable Object val);
 
+    /** Concatenate two rows. */
     RowT concat(RowT left, RowT right);
 
+    /** Return column count contained in the incoming row. */
     int columnCount(RowT row);
 
+    /**
+     * Assembly row representation as ByteBuffer.
+     *
+     * @param row Incoming data to be processed.
+     * @return {@link ByteBuffer} representation.
+     */
+    ByteBuffer toByteBuffer(RowT row);
+
+    /** String representation. */
     String toString(RowT row);
 
     /** Creates a factory that produces rows with fields defined by the given schema. */
     RowFactory<RowT> factory(RowSchema rowSchema);
 
     /**
-     * RowFactory interface.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Provide methods for inner row assembly.
      */
     @SuppressWarnings("PublicInnerClass")
     interface RowFactory<RowT> {
+        /** Return row accessor and mutator implementation. */
         RowHandler<RowT> handler();
 
+        /** Create empty row. */
         RowT create();
 
+        /**
+         * Create row using incoming objects.
+         *
+         * @param fields Sequential objects definitions output row will be created from.
+         * @return Instantiation defined representation.
+         */
         RowT create(Object... fields);
+
+        /**
+         * Create row using incoming {@link ByteBuffer}.
+         *
+         * @param raw {@link ByteBuffer} representation.
+         * @return Instantiation defined representation.
+         */
+        RowT create(ByteBuffer raw);
     }
 }

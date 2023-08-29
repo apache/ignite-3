@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.replication;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -80,6 +81,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.BinaryRo
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummySchemas;
@@ -130,9 +132,9 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         RaftGroupService mockRaftClient = mock(RaftGroupService.class);
 
         when(mockRaftClient.refreshAndGetLeaderWithTerm())
-                .thenAnswer(invocationOnMock -> CompletableFuture.completedFuture(new LeaderWithTerm(null, 1L)));
+                .thenAnswer(invocationOnMock -> completedFuture(new LeaderWithTerm(null, 1L)));
         when(mockRaftClient.run(any()))
-                .thenAnswer(invocationOnMock -> CompletableFuture.completedFuture(null));
+                .thenAnswer(invocationOnMock -> completedFuture(null));
 
         schemaDescriptor = new SchemaDescriptor(1, new Column[]{
                 new Column("id".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
@@ -231,6 +233,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 mock(ClusterNode.class),
                 new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT),
                 mock(IndexBuilder.class),
+                mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 mock(CatalogService.class)
         );
 

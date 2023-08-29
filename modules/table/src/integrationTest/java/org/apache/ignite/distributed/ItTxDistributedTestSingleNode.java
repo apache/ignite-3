@@ -98,6 +98,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -522,6 +523,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                                                 consistentIdToNode.apply(assignment),
                                                 mvTableStorage,
                                                 mock(IndexBuilder.class),
+                                                mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                                                 mock(CatalogService.class)
                                         ),
                                         raftSvc,
