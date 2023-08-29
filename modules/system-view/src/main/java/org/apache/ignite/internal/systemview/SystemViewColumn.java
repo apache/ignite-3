@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.systemview;
 
+import java.util.Objects;
 import java.util.function.Function;
-import org.apache.ignite.lang.ErrorGroups.SysView;
-import org.apache.ignite.lang.IgniteException;
 
 /**
  * System view column.
@@ -36,20 +35,17 @@ public class SystemViewColumn<T, C> {
 
     private final Class<C> type;
 
+    /**
+     * Constructor.
+     *
+     * @param name Name.
+     * @param type Type.
+     * @param value Value, a function that extracts value of this columns a system view record.
+     */
     SystemViewColumn(String name, Class<C> type, Function<T, C> value) {
-        if (name == null) {
-            throw new IgniteException(SysView.VIEW_DEFINITION_ERR, "Column name null can not be null");
-        }
-        if (type == null) {
-            throw new IgniteException(SysView.VIEW_DEFINITION_ERR, "Column type null can not be null");
-        }
-        if (value == null) {
-            throw new IgniteException(SysView.VIEW_DEFINITION_ERR, "Column value null can not be null");
-        }
-
-        this.name = name;
-        this.type = type;
-        this.value = value;
+        this.name = Objects.requireNonNull(name, "Column name null can not be null");
+        this.type = Objects.requireNonNull(type, "Column type null can not be null");
+        this.value = Objects.requireNonNull(value, "Column value null can not be null");
     }
 
     /**

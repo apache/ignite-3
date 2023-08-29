@@ -18,10 +18,9 @@
 package org.apache.ignite.internal.systemview;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.util.AsyncCursor;
-import org.apache.ignite.lang.ErrorGroups.SysView;
-import org.apache.ignite.lang.IgniteException;
 
 /**
  * Node system view definition.
@@ -58,11 +57,7 @@ public class NodeSystemView<T> extends SystemView<T> {
             String nodeNameColumnAlias) {
         super(name, columns, dataProvider);
 
-        if (nodeNameColumnAlias == null) {
-            throw new IgniteException(SysView.VIEW_DEFINITION_ERR, "Node name column alias can not be null");
-        }
-
-        this.nodeNameColumnAlias = nodeNameColumnAlias;
+        this.nodeNameColumnAlias = Objects.requireNonNull(nodeNameColumnAlias, "Node name column alias can not be null");
     }
 
 

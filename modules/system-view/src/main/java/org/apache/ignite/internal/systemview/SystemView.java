@@ -19,11 +19,10 @@ package org.apache.ignite.internal.systemview;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.util.AsyncCursor;
-import org.apache.ignite.lang.ErrorGroups.SysView;
-import org.apache.ignite.lang.IgniteException;
 
 /**
  * Base class for system view definitions.
@@ -69,17 +68,13 @@ public abstract class SystemView<T> {
             List<SystemViewColumn<T, ?>> columns,
             Supplier<AsyncCursor<T>> dataProvider) {
 
-        if (name == null) {
-            throw new IgniteException(SysView.VIEW_DEFINITION_ERR, "Name can not be null");
-        }
+        Objects.requireNonNull(name, "Name can not be null");
 
         if (columns.isEmpty()) {
-            throw new IgniteException(SysView.VIEW_DEFINITION_ERR, "Columns should not be empty");
+            throw new IllegalArgumentException("Columns should not be empty");
         }
 
-        if (dataProvider == null) {
-            throw new IgniteException(SysView.VIEW_DEFINITION_ERR, "DataProvider can not be null");
-        }
+        Objects.requireNonNull(dataProvider, "DataProvider can not be null");
 
         this.name = name;
         this.columns = List.copyOf(columns);

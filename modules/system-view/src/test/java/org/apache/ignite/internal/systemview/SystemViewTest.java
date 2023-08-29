@@ -27,8 +27,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.systemview.NodeSystemView.Builder;
 import org.apache.ignite.internal.util.AsyncCursor;
-import org.apache.ignite.lang.ErrorGroups.SysView;
-import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -85,7 +83,7 @@ public class SystemViewTest {
     /** Reject a node view without node name alias. */
     @Test
     public void rejectNodeViewWithoutNodeNameColumnAlias() {
-        expectThrows(() -> {
+        expectThrows(NullPointerException.class, () -> {
             NodeSystemView.<Dummy>builder()
                     .name("name")
                     .addColumn("c1", int.class, (d) -> 0)
@@ -132,7 +130,7 @@ public class SystemViewTest {
         /** Reject a view with {@code null} name. */
         @Test
         public void rejectViewWithNullName() {
-            expectThrows(() -> {
+            expectThrows(NullPointerException.class, () -> {
                 newBuilder()
                         .name(null)
                         .addColumn("c1", int.class, (d) -> 0)
@@ -144,7 +142,7 @@ public class SystemViewTest {
         /** Reject a view without name. */
         @Test
         public void rejectViewWithUnspecifiedName() {
-            expectThrows(() -> {
+            expectThrows(NullPointerException.class, () -> {
                 newBuilder()
                         .addColumn("c1", int.class, (d) -> 0)
                         .dataProvider(dataProvider())
@@ -155,7 +153,7 @@ public class SystemViewTest {
         /** Reject a view without columns. */
         @Test
         public void rejectViewWithoutColumns() {
-            expectThrows(() -> {
+            expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
                         .name("dummy")
                         .dataProvider(dataProvider())
@@ -166,7 +164,7 @@ public class SystemViewTest {
         /** Reject a view with {@code null} column name. */
         @Test
         public void rejectViewWithNullColumnName() {
-            expectThrows(() -> {
+            expectThrows(NullPointerException.class, () -> {
                 newBuilder()
                         .name("dummy")
                         .addColumn(null, int.class, (d) -> 0)
@@ -178,7 +176,7 @@ public class SystemViewTest {
         /** Reject a view with {@code null} column type. */
         @Test
         public void rejectViewWithNullColumnType() {
-            expectThrows(() -> {
+            expectThrows(NullPointerException.class, () -> {
                 newBuilder()
                         .name("dummy")
                         .addColumn("c1", null, (d) -> 0)
@@ -190,7 +188,7 @@ public class SystemViewTest {
         /** Reject a view with {@code null} column value function. */
         @Test
         public void rejectViewWithNullColumnFunction() {
-            expectThrows(() -> {
+            expectThrows(NullPointerException.class, () -> {
                 newBuilder()
                         .name("dummy")
                         .addColumn("c1", int.class, null)
@@ -202,7 +200,7 @@ public class SystemViewTest {
         /** Reject a view without data provider. */
         @Test
         public void rejectViewWithoutDataProvider() {
-            expectThrows(() -> {
+            expectThrows(NullPointerException.class, () -> {
                 newBuilder()
                         .name("dummy")
                         .addColumn("c1", int.class, (d) -> 0)
@@ -213,7 +211,7 @@ public class SystemViewTest {
         /** Reject a view with {@code null} data provider. */
         @Test
         public void rejectViewWithoutNullDataProvider() {
-            expectThrows(() -> {
+            expectThrows(NullPointerException.class, () -> {
                 newBuilder()
                         .name("dummy")
                         .addColumn("c1", int.class, (d) -> 0)
@@ -233,9 +231,8 @@ public class SystemViewTest {
 
     }
 
-    private static void expectThrows(Executable action, String errorMessage) {
-        IgniteException t = assertThrows(IgniteException.class, action);
-        assertEquals(SysView.VIEW_DEFINITION_ERR, t.code(), "error code");
+    private static void expectThrows(Class<? extends RuntimeException> errorClass, Executable action, String errorMessage) {
+        RuntimeException t = assertThrows(errorClass, action);
         assertEquals(errorMessage, t.getMessage(), "error message");
     }
 
