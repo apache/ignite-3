@@ -25,8 +25,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
-import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignments;
@@ -88,6 +86,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
@@ -505,13 +504,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
 
-            catalogService.listen(TABLE_CREATE, (parameters, exception) -> {
+            catalogService.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
                 assert exception == null : parameters;
 
                 return onTableCreate((CreateTableEventParameters) parameters).thenApply(unused -> false);
             });
 
-            catalogService.listen(TABLE_DROP, (parameters, exception) -> {
+            catalogService.listen(CatalogEvent.TABLE_DROP, (parameters, exception) -> {
                 assert exception == null : parameters;
 
                 return onTableDelete(((DropTableEventParameters) parameters)).thenApply(unused -> false);
@@ -564,7 +563,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
     }
 
-    private CompletableFuture<Void> onTableCreate(CreateTableEventParameters parameters) {
+    private CompletableFuture<?> onTableCreate(CreateTableEventParameters parameters) {
         long causalityToken = parameters.causalityToken();
         int catalogVersion = parameters.catalogVersion();
 
@@ -608,7 +607,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         listener.accept(this);
                     }
                 }
-            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture)).thenApply(writeResult -> null);
+            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
         } finally {
             busyLock.leaveBusy();
         }
@@ -1437,31 +1436,45 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         );
     }
 
-    /** {@inheritDoc} */
     @Override
     public List<Table> tables() {
         return join(tablesAsync());
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            return tablesAsyncInternal();
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return inBusyLockAsync(busyLock, this::tablesAsyncInternalBusy);
     }
 
-    /**
-     * Internal method for getting table.
-     *
-     * @return Future representing pending completion of the operation.
-     */
-    private CompletableFuture<List<Table>> tablesAsyncInternal() {
+    // TODO: IGNITE-19499 экспериментальный код
+    private CompletableFuture<List<Table>> tablesAsyncInternalBusy() {
+        HybridTimestamp now = clock.now();
+
+        return schemaSyncService
+                .waitForMetadataCompleteness(now)
+                .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+                    int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
+
+                    Collection<CatalogTableDescriptor> tableDescriptors = catalogService.tables(catalogVersion);
+
+                    if (tableDescriptors.isEmpty()) {
+                        return completedFuture(List.of());
+                    }
+
+                    CompletableFuture<TableImpl>[] tableImplFutures = tableDescriptors.stream()
+                            .map(tableDescriptor -> tableAsyncInternalBusy(tableDescriptor.id()))
+                            .toArray(CompletableFuture[]::new);
+
+                    return allOf(tableImplFutures)
+                            .thenApply(unused1 -> inBusyLock(
+                                    busyLock,
+                                    () -> Stream.of(tableImplFutures).map(CompletableFuture::join).collect(toList())
+                            ));
+                }), ioExecutor);
+    }
+
+    // TODO: IGNITE-19499 возможно удалить
+    private CompletableFuture<List<Table>> tablesAsyncInternalOld() {
         return supplyAsync(() -> inBusyLock(busyLock, this::directTableIds), ioExecutor)
                 .thenCompose(tableIds -> inBusyLock(busyLock, () -> {
                     var tableFuts = new CompletableFuture[tableIds.size()];
@@ -1469,7 +1482,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     var i = 0;
 
                     for (int tblId : tableIds) {
-                        tableFuts[i++] = tableAsyncInternal(tblId, false);
+                        tableFuts[i++] = tableAsyncInternalOld(tblId, false);
                     }
 
                     return allOf(tableFuts).thenApply(unused -> inBusyLock(busyLock, () -> {
@@ -1559,19 +1572,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return unmodifiableMap(latestTablesById());
     }
 
-    /** {@inheritDoc} */
     @Override
     public Table table(String name) {
         return join(tableAsync(name));
     }
 
-    /** {@inheritDoc} */
     @Override
     public TableImpl table(int id) throws NodeStoppingException {
         return join(tableAsync(id));
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
         return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name))
@@ -1596,14 +1606,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableImpl> tableAsync(int id) {
+    // TODO: IGNITE-19499 экспериментальный код
+    public CompletableFuture<TableImpl> tableAsync(int tableId) {
+        return inBusyLockAsync(busyLock, () -> {
+            HybridTimestamp now = clock.now();
+
+            return schemaSyncService
+                    .waitForMetadataCompleteness(now)
+                    .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> tableAsyncInternalBusy(tableId)), ioExecutor);
+        });
+    }
+
+    // TODO: IGNITE-19499 возможно удалить
+    /** Comment. */
+    public CompletableFuture<TableImpl> tableAsyncOld(int id) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return tableAsyncInternal(id, true);
+            return tableAsyncInternalOld(id, true);
         } finally {
             busyLock.leaveBusy();
         }
@@ -1627,13 +1649,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public TableImpl tableImpl(String name) {
         return join(tableImplAsync(name));
     }
 
-    /** {@inheritDoc} */
     @Override
     public CompletableFuture<TableImpl> tableImplAsync(String name) {
         return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name));
@@ -1645,7 +1665,77 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param name Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
+    // TODO: IGNITE-19499 экспериментальный код
     public CompletableFuture<TableImpl> tableAsyncInternal(String name) {
+        return inBusyLockAsync(busyLock, () -> {
+            HybridTimestamp now = clock.now();
+
+            return schemaSyncService
+                    .waitForMetadataCompleteness(now)
+                    .thenApplyAsync(unused -> inBusyLock(busyLock, () -> catalogService.table(name, now.longValue())), ioExecutor)
+                    .thenCompose(tableDescriptor -> inBusyLockAsync(busyLock, () -> {
+                        if (tableDescriptor == null) {
+                            return completedFuture(null);
+                        }
+
+                        return tableAsyncInternalBusy(tableDescriptor.id());
+                    }));
+        });
+    }
+
+    // TODO: IGNITE-19499 экспериментальный код
+    private CompletableFuture<TableImpl> tableAsyncInternalBusy(int tableId) {
+        TableImpl tableImpl = latestTablesById().get(tableId);
+
+        if (tableImpl != null) {
+            return completedFuture(tableImpl);
+        }
+
+        CompletableFuture<TableImpl> getLatestTableFuture = new CompletableFuture<>();
+
+        CompletionListener<Void> tablesListener = (token, v, th) -> {
+            if (th == null) {
+                CompletableFuture<Map<Integer, TableImpl>> tablesFuture = tablesByIdVv.get(token);
+
+                tablesFuture.whenComplete((tables, e) -> {
+                    if (e != null) {
+                        getLatestTableFuture.completeExceptionally(e);
+                    } else {
+                        TableImpl table = tables.get(tableId);
+
+                        if (table != null) {
+                            getLatestTableFuture.complete(table);
+                        }
+                    }
+                });
+            } else {
+                getLatestTableFuture.completeExceptionally(th);
+            }
+        };
+
+        assignmentsUpdatedVv.whenComplete(tablesListener);
+
+        // This check is needed for the case when we have registered tablesListener,
+        // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
+        tableImpl = latestTablesById().get(tableId);
+
+        if (tableImpl != null) {
+            assignmentsUpdatedVv.removeWhenComplete(tablesListener);
+
+            return completedFuture(tableImpl);
+        }
+
+        return getLatestTableFuture.whenComplete((unused, throwable) -> assignmentsUpdatedVv.removeWhenComplete(tablesListener));
+    }
+
+    /**
+     * Gets a table by name, if it was created before. Doesn't parse canonical name.
+     *
+     * @param name Table name.
+     * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
+     */
+    // TODO: IGNITE-19499 возможно удалить
+    public CompletableFuture<TableImpl> tableAsyncInternalOld(String name) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
@@ -1657,7 +1747,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             return completedFuture(null);
                         }
 
-                        return tableAsyncInternal(tableId, false);
+                        return tableAsyncInternalOld(tableId, false);
                     }));
         } finally {
             busyLock.leaveBusy();
@@ -1672,7 +1762,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         otherwise.
      * @return Future representing pending completion of the operation.
      */
-    public CompletableFuture<TableImpl> tableAsyncInternal(int id, boolean checkConfiguration) {
+    // TODO: IGNITE-19499 возможно удалить
+    private CompletableFuture<TableImpl> tableAsyncInternalOld(int id, boolean checkConfiguration) {
         CompletableFuture<Boolean> tblCfgFut = checkConfiguration
                 ? supplyAsync(() -> inBusyLock(busyLock, () -> isTableConfigured(id)), ioExecutor)
                 : completedFuture(true);
