@@ -101,7 +101,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * SqlQueryProcessor.
+ *  SqlQueryProcessor.
  *  TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class SqlQueryProcessor implements QueryProcessor {
@@ -508,113 +508,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     @TestOnly
     public MetricManager metricManager() {
         return metricManager;
-    }
-
-    private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
-        protected final SqlSchemaManagerImpl schemaHolder;
-
-        private AbstractTableEventListener(SqlSchemaManagerImpl schemaHolder) {
-            this.schemaHolder = schemaHolder;
-        }
-    }
-
-    private abstract static class AbstractIndexEventListener implements EventListener<IndexEventParameters> {
-        protected final SqlSchemaManagerImpl schemaHolder;
-
-        private AbstractIndexEventListener(SqlSchemaManagerImpl schemaHolder) {
-            this.schemaHolder = schemaHolder;
-        }
-    }
-
-    private static class TableCreatedListener extends AbstractTableEventListener {
-        private TableCreatedListener(SqlSchemaManagerImpl schemaHolder) {
-            super(schemaHolder);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> notify(TableEventParameters parameters, @Nullable Throwable exception) {
-            return schemaHolder.onTableCreated(
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                            DEFAULT_SCHEMA_NAME,
-                            parameters.tableId(),
-                            parameters.causalityToken()
-                    )
-                    .thenApply(v -> false);
-        }
-    }
-
-    private static class TableUpdatedListener extends AbstractTableEventListener {
-        private TableUpdatedListener(SqlSchemaManagerImpl schemaHolder) {
-            super(schemaHolder);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> notify(TableEventParameters parameters, @Nullable Throwable exception) {
-            return schemaHolder.onTableUpdated(
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                            DEFAULT_SCHEMA_NAME,
-                            parameters.tableId(),
-                            parameters.causalityToken()
-                    )
-                    .thenApply(v -> false);
-        }
-    }
-
-    private static class TableDroppedListener extends AbstractTableEventListener {
-        private TableDroppedListener(SqlSchemaManagerImpl schemaHolder) {
-            super(schemaHolder);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> notify(TableEventParameters parameters, @Nullable Throwable exception) {
-            return schemaHolder.onTableDropped(
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                            DEFAULT_SCHEMA_NAME,
-                            parameters.tableId(),
-                            parameters.causalityToken()
-                    )
-                    .thenApply(v -> false);
-        }
-    }
-
-    private static class IndexDroppedListener extends AbstractIndexEventListener {
-        private IndexDroppedListener(SqlSchemaManagerImpl schemaHolder) {
-            super(schemaHolder);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> notify(IndexEventParameters parameters, @Nullable Throwable exception) {
-            return schemaHolder.onIndexDropped(
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-17694 Hardcoded schemas
-                            DEFAULT_SCHEMA_NAME,
-                            parameters.tableId(),
-                            parameters.indexId(),
-                            parameters.causalityToken()
-                    )
-                    .thenApply(v -> false);
-        }
-    }
-
-    private static class IndexCreatedListener extends AbstractIndexEventListener {
-        private IndexCreatedListener(SqlSchemaManagerImpl schemaHolder) {
-            super(schemaHolder);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public CompletableFuture<Boolean> notify(IndexEventParameters parameters, @Nullable Throwable exception) {
-            return schemaHolder.onIndexCreated(
-                            parameters.tableId(),
-                            parameters.indexId(),
-                            parameters.indexDescriptor(),
-                            parameters.causalityToken()
-                    )
-                    .thenApply(v -> false);
-        }
     }
 
     /** Performs additional validation of a parsed statement. **/
