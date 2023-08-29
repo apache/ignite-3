@@ -2571,7 +2571,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         assert casResult : replicationGroupId;
 
         catalogService.listen(INDEX_CREATE, createIndexListener);
-        catalogService.listen(INDEX_DROP, createIndexListener);
+        catalogService.listen(INDEX_DROP, dropIndexListener);
     }
 
     private void startBuildIndex(StorageIndexDescriptor indexDescriptor) {
