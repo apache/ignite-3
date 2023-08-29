@@ -93,4 +93,18 @@ public interface RaftGroupListener {
     default void onBeforeApply(Command command) {
         // No-op.
     }
+
+    /**
+     * Returns {@code true} if {@link #onBeforeApply(Command)} and saving of the command to the LogManager
+     * must be executed atomically (that is, these actions cannot intermingle for different commands
+     * on the same Raft group.
+     *
+     * <p>This does not influence read commands: for them no atomicity guarantees are provided.
+     *
+     * @param command The command.
+     * @return {@code true} if {@link #onBeforeApply(Command)} and saving must be executed atomically.
+     */
+    default boolean atomicOnBeforeApplyAndWrite(Command command) {
+        return false;
+    }
 }

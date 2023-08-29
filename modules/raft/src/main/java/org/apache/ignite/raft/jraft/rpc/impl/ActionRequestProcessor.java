@@ -27,6 +27,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.util.ConcurrentStringInternizer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -41,7 +42,8 @@ import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.jraft.util.BytesUtil;import org.apache.ignite.raft.jraft.util.Marshaller;
+import org.apache.ignite.raft.jraft.util.BytesUtil;
+import org.apache.ignite.raft.jraft.util.Marshaller;
 
 /**
  * Process action request.
@@ -52,6 +54,8 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     private final Executor executor;
 
     private final RaftMessagesFactory factory;
+
+    private final ConcurrentStringInternizer internizer = new ConcurrentStringInternizer();
 
     public ActionRequestProcessor(Executor executor, RaftMessagesFactory factory) {
         this.executor = executor;
@@ -71,13 +75,23 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
         JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
 
-        // Apply a filter before committing to STM.
-        fsm.getListener().onBeforeApply(request.command());
+        if (fsm.getListener().atomicOnBeforeApplyAndWrite(request.command()) && request.command() instanceof WriteCommand) {
+            // Synchronizing per group.
+            synchronized (internizer.intern(request.groupId())) {
+                // Apply a filter before committing to STM.
+                fsm.getListener().onBeforeApply(request.command());
 
-        if (request.command() instanceof WriteCommand) {
-            applyWrite(node, request, rpcCtx);
+                applyWrite(node, request, rpcCtx);
+            }
         } else {
-            applyRead(node, request, rpcCtx);
+            // Apply a filter before committing to STM.
+            fsm.getListener().onBeforeApply(request.command());
+
+            if (request.command() instanceof WriteCommand) {
+                applyWrite(node, request, rpcCtx);
+            } else {
+                applyRead(node, request, rpcCtx);
+            }
         }
     }
 

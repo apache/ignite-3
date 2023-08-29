@@ -32,6 +32,7 @@ import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.command.GetPrefixCommand;
 import org.apache.ignite.internal.metastorage.command.GetRangeCommand;
+import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.PaginationCommand;
 import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -155,6 +156,11 @@ public class MetaStorageListener implements RaftGroupListener {
     @Override
     public void onBeforeApply(Command command) {
         writeHandler.beforeApply(command);
+    }
+
+    @Override
+    public boolean atomicOnBeforeApplyAndWrite(Command command) {
+        return command instanceof MetaStorageWriteCommand;
     }
 
     @Override
