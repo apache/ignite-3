@@ -71,8 +71,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
                 () -> assertOutputContains("Connected to https://localhost:10400")
         );
         // And prompt is changed to connect
-        String promptAfter = getPrompt();
-        assertThat(promptAfter).isEqualTo("[admin:" + nodeName() + "]> ");
+        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
         assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
                 .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath));
@@ -82,6 +81,17 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
                 .isEqualTo("admin");
         assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
                 .isEqualTo("password");
+
+        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+                        .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                        .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
+
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
+                        .isEqualTo("admin"),
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                        .isEqualTo("password")
+        );
     }
 
     @Test
@@ -107,7 +117,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
 
         // Then
         assertAll(
-                () -> assertErrOutputContains("SSL error" + System.lineSeparator()
+                () -> assertErrOutputContains("Unexpected error" + System.lineSeparator()
                         + "Trust-store password was incorrect")
         );
         // And prompt is disconnected
@@ -144,7 +154,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
 
         // Then
         assertAll(
-                () -> assertErrOutputContains("SSL error" + System.lineSeparator()
+                () -> assertErrOutputContains("Unexpected error" + System.lineSeparator()
                         + "File does not exist or it does not refer to a normal file: " + wrongPath)
         );
         // And prompt is disconnected

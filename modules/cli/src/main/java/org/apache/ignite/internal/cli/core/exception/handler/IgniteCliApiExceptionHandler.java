@@ -84,14 +84,9 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
                     errorComponentBuilder.header(header(e));
                 }
             }
-        } else if (e.getCause() instanceof IOException) {
+        } else if (e.getCause() instanceof IOException || e.getCause() instanceof IllegalArgumentException) {
             errorComponentBuilder
-                    .header("SSL error")
-                    .details(e.getCause().getMessage())
-                    .verbose(e.getMessage());
-        } else if (e.getCause() instanceof IllegalArgumentException) {
-            errorComponentBuilder
-                    .header("SSL error")
+                    .header("Unexpected error")
                     .details(e.getCause().getMessage())
                     .verbose(e.getMessage());
         } else {

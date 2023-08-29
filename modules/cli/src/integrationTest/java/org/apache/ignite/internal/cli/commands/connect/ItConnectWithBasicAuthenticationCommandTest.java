@@ -51,6 +51,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // And prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
+        // On connection error ask user to setup ssl or authentication settings. Answer 'N' to skip setup wizard
         bindAnswers("n");
 
         // When connect without parameters
@@ -97,6 +98,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
+        // On connection error ask user to setup ssl or authentication settings. Answer 'N' to skip setup wizard
         bindAnswers("n");
 
         // When connect without parameters
@@ -142,6 +144,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
+        // On connection error ask user to setup ssl or authentication settings. Answer 'N' to skip setup wizard
         bindAnswers("n");
 
         // When connect with auth parameters
@@ -166,6 +169,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
+        // On connection error ask user to setup ssl or authentication settings. Answer 'N' to skip setup wizard
         bindAnswers("n");
 
         // When connect with auth parameters
@@ -217,6 +221,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
+        // On connection error ask user to setup ssl or authentication settings. Answer 'N' to skip setup wizard
         bindAnswers("n");
 
         // When connect with auth parameters

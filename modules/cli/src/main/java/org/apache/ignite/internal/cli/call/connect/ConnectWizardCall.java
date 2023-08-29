@@ -85,7 +85,7 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
         Flowable<SslConfig> result = flowBuilder.build().start(Flowable.empty());
         if (result.hasResult()) {
             try {
-                checkConnectionSsl(new ConnectSslConfigCallInput(input.url(), result.value()));
+                checkConnectionSsl(input.url(), result.value());
                 saveConfigSsl(result.value());
                 return connectCall.execute(input);
             } catch (ApiException exception) {
@@ -126,10 +126,9 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
         return output;
     }
 
-    private void checkConnectionSsl(ConnectSslConfigCallInput input) throws ApiException {
-        SslConfig config = input.getConfig();
+    private void checkConnectionSsl(String url, SslConfig config) throws ApiException {
         ApiClientSettings settings = ApiClientSettings.builder()
-                .basePath(input.getUrl())
+                .basePath(url)
                 .keyStorePath(config.keyStorePath())
                 .keyStorePassword(config.keyStorePassword())
                 .trustStorePath(config.trustStorePath())
