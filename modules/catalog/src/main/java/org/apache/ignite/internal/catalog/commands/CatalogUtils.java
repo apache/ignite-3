@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.sql.ColumnType;
@@ -246,6 +248,22 @@ public class CatalogUtils {
     }
 
     /**
+     * Creates a system view descriptor based on parameters of create view command..
+     *
+     * @param id system view id.
+     * @param params Parameters.
+     *
+     * @return System view descriptor.
+     */
+    public static CatalogSystemViewDescriptor fromParams(int id, CreateSystemViewCommand params) {
+        List<CatalogTableColumnDescriptor> columns = params.columns().stream()
+                .map(CatalogUtils::fromParams)
+                .collect(toList());
+
+        return new CatalogSystemViewDescriptor(id, params.name(), columns);
+    }
+
+    /**
      * Checks if the specified column type transition is supported.
      *
      * @param source Source column type.
@@ -256,6 +274,25 @@ public class CatalogUtils {
         Set<ColumnType> supportedTransitions = ALTER_COLUMN_TYPE_TRANSITIONS.get(source);
 
         return supportedTransitions != null && supportedTransitions.contains(target);
+    }
+
+    /**
+     * Returns a list of schemas, replacing any schema with {@code newSchema} if it's name is equal to {@code newSchema.name()}.
+     *
+     * @param newSchema A schema.
+     * @param schemas A list of schemas.
+     * @return A List of schemas.
+     */
+    public static List<CatalogSchemaDescriptor> replaceSchema(CatalogSchemaDescriptor newSchema,
+            Collection<CatalogSchemaDescriptor> schemas) {
+
+        return schemas.stream().map(s -> {
+            if (Objects.equals(s.name(), newSchema.name())) {
+                return newSchema;
+            } else {
+                return s;
+            }
+        }).collect(toList());
     }
 
     private static int defaultPrecision(ColumnType columnType) {

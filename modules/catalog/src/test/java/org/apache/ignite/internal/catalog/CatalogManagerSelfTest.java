@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
@@ -71,6 +72,8 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -83,6 +86,7 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSystemViewCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -91,8 +95,10 @@ import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -144,21 +150,21 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testEmptyCatalog() {
-        CatalogSchemaDescriptor schema = manager.schema(DEFAULT_SCHEMA_NAME, 0);
+        CatalogSchemaDescriptor defaultSchema = manager.schema(DEFAULT_SCHEMA_NAME, 0);
 
-        assertNotNull(schema);
-        assertSame(schema, manager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong()));
-        assertSame(schema, manager.schema(0));
-        assertSame(schema, manager.activeSchema(clock.nowLong()));
+        assertNotNull(defaultSchema);
+        assertSame(defaultSchema, manager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong()));
+        assertSame(defaultSchema, manager.schema(0));
+        assertSame(defaultSchema, manager.activeSchema(clock.nowLong()));
 
         assertNull(manager.schema(1));
         assertThrows(IllegalStateException.class, () -> manager.activeSchema(-1L));
 
         // Validate default schema.
-        assertEquals(DEFAULT_SCHEMA_NAME, schema.name());
-        assertEquals(0, schema.id());
-        assertEquals(0, schema.tables().length);
-        assertEquals(0, schema.indexes().length);
+        assertEquals(DEFAULT_SCHEMA_NAME, defaultSchema.name());
+        assertEquals(0, defaultSchema.id());
+        assertEquals(0, defaultSchema.tables().length);
+        assertEquals(0, defaultSchema.indexes().length);
 
         // Default distribution zone must exists.
         CatalogZoneDescriptor zone = manager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
@@ -172,6 +178,19 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals(DEFAULT_STORAGE_ENGINE, zone.dataStorage().engine());
         assertEquals(DEFAULT_DATA_REGION, zone.dataStorage().dataRegion());
+
+        // System schema should exist.
+
+        CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, 0);
+        assertNotNull(systemSchema, "system schema");
+        assertSame(systemSchema, manager.activeSchema(SYSTEM_SCHEMA_NAME, clock.nowLong()));
+        assertSame(systemSchema, manager.schema(SYSTEM_SCHEMA_NAME, 0));
+
+        // Validate system schema.
+        assertEquals(SYSTEM_SCHEMA_NAME, systemSchema.name());
+        assertEquals(1, systemSchema.id());
+        assertEquals(0, systemSchema.tables().length);
+        assertEquals(0, systemSchema.indexes().length);
     }
 
     @Test
@@ -218,7 +237,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(manager.zone(ZONE_NAME, clock.nowLong()).id(), table.zoneId());
 
         // Validate newly created pk index
-        assertEquals(3L, pkIndex.id());
+        assertEquals(4L, pkIndex.id());
         assertEquals(createPkIndexName(TABLE_NAME), pkIndex.name());
         assertEquals(table.id(), pkIndex.tableId());
         assertEquals(table.primaryKeyColumns(), pkIndex.columns());
@@ -873,7 +892,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(index, manager.index(index.id(), clock.nowLong()));
 
         // Validate newly created hash index
-        assertEquals(4L, index.id());
+        assertEquals(5L, index.id());
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
@@ -912,7 +931,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(index, manager.index(index.id(), clock.nowLong()));
 
         // Validate newly created sorted index
-        assertEquals(4L, index.id());
+        assertEquals(5L, index.id());
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals("VAL", index.columns().get(0).name());
@@ -1082,9 +1101,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Validate catalog version from the past.
         assertNull(manager.zone(zoneName, 0));
-        assertNull(manager.zone(2, 0));
+        assertNull(manager.zone(3, 0));
         assertNull(manager.zone(zoneName, 123L));
-        assertNull(manager.zone(2, 123L));
+        assertNull(manager.zone(3, 123L));
 
         // Validate actual catalog
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
@@ -1680,6 +1699,96 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         assertThat(manager.addColumn(addColumnParams(columnParams("ID", INT32))), willThrowFast(ColumnAlreadyExistsException.class));
+    }
+
+    @Test
+    public void testCreateSystemView() {
+        CreateSystemViewCommand command = CreateSystemViewCommand.builder()
+                .name("view1")
+                .columns(List.of(
+                        ColumnParams.builder().name("col1").type(INT32).build(),
+                        ColumnParams.builder().name("col2").type(STRING).build()
+                )).build();
+
+        assertThat(manager.execute(command), willCompleteSuccessfully());
+
+        int catalogVersion = manager.latestCatalogVersion();
+
+        CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, catalogVersion);
+        assertNotNull(systemSchema, "systemSchema");
+
+        CatalogSystemViewDescriptor view1 = systemSchema.systemView("view1");
+
+        assertNotNull(view1, "view1");
+        assertEquals(3L, view1.id(), "system view id");
+        assertEquals("view1", view1.name());
+
+        List<CatalogTableColumnDescriptor> columns = view1.columns();
+        assertEquals(2, columns.size(), "columns: " + columns);
+
+        CatalogTableColumnDescriptor col1 = columns.get(0);
+        assertEquals("col1", col1.name());
+        assertEquals(INT32, col1.type());
+
+        CatalogTableColumnDescriptor col2 = columns.get(1);
+        assertEquals("col2", col2.name());
+        assertEquals(STRING, col2.type());
+    }
+
+    @Test
+    public void testCreateSystemViewReplacesExistingViewWithTheSameName() {
+        CreateSystemViewCommand command1 = CreateSystemViewCommand.builder()
+                .name("view1")
+                .columns(List.of(
+                        ColumnParams.builder().name("col1").type(INT32).build(),
+                        ColumnParams.builder().name("col2").type(STRING).build()
+                )).build();
+
+        CreateSystemViewCommand command2 = CreateSystemViewCommand.builder()
+                .name("view2")
+                .columns(List.of(
+                        ColumnParams.builder().name("col1").type(ColumnType.FLOAT).build()
+                ))
+                .build();
+
+        assertThat(manager.execute(command1), willCompleteSuccessfully());
+        assertThat(manager.execute(command2), willCompleteSuccessfully());
+
+        CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, manager.latestCatalogVersion());
+        assertNotNull(systemSchema, "systemSchema");
+
+        List<CatalogSystemViewDescriptor> initialViews = Arrays.stream(systemSchema.systemViews())
+                .sorted(Comparator.comparing(CatalogObjectDescriptor::name)).collect(toList());
+
+        assertEquals(2, initialViews.size());
+
+        // Replace view1
+
+        CreateSystemViewCommand command3 = CreateSystemViewCommand.builder()
+                .name("view1")
+                .columns(List.of(
+                        ColumnParams.builder().name("col1").type(INT32).build()
+                )).build();
+
+        assertThat(manager.execute(command3), willCompleteSuccessfully());
+
+        CatalogSchemaDescriptor mostRecentSchema = manager.schema(SYSTEM_SCHEMA_NAME, manager.latestCatalogVersion());
+        assertNotNull(mostRecentSchema, "systemSchema");
+
+        // Retrieve the most actual system views
+        List<CatalogSystemViewDescriptor> views = Arrays.stream(mostRecentSchema.systemViews())
+                .sorted(Comparator.comparing(CatalogObjectDescriptor::name)).collect(toList());
+
+        assertEquals(2, views.size());
+
+        // View1 should have been replaced.
+        CatalogSystemViewDescriptor view1 = views.get(0);
+        assertEquals(1, view1.columns().size());
+        assertNotEquals(view1.id(), initialViews.get(0).id(), "view1 id");
+
+        // View2 should remain the same.
+        CatalogSystemViewDescriptor view2 = views.get(1);
+        assertEquals(view2.id(), initialViews.get(1).id(), "view2 id");
     }
 
     private void createSomeTable(String tableName) {

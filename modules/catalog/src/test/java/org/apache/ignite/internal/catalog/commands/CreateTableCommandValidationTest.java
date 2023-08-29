@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.UpdateProducer;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -418,7 +419,8 @@ public class CreateTableCommandValidationTest extends BaseIgniteAbstractTest {
                         0,
                         SCHEMA_NAME,
                         tables,
-                        indexes
+                        indexes,
+                        new CatalogSystemViewDescriptor[0]
                 ))
         );
     }

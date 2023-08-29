@@ -17,70 +17,78 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-
-import java.util.Objects;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateSystemViewEventParameters;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
- * Describes addition of a new table.
+ * Describes addition of a new system view.
  */
-public class NewTableEntry implements UpdateEntry, Fireable {
-    private static final long serialVersionUID = 2970125889493580121L;
+public class NewSystemViewEntry implements UpdateEntry, Fireable {
 
-    private final CatalogTableDescriptor descriptor;
+    private static final long serialVersionUID = 2929374580760746317L;
+
+    private final CatalogSystemViewDescriptor descriptor;
 
     /**
-     * Constructs the object.
+     * Constructor.
      *
-     * @param descriptor A descriptor of a table to add.
+     * @param descriptor System view descriptor.
      */
-    public NewTableEntry(CatalogTableDescriptor descriptor) {
+    public NewSystemViewEntry(CatalogSystemViewDescriptor descriptor) {
         this.descriptor = descriptor;
     }
 
-    /** Returns descriptor of a table to add. */
-    public CatalogTableDescriptor descriptor() {
-        return descriptor;
-    }
-
+    /** {@inheritDoc} */
     @Override
     public CatalogEvent eventType() {
-        return CatalogEvent.TABLE_CREATE;
+        return CatalogEvent.SYSTEM_VIEW_CREATE;
     }
 
+    /** {@inheritDoc} */
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new CreateTableEventParameters(causalityToken, catalogVersion, descriptor);
+        return new CreateSystemViewEventParameters(causalityToken, catalogVersion, descriptor);
     }
 
+    /** {@inheritDoc} */
     @Override
     public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor systemSchema = catalog.schema(CatalogManager.SYSTEM_SCHEMA_NAME);
+
+        Map<String, CatalogSystemViewDescriptor> systemViews = Arrays.stream(systemSchema.systemViews())
+                .collect(Collectors.toMap(CatalogSystemViewDescriptor::name, Function.identity()));
+        systemViews.put(descriptor.name(), descriptor);
+
+        CatalogSystemViewDescriptor[] sysViewArray = systemViews.values().toArray(new CatalogSystemViewDescriptor[0]);
+
+        CatalogSchemaDescriptor newSystemSchema = new CatalogSchemaDescriptor(
+                systemSchema.id(),
+                systemSchema.name(),
+                systemSchema.tables(),
+                systemSchema.indexes(),
+                sysViewArray);
 
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                CatalogUtils.replaceSchema(new CatalogSchemaDescriptor(
-                        schema.id(),
-                        schema.name(),
-                        ArrayUtils.concat(schema.tables(), descriptor),
-                        schema.indexes(),
-                        schema.systemViews()
-                ), catalog.schemas())
+                CatalogUtils.replaceSchema(newSystemSchema, catalog.schemas())
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);
