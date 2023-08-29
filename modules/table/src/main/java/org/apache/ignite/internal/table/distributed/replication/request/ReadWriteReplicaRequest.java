@@ -37,9 +37,4 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
     @Deprecated
     @Nullable
     Long term();
-
-    /**
-     * Return {@code true} if this is a full transaction.
-     */
-    boolean full();
 }

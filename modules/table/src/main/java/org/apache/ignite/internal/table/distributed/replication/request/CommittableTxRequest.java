@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
+import java.util.UUID;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /**
  * Transaction request that can contain full transaction (transaction that contains full set of keys).
  */
-public interface FullTxRequest extends ReplicaRequest {
+public interface CommittableTxRequest extends ReplicaRequest {
+    UUID transactionId();
+
     /**
      * Return {@code true} if this is a full transaction.
      */

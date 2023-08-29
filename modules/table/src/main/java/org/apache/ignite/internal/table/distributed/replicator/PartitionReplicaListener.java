@@ -114,6 +114,7 @@ import org.apache.ignite.internal.table.distributed.command.UpdateCommandBuilder
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
+import org.apache.ignite.internal.table.distributed.replication.request.CommittableTxRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyMultiRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadOnlyScanRetrieveBatchReplicaRequest;
@@ -328,8 +329,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId) {
-        if (request instanceof ReadWriteReplicaRequest) {
-            var req = (ReadWriteReplicaRequest) request;
+        if (request instanceof CommittableTxRequest) {
+            var req = (CommittableTxRequest) request;
 
             // Saving state is not needed for full transactions.
             if (!req.full()) {
