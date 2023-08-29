@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -73,7 +73,7 @@ public class TxLocalTest extends TxAbstractTest {
 
         ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
 
-        TestHybridClock localClock = new TestHybridClock(() -> 1);
+        HybridClockImpl localClock = new HybridClockImpl();
         MessagingService msgSvc = mock(MessagingService.class, RETURNS_DEEP_STUBS);
         ReplicaService replicaSvc = new ReplicaService(msgSvc, localClock);
 
@@ -119,13 +119,27 @@ public class TxLocalTest extends TxAbstractTest {
 
         txManager = new TxManagerImpl(replicaSvc, lockManager, localClock, new TransactionIdGenerator(0xdeadbeef), () -> "local");
 
-        igniteTransactions = new IgniteTransactionsImpl(txManager);
+        igniteTransactions = new IgniteTransactionsImpl(txManager, timestampTracker);
 
-        DummyInternalTableImpl table = new DummyInternalTableImpl(replicaSvc, txManager, true, placementDriver, ACCOUNTS_SCHEMA);
+        DummyInternalTableImpl table = new DummyInternalTableImpl(
+                replicaSvc,
+                txManager,
+                true,
+                placementDriver,
+                ACCOUNTS_SCHEMA,
+                timestampTracker
+        );
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), lockManager);
 
-        DummyInternalTableImpl table2 = new DummyInternalTableImpl(replicaSvc, txManager, true, placementDriver, CUSTOMERS_SCHEMA);
+        DummyInternalTableImpl table2 = new DummyInternalTableImpl(
+                replicaSvc,
+                txManager,
+                true,
+                placementDriver,
+                CUSTOMERS_SCHEMA,
+                timestampTracker
+        );
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), lockManager);
 

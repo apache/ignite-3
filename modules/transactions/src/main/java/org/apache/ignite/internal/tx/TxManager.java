@@ -39,24 +39,24 @@ public interface TxManager extends IgniteComponent {
     /**
      * Starts a read-write transaction coordinated by a local node.
      *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
      * @return The transaction.
      */
-    InternalTransaction begin();
+    InternalTransaction begin(HybridTimestampTracker timestampTracker);
 
     /**
      * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
      *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
-     *      Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
-     * @param observableTimestamp Observable timestamp, applicable only for read-only transactions. Read-only transactions
-     *      can use some time to the past to avoid waiting for time that is safe for reading on non-primary replica. To do so, client
-     *      should provide this observable timestamp that is calculated according to the commit time of the latest read-write transaction,
-     *      to guarantee that read-only transaction will see the modified data.
+     *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
      * @return The started transaction.
-     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data available
-     *      in the tables.
+     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data
+     *         available in the tables.
      */
-    InternalTransaction begin(boolean readOnly, @Nullable HybridTimestamp observableTimestamp);
+    InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly);
 
     /**
      * Returns a transaction state meta.
@@ -84,8 +84,18 @@ public interface TxManager extends IgniteComponent {
     public LockManager lockManager();
 
     /**
+     * Fixes a one-path committed transaction.
+     *
+     * @param timestampTracker Timestamp tracker. This tracker is used to track a commit timestamp.
+     * @param txId Transaction id.
+     * @param commit {@code True} if a commit requested.
+     */
+    void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit);
+
+    /**
      * Finishes a dependant transactions.
      *
+     * @param timestampTracker Timestamp tracker. This tracker is used to track a commit timestamp.
      * @param commitPartition Partition to store a transaction state.
      * @param recipientNode Recipient node.
      * @param term Raft term.
@@ -94,6 +104,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
+            HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
             ClusterNode recipientNode,
             Long term,

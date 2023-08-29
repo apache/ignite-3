@@ -98,6 +98,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -561,7 +562,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         InternalTransaction tx = mock(InternalTransaction.class);
         when(tx.startTimestamp()).thenReturn(HybridTimestamp.MAX_VALUE);
-        when(tm.begin(anyBoolean(), any())).thenReturn(tx);
+        when(tm.begin(any(), anyBoolean())).thenReturn(tx);
         when(transactions.begin(any())).thenReturn(tx);
 
         when(replicaManager.stopReplica(any())).thenReturn(completedFuture(true));
@@ -596,7 +597,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 cmgMgr,
                 distributionZoneManager,
                 schemaSyncService,
-                catalogManager
+                catalogManager,
+                new HybridTimestampTracker()
         );
 
         tableManager.start();

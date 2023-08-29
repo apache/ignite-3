@@ -153,6 +153,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -821,7 +822,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     cmgManager,
                     distributionZoneManager,
                     schemaSyncService,
-                    catalogManager
+                    catalogManager,
+                    new HybridTimestampTracker()
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(
