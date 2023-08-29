@@ -1164,7 +1164,7 @@ public class InternalTableImpl implements InternalTable {
         for (Entry<RaftGroupService> e : entries) {
             // TODO: sanpwc timeout
             CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(e.getValue().groupId(), clock.now())
-                    .orTimeout(10, TimeUnit.SECONDS);
+                    .orTimeout(30, TimeUnit.SECONDS);
 
             result.add(f.thenApply(primaryReplica -> {
                 ClusterNode node = clusterNodeResolver.apply(primaryReplica.getLeaseholder());
@@ -1350,7 +1350,7 @@ public class InternalTableImpl implements InternalTable {
 
         // TODO: sanpwc timeout
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now())
-                .orTimeout(10, TimeUnit.SECONDS);
+                .orTimeout(30, TimeUnit.SECONDS);
 
         return primaryReplicaFuture.handle((primaryReplica, e) -> {
             if (e != null) {
@@ -1557,7 +1557,7 @@ public class InternalTableImpl implements InternalTable {
 
         // TODO: sanpwc timeout
         return placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now())
-                .orTimeout(10, TimeUnit.SECONDS).handle((res, e) -> {
+                .orTimeout(30, TimeUnit.SECONDS).handle((res, e) -> {
                     if (e != null) {
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
                     } else {
