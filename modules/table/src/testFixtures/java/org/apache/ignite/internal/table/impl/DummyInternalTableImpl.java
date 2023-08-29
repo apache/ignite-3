@@ -87,6 +87,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -99,7 +100,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
 
-    private static final ClusterNode LOCAL_NODE = mock(ClusterNode.class);
+    public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("node_id", "node_name", ADDR);
 
     public static final HybridClock CLOCK = new TestHybridClock(new LongSupplier() {
         @Override
