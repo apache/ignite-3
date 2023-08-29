@@ -19,29 +19,27 @@ package org.apache.ignite.internal.catalog.commands;
 
 import java.util.List;
 
-/**
- * ALTER TABLE ... ADD COLUMN statement.
- */
+/** ALTER TABLE ... ADD COLUMN statement. */
 public class AlterTableAddColumnParams extends AbstractTableCommandParams {
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
     }
 
+    private AlterTableAddColumnParams() {
+        // No-op.
+    }
+
     /** Columns. */
     private List<ColumnParams> cols;
 
-    /**
-     * Gets columns that should be added to a table.
-     */
+    /** Returns columns that should be added to a table. */
     public List<ColumnParams> columns() {
         return cols;
     }
 
-    /**
-     * Parameters builder.
-     */
-    public static class Builder extends AbstractTableCommandParams.AbstractBuilder<AlterTableAddColumnParams, Builder> {
+    /** Parameters builder. */
+    public static class Builder extends AbstractTableBuilder<AlterTableAddColumnParams, Builder> {
         private Builder() {
             super(new AlterTableAddColumnParams());
         }
@@ -53,7 +51,8 @@ public class AlterTableAddColumnParams extends AbstractTableCommandParams {
          * @return {@code this}.
          */
         public Builder columns(List<ColumnParams> cols) {
-            params.cols = cols;
+            params.cols = List.copyOf(cols);
+
             return this;
         }
     }

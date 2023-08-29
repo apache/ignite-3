@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -60,7 +61,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class ReadOnlyServiceTest {
+public class ReadOnlyServiceTest extends BaseIgniteAbstractTest {
     private ReadOnlyServiceImpl readOnlyServiceImpl;
 
     private RaftMessagesFactory msgFactory;

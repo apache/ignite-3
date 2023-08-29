@@ -24,12 +24,13 @@ import static org.mockito.Mockito.verify;
 
 import io.netty.channel.ChannelHandlerContext;
 import java.io.IOException;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test class for the {@link IoExceptionSuppressingHandler}.
  */
-public class IoExceptionSuppressingHandlerTest {
+public class IoExceptionSuppressingHandlerTest extends BaseIgniteAbstractTest {
     private final ChannelHandlerContext context = mock(ChannelHandlerContext.class);
 
     private final IoExceptionSuppressingHandler handler = new IoExceptionSuppressingHandler();

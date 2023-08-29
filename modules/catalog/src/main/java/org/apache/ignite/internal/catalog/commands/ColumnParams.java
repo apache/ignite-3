@@ -27,6 +27,10 @@ public class ColumnParams {
         return new Builder();
     }
 
+    private ColumnParams() {
+        // No-op.
+    }
+
     /** Column name. */
     private String name;
 
@@ -36,28 +40,24 @@ public class ColumnParams {
     /** Nullability flag. */
     private boolean nullable;
 
-    /** Column length. */
-    private Integer length;
+    /** Column length, {@code null} if not set. */
+    private @Nullable Integer length;
 
-    /** Column precision. */
-    private Integer precision;
+    /** Column precision, {@code null} if not set. */
+    private @Nullable Integer precision;
 
-    /** Column scale. */
-    private Integer scale;
+    /** Column scale, {@code null} if not set. */
+    private @Nullable Integer scale;
 
     /** Column default value. */
     private DefaultValue defaultValueDefinition = DefaultValue.constant(null);
 
-    /**
-     * Get column's name.
-     */
+    /** Returns column name. */
     public String name() {
         return name;
     }
 
-    /**
-     * Get column's type.
-     */
+    /** Returns column type. */
     public ColumnType type() {
         return type;
     }
@@ -72,30 +72,22 @@ public class ColumnParams {
         return (T) defaultValueDefinition;
     }
 
-    /**
-     * Get nullable flag: {@code true} if this column accepts nulls.
-     */
+    /** Returns nullable flag: {@code true} if this column accepts nulls. */
     public boolean nullable() {
         return nullable;
     }
 
-    /**
-     * Get column's precision or {@code null} if not set.
-     */
+    /** Returns column precision or {@code null} if not set. */
     public @Nullable Integer precision() {
         return precision;
     }
 
-    /**
-     * Get column's scale or {@code null} if not set.
-     */
+    /** Returns column scale or {@code null} if not set. */
     public @Nullable Integer scale() {
         return scale;
     }
 
-    /**
-     * Get column's length or {@code null} if not set.
-     */
+    /** Returns column length or {@code null} if not set. */
     public @Nullable Integer length() {
         return length;
     }
@@ -111,7 +103,7 @@ public class ColumnParams {
         /**
          * Set column simple name.
          *
-         * @param name Column simple name.
+         * @param name Column name.
          * @return {@code this}.
          */
         public Builder name(String name) {
@@ -135,6 +127,7 @@ public class ColumnParams {
         /**
          * Marks column as nullable.
          *
+         * @param nullable {@code true} if this column accepts nulls.
          * @return {@code this}.
          */
         public Builder nullable(boolean nullable) {
@@ -146,6 +139,7 @@ public class ColumnParams {
         /**
          * Sets column default value.
          *
+         * @param defaultValue Column default value.
          * @return {@code this}.
          */
         public Builder defaultValue(DefaultValue defaultValue) {
@@ -157,6 +151,7 @@ public class ColumnParams {
         /**
          * Sets column precision.
          *
+         * @param precision Column precision.
          * @return {@code this}.
          */
         public Builder precision(Integer precision) {
@@ -168,6 +163,7 @@ public class ColumnParams {
         /**
          * Sets column scale.
          *
+         * @param scale Column scale.
          * @return {@code this}.
          */
         public Builder scale(Integer scale) {
@@ -179,6 +175,7 @@ public class ColumnParams {
         /**
          * Sets column length.
          *
+         * @param length Column length.
          * @return {@code this}.
          */
         public Builder length(Integer length) {
@@ -187,11 +184,7 @@ public class ColumnParams {
             return this;
         }
 
-        /**
-         * Builds parameters.
-         *
-         * @return Parameters.
-         */
+        /** Builds parameters. */
         public ColumnParams build() {
             ColumnParams params0 = params;
             params = null;

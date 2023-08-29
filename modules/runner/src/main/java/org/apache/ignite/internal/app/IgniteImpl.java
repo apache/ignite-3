@@ -561,7 +561,6 @@ public class IgniteImpl implements Ignite {
                 indexManager,
                 schemaManager,
                 dataStorageMgr,
-                txManager,
                 distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
                 replicaSvc,
@@ -570,7 +569,7 @@ public class IgniteImpl implements Ignite {
                 metricManager
         );
 
-        sql = new IgniteSqlImpl(qryEngine);
+        sql = new IgniteSqlImpl(qryEngine, new IgniteTransactionsImpl(txManager));
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,

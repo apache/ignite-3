@@ -45,17 +45,14 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test suite for {@link IgniteUtils}.
  */
-class IgniteUtilsTest {
-    private final IgniteLogger log = Loggers.forClass(IgniteUtilsTest.class);
-
+class IgniteUtilsTest extends BaseIgniteAbstractTest {
     /**
      * Tests that all resources are closed by the {@link IgniteUtils#closeAll} even if {@link AutoCloseable#close} throws an exception.
      */

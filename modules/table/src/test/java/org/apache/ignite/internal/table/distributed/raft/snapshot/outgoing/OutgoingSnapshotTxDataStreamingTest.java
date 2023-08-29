@@ -42,6 +42,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAcces
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataResponse;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -54,7 +55,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class OutgoingSnapshotTxDataStreamingTest {
+class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
     @Mock
     private PartitionAccess partitionAccess;
 

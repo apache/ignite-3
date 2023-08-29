@@ -34,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.junit.jupiter.api.Test;
@@ -45,7 +46,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for {@link ExecutableTableRegistryImpl}.
  */
 @ExtendWith(MockitoExtension.class)
-public class ExecutableTableRegistrySelfTest {
+public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
 
     @Mock
     private ReplicaService replicaService;

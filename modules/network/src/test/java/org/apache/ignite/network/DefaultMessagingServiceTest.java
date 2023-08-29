@@ -57,6 +57,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
@@ -70,7 +71,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-class DefaultMessagingServiceTest {
+class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private static final int SENDER_PORT = 2001;
     private static final int RECEIVER_PORT = 2002;
 

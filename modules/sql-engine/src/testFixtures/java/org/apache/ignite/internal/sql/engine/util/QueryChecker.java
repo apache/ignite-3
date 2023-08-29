@@ -50,6 +50,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
@@ -474,7 +475,7 @@ public abstract class QueryChecker {
             if (!CollectionUtils.nullOrEmpty(planMatchers) || exactPlan != null) {
 
                 CompletableFuture<AsyncSqlCursor<List<Object>>> explainCursors = qryProc.querySingleAsync(sessionId,
-                        context, "EXPLAIN PLAN FOR " + qry, params);
+                        context, transactions(), "EXPLAIN PLAN FOR " + qry, params);
                 AsyncSqlCursor<List<Object>> explainCursor = await(explainCursors);
                 List<List<Object>> explainRes = getAllFromCursor(explainCursor);
 
@@ -491,7 +492,9 @@ public abstract class QueryChecker {
                 }
             }
             // Check result.
-            CompletableFuture<AsyncSqlCursor<List<Object>>> cursors = qryProc.querySingleAsync(sessionId, context, qry, params);
+            CompletableFuture<AsyncSqlCursor<List<Object>>> cursors =
+                    qryProc.querySingleAsync(sessionId, context, transactions(), qry, params);
+
             AsyncSqlCursor<List<Object>> cur = await(cursors);
 
             checkMetadata(cur);
@@ -552,6 +555,8 @@ public abstract class QueryChecker {
     }
 
     protected abstract QueryProcessor getEngine();
+
+    protected abstract IgniteTransactions transactions();
 
     protected void checkMetadata(AsyncSqlCursor<?> cursor) {
 

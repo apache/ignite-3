@@ -17,19 +17,35 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_FIRST;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.jetbrains.annotations.Nullable;
@@ -550,6 +566,262 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
         );
     }
 
+    @Test
+    void testValidateTableNameOnIndexCreation() {
+        assertThat(
+                manager.createIndex(CreateHashIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+
+        assertThat(
+                manager.createIndex(CreateSortedIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateIndexNameOnIndexCreation() {
+        assertThat(
+                manager.createIndex(CreateHashIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Missing index name")
+        );
+
+        assertThat(
+                manager.createIndex(CreateSortedIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Missing index name")
+        );
+    }
+
+    @Test
+    void testValidateIndexColumnsNotSpecifiedOnIndexCreation() {
+        assertThat(
+                manager.createIndex(createHashIndexParams(INDEX_NAME, null)),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, null, null)),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.createIndex(createHashIndexParams(INDEX_NAME, List.of())),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of(), null)),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+    }
+
+    @Test
+    void testValidateIndexColumnsDuplicatesOnIndexCreation() {
+        assertThat(
+                manager.createIndex(createHashIndexParams(INDEX_NAME, Arrays.asList("key", "key"))),
+                willThrowFast(CatalogValidationException.class, "Duplicate columns are present")
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, Arrays.asList("key", "key"), null)),
+                willThrowFast(CatalogValidationException.class, "Duplicate columns are present")
+        );
+    }
+
+    @Test
+    void testValidateIndexColumnsCollationsNotSpecifiedOnIndexCreation() {
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("key"), null)),
+                willThrowFast(CatalogValidationException.class, "Columns collations not specified")
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("key"), List.of())),
+                willThrowFast(CatalogValidationException.class, "Columns collations not specified")
+        );
+    }
+
+    @Test
+    void testValidateIndexColumnsCollationsNotScameSizeWithColumnsOnIndexCreation() {
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("key", "val"), List.of(ASC_NULLS_FIRST))),
+                willThrowFast(CatalogValidationException.class, "Columns collations doesn't match number of columns")
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("key"), List.of(ASC_NULLS_FIRST, ASC_NULLS_FIRST))),
+                willThrowFast(CatalogValidationException.class, "Columns collations doesn't match number of columns")
+        );
+    }
+
+    @Test
+    void testValidateIndexNameOnIndexDrop() {
+        assertThat(
+                manager.dropIndex(DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Missing index name")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnTableDrop() {
+        assertThat(
+                manager.dropTable(DropTableParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnTableCreation() {
+        assertThat(
+                manager.createTable(CreateTableParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateColumnsOnTableCreation() {
+        assertThat(
+                manager.createTable(createTableParams(TABLE_NAME, null, null, null)),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(createTableParams(TABLE_NAME, List.of(), null, null)),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(createTableParams(TABLE_NAME, List.of(ColumnParams.builder().build()), null, null)),
+                willThrowFast(CatalogValidationException.class, "Missing column name")
+        );
+
+        assertThat(
+                manager.createTable(createTableParams(TABLE_NAME, List.of(ColumnParams.builder().name("key").build()), null, null)),
+                willThrowFast(CatalogValidationException.class, "Missing column type: key")
+        );
+
+        assertThat(
+                manager.createTable(
+                        createTableParams(TABLE_NAME, List.of(columnParams("key", INT32), columnParams("key", INT64)), null, null)
+                ),
+                willThrowFast(CatalogValidationException.class, "Duplicate columns are present: [key]")
+        );
+    }
+
+    @Test
+    void testValidatePrimaryKeyColumnsOnTableCreation() {
+        assertThat(
+                manager.createTable(simpleTableParamsWithPrimaryKeys(null)),
+                willThrowFast(CatalogValidationException.class, "Primary key columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithPrimaryKeys(List.of())),
+                willThrowFast(CatalogValidationException.class, "Primary key columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithPrimaryKeys(List.of("key", "key"))),
+                willThrowFast(CatalogValidationException.class, "Duplicate primary key columns are present: [key]")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithPrimaryKeys(List.of("foo", "bar"))),
+                willThrowFast(CatalogValidationException.class, "Primary key columns missing in columns: [foo, bar]")
+        );
+    }
+
+    @Test
+    void testValidatePrimaryColocationColumnsOnTableCreation() {
+        assertThat(
+                manager.createTable(simpleTableParamsWithColocationColumns(List.of())),
+                willThrowFast(CatalogValidationException.class, "Colocation columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithColocationColumns(List.of("key", "key"))),
+                willThrowFast(CatalogValidationException.class, "Duplicate colocation columns are present: [key]")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithColocationColumns(List.of("foo", "bar"))),
+                willThrowFast(CatalogValidationException.class, "Colocation columns missing in primary key columns: [foo, bar]")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnDropColumn() {
+        assertThat(
+                manager.dropColumn(AlterTableDropColumnParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateColumnsOnDropColumn() {
+        assertThat(
+                manager.dropColumn(AlterTableDropColumnParams.builder().tableName(TABLE_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.dropColumn(AlterTableDropColumnParams.builder().tableName(TABLE_NAME).columns(Set.of()).build()),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnAddColumn() {
+        assertThat(
+                manager.addColumn(AlterTableAddColumnParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateColumnsOnAddColumn() {
+        assertThat(
+                manager.addColumn(AlterTableAddColumnParams.builder().tableName(TABLE_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.addColumn(AlterTableAddColumnParams.builder().tableName(TABLE_NAME).columns(List.of()).build()),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.addColumn(addColumnParams(ColumnParams.builder().build())),
+                willThrowFast(CatalogValidationException.class, "Missing column name")
+        );
+
+        assertThat(
+                manager.addColumn(addColumnParams(ColumnParams.builder().name("key").build())),
+                willThrowFast(CatalogValidationException.class, "Missing column type: key")
+        );
+
+        assertThat(
+                manager.addColumn(addColumnParams(columnParams("key", INT32), columnParams("key", INT64))),
+                willThrowFast(CatalogValidationException.class, "Duplicate columns are present: [key]")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnAlterColumn() {
+        assertThat(
+                manager.alterColumn(AlterColumnParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateColumnNameOnAlterColumn() {
+        assertThat(
+                manager.alterColumn(AlterColumnParams.builder().tableName(TABLE_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Missing column name")
+        );
+    }
+
     private static CreateZoneParams.Builder createZoneBuilder(String zoneName) {
         return CreateZoneParams.builder().zoneName(zoneName);
     }
@@ -581,5 +853,18 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
                 .dataNodesAutoAdjustScaleUp(scaleUp)
                 .dataNodesAutoAdjustScaleDown(scaleDown)
                 .build();
+    }
+
+    private CreateTableParams simpleTableParamsWithPrimaryKeys(@Nullable List<String> primaryKeys) {
+        return createTableParams(TABLE_NAME, List.of(columnParams("key", INT32), columnParams("val", INT64)), primaryKeys, null);
+    }
+
+    private CreateTableParams simpleTableParamsWithColocationColumns(@Nullable List<String> colocationColumns) {
+        return createTableParams(
+                TABLE_NAME,
+                List.of(columnParams("key", INT32), columnParams("val", INT64)),
+                List.of("key"),
+                colocationColumns
+        );
     }
 }

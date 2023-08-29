@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -53,7 +54,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests repeated commit/rollback operations.
  */
-public class RepeatedFinishReadWriteTransactionTest {
+public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTest {
     private final ClusterNode clusterNode = new ClusterNodeImpl("test", "test", new NetworkAddress("test", 1000));
 
     @Test

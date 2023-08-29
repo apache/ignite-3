@@ -39,6 +39,7 @@ dependencies {
     implementation libs.micronaut.security
     implementation libs.micronaut.security.annotations
 
+    testImplementation testFixtures(project(':ignite-core'))
     testImplementation libs.junit5.api
     testImplementation libs.mockito.core
     testImplementation libs.junit5.params

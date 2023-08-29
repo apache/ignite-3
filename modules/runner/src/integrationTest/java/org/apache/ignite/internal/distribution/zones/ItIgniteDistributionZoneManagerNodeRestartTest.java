@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distribution.zones;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
@@ -92,7 +93,6 @@ import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -378,7 +378,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertDataNodesFromManager(distributionZoneManager, () -> revisionBeforeRestart, zoneId, Set.of(A), TIMEOUT_MILLIS);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20054")
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
     public void testScaleUpTimerIsRestoredAfterRestart(String zoneName) throws Exception {
@@ -407,11 +406,11 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(C);
         node.logicalTopology().removeNodes(Set.of(B));
 
-        assertDataNodesFromManager(
-                distributionZoneManager,
-                metastore::appliedRevision,
-                zoneId,
-                Set.of(A),
+        assertValueInStorage(
+                metastore,
+                zoneDataNodesKey(zoneId),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(A.name()),
                 TIMEOUT_MILLIS
         );
 
@@ -422,9 +421,18 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         distributionZoneManager = getDistributionZoneManager(node);
 
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A, C), TIMEOUT_MILLIS);
+
+        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
+
+        assertValueInStorage(
+                metastore,
+                zoneDataNodesKey(zoneId),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(A.name(), C.name()),
+                TIMEOUT_MILLIS
+        );
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20054")
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
     public void testScaleUpTriggeredByFilterUpdateIsRestoredAfterRestart(String zoneName) throws Exception {
@@ -453,7 +461,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         alterZone(node, zoneName, null, null, filter);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A), TIMEOUT_MILLIS);
+        assertValueInStorage(
+                metastore,
+                zoneDataNodesKey(zoneId),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(A.name()),
+                TIMEOUT_MILLIS
+        );
 
         node.stop();
 
@@ -464,7 +478,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(B), TIMEOUT_MILLIS);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20054")
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
     public void testScaleUpsTriggeredByFilterUpdateAndNodeJoinAreRestoredAfterRestart(String zoneName) throws Exception {
@@ -497,7 +510,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         node.logicalTopology().removeNodes(Set.of(A));
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(), TIMEOUT_MILLIS);
+        assertValueInStorage(
+                metastore,
+                zoneDataNodesKey(zoneId),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                emptySet(),
+                TIMEOUT_MILLIS
+        );
 
         node.stop();
 
@@ -515,10 +534,19 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         alterZone(node, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
 
-        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(B, C), TIMEOUT_MILLIS);
+        assertDataNodesFromManager(distributionZoneManager, () -> metastore.appliedRevision(), zoneId, Set.of(B, C), TIMEOUT_MILLIS);
+
+        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
+
+        assertValueInStorage(
+                metastore,
+                zoneDataNodesKey(zoneId),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(B.name(), C.name()),
+                TIMEOUT_MILLIS
+        );
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20054")
     @ParameterizedTest
     @MethodSource("provideArgumentsRestartTests")
     public void testScaleDownTimerIsRestoredAfterRestart(String zoneName) throws Exception {
@@ -553,6 +581,16 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 metastore::appliedRevision,
                 zoneId,
                 Set.of(A, C),
+                TIMEOUT_MILLIS
+        );
+
+        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
+
+        assertValueInStorage(
+                metastore,
+                zoneDataNodesKey(zoneId),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(A.name(), C.name()),
                 TIMEOUT_MILLIS
         );
     }

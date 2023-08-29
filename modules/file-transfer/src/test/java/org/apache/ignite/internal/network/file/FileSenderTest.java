@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.network.file.messages.FileChunkMessage;
 import org.apache.ignite.internal.network.file.messages.FileChunkResponse;
 import org.apache.ignite.internal.network.file.messages.FileTransferFactory;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -56,7 +57,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-class FileSenderTest {
+class FileSenderTest extends BaseIgniteAbstractTest {
     private static final long RESPONSE_TIMEOUT = 1000;
     private static final int CHUNK_SIZE = 1024;
 

@@ -24,6 +24,7 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
+import org.apache.ignite.tx.IgniteTransactions;
 
 /**
  * Embedded implementation of the Ignite SQL query facade.
@@ -31,13 +32,17 @@ import org.apache.ignite.sql.Statement.StatementBuilder;
 public class IgniteSqlImpl implements IgniteSql {
     private final QueryProcessor qryProc;
 
+    private final IgniteTransactions transactions;
+
     /**
      * Constructor.
      *
      * @param qryProc Query processor.
+     * @param transactions Transactions facade.
      */
-    public IgniteSqlImpl(QueryProcessor qryProc) {
+    public IgniteSqlImpl(QueryProcessor qryProc, IgniteTransactions transactions) {
         this.qryProc = qryProc;
+        this.transactions = transactions;
     }
 
     /** {@inheritDoc} */
@@ -49,7 +54,7 @@ public class IgniteSqlImpl implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public SessionBuilder sessionBuilder() {
-        return new SessionBuilderImpl(qryProc, new HashMap<>());
+        return new SessionBuilderImpl(qryProc, transactions, new HashMap<>());
     }
 
     /** {@inheritDoc} */

@@ -43,12 +43,13 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link InlineUtils} testing.
  */
-public class InlineUtilsTest {
+public class InlineUtilsTest extends BaseIgniteAbstractTest {
     @Test
     void testInlineSizeForNativeType() {
         EnumSet<NativeTypeSpec> nativeTypeSpecs = EnumSet.allOf(NativeTypeSpec.class);
