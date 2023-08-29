@@ -15,47 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator.action;
+package org.apache.ignite.internal.table.distributed.schema;
+
+import java.nio.ByteBuffer;
+import org.apache.ignite.raft.jraft.util.Marshaller;
 
 /**
- * Transaction operation type.
+ * {@link Marshaller} that first writes some metadata about an object and then it writes the actual serialized
+ * representation of the object.
  */
-public enum RequestType {
-    RW_GET,
-
-    RW_GET_ALL,
-
-    RW_DELETE,
-
-    RW_DELETE_ALL,
-
-    RW_DELETE_EXACT,
-
-    RW_DELETE_EXACT_ALL,
-
-    RW_INSERT,
-
-    RW_INSERT_ALL,
-
-    RW_UPSERT,
-
-    RW_UPSERT_ALL,
-
-    RW_REPLACE,
-
-    RW_REPLACE_IF_EXIST,
-
-    RW_GET_AND_DELETE,
-
-    RW_GET_AND_REPLACE,
-
-    RW_GET_AND_UPSERT,
-
-    RW_SCAN,
-
-    RO_GET,
-
-    RO_GET_ALL,
-
-    RO_SCAN
+public interface PartitionCommandsMarshaller extends Marshaller {
+    /**
+     * Reads required catalog version from the provided buffer.
+     *
+     * @param raw Buffer to read from.
+     * @return Catalog version.
+     */
+    int readRequiredCatalogVersion(ByteBuffer raw);
 }

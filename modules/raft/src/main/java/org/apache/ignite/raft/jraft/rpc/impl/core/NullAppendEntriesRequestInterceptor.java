@@ -15,47 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator.action;
+package org.apache.ignite.raft.jraft.rpc.impl.core;
+
+import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftServerService;
+import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
+import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;import org.jetbrains.annotations.Nullable;
 
 /**
- * Transaction operation type.
+ * An {@link AppendEntriesRequestInterceptor} that never intercepts anything and always asks the standard handling
+ * to be used.
  */
-public enum RequestType {
-    RW_GET,
-
-    RW_GET_ALL,
-
-    RW_DELETE,
-
-    RW_DELETE_ALL,
-
-    RW_DELETE_EXACT,
-
-    RW_DELETE_EXACT_ALL,
-
-    RW_INSERT,
-
-    RW_INSERT_ALL,
-
-    RW_UPSERT,
-
-    RW_UPSERT_ALL,
-
-    RW_REPLACE,
-
-    RW_REPLACE_IF_EXIST,
-
-    RW_GET_AND_DELETE,
-
-    RW_GET_AND_REPLACE,
-
-    RW_GET_AND_UPSERT,
-
-    RW_SCAN,
-
-    RO_GET,
-
-    RO_GET_ALL,
-
-    RO_SCAN
+public class NullAppendEntriesRequestInterceptor implements AppendEntriesRequestInterceptor {
+    @Override
+    public @Nullable Message intercept(RaftServerService service, AppendEntriesRequest request, RpcRequestClosure done) {
+        return null;
+    }
 }

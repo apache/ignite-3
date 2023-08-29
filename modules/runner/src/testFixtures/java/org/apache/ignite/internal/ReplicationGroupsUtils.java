@@ -15,22 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.schema;
+package org.apache.ignite.internal;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import static java.util.stream.Collectors.toList;
+
+import java.util.List;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /**
- * Implements Schema Synchronization wait logic as defined in IEP-98.
+ * Utilities used to obtain replication groups from a running Ignite instance.
  */
-public interface SchemaSyncService {
+public class ReplicationGroupsUtils {
     /**
-     * Waits till metadata (like table/index schemas) is complete for the given timestamp. The 'complete' here means
-     * that no metadata change can arrive later that would change how a table/index/etc looks at the given timestamp.
-     *
-     * @param ts Timestamp of interest.
-     * @return Future that completes when it is safe to query the Catalog at the given timestamp (as its data will
-     *     remain unchanged for the timestamp).
+     * Returns the IDs of all table partitions that exist on the given node.
      */
-    CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts);
+    public static List<TablePartitionId> tablePartitionIds(IgniteImpl node) {
+        return node.raftManager().localNodes().stream()
+                .map(RaftNodeId::groupId)
+                .filter(TablePartitionId.class::isInstance)
+                .map(TablePartitionId.class::cast)
+                .collect(toList());
+    }
 }

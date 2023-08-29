@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed.schema;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 
@@ -29,26 +28,18 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 public class SchemaSyncServiceImpl implements SchemaSyncService {
     private final ClusterTime clusterTime;
 
-    private final CatalogService catalogService;
-
     private final LongSupplier delayDurationMs;
 
     /**
      * Constructor.
      */
-    public SchemaSyncServiceImpl(ClusterTime clusterTime, CatalogService catalogService, LongSupplier delayDurationMs) {
+    public SchemaSyncServiceImpl(ClusterTime clusterTime, LongSupplier delayDurationMs) {
         this.clusterTime = clusterTime;
-        this.catalogService = catalogService;
         this.delayDurationMs = delayDurationMs;
     }
 
     @Override
     public CompletableFuture<Void> waitForMetadataCompleteness(HybridTimestamp ts) {
         return clusterTime.waitFor(ts.subtractPhysicalTime(delayDurationMs.getAsLong()));
-    }
-
-    @Override
-    public boolean isMetadataAvailableFor(int catalogVersion) {
-        return catalogVersion <= catalogService.latestCatalogVersion();
     }
 }
