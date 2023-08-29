@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.lang.util.StringUtils;
 
 /**
  * Base class for system view definitions.
@@ -68,10 +69,12 @@ public abstract class SystemView<T> {
             List<SystemViewColumn<T, ?>> columns,
             Supplier<AsyncCursor<T>> dataProvider) {
 
-        Objects.requireNonNull(name, "Name can not be null");
+        if (StringUtils.nullOrBlank(name)) {
+            throw new IllegalArgumentException("Name can not be null or blank");
+        }
 
         if (columns.isEmpty()) {
-            throw new IllegalArgumentException("Columns should not be empty");
+            throw new IllegalArgumentException("Columns can not be empty");
         }
 
         Objects.requireNonNull(dataProvider, "DataProvider can not be null");

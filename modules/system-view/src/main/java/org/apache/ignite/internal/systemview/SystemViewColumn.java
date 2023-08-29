@@ -19,6 +19,8 @@ package org.apache.ignite.internal.systemview;
 
 import java.util.Objects;
 import java.util.function.Function;
+import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.util.StringUtils;
 
 /**
  * System view column.
@@ -43,7 +45,11 @@ public class SystemViewColumn<T, C> {
      * @param value Value, a function that extracts value of this columns a system view record.
      */
     SystemViewColumn(String name, Class<C> type, Function<T, C> value) {
-        this.name = Objects.requireNonNull(name, "Column name null can not be null");
+        if (StringUtils.nullOrBlank(name)) {
+            throw new IllegalArgumentException("Column name can not be null or blank");
+        }
+
+        this.name = name;
         this.type = Objects.requireNonNull(type, "Column type null can not be null");
         this.value = Objects.requireNonNull(value, "Column value null can not be null");
     }
@@ -78,9 +84,6 @@ public class SystemViewColumn<T, C> {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return "SystemViewColumn{"
-                + "name='" + name + '\''
-                + ", type=" + type
-                + '}';
+        return S.toString(this);
     }
 }

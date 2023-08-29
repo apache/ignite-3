@@ -25,11 +25,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.systemview.NodeSystemView.Builder;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for {@link SystemView}.
@@ -83,13 +86,13 @@ public class SystemViewTest {
     /** Reject a node view without node name alias. */
     @Test
     public void rejectNodeViewWithoutNodeNameColumnAlias() {
-        expectThrows(NullPointerException.class, () -> {
+        expectThrows(IllegalArgumentException.class, () -> {
             NodeSystemView.<Dummy>builder()
                     .name("name")
                     .addColumn("c1", int.class, (d) -> 0)
                     .dataProvider(dataProvider())
                     .build();
-        }, "Node name column alias can not be null");
+        }, "Node name column alias can not be null or blank");
     }
 
     /**
@@ -122,32 +125,33 @@ public class SystemViewTest {
      * @param <V> View type.
      * @param <B> Builder type.
      */
-    public abstract class BuilderTest<V extends SystemView<Dummy>,
+    public abstract static class BuilderTest<V extends SystemView<Dummy>,
             B extends SystemView.SystemViewBuilder<V, Dummy, B>> {
 
         protected abstract B newBuilder();
 
         /** Reject a view with {@code null} name. */
-        @Test
-        public void rejectViewWithNullName() {
-            expectThrows(NullPointerException.class, () -> {
+        @ParameterizedTest
+        @MethodSource("invalidNames")
+        public void rejectViewWithNullName(String name) {
+            expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
-                        .name(null)
+                        .name(name)
                         .addColumn("c1", int.class, (d) -> 0)
                         .dataProvider(dataProvider())
                         .build();
-            }, "Name can not be null");
+            }, "Name can not be null or blank");
         }
 
         /** Reject a view without name. */
         @Test
         public void rejectViewWithUnspecifiedName() {
-            expectThrows(NullPointerException.class, () -> {
+            expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
                         .addColumn("c1", int.class, (d) -> 0)
                         .dataProvider(dataProvider())
                         .build();
-            }, "Name can not be null");
+            }, "Name can not be null or blank");
         }
 
         /** Reject a view without columns. */
@@ -158,19 +162,20 @@ public class SystemViewTest {
                         .name("dummy")
                         .dataProvider(dataProvider())
                         .build();
-            }, "Columns should not be empty");
+            }, "Columns can not be empty");
         }
 
         /** Reject a view with {@code null} column name. */
-        @Test
-        public void rejectViewWithNullColumnName() {
-            expectThrows(NullPointerException.class, () -> {
+        @ParameterizedTest
+        @MethodSource("invalidNames")
+        public void rejectViewWithNullColumnName(String name) {
+            expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
                         .name("dummy")
-                        .addColumn(null, int.class, (d) -> 0)
+                        .addColumn(name, int.class, (d) -> 0)
                         .dataProvider(dataProvider())
                         .build();
-            }, "Column name null can not be null");
+            }, "Column name can not be null or blank");
         }
 
         /** Reject a view with {@code null} column type. */
@@ -218,6 +223,10 @@ public class SystemViewTest {
                         .dataProvider(null)
                         .build();
             }, "DataProvider can not be null");
+        }
+
+        static Stream<String> invalidNames() {
+            return Stream.of(null, "", " ", "  ");
         }
     }
 
