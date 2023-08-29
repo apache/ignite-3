@@ -56,7 +56,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        when(revisionCallback.onRevisionApplied(any(), any())).thenReturn(completedFuture(null));
+        when(revisionCallback.onRevisionApplied(any())).thenReturn(completedFuture(null));
 
         watchProcessor.setRevisionCallback(revisionCallback);
     }
@@ -90,7 +90,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         var watchEventCaptor = ArgumentCaptor.forClass(WatchEvent.class);
 
-        verify(revisionCallback, timeout(1_000)).onRevisionApplied(watchEventCaptor.capture(), any());
+        verify(revisionCallback, timeout(1_000)).onRevisionApplied(watchEventCaptor.capture());
 
         WatchEvent event = watchEventCaptor.getValue();
 
@@ -120,7 +120,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         verify(listener1, timeout(1_000)).onUpdate(event);
 
-        verify(revisionCallback, timeout(1_000)).onRevisionApplied(event, ts);
+        verify(revisionCallback, timeout(1_000)).onRevisionApplied(event);
 
         ts = new HybridTimestamp(2, 3);
 
@@ -130,7 +130,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         verify(listener2, timeout(1_000)).onUpdate(event);
 
-        verify(revisionCallback, timeout(1_000)).onRevisionApplied(event, ts);
+        verify(revisionCallback, timeout(1_000)).onRevisionApplied(event);
     }
 
     /**
@@ -156,7 +156,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
         verify(listener2, timeout(1_000)).onError(any(IllegalStateException.class));
 
-        verify(revisionCallback, never()).onRevisionApplied(any(), any());
+        verify(revisionCallback, never()).onRevisionApplied(any());
     }
 
     /**

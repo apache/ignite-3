@@ -95,6 +95,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDa
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -225,6 +226,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     private CatalogManager catalogManager;
 
+    private SchemaSyncService schemaSyncService;
+
     private MetricManager metricManager;
 
     /** Returns current method name. */
@@ -290,6 +293,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         catalogManager = mock(CatalogManager.class);
         when(catalogManager.createTable(any())).thenReturn(completedFuture(null));
         when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
+
+        schemaSyncService = mock(SchemaSyncService.class);
+        when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(completedFuture(null));
 
         cmgMgr = mock(ClusterManagementGroupManager.class);
 
@@ -588,7 +594,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 vaultManager,
                 cmgMgr,
-                distributionZoneManager
+                distributionZoneManager,
+                schemaSyncService,
+                catalogManager
         );
 
         tableManager.start();
