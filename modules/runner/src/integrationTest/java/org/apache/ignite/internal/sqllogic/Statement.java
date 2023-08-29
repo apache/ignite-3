@@ -113,11 +113,14 @@ final class Statement extends Command {
                     Assertions.fail("Not expected result at: " + posDesc + ". Statement: " + qry, e);
                 }
             } else {
-                Throwable err = Assertions.assertThrows(Throwable.class, () -> ctx.executeQuery(qry),
+                Throwable err = Assertions.assertThrows(
+                        Throwable.class,
+                        () -> ctx.executeQuery(qry),
                         "Not expected result at: " + posDesc + ". Statement: " + qry + ". Error: " + expected.errorMessage);
 
-                assertThat("Not expected result at: " + posDesc + ". Statement: " + qry
-                        + ". Expected: " + expected.errorMessage, err.getMessage(), expected.errorMessage);
+                assertThat(
+                        "Not expected result at: " + posDesc + ". Statement: " + qry + ". Expected: " + expected.errorMessage,
+                        err.getMessage(), expected.errorMessage);
             }
         }
     }
