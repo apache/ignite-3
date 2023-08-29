@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -41,6 +42,9 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests to verify validation of {@link CreateTableCommand}.
@@ -59,75 +63,78 @@ public class CreateTableCommandValidationTest extends BaseIgniteAbstractTest {
             mock(ClockWaiter.class)
     );
 
-    @Test
-    void schemaNameMustBeNullOrBlank() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
-
-        builder = fillProperties(builder);
-
-        for (String name : new  String[] {null, "", " ", "  "}) {
-            builder.schemaName(name);
-
-            assertThrows(
-                    builder::build,
-                    CatalogValidationException.class,
-                    "Name of the schema can't be null or blank"
-            );
-        }
+    private static Stream<Arguments> nullAndBlankStrings() {
+        return Stream.of(null, "", " ", "  ").map(Arguments::of);
     }
 
-    @Test
-    void tableNameMustBeNullOrBlank() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
-
-        builder = fillProperties(builder);
-
-        for (String name : new  String[] {null, "", " ", "  "}) {
-            builder.tableName(name);
-
-            assertThrows(
-                    builder::build,
-                    CatalogValidationException.class,
-                    "Name of the table can't be null or blank"
-            );
-        }
+    private static Stream<Arguments> nullAndEmptyLists() {
+        return Stream.of(null, List.of()).map(Arguments::of);
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void tableShouldHaveAtLeastOneColumn() {
+    @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
+    @MethodSource("nullAndBlankStrings")
+    void schemaNameMustNotBeNullOrBlank(String name) {
         CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
 
         builder = fillProperties(builder);
 
-        for (List<ColumnParams> columns : new List[] {null, List.of()}) {
-            builder.columns(columns);
+        builder.schemaName(name);
 
-            assertThrows(
-                    builder::build,
-                    CatalogValidationException.class,
-                    "Table should have at least one column"
-            );
-        }
+        assertThrows(
+                builder::build,
+                CatalogValidationException.class,
+                "Name of the schema can't be null or blank"
+        );
     }
 
-    @Test
-    void tableColumnShouldCantBeNullOrBlank() {
+    @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
+    @MethodSource("nullAndBlankStrings")
+    void tableNameMustNotBeNullOrBlank(String name) {
         CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
 
         builder = fillProperties(builder);
 
-        for (String name : new  String[] {null, "", " ", "  "}) {
-            builder.columns(List.of(
-                    ColumnParams.builder().name(name).build()
-            ));
+        builder.tableName(name);
 
-            assertThrows(
-                    builder::build,
-                    CatalogValidationException.class,
-                    "Name of the column can't be null or blank"
-            );
-        }
+        assertThrows(
+                builder::build,
+                CatalogValidationException.class,
+                "Name of the table can't be null or blank"
+        );
+    }
+
+    @ParameterizedTest(name = "[{index}] {argumentsWithNames}")
+    @MethodSource("nullAndEmptyLists")
+    void tableShouldHaveAtLeastOneColumn(List<ColumnParams> columns) {
+        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(columns);
+
+        assertThrows(
+                builder::build,
+                CatalogValidationException.class,
+                "Table should have at least one column"
+        );
+    }
+
+    @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
+    @MethodSource("nullAndBlankStrings")
+    void tableColumnNameMustNotBeNullOrBlank(String name) {
+        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(List.of(
+                ColumnParams.builder().name(name).build()
+        ));
+
+        assertThrows(
+                builder::build,
+                CatalogValidationException.class,
+                "Name of the column can't be null or blank"
+        );
     }
 
     @Test
@@ -167,22 +174,20 @@ public class CreateTableCommandValidationTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
-    void tableShouldHaveAtLeastOnePrimaryKeyColumn() {
+    @ParameterizedTest(name = "[{index}] {argumentsWithNames}")
+    @MethodSource("nullAndEmptyLists")
+    void tableShouldHaveAtLeastOnePrimaryKeyColumn(List<String> columns) {
         CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
 
         builder = fillProperties(builder);
 
-        for (List<String> columns : new List[] {null, List.of()}) {
-            builder.primaryKeyColumns(columns);
+        builder.primaryKeyColumns(columns);
 
-            assertThrows(
-                    builder::build,
-                    CatalogValidationException.class,
-                    "Table should have primary key"
-            );
-        }
+        assertThrows(
+                builder::build,
+                CatalogValidationException.class,
+                "Table should have primary key"
+        );
     }
 
     @Test

@@ -41,7 +41,7 @@ import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
- * TODO.
+ * A command that adds a new table to the catalog.
  */
 public class CreateTableCommand extends AbstractCatalogCommand {
     /** Schema name where this new table will be created. */

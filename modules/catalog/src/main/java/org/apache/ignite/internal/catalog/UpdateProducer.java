@@ -27,11 +27,11 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 @FunctionalInterface
 public interface UpdateProducer {
     /**
-     * Returns list of {@link UpdateEntry entries} to be applied to bring it to the state
+     * Returns list of {@link UpdateEntry entries} to be applied to catalog to bring it to the state
      * described in the command.
      *
      * @param catalog Catalog on the basis of which to generate the list of updates.
-     * @return List of updates.
+     * @return List of updates. Should be empty if no updates actually required.
      */
     List<UpdateEntry> get(Catalog catalog);
 }

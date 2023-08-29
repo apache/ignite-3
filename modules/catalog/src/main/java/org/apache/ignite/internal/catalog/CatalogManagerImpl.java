@@ -313,6 +313,11 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> execute(CatalogCommand command) {
+        if (!(command instanceof UpdateProducer)) {
+            throw new IllegalArgumentException("Expected command created by this very manager, but got "
+                    + (command == null ? "<null>" : command.getClass().getCanonicalName()));
+        }
+
         return saveUpdateAndWaitForActivation((UpdateProducer) command);
     }
 

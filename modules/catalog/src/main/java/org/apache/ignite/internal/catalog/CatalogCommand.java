@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.catalog;
 
 /**
- * Marker interface for DDL command parameters.
+ * Marker interface for commands executed by {@link CatalogManager}.
+ *
+ * @see CatalogManager#execute(CatalogCommand)
  */
 public interface CatalogCommand {
 }

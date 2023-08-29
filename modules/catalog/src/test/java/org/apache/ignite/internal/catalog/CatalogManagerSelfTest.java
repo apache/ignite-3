@@ -1697,6 +1697,17 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         );
     }
 
+    @Test
+    void exceptionIsThrownIfCommandIsUnknown() {
+        CatalogCommand command = new CatalogCommand() {
+        };
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> manager.execute(command)
+        );
+    }
+
     private CompletableFuture<Void> changeColumn(
             String tab,
             String col,
