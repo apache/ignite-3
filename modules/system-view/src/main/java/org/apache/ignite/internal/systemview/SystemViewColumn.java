@@ -84,6 +84,6 @@ public class SystemViewColumn<T, C> {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(SystemViewColumn.class, this, "name", name, "type", type);
     }
 }
