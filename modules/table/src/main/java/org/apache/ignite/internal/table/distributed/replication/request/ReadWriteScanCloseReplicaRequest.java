@@ -25,4 +25,9 @@ import org.apache.ignite.network.annotations.Transferable;
  */
 @Transferable(TableMessageGroup.RW_SCAN_CLOSE_REPLICA_REQUEST)
 public interface ReadWriteScanCloseReplicaRequest extends ScanCloseReplicaRequest, ReadWriteReplicaRequest {
+    /** {@inheritDoc} */
+    @Override
+    default boolean full() {
+        return false;
+    }
 }
