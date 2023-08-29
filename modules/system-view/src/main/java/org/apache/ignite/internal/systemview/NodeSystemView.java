@@ -77,7 +77,7 @@ public class NodeSystemView<T> extends SystemView<T> {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(NodeSystemView.class, this, "name", name(), "columns", columns(), "nodeNameColumnAlias", nodeNameColumnAlias);
     }
 
     /**

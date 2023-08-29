@@ -58,7 +58,7 @@ public class ClusterSystemView<T> extends SystemView<T> {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(this);
+        return S.toString(ClusterSystemView.class, this, "name", name(), "columns", columns());
     }
 
     /**
