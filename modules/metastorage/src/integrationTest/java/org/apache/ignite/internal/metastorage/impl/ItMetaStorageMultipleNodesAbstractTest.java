@@ -43,7 +43,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -618,13 +617,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
                 // The future will set the flag and complete after 300ms to allow idle safe time mechanism (which ticks each 100ms)
                 // to advance SafeTime (if there is still a bug for which this test is written).
-                return new CompletableFuture<Void>()
-                        .orTimeout(300, TimeUnit.MILLISECONDS)
-                        .exceptionally(ex -> {
-                            assert ex instanceof TimeoutException;
-
-                            return null;
-                        })
+                return waitFor(300, TimeUnit.MILLISECONDS)
                         .whenComplete((res, ex) -> watchCompleted.set(true));
             }
 
@@ -646,6 +639,12 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
         assertThat(secondNodeTime.waitFor(watchEventTs), willCompleteSuccessfully());
 
         assertThat("Safe time is advanced too early", watchCompleted.get(), is(true));
+    }
+
+    private static CompletableFuture<Void> waitFor(int timeout, TimeUnit unit) {
+        return new CompletableFuture<Void>()
+                .orTimeout(timeout, unit)
+                .exceptionally(ex -> null);
     }
 
     private Node transferLeadership(Node firstNode, Node secondNode) {
