@@ -73,15 +73,6 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And prompt is changed to connect
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
 
-        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
-                .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath));
-        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
-                .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword));
-        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
-                .isEqualTo("admin");
-        assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
-                .isEqualTo("password");
-
         assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
                         .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
                 () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
