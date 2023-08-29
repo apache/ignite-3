@@ -23,13 +23,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link RangeValidator} testing.
  */
-public class RangeValidatorTest {
+public class RangeValidatorTest extends BaseIgniteAbstractTest {
     @Test
     void testValidationSuccess() {
         Range range0 = createRange(0L, 100L);

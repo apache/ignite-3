@@ -30,12 +30,13 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * For {@link IndexUpdateHandler} testing.
  */
-public class IndexUpdateHandlerTest {
+public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 0;
 
     @Test

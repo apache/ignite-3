@@ -32,6 +32,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -46,7 +47,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Tests for ScaleCube based {@link ClusterService}.
  */
-public class ItClusterServiceTest {
+public class ItClusterServiceTest extends BaseIgniteAbstractTest {
 
     @Test
     void testShutdown(TestInfo testInfo) {

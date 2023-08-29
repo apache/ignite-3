@@ -91,13 +91,6 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteTable tableById(int id) {
-        // Should be removed - this method is used to obtain native types from a table.
-        throw new UnsupportedOperationException();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<Void> schemaReadyFuture(long version) {
         // SqlSchemaManager creates SQL schema lazily on-demand, thus waiting for Catalog version is enough.
         return catalogManager.catalogReadyFuture((int) version);

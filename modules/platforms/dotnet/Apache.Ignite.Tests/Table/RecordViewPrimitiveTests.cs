@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System;
 using System.Collections;
 using System.Linq;
 using System.Numerics;
@@ -37,6 +38,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     public async Task TestAllKeyTypes()
     {
         await TestKey((sbyte)1, TableInt8Name);
+        await TestKey(true, TableBoolName);
         await TestKey((short)1, TableInt16Name);
         await TestKey(1, TableInt32Name);
         await TestKey(1L, TableInt64Name);
@@ -62,7 +64,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     [Test]
     public void TestUnmappedTypeThrowsException()
     {
-        var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await TestKey((byte)1, Table.GetRecordView<byte>()));
+        var ex = Assert.ThrowsAsync<ArgumentException>(async () => await TestKey((byte)1, Table.GetRecordView<byte>()));
         Assert.AreEqual("Can't map 'System.Byte' to columns 'Int64 KEY, String VAL'. Matching fields not found.", ex!.Message);
     }
 
@@ -87,7 +89,7 @@ public class RecordViewPrimitiveTests : IgniteTestsBase
     {
         var table = await Client.Tables.GetTableAsync(tableName);
 
-        Assert.IsNotNull(table, tableName);
+        Assert.IsNotNull(table, "Table must exist: " + tableName);
 
         await TestKey(val, table!.GetRecordView<T>());
     }

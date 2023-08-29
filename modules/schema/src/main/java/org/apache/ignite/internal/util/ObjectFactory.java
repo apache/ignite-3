@@ -35,6 +35,8 @@ public class ObjectFactory<T> implements Factory<T> {
      * @throws IllegalArgumentException If no default constructor found.
      */
     public ObjectFactory(Class<T> clazz) {
+        assert clazz != Void.class;
+
         try {
             cnstr = clazz.getDeclaredConstructor();
             cnstr.setAccessible(true);

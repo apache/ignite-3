@@ -52,8 +52,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 sql("SELECT NULL + ?", 1).project("null:INTEGER"),
                 sql("SELECT ? + NULL", 1).project("null:INTEGER"),
 
-                sql("SELECT 1 + ?", "1").fails("Values passed to + operator must have compatible types."),
-                sql("SELECT ? + 1", "1").fails("Values passed to + operator must have compatible types."),
+                sql("SELECT 1 + ?", "1").fails("Values passed to + operator must have compatible types"),
+                sql("SELECT ? + 1", "1").fails("Values passed to + operator must have compatible types"),
 
                 // NULL is allowed in arithmetic expressions
                 sql("SELECT ? * 2", new Object[]{null}).ok()
@@ -67,8 +67,8 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 // comparison
                 sql("SELECT ? > 1", 1).ok(),
 
-                sql("SELECT ? > 1", "1").fails("Values passed to > operator must have compatible types."),
-                sql("SELECT 1 > ?", "1").fails("Values passed to > operator must have compatible types."),
+                sql("SELECT ? > 1", "1").fails("Values passed to > operator must have compatible types"),
+                sql("SELECT 1 > ?", "1").fails("Values passed to > operator must have compatible types"),
 
                 sql("SELECT ? > NULL", 1).project("null:BOOLEAN"),
                 sql("SELECT NULL = ?", 1).project("null:BOOLEAN"),
@@ -85,7 +85,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
     @TestFactory
     public Stream<DynamicTest> testInExpression() {
         String error =
-                "Values passed to IN operator must have compatible types. Dynamic parameter requires adding explicit type cast.";
+                "Values passed to IN operator must have compatible types. Dynamic parameter requires adding explicit type cast";
         return Stream.of(
                 sql("SELECT ? IN ('1', '2')", 1).project("OR(=(?0, 1), =(?0, 2))"),
                 sql("SELECT ? IN (1, 2)", "1").fails(error),

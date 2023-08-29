@@ -39,7 +39,6 @@ import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * The read-write implementation of an internal transaction.
@@ -72,7 +71,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param txManager The tx manager.
      * @param id The id.
      */
-    public ReadWriteTransactionImpl(TxManager txManager, @NotNull UUID id) {
+    public ReadWriteTransactionImpl(TxManager txManager, UUID id) {
         super(txManager, id);
     }
 

@@ -68,6 +68,7 @@ import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandBuilder;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -92,6 +93,7 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -117,7 +119,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class PartitionCommandListenerTest {
+public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     /** Key count. */
     private static final int KEY_COUNT = 100;
 
@@ -661,9 +663,9 @@ public class PartitionCommandListenerTest {
         Map<UUID, BinaryRowMessage> rows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
-            BinaryRowMessage row = getTestRow(i, keyValueMapper.apply(i));
+            RowId rowId = readRow(getTestKey(i));
 
-            rows.put(readRow(row.asBinaryRow()).uuid(), row);
+            rows.put(rowId.uuid(), getTestRow(i, keyValueMapper.apply(i)));
         }
 
         HybridTimestamp commitTimestamp = hybridClock.now();
@@ -696,9 +698,9 @@ public class PartitionCommandListenerTest {
         Map<UUID, BinaryRowMessage> keyRows = new HashMap<>(KEY_COUNT);
 
         for (int i = 0; i < KEY_COUNT; i++) {
-            BinaryRowMessage row = getTestRow(i, i);
+            RowId rowId = readRow(getTestKey(i));
 
-            keyRows.put(readRow(row.asBinaryRow()).uuid(), null);
+            keyRows.put(rowId.uuid(), null);
         }
 
         HybridTimestamp commitTimestamp = hybridClock.now();
@@ -733,7 +735,7 @@ public class PartitionCommandListenerTest {
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = TestTransactionIds.newTransactionId();
             BinaryRowMessage row = getTestRow(i, keyValueMapper.apply(i));
-            RowId rowId = readRow(row.asBinaryRow());
+            RowId rowId = readRow(getTestKey(i));
 
             assertNotNull(rowId);
 
@@ -777,8 +779,7 @@ public class PartitionCommandListenerTest {
 
         commandListener.onWrite(iterator((i, clo) -> {
             UUID txId = TestTransactionIds.newTransactionId();
-            BinaryRow row = getTestRow(i, i).asBinaryRow();
-            RowId rowId = readRow(row);
+            RowId rowId = readRow(getTestKey(i));
 
             assertNotNull(rowId);
 
@@ -837,7 +838,7 @@ public class PartitionCommandListenerTest {
             if (existed) {
                 ReadResult readResult = mvPartitionStorage.read(rowId, HybridTimestamp.MAX_VALUE);
 
-                Row row = new Row(SCHEMA, readResult.binaryRow());
+                Row row = Row.wrapBinaryRow(SCHEMA, readResult.binaryRow());
 
                 assertEquals(i, row.intValue(0));
                 assertEquals(keyValueMapper.apply(i), row.intValue(1));
@@ -898,7 +899,7 @@ public class PartitionCommandListenerTest {
 
         rowBuilder.appendInt(key);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        return Row.wrapKeyOnlyBinaryRow(SCHEMA, rowBuilder.build());
     }
 
     /**
@@ -935,7 +936,9 @@ public class PartitionCommandListenerTest {
     }
 
     private RowId readRow(BinaryRow binaryRow) {
-        try (Cursor<RowId> cursor = pkStorage.get(binaryRow)) {
+        BinaryTuple pk = pkStorage.indexRowResolver().extractColumnsFromKeyOnlyRow(binaryRow);
+
+        try (Cursor<RowId> cursor = pkStorage.storage().get(pk)) {
             while (cursor.hasNext()) {
                 RowId rowId = cursor.next();
 

@@ -30,6 +30,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Fake tables.
@@ -201,7 +201,6 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         }
     }
 
-    @NotNull
     private TableImpl getNewTable(String name, int id) {
         Function<Integer, SchemaDescriptor> history;
 
@@ -232,10 +231,25 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         }
 
         FakeSchemaRegistry schemaReg = new FakeSchemaRegistry(history);
-        Function<BinaryRow, BinaryTuple> keyExtractor = binaryRow -> {
-            SchemaDescriptor schema = schemaReg.schema(binaryRow.schemaVersion());
-            return BinaryRowConverter.keyExtractor(schema).apply(binaryRow);
+
+        ColumnsExtractor keyExtractor = new ColumnsExtractor() {
+            @Override
+            public BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow) {
+                return keyExtractor(keyOnlyRow).extractColumnsFromKeyOnlyRow(keyOnlyRow);
+            }
+
+            @Override
+            public BinaryTuple extractColumns(BinaryRow row) {
+                return keyExtractor(row).extractColumns(row);
+            }
+
+            private ColumnsExtractor keyExtractor(BinaryRow row) {
+                SchemaDescriptor schema = schemaReg.schema(row.schemaVersion());
+
+                return BinaryRowConverter.keyExtractor(schema);
+            }
         };
+
         return new TableImpl(
                 new FakeInternalTable(name, id, keyExtractor),
                 schemaReg,

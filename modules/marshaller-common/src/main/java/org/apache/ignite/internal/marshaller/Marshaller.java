@@ -25,7 +25,6 @@ import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.OneColumnMapper;
 import org.apache.ignite.table.mapper.PojoMapper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -44,10 +43,12 @@ public abstract class Marshaller {
      */
     public static <T> Marshaller createMarshaller(
             MarshallerColumn[] cols,
-            @NotNull Mapper<T> mapper,
+            Mapper<T> mapper,
             boolean requireAllFields,
             boolean allowUnmappedFields) {
-        if (mapper instanceof OneColumnMapper) {
+        if (mapper.targetType() == Void.class) {
+            return new NoOpMarshaller();
+        } else if (mapper instanceof OneColumnMapper) {
             return simpleMarshaller(cols, (OneColumnMapper<T>) mapper);
         } else if (mapper instanceof PojoMapper) {
             return pojoMarshaller(cols, (PojoMapper<T>) mapper, requireAllFields, allowUnmappedFields);
@@ -63,7 +64,7 @@ public abstract class Marshaller {
      * @param mapper Mapper.
      * @return Marshaller.
      */
-    static <T> SimpleMarshaller simpleMarshaller(MarshallerColumn[] cols, @NotNull OneColumnMapper<T> mapper) {
+    private static <T> SimpleMarshaller simpleMarshaller(MarshallerColumn[] cols, OneColumnMapper<T> mapper) {
         final BinaryMode mode = MarshallerUtil.mode(mapper.targetType());
 
         final MarshallerColumn col = cols[0];
@@ -86,7 +87,7 @@ public abstract class Marshaller {
      */
     private static <T> PojoMarshaller pojoMarshaller(
             MarshallerColumn[] cols,
-            @NotNull PojoMapper<T> mapper,
+            PojoMapper<T> mapper,
             boolean requireAllFields,
             boolean allowUnmappedFields) {
         FieldAccessor[] fieldAccessors = new FieldAccessor[cols.length];
@@ -240,6 +241,22 @@ public abstract class Marshaller {
             for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
                 fieldAccessors[fldIdx].write(writer, obj);
             }
+        }
+    }
+
+    private static class NoOpMarshaller extends Marshaller {
+        @Override
+        public @Nullable Object value(Object obj, int fldIdx) {
+            return null;
+        }
+
+        @Override
+        public Object readObject(MarshallerReader reader, @Nullable Object target) {
+            return null;
+        }
+
+        @Override
+        public void writeObject(Object obj, MarshallerWriter writer) {
         }
     }
 }

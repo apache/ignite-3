@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.api;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,13 +39,13 @@ class StatementImpl implements Statement {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull String query() {
+    public String query() {
         return query;
     }
 
     /** {@inheritDoc} */
     @Override
-    public long queryTimeout(@NotNull TimeUnit timeUnit) {
+    public long queryTimeout(TimeUnit timeUnit) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -64,7 +63,7 @@ class StatementImpl implements Statement {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable Object property(@NotNull String name) {
+    public @Nullable Object property(String name) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 

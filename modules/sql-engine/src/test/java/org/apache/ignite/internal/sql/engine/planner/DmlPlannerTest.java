@@ -173,7 +173,8 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         return Stream.of(
                 IgniteDistributions.single(),
                 IgniteDistributions.hash(List.of(0, 1)),
-                IgniteDistributions.affinity(0, 2, "0")
+                IgniteDistributions.affinity(0, 2, "0"),
+                IgniteDistributions.identity(0)
         );
     }
 
@@ -188,7 +189,8 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                 IgniteDistributions.affinity(1, 2, "0"),
                 IgniteDistributions.affinity(3, 2, "0"),
                 IgniteDistributions.affinity(List.of(1, 3), 2, "0"),
-                IgniteDistributions.affinity(List.of(3, 1), 2, "0")
+                IgniteDistributions.affinity(List.of(3, 1), 2, "0"),
+                IgniteDistributions.identity(1)
         );
     }
 
@@ -202,20 +204,20 @@ public class DmlPlannerTest extends AbstractPlannerTest {
         IgniteTestUtils.assertThrowsWithCause(
                 () -> physicalPlan(query, createSchema(newTestTable("TEST", IgniteDistributions.single()))),
                 SqlValidatorException.class,
-                "Object 'UNKNOWN' not found"
+                "Object 'UNKNOWN_T' not found"
         );
     }
 
     private static Stream<String> basicStatements() {
         return Stream.of(
-                "SELECT * FROM unknown",
-                "INSERT INTO unknown VALUES(1)",
-                "UPDATE unknown SET ID=1",
-                "DELETE FROM unknown",
-                "MERGE INTO unknown DST USING test SRC ON DST.C1 = SRC.C1"
+                "SELECT * FROM unknown_t",
+                "INSERT INTO unknown_t VALUES(1)",
+                "UPDATE unknown_t SET ID=1",
+                "DELETE FROM unknown_t",
+                "MERGE INTO unknown_t DST USING test SRC ON DST.C1 = SRC.C1"
                         + " WHEN MATCHED THEN UPDATE SET C2 = SRC.C2"
                         + " WHEN NOT MATCHED THEN INSERT (C1, C2) VALUES (SRC.C1, SRC.C2)",
-                "MERGE INTO test DST USING unknown SRC ON DST.C1 = SRC.C1"
+                "MERGE INTO test DST USING unknown_t SRC ON DST.C1 = SRC.C1"
                         + " WHEN MATCHED THEN UPDATE SET C2 = SRC.C2"
                         + " WHEN NOT MATCHED THEN INSERT (C1, C2) VALUES (SRC.C1, SRC.C2)"
         );

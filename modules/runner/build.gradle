@@ -83,7 +83,6 @@ dependencies {
     implementation libs.micronaut.runtime
     implementation libs.micronaut.picocli
     implementation libs.picocli.core
-    implementation libs.slf4j.jdk14
     implementation libs.typesafe.config
     implementation libs.auto.service.annotations
     implementation libs.disruptor
@@ -186,6 +185,7 @@ dependencies {
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation testFixtures(project(':ignite-api'))
     testFixturesImplementation testFixtures(project(':ignite-core'))
+    testFixturesImplementation testFixtures(project(':ignite-sql-engine'))
     testFixturesImplementation testFixtures(project(':ignite-network'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core

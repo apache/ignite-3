@@ -408,6 +408,8 @@ public final class TestTypeArguments<T extends Comparable<T>> {
                 }
             } else if (argument instanceof String) {
                 sqlLiteral = SqlLiteral.createCharString(argument.toString(), "UTF-8", SqlParserPos.ZERO);
+            } else if (argument instanceof byte[]) {
+                sqlLiteral = SqlLiteral.createBinaryString((byte[]) argument, SqlParserPos.ZERO);
             } else if (argument instanceof Boolean) {
                 sqlLiteral = SqlLiteral.createBoolean((Boolean) argument, SqlParserPos.ZERO);
             } else {

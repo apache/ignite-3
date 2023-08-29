@@ -10,7 +10,7 @@ CREATE TABLE blobs (b varbinary);
 
 # insert BINARY from string
 statement ok
-INSERT INTO blobs VALUES ('aaaaaaaaaa'::varbinary)
+INSERT INTO blobs VALUES (x'aaaaaaaaaaaaaaaaaaaa'::varbinary)
 
 # sizes: 10, 100, 1000, 10000 -> double plus two due to hexadecimal representation
 # The concat function casts BINARY to VARCHAR, resulting in a hex string

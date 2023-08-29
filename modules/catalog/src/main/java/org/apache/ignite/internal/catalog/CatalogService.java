@@ -62,9 +62,13 @@ public interface CatalogService {
 
     @Nullable CatalogSchemaDescriptor schema(@Nullable String schemaName, int version);
 
-    CatalogZoneDescriptor zone(String zoneName, long timestamp);
+    @Nullable CatalogZoneDescriptor zone(String zoneName, long timestamp);
 
-    CatalogZoneDescriptor zone(int zoneId, long timestamp);
+    @Nullable CatalogZoneDescriptor zone(int zoneId, long timestamp);
+
+    @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion);
+
+    Collection<CatalogZoneDescriptor> zones(int catalogVersion);
 
     @Nullable CatalogSchemaDescriptor activeSchema(long timestamp);
 
@@ -74,8 +78,6 @@ public interface CatalogService {
 
     /**
      * Returns the latest registered version of the catalog.
-     *
-     * <p>NOTE: This method should only be used at the start of components that may be removed or moved in the future.
      */
     int latestCatalogVersion();
 
@@ -86,5 +88,5 @@ public interface CatalogService {
      */
     CompletableFuture<Void> catalogReadyFuture(int version);
 
-    void listen(CatalogEvent evt, EventListener<CatalogEventParameters> closure);
+    void listen(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure);
 }

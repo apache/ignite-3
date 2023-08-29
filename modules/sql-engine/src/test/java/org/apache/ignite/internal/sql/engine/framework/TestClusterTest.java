@@ -30,13 +30,14 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for test execution runtime used in benchmarking.
  */
-public class TestClusterTest {
+public class TestClusterTest extends BaseIgniteAbstractTest {
 
     private final DataProvider<Object[]> dataProvider = DataProvider.fromRow(
             new Object[]{42, UUID.randomUUID().toString()}, 3_333

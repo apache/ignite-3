@@ -28,6 +28,7 @@ namespace Apache.Ignite.Tests
     using Ignite.Compute;
     using Ignite.Sql;
     using Internal.Buffers;
+    using Internal.Common;
     using Internal.Network;
     using Internal.Proto;
     using Internal.Proto.BinaryTuple;
@@ -589,7 +590,7 @@ namespace Apache.Ignite.Tests
                 ? new
                 {
                     NodeName = Node.Name,
-                    Units = string.Join(", ", units.Select(u => $"{u.Name}|{u.Version}")),
+                    Units = units.Select(u => $"{u.Name}|{u.Version}").StringJoin(),
                     jobClassName
                 }.ToString()
                 : Node.Name;

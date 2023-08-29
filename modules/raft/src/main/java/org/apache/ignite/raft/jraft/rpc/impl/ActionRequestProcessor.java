@@ -41,8 +41,7 @@ import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
 import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
-import org.apache.ignite.raft.jraft.util.BytesUtil;
-import org.apache.ignite.raft.jraft.util.Marshaller;
+import org.apache.ignite.raft.jraft.util.BytesUtil;import org.apache.ignite.raft.jraft.util.Marshaller;
 
 /**
  * Process action request.
@@ -54,12 +53,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
     private final RaftMessagesFactory factory;
 
-    private final Marshaller commandsMarshaller;
-
-    public ActionRequestProcessor(Executor executor, RaftMessagesFactory factory, Marshaller commandsMarshaller) {
+    public ActionRequestProcessor(Executor executor, RaftMessagesFactory factory) {
         this.executor = executor;
         this.factory = factory;
-        this.commandsMarshaller = commandsMarshaller;
     }
 
     /** {@inheritDoc} */
@@ -91,6 +87,10 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param rpcCtx  The context.
      */
     private void applyWrite(Node node, ActionRequest request, RpcContext rpcCtx) {
+        Marshaller commandsMarshaller = node.getOptions().getCommandsMarshaller();
+
+        assert commandsMarshaller != null;
+
         node.apply(new Task(ByteBuffer.wrap(commandsMarshaller.marshall(request.command())),
                 new CommandClosureImpl<>(request.command()) {
                     @Override

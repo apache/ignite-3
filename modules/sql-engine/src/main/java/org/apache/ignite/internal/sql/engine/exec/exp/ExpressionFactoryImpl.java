@@ -93,17 +93,11 @@ import org.jetbrains.annotations.Nullable;
 public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private static final int CACHE_SIZE = 1024;
 
-    /** Placeholder for DEFAULT operator value. */
-    // TODO Remove this constant when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-    public static final Object DEFAULT_VALUE_PLACEHOLDER = Placeholder.DEFAULT_VALUE;
-
     /** Placeholder for values, which expressions are not specified. */
     public static final Object UNSPECIFIED_VALUE_PLACEHOLDER = Placeholder.UNSPECIFIED_VALUE;
 
     // We use enums for placeholders because enum serialization/deserialization guarantees to preserve object's identity.
     private enum Placeholder {
-        // TODO Remove this enum element when https://issues.apache.org/jira/browse/IGNITE-19096 is complete
-        DEFAULT_VALUE,
         UNSPECIFIED_VALUE
     }
 
@@ -652,7 +646,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         public boolean test(RowT r) {
             scalar.execute(ctx, r, out);
 
-            return Boolean.TRUE == hnd.get(0, out);
+            return Boolean.TRUE.equals(hnd.get(0, out));
         }
     }
 
@@ -668,7 +662,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         @Override
         public boolean test(RowT r1, RowT r2) {
             scalar.execute(ctx, r1, r2, out);
-            return Boolean.TRUE == hnd.get(0, out);
+            return Boolean.TRUE.equals(hnd.get(0, out));
         }
     }
 

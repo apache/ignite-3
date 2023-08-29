@@ -109,57 +109,6 @@ enum class odbc_native_type {
 };
 
 /**
- * SQL type name constants.
- *
- * TODO: Replace with inline constants.
- */
-namespace sql_type_name {
-
-/** VARCHAR SQL type name constant. */
-const std::string VARCHAR("VARCHAR");
-
-/** SMALLINT SQL type name constant. */
-const std::string SMALLINT("SMALLINT");
-
-/** INTEGER SQL type name constant. */
-const std::string INTEGER("INTEGER");
-
-/** DECIMAL SQL type name constant. */
-const std::string DECIMAL("DECIMAL");
-
-/** FLOAT SQL type name constant. */
-const std::string FLOAT("FLOAT");
-
-/** DOUBLE SQL type name constant. */
-const std::string DOUBLE("DOUBLE");
-
-/** BIT SQL type name constant. */
-const std::string BIT("BIT");
-
-/** TINYINT SQL type name constant. */
-const std::string TINYINT("TINYINT");
-
-/** BIGINT SQL type name constant. */
-const std::string BIGINT("BIGINT");
-
-/** BINARY SQL type name constant. */
-const std::string BINARY("VARBINARY");
-
-/** DATE SQL type name constant. */
-const std::string DATE("DATE");
-
-/** TIMESTAMP SQL type name constant. */
-const std::string TIMESTAMP("TIMESTAMP");
-
-/** TIME SQL type name constant. */
-const std::string TIME("TIME");
-
-/** GUID SQL type name constant. */
-const std::string GUID("GUID");
-
-}; // namespace sql_type_name
-
-/**
  * Get SQL type name for the ignite type.
  *
  * @param typ Ignite type.

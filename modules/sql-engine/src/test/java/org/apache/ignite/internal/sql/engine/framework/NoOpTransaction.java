@@ -29,7 +29,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Dummy transaction that should be used as mock transaction for execution tests.
@@ -127,7 +126,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public @NotNull UUID id() {
+    public UUID id() {
         return id;
     }
 

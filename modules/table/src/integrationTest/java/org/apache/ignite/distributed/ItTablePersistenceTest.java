@@ -454,7 +454,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
         rowBuilder.appendLong(id);
         rowBuilder.appendLong(value);
 
-        return new Row(SCHEMA, rowBuilder.build());
+        return Row.wrapBinaryRow(SCHEMA, rowBuilder.build());
     }
 
     private static MvPartitionStorage getOrCreateMvPartition(MvTableStorage tableStorage, int partitionId) {

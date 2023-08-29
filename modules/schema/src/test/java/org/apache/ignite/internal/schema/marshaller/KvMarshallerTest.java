@@ -161,10 +161,10 @@ public class KvMarshallerTest {
         KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
                 factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
 
-        BinaryRow row = marshaller.marshal(key, val);
+        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, val));
 
-        TestObjectWithAllTypes restoredVal = marshaller.unmarshalValue(new Row(schema, row));
-        TestObjectWithAllTypes restoredKey = marshaller.unmarshalKey(new Row(schema, row));
+        TestObjectWithAllTypes restoredVal = marshaller.unmarshalValue(row);
+        TestObjectWithAllTypes restoredKey = marshaller.unmarshalKey(row);
 
         assertTrue(key.getClass().isInstance(restoredKey));
         assertTrue(val.getClass().isInstance(restoredVal));
@@ -245,10 +245,10 @@ public class KvMarshallerTest {
         final TestKeyObject key = TestKeyObject.randomObject(rnd);
         final TestObject val = TestObject.randomObject(rnd);
 
-        BinaryRow row = marshaller.marshal(key, val);
+        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, val));
 
-        Object restoredVal = marshaller.unmarshalValue(new Row(schema, row));
-        Object restoredKey = marshaller.unmarshalKey(new Row(schema, row));
+        Object restoredVal = marshaller.unmarshalValue(row);
+        Object restoredKey = marshaller.unmarshalKey(row);
 
         assertTrue(key.getClass().isInstance(restoredKey));
         assertTrue(val.getClass().isInstance(restoredVal));
@@ -342,10 +342,10 @@ public class KvMarshallerTest {
         final TestObjectWithPrivateConstructor key = TestObjectWithPrivateConstructor.randomObject(rnd);
         final TestObjectWithPrivateConstructor val = TestObjectWithPrivateConstructor.randomObject(rnd);
 
-        BinaryRow row = marshaller.marshal(key, val);
+        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, val));
 
-        Object key1 = marshaller.unmarshalKey(new Row(schema, row));
-        Object val1 = marshaller.unmarshalValue(new Row(schema, row));
+        Object key1 = marshaller.unmarshalKey(row);
+        Object val1 = marshaller.unmarshalValue(row);
 
         assertTrue(key.getClass().isInstance(key1));
         assertTrue(val.getClass().isInstance(val1));
@@ -385,10 +385,10 @@ public class KvMarshallerTest {
         final PrivateTestObject key = PrivateTestObject.randomObject(rnd);
         final PrivateTestObject val = PrivateTestObject.randomObject(rnd);
 
-        BinaryRow row = marshaller.marshal(key, objFactory.create());
+        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, objFactory.create()));
 
-        Object key1 = marshaller.unmarshalKey(new Row(schema, row));
-        Object val1 = marshaller.unmarshalValue(new Row(schema, row));
+        Object key1 = marshaller.unmarshalKey(row);
+        Object val1 = marshaller.unmarshalValue(row);
 
         assertTrue(key.getClass().isInstance(key1));
         assertTrue(val.getClass().isInstance(val1));
@@ -420,10 +420,10 @@ public class KvMarshallerTest {
 
             final Long key = rnd.nextLong();
 
-            BinaryRow row = marshaller.marshal(key, objFactory.create());
+            Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, objFactory.create()));
 
-            Long key1 = marshaller.unmarshalKey(new Row(schema, row));
-            Object val1 = marshaller.unmarshalValue(new Row(schema, row));
+            Long key1 = marshaller.unmarshalKey(row);
+            Object val1 = marshaller.unmarshalValue(row);
 
             assertTrue(valClass.isInstance(val1));
 
@@ -463,27 +463,29 @@ public class KvMarshallerTest {
                 Mapper.of(Long.class, "\"key\""),
                 Mapper.builder(TestPojoWrapper.class).map("rawField", "\"val\"").build());
 
-        BinaryRow row = marshaller1.marshal(1L, pojo);
-        BinaryRow row2 = marshaller2.marshal(1L, serializedPojo);
-        BinaryRow row3 = marshaller3.marshal(1L, new TestPojoWrapper(pojo));
-        BinaryRow row4 = marshaller4.marshal(1L, new TestPojoWrapper(serializedPojo));
+        BinaryRow binaryRow = marshaller1.marshal(1L, pojo);
+        BinaryRow binaryRow2 = marshaller2.marshal(1L, serializedPojo);
+        BinaryRow binaryRow3 = marshaller3.marshal(1L, new TestPojoWrapper(pojo));
+        BinaryRow binaryRow4 = marshaller4.marshal(1L, new TestPojoWrapper(serializedPojo));
 
         // Verify all rows are equivalent.
-        assertEquals(row, row2);
-        assertEquals(row, row3);
-        assertEquals(row, row4);
+        assertEquals(binaryRow, binaryRow2);
+        assertEquals(binaryRow, binaryRow3);
+        assertEquals(binaryRow, binaryRow4);
+
+        Row row = Row.wrapBinaryRow(schema, binaryRow);
 
         // Check key.
-        assertEquals(1L, marshaller1.unmarshalKey(new Row(schema, row)));
-        assertEquals(1L, marshaller2.unmarshalKey(new Row(schema, row)));
-        assertEquals(1L, marshaller3.unmarshalKey(new Row(schema, row)));
-        assertEquals(1L, marshaller4.unmarshalKey(new Row(schema, row)));
+        assertEquals(1L, marshaller1.unmarshalKey(row));
+        assertEquals(1L, marshaller2.unmarshalKey(row));
+        assertEquals(1L, marshaller3.unmarshalKey(row));
+        assertEquals(1L, marshaller4.unmarshalKey(row));
 
         // Check values.
-        assertEquals(pojo, marshaller1.unmarshalValue(new Row(schema, row)));
-        assertArrayEquals(serializedPojo, marshaller2.unmarshalValue(new Row(schema, row)));
-        assertEquals(new TestPojoWrapper(pojo), marshaller3.unmarshalValue(new Row(schema, row)));
-        assertEquals(new TestPojoWrapper(serializedPojo), marshaller4.unmarshalValue(new Row(schema, row)));
+        assertEquals(pojo, marshaller1.unmarshalValue(row));
+        assertArrayEquals(serializedPojo, marshaller2.unmarshalValue(row));
+        assertEquals(new TestPojoWrapper(pojo), marshaller3.unmarshalValue(row));
+        assertEquals(new TestPojoWrapper(serializedPojo), marshaller4.unmarshalValue(row));
     }
 
     private byte[] serializeObject(TestPojo obj) throws IOException {
@@ -517,10 +519,10 @@ public class KvMarshallerTest {
         KvMarshaller<Object, Object> marshaller = factory.create(schema,
                 Mapper.of((Class<Object>) key.getClass(), "\"key\""),
                 Mapper.of((Class<Object>) val.getClass(), "\"val\""));
-        BinaryRow row = marshaller.marshal(key, val);
+        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, val));
 
-        Object key1 = marshaller.unmarshalKey(new Row(schema, row));
-        Object val1 = marshaller.unmarshalValue(new Row(schema, row));
+        Object key1 = marshaller.unmarshalKey(row);
+        Object val1 = marshaller.unmarshalValue(row);
 
         assertTrue(key.getClass().isInstance(key1));
         assertTrue(val.getClass().isInstance(val1));
@@ -826,7 +828,7 @@ public class KvMarshallerTest {
      * Test object represents a user object of arbitrary type.
      */
     static class TestPojo implements Serializable {
-        private static final long serialVersionUid = -1L;
+        private static final long serialVersionUID = -1L;
 
         int intField;
 

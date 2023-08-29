@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-affinity')
     implementation project(':ignite-baseline')
     implementation project(':ignite-network-api')
+    implementation project(':ignite-network')
     implementation project(':ignite-raft')
     implementation project(':ignite-replicator')
     implementation project(':ignite-raft-api')
@@ -68,7 +69,6 @@ dependencies {
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
     testImplementation libs.junit.pioneer
-    testImplementation libs.slf4j.jdk14
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
 
@@ -97,6 +97,7 @@ dependencies {
     integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(':ignite-distribution-zones')
+    integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-table')))

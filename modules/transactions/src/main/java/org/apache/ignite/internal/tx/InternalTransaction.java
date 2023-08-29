@@ -25,7 +25,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,7 +36,7 @@ public interface InternalTransaction extends Transaction {
      *
      * @return The id.
      */
-    @NotNull UUID id();
+    UUID id();
 
     /**
      * Returns enlisted primary replica node associated with given replication group.

@@ -25,7 +25,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
@@ -48,23 +47,36 @@ class UpgradingRowAdapter extends Row {
 
     private final BinaryTupleSchema newBinaryTupleSchema;
 
-    /**
-     * Constructor.
-     *
-     * @param newSchema    Row adapter schema descriptor.
-     * @param rowSchema Row schema descriptor.
-     * @param row       Row.
-     * @param mapper    Column mapper.
-     */
-    UpgradingRowAdapter(SchemaDescriptor newSchema, SchemaDescriptor rowSchema, BinaryRow row, ColumnMapper mapper) {
-        super(rowSchema, row);
+    private UpgradingRowAdapter(SchemaDescriptor newSchema, BinaryTupleSchema newBinaryTupleSchema, Row row, ColumnMapper mapper) {
+        super(row.schema(), row.binaryTupleSchema(), row);
 
         this.newSchema = newSchema;
         this.mapper = mapper;
+        this.newBinaryTupleSchema = newBinaryTupleSchema;
+    }
 
-        newBinaryTupleSchema = row.hasValue()
-                ? BinaryTupleSchema.createRowSchema(newSchema)
-                : BinaryTupleSchema.createKeySchema(newSchema);
+    /**
+     * Creates an adapter that converts a given {@code row} to a new schema.
+     *
+     * @param newSchema New schema that the {@code row} will be converted to.
+     * @param mapper Column mapper for converting columns to the new schema.
+     * @param row Row to convert.
+     * @return Adapter that converts a given {@code row} to a new schema.
+     */
+    static UpgradingRowAdapter upgradeRow(SchemaDescriptor newSchema, ColumnMapper mapper, Row row) {
+        return new UpgradingRowAdapter(newSchema, BinaryTupleSchema.createRowSchema(newSchema), row, mapper);
+    }
+
+    /**
+     * Creates an adapter that converts a given {@code row}, that only contains a key component, to a new schema.
+     *
+     * @param newSchema New schema that the {@code row} will be converted to.
+     * @param mapper Column mapper for converting columns to the new schema.
+     * @param row Row to convert, that only contains a key component.
+     * @return Adapter that converts a given {@code row} to a new schema.
+     */
+    static UpgradingRowAdapter upgradeKeyOnlyRow(SchemaDescriptor newSchema, ColumnMapper mapper, Row row) {
+        return new UpgradingRowAdapter(newSchema, BinaryTupleSchema.createKeySchema(newSchema), row, mapper);
     }
 
     /** {@inheritDoc} */

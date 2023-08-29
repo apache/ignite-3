@@ -39,6 +39,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStor
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreHeader;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreIo;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterAll;
@@ -50,7 +51,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * For {@link PartitionMetaManager} testing.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class PartitionMetaManagerTest {
+public class PartitionMetaManagerTest extends BaseIgniteAbstractTest {
     private static final int PAGE_SIZE = 1024;
 
     private static PageIoRegistry ioRegistry;

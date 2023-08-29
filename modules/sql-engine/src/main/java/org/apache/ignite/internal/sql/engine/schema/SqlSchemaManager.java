@@ -36,14 +36,6 @@ public interface SqlSchemaManager {
     SchemaPlus schema(@Nullable String name, long timestamp);
 
     /**
-     * Returns a table by given id.
-     *
-     * @param id An id of required table.
-     * @return The table.
-     */
-    IgniteTable tableById(int id);
-
-    /**
      * Returns a future to wait for given SQL schema version readiness.
      *
      * @param version SQL schema version to wait.

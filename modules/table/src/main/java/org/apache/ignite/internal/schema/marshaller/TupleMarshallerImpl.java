@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeType;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -63,7 +63,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(@NotNull Tuple tuple) throws TupleMarshallerException {
+    public Row marshal(Tuple tuple) throws TupleMarshallerException {
         try {
             SchemaDescriptor schema = schemaReg.schema();
 
@@ -77,7 +77,11 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                     }
 
                     if (!binaryTupleRebuildRequired(schema)) {
-                        return new Row(schema, RowAssembler.build(tupleReader.byteBuffer(), schema.version(), true));
+                        validateTuple(tuple, schema);
+
+                        // BinaryTuple from client has matching schema version, and all values are valid. Use buffer as is.
+                        var binaryRow = new BinaryRowImpl(schema.version(), tupleReader.byteBuffer());
+                        return Row.wrapBinaryRow(schema, binaryRow);
                     }
                 }
             }
@@ -99,7 +103,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(@NotNull Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException {
+    public Row marshal(Tuple keyTuple, @Nullable Tuple valTuple) throws TupleMarshallerException {
         try {
             SchemaDescriptor schema = schemaReg.schema();
 
@@ -133,34 +137,35 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @return Row.
      * @throws SchemaMismatchException If failed to write tuple column.
      */
-    @NotNull
     private Row buildRow(SchemaDescriptor schema, InternalTuple keyTuple0, InternalTuple valTuple0) throws SchemaMismatchException {
         RowAssembler rowBuilder = createAssembler(schema, keyTuple0, valTuple0);
 
-        Columns columns = schema.keyColumns();
+        Columns keyColumns = schema.keyColumns();
 
-        for (int i = 0, len = columns.length(); i < len; i++) {
-            final Column col = columns.column(i);
+        for (int i = 0, len = keyColumns.length(); i < len; i++) {
+            Column col = keyColumns.column(i);
 
             writeColumn(rowBuilder, col, keyTuple0);
         }
 
-        if (valTuple0.tuple != null) {
-            columns = schema.valueColumns();
-
-            for (int i = 0, len = columns.length(); i < len; i++) {
-                final Column col = columns.column(i);
-
-                writeColumn(rowBuilder, col, valTuple0);
-            }
+        if (schema.valueColumns().length() == 0 || valTuple0.tuple == null) {
+            return Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build());
         }
 
-        return new Row(schema, rowBuilder.build());
+        Columns valueColumns = schema.valueColumns();
+
+        for (int i = 0, len = valueColumns.length(); i < len; i++) {
+            Column col = valueColumns.column(i);
+
+            writeColumn(rowBuilder, col, valTuple0);
+        }
+
+        return Row.wrapBinaryRow(schema, rowBuilder.build());
     }
 
     /** {@inheritDoc} */
     @Override
-    public Row marshalKey(@NotNull Tuple keyTuple) throws TupleMarshallerException {
+    public Row marshalKey(Tuple keyTuple) throws TupleMarshallerException {
         try {
             final SchemaDescriptor schema = schemaReg.schema();
 
@@ -180,7 +185,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 writeColumn(rowBuilder, col, keyTuple0);
             }
 
-            return new Row(schema, rowBuilder.build());
+            return Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build());
         } catch (Exception ex) {
             throw new TupleMarshallerException("Failed to marshal tuple.", ex);
         }
@@ -195,7 +200,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @return Internal tuple.
      * @throws SchemaMismatchException If tuple doesn't match the schema.
      */
-    private @NotNull InternalTuple toInternalTuple(SchemaDescriptor schema, Tuple tuple, boolean keyFlag) throws SchemaMismatchException {
+    private InternalTuple toInternalTuple(SchemaDescriptor schema, Tuple tuple, boolean keyFlag) throws SchemaMismatchException {
         if (tuple == null) {
             return InternalTuple.NO_VALUE;
         }
@@ -213,6 +218,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                 NativeType colType = col.type();
 
                 Object val = tuple.valueOrDefault(col.name(), POISON_OBJECT);
+                col.validate(val);
 
                 assert val != POISON_OBJECT;
 
@@ -289,7 +295,6 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @param schema   Schema to check against.
      * @return Column names.
      */
-    @NotNull
     private Set<String> extraColumnNames(Tuple tuple, boolean keyTuple, SchemaDescriptor schema) {
         Set<String> cols = new HashSet<>();
 
@@ -346,10 +351,23 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @return True if binary tuple rebuild is required; false if the tuple can be written to storage as is.
      */
     private static boolean binaryTupleRebuildRequired(SchemaDescriptor schema) {
-        // TODO IGNITE-20155 Java client connector skips NOT NULL and other column checks
         // Temporal columns require normalization according to the specified precision.
-        // return schema.hasTemporalColumns();
-        return true;
+        return schema.hasTemporalColumns();
+    }
+
+    /**
+     * Validates tuple against schema.
+     *
+     * @param tuple Tuple.
+     * @param schema Schema.
+     */
+    private static void validateTuple(Tuple tuple, SchemaDescriptor schema) {
+        for (int i = 0; i < schema.length(); i++) {
+            Column col = schema.column(i);
+            Object val = tuple.value(i);
+
+            col.validate(val);
+        }
     }
 
     /**

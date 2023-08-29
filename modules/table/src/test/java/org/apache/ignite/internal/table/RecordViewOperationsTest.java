@@ -58,7 +58,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -355,7 +354,6 @@ public class RecordViewOperationsTest extends BaseIgniteAbstractTest {
         );
     }
 
-    @NotNull
     private TestObjectWithAllTypes randomObject(Random rnd, TestObjectWithAllTypes key) {
         TestObjectWithAllTypes obj = TestObjectWithAllTypes.randomObject(rnd);
 
@@ -364,7 +362,6 @@ public class RecordViewOperationsTest extends BaseIgniteAbstractTest {
         return obj;
     }
 
-    @NotNull
     private static TestObjectWithAllTypes key(Random rnd) {
         TestObjectWithAllTypes key = new TestObjectWithAllTypes();
 

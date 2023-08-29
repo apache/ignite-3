@@ -31,7 +31,6 @@ import org.apache.ignite.internal.util.ObjectFactory;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.mapper.OneColumnMapper;
 import org.apache.ignite.table.mapper.PojoMapper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,10 +48,12 @@ public abstract class Marshaller {
      */
     static <T> Marshaller createMarshaller(
             Column[] cols,
-            @NotNull Mapper<T> mapper,
+            Mapper<T> mapper,
             boolean requireAllFields,
             boolean allowUnmappedFields) {
-        if (mapper instanceof OneColumnMapper) {
+        if (mapper.targetType() == Void.class) {
+            return new NoOpMarshaller();
+        } else if (mapper instanceof OneColumnMapper) {
             return simpleMarshaller(cols, (OneColumnMapper<T>) mapper);
         } else if (mapper instanceof PojoMapper) {
             return pojoMarshaller(cols, (PojoMapper<T>) mapper, requireAllFields, allowUnmappedFields);
@@ -68,7 +69,7 @@ public abstract class Marshaller {
      * @param mapper Mapper.
      * @return Marshaller.
      */
-    static <T> SimpleMarshaller simpleMarshaller(Column[] cols, @NotNull OneColumnMapper<T> mapper) {
+    static <T> SimpleMarshaller simpleMarshaller(Column[] cols, OneColumnMapper<T> mapper) {
         final Class<T> targetType = mapper.targetType();
 
         Column col = (mapper.mappedColumn() == null && cols.length == 1)
@@ -94,7 +95,7 @@ public abstract class Marshaller {
      */
     private static <T> ObjectMarshaller pojoMarshaller(
             Column[] cols,
-            @NotNull PojoMapper<T> mapper,
+            PojoMapper<T> mapper,
             boolean requireAllFields,
             boolean allowUnmappedFields) {
         final Class<T> targetType = mapper.targetType();
@@ -153,7 +154,7 @@ public abstract class Marshaller {
      * @return Object.
      * @throws MarshallerException If failed to unmarshall given row to an object.
      */
-    public abstract Object readObject(Row reader) throws MarshallerException;
+    public abstract @Nullable Object readObject(Row reader) throws MarshallerException;
 
     /**
      * Write an object to a row.
@@ -239,9 +240,13 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public Object readObject(Row reader) throws MarshallerException {
+        public @Nullable Object readObject(Row reader) throws MarshallerException {
             try {
                 final Object obj = factory.create();
+
+                if (obj == null) {
+                    return null;
+                }
 
                 for (int fldIdx = 0; fldIdx < columnBindings.length; fldIdx++) {
                     columnBindings[fldIdx].read(reader, obj);
@@ -267,6 +272,22 @@ public abstract class Marshaller {
             } catch (Throwable e) {
                 throw new MarshallerException("Failed to write row. ", e);
             }
+        }
+    }
+
+    private static class NoOpMarshaller extends Marshaller {
+        @Override
+        public @Nullable Object value(Object obj, int fldIdx) {
+            return null;
+        }
+
+        @Override
+        public @Nullable Object readObject(Row reader) {
+            return null;
+        }
+
+        @Override
+        public void writeObject(Object obj, RowAssembler writer) {
         }
     }
 }

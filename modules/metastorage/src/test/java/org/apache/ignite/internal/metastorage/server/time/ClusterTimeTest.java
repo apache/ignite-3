@@ -39,6 +39,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl.SyncTimeAction;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.junit.jupiter.api.AfterEach;
@@ -49,7 +50,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for {@link ClusterTimeImpl}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class ClusterTimeTest {
+public class ClusterTimeTest extends BaseIgniteAbstractTest {
     private final ClusterTimeImpl clusterTime = new ClusterTimeImpl("foo", new IgniteSpinBusyLock(), new HybridClockImpl());
 
     @AfterEach

@@ -23,7 +23,6 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,7 +54,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
      * @param keyMapper Mapper for key objects.
      * @param valueMapper Mapper for value objects.
      */
-    public KvMarshallerImpl(SchemaDescriptor schema, @NotNull Mapper<K> keyMapper, @NotNull Mapper<V> valueMapper) {
+    public KvMarshallerImpl(SchemaDescriptor schema, Mapper<K> keyMapper, Mapper<V> valueMapper) {
         this.schema = schema;
 
         keyClass = keyMapper.targetType();
@@ -73,33 +72,33 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(@NotNull K key) throws MarshallerException {
+    public Row marshal(K key) throws MarshallerException {
         assert keyClass.isInstance(key);
 
-        final RowAssembler asm = createAssembler(key);
+        RowAssembler asm = createAssembler(key);
 
         keyMarsh.writeObject(key, asm);
 
-        return new Row(schema, asm.build());
+        return Row.wrapKeyOnlyBinaryRow(schema, asm.build());
     }
 
     /** {@inheritDoc} */
     @Override
-    public Row marshal(@NotNull K key, V val) throws MarshallerException {
+    public Row marshal(K key, V val) throws MarshallerException {
         assert keyClass.isInstance(key);
         assert val == null || valClass.isInstance(val);
 
-        final RowAssembler asm = createAssembler(key, val);
+        RowAssembler asm = createAssembler(key, val);
         keyMarsh.writeObject(key, asm);
         valMarsh.writeObject(val, asm);
-        return new Row(schema, asm.build());
+
+        return Row.wrapBinaryRow(schema, asm.build());
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
-    public K unmarshalKey(@NotNull Row row) throws MarshallerException {
-        final Object o = keyMarsh.readObject(row);
+    public K unmarshalKey(Row row) throws MarshallerException {
+        Object o = keyMarsh.readObject(row);
 
         assert keyClass.isInstance(o);
 
@@ -109,12 +108,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** {@inheritDoc} */
     @Nullable
     @Override
-    public V unmarshalValue(@NotNull Row row) throws MarshallerException {
-        if (!row.hasValue()) {
-            return null;
-        }
-
-        final Object o = valMarsh.readObject(row);
+    public V unmarshalValue(Row row) throws MarshallerException {
+        Object o = valMarsh.readObject(row);
 
         assert o == null || valClass.isInstance(o);
 

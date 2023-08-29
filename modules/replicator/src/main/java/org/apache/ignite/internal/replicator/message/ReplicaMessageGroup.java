@@ -23,8 +23,11 @@ import org.apache.ignite.network.annotations.MessageGroup;
 /**
  * Message group for the replication process.
  */
-@MessageGroup(groupType = 8, groupName = "ReplicaMessages")
+@MessageGroup(groupType = ReplicaMessageGroup.GROUP_TYPE, groupName = "ReplicaMessages")
 public interface ReplicaMessageGroup {
+    /** Table message group type. */
+    short GROUP_TYPE = 8;
+
     /** Message type for {@link ErrorReplicaResponse}. */
     short ERROR_REPLICA_RESPONSE = 1;
 

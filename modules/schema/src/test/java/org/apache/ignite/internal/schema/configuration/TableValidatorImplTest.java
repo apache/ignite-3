@@ -28,6 +28,7 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.configuration.index.HashIndexChange;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,7 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 @ExtendWith(ConfigurationExtension.class)
-public class TableValidatorImplTest {
+public class TableValidatorImplTest extends BaseIgniteAbstractTest {
     @InjectConfiguration(
             "mock.tables.table {"
                     + "columns.id {type.type: INT32}, "

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.util;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Predicate;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * FilteringIterator.
@@ -38,8 +37,8 @@ public class FilteringIterator<T> implements Iterator<T> {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public FilteringIterator(
-            @NotNull Iterator<T> delegate,
-            @NotNull Predicate<T> pred
+            Iterator<T> delegate,
+            Predicate<T> pred
     ) {
         this.delegate = delegate;
         this.pred = pred;

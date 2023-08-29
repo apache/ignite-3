@@ -100,7 +100,7 @@ namespace Apache.Ignite.Tests.Table
         {
             var pocoView = Table.GetRecordView<object>();
 
-            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await pocoView.UpsertAsync(null, new object()));
+            var ex = Assert.ThrowsAsync<ArgumentException>(async () => await pocoView.UpsertAsync(null, new object()));
 
             Assert.AreEqual("Can't map 'System.Object' to columns 'Int64 KEY, String VAL'. Matching fields not found.", ex!.Message);
         }
@@ -629,7 +629,8 @@ namespace Apache.Ignite.Tests.Table
                 DateTime: dt,
                 Timestamp: Instant.FromDateTimeUtc(DateTime.UtcNow),
                 Blob: new byte[] { 1, 2, 3 },
-                Decimal: 123.456m);
+                Decimal: 123.456m,
+                Boolean: true);
 
             await pocoView.UpsertAsync(null, poco);
 
@@ -650,6 +651,7 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(poco.Timestamp, res.Timestamp);
             Assert.AreEqual(poco.Time, res.Time);
             Assert.AreEqual(poco.DateTime, res.DateTime);
+            Assert.AreEqual(poco.Boolean, res.Boolean);
         }
 
         [Test]
@@ -674,7 +676,8 @@ namespace Apache.Ignite.Tests.Table
                 DateTime: dt,
                 Timestamp: Instant.FromDateTimeUtc(DateTime.UtcNow),
                 Blob: new byte[] { 1, 2, 3 },
-                Decimal: 123.456m);
+                Decimal: 123.456m,
+                Boolean: true);
 
             await pocoView.UpsertAsync(null, poco);
 
@@ -695,6 +698,7 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(poco.Timestamp, res.Timestamp);
             Assert.AreEqual(poco.Time, res.Time);
             Assert.AreEqual(poco.DateTime, res.DateTime);
+            Assert.AreEqual(poco.Boolean, res.Boolean);
         }
 
         [Test]
@@ -722,6 +726,7 @@ namespace Apache.Ignite.Tests.Table
             Assert.AreEqual(poco.Timestamp, res.Timestamp);
             Assert.AreEqual(poco.Time, res.Time);
             Assert.AreEqual(poco.DateTime, res.DateTime);
+            Assert.AreEqual(poco.Boolean, res.Boolean);
         }
 
         [Test]

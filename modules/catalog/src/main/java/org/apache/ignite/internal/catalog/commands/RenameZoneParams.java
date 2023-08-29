@@ -21,13 +21,20 @@ package org.apache.ignite.internal.catalog.commands;
  * ALTER ZONE RENAME TO statement.
  */
 public class RenameZoneParams extends AbstractZoneCommandParams {
+    /** Constructor. */
+    private RenameZoneParams(String zoneName, String newZoneName) {
+        super(zoneName);
+
+        this.newZoneName = newZoneName;
+    }
+
     /** Creates parameters builder. */
     public static Builder builder() {
         return new Builder();
     }
 
     /** New zone name. */
-    private String newZoneName;
+    private final String newZoneName;
 
     /**
      * Returns new name for a zone.
@@ -40,9 +47,7 @@ public class RenameZoneParams extends AbstractZoneCommandParams {
      * Parameters builder.
      */
     public static class Builder extends AbstractBuilder<RenameZoneParams, Builder> {
-        Builder() {
-            super(new RenameZoneParams());
-        }
+        private String newZoneName;
 
         /**
          * Sets new name for a zone.
@@ -50,9 +55,14 @@ public class RenameZoneParams extends AbstractZoneCommandParams {
          * @param zoneName New zone name.
          */
         public Builder newZoneName(String zoneName) {
-            params.newZoneName = zoneName;
+            this.newZoneName = zoneName;
 
             return this;
+        }
+
+        @Override
+        protected RenameZoneParams createParams() {
+            return new RenameZoneParams(zoneName, newZoneName);
         }
     }
 }

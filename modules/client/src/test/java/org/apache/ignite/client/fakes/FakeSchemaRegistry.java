@@ -29,7 +29,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.row.Row;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -65,7 +64,6 @@ public class FakeSchemaRegistry implements SchemaRegistry {
 
     /** {@inheritDoc} */
     @Override
-    @NotNull
     public SchemaDescriptor schema(int ver) {
         if (ver == 0) {
             // Use last version (any version may be used) for 0 version, that mean row doens't contain value.
@@ -119,18 +117,27 @@ public class FakeSchemaRegistry implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor desc) {
-        return new Row(desc, row);
+        return Row.wrapBinaryRow(desc, row);
     }
 
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row) {
-        return new Row(schema(row.schemaVersion()), row);
+        return Row.wrapBinaryRow(schema(row.schemaVersion()), row);
     }
 
     @Override
     public List<Row> resolve(Collection<BinaryRow> rows) {
-        return rows.stream().map(binaryRow -> binaryRow == null ? null : resolve(binaryRow)).collect(toList());
+        return rows.stream()
+                .map(row -> row == null ? null : Row.wrapBinaryRow(schema(row.schemaVersion()), row))
+                .collect(toList());
+    }
+
+    @Override
+    public List<Row> resolveKeys(Collection<BinaryRow> keyOnlyRows) {
+        return keyOnlyRows.stream()
+                .map(row -> row == null ? null : Row.wrapKeyOnlyBinaryRow(schema(row.schemaVersion()), row))
+                .collect(toList());
     }
 
     @Override

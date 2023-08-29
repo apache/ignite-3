@@ -36,7 +36,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.InvalidParam;
 import org.apache.ignite.rest.client.model.Problem;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Exception handler for {@link IgniteCliApiException}.
@@ -76,13 +75,15 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
                             .details("Could not connect to node with URL %s. "
                                     + "Check authentication configuration or provided username/password", UiElements.url(e.getUrl()))
                             .verbose(e.getMessage());
-                } else {
-                    Problem problem = extractProblem(cause);
+                } else if (cause.getResponseBody() != null) {
+                    Problem problem = extractProblem(cause.getResponseBody());
                     renderProblem(errorComponentBuilder, problem);
+                } else {
+                    errorComponentBuilder.header(header(e));
                 }
             }
         } else {
-            errorComponentBuilder.header(e.getCause() != e ? e.getCause().getMessage() : e.getMessage());
+            errorComponentBuilder.header(header(e));
         }
 
         ErrorUiComponent errorComponent = errorComponentBuilder.build();
@@ -94,15 +95,19 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
         return 1;
     }
 
+    private static String header(IgniteCliApiException e) {
+        return e.getCause() == e ? e.getMessage() : e.getCause().getMessage();
+    }
+
     /**
      * Extracts a @{link Problem} from the API exception.
      *
-     * @param cause Exception returned from the API call.
+     * @param responseBody response body of exception returned from the API call.
      * @return Extracted {@link Problem}
      */
-    public static Problem extractProblem(ApiException cause) {
+    private static Problem extractProblem(String responseBody) {
         try {
-            return objectMapper.readValue(cause.getResponseBody(), Problem.class);
+            return objectMapper.readValue(responseBody, Problem.class);
         } catch (JsonProcessingException ex) {
             throw new RuntimeException(ex);
         }
@@ -119,7 +124,6 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
                 .traceId(problem.getTraceId());
     }
 
-    @NotNull
     private static String extractInvalidParams(List<InvalidParam> invalidParams) {
         return invalidParams.stream()
                 .map(invalidParam -> "" + invalidParam.getName() + ": " + invalidParam.getReason())

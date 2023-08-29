@@ -17,21 +17,38 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_FIRST;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DropIndexParams;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -159,22 +176,17 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         // Let's check the success cases.
         assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 0).dataNodesAutoAdjust(0).build()),
+                manager.createZone(createZoneBuilder(ZONE_NAME + 0).dataNodesAutoAdjust(INFINITE_TIMER_VALUE).build()),
                 willBe(nullValue())
         );
 
         assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 1).dataNodesAutoAdjust(Integer.MAX_VALUE).build()),
+                manager.createZone(createZoneBuilder(ZONE_NAME + 1).dataNodesAutoAdjust(IMMEDIATE_TIMER_VALUE).build()),
                 willBe(nullValue())
         );
 
         assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 2).dataNodesAutoAdjust(IMMEDIATE_TIMER_VALUE).build()),
-                willBe(nullValue())
-        );
-
-        assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 3).dataNodesAutoAdjust(INFINITE_TIMER_VALUE).build()),
+                manager.createZone(createZoneBuilder(ZONE_NAME + 2).dataNodesAutoAdjust(10).build()),
                 willBe(nullValue())
         );
     }
@@ -189,10 +201,11 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
         );
 
         // Let's check the success cases.
-        assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(0).build()), willBe(nullValue()));
-        assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(Integer.MAX_VALUE).build()), willBe(nullValue()));
         assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(INFINITE_TIMER_VALUE).build()), willBe(nullValue()));
+
         assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(IMMEDIATE_TIMER_VALUE).build()), willBe(nullValue()));
+
+        assertThat(manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(10).build()), willBe(nullValue()));
     }
 
     @Test
@@ -204,22 +217,17 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         // Let's check the success cases.
         assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 0).dataNodesAutoAdjustScaleUp(0).build()),
+                manager.createZone(createZoneBuilder(ZONE_NAME + 0).dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE).build()),
                 willBe(nullValue())
         );
 
         assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 1).dataNodesAutoAdjustScaleUp(Integer.MAX_VALUE).build()),
+                manager.createZone(createZoneBuilder(ZONE_NAME + 1).dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).build()),
                 willBe(nullValue())
         );
 
         assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 2).dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE).build()),
-                willBe(nullValue())
-        );
-
-        assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 3).dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).build()),
+                manager.createZone(createZoneBuilder(ZONE_NAME + 2).dataNodesAutoAdjustScaleUp(10).build()),
                 willBe(nullValue())
         );
     }
@@ -235,12 +243,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         // Let's check the success cases.
         assertThat(
-                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(0).build()),
-                willBe(nullValue())
-        );
-
-        assertThat(
-                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(Integer.MAX_VALUE).build()),
+                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE).build()),
                 willBe(nullValue())
         );
 
@@ -250,7 +253,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
         );
 
         assertThat(
-                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE).build()),
+                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(10).build()),
                 willBe(nullValue())
         );
     }
@@ -264,22 +267,17 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         // Let's check the success cases.
         assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 0).dataNodesAutoAdjustScaleDown(0).build()),
+                manager.createZone(createZoneBuilder(ZONE_NAME + 0).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build()),
                 willBe(nullValue())
         );
 
         assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 1).dataNodesAutoAdjustScaleDown(Integer.MAX_VALUE).build()),
+                manager.createZone(createZoneBuilder(ZONE_NAME + 1).dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE).build()),
                 willBe(nullValue())
         );
 
         assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 2).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build()),
-                willBe(nullValue())
-        );
-
-        assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME + 3).dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE).build()),
+                manager.createZone(createZoneBuilder(ZONE_NAME + 2).dataNodesAutoAdjustScaleDown(10).build()),
                 willBe(nullValue())
         );
     }
@@ -295,12 +293,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         // Let's check the success cases.
         assertThat(
-                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleDown(0).build()),
-                willBe(nullValue())
-        );
-
-        assertThat(
-                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleDown(Integer.MAX_VALUE).build()),
+                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build()),
                 willBe(nullValue())
         );
 
@@ -310,63 +303,92 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
         );
 
         assertThat(
-                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build()),
+                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleDown(10).build()),
                 willBe(nullValue())
         );
     }
 
     @Test
     void testValidateDataNodesAutoAdjustCompatibilityParametersOnCreateZone() {
+        // Auto adjust + scale up.
         assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(666).dataNodesAutoAdjustScaleUp(666).build()),
+                manager.createZone(createZoneParams(66, IMMEDIATE_TIMER_VALUE, null)),
                 willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         assertThat(
-                manager.createZone(createZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(666).dataNodesAutoAdjustScaleDown(666).build()),
+                manager.createZone(createZoneParams(66, INFINITE_TIMER_VALUE, null)),
                 willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         assertThat(
-                manager.createZone(
-                        createZoneBuilder(ZONE_NAME)
-                                .dataNodesAutoAdjust(666)
-                                .dataNodesAutoAdjustScaleUp(666)
-                                .dataNodesAutoAdjustScaleDown(666)
-                                .build()
-                ),
+                manager.createZone(createZoneParams(66, 77, null)),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
+        // Auto adjust + scale down.
+        assertThat(
+                manager.createZone(createZoneParams(66, null, IMMEDIATE_TIMER_VALUE)),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
+        assertThat(
+                manager.createZone(createZoneParams(66, null, INFINITE_TIMER_VALUE)),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
+        assertThat(
+                manager.createZone(createZoneParams(66, null, 88)),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
+        // Auto adjust + scale up + scale down.
+        assertThat(
+                manager.createZone(createZoneParams(66, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE)),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
+        assertThat(
+                manager.createZone(createZoneParams(66, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE)),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
+        assertThat(
+                manager.createZone(createZoneParams(66, 77, 88)),
                 willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         // Let's check the success cases.
+
+        // Auto adjust only.
         assertThat(
-                manager.createZone(
-                        createZoneBuilder(ZONE_NAME + 0)
-                                .dataNodesAutoAdjust(666)
-                                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                                .build()
-                ),
+                manager.createZone(createZoneParams(ZONE_NAME + 0, IMMEDIATE_TIMER_VALUE, null, null)),
                 willBe(nullValue())
         );
 
         assertThat(
-                manager.createZone(
-                        createZoneBuilder(ZONE_NAME + 1)
-                                .dataNodesAutoAdjust(666)
-                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                                .build()
-                ),
+                manager.createZone(createZoneParams(ZONE_NAME + 1, INFINITE_TIMER_VALUE, null, null)),
                 willBe(nullValue())
         );
 
         assertThat(
-                manager.createZone(
-                        createZoneBuilder(ZONE_NAME + 2)
-                                .dataNodesAutoAdjust(666)
-                                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                                .build()
-                ),
+                manager.createZone(createZoneParams(ZONE_NAME + 2, 66, null, null)),
+                willBe(nullValue())
+        );
+
+        // Scale up + scale down.
+        assertThat(
+                manager.createZone(createZoneParams(ZONE_NAME + 3, null, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE)),
+                willBe(nullValue())
+        );
+
+        assertThat(
+                manager.createZone(createZoneParams(ZONE_NAME + 4, null, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE)),
+                willBe(nullValue())
+        );
+
+        assertThat(
+                manager.createZone(createZoneParams(ZONE_NAME + 5, null, 77, 88)),
                 willBe(nullValue())
         );
     }
@@ -375,73 +397,86 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     void testValidateDataNodesAutoAdjustCompatibilityParametersOnAlterZone() {
         assertThat(manager.createZone(createZoneBuilder(ZONE_NAME).build()), willBe(nullValue()));
 
+        // Auto adjust + scale up.
         assertThat(
-                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(666).dataNodesAutoAdjustScaleUp(666).build()),
+                manager.alterZone(alterZoneParams(66, IMMEDIATE_TIMER_VALUE, null)),
                 willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         assertThat(
-                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(666).dataNodesAutoAdjustScaleDown(666).build()),
+                manager.alterZone(alterZoneParams(66, INFINITE_TIMER_VALUE, null)),
                 willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         assertThat(
-                manager.alterZone(
-                        alterZoneBuilder(ZONE_NAME)
-                                .dataNodesAutoAdjust(666)
-                                .dataNodesAutoAdjustScaleUp(666)
-                                .dataNodesAutoAdjustScaleDown(666)
-                                .build()
-                ),
+                manager.alterZone(alterZoneParams(66, 77, null)),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
+        // Auto adjust + scale down.
+        assertThat(
+                manager.alterZone(alterZoneParams(66, null, IMMEDIATE_TIMER_VALUE)),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
+        assertThat(
+                manager.alterZone(alterZoneParams(66, null, INFINITE_TIMER_VALUE)),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
+        assertThat(
+                manager.alterZone(alterZoneParams(66, null, 88)),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
+        // Auto adjust + scale up + scale down.
+        assertThat(
+                manager.alterZone(alterZoneParams(66, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE)),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
+        assertThat(
+                manager.alterZone(alterZoneParams(66, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE)),
+                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+        );
+
+        assertThat(
+                manager.alterZone(alterZoneParams(66, 77, 88)),
                 willThrowFast(CatalogValidationException.class, "Not compatible parameters")
         );
 
         // Let's check the success cases.
+
+        // Auto adjust only.
         assertThat(
-                manager.alterZone(
-                        alterZoneBuilder(ZONE_NAME)
-                                .dataNodesAutoAdjust(666)
-                                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                                .build()
-                ),
+                manager.alterZone(alterZoneParams(IMMEDIATE_TIMER_VALUE, null, null)),
                 willBe(nullValue())
         );
 
         assertThat(
-                manager.alterZone(
-                        alterZoneBuilder(ZONE_NAME)
-                                .dataNodesAutoAdjust(666)
-                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                                .build()
-                ),
+                manager.alterZone(alterZoneParams(INFINITE_TIMER_VALUE, null, null)),
                 willBe(nullValue())
         );
 
         assertThat(
-                manager.alterZone(
-                        alterZoneBuilder(ZONE_NAME)
-                                .dataNodesAutoAdjust(666)
-                                .dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE)
-                                .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
-                                .build()
-                ),
+                manager.alterZone(alterZoneParams(66, null, null)),
                 willBe(nullValue())
         );
 
-        // Let's check the compatibility of the parameters and what is already stored in the catalog.
+        // Scale up + scale down.
         assertThat(
-                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(666).build()),
-                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+                manager.alterZone(alterZoneParams(null, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE)),
+                willBe(nullValue())
         );
 
         assertThat(
-                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleDown(666).build()),
-                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+                manager.alterZone(alterZoneParams(null, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE)),
+                willBe(nullValue())
         );
 
         assertThat(
-                manager.alterZone(alterZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(666).dataNodesAutoAdjustScaleDown(666).build()),
-                willThrowFast(CatalogValidationException.class, "Not compatible parameters")
+                manager.alterZone(alterZoneParams(null, 77, 88)),
+                willBe(nullValue())
         );
     }
 
@@ -531,11 +566,305 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
         );
     }
 
+    @Test
+    void testValidateTableNameOnIndexCreation() {
+        assertThat(
+                manager.createIndex(CreateHashIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+
+        assertThat(
+                manager.createIndex(CreateSortedIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateIndexNameOnIndexCreation() {
+        assertThat(
+                manager.createIndex(CreateHashIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Missing index name")
+        );
+
+        assertThat(
+                manager.createIndex(CreateSortedIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Missing index name")
+        );
+    }
+
+    @Test
+    void testValidateIndexColumnsNotSpecifiedOnIndexCreation() {
+        assertThat(
+                manager.createIndex(createHashIndexParams(INDEX_NAME, null)),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, null, null)),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.createIndex(createHashIndexParams(INDEX_NAME, List.of())),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of(), null)),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+    }
+
+    @Test
+    void testValidateIndexColumnsDuplicatesOnIndexCreation() {
+        assertThat(
+                manager.createIndex(createHashIndexParams(INDEX_NAME, Arrays.asList("key", "key"))),
+                willThrowFast(CatalogValidationException.class, "Duplicate columns are present")
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, Arrays.asList("key", "key"), null)),
+                willThrowFast(CatalogValidationException.class, "Duplicate columns are present")
+        );
+    }
+
+    @Test
+    void testValidateIndexColumnsCollationsNotSpecifiedOnIndexCreation() {
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("key"), null)),
+                willThrowFast(CatalogValidationException.class, "Columns collations not specified")
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("key"), List.of())),
+                willThrowFast(CatalogValidationException.class, "Columns collations not specified")
+        );
+    }
+
+    @Test
+    void testValidateIndexColumnsCollationsNotScameSizeWithColumnsOnIndexCreation() {
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("key", "val"), List.of(ASC_NULLS_FIRST))),
+                willThrowFast(CatalogValidationException.class, "Columns collations doesn't match number of columns")
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("key"), List.of(ASC_NULLS_FIRST, ASC_NULLS_FIRST))),
+                willThrowFast(CatalogValidationException.class, "Columns collations doesn't match number of columns")
+        );
+    }
+
+    @Test
+    void testValidateIndexNameOnIndexDrop() {
+        assertThat(
+                manager.dropIndex(DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Missing index name")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnTableDrop() {
+        assertThat(
+                manager.dropTable(DropTableParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnTableCreation() {
+        assertThat(
+                manager.createTable(CreateTableParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateColumnsOnTableCreation() {
+        assertThat(
+                manager.createTable(createTableParams(TABLE_NAME, null, null, null)),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(createTableParams(TABLE_NAME, List.of(), null, null)),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(createTableParams(TABLE_NAME, List.of(ColumnParams.builder().build()), null, null)),
+                willThrowFast(CatalogValidationException.class, "Missing column name")
+        );
+
+        assertThat(
+                manager.createTable(createTableParams(TABLE_NAME, List.of(ColumnParams.builder().name("key").build()), null, null)),
+                willThrowFast(CatalogValidationException.class, "Missing column type: key")
+        );
+
+        assertThat(
+                manager.createTable(
+                        createTableParams(TABLE_NAME, List.of(columnParams("key", INT32), columnParams("key", INT64)), null, null)
+                ),
+                willThrowFast(CatalogValidationException.class, "Duplicate columns are present: [key]")
+        );
+    }
+
+    @Test
+    void testValidatePrimaryKeyColumnsOnTableCreation() {
+        assertThat(
+                manager.createTable(simpleTableParamsWithPrimaryKeys(null)),
+                willThrowFast(CatalogValidationException.class, "Primary key columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithPrimaryKeys(List.of())),
+                willThrowFast(CatalogValidationException.class, "Primary key columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithPrimaryKeys(List.of("key", "key"))),
+                willThrowFast(CatalogValidationException.class, "Duplicate primary key columns are present: [key]")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithPrimaryKeys(List.of("foo", "bar"))),
+                willThrowFast(CatalogValidationException.class, "Primary key columns missing in columns: [foo, bar]")
+        );
+    }
+
+    @Test
+    void testValidatePrimaryColocationColumnsOnTableCreation() {
+        assertThat(
+                manager.createTable(simpleTableParamsWithColocationColumns(List.of())),
+                willThrowFast(CatalogValidationException.class, "Colocation columns not specified")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithColocationColumns(List.of("key", "key"))),
+                willThrowFast(CatalogValidationException.class, "Duplicate colocation columns are present: [key]")
+        );
+
+        assertThat(
+                manager.createTable(simpleTableParamsWithColocationColumns(List.of("foo", "bar"))),
+                willThrowFast(CatalogValidationException.class, "Colocation columns missing in primary key columns: [foo, bar]")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnDropColumn() {
+        assertThat(
+                manager.dropColumn(AlterTableDropColumnParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateColumnsOnDropColumn() {
+        assertThat(
+                manager.dropColumn(AlterTableDropColumnParams.builder().tableName(TABLE_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.dropColumn(AlterTableDropColumnParams.builder().tableName(TABLE_NAME).columns(Set.of()).build()),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnAddColumn() {
+        assertThat(
+                manager.addColumn(AlterTableAddColumnParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateColumnsOnAddColumn() {
+        assertThat(
+                manager.addColumn(AlterTableAddColumnParams.builder().tableName(TABLE_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.addColumn(AlterTableAddColumnParams.builder().tableName(TABLE_NAME).columns(List.of()).build()),
+                willThrowFast(CatalogValidationException.class, "Columns not specified")
+        );
+
+        assertThat(
+                manager.addColumn(addColumnParams(ColumnParams.builder().build())),
+                willThrowFast(CatalogValidationException.class, "Missing column name")
+        );
+
+        assertThat(
+                manager.addColumn(addColumnParams(ColumnParams.builder().name("key").build())),
+                willThrowFast(CatalogValidationException.class, "Missing column type: key")
+        );
+
+        assertThat(
+                manager.addColumn(addColumnParams(columnParams("key", INT32), columnParams("key", INT64))),
+                willThrowFast(CatalogValidationException.class, "Duplicate columns are present: [key]")
+        );
+    }
+
+    @Test
+    void testValidateTableNameOnAlterColumn() {
+        assertThat(
+                manager.alterColumn(AlterColumnParams.builder().build()),
+                willThrowFast(CatalogValidationException.class, "Missing table name")
+        );
+    }
+
+    @Test
+    void testValidateColumnNameOnAlterColumn() {
+        assertThat(
+                manager.alterColumn(AlterColumnParams.builder().tableName(TABLE_NAME).build()),
+                willThrowFast(CatalogValidationException.class, "Missing column name")
+        );
+    }
+
     private static CreateZoneParams.Builder createZoneBuilder(String zoneName) {
         return CreateZoneParams.builder().zoneName(zoneName);
     }
 
     private static AlterZoneParams.Builder alterZoneBuilder(String zoneName) {
         return AlterZoneParams.builder().zoneName(zoneName);
+    }
+
+    private static CreateZoneParams createZoneParams(@Nullable Integer autoAdjust, @Nullable Integer scaleUp, @Nullable Integer scaleDown) {
+        return createZoneParams(ZONE_NAME, autoAdjust, scaleUp, scaleDown);
+    }
+
+    private static CreateZoneParams createZoneParams(
+            String zoneName,
+            @Nullable Integer autoAdjust,
+            @Nullable Integer scaleUp,
+            @Nullable Integer scaleDown
+    ) {
+        return createZoneBuilder(zoneName)
+                .dataNodesAutoAdjust(autoAdjust)
+                .dataNodesAutoAdjustScaleUp(scaleUp)
+                .dataNodesAutoAdjustScaleDown(scaleDown)
+                .build();
+    }
+
+    private static AlterZoneParams alterZoneParams(@Nullable Integer autoAdjust, @Nullable Integer scaleUp, @Nullable Integer scaleDown) {
+        return alterZoneBuilder(ZONE_NAME)
+                .dataNodesAutoAdjust(autoAdjust)
+                .dataNodesAutoAdjustScaleUp(scaleUp)
+                .dataNodesAutoAdjustScaleDown(scaleDown)
+                .build();
+    }
+
+    private CreateTableParams simpleTableParamsWithPrimaryKeys(@Nullable List<String> primaryKeys) {
+        return createTableParams(TABLE_NAME, List.of(columnParams("key", INT32), columnParams("val", INT64)), primaryKeys, null);
+    }
+
+    private CreateTableParams simpleTableParamsWithColocationColumns(@Nullable List<String> colocationColumns) {
+        return createTableParams(
+                TABLE_NAME,
+                List.of(columnParams("key", INT32), columnParams("val", INT64)),
+                List.of("key"),
+                colocationColumns
+        );
     }
 }

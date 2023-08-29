@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
+import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
@@ -30,7 +34,9 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
+import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
@@ -60,17 +66,20 @@ class DdlToCatalogCommandConverter {
     static CreateTableParams convert(CreateTableCommand cmd) {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
-        return CreateTableParams.builder()
+        Builder builder = CreateTableParams.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
 
                 .columns(columns)
-                .colocationColumns(cmd.colocationColumns())
                 .primaryKeyColumns(cmd.primaryKeyColumns())
 
-                .zone(cmd.zone())
+                .zone(cmd.zone());
 
-                .build();
+        if (cmd.colocationColumns() != null) {
+            builder.colocationColumns(cmd.colocationColumns());
+        }
+
+        return builder.build();
     }
 
     static DropTableParams convert(DropTableCommand cmd) {
@@ -81,6 +90,10 @@ class DdlToCatalogCommandConverter {
     }
 
     static CreateZoneParams convert(CreateZoneCommand cmd) {
+        // TODO: IGNITE-19719 We need to define the default engine differently and the parameters should depend on the engine
+        String engine = Objects.requireNonNullElse(cmd.dataStorage(), DEFAULT_STORAGE_ENGINE);
+        String dataRegion = (String) cmd.dataStorageOptions().getOrDefault("dataRegion", DEFAULT_DATA_REGION);
+
         return CreateZoneParams.builder()
                 .zoneName(cmd.zoneName())
                 .partitions(cmd.partitions())
@@ -89,6 +102,7 @@ class DdlToCatalogCommandConverter {
                 .dataNodesAutoAdjust(cmd.dataNodesAutoAdjust())
                 .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
                 .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
+                .dataStorage(DataStorageParams.builder().engine(engine).dataRegion(dataRegion).build())
                 .build();
     }
 
@@ -174,7 +188,7 @@ class DdlToCatalogCommandConverter {
     }
 
 
-    static AbstractIndexCommandParams convert(CreateIndexCommand cmd) {
+    static AbstractCreateIndexCommandParams convert(CreateIndexCommand cmd) {
         switch (cmd.type()) {
             case HASH:
                 return CreateHashIndexParams.builder()
