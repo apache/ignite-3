@@ -49,6 +49,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.function.LongFunction;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -111,6 +112,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -339,7 +341,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var clockWaiter = new ClockWaiter(name, clock);
 
-        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageMgr), clockWaiter);
+        LongSupplier delayDurationMsSupplier = () -> 100L;
+
+        var catalogManager = new CatalogManagerImpl(
+                new UpdateLogImpl(metaStorageMgr),
+                clockWaiter,
+                delayDurationMsSupplier
+        );
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
@@ -350,6 +358,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 vault,
                 catalogManager
         );
+
+        var schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
 
         TableManager tableManager = new TableManager(
                 name,
@@ -375,6 +385,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 vault,
                 null,
                 null,
+                schemaSyncService,
                 catalogManager
         );
 
@@ -389,7 +400,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 indexManager,
                 schemaManager,
                 dataStorageManager,
-                txManager,
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions()),
                 replicaSvc,
                 clock,

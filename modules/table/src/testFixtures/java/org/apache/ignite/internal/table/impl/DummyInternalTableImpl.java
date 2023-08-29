@@ -35,6 +35,7 @@ import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -75,6 +76,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -325,6 +327,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(ClusterNode.class),
                 mock(MvTableStorage.class),
                 mock(IndexBuilder.class),
+                mock(SchemaSyncService.class, invocation -> completedFuture(null)),
+                mock(CatalogService.class),
                 mock(TablesConfiguration.class)
         );
 

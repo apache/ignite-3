@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-affinity')
     implementation project(':ignite-baseline')
     implementation project(':ignite-network-api')
+    implementation project(':ignite-network')
     implementation project(':ignite-raft')
     implementation project(':ignite-replicator')
     implementation project(':ignite-raft-api')
