@@ -70,7 +70,7 @@ public class DdlCommandHandler {
         } else if (cmd instanceof AlterTableDropCommand) {
             return handleAlterDropColumn((AlterTableDropCommand) cmd);
         } else if (cmd instanceof AlterColumnCommand) {
-            return completedFuture(true);
+            return handleAlterColumn((AlterColumnCommand) cmd);
         } else if (cmd instanceof CreateIndexCommand) {
             return handleCreateIndex((CreateIndexCommand) cmd);
         } else if (cmd instanceof DropIndexCommand) {
@@ -143,6 +143,12 @@ public class DdlCommandHandler {
         }
 
         return catalogManager.dropColumn(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
+    }
+
+    /** Handles drop column command. */
+    private CompletableFuture<Boolean> handleAlterColumn(AlterColumnCommand cmd) {
+        return catalogManager.alterColumn(DdlToCatalogCommandConverter.convert(cmd))
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
     }
 

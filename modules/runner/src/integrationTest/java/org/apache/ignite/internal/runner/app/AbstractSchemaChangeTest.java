@@ -29,7 +29,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
@@ -201,11 +200,11 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      *
      * @param nodes Cluster nodes.
      * @param colName Column name.
-     * @param defSup Default value supplier.
+     * @param def Default value.
      */
-    protected static void changeDefault(List<Ignite> nodes, String colName, Supplier<Object> defSup) {
+    protected static void changeDefault(List<Ignite> nodes, String colName, String def) {
         try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null, String.format("ALTER TABLE %s ALTER COLUMN %s SET %s", TABLE, colName, defSup.get()));
+            session.execute(null, String.format("ALTER TABLE %s ALTER COLUMN %s SET DEFAULT '%s'", TABLE, colName, def));
         }
     }
 
