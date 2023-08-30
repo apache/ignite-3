@@ -126,6 +126,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /** The thread updates safe time on the dummy replica. */
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
+    private final Object raftServiceMutex = new Object();
+
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
 
     /**
@@ -231,44 +233,46 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         // Delegate directly to listener.
         lenient().doAnswer(
                 invocationClose -> {
-                    Command cmd = invocationClose.getArgument(0);
+                    synchronized (raftServiceMutex) {
+                        Command cmd = invocationClose.getArgument(0);
 
-                    long commandIndex = raftIndex.incrementAndGet();
+                        long commandIndex = raftIndex.incrementAndGet();
 
-                    CompletableFuture<Serializable> res = new CompletableFuture<>();
+                        CompletableFuture<Serializable> res = new CompletableFuture<>();
 
-                    // All read commands are handled directly throw partition replica listener.
-                    CommandClosure<WriteCommand> clo = new CommandClosure<>() {
-                        /** {@inheritDoc} */
-                        @Override
-                        public long index() {
-                            return commandIndex;
-                        }
-
-                        /** {@inheritDoc} */
-                        @Override
-                        public WriteCommand command() {
-                            return (WriteCommand) cmd;
-                        }
-
-                        /** {@inheritDoc} */
-                        @Override
-                        public void result(@Nullable Serializable r) {
-                            if (r instanceof Throwable) {
-                                res.completeExceptionally((Throwable) r);
-                            } else {
-                                res.complete(r);
+                        // All read commands are handled directly throw partition replica listener.
+                        CommandClosure<WriteCommand> clo = new CommandClosure<>() {
+                            /** {@inheritDoc} */
+                            @Override
+                            public long index() {
+                                return commandIndex;
                             }
+
+                            /** {@inheritDoc} */
+                            @Override
+                            public WriteCommand command() {
+                                return (WriteCommand) cmd;
+                            }
+
+                            /** {@inheritDoc} */
+                            @Override
+                            public void result(@Nullable Serializable r) {
+                                if (r instanceof Throwable) {
+                                    res.completeExceptionally((Throwable) r);
+                                } else {
+                                    res.complete(r);
+                                }
+                            }
+                        };
+
+                        try {
+                            partitionListener.onWrite(List.of(clo).iterator());
+                        } catch (Throwable e) {
+                            res.completeExceptionally(new TransactionException(e));
                         }
-                    };
 
-                    try {
-                        partitionListener.onWrite(List.of(clo).iterator());
-                    } catch (Throwable e) {
-                        res.completeExceptionally(new TransactionException(e));
+                        return res;
                     }
-
-                    return res;
                 }
         ).when(svc).run(any());
 
