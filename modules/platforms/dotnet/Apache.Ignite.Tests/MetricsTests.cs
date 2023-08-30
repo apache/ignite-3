@@ -241,7 +241,7 @@ public class MetricsTests
             yield return new IgniteTuple { ["ID"] = 2 };
 
             Assert.AreEqual(2, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
-            Assert.AreEqual(2, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+            Assert.AreEqual(2, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued"); // TODO: Flaky
 
             TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-batches-sent") == 1);
 
