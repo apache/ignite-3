@@ -42,18 +42,9 @@ public class MetricsTests
     [TearDown]
     public void TearDown()
     {
-        // ReSharper disable AccessToDisposedClosure
-        TestUtils.WaitForCondition(
-            () => _listener.GetMetric("requests-active") == 0,
-            3000,
-            () => "requests-active: " + _listener.GetMetric("requests-active"));
+        AssertMetric("requests-active", 0);
+        AssertMetric("connections-active", 0);
 
-        TestUtils.WaitForCondition(
-            () => _listener.GetMetric("connections-active") == 0,
-            3000,
-            () => "connections-active: " + _listener.GetMetric("connections-active"));
-
-        // ReSharper restore AccessToDisposedClosure
         _listener.Dispose();
     }
 
@@ -304,10 +295,10 @@ public class MetricsTests
             RetryPolicy = new RetryNonePolicy()
         };
 
-    private void AssertMetric(string name, int value) =>
+    private void AssertMetric(string name, int value, int timeoutMs = 1000) =>
         TestUtils.WaitForCondition(
             condition: () => _listener.GetMetric(name) == value,
-            timeoutMs: 1000,
+            timeoutMs: timeoutMs,
             messageFactory: () => $"{name}: expected '{value}', but was '{_listener.GetMetric(name)}'");
 
     private sealed class Listener : IDisposable
