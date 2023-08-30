@@ -198,4 +198,86 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
                 () -> assertNull(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
         );
     }
+
+    @Test
+    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url than ask for auth")
+    void connectWithCredentialsFailAskSsl() throws IOException {
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // And default URL is HTTPS
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
+
+        // And trust store is not configured
+
+        // And last connected URL is equal to the default URL
+        stateConfigProvider.config = TestStateConfigHelper.createLastConnectedSslDefault();
+
+        // And answer to the reconnect question is "y", to the SSL configuration question is "y",
+        // trust store path and password are provided and key store is not configured
+        bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
+
+        // When connect with auth parameters
+        execute("connect", "--username", "admin", "--password", "password");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to https://localhost:10400")
+        );
+        // And prompt is changed to connect
+        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
+
+        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+                        .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                        .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
+
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
+                        .isEqualTo("admin"),
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                        .isEqualTo("password")
+        );
+    }
+
+    @Test
+    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url than ask for auth")
+    void connectWithoutCredentialsFailAskSslAfterAskAuth() throws IOException {
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // And default URL is HTTPS
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
+
+        // And trust store is not configured
+
+        // And last connected URL is equal to the default URL
+        stateConfigProvider.config = TestStateConfigHelper.createLastConnectedSslDefault();
+
+        // And answer to the reconnect question is "y", to the SSL configuration question is "y",
+        // trust store path and password are provided and key store is not configured
+        bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
+
+        // When connect with auth parameters
+        execute("connect");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to https://localhost:10400")
+        );
+        // And prompt is changed to connect
+        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
+
+        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+                        .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                        .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
+
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
+                        .isEqualTo("admin"),
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                        .isEqualTo("password")
+        );
+    }
 }
