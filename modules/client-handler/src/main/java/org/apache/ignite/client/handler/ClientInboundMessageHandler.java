@@ -108,7 +108,6 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.internal.util.MyIgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.TraceableException;
@@ -481,8 +480,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             if (fut == null) {
                 // Operation completed synchronously.
                 in.close();
-                Loggers.forClass(ClientInboundMessageHandler.class).info("Update observation timestamp [op={}, ts={}]", opCode,
-                        MyIgniteUtils.formatDate(observableTimestamp(out)));
                 out.setLong(observableTimestampIdx, observableTimestamp(out));
                 write(out, ctx);
 
@@ -507,9 +504,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
                         metrics.requestsFailedIncrement();
                     } else {
-                        Loggers.forClass(ClientInboundMessageHandler.class).info("Update observation timestamp [op={}, ts={}]", op,
-                                MyIgniteUtils.formatDate(observableTimestamp(out)));
-
                         out.setLong(observableTimestampIdx, observableTimestamp(out));
                         write(out, ctx);
 
@@ -535,8 +529,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClientMessagePacker out,
             int opCode
     ) throws IgniteInternalCheckedException {
-        LOG.info("Process cmd: " + opCode);
-
         switch (opCode) {
             case ClientOp.HEARTBEAT:
                 return null;

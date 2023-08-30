@@ -21,8 +21,6 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTA
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,8 +45,6 @@ public class HybridTimestampTracker {
      * @param ts Timestamp to use for update.
      */
     public void update(HybridTimestamp ts) {
-        IgniteUtils.dumpStack(Loggers.forClass(HybridTimestampTracker.class), "HybridTimestampTracker.update");
-
         long tsVal = HybridTimestamp.hybridTimestampToLong(ts);
 
         timestamp.updateAndGet(x -> Math.max(x, tsVal));
