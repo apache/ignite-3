@@ -61,7 +61,6 @@ import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -91,7 +90,6 @@ import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -308,7 +306,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertNotNull(tableManager.table(PRECONFIGURED_TABLE_NAME));
 
-        checkTableDataStorage(tblsCfg.tables().value(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
+        checkTableDataStorage(allTableDescriptors(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -324,7 +322,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertSame(table, tblManagerFut.join().table(DYNAMIC_TABLE_NAME));
 
-        checkTableDataStorage(tblsCfg.tables().value(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
+        checkTableDataStorage(allTableDescriptors(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -790,9 +788,11 @@ public class TableManagerTest extends IgniteAbstractTest {
         return manager;
     }
 
-    private void checkTableDataStorage(NamedListView<TableView> tables, String expDataStorage) {
-        for (TableView table : tables) {
-            assertEquals(getZoneDataStorage(table.zoneId()), expDataStorage, table.name());
+    private void checkTableDataStorage(Collection<CatalogTableDescriptor> tableDescriptors, String expDataStorage) {
+        assertFalse(tableDescriptors.isEmpty());
+
+        for (CatalogTableDescriptor tableDescriptor : tableDescriptors) {
+            assertEquals(getZoneDataStorage(tableDescriptor.zoneId()), expDataStorage, tableDescriptor.name());
         }
     }
 
@@ -822,5 +822,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private void dropTable(String tableName) {
         TableTestUtils.dropTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName);
+    }
+
+    private Collection<CatalogTableDescriptor> allTableDescriptors() {
+        return catalogManager.tables(catalogManager.latestCatalogVersion());
     }
 }

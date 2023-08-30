@@ -498,7 +498,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             lowWatermark.start();
 
-            fireCreateTablesOnManagerStart();
+            startTables();
 
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
@@ -564,53 +564,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private CompletableFuture<?> onTableCreate(CreateTableEventParameters parameters) {
-        long causalityToken = parameters.causalityToken();
-        int catalogVersion = parameters.catalogVersion();
-
-        int tableId = parameters.tableDescriptor().id();
-
-        if (!busyLock.enterBusy()) {
-            fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId), new NodeStoppingException());
-
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            int zoneId = parameters.tableDescriptor().zoneId();
-
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(parameters.tableDescriptor(), catalogVersion);
-
-            CompletableFuture<List<Set<Assignment>>> assignmentsFuture;
-
-            // Check if the table already has assignments in the vault.
-            // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
-            if (partitionAssignments(vaultManager, tableId, 0) != null) {
-                assignmentsFuture = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
-            } else {
-                assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, zoneId)
-                        .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
-                                dataNodes,
-                                zoneDescriptor.partitions(),
-                                zoneDescriptor.replicas()
-                        ));
-            }
-
-            return createTableLocally(
-                    causalityToken,
-                    parameters.tableDescriptor(),
-                    zoneDescriptor,
-                    assignmentsFuture,
-                    catalogVersion
-            ).whenComplete((v, e) -> {
-                if (e == null) {
-                    for (var listener : assignmentsChangeListeners) {
-                        listener.accept(this);
-                    }
-                }
-            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor());
     }
 
     private CompletableFuture<Boolean> writeTableAssignmentsToMetastore(
@@ -1196,6 +1150,61 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Creates local structures for a table.
      *
      * @param causalityToken Causality token.
+     * @param catalogVersion Catalog version on which the table was created.
+     * @param tableDescriptor Catalog table descriptor.
+     * @return Future that will be completed when local changes related to the table creation are applied.
+     */
+    private CompletableFuture<?> createTableLocally(long causalityToken, int catalogVersion, CatalogTableDescriptor tableDescriptor) {
+        int tableId = tableDescriptor.id();
+
+        if (!busyLock.enterBusy()) {
+            fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableId), new NodeStoppingException());
+
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            int zoneId = tableDescriptor.zoneId();
+
+            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
+
+            CompletableFuture<List<Set<Assignment>>> assignmentsFuture;
+
+            // Check if the table already has assignments in the vault.
+            // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
+            if (partitionAssignments(vaultManager, tableId, 0) != null) {
+                assignmentsFuture = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
+            } else {
+                assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, zoneId)
+                        .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
+                                dataNodes,
+                                zoneDescriptor.partitions(),
+                                zoneDescriptor.replicas()
+                        ));
+            }
+
+            return createTableLocally(
+                    causalityToken,
+                    tableDescriptor,
+                    zoneDescriptor,
+                    assignmentsFuture,
+                    catalogVersion
+            ).whenComplete((v, e) -> {
+                if (e == null) {
+                    for (var listener : assignmentsChangeListeners) {
+                        listener.accept(this);
+                    }
+                }
+            }).thenCompose(ignored -> writeTableAssignmentsToMetastore(tableId, assignmentsFuture));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Creates local structures for a table.
+     *
+     * @param causalityToken Causality token.
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
      * @param assignmentsFuture Future with assignments.
@@ -1255,8 +1264,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             pendingTables.remove(tableId);
         }));
 
-        tablesById(causalityToken)
-                .thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
+        tablesById(causalityToken).thenRun(() -> inBusyLock(busyLock, () -> completeApiCreateFuture(table)));
 
         // TODO should be reworked in IGNITE-16763
         // We use the event notification future as the result so that dependent components can complete the schema updates.
@@ -2463,13 +2471,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return tables.stream().filter(table -> table.name().equals(name)).findAny().orElse(null);
     }
 
-    /**
-     * Fires table creation events so that indexes can be correctly created at IndexManager startup.
-     *
-     * <p>NOTE: This is a temporary solution that must be get rid/remake/change.
-     */
-    // TODO: IGNITE-19499 Need to get rid/remake/change
-    private void fireCreateTablesOnManagerStart() {
+    private void startTables() {
         CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
 
         assert recoveryFinishFuture.isDone();
@@ -2477,20 +2479,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         int catalogVersion = catalogService.latestCatalogVersion();
         long causalityToken = recoveryFinishFuture.join();
 
-        List<CompletableFuture<?>> fireEventFutures = new ArrayList<>();
+        List<CompletableFuture<?>> startTableFutures = new ArrayList<>();
 
         for (CatalogTableDescriptor tableDescriptor : catalogService.tables(catalogVersion)) {
-            fireEventFutures.add(fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tableDescriptor.id())));
+            startTableFutures.add(createTableLocally(causalityToken, catalogVersion, tableDescriptor));
         }
 
-        startVv.update(causalityToken, (unused, throwable) -> allOf(fireEventFutures.toArray(CompletableFuture[]::new)))
+        startVv.update(causalityToken, (unused, throwable) -> allOf(startTableFutures.toArray(CompletableFuture[]::new)))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
-                        LOG.error("Error when firing table creation events at manager start", throwable);
+                        LOG.error("Error starting tables", throwable);
                     } else {
-                        if (LOG.isDebugEnabled()) {
-                            LOG.debug("Manager successfully fired table creation events at manager start");
-                        }
+                        LOG.debug("Tables started successfully");
                     }
                 });
     }
