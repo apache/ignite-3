@@ -39,7 +39,7 @@ import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.DropTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -79,8 +79,8 @@ class DdlToCatalogCommandConverter {
                 .build();
     }
 
-    static DropTableParams convert(DropTableCommand cmd) {
-        return DropTableParams.builder()
+    static CatalogCommand convert(DropTableCommandBuilder builder, DropTableCommand cmd) {
+        return builder
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
                 .build();

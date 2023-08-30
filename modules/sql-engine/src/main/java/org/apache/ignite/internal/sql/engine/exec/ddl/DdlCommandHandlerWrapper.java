@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.TableExistsValidationException;
+import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
@@ -86,9 +87,11 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
                     ).handle(handleModificationResult(((CreateTableCommand) cmd).ifTableExists(), TableAlreadyExistsException.class));
         } else if (cmd instanceof DropTableCommand) {
             return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.dropTable(DdlToCatalogCommandConverter.convert((DropTableCommand) cmd))
-                            .handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class))
-                    );
+                    .thenCompose(res -> catalogManager.execute(
+                            DdlToCatalogCommandConverter.convert(catalogManager.dropTableCommandBuilder(), (DropTableCommand) cmd))
+                            .handle(handleModificationResult(
+                                    ((DropTableCommand) cmd).ifTableExists(), TableNotFoundValidationException.class))
+                    ).handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class));
         } else if (cmd instanceof AlterTableAddCommand) {
             AlterTableAddCommand addCommand = (AlterTableAddCommand) cmd;
 

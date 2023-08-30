@@ -32,7 +32,6 @@ import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -189,8 +188,8 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         return ColumnParams.builder().name(name).nullable(nullable).type(type);
     }
 
-    protected static DropTableParams dropTableParams(String tableName) {
-        return DropTableParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).build();
+    protected CatalogCommand dropTableCommand(String tableName) {
+        return manager.dropTableCommandBuilder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).build();
     }
 
     protected static AlterTableDropColumnParams dropColumnParams(String... columns) {

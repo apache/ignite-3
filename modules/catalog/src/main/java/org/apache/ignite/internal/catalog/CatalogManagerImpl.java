@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropIndexParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropTableParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
@@ -59,7 +58,8 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.DropTableCommand;
+import org.apache.ignite.internal.catalog.commands.DropTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -75,7 +75,6 @@ import org.apache.ignite.internal.catalog.storage.AlterColumnEntry;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
-import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.Fireable;
 import org.apache.ignite.internal.catalog.storage.NewColumnsEntry;
@@ -342,24 +341,8 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     @Override
-    public CompletableFuture<Void> dropTable(DropTableParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateDropTableParams(params);
-
-            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
-
-            CatalogTableDescriptor table = getTable(schema, params.tableName());
-
-            List<UpdateEntry> updateEntries = new ArrayList<>();
-
-            Arrays.stream(schema.indexes())
-                    .filter(index -> index.tableId() == table.id())
-                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id(), index.tableId())));
-
-            updateEntries.add(new DropTableEntry(table.id()));
-
-            return updateEntries;
-        });
+    public DropTableCommandBuilder dropTableCommandBuilder() {
+        return new DropTableCommand.Builder();
     }
 
     @Override

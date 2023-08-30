@@ -28,7 +28,7 @@ import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.DropTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -64,18 +64,11 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      */
     CompletableFuture<Void> execute(List<CatalogCommand> commands) throws IllegalArgumentException;
 
-    /**
-     * Returns builder to create a command to create a new table.
-     */
+    /** Returns builder to create a command to create a new table. */
     CreateTableCommandBuilder createTableCommandBuilder();
 
-    /**
-     * Drops table.
-     *
-     * @param params Parameters.
-     * @return Operation future.
-     */
-    CompletableFuture<Void> dropTable(DropTableParams params);
+    /** Returns builder to create a command to drop table. */
+    DropTableCommandBuilder dropTableCommandBuilder();
 
     /**
      * Add columns to a table.

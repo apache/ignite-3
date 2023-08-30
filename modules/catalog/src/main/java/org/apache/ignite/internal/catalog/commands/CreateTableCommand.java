@@ -21,7 +21,6 @@ import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableOrIndexExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateColumnParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
@@ -48,13 +47,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A command that adds a new table to the catalog.
  */
-public class CreateTableCommand extends AbstractCatalogCommand {
-    /** Schema name where this new table will be created. */
-    private final String schemaName;
-
-    /** Table name. */
-    private final String tableName;
-
+public class CreateTableCommand extends AbstractTableCommand {
     /** Primary key columns. */
     private final List<String> primaryKeyColumns;
 
@@ -88,8 +81,8 @@ public class CreateTableCommand extends AbstractCatalogCommand {
             List<ColumnParams> columns,
             String zoneName
     ) throws CatalogValidationException {
-        this.tableName = tableName;
-        this.schemaName = schemaName;
+        super(schemaName, tableName);
+
         this.primaryKeyColumns = copyOrNull(primaryKeyColumns);
         this.colocationColumns = copyOrNull(colocationColumns);
         this.columns = copyOrNull(columns);
@@ -140,9 +133,6 @@ public class CreateTableCommand extends AbstractCatalogCommand {
     }
 
     private void validate() {
-        validateIdentifier(schemaName, "Name of the schema");
-        validateIdentifier(tableName, "Name of the table");
-
         if (nullOrEmpty(columns)) {
             throw new CatalogValidationException("Table should have at least one column");
         }
