@@ -65,8 +65,12 @@ public class Lease implements ReplicaMeta {
      * @param leaseExpirationTime Lease expiration timestamp.
      * @param replicationGroupId Id of replication group.
      */
-    public Lease(String leaseholder, HybridTimestamp startTime, HybridTimestamp leaseExpirationTime,
-            ReplicationGroupId replicationGroupId) {
+    public Lease(
+            String leaseholder,
+            HybridTimestamp startTime,
+            HybridTimestamp leaseExpirationTime,
+            ReplicationGroupId replicationGroupId
+    ) {
         this(leaseholder, startTime, leaseExpirationTime, false, false, replicationGroupId);
     }
 
@@ -79,7 +83,7 @@ public class Lease implements ReplicaMeta {
      * @param prolong Lease is available to prolong.
      * @param accepted The flag is true when the holder accepted the lease, the false otherwise.
      */
-    Lease(
+    public Lease(
             String leaseholder,
             HybridTimestamp startTime,
             HybridTimestamp leaseExpirationTime,

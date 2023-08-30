@@ -64,6 +64,8 @@ public class PlacementDriverTest {
             LEASEHOLDER_1,
             new HybridTimestamp(1, 0),
             new HybridTimestamp(5_000, 0),
+            false,
+            true,
             GROUP_1
     );
 
@@ -71,6 +73,8 @@ public class PlacementDriverTest {
             LEASEHOLDER_1,
             new HybridTimestamp(1, 0),
             new HybridTimestamp(15_000, 0),
+            false,
+            true,
             GROUP_1
     );
 
@@ -78,6 +82,8 @@ public class PlacementDriverTest {
             LEASEHOLDER_1,
             new HybridTimestamp(15_000, 0),
             new HybridTimestamp(30_000, 0),
+            false,
+            true,
             GROUP_1
     );
 
