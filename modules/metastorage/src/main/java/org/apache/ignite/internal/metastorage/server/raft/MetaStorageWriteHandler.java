@@ -291,10 +291,7 @@ public class MetaStorageWriteHandler {
         }
     }
 
-    // TODO: IGNITE-20290 - This is insufficient, we must do this in single thread before saving the command to the RAFT log.
-    // Synchronized to make sure no reodering happens as RaftGroupListener#beforeApply() might be invoked in different threads
-    // for different commands.
-    synchronized void beforeApply(Command command) {
+    void beforeApply(Command command) {
         if (command instanceof MetaStorageWriteCommand) {
             // Initiator sends us a timestamp to adjust to.
             // Alter command by setting safe time based on the adjusted clock.

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.raft.service;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 
@@ -82,15 +81,4 @@ public interface RaftGroupListener {
      * Invoked once after a raft node has been shut down.
      */
     void onShutdown();
-
-    /**
-     * Invoked on a leader before submitting a command to a raft group.
-     * If a command must be changed before saving to raft log,
-     * this is a place to do it.
-     *
-     * @param command The command.
-     */
-    default void onBeforeApply(Command command) {
-        // No-op.
-    }
 }
