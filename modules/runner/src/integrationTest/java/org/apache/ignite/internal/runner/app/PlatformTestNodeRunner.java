@@ -403,8 +403,7 @@ public class PlatformTestNodeRunner {
         createTwoColumnTable(
                 ignite,
                 ColumnParams.builder().name("KEY").type(DECIMAL).precision(19).scale(3).build(),
-                ColumnParams.builder().name("VAL").type(DECIMAL).precision(19).scale(3).nullable(true)
-                        .build()
+                ColumnParams.builder().name("VAL").type(DECIMAL).precision(19).scale(3).nullable(true).build()
         );
 
         createTwoColumnTable(

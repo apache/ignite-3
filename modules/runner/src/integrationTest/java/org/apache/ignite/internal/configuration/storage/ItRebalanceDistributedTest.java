@@ -96,6 +96,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -591,7 +592,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final ClockWaiter clockWaiter;
 
-        private List<IgniteComponent> nodeComponents;
+        private final List<IgniteComponent> nodeComponents = new CopyOnWriteArrayList<>();
 
         private final ConfigurationTreeGenerator nodeCfgGenerator;
 
@@ -607,6 +608,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         /** Hybrid clock. */
         private final HybridClock clock = new HybridClockImpl();
+
+        /** Index manager. */
+        private final IndexManager indexManager;
 
         /**
          * Constructor that simply creates a subset of components of this node.
@@ -848,14 +852,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             });
                 }
             };
+
+            indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageManager, registry);
         }
 
         /**
          * Starts the created components.
          */
         void start() {
-            nodeComponents = new CopyOnWriteArrayList<>();
-
             List<IgniteComponent> firstComponents = List.of(
                     vaultManager,
                     nodeCfgMgr,
@@ -880,7 +884,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                         baselineMgr,
                         dataStorageMgr,
                         schemaManager,
-                        tableManager
+                        tableManager,
+                        indexManager
                 );
 
                 secondComponents.forEach(IgniteComponent::start);
