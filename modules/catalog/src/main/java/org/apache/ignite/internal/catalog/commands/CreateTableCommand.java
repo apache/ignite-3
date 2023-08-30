@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableOrIndexExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateColumnParams;
@@ -30,6 +31,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -39,6 +42,7 @@ import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A command that adds a new table to the catalog.
@@ -75,7 +79,7 @@ public class CreateTableCommand extends AbstractCatalogCommand {
      * @param zoneName Name of the zone to create table in. Should not be null or blank.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    public CreateTableCommand(
+    private CreateTableCommand(
             String tableName,
             String schemaName,
             List<String> primaryKeyColumns,
@@ -182,6 +186,84 @@ public class CreateTableCommand extends AbstractCatalogCommand {
             if (!colocationColumnsSet.add(name)) {
                 throw new CatalogValidationException(format("Colocation column '{}' specified more that once", name));
             }
+        }
+    }
+
+    /**
+     * Implementation of {@link CreateTableCommandBuilder}.
+     */
+    public static class Builder implements CreateTableCommandBuilder {
+        private @Nullable List<ColumnParams> columns;
+
+        private @Nullable String schemaName;
+
+        private @Nullable String tableName;
+
+        private @Nullable List<String> primaryKeyColumns;
+
+        private @Nullable List<String> colocationColumns;
+
+        private @Nullable String zoneName;
+
+        @Override
+        public CreateTableCommandBuilder schemaName(String schemaName) {
+            this.schemaName = schemaName;
+
+            return this;
+        }
+
+        @Override
+        public CreateTableCommandBuilder tableName(String tableName) {
+            this.tableName = tableName;
+
+            return this;
+        }
+
+        @Override
+        public CreateTableCommandBuilder columns(List<ColumnParams> columns) {
+            this.columns = columns;
+
+            return this;
+        }
+
+        @Override
+        public CreateTableCommandBuilder primaryKeyColumns(List<String> primaryKeyColumns) {
+            this.primaryKeyColumns = primaryKeyColumns;
+
+            return this;
+        }
+
+        @Override
+        public CreateTableCommandBuilder colocationColumns(List<String> colocationColumns) {
+            this.colocationColumns = colocationColumns;
+
+            return this;
+        }
+
+        @Override
+        public CreateTableCommandBuilder zone(String zoneName) {
+            this.zoneName = zoneName;
+
+            return this;
+        }
+
+        @SuppressWarnings("DataFlowIssue") // params are validated in constructor
+        @Override
+        public CatalogCommand build() {
+            String zoneName = requireNonNullElse(this.zoneName, CatalogService.DEFAULT_ZONE_NAME);
+
+            List<String> colocationColumns = this.colocationColumns != null
+                    ? this.colocationColumns
+                    : primaryKeyColumns;
+
+            return new CreateTableCommand(
+                    tableName,
+                    schemaName,
+                    primaryKeyColumns,
+                    colocationColumns,
+                    columns,
+                    zoneName
+            );
         }
     }
 }

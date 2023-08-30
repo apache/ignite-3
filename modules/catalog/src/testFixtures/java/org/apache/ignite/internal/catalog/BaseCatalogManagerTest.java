@@ -33,7 +33,6 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
-import org.apache.ignite.internal.catalog.commands.builders.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -158,25 +157,20 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         return createSortedIndexParams(indexName, false, indexColumns, columnsCollations);
     }
 
-    protected static CatalogCommand createTableCommand(
-            CreateTableCommandBuilder builder,
+    protected CatalogCommand createTableCommand(
             String tableName,
             List<ColumnParams> columns,
             List<String> primaryKeys,
             @Nullable List<String> colocationColumns
     ) {
-        builder
+        return manager.createTableCommandBuilder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(DEFAULT_ZONE_NAME)
                 .tableName(tableName)
                 .columns(columns)
-                .primaryKeyColumns(primaryKeys);
-
-        if (colocationColumns != null) {
-            builder.colocationColumns(colocationColumns);
-        }
-
-        return builder.build();
+                .primaryKeyColumns(primaryKeys)
+                .colocationColumns(colocationColumns)
+                .build();
     }
 
     protected static ColumnParams columnParams(String name, ColumnType type) {

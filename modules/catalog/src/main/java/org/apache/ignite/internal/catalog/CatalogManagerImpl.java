@@ -55,13 +55,13 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
-import org.apache.ignite.internal.catalog.commands.builders.CreateTableCommandBuilder;
-import org.apache.ignite.internal.catalog.commands.builders.CreateTableCommandBuilderImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -323,7 +323,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CreateTableCommandBuilder createTableCommandBuilder() {
-        return new CreateTableCommandBuilderImpl();
+        return new CreateTableCommand.Builder();
     }
 
     @Override

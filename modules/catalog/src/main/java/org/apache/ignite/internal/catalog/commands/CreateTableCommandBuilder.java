@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands.builders;
+package org.apache.ignite.internal.catalog.commands;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.jetbrains.annotations.Nullable;
 
 /**

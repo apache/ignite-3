@@ -89,7 +89,6 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
-import org.apache.ignite.internal.catalog.commands.builders.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -179,7 +178,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testCreateTable() {
         assertThat(
                 manager.execute(createTableCommand(
-                        manager.createTableCommandBuilder(),
                         TABLE_NAME,
                         List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)),
                         List.of("key1", "key2"),
@@ -227,7 +225,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertTrue(pkIndex.unique());
 
         // Validate another table creation.
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME_2)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
 
         // Validate actual catalog has both tables.
         schema = manager.schema(2);
@@ -257,7 +255,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Try to create another table with same name.
         assertThat(
-                manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME_2)),
+                manager.execute(simpleTable(TABLE_NAME_2)),
                 willThrowFast(CatalogValidationException.class)
         );
 
@@ -267,8 +265,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testDropTable() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME_2)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
 
         long beforeDropTimestamp = clock.nowLong();
 
@@ -327,7 +325,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testAddColumn() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         long beforeAddedTimestamp = clock.nowLong();
 
@@ -367,7 +365,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testDropColumn() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         long beforeAddedTimestamp = clock.nowLong();
 
@@ -390,7 +388,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testAddDropMultipleColumns() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         // Add duplicate column.
         assertThat(
@@ -434,7 +432,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
      */
     @Test
     public void testAlterColumnDefault() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
@@ -476,7 +474,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
      */
     @Test
     public void testAlterColumnNotNull() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
@@ -518,7 +516,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ColumnParams pkCol = columnParams("ID", INT32);
         ColumnParams col = columnParamsBuilder("COL_DECIMAL", DECIMAL).precision(10).build();
 
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
@@ -557,7 +555,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ColumnParams colWithPrecision = columnParamsBuilder("COL_PRECISION", type).precision(3).build();
 
         assertThat(manager.execute(
-                simpleTable(manager.createTableCommandBuilder(), TABLE_NAME, List.of(pkCol, col, colWithPrecision))), willBe(nullValue())
+                simpleTable(TABLE_NAME, List.of(pkCol, col, colWithPrecision))), willBe(nullValue())
         );
 
         int schemaVer = 1;
@@ -593,7 +591,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ColumnParams pkCol = columnParams("ID", INT32);
         ColumnParams col = columnParamsBuilder("COL_" + type, type).length(10).build();
 
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
@@ -646,7 +644,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         ColumnParams colWithLength = columnParamsBuilder("COL_PRECISION", type).length(10).build();
 
         assertThat(
-                manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME, List.of(pkCol, col, colWithLength))),
+                manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col, colWithLength))),
                 willBe(nullValue())
         );
 
@@ -677,7 +675,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testAlterColumnTypeScaleIsRejected(ColumnType type) {
         ColumnParams pkCol = columnParams("ID", INT32);
         ColumnParams col = columnParamsBuilder("COL_" + type, type).scale(3).build();
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
@@ -727,7 +725,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         List<ColumnParams> tableColumns = new ArrayList<>(List.of(columnParams("ID", INT32)));
         tableColumns.addAll(testColumns);
 
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME, tableColumns)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME, tableColumns)), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
@@ -755,7 +753,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testAlterColumnTypeRejectedForPrimaryKey() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         assertThat(changeColumn(TABLE_NAME, "ID", new TestColumnTypeParams(INT64), null, null),
                 willThrowFast(SqlException.class, "Cannot change data type for primary key column 'ID'."));
@@ -767,7 +765,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
      */
     @Test
     public void testAlterColumnMultipleChanges() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
@@ -814,7 +812,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testDropTableWithIndex() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
 
         long beforeDropTimestamp = clock.nowLong();
@@ -854,7 +852,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateHashIndex() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         assertThat(manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("VAL", "ID"))), willBe(nullValue()));
 
@@ -885,7 +883,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateSortedIndex() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         CreateSortedIndexParams params = createSortedIndexParams(
                 INDEX_NAME,
@@ -953,7 +951,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             return completedFuture(false);
         });
 
-        CompletableFuture<Void> createTableFut = manager.execute(simpleTable(manager.createTableCommandBuilder(), "T"));
+        CompletableFuture<Void> createTableFut = manager.execute(simpleTable("T"));
 
         assertThat(createTableFut, willThrow(IgniteInternalException.class, "Max retry limit exceeded"));
 
@@ -970,7 +968,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         manager.start();
 
         try {
-            CompletableFuture<Void> createTableFuture = manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME));
+            CompletableFuture<Void> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
 
             assertFalse(createTableFuture.isDone());
 
@@ -1015,7 +1013,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.TABLE_CREATE, eventListener);
         manager.listen(CatalogEvent.TABLE_DROP, eventListener);
 
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         verify(eventListener).notify(any(CreateTableEventParameters.class), isNull());
 
         assertThat(manager.dropTable(dropTableParams(TABLE_NAME)), willBe(nullValue()));
@@ -1041,7 +1039,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         verifyNoInteractions(eventListener);
 
         // Create table with PK index.
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
         verify(eventListener).notify(any(CreateIndexEventParameters.class), isNull());
 
         clearInvocations(eventListener);
@@ -1341,7 +1339,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         verifyNoInteractions(eventListener);
 
         // Create table.
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         // Add column.
         assertThat(manager.addColumn(addColumnParams(columnParams(NEW_COLUMN_NAME, INT32))), willBe(nullValue()));
@@ -1365,7 +1363,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         manager.start();
 
         try {
-            CompletableFuture<Void> createTableFuture = manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME));
+            CompletableFuture<Void> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
 
             assertFalse(createTableFuture.isDone());
 
@@ -1400,13 +1398,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             }
         });
 
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertThat(result, willCompleteSuccessfully());
     }
 
     @Test
     void testGetTableByIdAndCatalogVersion() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, clock.nowLong());
 
@@ -1416,7 +1414,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testGetTableIdOnDropIndexEvent() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         assertThat(manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("VAL"))), willBe(nullValue()));
 
@@ -1459,7 +1457,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     void testLatestCatalogVersion() {
         assertEquals(0, manager.latestCatalogVersion());
 
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertEquals(1, manager.latestCatalogVersion());
 
         assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
@@ -1468,8 +1466,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testTables() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME + 0)), willBe(nullValue()));
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME + 1)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME + 0)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME + 1)), willBe(nullValue()));
 
         assertThat(manager.tables(0), empty());
         assertThat(manager.tables(1), hasItems(table(1, TABLE_NAME + 0)));
@@ -1478,7 +1476,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testIndexes() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
 
         assertThat(manager.indexes(0), empty());
@@ -1554,7 +1552,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testCreateIndexWithAlreadyExistingName() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
         assertThat(manager.createIndex(simpleIndex()), willCompleteSuccessfully());
 
         assertThat(
@@ -1570,7 +1568,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testCreateIndexWithSameNameAsExistingTable() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         assertThat(
                 manager.createIndex(createHashIndexParams(TABLE_NAME, List.of("VAL"))),
@@ -1598,7 +1596,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testCreateIndexWithMissingTableColumns() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         assertThat(
                 manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("fake"))),
@@ -1613,7 +1611,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testCreateUniqIndexWithMissingTableColocationColumns() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         assertThat(
                 manager.createIndex(createHashIndexParams(INDEX_NAME, true, List.of("VAL"))),
@@ -1643,14 +1641,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testDropColumnWithMissingTableColumns() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         assertThat(manager.dropColumn(dropColumnParams("fake")), willThrowFast(ColumnNotFoundException.class));
     }
 
     @Test
     void testDropColumnWithPrimaryKeyColumns() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         assertThat(
                 manager.dropColumn(dropColumnParams("ID")),
@@ -1660,7 +1658,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testDropColumnWithIndexColumns() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
         assertThat(manager.createIndex(simpleIndex()), willCompleteSuccessfully());
 
         assertThat(
@@ -1679,7 +1677,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testAddColumnWithExistingName() {
-        assertThat(manager.execute(simpleTable(manager.createTableCommandBuilder(), TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         assertThat(manager.addColumn(addColumnParams(columnParams("ID", INT32))), willThrowFast(ColumnAlreadyExistsException.class));
     }
@@ -1687,7 +1685,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     private void createSomeTable(String tableName) {
         assertThat(
                 manager.execute(createTableCommand(
-                        manager.createTableCommandBuilder(),
                         tableName,
                         List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
                         List.of("key1"),
@@ -1743,7 +1740,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         return manager.alterColumn(builder.build());
     }
 
-    private static CatalogCommand simpleTable(CreateTableCommandBuilder builder, String name) {
+    private CatalogCommand simpleTable(String name) {
         List<ColumnParams> cols = List.of(
                 columnParams("ID", INT32),
                 columnParamsBuilder("VAL", INT32, true).defaultValue(constant(null)).build(),
@@ -1753,11 +1750,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 columnParamsBuilder("DEC_SCALE", DECIMAL).scale(3).build()
         );
 
-        return simpleTable(builder, name, cols);
+        return simpleTable(name, cols);
     }
 
-    private static CatalogCommand simpleTable(CreateTableCommandBuilder builder, String tableName, List<ColumnParams> cols) {
-        return createTableCommand(builder, tableName, cols, List.of(cols.get(0).name()), List.of(cols.get(0).name()));
+    private CatalogCommand simpleTable(String tableName, List<ColumnParams> cols) {
+        return createTableCommand(tableName, cols, List.of(cols.get(0).name()), List.of(cols.get(0).name()));
     }
 
     private static CreateSortedIndexParams simpleIndex() {
