@@ -243,9 +243,12 @@ public class MetricsTests
             Assert.AreEqual(2, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
             Assert.AreEqual(2, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued"); // TODO: Flaky (0 or 2)
 
+            // TODO: Convert all assertions to WaitForMetric
             TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-batches-sent") == 1);
+            TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-items-queued") == 0);
+            TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-batches-active") == 1);
 
-            Assert.AreEqual(1, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active"); // TODO: Flaky (1 or 2)
+            Assert.AreEqual(1, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
             Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
             Assert.AreEqual(2, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
         }
