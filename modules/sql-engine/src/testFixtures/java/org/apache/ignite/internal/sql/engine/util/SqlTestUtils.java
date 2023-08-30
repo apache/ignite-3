@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -74,10 +76,7 @@ public class SqlTestUtils {
     public static SqlException assertThrowsSqlException(int expectedCode, String expectedMessage, Executable executable) {
         SqlException ex = assertThrowsSqlException(expectedCode, executable);
 
-        String msg = ex.getMessage();
-
-        assertNotNull(msg, "Error message was null, but expected '" + expectedMessage + "'.");
-        assertTrue(msg.contains(expectedMessage), "Error message '" + ex.getMessage() + "' doesn't contain '" + expectedMessage + "'.");
+        assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
 
         return ex;
     }
