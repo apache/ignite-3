@@ -65,20 +65,20 @@ public class MetricsTests
     {
         using var server = new FakeServer();
 
-        Assert.AreEqual(0, _listener.GetMetric("connections-established"));
-        Assert.AreEqual(0, _listener.GetMetric("connections-active"));
+        AssertMetric("connections-established", 0);
+        AssertMetric("connections-active", 0);
 
         using (await server.ConnectClientAsync())
         {
-            Assert.AreEqual(1, _listener.GetMetric("connections-established"));
-            Assert.AreEqual(1, _listener.GetMetric("connections-active"));
+            AssertMetric("connections-established", 1);
+            AssertMetric("connections-active", 1);
         }
 
-        Assert.AreEqual(0, _listener.GetMetric("connections-active"));
+        AssertMetric("connections-active", 0);
 
         (await server.ConnectClientAsync()).Dispose();
-        Assert.AreEqual(2, _listener.GetMetric("connections-established"));
-        Assert.AreEqual(0, _listener.GetMetric("connections-active"));
+        AssertMetric("connections-established", 2);
+        AssertMetric("connections-active", 0);
     }
 
     [Test]
@@ -307,6 +307,12 @@ public class MetricsTests
             SocketTimeout = TimeSpan.FromMilliseconds(50),
             RetryPolicy = new RetryNonePolicy()
         };
+
+    private void AssertMetric(string name, int value) =>
+        TestUtils.WaitForCondition(
+            condition: () => _listener.GetMetric(name) == value,
+            timeoutMs: 1000,
+            messageFactory: () => $"{name}: expected '{value}', but was '{_listener.GetMetric(name)}'");
 
     private sealed class Listener : IDisposable
     {
