@@ -518,7 +518,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         transferLeadershipOnSolePartitionTo(2);
 
-        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(2, "select * from test order by key",
+        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(0, "select * from test order by key",
                 ItTableRaftSnapshotsTest::readRows);
 
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"), new IgniteBiTuple<>(2, "two"))));

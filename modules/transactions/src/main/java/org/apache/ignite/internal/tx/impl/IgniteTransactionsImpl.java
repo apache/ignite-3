@@ -46,6 +46,15 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     }
 
     /**
+     * Updates observation timestamp.
+     *
+     * @param ts Timestamp.
+     */
+    public void updateObservationTimestamp(HybridTimestamp ts) {
+        observableTimestampTracker.update(ts);
+    }
+
+    /**
      * Begins a transaction.
      * TODO:IGNITE-20232 Remove this method; instead, an interface method should be used.
      *

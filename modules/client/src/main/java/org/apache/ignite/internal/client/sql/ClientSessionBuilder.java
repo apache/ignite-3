@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,6 +56,16 @@ public class ClientSessionBuilder implements SessionBuilder {
      */
     public ClientSessionBuilder(ReliableChannel ch) {
         this.ch = ch;
+    }
+
+    @Override
+    public IgniteTransactions igniteTransactions() {
+        return null;
+    }
+
+    @Override
+    public SessionBuilder igniteTransactions(IgniteTransactions transactions) {
+        return this;
     }
 
     @Override

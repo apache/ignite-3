@@ -616,7 +616,7 @@ public class IgniteImpl implements Ignite {
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
-                new IgniteTransactionsImpl(txManager, new HybridTimestampTracker()),
+                new IgniteTransactionsImpl(txManager, new HybridTimestampTracker()/*observableTimestampTracker*/),
                 nodeConfigRegistry,
                 compute,
                 clusterSvc,
