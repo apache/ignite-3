@@ -219,9 +219,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         groupId = crossTableUsage ? new TablePartitionId(tableId(), PART_ID) : crossTableGroupId;
 
         lenient().doReturn(groupId).when(svc).groupId();
-//        Peer leaderPeer = new Peer(UUID.randomUUID().toString());
-//        lenient().doReturn(leaderPeer).when(svc).leader();
-//        lenient().doReturn(completedFuture(new LeaderWithTerm(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
+        Peer leaderPeer = new Peer(UUID.randomUUID().toString());
+        lenient().doReturn(leaderPeer).when(svc).leader();
+        lenient().doReturn(completedFuture(new LeaderWithTerm(leaderPeer, 1L))).when(svc).refreshAndGetLeaderWithTerm();
 
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
