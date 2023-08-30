@@ -19,7 +19,6 @@ package org.apache.ignite.lang;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.lang.reflect.Field;
 import java.util.Locale;
 
 /**
@@ -35,13 +34,10 @@ public class ErrorGroups {
      */
     public static synchronized void initialize() {
         for (Class<?> cls : ErrorGroups.class.getDeclaredClasses()) {
-            for (Field f : cls.getDeclaredFields()) {
-                try {
-                    // Initialize static fields.
-                    f.get(null);
-                } catch (IllegalAccessException ignored) {
-                    // No-op.
-                }
+            try {
+                cls.getDeclaredConstructor().newInstance();
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to initialize error groups", e);
             }
         }
     }
