@@ -17,9 +17,9 @@
 
 package org.apache.ignite.jdbc.util;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.SQLException;
 import org.junit.jupiter.api.function.Executable;
@@ -43,17 +43,6 @@ public class JdbcTestUtils {
 
     /**
      * <em>Assert</em> that execution of the supplied {@code executable} throws
-     * an {@link java.sql.SQLException} and return the exception.
-     *
-     * @param executable Supplier to execute and check thrown exception.
-     * @return Thrown the {@link SQLException}.
-     */
-    public static SQLException assertThrowsSqlException(Executable executable) {
-        return assertThrowsSqlException(SQLException.class, executable);
-    }
-
-    /**
-     * <em>Assert</em> that execution of the supplied {@code executable} throws
      * an {@link SQLException} with expected message.
      *
      * @param expectedMessage Expected error message of {@link SQLException}.
@@ -61,14 +50,7 @@ public class JdbcTestUtils {
      * @return Thrown the {@link SQLException}.
      */
     public static SQLException assertThrowsSqlException(String expectedMessage, Executable executable) {
-        SQLException ex = assertThrowsSqlException(executable);
-
-        String msg = ex.getMessage();
-
-        assertNotNull(msg, "Error message was null, but expected '" + expectedMessage + "'.");
-        assertTrue(msg.contains(expectedMessage), "Error message '" + ex.getMessage() + "' doesn't contain '" + expectedMessage + "'.");
-
-        return ex;
+        return assertThrowsSqlException(SQLException.class, expectedMessage, executable);
     }
 
     /**
@@ -86,10 +68,7 @@ public class JdbcTestUtils {
             Executable executable) {
         T ex = assertThrowsSqlException(expectedType, executable);
 
-        String msg = ex.getMessage();
-
-        assertNotNull(msg, "Error message was null, but expected '" + expectedMessage + "'.");
-        assertTrue(msg.contains(expectedMessage), "Error message '" + ex.getMessage() + "' doesn't contain '" + expectedMessage + "'.");
+        assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
 
         return ex;
     }

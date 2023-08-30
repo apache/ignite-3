@@ -191,13 +191,12 @@ public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTe
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("IGNITE-20149")
     public void testDuplicateKeys() throws Exception {
         String sql = "insert into PUBLIC.PERSON(sid, id, firstName, lastName, age) values('p1', 1, 'John', 'White', 25)";
 
         assertFalse(stmt.execute(sql));
 
-        JdbcTestUtils.assertThrowsSqlException("Failed to INSERT some keys because they are already in cache.", () -> stmt.execute(SQL));
+        JdbcTestUtils.assertThrowsSqlException("PK unique constraint is violated", () -> stmt.execute(SQL));
 
         stmt.execute("select count(*) from PUBLIC.PERSON;");
 
