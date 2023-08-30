@@ -1664,4 +1664,17 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision) {
         return watchProcessor.notifyUpdateRevisionListeners(newRevision);
     }
+
+    @Override
+    public void advanceSafeTime(HybridTimestamp newSafeTime) {
+        rwLock.writeLock().lock();
+
+        try {
+            if (recoveryStatus.get() == RecoveryStatus.DONE) {
+                watchProcessor.advanceSafeTime(newSafeTime);
+            }
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
 }

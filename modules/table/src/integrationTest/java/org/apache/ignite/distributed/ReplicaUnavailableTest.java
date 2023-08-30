@@ -18,8 +18,8 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.NODE_PORT_BASE;
 import static org.apache.ignite.distributed.ItTxDistributedTestSingleNode.startNode;
+import static org.apache.ignite.distributed.ItTxTestCluster.NODE_PORT_BASE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -163,7 +163,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 completedFuture(null),
-                                request0 -> completedFuture(replicaMessageFactory.replicaResponse()
+                                (request0, senderId) -> completedFuture(replicaMessageFactory.replicaResponse()
                                         .result(Integer.valueOf(5))
                                         .build()),
                                 mock(TopologyAwareRaftGroupService.class),
@@ -265,7 +265,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                         replicaManager.startReplica(
                                 tablePartitionId,
                                 new CompletableFuture<>(),
-                                request0 -> completedFuture(replicaMessageFactory.replicaResponse()
+                                (request0, senderId) -> completedFuture(replicaMessageFactory.replicaResponse()
                                         .result(Integer.valueOf(5))
                                         .build()),
                                 mock(TopologyAwareRaftGroupService.class),

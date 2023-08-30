@@ -17,11 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
-import static org.apache.ignite.internal.tx.TxState.PENDING;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -115,9 +110,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                 .allOf(enlistedResults.toArray(new CompletableFuture[0]))
                 .thenCompose(
                         ignored -> {
-                            if (!enlisted.isEmpty()) {
-                                Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups = new LinkedHashMap<>();
+                            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups = new LinkedHashMap<>();
 
+                            if (!enlisted.isEmpty()) {
                                 enlisted.forEach((groupId, groupMeta) -> {
                                     ClusterNode recipientNode = groupMeta.get1();
 
@@ -150,10 +145,14 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                         id()
                                 );
                             } else {
-                                // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
-                                txManager.changeState(id(), PENDING, commit ? COMMITED : ABORTED);
-
-                                return completedFuture(null);
+                                return txManager.finish(
+                                        null,
+                                        null,
+                                        null,
+                                        commit,
+                                        groups,
+                                        id()
+                                );
                             }
                         }
                 );

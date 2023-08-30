@@ -840,6 +840,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     raftNodeId,
                                     newConfiguration,
                                     new PartitionListener(
+                                            txManager,
                                             partitionDataStorage,
                                             partitionUpdateHandlers.storageUpdateHandler,
                                             txStatePartitionStorage,
@@ -2353,6 +2354,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         );
 
         RaftGroupListener raftGrpLsnr = new PartitionListener(
+                txManager,
                 partitionDataStorage,
                 partitionUpdateHandlers.storageUpdateHandler,
                 txStatePartitionStorage,

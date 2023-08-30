@@ -468,6 +468,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         Function<Peer, ? extends NetworkMessage> requestFactory = p -> factory.readIndexRequest()
                 .groupId(groupId)
                 .peerId(p.consistentId())
+                .serverId(p.consistentId())
                 .build();
 
         Peer leader = leader();
