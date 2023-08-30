@@ -682,7 +682,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
             );
             tx.commit();
 
-            assertTrue(await(ses.executeAsync(null, "SELECT ID FROM TEST WHERE ID = -1")).hasRowSet());
+            assertTrue(await(ses.executeAsync(null, "SELECT ID FROM TEST WHERE ID = -1")).currentPage().iterator().hasNext());
         }
     }
 
