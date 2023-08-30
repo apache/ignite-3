@@ -78,8 +78,6 @@ public interface CatalogService {
 
     /**
      * Returns the latest registered version of the catalog.
-     *
-     * <p>NOTE: This method should only be used at the start of components that may be removed or moved in the future.
      */
     int latestCatalogVersion();
 

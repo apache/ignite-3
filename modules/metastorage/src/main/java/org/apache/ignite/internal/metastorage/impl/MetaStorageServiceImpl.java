@@ -279,7 +279,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      */
     public CompletableFuture<Void> syncTime(HybridTimestamp safeTime, long term) {
         SyncTimeCommand syncTimeCommand = context.commandsFactory().syncTimeCommand()
-                .safeTimeLong(safeTime.longValue())
+                .initiatorTimeLong(safeTime.longValue())
                 .initiatorTerm(term)
                 .build();
 

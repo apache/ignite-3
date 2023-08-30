@@ -88,6 +88,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -165,6 +166,8 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Snaps
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
+import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -197,6 +200,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.storage.impl.VolatileRaftMetaStorage;
+import org.apache.ignite.raft.jraft.util.Marshaller;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -287,7 +291,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
-     * Only explicitly updated in {@link #createTablePartitionsLocally(long, List, int, TableImpl)}.
+     * Only explicitly updated in {@link #createTablePartitionsLocally(long, CompletableFuture, int, TableImpl)}.
      * Completed strictly after {@link #localPartsByTableIdVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
@@ -342,6 +346,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final DistributionZoneManager distributionZoneManager;
 
+    private final SchemaSyncService schemaSyncService;
+
+    private final CatalogService catalogService;
+
     /** Partitions storage path. */
     private final Path storagePath;
 
@@ -372,6 +380,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final IndexBuilder indexBuilder;
 
     private final ConfiguredTablesCache configuredTablesCache;
+
+    private final Marshaller raftCommandsMarshaller;
 
     /**
      * Creates a new table manager.
@@ -418,7 +428,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             VaultManager vaultManager,
             ClusterManagementGroupManager cmgMgr,
-            DistributionZoneManager distributionZoneManager
+            DistributionZoneManager distributionZoneManager,
+            SchemaSyncService schemaSyncService,
+            CatalogService catalogService
     ) {
         this.tablesCfg = tablesCfg;
         this.zonesConfig = zonesConfig;
@@ -441,6 +453,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.cmgMgr = cmgMgr;
         this.distributionZoneManager = distributionZoneManager;
+        this.schemaSyncService = schemaSyncService;
+        this.catalogService = catalogService;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -496,6 +510,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         indexBuilder = new IndexBuilder(nodeName, cpus);
 
         configuredTablesCache = new ConfiguredTablesCache(tablesCfg, getMetadataLocallyOnly);
+
+        raftCommandsMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry());
     }
 
     @Override
@@ -827,6 +843,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     raftNodeId,
                                     newConfiguration,
                                     new PartitionListener(
+                                            txManager,
                                             partitionDataStorage,
                                             partitionUpdateHandlers.storageUpdateHandler,
                                             txStatePartitionStorage,
@@ -996,6 +1013,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 localNode(),
                 table.internalTable().storage(),
                 indexBuilder,
+                schemaSyncService,
+                catalogService,
                 tablesCfg
         );
     }
@@ -1076,6 +1095,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 ),
                 incomingSnapshotsExecutor
         ));
+
+        raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
 
         return raftGroupOptions;
     }
@@ -2336,6 +2357,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         );
 
         RaftGroupListener raftGrpLsnr = new PartitionListener(
+                txManager,
                 partitionDataStorage,
                 partitionUpdateHandlers.storageUpdateHandler,
                 txStatePartitionStorage,

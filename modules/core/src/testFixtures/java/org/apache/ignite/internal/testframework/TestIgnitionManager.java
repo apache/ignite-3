@@ -37,6 +37,10 @@ public class TestIgnitionManager {
     /** Default name of configuration file. */
     public static final String DEFAULT_CONFIG_NAME = "ignite-config.conf";
 
+    private static final int DEFAULT_DELAY_DURATION_MS = 100;
+
+    private static final int DEFAULT_METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = 10;
+
     /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
      *
@@ -100,20 +104,35 @@ public class TestIgnitionManager {
                 .metaStorageNodeNames(params.metaStorageNodeNames())
                 .cmgNodeNames(params.cmgNodeNames());
 
+        ConfigDocument configDocument;
+
         if (params.clusterConfiguration() == null) {
-            builder.clusterConfiguration("{ schemaSync.delayDuration: 0 }");
+            configDocument = ConfigDocumentFactory.parseString("{}");
         } else {
-            ConfigDocument configDocument = ConfigDocumentFactory.parseString(params.clusterConfiguration());
-
-            String delayDurationPath = "schemaSync.delayDuration";
-
-            if (!configDocument.hasPath(delayDurationPath)) {
-                ConfigDocument updatedDocument = configDocument.withValueText(delayDurationPath, "0");
-
-                builder.clusterConfiguration(updatedDocument.render());
-            }
+            configDocument = ConfigDocumentFactory.parseString(params.clusterConfiguration());
         }
 
+        configDocument = applyTestDefault(
+                configDocument,
+                "schemaSync.delayDuration",
+                Integer.toString(DEFAULT_DELAY_DURATION_MS)
+        );
+        configDocument = applyTestDefault(
+                configDocument,
+                "metaStorage.idleSyncTimeInterval",
+                Integer.toString(DEFAULT_METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
+        );
+
+        builder.clusterConfiguration(configDocument.render());
+
         return builder.build();
+    }
+
+    private static ConfigDocument applyTestDefault(ConfigDocument document, String path, String value) {
+        if (document.hasPath(path)) {
+            return document;
+        } else {
+            return document.withValueText(path, value);
+        }
     }
 }

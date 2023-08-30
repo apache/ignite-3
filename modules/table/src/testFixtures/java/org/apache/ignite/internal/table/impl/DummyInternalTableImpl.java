@@ -35,6 +35,7 @@ import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -75,6 +76,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -86,6 +88,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -123,6 +126,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     /** The thread updates safe time on the dummy replica. */
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
+
+    private final Object raftServiceMutex = new Object();
 
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
 
@@ -200,9 +205,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 nextTableId.getAndIncrement(),
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
-                name -> mock(ClusterNode.class),
+                name -> mockClusterNode(),
                 txManager == null
-                        ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef))
+                        ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), () -> "local")
                         : txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
@@ -220,7 +225,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         if (!crossTableUsage) {
             // Delegate replica requests directly to replica listener.
-            lenient().doAnswer(invocationOnMock -> replicaListener.invoke(invocationOnMock.getArgument(1)))
+            lenient()
+                    .doAnswer(invocationOnMock -> {
+                        ClusterNode node = invocationOnMock.getArgument(0);
+
+                        return replicaListener.invoke(invocationOnMock.getArgument(1), node.id());
+                    })
                     .when(replicaSvc).invoke(any(ClusterNode.class), any());
         }
 
@@ -229,44 +239,46 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         // Delegate directly to listener.
         lenient().doAnswer(
                 invocationClose -> {
-                    Command cmd = invocationClose.getArgument(0);
+                    synchronized (raftServiceMutex) {
+                        Command cmd = invocationClose.getArgument(0);
 
-                    long commandIndex = raftIndex.incrementAndGet();
+                        long commandIndex = raftIndex.incrementAndGet();
 
-                    CompletableFuture<Serializable> res = new CompletableFuture<>();
+                        CompletableFuture<Serializable> res = new CompletableFuture<>();
 
-                    // All read commands are handled directly throw partition replica listener.
-                    CommandClosure<WriteCommand> clo = new CommandClosure<>() {
-                        /** {@inheritDoc} */
-                        @Override
-                        public long index() {
-                            return commandIndex;
-                        }
-
-                        /** {@inheritDoc} */
-                        @Override
-                        public WriteCommand command() {
-                            return (WriteCommand) cmd;
-                        }
-
-                        /** {@inheritDoc} */
-                        @Override
-                        public void result(@Nullable Serializable r) {
-                            if (r instanceof Throwable) {
-                                res.completeExceptionally((Throwable) r);
-                            } else {
-                                res.complete(r);
+                        // All read commands are handled directly throw partition replica listener.
+                        CommandClosure<WriteCommand> clo = new CommandClosure<>() {
+                            /** {@inheritDoc} */
+                            @Override
+                            public long index() {
+                                return commandIndex;
                             }
+
+                            /** {@inheritDoc} */
+                            @Override
+                            public WriteCommand command() {
+                                return (WriteCommand) cmd;
+                            }
+
+                            /** {@inheritDoc} */
+                            @Override
+                            public void result(@Nullable Serializable r) {
+                                if (r instanceof Throwable) {
+                                    res.completeExceptionally((Throwable) r);
+                                } else {
+                                    res.complete(r);
+                                }
+                            }
+                        };
+
+                        try {
+                            partitionListener.onWrite(List.of(clo).iterator());
+                        } catch (Throwable e) {
+                            res.completeExceptionally(new TransactionException(e));
                         }
-                    };
 
-                    try {
-                        partitionListener.onWrite(List.of(clo).iterator());
-                    } catch (Throwable e) {
-                        res.completeExceptionally(new TransactionException(e));
+                        return res;
                     }
-
-                    return res;
                 }
         ).when(svc).run(any());
 
@@ -322,9 +334,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 placementDriver,
                 storageUpdateHandler,
                 new DummySchemas(schemaManager),
-                mock(ClusterNode.class),
+                mockClusterNode(),
                 mock(MvTableStorage.class),
                 mock(IndexBuilder.class),
+                mock(SchemaSyncService.class, invocation -> completedFuture(null)),
+                mock(CatalogService.class),
                 mock(TablesConfiguration.class)
         );
 
@@ -332,12 +346,17 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(safeTime.current()).thenReturn(new HybridTimestamp(1, 0));
 
         partitionListener = new PartitionListener(
+                this.txManager,
                 new TestPartitionDataStorage(mvPartStorage),
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime,
                 new PendingComparableValuesTracker<>(0L)
         );
+    }
+
+    private static ClusterNode mockClusterNode() {
+        return new ClusterNodeImpl("id", "node", new NetworkAddress("127.0.0.1", 20000));
     }
 
     /**
@@ -388,7 +407,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
-        return completedFuture(mock(ClusterNode.class));
+        return completedFuture(mockClusterNode());
     }
 
     /**

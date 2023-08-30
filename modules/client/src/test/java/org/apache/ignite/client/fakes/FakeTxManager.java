@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
@@ -143,12 +145,12 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public @Nullable TxState state(UUID txId) {
+    public @Nullable TxStateMeta stateMeta(UUID txId) {
         return null;
     }
 
     @Override
-    public void changeState(UUID txId, @Nullable TxState before, TxState after) {
+    public void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
 
     }
 

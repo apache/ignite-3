@@ -443,7 +443,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     replicaManager.startReplica(
                             groupId,
                             allOf(raftManager.raftNodeReadyFuture(groupId)),
-                            request -> {
+                            (request, senderId) -> {
                                 log.info("Handle request [type={}]", request.getClass().getSimpleName());
 
                                 return raftClient.run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().build());
