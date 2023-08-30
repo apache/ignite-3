@@ -92,7 +92,6 @@ public class MetricsTests
     }
 
     [Test]
-    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
     public async Task TestConnectionsLost()
     {
         using var server = new FakeServer();
@@ -103,27 +102,18 @@ public class MetricsTests
 
         server.Dispose();
 
-        TestUtils.WaitForCondition(
-            () => _listener.GetMetric("connections-lost") == 1,
-            1000,
-            () => "connections-lost: " + _listener.GetMetric("connections-lost"));
-
+        AssertMetric("connections-lost", 1);
         AssertMetric("connections-lost-timeout", 0);
     }
 
     [Test]
-    [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed.")]
     public async Task TestConnectionsLostTimeout()
     {
         using var server = new FakeServer { HeartbeatDelay = TimeSpan.FromSeconds(3) };
         using var client = await server.ConnectClientAsync(GetConfigWithDelay());
 
         AssertMetric("connections-lost-timeout", 0);
-
-        TestUtils.WaitForCondition(
-            () => _listener.GetMetric("connections-lost-timeout") == 1,
-            10000,
-            () => "connections-lost-timeout: " + _listener.GetMetric("connections-lost-timeout"));
+        AssertMetric("connections-lost-timeout", 1, timeoutMs: 10_000);
     }
 
     [Test]
