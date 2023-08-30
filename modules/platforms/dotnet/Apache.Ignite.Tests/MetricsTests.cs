@@ -248,11 +248,11 @@ public class MetricsTests
 
         var task = view.StreamDataAsync(GetTuples(), DataStreamerOptions.Default with { BatchSize = 10 }, cts.Token);
 
-        TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-batches-sent") > 0);
+        AssertMetricGreaterOrEqual("streamer-batches-sent", 1);
         cts.Cancel();
         Assert.CatchAsync<OperationCanceledException>(async () => await task);
 
-        AssertMetricGreaterOrEqual("streamer-batches-sent", 1);
+        AssertMetricGreaterOrEqual("streamer-batches-sent", 2);
         AssertMetric("streamer-batches-active", 0);
         AssertMetric("streamer-items-queued", 0);
 
