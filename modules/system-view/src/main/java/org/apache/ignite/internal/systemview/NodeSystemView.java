@@ -28,7 +28,7 @@ import org.apache.ignite.lang.util.StringUtils;
  *
  * <pre>
  *   // Creates definition of a node system view.
- *   var connectionsView = SystemView.&lt;Table&gt;nodeViewBuilder()
+ *   var connectionsView = SystemViews.&lt;Connection&gt;nodeViewBuilder()
  *     .name("CONNECTIONS")
  *     .addColumn("USER", Integer.class, Connection::user)
  *     .addColumn("REMOTE_ADDRESS", String.class, Connection::remoteAddress)
@@ -78,16 +78,6 @@ public class NodeSystemView<T> extends SystemView<T> {
     @Override
     public String toString() {
         return S.toString(NodeSystemView.class, this, "name", name(), "columns", columns(), "nodeNameColumnAlias", nodeNameColumnAlias);
-    }
-
-    /**
-     * Creates an instance of a builder to construct node system views.
-     *
-     * @param <T> Type of elements returned by a system view.
-     * @return Returns a builder to construct node system views.
-     */
-    public static <T> Builder<T> builder() {
-        return new Builder<>();
     }
 
     /**

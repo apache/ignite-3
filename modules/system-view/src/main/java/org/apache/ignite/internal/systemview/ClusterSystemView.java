@@ -27,7 +27,7 @@ import org.apache.ignite.internal.util.AsyncCursor;
  *
  * <pre>
  *   // Creates definition of a cluster-wide system view.
- *   var tablesView = Cluster.&lt;Table&gt;clusterViewBuilder()
+ *   var tablesView = SystemViews.&lt;Table&gt;clusterViewBuilder()
  *     .name("TABLES")
  *     .addColumn("ID", Integer.class, Table::id)
  *     .addColumn("SCHEMA_ID", Integer.class, Table::schemaId)
@@ -59,16 +59,6 @@ public class ClusterSystemView<T> extends SystemView<T> {
     @Override
     public String toString() {
         return S.toString(ClusterSystemView.class, this, "name", name(), "columns", columns());
-    }
-
-    /**
-     * Creates an instance of a builder to construct cluster-wide system views.
-     *
-     * @param <T> Type of elements returned by a system view.
-     * @return Returns a builder to construct cluster-wide system views.
-     */
-    public static <T> Builder<T> builder() {
-        return new Builder<>();
     }
 
     /**

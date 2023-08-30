@@ -44,7 +44,7 @@ public class SystemViewTest {
     public void buildClusterView() {
         Supplier<AsyncCursor<Dummy>> dataProvider = dataProvider();
 
-        ClusterSystemView<Dummy> view = ClusterSystemView.<Dummy>builder()
+        ClusterSystemView<Dummy> view = SystemViews.<Dummy>clusterViewBuilder()
                 .name("view")
                 .addColumn("c1", int.class, (d) -> 0)
                 .addColumn("c2", Long.class, (d) -> 1L)
@@ -65,7 +65,7 @@ public class SystemViewTest {
     public void buildNodeView() {
         Supplier<AsyncCursor<Dummy>> dataProvider = dataProvider();
 
-        NodeSystemView<Dummy> view = NodeSystemView.<Dummy>builder()
+        NodeSystemView<Dummy> view = SystemViews.<Dummy>nodeViewBuilder()
                 .name("view")
                 .addColumn("c1", int.class, (d) -> 0)
                 .addColumn("c2", Long.class, (d) -> 1L)
@@ -87,7 +87,7 @@ public class SystemViewTest {
     @Test
     public void rejectNodeViewWithoutNodeNameColumnAlias() {
         expectThrows(IllegalArgumentException.class, () -> {
-            NodeSystemView.<Dummy>builder()
+            SystemViews.<Dummy>nodeViewBuilder()
                     .name("name")
                     .addColumn("c1", int.class, (d) -> 0)
                     .dataProvider(dataProvider())
@@ -103,7 +103,7 @@ public class SystemViewTest {
 
         @Override
         protected NodeSystemView.Builder<Dummy> newBuilder() {
-            return NodeSystemView.builder();
+            return SystemViews.nodeViewBuilder();
         }
     }
 
@@ -115,7 +115,7 @@ public class SystemViewTest {
 
         @Override
         protected ClusterSystemView.Builder<Dummy> newBuilder() {
-            return ClusterSystemView.builder();
+            return SystemViews.clusterViewBuilder();
         }
     }
 
@@ -250,7 +250,8 @@ public class SystemViewTest {
         assertNotNull(col.value(), "value");
     }
 
-    private static final class Dummy {
+    /** Dummy system view record. */
+    public static final class Dummy {
 
     }
 
