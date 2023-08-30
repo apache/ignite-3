@@ -20,9 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -132,7 +130,6 @@ public class SqlTestUtils {
      * Generate random value for given SQL type.
      *
      * @param type SQL type to generate value related to the type.
-     *
      * @return Generated value for given SQL type.
      */
     public static Object generateValueByType(ColumnType type) {
@@ -144,7 +141,6 @@ public class SqlTestUtils {
      *
      * @param base Base value to generate value.
      * @param type SQL type to generate value related to the type.
-     *
      * @return Generated value for given SQL type.
      */
     public static Object generateValueByType(int base, ColumnType type) {
