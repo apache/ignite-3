@@ -252,7 +252,7 @@ public class MetricsTests
         cts.Cancel();
         Assert.CatchAsync<OperationCanceledException>(async () => await task);
 
-        Assert.GreaterOrEqual(_listener.GetMetric("streamer-batches-sent"), 1, "streamer-batches-sent");
+        AssertMetricGreaterOrEqual("streamer-batches-sent", 1);
         AssertMetric("streamer-batches-active", 0);
         AssertMetric("streamer-items-queued", 0);
 
@@ -290,6 +290,12 @@ public class MetricsTests
             condition: () => _listener.GetMetric(name) == value,
             timeoutMs: timeoutMs,
             messageFactory: () => $"{name}: expected '{value}', but was '{_listener.GetMetric(name)}'");
+
+    private void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = 1000) =>
+        TestUtils.WaitForCondition(
+            condition: () => _listener.GetMetric(name) >= value,
+            timeoutMs: timeoutMs,
+            messageFactory: () => $"{name}: expected '>= {value}', but was '{_listener.GetMetric(name)}'");
 
     private sealed class Listener : IDisposable
     {
