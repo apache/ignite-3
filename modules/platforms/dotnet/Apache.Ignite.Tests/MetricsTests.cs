@@ -86,18 +86,18 @@ public class MetricsTests
     {
         using var server = new FakeServer();
 
-        Assert.AreEqual(0, _listener.GetMetric("bytes-sent"));
-        Assert.AreEqual(0, _listener.GetMetric("bytes-received"));
+        AssertMetric("bytes-sent", 0);
+        AssertMetric("bytes-received", 0);
 
         using var client = await server.ConnectClientAsync();
 
-        Assert.AreEqual(11, _listener.GetMetric("bytes-sent"));
-        Assert.AreEqual(63, _listener.GetMetric("bytes-received"));
+        AssertMetric("bytes-sent", 11);
+        AssertMetric("bytes-received", 63);
 
         await client.Tables.GetTablesAsync();
 
-        Assert.AreEqual(17, _listener.GetMetric("bytes-sent"));
-        Assert.AreEqual(73, _listener.GetMetric("bytes-received"));
+        AssertMetric("bytes-sent", 17);
+        AssertMetric("bytes-received", 73);
     }
 
     [Test]
@@ -107,8 +107,8 @@ public class MetricsTests
         using var server = new FakeServer();
         using var client = await server.ConnectClientAsync(GetConfig());
 
-        Assert.AreEqual(0, _listener.GetMetric("connections-lost"));
-        Assert.AreEqual(0, _listener.GetMetric("connections-lost-timeout"));
+        AssertMetric("connections-lost", 0);
+        AssertMetric("connections-lost-timeout", 0);
 
         server.Dispose();
 
@@ -117,7 +117,7 @@ public class MetricsTests
             1000,
             () => "connections-lost: " + _listener.GetMetric("connections-lost"));
 
-        Assert.AreEqual(0, _listener.GetMetric("connections-lost-timeout"));
+        AssertMetric("connections-lost-timeout", 0);
     }
 
     [Test]
@@ -127,7 +127,7 @@ public class MetricsTests
         using var server = new FakeServer { HeartbeatDelay = TimeSpan.FromSeconds(3) };
         using var client = await server.ConnectClientAsync(GetConfigWithDelay());
 
-        Assert.AreEqual(0, _listener.GetMetric("connections-lost-timeout"));
+        AssertMetric("connections-lost-timeout", 0);
 
         TestUtils.WaitForCondition(
             () => _listener.GetMetric("connections-lost-timeout") == 1,
@@ -141,8 +141,8 @@ public class MetricsTests
         using var server = new FakeServer { SendInvalidMagic = true };
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfig()));
-        Assert.AreEqual(1, _listener.GetMetric("handshakes-failed"));
-        Assert.AreEqual(0, _listener.GetMetric("handshakes-failed-timeout"));
+        AssertMetric("handshakes-failed", 1);
+        AssertMetric("handshakes-failed-timeout", 0);
     }
 
     [Test]
@@ -151,8 +151,8 @@ public class MetricsTests
         using var server = new FakeServer { HandshakeDelay = TimeSpan.FromSeconds(1) };
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfigWithDelay()));
-        Assert.AreEqual(0, _listener.GetMetric("handshakes-failed"));
-        Assert.AreEqual(1, _listener.GetMetric("handshakes-failed-timeout"));
+        AssertMetric("handshakes-failed", 0);
+        AssertMetric("handshakes-failed-timeout", 1);
     }
 
     [Test]
@@ -161,21 +161,21 @@ public class MetricsTests
         using var server = new FakeServer();
         using var client = await server.ConnectClientAsync();
 
-        Assert.AreEqual(0, _listener.GetMetric("requests-sent"));
-        Assert.AreEqual(0, _listener.GetMetric("requests-failed"));
-        Assert.AreEqual(0, _listener.GetMetric("requests-completed"));
+        AssertMetric("requests-sent", 0);
+        AssertMetric("requests-failed", 0);
+        AssertMetric("requests-completed", 0);
 
         await client.Tables.GetTablesAsync();
 
-        Assert.AreEqual(1, _listener.GetMetric("requests-sent"));
-        Assert.AreEqual(0, _listener.GetMetric("requests-failed"));
-        Assert.AreEqual(1, _listener.GetMetric("requests-completed"));
+        AssertMetric("requests-sent", 1);
+        AssertMetric("requests-failed", 0);
+        AssertMetric("requests-completed", 1);
 
         Assert.ThrowsAsync<IgniteException>(async () => await client.Tables.GetTableAsync("bad-table"));
 
-        Assert.AreEqual(2, _listener.GetMetric("requests-sent"));
-        Assert.AreEqual(1, _listener.GetMetric("requests-failed"));
-        Assert.AreEqual(1, _listener.GetMetric("requests-completed"));
+        AssertMetric("requests-sent", 2);
+        AssertMetric("requests-failed", 1);
+        AssertMetric("requests-completed", 1);
     }
 
     [Test]
@@ -184,14 +184,14 @@ public class MetricsTests
         using var server = new FakeServer { OperationDelay = TimeSpan.FromSeconds(1) };
         using var client = await server.ConnectClientAsync();
 
-        Assert.AreEqual(0, _listener.GetMetric("requests-active"));
+        AssertMetric("requests-active", 0);
 
         _ = client.Tables.GetTablesAsync();
 
-        Assert.AreEqual(1, _listener.GetMetric("requests-active"));
-        Assert.AreEqual(1, _listener.GetMetric("requests-sent"));
-        Assert.AreEqual(0, _listener.GetMetric("requests-completed"));
-        Assert.AreEqual(0, _listener.GetMetric("requests-failed"));
+        AssertMetric("requests-active", 1);
+        AssertMetric("requests-sent", 1);
+        AssertMetric("requests-completed", 0);
+        AssertMetric("requests-failed", 0);
     }
 
     [Test]
@@ -201,10 +201,10 @@ public class MetricsTests
         using var client = await server.ConnectClientAsync();
 
         await client.Tables.GetTablesAsync();
-        Assert.AreEqual(0, _listener.GetMetric("requests-retried"));
+        AssertMetric("requests-retried", 0);
 
         await client.Tables.GetTablesAsync();
-        Assert.AreEqual(3, _listener.GetMetric("requests-retried"));
+        AssertMetric("requests-retried", 3);
     }
 
     [Test]
@@ -213,44 +213,40 @@ public class MetricsTests
         using var server = new FakeServer();
         using var client = await server.ConnectClientAsync();
 
-        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-sent"), "streamer-batches-sent");
-        Assert.AreEqual(0, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
-        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
-        Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+        AssertMetric("streamer-batches-sent", 0);
+        AssertMetric("streamer-items-sent", 0);
+        AssertMetric("streamer-batches-active", 0);
+        AssertMetric("streamer-items-queued", 0);
 
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var view = table!.RecordBinaryView;
 
         await view.StreamDataAsync(GetTuples().ToAsyncEnumerable(), DataStreamerOptions.Default with { BatchSize = 2 });
 
-        Assert.AreEqual(1, _listener.GetMetric("streamer-batches-sent"), "streamer-batches-sent");
-        Assert.AreEqual(2, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
-        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
-        Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+        AssertMetric("streamer-batches-sent", 1);
+        AssertMetric("streamer-items-sent", 2);
+        AssertMetric("streamer-batches-active", 0);
+        AssertMetric("streamer-items-queued", 0);
 
         IEnumerable<IIgniteTuple> GetTuples()
         {
-            Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
-            Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+            AssertMetric("streamer-batches-active", 0);
+            AssertMetric("streamer-items-queued", 0);
 
             yield return new IgniteTuple { ["ID"] = 1 };
 
-            Assert.AreEqual(1, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
-            Assert.AreEqual(1, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+            AssertMetric("streamer-batches-active", 1);
+            AssertMetric("streamer-items-queued", 1);
 
             yield return new IgniteTuple { ["ID"] = 2 };
 
-            Assert.AreEqual(2, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
-            Assert.AreEqual(2, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued"); // TODO: Flaky (0 or 2)
+            AssertMetric("streamer-batches-active", 2);
+            AssertMetric("streamer-items-queued", 2);
 
-            // TODO: Convert all assertions to WaitForMetric
-            TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-batches-sent") == 1);
-            TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-items-queued") == 0);
-            TestUtils.WaitForCondition(() => _listener.GetMetric("streamer-batches-active") == 1);
-
-            Assert.AreEqual(1, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
-            Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
-            Assert.AreEqual(2, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
+            AssertMetric("streamer-batches-sent", 1);
+            AssertMetric("streamer-batches-active", 1);
+            AssertMetric("streamer-items-queued", 0);
+            AssertMetric("streamer-items-sent", 2);
         }
     }
 
@@ -260,10 +256,10 @@ public class MetricsTests
         using var server = new FakeServer();
         using var client = await server.ConnectClientAsync();
 
-        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-sent"), "streamer-batches-sent");
-        Assert.AreEqual(0, _listener.GetMetric("streamer-items-sent"), "streamer-items-sent");
-        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
-        Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+        AssertMetric("streamer-batches-sent", 0);
+        AssertMetric("streamer-items-sent", 0);
+        AssertMetric("streamer-batches-active", 0);
+        AssertMetric("streamer-items-queued", 0);
 
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var view = table!.RecordBinaryView;
@@ -276,8 +272,8 @@ public class MetricsTests
         Assert.CatchAsync<OperationCanceledException>(async () => await task);
 
         Assert.GreaterOrEqual(_listener.GetMetric("streamer-batches-sent"), 1, "streamer-batches-sent");
-        Assert.AreEqual(0, _listener.GetMetric("streamer-batches-active"), "streamer-batches-active");
-        Assert.AreEqual(0, _listener.GetMetric("streamer-items-queued"), "streamer-items-queued");
+        AssertMetric("streamer-batches-active", 0);
+        AssertMetric("streamer-items-queued", 0);
 
         static async IAsyncEnumerable<IIgniteTuple> GetTuples([EnumeratorCancellation] CancellationToken ct = default)
         {
