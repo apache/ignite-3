@@ -32,7 +32,6 @@ import org.apache.ignite.internal.metastorage.command.GetCommand;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
 import org.apache.ignite.internal.metastorage.command.GetPrefixCommand;
 import org.apache.ignite.internal.metastorage.command.GetRangeCommand;
-import org.apache.ignite.internal.metastorage.command.MetaStorageWriteCommand;
 import org.apache.ignite.internal.metastorage.command.PaginationCommand;
 import org.apache.ignite.internal.metastorage.command.response.BatchResponse;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -41,6 +40,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -49,7 +49,7 @@ import org.jetbrains.annotations.Nullable;
  * Meta storage listener.
  * TODO: IGNITE-14693 Implement Meta storage exception handling logic.
  */
-public class MetaStorageListener implements RaftGroupListener {
+public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandler {
     private final MetaStorageWriteHandler writeHandler;
 
     /** Storage. */
@@ -156,11 +156,6 @@ public class MetaStorageListener implements RaftGroupListener {
     @Override
     public void onBeforeApply(Command command) {
         writeHandler.beforeApply(command);
-    }
-
-    @Override
-    public boolean atomicOnBeforeApplyAndWrite(Command command) {
-        return command instanceof MetaStorageWriteCommand;
     }
 
     @Override

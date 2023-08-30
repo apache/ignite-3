@@ -28,8 +28,8 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingStateMachine;import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -59,7 +59,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
     /**
     * Mapping from group IDs to monitors used to synchronized on (only used when
-    * {@link RaftGroupListener#atomicOnBeforeApplyAndWrite( Command)} is {@code true} and the command is a write command.
+    * RaftGroupListener instance implements {@link BeforeApplyHandler} and the command is a write command.
     */
     private final Map<String, Object> groupIdsToMonitors = new ConcurrentHashMap<>();
 
@@ -81,25 +81,27 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
         JraftServerImpl.DelegatingStateMachine fsm = (JraftServerImpl.DelegatingStateMachine) node.getOptions().getFsm();
 
-        if (fsm.getListener().atomicOnBeforeApplyAndWrite(request.command()) && request.command() instanceof WriteCommand) {
-            // Synchronizing per group.
-            synchronized (groupIdSyncMonitor(request.groupId())) {
-                // Apply a filter before committing to STM.
-                fsm.getListener().onBeforeApply(request.command());
-
+        if (request.command() instanceof WriteCommand) {
+            if (fsm.getListener() instanceof BeforeApplyHandler) {
+                synchronized (groupIdSyncMonitor(request.groupId())) {
+                    callOnBeforeApply(request, fsm);
+                    applyWrite(node, request, rpcCtx);
+                }
+            } else {
                 applyWrite(node, request, rpcCtx);
             }
         } else {
-            // Apply a filter before committing to STM.
-            fsm.getListener().onBeforeApply(request.command());
-
-            if (request.command() instanceof WriteCommand) {
-                applyWrite(node, request, rpcCtx);
-            } else {
-                applyRead(node, request, rpcCtx);
+            if (fsm.getListener() instanceof BeforeApplyHandler) {
+                callOnBeforeApply(request, fsm);
             }
+
+            applyRead(node, request, rpcCtx);
         }
     }
+    private static void callOnBeforeApply(ActionRequest request, DelegatingStateMachine fsm) {
+        ((BeforeApplyHandler) fsm.getListener()).onBeforeApply(request.command());
+    }
+
     private Object groupIdSyncMonitor(String groupId) {
         assert groupId != null;
 

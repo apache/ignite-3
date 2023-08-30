@@ -40,6 +40,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -164,7 +165,9 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             Command command = invocation.getArgument(0);
             RaftGroupListener listener = listenerCaptor.getValue();
 
-            listener.onBeforeApply(command);
+            if (listener instanceof BeforeApplyHandler) {
+                ((BeforeApplyHandler) listener).onBeforeApply(command);
+            }
 
             return runCommand(command, listener);
         });
