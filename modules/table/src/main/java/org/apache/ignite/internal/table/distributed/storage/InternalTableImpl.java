@@ -1670,4 +1670,9 @@ public class InternalTableImpl implements InternalTable {
                 .full(full)
                 .build();
     }
+
+    @Override
+    public Function<String, ClusterNode> getClusterNodeResolver() {
+        return clusterNodeResolver;
+    }
 }

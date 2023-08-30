@@ -97,6 +97,7 @@ import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -1096,5 +1097,15 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public TxManager txManager() {
         return txManager;
+    }
+
+    /**
+     * Returns the node's placement driver service.
+     *
+     * @return Placement driver service
+     */
+    @TestOnly
+    public PlacementDriver placementDriver() {
+        return placementDriverMgr.placementDriver();
     }
 }
