@@ -293,7 +293,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 .transactionId(TRANSACTION_ID)
                 .binaryRowMessage(binaryRowMessage(rowMessage))
                 .requestType(arg.type)
-                .build());
+                .build(), "local");
 
         await(fut);
 
@@ -362,7 +362,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 .transactionId(TRANSACTION_ID)
                 .binaryRowMessages(rowMessages.stream().map(PartitionReplicaListenerIndexLockingTest::binaryRowMessage).collect(toList()))
                 .requestType(arg.type)
-                .build());
+                .build(), "local");
 
         await(fut);
 

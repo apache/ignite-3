@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /**
- * State machine command for updating a batch of entries.
+ * Transaction request that can contain full transaction (transaction that contains full set of keys).
  */
-@Transferable(TableMessageGroup.Commands.UPDATE_ALL)
-public interface UpdateAllCommand extends PartitionCommand {
-    TablePartitionIdMessage tablePartitionId();
+public interface CommittableTxRequest extends ReplicaRequest {
+    UUID transactionId();
 
-    Map<UUID, BinaryRowMessage> rowsToUpdate();
-
-    String txCoordinatorId();
+    /**
+     * Return {@code true} if this is a full transaction.
+     */
+    boolean full();
 }
