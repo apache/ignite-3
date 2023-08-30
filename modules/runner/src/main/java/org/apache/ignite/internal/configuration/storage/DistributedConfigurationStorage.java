@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
+import static org.apache.ignite.lang.util.StringUtils.incrementLastChar;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -352,15 +353,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Long> lastRevision() {
         return metaStorageMgr.get(MASTER_KEY).thenApply(Entry::revision);
-    }
-
-    /**
-     * Increments the last character of the given string.
-     */
-    private static String incrementLastChar(String str) {
-        char lastChar = str.charAt(str.length() - 1);
-
-        return str.substring(0, str.length() - 1) + (char) (lastChar + 1);
     }
 
     private <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {
