@@ -19,6 +19,8 @@ package org.apache.ignite.raft.jraft.rpc.impl;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -27,7 +29,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.util.ConcurrentStringInternizer;
+import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -55,7 +57,11 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
     private final RaftMessagesFactory factory;
 
-    private final ConcurrentStringInternizer internizer = new ConcurrentStringInternizer();
+    /**
+    * Mapping from group IDs to monitors used to synchronized on (only used when
+    * {@link RaftGroupListener#atomicOnBeforeApplyAndWrite( Command)} is {@code true} and the command is a write command.
+    */
+    private final Map<String, Object> groupIdsToMonitors = new ConcurrentHashMap<>();
 
     public ActionRequestProcessor(Executor executor, RaftMessagesFactory factory) {
         this.executor = executor;
@@ -77,7 +83,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
         if (fsm.getListener().atomicOnBeforeApplyAndWrite(request.command()) && request.command() instanceof WriteCommand) {
             // Synchronizing per group.
-            synchronized (internizer.intern(request.groupId())) {
+            synchronized (groupIdSyncMonitor(request.groupId())) {
                 // Apply a filter before committing to STM.
                 fsm.getListener().onBeforeApply(request.command());
 
@@ -93,6 +99,11 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                 applyRead(node, request, rpcCtx);
             }
         }
+    }
+    private Object groupIdSyncMonitor(String groupId) {
+        assert groupId != null;
+
+        return groupIdsToMonitors.computeIfAbsent(groupId, k -> groupId);
     }
 
     /**
