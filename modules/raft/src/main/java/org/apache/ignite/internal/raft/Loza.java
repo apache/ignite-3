@@ -375,6 +375,15 @@ public class Loza implements RaftManager {
         );
     }
 
+    /**
+     * Check if the node is started.
+     *
+     * @param nodeId Raft node ID.
+     * @return True if the node is started.
+     */
+    public boolean isStarted(RaftNodeId nodeId) {
+        return raftServer.isStarted(nodeId);
+    }
 
     /**
      * Gets a future that completes when all committed updates are applied to state machine after the RAFT node start.
