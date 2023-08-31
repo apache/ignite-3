@@ -879,7 +879,9 @@ public class ItTableScanTest extends ClusterPerClassIntegrationTest {
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
 
         PlacementDriver placementDriver = ((IgniteImpl) ignite).placementDriver();
-        ReplicaMeta primaryReplica = IgniteTestUtils.await(placementDriver.awaitPrimaryReplica(tblPartId, ((IgniteImpl) ignite).clock().now()));
+        ReplicaMeta primaryReplica = IgniteTestUtils.await(
+                placementDriver.awaitPrimaryReplica(tblPartId, ((IgniteImpl) ignite).clock().now()));
+
         tx.enlist(
                 tblPartId,
                 new IgniteBiTuple<>(

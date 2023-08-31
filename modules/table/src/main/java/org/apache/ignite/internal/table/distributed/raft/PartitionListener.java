@@ -231,17 +231,20 @@ public class PartitionListener implements RaftGroupListener {
             return;
         }
 
-        storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.row(),
-                rowId -> {
-                    // Cleanup is not required for one-phase transactions.
-                    if (!cmd.full()) {
-                        txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId);
-                    }
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
+        if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+            storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.row(),
+                    rowId -> {
+                        // Cleanup is not required for one-phase transactions.
+                        if (!cmd.full()) {
+                            txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId);
+                        }
 
-                    storage.lastApplied(commandIndex, commandTerm);
-                },
-                cmd.full() ? cmd.safeTime() : null
-        );
+                        storage.lastApplied(commandIndex, commandTerm);
+                    },
+                    cmd.full() ? cmd.safeTime() : null
+            );
+        }
     }
 
     /**

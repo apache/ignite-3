@@ -142,6 +142,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -1780,6 +1781,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return v;
                     }),
                     null);
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
         }
 
         return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
@@ -2662,6 +2666,18 @@ public class PartitionReplicaListener implements ReplicaListener {
                 // on application callback
                 txsPendingRowIds.remove(txId);
             });
+        }
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
+            PendingComparableValuesTracker<T, Void> tracker,
+            T newValue
+    ) {
+        try {
+            tracker.update(newValue, null);
+        } catch (TrackerClosedException ignored) {
+            // No-op.
         }
     }
 }
