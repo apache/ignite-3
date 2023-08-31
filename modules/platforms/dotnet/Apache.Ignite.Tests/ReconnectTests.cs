@@ -92,24 +92,18 @@ public class ReconnectTests
         using var servers = FakeServerGroup.Create(10);
         using var client = await servers.ConnectClientAsync(cfg);
 
-        WaitForConnections(10);
+        WaitForConnections(client, 10);
         servers.DropNewConnections = true;
         servers.DropExistingConnections();
 
         // Dropped connections are detected by heartbeat.
-        WaitForConnections(0);
+        WaitForConnections(client, 0);
 
         // Connections are restored in background due to ReconnectInterval.
         servers.DropNewConnections = false;
-        WaitForConnections(10);
+        WaitForConnections(client, 10);
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
-
-        void WaitForConnections(int count) =>
-            TestUtils.WaitForCondition(
-                condition: () => client.GetConnections().Count == count,
-                timeoutMs: 5000,
-                messageFactory: () => $"Connection count: expected = {count}, actual = {client.GetConnections().Count}");
     }
 
     [Test]
@@ -128,7 +122,7 @@ public class ReconnectTests
         servers.DropNewConnections = false;
 
         // When all servers are back online, connections are established in background due to ReconnectInterval.
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 5, 3000);
+        WaitForConnections(client, 5);
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
     }
@@ -169,10 +163,12 @@ public class ReconnectTests
 
         // All connections are restored.
         logger.Debug("Waiting for all connections to be restored...");
-
-        TestUtils.WaitForCondition(
-            () => client.GetConnections().Count == 10,
-            5000,
-            () => "Actual connection count: " + client.GetConnections().Count);
+        WaitForConnections(client, 10);
     }
+
+    private static void WaitForConnections(IIgniteClient client, int count) =>
+        TestUtils.WaitForCondition(
+            condition: () => client.GetConnections().Count == count,
+            timeoutMs: 5000,
+            messageFactory: () => $"Connection count: expected = {count}, actual = {client.GetConnections().Count}");
 }
