@@ -60,12 +60,12 @@ public class ClientSessionBuilder implements SessionBuilder {
 
     @Override
     public IgniteTransactions igniteTransactions() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        throw new UnsupportedOperationException("Should not be used in this implementation.");
     }
 
     @Override
     public SessionBuilder igniteTransactions(IgniteTransactions transactions) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        throw new UnsupportedOperationException("Should not be used in this implementation.");
     }
 
     @Override
