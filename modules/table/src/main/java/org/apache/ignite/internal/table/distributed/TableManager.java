@@ -384,7 +384,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final Marshaller raftCommandsMarshaller;
 
-    private final HybridTimestampTracker observationTimestampTracker;
+    private final HybridTimestampTracker observableTimestampTracker;
 
     /**
      * Creates a new table manager.
@@ -434,7 +434,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             DistributionZoneManager distributionZoneManager,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            HybridTimestampTracker observationTimestampTracker
+            HybridTimestampTracker observableTimestampTracker
     ) {
         this.tablesCfg = tablesCfg;
         this.zonesConfig = zonesConfig;
@@ -459,7 +459,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.distributionZoneManager = distributionZoneManager;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
-        this.observationTimestampTracker = observationTimestampTracker;
+        this.observableTimestampTracker = observableTimestampTracker;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -1269,7 +1269,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         InternalTableImpl internalTable = new InternalTableImpl(tableName, tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
                 partitions, clusterNodeResolver, txManager, tableStorage,
-                txStateStorage, replicaSvc, clock, observationTimestampTracker);
+                txStateStorage, replicaSvc, clock, observableTimestampTracker);
 
         var table = new TableImpl(internalTable, lockMgr);
 

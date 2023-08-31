@@ -46,11 +46,11 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     }
 
     /**
-     * Updates observation timestamp.
+     * Updates observable timestamp.
      *
      * @param ts Timestamp.
      */
-    public void updateObservationTimestamp(HybridTimestamp ts) {
+    public void updateObservableTimestamp(HybridTimestamp ts) {
         observableTimestampTracker.update(ts);
     }
 

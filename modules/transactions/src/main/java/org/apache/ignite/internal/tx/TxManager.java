@@ -49,7 +49,8 @@ public interface TxManager extends IgniteComponent {
      * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
-     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
+     *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
      *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
      * @return The started transaction.
@@ -84,9 +85,10 @@ public interface TxManager extends IgniteComponent {
     public LockManager lockManager();
 
     /**
-     * Fixes a one-path committed transaction.
+     * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
      *
-     * @param timestampTracker Timestamp tracker. This tracker is used to track a commit timestamp.
+     * @param timestampTracker Observable timestamp tracker. This tracker is used to track an observable timestamp and should be
+     *         updated with commit timestamp of every committed transaction.
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
      */
@@ -95,7 +97,9 @@ public interface TxManager extends IgniteComponent {
     /**
      * Finishes a dependant transactions.
      *
-     * @param timestampTracker Timestamp tracker. This tracker is used to track a commit timestamp.
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
+     *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param commitPartition Partition to store a transaction state.
      * @param recipientNode Recipient node.
      * @param term Raft term.

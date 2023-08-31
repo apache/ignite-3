@@ -616,7 +616,8 @@ public class IgniteImpl implements Ignite {
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
-                new IgniteTransactionsImpl(txManager, new HybridTimestampTracker()/*observableTimestampTracker*/),
+                //TODO: IGNITE-20232 The observable timestamp should be different for each client.
+                new IgniteTransactionsImpl(txManager, new HybridTimestampTracker()),
                 nodeConfigRegistry,
                 compute,
                 clusterSvc,

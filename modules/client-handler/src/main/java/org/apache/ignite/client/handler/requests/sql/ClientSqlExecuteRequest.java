@@ -84,9 +84,9 @@ public class ClientSqlExecuteRequest {
         }
 
         // TODO IGNITE-20232 Propagate observable timestamp to sql engine using internal API.
-        HybridTimestamp unused = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
 
-        transactions.updateObservationTimestamp(unused);
+        transactions.updateObservableTimestamp(clientTs);
 
         return session
                 .executeAsync(tx, statement, arguments)

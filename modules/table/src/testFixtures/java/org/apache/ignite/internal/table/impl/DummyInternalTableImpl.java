@@ -160,7 +160,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *                        by itself.
      * @param placementDriver Placement driver.
      * @param schema Schema descriptor.
-     * @param tracker Observation timestamp tracker.
+     * @param tracker Observable timestamp tracker.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,

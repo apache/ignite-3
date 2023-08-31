@@ -194,7 +194,7 @@ public class ItTxTestCluster {
 
     private final TestInfo testInfo;
 
-    /** Observation timestamp tracker. */
+    /** Observable timestamp tracker. */
     private final HybridTimestampTracker timestampTracker;
 
     /**
