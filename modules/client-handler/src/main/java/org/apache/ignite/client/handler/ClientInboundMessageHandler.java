@@ -154,7 +154,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final JdbcQueryCursorHandler jdbcQueryCursorHandler;
 
     /** Cluster ID. */
-    private final UUID clusterId;
+    private final CompletableFuture<UUID> clusterId;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
@@ -200,7 +200,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             IgniteCompute compute,
             ClusterService clusterService,
             IgniteSql sql,
-            UUID clusterId,
+            CompletableFuture<UUID> clusterId,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
             HybridClock clock
@@ -303,7 +303,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClusterNode localMember = clusterService.topologyService().localMember();
             packer.packString(localMember.id());
             packer.packString(localMember.name());
-            packer.packUuid(clusterId);
+            packer.packUuid(clusterId.join());
 
             packer.packBinaryHeader(0); // Features.
             packer.packMapHeader(0); // Extensions.

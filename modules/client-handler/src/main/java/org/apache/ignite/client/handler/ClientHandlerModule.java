@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -52,6 +54,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
@@ -82,9 +85,10 @@ public class ClientHandlerModule implements IgniteComponent {
     private final MetricManager metricManager;
 
     /** Cluster ID. */
-    private UUID clusterId;
+    private CompletableFuture<UUID> clusterId;
 
     /** Netty channel. */
+    @Nullable
     private volatile Channel channel;
 
     /** Processor. */
@@ -171,7 +175,7 @@ public class ClientHandlerModule implements IgniteComponent {
     @Override
     public void start() {
         if (channel != null) {
-            throw new IgniteException("ClientHandlerModule is already started.");
+            throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule is already started.");
         }
 
         var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY).value();
@@ -183,10 +187,10 @@ public class ClientHandlerModule implements IgniteComponent {
         }
 
         try {
+            clusterId = clusterIdSupplier.get();
             channel = startEndpoint(configuration).channel();
-            clusterId = clusterIdSupplier.get().join();
         } catch (InterruptedException e) {
-            throw new IgniteException(e);
+            throw new IgniteInternalException(INTERNAL_ERR, e);
         }
     }
 
@@ -195,8 +199,9 @@ public class ClientHandlerModule implements IgniteComponent {
     public void stop() throws Exception {
         metricManager.unregisterSource(metrics);
 
-        if (channel != null) {
-            channel.close().await();
+        var ch = channel;
+        if (ch != null) {
+            ch.close().await();
 
             channel = null;
         }
@@ -209,11 +214,12 @@ public class ClientHandlerModule implements IgniteComponent {
      * @throws IgniteInternalException if the module is not started.
      */
     public InetSocketAddress localAddress() {
-        if (channel == null) {
-            throw new IgniteInternalException("ClientHandlerModule has not been started");
+        var ch = channel;
+        if (ch == null) {
+            throw new IgniteInternalException(INTERNAL_ERR, "ClientHandlerModule has not been started");
         }
 
-        return (InetSocketAddress) channel.localAddress();
+        return (InetSocketAddress) ch.localAddress();
     }
 
     /**
@@ -267,7 +273,7 @@ public class ClientHandlerModule implements IgniteComponent {
             ch = bindRes.channel();
         } else if (!(bindRes.cause() instanceof BindException)) {
             throw new IgniteException(
-                    ErrorGroups.Common.INTERNAL_ERR,
+                    INTERNAL_ERR,
                     "Failed to start thin client connector endpoint: " + bindRes.cause().getMessage(),
                     bindRes.cause());
         }
