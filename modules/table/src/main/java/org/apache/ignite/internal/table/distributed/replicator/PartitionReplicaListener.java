@@ -1260,9 +1260,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Processes transaction cleanup request:
      * <ol>
+     *     <li>Waits for finishing of transactional operations;</>
+     *     <li>Release all locks that were held on local Replica by given transaction;</li>
      *     <li>Run specific raft {@code TxCleanupCommand} command, that will convert all pending entries(writeIntents)
      *     to either regular values({@link TxState#COMMITED}) or removing them ({@link TxState#ABORTED}).</li>
-     *     <li>Release all locks that were held on local Replica by given transaction.</li>
      * </ol>
      * This operation is idempotent, so it's safe to retry it.
      *
@@ -1307,35 +1308,40 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         if (txUpdateFutures.isEmpty()) {
             if (!txReadFutures.isEmpty()) {
-                allOffFuturesExceptionIgnored(txReadFutures, request)
+                return allOffFuturesExceptionIgnored(txReadFutures, request)
                         .thenRun(() -> releaseTxLocks(request.txId()));
             }
 
             return completedFuture(null);
+        } else {
+            CompletableFuture<Void> result = allOffFuturesExceptionIgnored(txUpdateFutures, request)
+                    .thenCompose(ignored -> allOffFuturesExceptionIgnored(txReadFutures, request))
+                    .thenRun(() -> releaseTxLocks(request.txId()));
+
+            result.thenRun(() -> performAsyncTxCleanup(request));
+
+            return result;
         }
+    }
 
-        return allOffFuturesExceptionIgnored(txUpdateFutures, request).thenCompose(v -> {
-            long commandTimestamp = hybridClock.nowLong();
+    private CompletableFuture<Void> performAsyncTxCleanup(TxCleanupReplicaRequest request) {
+        long commandTimestamp = hybridClock.nowLong();
 
-            return catalogVersionFor(hybridTimestamp(commandTimestamp))
-                    .thenCompose(catalogVersion -> {
-                        TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
-                                .txId(request.txId())
-                                .commit(request.commit())
-                                .commitTimestampLong(request.commitTimestampLong())
-                                .safeTimeLong(commandTimestamp)
-                                .txCoordinatorId(getTxCoordinatorId(request.txId()))
-                                .requiredCatalogVersion(catalogVersion)
-                                .build();
+        return catalogVersionFor(hybridTimestamp(commandTimestamp))
+                .thenCompose(catalogVersion -> {
+                    TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
+                            .txId(request.txId())
+                            .commit(request.commit())
+                            .commitTimestampLong(request.commitTimestampLong())
+                            .safeTimeLong(commandTimestamp)
+                            .txCoordinatorId(getTxCoordinatorId(request.txId()))
+                            .requiredCatalogVersion(catalogVersion)
+                            .build();
 
-                        cleanupLocally(request.txId(), request.commit(), request.commitTimestamp());
+                    cleanupLocally(request.txId(), request.commit(), request.commitTimestamp());
 
-                        return raftClient
-                                .run(txCleanupCmd)
-                                .thenCompose(ignored -> allOffFuturesExceptionIgnored(txReadFutures, request)
-                                        .thenRun(() -> releaseTxLocks(request.txId())));
-                    });
-        });
+                    return raftClient.run(txCleanupCmd);
+                });
     }
 
     private String getTxCoordinatorId(UUID txId) {
