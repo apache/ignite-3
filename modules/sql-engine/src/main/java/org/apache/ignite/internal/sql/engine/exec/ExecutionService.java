@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.List;
-import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.AsyncCursor;
 
 /**
  * ExecutionService interface.

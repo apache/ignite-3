@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.util;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -24,7 +24,6 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
-import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.sql.CursorClosedException;
 
 /**
