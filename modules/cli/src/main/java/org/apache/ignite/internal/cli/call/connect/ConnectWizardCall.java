@@ -17,33 +17,18 @@
 
 package org.apache.ignite.internal.cli.call.connect;
 
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD;
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
-import static org.apache.ignite.lang.util.StringUtils.nullOrBlank;
+import static org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion.askQuestionOnSslError;
 
 import io.micronaut.http.HttpStatus;
-import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
-import org.apache.ignite.internal.cli.config.CliConfigKeys;
-import org.apache.ignite.internal.cli.config.ConfigManager;
-import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
-import org.apache.ignite.internal.cli.core.JdbcUrlFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.flow.Flowable;
-import org.apache.ignite.internal.cli.core.flow.builder.FlowBuilder;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
-import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
-import org.apache.ignite.internal.cli.core.rest.ApiClientSettings;
-import org.apache.ignite.internal.cli.core.rest.ApiClientSettingsBuilder;
-import org.apache.ignite.lang.util.StringUtils;
-import org.apache.ignite.rest.client.api.NodeConfigurationApi;
-import org.apache.ignite.rest.client.api.NodeManagementApi;
-import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 
 /**
@@ -52,17 +37,21 @@ import org.apache.ignite.rest.client.invoker.ApiException;
  */
 @Singleton
 public class ConnectWizardCall implements Call<ConnectCallInput, String> {
-    @Inject
-    private ConnectCall connectCall;
 
-    @Inject
-    private ConfigManagerProvider configManagerProvider;
+    private final ConnectCall connectCall;
 
-    @Inject
-    private ApiClientFactory clientFactory;
+    private final SuccessConnectCall successConnectCall;
 
-    @Inject
-    private JdbcUrlFactory jdbcUrlFactory;
+    private final ConnectionChecker connectionChecker;
+
+    /**
+     * Constructor.
+     */
+    public ConnectWizardCall(ConnectCall connectCall, ConnectionChecker connectionChecker, SuccessConnectCall successConnectCall) {
+        this.connectCall = connectCall;
+        this.connectionChecker = connectionChecker;
+        this.successConnectCall = successConnectCall;
+    }
 
     @Override
     public CallOutput<String> execute(ConnectCallInput input) {
@@ -88,19 +77,14 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
     }
 
     private CallOutput<String> configureSsl(ConnectCallInput input, CallOutput<String> output) {
-        FlowBuilder<Void, SslConfig> flowBuilder = ConnectToClusterQuestion.askQuestionOnSslError();
-        Flowable<SslConfig> result = flowBuilder.build().start(Flowable.empty());
+        Flowable<SslConfig> result = askQuestionOnSslError().start(Flowable.empty());
         if (result.hasResult()) {
             try {
                 // Try to connect with ssl settings, create SessionInfo on success
-                SessionInfo sessionInfo = checkConnectionSsl(input, result.value());
-                saveConfigSsl(result.value());
+                SessionInfo sessionInfo = connectionChecker.checkConnection(input, result.value());
+                connectionChecker.saveSettings(input, result.value());
 
-                if (!nullOrBlank(input.username())) {
-                    saveCredentials(input);
-                }
-
-                return connectCall.success(sessionInfo);
+                return successConnectCall.execute(sessionInfo);
             } catch (ApiException exception) {
                 Throwable apiCause = exception.getCause();
 
@@ -109,7 +93,7 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
                     return DefaultCallOutput.failure(new IgniteCliApiException(exception, input.url()));
                 } else {
                     // SSL params are correct but auth params not provided
-                    saveConfigSsl(result.value());
+                    connectionChecker.saveSettings(input, result.value());
 
                     // Try to connect with ssl and basic auth settings
                     return configureAuth(input, output);
@@ -122,8 +106,7 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
     }
 
     private CallOutput<String> configureAuth(ConnectCallInput input, CallOutput<String> output) {
-        FlowBuilder<Void, AuthConfig> flowBuilder = ConnectToClusterQuestion.askQuestionOnAuthError();
-        Flowable<AuthConfig> result = flowBuilder.build().start(Flowable.empty());
+        Flowable<AuthConfig> result = ConnectToClusterQuestion.askQuestionOnAuthError().start(Flowable.empty());
         if (result.hasResult()) {
             ConnectCallInput connectCallInput = ConnectCallInput.builder()
                     .url(input.url())
@@ -131,59 +114,13 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
                     .password(result.value().password())
                     .build();
             try {
-                SessionInfo sessionInfo = checkConnection(connectCallInput);
-                saveCredentials(connectCallInput);
-                return connectCall.success(sessionInfo);
+                SessionInfo sessionInfo = connectionChecker.checkConnection(connectCallInput, null);
+                connectionChecker.saveSettings(connectCallInput, null);
+                return successConnectCall.execute(sessionInfo);
             } catch (ApiException e) {
                 return DefaultCallOutput.failure(new IgniteCliApiException(e, input.url()));
             }
         }
         return output;
-    }
-
-    private SessionInfo checkConnectionSsl(ConnectCallInput input, SslConfig config) throws ApiException {
-        ApiClientSettingsBuilder settingsBuilder = ApiClientSettings.builder()
-                .basePath(input.url())
-                .keyStorePath(config.keyStorePath())
-                .keyStorePassword(config.keyStorePassword())
-                .trustStorePath(config.trustStorePath())
-                .trustStorePassword(config.trustStorePassword());
-
-        if (!nullOrBlank(input.username()) && !nullOrBlank(input.password())) {
-            settingsBuilder.basicAuthenticationUsername(input.username());
-            settingsBuilder.basicAuthenticationPassword(input.password());
-
-        }
-        ApiClient apiClient = ApiClientFactory.buildClient(settingsBuilder.build());
-
-        String configuration = new NodeConfigurationApi(apiClient).getNodeConfiguration();
-        String nodeName = new NodeManagementApi(apiClient).nodeState().getName();
-        String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(configuration, input.url());
-        return SessionInfo.builder().nodeUrl(input.url()).nodeName(nodeName).jdbcUrl(jdbcUrl).username(input.username()).build();
-    }
-
-    private void saveConfigSsl(SslConfig config) {
-        ConfigManager manager = configManagerProvider.get();
-        manager.setProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value(), config.trustStorePath());
-        manager.setProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value(), config.trustStorePassword());
-        if (!StringUtils.nullOrBlank(config.keyStorePath())) {
-            manager.setProperty(CliConfigKeys.REST_KEY_STORE_PATH.value(), config.keyStorePath());
-            manager.setProperty(CliConfigKeys.REST_KEY_STORE_PASSWORD.value(), config.keyStorePassword());
-        }
-    }
-
-    private SessionInfo checkConnection(ConnectCallInput input) throws ApiException {
-        ApiClient apiClient = clientFactory.getClient(input.url(), input.username(), input.password());
-
-        String configuration = new NodeConfigurationApi(apiClient).getNodeConfiguration();
-        String nodeName = new NodeManagementApi(apiClient).nodeState().getName();
-        String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(configuration, input.url());
-        return SessionInfo.builder().nodeUrl(input.url()).nodeName(nodeName).jdbcUrl(jdbcUrl).username(input.username()).build();
-    }
-
-    private void saveCredentials(ConnectCallInput input) {
-        ConfigManager manager = configManagerProvider.get();
-        manager.setProperty(BASIC_AUTHENTICATION_USERNAME.value(), input.username());
-        manager.setProperty(BASIC_AUTHENTICATION_PASSWORD.value(), input.password());
     }
 }

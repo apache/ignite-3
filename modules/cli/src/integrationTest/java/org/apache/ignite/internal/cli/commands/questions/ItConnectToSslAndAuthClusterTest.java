@@ -45,7 +45,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     }
 
     @Test
-    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url than ask for auth")
+    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url then ask for auth")
     void connectOnStartAskSslAfterAskAuth() throws IOException {
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -86,7 +86,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     }
 
     @Test
-    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url, provide wrong password")
+    @DisplayName("Should ask for SSL configuration, connect to last connected cluster HTTPS url, provide wrong password")
     void connectOnStartAskSslWrongTrustPassword() throws IOException {
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -122,7 +122,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     }
 
     @Test
-    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url, provide wrong path")
+    @DisplayName("Should ask for SSL configuration, connect to last connected cluster HTTPS url, provide wrong path")
     void connectOnStartAskSslWrongPath() throws IOException {
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -159,7 +159,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     }
 
     @Test
-    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url than ask for auth")
+    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url then ask for auth")
     void connectOnStartAskSslAfterAskAuthWrongName() throws IOException {
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -200,7 +200,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     }
 
     @Test
-    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url than ask for auth")
+    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url")
     void connectWithCredentialsFailAskSsl() throws IOException {
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -241,7 +241,48 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     }
 
     @Test
-    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url than ask for auth")
+    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url then ask for auth")
+    void connectWithWrongCredentialsFailAskSsl() throws IOException {
+        // Given prompt before connect
+        assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // And default URL is HTTPS
+        configManagerProvider.setConfigFile(TestConfigManagerHelper.createClusterUrlSslConfig());
+
+        // And trust store is not configured
+
+        // And last connected URL is equal to the default URL
+        stateConfigProvider.config = TestStateConfigHelper.createLastConnectedSslDefault();
+
+        // And answer to the reconnect question is "y", to the SSL configuration question is "y",
+        // trust store path and password are provided and key store is not configured
+        bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
+
+        // When connect with auth parameters
+        execute("connect", "--username", "admin", "--password", "wrong-password");
+
+        // Then
+        assertAll(
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("Connected to https://localhost:10400")
+        );
+        // And prompt is changed to connect
+        assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
+
+        assertAll(() -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value()))
+                        .isEqualTo(escapeWindowsPath(NodeConfig.resolvedTruststorePath)),
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value()))
+                        .isEqualTo(escapeWindowsPath(NodeConfig.trustStorePassword)),
+
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME.value()))
+                        .isEqualTo("admin"),
+                () -> assertThat(configManagerProvider.get().getCurrentProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD.value()))
+                        .isEqualTo("password")
+        );
+    }
+
+    @Test
+    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url then ask for auth")
     void connectWithoutCredentialsFailAskSslAfterAskAuth() throws IOException {
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
