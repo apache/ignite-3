@@ -84,9 +84,6 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Metric manager. */
     private final MetricManager metricManager;
 
-    /** Cluster ID. */
-    private CompletableFuture<UUID> clusterId;
-
     /** Netty channel. */
     @Nullable
     private volatile Channel channel;
@@ -181,13 +178,11 @@ public class ClientHandlerModule implements IgniteComponent {
         var configuration = registry.getConfiguration(ClientConnectorConfiguration.KEY).value();
 
         metricManager.registerSource(metrics);
-
         if (configuration.metricsEnabled()) {
             metrics.enable();
         }
 
         try {
-            clusterId = clusterIdSupplier.get();
             channel = startEndpoint(configuration).channel();
         } catch (InterruptedException e) {
             throw new IgniteInternalException(INTERNAL_ERR, e);
@@ -232,6 +227,7 @@ public class ClientHandlerModule implements IgniteComponent {
      */
     private ChannelFuture startEndpoint(ClientConnectorView configuration) throws InterruptedException {
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
+        CompletableFuture<UUID> clusterId = clusterIdSupplier.get();
 
         // Initialize SslContext once on startup to avoid initialization on each connection, and to fail in case of incorrect config.
         SslContext sslContext = configuration.ssl().enabled() ? SslContextProvider.createServerSslContext(configuration.ssl()) : null;
@@ -257,7 +253,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
-                                createInboundMessageHandler(configuration));
+                                createInboundMessageHandler(configuration, clusterId));
 
                         metrics.connectionsInitiatedIncrement();
                     }
@@ -293,7 +289,7 @@ public class ClientHandlerModule implements IgniteComponent {
         return ch.closeFuture();
     }
 
-    private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration) {
+    private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration, CompletableFuture<UUID> clusterId) {
         ClientInboundMessageHandler clientInboundMessageHandler = new ClientInboundMessageHandler(
                 igniteTables,
                 igniteTransactions,
