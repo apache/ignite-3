@@ -2005,7 +2005,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tableName Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
-    private CompletableFuture<TableImpl> tableAsyncInternal(String tableName) {
+    public CompletableFuture<TableImpl> tableAsyncInternal(String tableName) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
