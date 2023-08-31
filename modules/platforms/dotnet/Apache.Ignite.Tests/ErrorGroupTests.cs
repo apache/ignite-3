@@ -97,10 +97,10 @@ namespace Apache.Ignite.Tests
 
             var javaErrorGroupsText = File.ReadAllText(JavaErrorGroupsFile);
 
-            // ErrorGroup TX_ERR_GROUP = ErrorGroup.newGroup("TX", 7);
+            // ErrorGroup TX_ERR_GROUP = registerGroup("TX", 7);
             var javaErrorGroups = Regex.Matches(
                 javaErrorGroupsText,
-                @"ErrorGroup ([\w_]+)_ERR_GROUP = ErrorGroup.newGroup\(""(\w+)"", \(short\)\s*(\d+)\);")
+                @"ErrorGroup ([\w_]+)_ERR_GROUP = registerGroup\(""(\w+)"", \(short\)\s*(\d+)\);")
                 .Select(x => (Name: x.Groups[1].Value, ShortName: x.Groups[2].Value, Code: short.Parse(x.Groups[3].Value, CultureInfo.InvariantCulture)))
                 .ToList();
 

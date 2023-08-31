@@ -154,15 +154,17 @@ public class DistributionZonesTestUtil {
      * @param zoneManager Zone manager.
      * @param zoneName Zone name.
      * @param replicas The new number of zone replicas.
-     * @return A future, which will be completed, when update operation finished.
      */
-    public static CompletableFuture<Void> alterZoneReplicas(DistributionZoneManager zoneManager, String zoneName, int replicas) {
+    public static void alterZoneReplicas(DistributionZoneManager zoneManager, String zoneName, int replicas) {
         var distributionZoneCfgBuilder = new Builder(zoneName)
                 .replicas(replicas)
                 .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
                 .dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE);
 
-        return zoneManager.alterZone(zoneName, distributionZoneCfgBuilder.build());
+        assertThat(
+                zoneManager.alterZone(zoneName, distributionZoneCfgBuilder.build()),
+                willCompleteSuccessfully()
+        );
     }
 
     /**
