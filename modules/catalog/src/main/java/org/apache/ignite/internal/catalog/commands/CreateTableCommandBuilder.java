@@ -23,6 +23,10 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Builder of a command that adds a new table to the catalog.
+ *
+ * <p>A builder is considered to be reusable, thus implementation have
+ * to make sure invocation of {@link #build()} method doesn't cause any
+ * side effects on builder's state or any object created by the same builder.
  */
 public interface CreateTableCommandBuilder {
     /** A name of the schema to add new table to. Should not be null or blank. */
