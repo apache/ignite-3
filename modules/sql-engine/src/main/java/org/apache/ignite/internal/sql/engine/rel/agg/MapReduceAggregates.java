@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -39,6 +40,8 @@ import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.mapping.Mapping;
+import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -86,9 +89,15 @@ public class MapReduceAggregates {
     }
 
     /**
-     * Creates a physical operator that implements the given logical aggregate as MAP/reduce.
+     * Creates a physical operator that implements the given logical aggregate as MAP/REDUCE.
+     *
+     * @param agg Logical aggregate expression.
+     * @param builder Builder to create implementations of MAP and REDUCE phases.
+     * @param fieldMappingOnReduce Mapping to be applied to group sets on REDUCE phase.
+     *
+     * @return A physical node tree that implements the given logical operator.
      */
-    public static IgniteRel buildAggregates(LogicalAggregate agg, AggregateRelBuilder builder) {
+    public static IgniteRel buildAggregates(LogicalAggregate agg, AggregateRelBuilder builder, Mapping fieldMappingOnReduce) {
 
         //
         // To implement MAP/REDUCE aggregate LogicalAggregate is transformed into
@@ -189,11 +198,17 @@ public class MapReduceAggregates {
         assert mapAggCalls.size() <= reduceAggCalls.size() :
                 format("The number of MAP/REDUCE aggregates is not correct. MAP: {}\nREDUCE: {}", mapAggCalls, reduceAggCalls);
 
+        // Apply mapping to groupSet/groupSets on REDUCE phase.
+        ImmutableBitSet groupSetOnReduce = Mappings.apply(fieldMappingOnReduce, agg.getGroupSet());
+        List<ImmutableBitSet> groupSetsOnReduce = agg.getGroupSets().stream()
+                .map(g -> Mappings.apply(fieldMappingOnReduce, g))
+                .collect(Collectors.toList());
+
         IgniteRel reduce = builder.makeReduceAgg(
                 agg.getCluster(),
                 map,
-                agg.getGroupSet(),
-                agg.getGroupSets(),
+                groupSetOnReduce,
+                groupSetsOnReduce,
                 reduceAggCalls,
                 reduceTypeToUse
         );
@@ -252,7 +267,7 @@ public class MapReduceAggregates {
     }
 
     /**
-     * Used by {@link #buildAggregates(LogicalAggregate, AggregateRelBuilder)}
+     * Used by {@link #buildAggregates(LogicalAggregate, AggregateRelBuilder, Mapping)}.
      * to create MAP/REDUCE aggregate nodes.
      */
     public interface AggregateRelBuilder {
