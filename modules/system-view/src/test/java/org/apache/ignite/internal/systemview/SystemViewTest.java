@@ -195,7 +195,7 @@ public class SystemViewTest {
         /** Reject a view with {@code null} column type. */
         @Test
         public void rejectViewWithNullColumnType() {
-            expectThrows(NullPointerException.class, () -> {
+            expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
                         .name("dummy")
                         .addColumn("c1", null, (d) -> 0)
@@ -207,7 +207,7 @@ public class SystemViewTest {
         /** Reject a view with {@code null} column value function. */
         @Test
         public void rejectViewWithNullColumnFunction() {
-            expectThrows(NullPointerException.class, () -> {
+            expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
                         .name("dummy")
                         .addColumn("c1", int.class, null)
@@ -219,7 +219,7 @@ public class SystemViewTest {
         /** Reject a view without data provider. */
         @Test
         public void rejectViewWithoutDataProvider() {
-            expectThrows(NullPointerException.class, () -> {
+            expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
                         .name("dummy")
                         .addColumn("c1", int.class, (d) -> 0)

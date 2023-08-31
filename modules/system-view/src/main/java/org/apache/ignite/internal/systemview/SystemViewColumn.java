@@ -48,10 +48,16 @@ public class SystemViewColumn<T, C> {
         if (StringUtils.nullOrBlank(name)) {
             throw new IllegalArgumentException("Column name can not be null or blank");
         }
+        if (type == null) {
+            throw new IllegalArgumentException("Column type can not be null or blank");
+        }
+        if (value == null) {
+            throw new IllegalArgumentException("Column value can not be null or blank");
+        }
 
         this.name = name;
-        this.type = Objects.requireNonNull(type, "Column type null can not be null");
-        this.value = Objects.requireNonNull(value, "Column value null can not be null");
+        this.type = type;
+        this.value = value;
     }
 
     /**

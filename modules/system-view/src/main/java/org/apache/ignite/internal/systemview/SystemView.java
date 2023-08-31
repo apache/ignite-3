@@ -89,7 +89,9 @@ public abstract class SystemView<T> {
             throw new IllegalArgumentException("Column names must be unique. Duplicates: " + duplicates);
         }
 
-        Objects.requireNonNull(dataProvider, "DataProvider can not be null");
+        if (dataProvider == null) {
+            throw new IllegalArgumentException("DataProvider can not be null");
+        }
 
         this.name = name;
         this.columns = List.copyOf(columns);
