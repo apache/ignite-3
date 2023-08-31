@@ -189,6 +189,7 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      * @param oldName Old column name.
      * @param newName New column name.
      */
+    // TODO: IGNITE-20315 syntax may change
     protected static void renameColumn(List<Ignite> nodes, String oldName, String newName) {
         try (Session session = nodes.get(0).sql().createSession()) {
             session.execute(null, String.format("ALTER TABLE %s RENAME COLUMN %s TO %s", TABLE, oldName, newName));

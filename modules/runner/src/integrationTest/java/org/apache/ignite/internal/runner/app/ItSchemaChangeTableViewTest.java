@@ -111,8 +111,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check column renaming.
      */
     @Test
-    @Disabled
-    // TODO: IGNITE-19499 переименование колонки не поддержано, пока дизкйбл?
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20315")
     void testRenameColumn() throws Exception {
         List<Ignite> grid = startGrid();
 

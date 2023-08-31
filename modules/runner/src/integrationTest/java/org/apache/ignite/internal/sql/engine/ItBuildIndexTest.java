@@ -199,7 +199,7 @@ public class ItBuildIndexTest extends ClusterPerClassIntegrationTest {
         //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the index.
         assertFalse(nullOrEmpty(CLUSTER_NODES));
         assertTrue(waitForCondition(
-                () -> CLUSTER_NODES.stream().map(node -> getIndexConfiguration(node, indexName)).allMatch(Objects::nonNull),
+                () -> CLUSTER_NODES.stream().map(node -> getIndexDescriptor(node, indexName)).allMatch(Objects::nonNull),
                 10_000)
         );
     }
