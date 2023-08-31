@@ -339,14 +339,7 @@ class RelJson {
         map.put("operands", node.getArgList());
         map.put("filter", node.filterArg);
         map.put("name", node.getName());
-        // workaround, will be discussed in dev list
-        //
-        // briefly, after deserialization and object assembly:
-        // RelJsonReader.RelInputImpl.toAggCall
-        // further call to: AggregateCall.create will call
-        // final List<RelDataType> preTypes = RexUtil.types(rexList); <-- empty rexList
-        // type = aggFunction.inferReturnType(callBinding); <-- with empty preTypes which raise exception from:
-        // SqlLiteralAggFunction.inferReturnType
+        // workaround for https://issues.apache.org/jira/browse/CALCITE-5969
         if (node.getAggregation() == SqlLiteralAggFunction.INSTANCE) {
             RexNode boolLiteral = rexBuilder().makeLiteral(true);
             map.put("rexList", toJson(boolLiteral));

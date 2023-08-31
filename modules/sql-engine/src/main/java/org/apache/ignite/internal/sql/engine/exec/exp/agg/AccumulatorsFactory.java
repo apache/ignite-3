@@ -288,6 +288,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
                 return;
             }
 
+            // need to be refactored after https://issues.apache.org/jira/browse/CALCITE-5969
             int params = literalAgg ? 1 : argList.size();
 
             Object[] args = new Object[params];
