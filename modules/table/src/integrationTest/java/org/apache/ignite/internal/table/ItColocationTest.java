@@ -141,7 +141,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 replicaService,
                 new HeapLockManager(),
                 new HybridClockImpl(),
-                new TransactionIdGenerator(0xdeadbeef)
+                new TransactionIdGenerator(0xdeadbeef),
+                clusterNode::id
         ) {
             @Override
             public CompletableFuture<Void> finish(
@@ -191,6 +192,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         }
 
         when(replicaService.invoke(any(ClusterNode.class), any())).thenAnswer(invocation -> {
+            ClusterNode node = invocation.getArgument(0);
             ReplicaRequest request = invocation.getArgument(1);
             var commitPartId = new TablePartitionId(2, 0);
 
@@ -209,6 +211,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                                 )
                             .rowsToUpdate(rows)
                             .txId(UUID.randomUUID())
+                            .txCoordinatorId(node.id())
                             .build());
             } else {
                 assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
@@ -223,6 +226,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                         .rowUuid(UUID.randomUUID())
                         .rowMessage(((ReadWriteSingleRowReplicaRequest) request).binaryRowMessage())
                         .txId(TestTransactionIds.newTransactionId())
+                        .txCoordinatorId(node.id())
                         .build());
             }
         });

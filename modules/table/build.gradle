@@ -85,10 +85,13 @@ dependencies {
     testFixturesImplementation project(':ignite-replicator')
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-catalog')
+    testFixturesImplementation project(':ignite-raft')
+    testFixturesImplementation project(':ignite-affinity')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-storage-api')))
     testFixturesImplementation(testFixtures(project(':ignite-transactions')))
     testFixturesImplementation(testFixtures(project(':ignite-cluster-management')))
+    testFixturesImplementation(testFixtures(project(':ignite-network')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core

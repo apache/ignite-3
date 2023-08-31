@@ -864,4 +864,12 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         return expected == ((CounterListener) fsm0.getListener()).value();
     }
+
+    @Test
+    public void testReadIndex() throws Exception {
+        startCluster();
+        long index = clients.get(0).readIndex().join();
+        clients.get(0).<Long>run(incrementAndGetCommand(1)).get();
+        assertEquals(index + 1, clients.get(0).readIndex().join());
+    }
 }
