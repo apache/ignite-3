@@ -31,9 +31,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
 public class InterceptingActionRequestProcessor extends ActionRequestProcessor {
     private final ActionRequestInterceptor interceptor;
 
-    /**
-     * Constructor.
-     */
+    /** Constructor. */
     public InterceptingActionRequestProcessor(Executor executor, RaftMessagesFactory msgFactory, ActionRequestInterceptor interceptor) {
         super(executor, msgFactory);
 
