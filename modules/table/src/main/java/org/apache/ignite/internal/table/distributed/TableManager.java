@@ -853,14 +853,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     });
                 })));
 
+        // We bring the future outside to avoid OutdatedTokenException.
+        CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(causalityToken);
+
         return assignmentsUpdatedVv.update(causalityToken, (token, e) -> {
             if (e != null) {
                 return failedFuture(e);
             }
 
             return localPartsUpdateFuture.thenCompose(unused ->
-                    tablesByIdVv.get(causalityToken)
-                            .thenComposeAsync(tablesById -> inBusyLock(busyLock, updateAssignmentsClosure), ioExecutor)
+                    tablesByIdFuture.thenComposeAsync(tablesById -> inBusyLock(busyLock, updateAssignmentsClosure), ioExecutor)
             );
         });
     }
@@ -1555,9 +1557,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<Map<Integer, TableImpl>> tablesById(long causalityToken) {
         // We bring the future outside to avoid OutdatedTokenException.
-        CompletableFuture<Map<Integer, TableImpl>> tableByIdFuture = tablesByIdVv.get(causalityToken);
+        CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(causalityToken);
 
-        return assignmentsUpdatedVv.get(causalityToken).thenCompose(v -> tableByIdFuture);
+        return assignmentsUpdatedVv.get(causalityToken).thenCompose(v -> tablesByIdFuture);
     }
 
     /**
@@ -1570,8 +1572,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         } else {
             CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(tablesByIdVv.latestCausalityToken());
 
-            assert tablesByIdFuture.isDone()
-                    : "'tablesByIdVv' is always completed strictly before the 'assignmentsUpdatedVv'";
+            assert tablesByIdFuture.isDone() : "'tablesByIdVv' is always completed strictly before the 'assignmentsUpdatedVv'";
 
             return tablesByIdFuture.join();
         }

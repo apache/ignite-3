@@ -102,7 +102,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
                         IgniteException.class,
                         () -> sql("CREATE TABLE T0(ID0 INT PRIMARY KEY, ID1 INT, ID0 INT)")
                 ).getMessage(),
-                containsString("Can't create table with duplicate columns: ID0, ID1, ID0")
+                containsString("Duplicate columns are present: [ID0]")
         );
     }
 
@@ -139,7 +139,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
                         IgniteException.class,
                         () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID0, VAL)")
                 ).getMessage(),
-                containsString("Colocation columns must be subset of primary key")
+                containsString("Colocation columns missing in primary key columns: [VAL]")
         );
 
         assertThat(
@@ -147,7 +147,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
                         IgniteException.class,
                         () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
                 ).getMessage(),
-                containsString("Colocation columns contains duplicates: [duplicates=[ID1]]]")
+                containsString("Duplicate colocation columns are present: [ID1]")
         );
     }
 
