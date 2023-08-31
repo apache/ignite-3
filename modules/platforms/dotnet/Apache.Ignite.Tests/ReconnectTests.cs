@@ -166,6 +166,7 @@ public class ReconnectTests
         WaitForConnections(client, 10);
     }
 
+    // TODO:  Reuse in other test fixtures
     private static void WaitForConnections(IIgniteClient client, int count) =>
         TestUtils.WaitForCondition(
             condition: () => client.GetConnections().Count == count,
