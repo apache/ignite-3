@@ -268,15 +268,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         RowHandler<RowT> handler = context().rowHandler();
 
-        for (RowT row : rows) {
-            for (int i = 0; i < mapping.length; i++) {
-                if (offset == 0 && i == mapping[i]) {
-                    continue;
-                }
-
-                handler.set(i, row, handler.get(mapping[i] + offset, row));
-            }
-        }
+        rows.replaceAll(row -> handler.map(row, mapping, offset));
     }
 
     /**

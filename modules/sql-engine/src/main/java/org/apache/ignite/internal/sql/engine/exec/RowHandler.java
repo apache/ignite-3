@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,6 +44,16 @@ public interface RowHandler<RowT> {
 
     /** Concatenate two rows. */
     RowT concat(RowT left, RowT right);
+
+    /**
+     * Reassigns field values according to the provided field indexes mapping.
+     *
+     * @param row Row which fields need to be remapped.
+     * @param mapping Field indexes mapping.
+     * @param offset Mapping field indexes offset.
+     * @return a new row with field values reassigned according to the provided mapping.
+     */
+    RowT map(RowT row, int[] mapping, int offset);
 
     /** Return column count contained in the incoming row. */
     int columnCount(RowT row);
@@ -87,5 +98,13 @@ public interface RowHandler<RowT> {
          * @return Instantiation defined representation.
          */
         RowT create(ByteBuffer raw);
+
+        /**
+         * Wraps incoming binary tuple into a row.
+         *
+         * @param tuple {@link InternalTuple} representation.
+         * @return Instantiation defined representation.
+         */
+        RowT wrap(InternalTuple tuple);
     }
 }

@@ -82,4 +82,19 @@ public final class RowSchemaTypes {
             return new BaseTypeSpec(nativeType, nullable);
         }
     }
+
+    /** Returns a {@link NativeType} extracted from the row schema type. */
+    public static NativeType toNativeType(TypeSpec type) {
+        if (type instanceof BaseTypeSpec) {
+            NativeType nativeType = ((BaseTypeSpec) type).nativeType();
+
+            assert nativeType != null : type;
+
+            return nativeType;
+        }
+
+        assert !(type instanceof NullTypeSpec) && !(type instanceof RowType) : type;
+
+        throw new UnsupportedOperationException(type.getClass().getName());
+    }
 }

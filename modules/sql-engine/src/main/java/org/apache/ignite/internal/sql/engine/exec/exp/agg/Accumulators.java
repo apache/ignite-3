@@ -88,11 +88,11 @@ public class Accumulators {
             case "SOME":
                 return minMaxFactory(false, call);
             case "SINGLE_VALUE":
-                return SingleVal.FACTORY;
+                return singleAnyValueFactory(true, call);
+            case "ANY_VALUE":
+                return singleAnyValueFactory(false, call);
             case "LITERAL_AGG":
                 return LiteralVal.FACTORY;
-            case "ANY_VALUE":
-                return AnyVal.FACTORY;
             default:
                 throw new AssertionError(call.getAggregation().getName());
         }
@@ -186,6 +186,16 @@ public class Accumulators {
         }
     }
 
+    private Supplier<Accumulator> singleAnyValueFactory(boolean single, AggregateCall call) {
+        RelDataType type = call.getType();
+
+        if (type.getSqlTypeName() == ANY && !(type instanceof IgniteCustomType)) {
+            throw unsupportedAggregateFunction(call);
+        }
+
+        return single ? SingleVal.newAccumulator(type) : AnyVal.newAccumulator(type);
+    }
+
     /**
      * SingleVal.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -193,7 +203,13 @@ public class Accumulators {
     private static class SingleVal extends AnyVal {
         private boolean touched;
 
-        public static final Supplier<Accumulator> FACTORY = SingleVal::new;
+        private SingleVal(RelDataType type) {
+            super(type);
+        }
+
+        static Supplier<Accumulator> newAccumulator(RelDataType type) {
+            return () -> new SingleVal(type);
+        }
 
         /** {@inheritDoc} */
         @Override
@@ -214,6 +230,10 @@ public class Accumulators {
      */
     private static class LiteralVal extends AnyVal {
         public static final Supplier<Accumulator> FACTORY = LiteralVal::new;
+
+        private LiteralVal() {
+            super(null);
+        }
 
         /** {@inheritDoc} */
         @Override
@@ -242,8 +262,15 @@ public class Accumulators {
     private static class AnyVal implements Accumulator {
         protected Object holder;
 
-        public static final Supplier<Accumulator> FACTORY = AnyVal::new;
+        private final RelDataType type;
 
+        private AnyVal(RelDataType type) {
+            this.type = type;
+        }
+
+        static Supplier<Accumulator> newAccumulator(RelDataType type) {
+            return () -> new AnyVal(type);
+        }
 
         /** {@inheritDoc} */
         @Override
@@ -270,7 +297,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createSqlType(ANY);
+            return type;
         }
     }
 
