@@ -64,6 +64,9 @@ import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -77,6 +80,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.raft.Loza;
@@ -328,6 +332,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                     extConfCh.changeSchemaId(1);
                 }));
 
+        catalogManager.createTable(createTableParams(PRECONFIGURED_TABLE_NAME)).get();
         assertThat(createTableConfigFuture, willCompleteSuccessfully());
 
         assertEquals(1, tableManager.tables().size());
@@ -365,6 +370,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = tblManagerFut.join();
 
         await(tableManager.dropTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME));
+
+        DropTableParams dropTableParams = DropTableParams.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .tableName(DYNAMIC_TABLE_FOR_DROP_NAME)
+                .build();
+
+        await(catalogManager.dropTable(dropTableParams));
 
         verify(mvTableStorage).destroy();
         verify(txStateTableStorage).destroy();
@@ -770,6 +782,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         createZone(PARTITIONS, REPLICAS);
 
+        catalogManager.createTable(createTableParams(tableName)).get();
+
         CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.name(), ZONE_NAME,
                 tblCh -> SchemaConfigurationConverter.convert(tableDefinition, tblCh)
         );
@@ -805,6 +819,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(vaultManager.get(any(ByteArray.class))).thenReturn(completedFuture(null));
         when(vaultManager.put(any(ByteArray.class), any(byte[].class))).thenReturn(completedFuture(null));
 
+        SchemaSyncService schemaSyncService = mock(SchemaSyncService.class);
+        when(schemaSyncService.waitForMetadataCompleteness(any(HybridTimestamp.class))).thenReturn(completedFuture(null));
+
         TableManager tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -829,7 +846,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 vaultManager,
                 cmgMgr,
                 distributionZoneManager,
-                mock(SchemaSyncService.class),
+                schemaSyncService,
                 catalogManager
         ) {
 
@@ -907,5 +924,17 @@ public class TableManagerTest extends IgniteAbstractTest {
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
         ).withPrimaryKey("key").build();
+    }
+
+    private static CreateTableParams createTableParams(String tableName) {
+        return CreateTableParams.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(
+                        ColumnParams.builder().name("key").type(org.apache.ignite.sql.ColumnType.INT64).build(),
+                        ColumnParams.builder().name("val").type(org.apache.ignite.sql.ColumnType.INT64).nullable(true).build()
+                ))
+                .primaryKeyColumns(List.of("key"))
+                .build();
     }
 }

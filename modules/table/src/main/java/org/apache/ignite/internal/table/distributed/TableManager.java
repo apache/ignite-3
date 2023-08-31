@@ -1796,20 +1796,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
-        return schemaSyncService.waitForMetadataCompleteness(clock.now())
-                .thenCompose(ignore -> inBusyLock(busyLock, () -> {
-                    Set<Integer> tableIds = latestTablesById().keySet();
+        HybridTimestamp now = clock.now();
 
-                    var tableFuts = new CompletableFuture[tableIds.size()];
+        return schemaSyncService.waitForMetadataCompleteness(now)
+                .thenCompose(ignore -> inBusyLock(busyLock, () -> {
+                    int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
+
+                    Collection<CatalogTableDescriptor> tableDescriptors = catalogService.tables(catalogVersion);
+
+                    var tableFuts = new CompletableFuture[tableDescriptors.size()];
 
                     var i = 0;
 
-                    for (int id : tableIds) {
-                        tableFuts[i++] = tableReadyFuture(id);
+                    for (CatalogTableDescriptor desc : tableDescriptors) {
+                        // TODO IGNITE-19499: use table id form descriptor.
+                        TableConfiguration tblCfg = tablesCfg.tables().get(desc.name());
+                        tableFuts[i++] = tableReadyFuture(tblCfg.id().value());
                     }
 
                     return allOf(tableFuts).thenApply(unused -> inBusyLock(busyLock, () -> {
-                        var tables = new ArrayList<Table>(tableIds.size());
+                        var tables = new ArrayList<Table>(tableDescriptors.size());
 
                         for (var fut : tableFuts) {
                             var table = fut.join();
