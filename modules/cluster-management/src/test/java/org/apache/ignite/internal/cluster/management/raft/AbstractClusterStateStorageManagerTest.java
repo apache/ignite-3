@@ -119,7 +119,9 @@ public abstract class AbstractClusterStateStorageManagerTest {
 
         storageManager.putClusterState(state);
 
-        assertThat(storageManager.snapshot(workDir), willCompleteSuccessfully());
+        Path snapshotDir = workDir.resolve("snapshot");
+
+        assertThat(storageManager.snapshot(snapshotDir), willCompleteSuccessfully());
 
         IgniteProductVersion igniteVersion = IgniteProductVersion.fromString("3.3.3");
         ClusterTag clusterTag = clusterTag(msgFactory, "new_cluster");
@@ -134,7 +136,7 @@ public abstract class AbstractClusterStateStorageManagerTest {
 
         new ClusterNodeImpl("nonono", "nononono", new NetworkAddress("localhost", 123));
 
-        storageManager.restoreSnapshot(workDir);
+        storageManager.restoreSnapshot(snapshotDir);
 
         assertThat(storageManager.getClusterState(), is(equalTo(state)));
     }

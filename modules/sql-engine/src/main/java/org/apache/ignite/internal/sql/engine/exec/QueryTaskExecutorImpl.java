@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
@@ -54,7 +55,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     public void start() {
         this.stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
                 4,
-                NamedThreadFactory.threadPrefix(nodeName, "sql-execution-pool"),
+                NamedThreadFactory.threadPrefix(nodeName, "sql-execution-pool" + new Random().nextInt()),
                 new LogUncaughtExceptionHandler(LOG),
                 false,
                 0
