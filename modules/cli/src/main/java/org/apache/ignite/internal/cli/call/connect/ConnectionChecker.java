@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STO
 import static org.apache.ignite.lang.util.StringUtils.nullOrBlank;
 
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cli.config.CliConfigKeys;
 import org.apache.ignite.internal.cli.config.ConfigManager;
 import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.JdbcUrlFactory;
@@ -34,11 +33,11 @@ import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.internal.cli.core.rest.ApiClientSettings;
 import org.apache.ignite.internal.cli.core.rest.ApiClientSettingsBuilder;
-import org.apache.ignite.lang.util.StringUtils;
 import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Checks connection to the Ignite3 node. Creates {@link SessionInfo} on success.
@@ -128,7 +127,7 @@ public class ConnectionChecker {
         }
     }
 
-    private void buildSslSettings(SslConfig sslConfig, ApiClientSettingsBuilder settingsBuilder) {
+    private void buildSslSettings(@Nullable SslConfig sslConfig, ApiClientSettingsBuilder settingsBuilder) {
         if (sslConfig != null) {
             settingsBuilder.keyStorePath(sslConfig.keyStorePath())
                     .keyStorePassword(sslConfig.keyStorePassword())
@@ -144,11 +143,7 @@ public class ConnectionChecker {
     }
 
     private void buildSslSettings(ApiClientSettingsBuilder settingsBuilder) {
-        ConfigManager configManager = configManagerProvider.get();
-        settingsBuilder.keyStorePath(configManager.getCurrentProperty(REST_KEY_STORE_PATH.value()))
-                .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
-                .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
-                .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
+        buildSslSettings(null, settingsBuilder);
     }
 
     /**
@@ -160,11 +155,11 @@ public class ConnectionChecker {
     public void saveSettings(ConnectCallInput callInput, SslConfig sslConfig) {
         ConfigManager manager = configManagerProvider.get();
         if (sslConfig != null) {
-            manager.setProperty(CliConfigKeys.REST_TRUST_STORE_PATH.value(), sslConfig.trustStorePath());
-            manager.setProperty(CliConfigKeys.REST_TRUST_STORE_PASSWORD.value(), sslConfig.trustStorePassword());
-            if (!StringUtils.nullOrBlank(sslConfig.keyStorePath())) {
-                manager.setProperty(CliConfigKeys.REST_KEY_STORE_PATH.value(), sslConfig.keyStorePath());
-                manager.setProperty(CliConfigKeys.REST_KEY_STORE_PASSWORD.value(), sslConfig.keyStorePassword());
+            manager.setProperty(REST_TRUST_STORE_PATH.value(), sslConfig.trustStorePath());
+            manager.setProperty(REST_TRUST_STORE_PASSWORD.value(), sslConfig.trustStorePassword());
+            if (!nullOrBlank(sslConfig.keyStorePath())) {
+                manager.setProperty(REST_KEY_STORE_PATH.value(), sslConfig.keyStorePath());
+                manager.setProperty(REST_KEY_STORE_PASSWORD.value(), sslConfig.keyStorePassword());
             }
         }
 
