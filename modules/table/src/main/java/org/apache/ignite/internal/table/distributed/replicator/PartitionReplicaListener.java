@@ -1797,6 +1797,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         null,
                         cmd.safeTime());
 
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
             }
 
@@ -1826,6 +1827,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return v;
                     }),
                     null);
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
         }
 
         return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
@@ -1836,6 +1840,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                         cmd.tablePartitionId().asTablePartitionId(),
                         null,
                         cmd.safeTime());
+
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
             }
 
             return res;
