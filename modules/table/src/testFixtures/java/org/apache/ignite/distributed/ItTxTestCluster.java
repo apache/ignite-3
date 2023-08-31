@@ -477,8 +477,7 @@ public class ItTxTestCluster {
                                                 mvTableStorage,
                                                 mock(IndexBuilder.class),
                                                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
-                                                mock(CatalogService.class),
-                                                tablesConfig
+                                                mock(CatalogService.class)
                                         ),
                                         raftSvc,
                                         storageIndexTracker
