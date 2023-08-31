@@ -40,17 +40,17 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
 
     private final ConnectCall connectCall;
 
-    private final SuccessConnectCall successConnectCall;
+    private final ConnectSuccessCall connectSuccessCall;
 
     private final ConnectionChecker connectionChecker;
 
     /**
      * Constructor.
      */
-    public ConnectWizardCall(ConnectCall connectCall, ConnectionChecker connectionChecker, SuccessConnectCall successConnectCall) {
+    public ConnectWizardCall(ConnectCall connectCall, ConnectionChecker connectionChecker, ConnectSuccessCall connectSuccessCall) {
         this.connectCall = connectCall;
         this.connectionChecker = connectionChecker;
-        this.successConnectCall = successConnectCall;
+        this.connectSuccessCall = connectSuccessCall;
     }
 
     @Override
@@ -84,7 +84,7 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
                 SessionInfo sessionInfo = connectionChecker.checkConnection(input, result.value());
                 connectionChecker.saveSettings(input, result.value());
 
-                return successConnectCall.execute(sessionInfo);
+                return connectSuccessCall.execute(sessionInfo);
             } catch (ApiException exception) {
                 Throwable apiCause = exception.getCause();
 
@@ -114,9 +114,9 @@ public class ConnectWizardCall implements Call<ConnectCallInput, String> {
                     .password(result.value().password())
                     .build();
             try {
-                SessionInfo sessionInfo = connectionChecker.checkConnection(connectCallInput, null);
+                SessionInfo sessionInfo = connectionChecker.checkConnection(connectCallInput);
                 connectionChecker.saveSettings(connectCallInput, null);
-                return successConnectCall.execute(sessionInfo);
+                return connectSuccessCall.execute(sessionInfo);
             } catch (ApiException e) {
                 return DefaultCallOutput.failure(new IgniteCliApiException(e, input.url()));
             }

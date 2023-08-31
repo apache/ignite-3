@@ -33,7 +33,7 @@ import org.apache.ignite.internal.cli.event.Events;
  * Call which store connection info and notify all listeners about successful connection to the Ignite 3 node.
  */
 @Singleton
-public class SuccessConnectCall implements Call<SessionInfo, String> {
+public class ConnectSuccessCall implements Call<SessionInfo, String> {
 
     private final StateConfigProvider stateConfigProvider;
 
@@ -42,7 +42,7 @@ public class SuccessConnectCall implements Call<SessionInfo, String> {
     /**
      * Constructor.
      */
-    public SuccessConnectCall(StateConfigProvider stateConfigProvider, EventPublisher eventPublisher) {
+    public ConnectSuccessCall(StateConfigProvider stateConfigProvider, EventPublisher eventPublisher) {
         this.stateConfigProvider = stateConfigProvider;
         this.eventPublisher = eventPublisher;
     }

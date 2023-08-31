@@ -56,7 +56,7 @@ public class ConnectionChecker {
     }
 
     /**
-     * Check connection to the node. Creates {@link SessionInfo} on success.
+     * Check connection to the node. Creates {@link SessionInfo} on success. Use settings from {@link SslConfig}.
      *
      * @param callInput input parameters
      * @param sslConfig ssl config
@@ -67,6 +67,21 @@ public class ConnectionChecker {
         ApiClientSettingsBuilder settingsBuilder = ApiClientSettings.builder()
                 .basePath(callInput.url());
         buildSslSettings(sslConfig, settingsBuilder);
+        buildAuthSettings(callInput, settingsBuilder);
+        return checkConnection(settingsBuilder.build());
+    }
+
+    /**
+     * Check connection to the node. Creates {@link SessionInfo} on success.
+     *
+     * @param callInput input parameters
+     * @return session info on successful connection.
+     * @throws ApiException if connection can't be established.
+     */
+    public SessionInfo checkConnection(ConnectCallInput callInput) throws ApiException {
+        ApiClientSettingsBuilder settingsBuilder = ApiClientSettings.builder()
+                .basePath(callInput.url());
+        buildSslSettings(settingsBuilder);
         buildAuthSettings(callInput, settingsBuilder);
         return checkConnection(settingsBuilder.build());
     }
@@ -92,14 +107,13 @@ public class ConnectionChecker {
      * Check connection to the node without basic authentication. Creates {@link SessionInfo} on success.
      *
      * @param callInput input parameters
-     * @param sslConfig ssl config
      * @return session info on successful connection.
      * @throws ApiException if connection can't be established.
      */
-    public SessionInfo checkConnectionWithoutAuthentication(ConnectCallInput callInput, SslConfig sslConfig) throws ApiException {
+    public SessionInfo checkConnectionWithoutAuthentication(ConnectCallInput callInput) throws ApiException {
         ApiClientSettingsBuilder settingsBuilder = ApiClientSettings.builder()
                 .basePath(callInput.url());
-        buildSslSettings(sslConfig, settingsBuilder);
+        buildSslSettings(settingsBuilder);
         return checkConnection(settingsBuilder.build());
     }
 
@@ -127,6 +141,14 @@ public class ConnectionChecker {
                     .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
                     .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
         }
+    }
+
+    private void buildSslSettings(ApiClientSettingsBuilder settingsBuilder) {
+        ConfigManager configManager = configManagerProvider.get();
+        settingsBuilder.keyStorePath(configManager.getCurrentProperty(REST_KEY_STORE_PATH.value()))
+                .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
+                .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
+                .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
     }
 
     /**

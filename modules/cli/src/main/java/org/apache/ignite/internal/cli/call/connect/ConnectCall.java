@@ -50,7 +50,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
 
     private final EventPublisher eventPublisher;
 
-    private final SuccessConnectCall successConnectCall;
+    private final ConnectSuccessCall connectSuccessCall;
 
     private final ConnectionChecker connectionChecker;
 
@@ -58,11 +58,11 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
      * Constructor.
      */
     public ConnectCall(Session session, ApiClientFactory clientFactory, EventPublisher eventPublisher,
-            SuccessConnectCall successConnectCall, ConnectionChecker connectionChecker) {
+            ConnectSuccessCall connectSuccessCall, ConnectionChecker connectionChecker) {
         this.session = session;
         this.clientFactory = clientFactory;
         this.eventPublisher = eventPublisher;
-        this.successConnectCall = successConnectCall;
+        this.connectSuccessCall = connectSuccessCall;
         this.connectionChecker = connectionChecker;
     }
 
@@ -79,7 +79,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
             sessionInfo = connectWithoutAuthentication(nodeUrl);
             if (sessionInfo == null) {
                 // Try with authentication
-                sessionInfo =  connectionChecker.checkConnection(input, null);
+                sessionInfo =  connectionChecker.checkConnection(input);
                 if (!nullOrBlank(input.username()) && !nullOrBlank(input.password())) {
                     // Use current credentials as default for api clients
                     ApiClientSettings clientSettings = ApiClientSettings.builder()
@@ -96,7 +96,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
                                 sessionInfo.nodeUrl()));
             }
 
-            return successConnectCall.execute(sessionInfo);
+            return connectSuccessCall.execute(sessionInfo);
         } catch (Exception e) {
             if (session.info() != null) {
                 eventPublisher.publish(Events.disconnect());
@@ -109,7 +109,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
     private SessionInfo connectWithoutAuthentication(String nodeUrl) throws ApiException {
         try {
             ConnectCallInput connectCallInput = ConnectCallInput.builder().url(nodeUrl).build();
-            return connectionChecker.checkConnectionWithoutAuthentication(connectCallInput, null);
+            return connectionChecker.checkConnectionWithoutAuthentication(connectCallInput);
         } catch (ApiException e) {
             if (e.getCause() == null && e.getCode() == HttpStatus.UNAUTHORIZED.getCode()) {
                 return null;
