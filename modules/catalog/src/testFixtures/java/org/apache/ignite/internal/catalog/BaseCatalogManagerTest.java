@@ -32,8 +32,6 @@ import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams.Builder;
 import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
@@ -159,30 +157,20 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         return createSortedIndexParams(indexName, false, indexColumns, columnsCollations);
     }
 
-    protected static CreateTableParams createTableParams(
+    protected CatalogCommand createTableCommand(
             String tableName,
-            @Nullable List<ColumnParams> columns,
-            @Nullable List<String> primaryKeys,
+            List<ColumnParams> columns,
+            List<String> primaryKeys,
             @Nullable List<String> colocationColumns
     ) {
-        Builder builder = CreateTableParams.builder()
+        return manager.createTableCommandBuilder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(DEFAULT_ZONE_NAME)
-                .tableName(tableName);
-
-        if (columns != null) {
-            builder.columns(columns);
-        }
-
-        if (primaryKeys != null) {
-            builder.primaryKeyColumns(primaryKeys);
-        }
-
-        if (colocationColumns != null) {
-            builder.colocationColumns(colocationColumns);
-        }
-
-        return builder.build();
+                .tableName(tableName)
+                .columns(columns)
+                .primaryKeyColumns(primaryKeys)
+                .colocationColumns(colocationColumns)
+                .build();
     }
 
     protected static ColumnParams columnParams(String name, ColumnType type) {
