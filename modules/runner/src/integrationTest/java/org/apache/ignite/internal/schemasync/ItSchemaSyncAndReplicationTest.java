@@ -36,6 +36,7 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
@@ -50,7 +51,7 @@ import org.junit.jupiter.api.Test;
 class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     private static final int NODES_TO_START = 3;
 
-    private static final String TABLE_NAME = "test";
+    private static final String TABLE_NAME = "TEST";
 
     private final LogInspector appendEntriesInterceptorInspector = LogInspector.create(CheckCatalogVersionOnAppendEntries.class, true);
 
@@ -166,7 +167,8 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     }
 
     private static MvPartitionStorage solePartitionStorage(IgniteImpl node) {
-        TableImpl table = (TableImpl) node.tables().table(TABLE_NAME);
+        // We use this api because there is no waiting for schemas to sync.
+        TableImpl table = ((TableManager) node.tables()).getTable(TABLE_NAME);
 
         MvPartitionStorage mvPartitionStorage = table.internalTable().storage().getMvPartition(0);
 
