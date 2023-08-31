@@ -115,6 +115,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -834,7 +835,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 cmgMgr,
                 distributionZoneManager,
                 mock(SchemaSyncService.class),
-                mock(CatalogService.class)
+                mock(CatalogService.class),
+                new HybridTimestampTracker()
         ) {
 
             @Override
