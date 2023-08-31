@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
@@ -362,6 +363,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Versioned value used only at manager startup to correctly fire table creation events. */
     private final IncrementalVersionedValue<Void> startVv;
+
+    /** Ends at the {@link #stop()} with an {@link NodeStoppingException}. */
+    private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
 
     /**
      * Creates a new table manager.
@@ -1018,6 +1022,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return;
         }
 
+        stopManagerFuture.completeExceptionally(new NodeStoppingException());
+
         busyLock.block();
 
         metaStorageMgr.unregisterWatch(pendingAssignmentsRebalanceListener);
@@ -1459,8 +1465,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<List<Table>> tablesAsyncInternalBusy() {
         HybridTimestamp now = clock.now();
 
-        return schemaSyncService
-                .waitForMetadataCompleteness(now)
+        return anyOf(schemaSyncService.waitForMetadataCompleteness(now), stopManagerFuture)
                 .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
                     int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
 
@@ -1549,7 +1554,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @see #assignmentsUpdatedVv
      */
     private CompletableFuture<Map<Integer, TableImpl>> tablesById(long causalityToken) {
-        return assignmentsUpdatedVv.get(causalityToken).thenCompose(v -> tablesByIdVv.get(causalityToken));
+        // We bring the future outside to avoid OutdatedTokenException.
+        CompletableFuture<Map<Integer, TableImpl>> tableByIdFuture = tablesByIdVv.get(causalityToken);
+
+        return assignmentsUpdatedVv.get(causalityToken).thenCompose(v -> tableByIdFuture);
     }
 
     /**
@@ -1621,8 +1629,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
-            return schemaSyncService
-                    .waitForMetadataCompleteness(now)
+            return anyOf(schemaSyncService.waitForMetadataCompleteness(now), stopManagerFuture)
                     .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> tableAsyncInternalBusy(tableId)), ioExecutor);
         });
     }
@@ -1679,8 +1686,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
-            return schemaSyncService
-                    .waitForMetadataCompleteness(now)
+            return anyOf(schemaSyncService.waitForMetadataCompleteness(now), stopManagerFuture)
                     .thenApplyAsync(unused -> inBusyLock(busyLock, () -> catalogService.table(name, now.longValue())), ioExecutor)
                     .thenCompose(tableDescriptor -> inBusyLockAsync(busyLock, () -> {
                         if (tableDescriptor == null) {
@@ -1734,7 +1740,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return completedFuture(tableImpl);
         }
 
-        return getLatestTableFuture.whenComplete((unused, throwable) -> assignmentsUpdatedVv.removeWhenComplete(tablesListener));
+        return anyOf(getLatestTableFuture, stopManagerFuture)
+                .thenComposeAsync(o -> getLatestTableFuture, ioExecutor)
+                .whenComplete((unused, throwable) -> assignmentsUpdatedVv.removeWhenComplete(tablesListener));
     }
 
     /**
