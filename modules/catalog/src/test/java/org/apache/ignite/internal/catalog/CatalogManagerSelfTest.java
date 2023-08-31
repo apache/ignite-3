@@ -47,6 +47,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -1703,6 +1704,68 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 IllegalArgumentException.class,
                 () -> manager.execute(command)
         );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> manager.execute(List.of(
+                        simpleTable("T1"),
+                        simpleTable("T2"),
+                        simpleTable("T3"),
+                        command,
+                        simpleTable("T4")
+                ))
+        );
+    }
+
+    @Test
+    void bulkCommandEitherAppliedAtomicallyOrDoesntAppliedAtAll() {
+        String tableName1 = "TEST1";
+        String tableName2 = "TEST2";
+        String tableName3 = "TEST1"; // intentional name conflict with table1
+
+        List<CatalogCommand> bulkUpdate = List.of(
+                simpleTable(tableName1),
+                simpleTable(tableName2),
+                simpleTable(tableName3)
+        );
+
+        assertThat(manager.table(tableName1, Long.MAX_VALUE), nullValue());
+        assertThat(manager.table(tableName2, Long.MAX_VALUE), nullValue());
+        assertThat(manager.table(tableName3, Long.MAX_VALUE), nullValue());
+
+        assertThat(manager.execute(bulkUpdate), willThrowFast(TableExistsValidationException.class));
+
+        // now let's truncate problematic table and retry
+        assertThat(manager.execute(bulkUpdate.subList(0, bulkUpdate.size() - 1)), willCompleteSuccessfully());
+
+        assertThat(manager.table(tableName1, Long.MAX_VALUE), notNullValue());
+        assertThat(manager.table(tableName2, Long.MAX_VALUE), notNullValue());
+    }
+
+    @Test
+    void bulkUpdateIncrementsVersionByOne() {
+        String tableName1 = "T1";
+        String tableName2 = "T2";
+        String tableName3 = "T3";
+
+        int versionBefore = manager.latestCatalogVersion();
+
+        assertThat(manager.table(tableName1, Long.MAX_VALUE), nullValue());
+        assertThat(manager.table(tableName2, Long.MAX_VALUE), nullValue());
+        assertThat(manager.table(tableName3, Long.MAX_VALUE), nullValue());
+
+        assertThat(
+                manager.execute(List.of(simpleTable(tableName1), simpleTable(tableName2), simpleTable(tableName3))),
+                willCompleteSuccessfully()
+        );
+
+        int versionAfter = manager.latestCatalogVersion();
+
+        assertThat(manager.table(tableName1, Long.MAX_VALUE), notNullValue());
+        assertThat(manager.table(tableName2, Long.MAX_VALUE), notNullValue());
+        assertThat(manager.table(tableName3, Long.MAX_VALUE), notNullValue());
+
+        assertThat(versionAfter - versionBefore, is(1));
     }
 
     private CompletableFuture<Void> changeColumn(
