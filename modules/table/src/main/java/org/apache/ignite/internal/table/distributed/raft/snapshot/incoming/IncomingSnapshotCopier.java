@@ -134,7 +134,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                                     return loadSnapshotMvData(snapshotSender, executor)
                                             .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor));
                                 } else {
-                                    logMetadataIsInsufficiencyAndSetError();
+                                    logMetadataInsufficiencyAndSetError();
 
                                     return completedFuture(null);
                                 }
@@ -253,7 +253,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         return partitionSnapshotStorage.catalogService().latestCatalogVersion() >= snapshotMeta.requiredCatalogVersion();
     }
 
-    private void logMetadataIsInsufficiencyAndSetError() {
+    private void logMetadataInsufficiencyAndSetError() {
         LOG.warn(
                 "Metadata not yet available, URI '{}', required level {}; rejecting snapshot installation.",
                 this.snapshotUri,
