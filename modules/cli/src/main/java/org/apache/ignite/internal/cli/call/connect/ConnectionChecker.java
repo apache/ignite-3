@@ -37,7 +37,6 @@ import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.api.NodeManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Checks connection to the Ignite3 node. Creates {@link SessionInfo} on success.
@@ -80,7 +79,7 @@ public class ConnectionChecker {
     public SessionInfo checkConnection(ConnectCallInput callInput) throws ApiException {
         ApiClientSettingsBuilder settingsBuilder = ApiClientSettings.builder()
                 .basePath(callInput.url());
-        buildSslSettings(settingsBuilder);
+        buildSslSettingsFromConfig(settingsBuilder);
         buildAuthSettings(callInput, settingsBuilder);
         return checkConnection(settingsBuilder.build());
     }
@@ -112,7 +111,7 @@ public class ConnectionChecker {
     public SessionInfo checkConnectionWithoutAuthentication(ConnectCallInput callInput) throws ApiException {
         ApiClientSettingsBuilder settingsBuilder = ApiClientSettings.builder()
                 .basePath(callInput.url());
-        buildSslSettings(settingsBuilder);
+        buildSslSettingsFromConfig(settingsBuilder);
         return checkConnection(settingsBuilder.build());
     }
 
@@ -127,23 +126,23 @@ public class ConnectionChecker {
         }
     }
 
-    private void buildSslSettings(@Nullable SslConfig sslConfig, ApiClientSettingsBuilder settingsBuilder) {
+    private void buildSslSettings(SslConfig sslConfig, ApiClientSettingsBuilder settingsBuilder) {
         if (sslConfig != null) {
             settingsBuilder.keyStorePath(sslConfig.keyStorePath())
                     .keyStorePassword(sslConfig.keyStorePassword())
                     .trustStorePath(sslConfig.trustStorePath())
                     .trustStorePassword(sslConfig.trustStorePassword());
         } else {
-            ConfigManager configManager = configManagerProvider.get();
-            settingsBuilder.keyStorePath(configManager.getCurrentProperty(REST_KEY_STORE_PATH.value()))
-                    .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
-                    .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
-                    .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
+            buildSslSettingsFromConfig(settingsBuilder);
         }
     }
 
-    private void buildSslSettings(ApiClientSettingsBuilder settingsBuilder) {
-        buildSslSettings(null, settingsBuilder);
+    private void buildSslSettingsFromConfig(ApiClientSettingsBuilder settingsBuilder) {
+        ConfigManager configManager = configManagerProvider.get();
+        settingsBuilder.keyStorePath(configManager.getCurrentProperty(REST_KEY_STORE_PATH.value()))
+                .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
+                .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
+                .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
     }
 
     /**

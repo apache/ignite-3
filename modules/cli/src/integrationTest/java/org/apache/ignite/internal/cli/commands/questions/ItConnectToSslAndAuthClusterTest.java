@@ -159,7 +159,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     }
 
     @Test
-    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url then ask for auth")
+    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url then ask for auth, type wrong name")
     void connectOnStartAskSslAfterAskAuthWrongName() throws IOException {
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -282,7 +282,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
     }
 
     @Test
-    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url then ask for auth")
+    @DisplayName("Should ask for SSL configuration connect to last connected cluster HTTPS url then ask for auth on plain connect command")
     void connectWithoutCredentialsFailAskSslAfterAskAuth() throws IOException {
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
