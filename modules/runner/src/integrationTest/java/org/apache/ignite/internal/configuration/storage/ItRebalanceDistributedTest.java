@@ -122,13 +122,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.CatalogSchemaManager;
-import org.apache.ignite.internal.schema.configuration.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.index.HashIndexConfigurationSchema;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
@@ -712,18 +706,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of(
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
-                            TablesConfiguration.KEY,
                             GcConfiguration.KEY
                     ),
-                    List.of(ExtendedTableConfigurationSchema.class),
+                    List.of(),
                     List.of(
                             VolatilePageMemoryDataStorageConfigurationSchema.class,
                             UnsafeMemoryAllocatorConfigurationSchema.class,
                             PersistentPageMemoryDataStorageConfigurationSchema.class,
-                            HashIndexConfigurationSchema.class,
-                            ConstantValueDefaultConfigurationSchema.class,
-                            FunctionCallDefaultConfigurationSchema.class,
-                            NullValueDefaultConfigurationSchema.class,
                             TestDataStorageConfigurationSchema.class
                     )
             );
@@ -731,7 +720,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of(
                             PersistentPageMemoryStorageEngineConfiguration.KEY,
                             VolatilePageMemoryStorageEngineConfiguration.KEY,
-                            TablesConfiguration.KEY,
                             GcConfiguration.KEY
                     ),
                     cfgStorage,
@@ -743,8 +731,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             Consumer<LongFunction<CompletableFuture<?>>> registry = (LongFunction<CompletableFuture<?>> function) ->
                     metaStorageManager.registerRevisionUpdateListener(function::apply);
-
-            TablesConfiguration tablesCfg = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
 
             GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
@@ -796,7 +782,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             tableManager = new TableManager(
                     name,
                     registry,
-                    tablesCfg,
                     gcConfig,
                     clusterService,
                     raftManager,

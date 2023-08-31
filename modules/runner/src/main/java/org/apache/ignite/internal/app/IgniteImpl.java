@@ -116,7 +116,6 @@ import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
@@ -449,8 +448,6 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-        TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
-
         distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,
                 new HoconPresentation(clusterCfgMgr.configurationRegistry())
@@ -534,7 +531,6 @@ public class IgniteImpl implements Ignite {
         distributedTblMgr = new TableManager(
                 name,
                 registry,
-                tablesConfig,
                 gcConfig,
                 clusterSvc,
                 raftMgr,

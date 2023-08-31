@@ -53,7 +53,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
@@ -527,16 +526,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
         return partitionIdToNodes;
     }
-
-    /**
-     * Returns tables configuration.
-     *
-     * @param node Node.
-     */
-    public static TablesConfiguration getTablesConfiguration(Ignite node) {
-        return ((IgniteImpl) node).clusterConfiguration().getConfiguration(TablesConfiguration.KEY);
-    }
-
 
     /**
      * Returns internal  {@code SqlQueryProcessor} for first cluster node.

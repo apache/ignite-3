@@ -20,16 +20,12 @@ package org.apache.ignite.internal.schema.configuration;
 import static com.github.npathai.hamcrestopt.OptionalMatchers.isPresent;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Optional;
 import java.util.ServiceLoader;
 import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.ConstantValueDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.FunctionCallDefaultConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.defaultvalue.NullValueDefaultConfigurationSchema;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -45,24 +41,22 @@ class SchemaDistributedConfigurationModuleTest {
 
     @Test
     void providesTableValidator() {
-        assertThat(module.validators(), hasItem(instanceOf(TableValidatorImpl.class)));
+        assertThat(module.validators(), empty());
     }
 
     @Test
     void providesColumnTypeValidator() {
-        assertThat(module.validators(), hasItem(instanceOf(ColumnTypeValidatorImpl.class)));
+        assertThat(module.validators(), empty());
     }
 
     @Test
     void providesInternalSchemaExtensions() {
-        assertThat(module.schemaExtensions(), hasItem(ExtendedTableConfigurationSchema.class));
+        assertThat(module.schemaExtensions(), empty());
     }
 
     @Test
     void providesNoPolymorphicSchemaExtensions() {
-        assertThat(module.polymorphicSchemaExtensions(), hasItem(ConstantValueDefaultConfigurationSchema.class));
-        assertThat(module.polymorphicSchemaExtensions(), hasItem(FunctionCallDefaultConfigurationSchema.class));
-        assertThat(module.polymorphicSchemaExtensions(), hasItem(NullValueDefaultConfigurationSchema.class));
+        assertThat(module.polymorphicSchemaExtensions(), empty());
     }
 
     @Test

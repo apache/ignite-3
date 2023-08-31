@@ -90,7 +90,6 @@ import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -193,10 +192,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Revision updater. */
     private Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater;
-
-    /** Tables configuration. */
-    @InjectConfiguration
-    private TablesConfiguration tblsCfg;
 
     /** Garbage collector configuration. */
     @InjectConfiguration
@@ -715,7 +710,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
-                tblsCfg,
                 gcConfig,
                 clusterService,
                 rm,
