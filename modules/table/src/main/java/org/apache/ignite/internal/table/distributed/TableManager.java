@@ -2080,10 +2080,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         if (e != null) {
                             getTblFut.completeExceptionally(e);
                         } else {
-                            TableImpl table0 = tables.get(id);
+                            TableImpl table = tables.get(id);
 
-                            if (table0 != null) {
-                                getTblFut.complete(table0);
+                            if (table != null) {
+                                getTblFut.complete(table);
                             }
                         }
                     });

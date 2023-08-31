@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,11 +36,13 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BooleanSupplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -167,9 +170,11 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         table = (TableImpl) ignite2.tables().table(TABLE_NAME);
 
         TableImpl table0 = table;
-        assertTrue(waitForCondition(() -> table0.schemaView().schema().version() == 2, 5_000));
+        assertTrue(waitForCondition(tableSchemaVersionEqPredicate(table0, 2), 5_000));
 
-        table = (TableImpl) ignite1.tables().table(TABLE_NAME);
+        table = ((TableManager) ignite1.tables()).getTable(table.tableId());
+
+        assertFalse(waitForCondition(tableSchemaVersionEqPredicate(table, 2), 5_000));
 
         assertEquals(1, table.schemaView().schema().version());
 
@@ -188,8 +193,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         table = (TableImpl) ignite1.tables().table(TABLE_NAME);
 
-        TableImpl table1 = table;
-        assertTrue(waitForCondition(() -> table1.schemaView().schema().version() == 2, 5_000));
+        assertTrue(waitForCondition(tableSchemaVersionEqPredicate(table, 2), 5_000));
     }
 
     /**
@@ -362,5 +366,9 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
             rs = session.execute(null, query, args);
         }
         return rs;
+    }
+
+    private static BooleanSupplier tableSchemaVersionEqPredicate(TableImpl table0, int version) {
+        return () -> table0.schemaView().schema().version() == version;
     }
 }
