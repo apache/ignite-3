@@ -70,7 +70,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -458,16 +457,11 @@ public class PlatformTestNodeRunner {
     private static void createTwoColumnTable(IgniteImpl ignite, ColumnParams keyColumnParams, ColumnParams valueColumnParams) {
         assertEquals(keyColumnParams.type(), valueColumnParams.type());
 
-        // TODO: IGNITE-19499 We need to use only the column type used in the catalog
-        String tableNamePostfix = keyColumnParams.type() == BYTE_ARRAY
-                ? ColumnType.blob().typeSpec().name()
-                : keyColumnParams.type().name();
-
         createTable(
                 ignite.catalogManager(),
                 DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
-                ("tbl_" + tableNamePostfix).toUpperCase(),
+                ("tbl_" + keyColumnParams.type().name()).toUpperCase(),
                 List.of(keyColumnParams, valueColumnParams),
                 List.of(keyColumnParams.name())
         );
