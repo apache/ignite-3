@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
+import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -89,9 +90,9 @@ public class CreateTableCommand extends AbstractCatalogCommand {
     ) throws CatalogValidationException {
         this.tableName = tableName;
         this.schemaName = schemaName;
-        this.primaryKeyColumns = List.copyOf(primaryKeyColumns);
-        this.colocationColumns = List.copyOf(colocationColumns);
-        this.columns = List.copyOf(columns);
+        this.primaryKeyColumns = copyOrNull(primaryKeyColumns);
+        this.colocationColumns = copyOrNull(colocationColumns);
+        this.columns = copyOrNull(columns);
         this.zoneName = zoneName;
 
         validate();
