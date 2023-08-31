@@ -109,7 +109,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
     private SessionInfo connectWithoutAuthentication(String nodeUrl) throws ApiException {
         try {
             ConnectCallInput connectCallInput = ConnectCallInput.builder().url(nodeUrl).build();
-            return connectionChecker.checkConnection(connectCallInput, null);
+            return connectionChecker.checkConnectionWithoutAuthentication(connectCallInput, null);
         } catch (ApiException e) {
             if (e.getCause() == null && e.getCode() == HttpStatus.UNAUTHORIZED.getCode()) {
                 return null;

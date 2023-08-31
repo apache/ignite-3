@@ -66,7 +66,55 @@ public class ConnectionChecker {
     public SessionInfo checkConnection(ConnectCallInput callInput, SslConfig sslConfig) throws ApiException {
         ApiClientSettingsBuilder settingsBuilder = ApiClientSettings.builder()
                 .basePath(callInput.url());
+        buildSslSettings(sslConfig, settingsBuilder);
+        buildAuthSettings(callInput, settingsBuilder);
+        return checkConnection(settingsBuilder.build());
+    }
 
+    /**
+     * Check connection to the node. Creates {@link SessionInfo} on success.
+     *
+     * @param apiClientSettings input parameters
+     * @return session info on successful connection.
+     * @throws ApiException if connection can't be established.
+     */
+    private SessionInfo checkConnection(ApiClientSettings apiClientSettings) throws ApiException {
+        ApiClient apiClient = ApiClientFactory.buildClient(apiClientSettings);
+
+        String configuration = new NodeConfigurationApi(apiClient).getNodeConfiguration();
+        String nodeName = new NodeManagementApi(apiClient).nodeState().getName();
+        String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(configuration, apiClientSettings.basePath());
+        return SessionInfo.builder().nodeUrl(apiClientSettings.basePath())
+                .nodeName(nodeName).jdbcUrl(jdbcUrl).username(apiClientSettings.basicAuthenticationUsername()).build();
+    }
+
+    /**
+     * Check connection to the node without basic authentication. Creates {@link SessionInfo} on success.
+     *
+     * @param callInput input parameters
+     * @param sslConfig ssl config
+     * @return session info on successful connection.
+     * @throws ApiException if connection can't be established.
+     */
+    public SessionInfo checkConnectionWithoutAuthentication(ConnectCallInput callInput, SslConfig sslConfig) throws ApiException {
+        ApiClientSettingsBuilder settingsBuilder = ApiClientSettings.builder()
+                .basePath(callInput.url());
+        buildSslSettings(sslConfig, settingsBuilder);
+        return checkConnection(settingsBuilder.build());
+    }
+
+    private void buildAuthSettings(ConnectCallInput callInput, ApiClientSettingsBuilder settingsBuilder) {
+        if (!nullOrBlank(callInput.username()) && !nullOrBlank(callInput.password())) {
+            settingsBuilder.basicAuthenticationUsername(callInput.username());
+            settingsBuilder.basicAuthenticationPassword(callInput.password());
+        } else {
+            ConfigManager configManager = configManagerProvider.get();
+            settingsBuilder.basicAuthenticationUsername(configManager.getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value()))
+                    .basicAuthenticationPassword(configManager.getCurrentProperty(BASIC_AUTHENTICATION_PASSWORD.value()));
+        }
+    }
+
+    private void buildSslSettings(SslConfig sslConfig, ApiClientSettingsBuilder settingsBuilder) {
         if (sslConfig != null) {
             settingsBuilder.keyStorePath(sslConfig.keyStorePath())
                     .keyStorePassword(sslConfig.keyStorePassword())
@@ -79,18 +127,6 @@ public class ConnectionChecker {
                     .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
                     .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
         }
-
-        if (!nullOrBlank(callInput.username()) && !nullOrBlank(callInput.password())) {
-            settingsBuilder.basicAuthenticationUsername(callInput.username());
-            settingsBuilder.basicAuthenticationPassword(callInput.password());
-
-        }
-        ApiClient apiClient = ApiClientFactory.buildClient(settingsBuilder.build());
-
-        String configuration = new NodeConfigurationApi(apiClient).getNodeConfiguration();
-        String nodeName = new NodeManagementApi(apiClient).nodeState().getName();
-        String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(configuration, callInput.url());
-        return SessionInfo.builder().nodeUrl(callInput.url()).nodeName(nodeName).jdbcUrl(jdbcUrl).username(callInput.username()).build();
     }
 
     /**
