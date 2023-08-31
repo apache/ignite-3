@@ -34,8 +34,8 @@ import static org.apache.ignite.internal.marshaller.BinaryMode.STRING;
 import static org.apache.ignite.internal.marshaller.BinaryMode.TIME;
 import static org.apache.ignite.internal.marshaller.BinaryMode.TIMESTAMP;
 import static org.apache.ignite.internal.marshaller.BinaryMode.UUID;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -215,11 +215,11 @@ public class FieldAccessorTest extends BaseIgniteAbstractTest {
 
         assertEquals("Some string", accessor.value("Some string"));
 
-        final Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
+        Pair<MarshallerWriter, MarshallerReader> mocks = createMocks();
 
-        assertThrows(
-                MarshallerException.class,
+        assertThrowsWithCause(
                 () -> accessor.write(mocks.getFirst(), "Other string"),
+                MarshallerException.class,
                 "Failed to write field [id=42]"
         );
     }

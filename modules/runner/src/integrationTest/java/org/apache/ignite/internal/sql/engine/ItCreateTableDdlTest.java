@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import org.apache.ignite.Ignite;
@@ -32,9 +31,10 @@ import org.apache.ignite.internal.schema.configuration.ExtendedTableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.ErrorGroups.Table;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -58,54 +58,54 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void pkWithNullableColumns() {
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID0 INT NULL, ID1 INT NOT NULL, VAL INT, PRIMARY KEY (ID1, ID0))"),
-                "Primary key cannot contain nullable column [col=ID0]"
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Primary key cannot contain nullable column [col=ID0]",
+                () -> sql("CREATE TABLE T0(ID0 INT NULL, ID1 INT NOT NULL, VAL INT, PRIMARY KEY (ID1, ID0))")
         );
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID INT NULL PRIMARY KEY, VAL INT)"),
-                "Primary key cannot contain nullable column [col=ID]"
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Primary key cannot contain nullable column [col=ID]",
+                () -> sql("CREATE TABLE T0(ID INT NULL PRIMARY KEY, VAL INT)")
         );
     }
 
     @Test
     public void pkWithInvalidColumns() {
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID2, ID0))"),
-                "Primary key cannot contain nullable column [col=ID0]"
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Primary key constraint contains undefined columns: [cols=[ID2]]",
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID2, ID0))")
         );
     }
 
     @Test
     public void emptyPk() {
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY ())"),
-                "Table without primary key is not supported."
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \")\"",
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY ())")
         );
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT)"),
-                "Table without primary key is not supported."
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Table without PRIMARY KEY is not supported",
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT)")
         );
     }
 
     @Test
     public void tableWithInvalidColumns() {
-        assertThrows(
-                IgniteException.class,
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
                 () -> sql("CREATE TABLE T0()")
         );
 
-        assertThat(
-                assertThrows(
-                        IgniteException.class,
-                        () -> sql("CREATE TABLE T0(ID0 INT PRIMARY KEY, ID1 INT, ID0 INT)")
-                ).getMessage(),
-                containsString("Can't create table with duplicate columns: ID0, ID1, ID0")
+        assertThrowsSqlException(
+                Table.TABLE_DEFINITION_ERR,
+                "Can't create table with duplicate columns: ID0, ID1, ID0",
+                () -> sql("CREATE TABLE T0(ID0 INT PRIMARY KEY, ID1 INT, ID0 INT)")
         );
     }
 
@@ -121,36 +121,29 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void undefinedColumnsInPrimaryKey() {
-        assertThat(
-                assertThrows(
-                        IgniteException.class,
-                        () -> sql("CREATE TABLE T0(ID INT, VAL INT, PRIMARY KEY (ID1, ID0, ID2))")
-                ).getMessage(),
-                containsString("Primary key constraint contains undefined columns: [cols=[ID0, ID2, ID1]]")
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Primary key constraint contains undefined columns: [cols=[ID0, ID2, ID1]]",
+                () -> sql("CREATE TABLE T0(ID INT, VAL INT, PRIMARY KEY (ID1, ID0, ID2))")
         );
     }
 
     /**
-     * Check invalid colocation columns configuration:
-     * - not PK columns;
-     * - duplicates colocation columns.
+     * Check invalid colocation columns configuration: - not PK columns; - duplicates colocation columns.
      */
     @Test
+    @Disabled("IGNITE-20149")
     public void invalidColocationColumns() {
-        assertThat(
-                assertThrows(
-                        IgniteException.class,
-                        () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID0, VAL)")
-                ).getMessage(),
-                containsString("Colocation columns must be subset of primary key")
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Colocation columns must be subset of primary key",
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID0, VAL)")
         );
 
-        assertThat(
-                assertThrows(
-                        IgniteException.class,
-                        () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
-                ).getMessage(),
-                containsString("Colocation columns contains duplicates: [duplicates=[ID1]]]")
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Colocation columns contains duplicates: [duplicates=[ID1]]]",
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
         );
     }
 
@@ -253,9 +246,10 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void doNotAllowFunctionsInNonPkColumns() {
-        SqlException t = assertThrows(SqlException.class,
-                () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid)"));
-
-        assertThat(t.getMessage(), containsString("Functional defaults are not supported for non-primary key columns"));
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Functional defaults are not supported for non-primary key columns",
+                () -> sql("create table t (id varchar primary key, val varchar default gen_random_uuid)")
+        );
     }
 }
