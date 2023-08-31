@@ -1796,6 +1796,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                         cmd.row(),
                         null,
                         cmd.safeTime());
+
+                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
             }
 
             return res;
