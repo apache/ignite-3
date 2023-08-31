@@ -469,7 +469,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         replicatorLogInspector.addHandler(
                 evt -> evt.getMessage().getFormattedMessage().matches(
-                        "Node .+ received InstallSnapshotResponse from .+_" + nodeIndex + " .+ success=true"),
+                        "Node \\S+ received InstallSnapshotResponse from \\S+_" + nodeIndex + " .+ success=true"),
                 snapshotInstalledLatch::countDown
         );
 
@@ -757,7 +757,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             int nodeIndexTo,
             CompletableFuture<Void> snapshotInstallSuccessfullyFuture
     ) {
-        String regexp = "Node .+" + nodeIndexFrom + " received InstallSnapshotResponse from .+_" + nodeIndexTo + " .+ success=true";
+        String regexp = "Node \\S+" + nodeIndexFrom + " received InstallSnapshotResponse from \\S+_" + nodeIndexTo + " .+ success=true";
 
         replicatorLogInspector.addHandler(
                 evt -> evt.getMessage().getFormattedMessage().matches(regexp),
