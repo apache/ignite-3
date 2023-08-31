@@ -364,7 +364,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
 
         // TODO: Cache marshaller for schema version or upgrade row?
 
-        return this.marsh = marshallerFactory.apply(schemaReg.schema(schemaVersion));
+        SchemaRegistry registry = rowConverter.registry();
+        return this.marsh = marshallerFactory.apply(registry.schema(schemaVersion));
     }
 
     /**
@@ -373,7 +374,8 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Marshaller.
      */
     private KvMarshaller<K, V> marshaller() {
-        return marshaller(schemaReg.lastSchemaVersion());
+        SchemaRegistry registry = rowConverter.registry();
+        return marshaller(registry.lastSchemaVersion());
     }
 
     /**
@@ -477,7 +479,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         List<K> keys = new ArrayList<>(rows.size());
 
         try {
-            for (Row row : schemaReg.resolveKeys(rows)) {
+            for (Row row : rowConverter.resolveKeys(rows)) {
                 if (row != null) {
                     keys.add(marsh.unmarshalKey(row));
                 }
@@ -500,7 +502,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
             return null;
         }
 
-        Row row = schemaReg.resolve(binaryRow);
+        Row row = rowConverter.resolveRow(binaryRow);
 
         KvMarshaller<K, V> marshaller = marshaller(row.schemaVersion());
 
@@ -527,7 +529,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         Map<K, V> pairs = IgniteUtils.newHashMap(rows.size());
 
         try {
-            for (Row row : schemaReg.resolve(rows)) {
+            for (Row row : rowConverter.resolveRows(rows)) {
                 if (row != null) {
                     pairs.put(marsh.unmarshalKey(row), marsh.unmarshalValue(row));
                 }
@@ -566,7 +568,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        var partitioner = new KeyValuePojoStreamerPartitionAwarenessProvider<>(schemaReg, tbl.partitions(), marshaller());
+        var partitioner = new KeyValuePojoStreamerPartitionAwarenessProvider<>(rowConverter.registry(), tbl.partitions(), marshaller());
         StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshalPairs(items), partitionId);
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);

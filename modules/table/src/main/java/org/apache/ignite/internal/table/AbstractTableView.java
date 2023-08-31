@@ -20,7 +20,9 @@ package org.apache.ignite.internal.table;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -31,7 +33,7 @@ abstract class AbstractTableView {
     protected final InternalTable tbl;
 
     /** Schema registry. */
-    protected final SchemaRegistry schemaReg;
+    protected final TableViewRowConverter rowConverter;
 
     /**
      * Constructor.
@@ -41,7 +43,7 @@ abstract class AbstractTableView {
      */
     protected AbstractTableView(InternalTable tbl, SchemaRegistry schemaReg) {
         this.tbl = tbl;
-        this.schemaReg = schemaReg;
+        this.rowConverter = new TableViewRowConverter(schemaReg);
     }
 
     /**
@@ -68,15 +70,16 @@ abstract class AbstractTableView {
     /**
      * Converts an internal exception to a public one.
      *
-     * @param th Internal exception.
+     * @param t Internal exception.
      * @return Public exception.
      */
-    protected IgniteException convertException(Throwable th) {
-        if (th instanceof IgniteException) {
-            return (IgniteException) th;
+    protected IgniteException convertException(Throwable t) {
+        if (t instanceof IgniteException) {
+            return (IgniteException) t;
+        } else if (t instanceof IgniteInternalException || t instanceof IgniteInternalCheckedException) {
+            return new IgniteException(Common.INTERNAL_ERR, t);
+        } else {
+            return new IgniteException(Common.INTERNAL_ERR, t);
         }
-
-        //TODO: IGNITE-20181 KV/Binary view public API should only throw public exceptions for the end user.
-        return new IgniteException(th);
     }
 }

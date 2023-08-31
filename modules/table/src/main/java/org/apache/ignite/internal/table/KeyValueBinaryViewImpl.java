@@ -36,6 +36,7 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
@@ -400,7 +401,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         try {
             return marsh.marshal(key, val);
         } catch (TupleMarshallerException ex) {
-            throw convertException(ex);
+            throw new MarshallerException(ex);
         }
     }
 
@@ -415,7 +416,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
             return null;
         }
 
-        return TableRow.valueTuple(schemaReg.resolve(row));
+        return TableRow.valueTuple(rowConverter.resolveRow(row));
     }
 
     /**
@@ -427,7 +428,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     private Map<Tuple, Tuple> unmarshalValue(Collection<BinaryRow> rows) {
         Map<Tuple, Tuple> pairs = IgniteUtils.newHashMap(rows.size());
 
-        for (Row row : schemaReg.resolve(rows)) {
+        for (Row row : rowConverter.resolveRows(rows)) {
             if (row != null) {
                 pairs.put(TableRow.keyTuple(row), TableRow.valueTuple(row));
             }
@@ -468,7 +469,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         List<Tuple> tuples = new ArrayList<>(rows.size());
 
-        for (Row row : schemaReg.resolveKeys(rows)) {
+        for (Row row : rowConverter.resolveKeys(rows)) {
             tuples.add(TableRow.keyTuple(row));
         }
 
@@ -480,7 +481,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(schemaReg, tbl.partitions());
+        var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender =
                 (partitionId, items) -> tbl.upsertAll(marshalPairs(items), partitionId);
 

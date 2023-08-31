@@ -289,7 +289,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
         // TODO: Cache marshaller for schema version or upgrade row?
 
-        return this.marsh = marshallerFactory.apply(schemaReg.schema(schemaVersion));
+        SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
+        return this.marsh = marshallerFactory.apply(schema);
     }
 
     /**
@@ -298,6 +299,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @return Marshaller.
      */
     private RecordMarshaller<R> marshaller() {
+        SchemaRegistry schemaReg = rowConverter.registry();
         return marshaller(schemaReg.lastSchemaVersion());
     }
 
@@ -392,7 +394,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
             return null;
         }
 
-        Row row = schemaReg.resolve(binaryRow);
+        Row row = rowConverter.resolveRow(binaryRow);
 
         RecordMarshaller<R> marshaller = marshaller(row.schemaVersion());
 
@@ -420,7 +422,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
         var recs = new ArrayList<R>(rows.size());
 
         try {
-            for (Row row : schemaReg.resolve(rows)) {
+            for (Row row : rowConverter.resolveRows(rows)) {
                 if (row != null) {
                     recs.add(marsh.unmarshal(row));
                 } else if (addNull) {
@@ -439,7 +441,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        var partitioner = new PojoStreamerPartitionAwarenessProvider<>(schemaReg, tbl.partitions(), marshaller());
+        var partitioner = new PojoStreamerPartitionAwarenessProvider<>(rowConverter.registry(), tbl.partitions(), marshaller());
         StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(marshal(items), partitionId);
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);

@@ -33,6 +33,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -304,7 +305,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
                 return marsh.marshal(tuple);
             }
         } catch (TupleMarshallerException ex) {
-            throw convertException(ex);
+            throw new MarshallerException(ex);
         }
     }
 
@@ -314,7 +315,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      * @param row Binary row.
      */
     private @Nullable Tuple wrap(@Nullable BinaryRow row) {
-        return row == null ? null : TableRow.tuple(schemaReg.resolve(row));
+        return row == null ? null : TableRow.tuple(rowConverter.resolveRow(row));
     }
 
     /**
@@ -330,7 +331,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
         var wrapped = new ArrayList<Tuple>(rows.size());
 
-        for (Row row : schemaReg.resolve(rows)) {
+        for (Row row : rowConverter.resolveRows(rows)) {
             if (row != null) {
                 wrapped.add(TableRow.tuple(row));
             } else if (addNull) {
@@ -348,7 +349,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
         var wrapped = new ArrayList<Tuple>(rows.size());
 
-        for (Row row : schemaReg.resolveKeys(rows)) {
+        for (Row row : rowConverter.resolveKeys(rows)) {
             if (row != null) {
                 wrapped.add(TableRow.tuple(row));
             }
@@ -379,7 +380,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        var partitioner = new TupleStreamerPartitionAwarenessProvider(schemaReg, tbl.partitions());
+        var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) -> tbl.upsertAll(mapToBinary(items, false), partitionId);
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
