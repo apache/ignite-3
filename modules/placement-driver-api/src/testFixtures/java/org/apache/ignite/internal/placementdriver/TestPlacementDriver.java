@@ -22,6 +22,10 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.jetbrains.annotations.TestOnly;
 
+/**
+ * Test placement driver service that immediately returns unbounded primary replica from both await and get methods for the specified
+ * leaseholder.
+ */
 @TestOnly
 public class TestPlacementDriver implements PlacementDriver {
 
