@@ -255,7 +255,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private void logMetadataInsufficiencyAndSetError() {
         LOG.warn(
-                "Metadata not yet available, URI '{}', required level {}; rejecting snapshot installation.",
+                "Metadata not yet available, rejecting snapshot installation [uri={}, requiredVersion={}].",
                 this.snapshotUri,
                 snapshotMeta.requiredCatalogVersion()
         );

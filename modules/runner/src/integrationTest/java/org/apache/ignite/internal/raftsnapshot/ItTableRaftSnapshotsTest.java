@@ -829,7 +829,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
 
         // Prepare the scene: force node 0 to be a leader, and node 2 to be a follower.
-
         final int leaderIndex = 0;
         final int followerIndex = 2;
 
@@ -898,7 +897,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         CountDownLatch installationRejected = new CountDownLatch(1);
 
         copierLogInspector.addHandler(
-                event -> event.getMessage().getFormattedMessage().startsWith("Metadata not yet available, URI '"),
+                event -> event.getMessage().getFormattedMessage().startsWith("Metadata not yet available, rejecting snapshot installation"),
                 installationRejected::countDown
         );
 
