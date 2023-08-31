@@ -453,6 +453,7 @@ public final class Commons {
      * Creates mapping to trim the fields.
      *
      * <p>To find a new index of element after trimming call {@code mapping.getTargetOpt(index)}.
+     *
      * <p>To find an old index of element before trimming call {@code mapping.getSourceOpt(index)}.
      *
      * <p>This mapping can be used to adjust traits or aggregations, for example, when several fields have been truncated.
