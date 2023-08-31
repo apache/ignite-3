@@ -312,8 +312,8 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("TIME2").type(TIME).precision(2).nullable(true).build(),
                         ColumnParams.builder().name("DATETIME").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
                         ColumnParams.builder().name("DATETIME2").type(DATETIME).precision(3).nullable(true).build(),
-                        ColumnParams.builder().name("TIMESTAMP").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
-                        ColumnParams.builder().name("TIMESTAMP2").type(DATETIME).precision(4).nullable(true).build(),
+                        ColumnParams.builder().name("TIMESTAMP").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
+                        ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(4).nullable(true).build(),
                         ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).nullable(true).build(),
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
                         ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
