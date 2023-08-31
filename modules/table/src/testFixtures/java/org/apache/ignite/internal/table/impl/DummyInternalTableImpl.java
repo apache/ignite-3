@@ -85,6 +85,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -288,7 +289,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
 
-        safeTime = mock(PendingComparableValuesTracker.class);
+        safeTime = new PendingIndependentComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
+
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
@@ -333,9 +335,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(TablesConfiguration.class),
                 new TestPlacementDriver(LOCAL_NODE.name())
         );
-
-        lenient().when(safeTime.waitFor(any())).thenReturn(completedFuture(null));
-        lenient().when(safeTime.current()).thenReturn(new HybridTimestamp(1, 0));
 
         partitionListener = new PartitionListener(
                 new TestPartitionDataStorage(mvPartStorage),

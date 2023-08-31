@@ -244,6 +244,8 @@ public class PartitionListener implements RaftGroupListener {
                     },
                     cmd.full() ? cmd.safeTime() : null
             );
+
+            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
         }
     }
 
