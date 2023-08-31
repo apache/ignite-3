@@ -487,16 +487,4 @@ public class ErrorGroups {
         /** Class loader error. */
         public static final int CLASS_LOADER_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 2);
     }
-
-    /**
-     * System view error group.
-     */
-    public static class SysView {
-
-        /** System views error group. */
-        public static final ErrorGroup SYSVIEW_ERR_GROUP = ErrorGroup.newGroup("SYSVIEW", (short) 17);
-
-        /** System view definition error. */
-        public static final int VIEW_DEFINITION_ERR = SYSVIEW_ERR_GROUP.registerErrorCode((short) 1);
-    }
 }
