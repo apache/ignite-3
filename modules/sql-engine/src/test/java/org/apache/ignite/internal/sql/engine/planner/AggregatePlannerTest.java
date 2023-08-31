@@ -534,21 +534,25 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     public void countDistinctGroupSetHash() throws Exception {
         checkCountDistinctHash(TestCase.CASE_24_1A);
         checkCountDistinctHash(TestCase.CASE_24_1B);
+        checkCountDistinctHash(TestCase.CASE_24_1D);
 
-        assertPlan(TestCase.CASE_24_1C, nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
-                        .and(hasNoGroupSets(IgniteReduceSortAggregate::getGroupSets))
-                        .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(hasDistribution(IgniteDistributions.single())
-                                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                                .and(hasNoGroupSets(IgniteMapSortAggregate::getGroupSets))
-                                                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
-                                                        .and(hasGroupSets(IgniteColocatedHashAggregate::getGroupSets, 1))
-                                                ))
+        Predicate<RelNode> colocated = nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                .and(hasNoGroupSets(IgniteReduceSortAggregate::getGroupSets))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(IgniteDistributions.single())
+                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(hasNoGroupSets(IgniteMapSortAggregate::getGroupSets))
+                                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                                .and(hasGroupSets(IgniteColocatedHashAggregate::getGroupSets, 1))
                                         ))
-                                )
-                        ))
+                                ))
+                        )
+                ))
 
-        ));
+        );
+
+        assertPlan(TestCase.CASE_24_1C, colocated);
+        assertPlan(TestCase.CASE_24_1E, colocated);
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {

@@ -543,6 +543,8 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkCountDistinctHash(TestCase.CASE_24_1A);
         checkCountDistinctHash(TestCase.CASE_24_1B);
         checkCountDistinctHash(TestCase.CASE_24_1C);
+        checkCountDistinctHash(TestCase.CASE_24_1D);
+        checkCountDistinctHash(TestCase.CASE_24_1E);
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
