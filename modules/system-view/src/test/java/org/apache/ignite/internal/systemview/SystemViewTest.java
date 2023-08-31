@@ -201,7 +201,7 @@ public class SystemViewTest {
                         .addColumn("c1", null, (d) -> 0)
                         .dataProvider(dataProvider())
                         .build();
-            }, "Column type null can not be null");
+            }, "Column type can not be null");
         }
 
         /** Reject a view with {@code null} column value function. */
@@ -213,7 +213,7 @@ public class SystemViewTest {
                         .addColumn("c1", int.class, null)
                         .dataProvider(dataProvider())
                         .build();
-            }, "Column value null can not be null");
+            }, "Column value can not be null");
         }
 
         /** Reject a view without data provider. */
@@ -230,7 +230,7 @@ public class SystemViewTest {
         /** Reject a view with {@code null} data provider. */
         @Test
         public void rejectViewWithoutNullDataProvider() {
-            expectThrows(NullPointerException.class, () -> {
+            expectThrows(IllegalArgumentException.class, () -> {
                 newBuilder()
                         .name("dummy")
                         .addColumn("c1", int.class, (d) -> 0)
