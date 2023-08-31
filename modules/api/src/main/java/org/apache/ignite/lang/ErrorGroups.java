@@ -488,22 +488,10 @@ public class ErrorGroups {
         public static final int CLASS_LOADER_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 2);
     }
 
-    /**
-     * System view error group.
-     */
-    public static class SysView {
-
-        /** System views error group. */
-        public static final ErrorGroup SYSVIEW_ERR_GROUP = registerGroup("SYSVIEW", (short) 17);
-
-        /** System view definition error. */
-        public static final int VIEW_DEFINITION_ERR = SYSVIEW_ERR_GROUP.registerErrorCode((short) 1);
-    }
-
     /** Catalog error group. */
     public static class Catalog {
         /** Catalog error group. */
-        public static final ErrorGroup CATALOG_ERR_GROUP = registerGroup("CATALOG", (short) 18);
+        public static final ErrorGroup CATALOG_ERR_GROUP = registerGroup("CATALOG", (short) 17);
 
         /** Command to the catalog has not passed the validation. See exception message for details. */
         public static final int VALIDATION_ERR = CATALOG_ERR_GROUP.registerErrorCode((short) 1);
