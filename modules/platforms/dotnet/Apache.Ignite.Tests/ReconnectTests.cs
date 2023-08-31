@@ -92,18 +92,24 @@ public class ReconnectTests
         using var servers = FakeServerGroup.Create(10);
         using var client = await servers.ConnectClientAsync(cfg);
 
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 10, 3000);
+        WaitForConnections(10);
         servers.DropNewConnections = true;
         servers.DropExistingConnections();
 
         // Dropped connections are detected by heartbeat.
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 0, 3000);
+        WaitForConnections(0);
 
         // Connections are restored in background due to ReconnectInterval.
         servers.DropNewConnections = false;
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 10, 3000);
+        WaitForConnections(10);
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
+
+        void WaitForConnections(int count) =>
+            TestUtils.WaitForCondition(
+                condition: () => client.GetConnections().Count == count,
+                timeoutMs: 5000,
+                messageFactory: () => $"Connection count: expected = {count}, actual = {client.GetConnections().Count}");
     }
 
     [Test]
