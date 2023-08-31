@@ -23,6 +23,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.rpc.impl.core.NullAppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.messages.TestMessageGroup;
 
@@ -44,7 +45,8 @@ public class TestIgniteRpcServer extends IgniteRpcServer {
                 nodeOptions.getRaftMessagesFactory(),
                 requestExecutor,
                 new RaftServiceEventInterceptor(),
-                new RaftGroupEventsClientListener()
+                new RaftGroupEventsClientListener(),
+                new NullAppendEntriesRequestInterceptor()
         );
 
         clusterService.messagingService().addMessageHandler(TestMessageGroup.class, new RpcMessageHandler());

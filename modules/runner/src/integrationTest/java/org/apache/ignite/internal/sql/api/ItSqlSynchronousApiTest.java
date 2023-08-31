@@ -347,7 +347,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
             );
             tx.commit();
 
-            assertEquals(1, sql("SELECT ID FROM TEST WHERE ID = -1").size());
+            assertTrue(ses.execute(null, "SELECT ID FROM TEST WHERE ID = -1").hasNext());
         }
 
         assertEquals(0, ((IgniteImpl) CLUSTER_NODES.get(0)).txManager().pending());

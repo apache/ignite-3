@@ -17,11 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
-import static org.apache.ignite.internal.tx.TxState.PENDING;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,6 +30,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
@@ -63,6 +59,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** Enlisted operation futures in this transaction. */
     private final List<CompletableFuture<?>> enlistedResults = new CopyOnWriteArrayList<>();
 
+    /** The tracker is used to track an observable timestamp. */
+    private final HybridTimestampTracker observableTsTracker;
+
     /** A partition which stores the transaction state. */
     private volatile TablePartitionId commitPart;
 
@@ -73,10 +72,13 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * The constructor.
      *
      * @param txManager The tx manager.
+     * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
      */
-    public ReadWriteTransactionImpl(TxManager txManager, UUID id) {
+    public ReadWriteTransactionImpl(TxManager txManager, HybridTimestampTracker observableTsTracker, UUID id) {
         super(txManager, id);
+
+        this.observableTsTracker = observableTsTracker;
     }
 
     /** {@inheritDoc} */
@@ -115,9 +117,9 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                 .allOf(enlistedResults.toArray(new CompletableFuture[0]))
                 .thenCompose(
                         ignored -> {
-                            if (!enlisted.isEmpty()) {
-                                Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups = new LinkedHashMap<>();
+                            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups = new LinkedHashMap<>();
 
+                            if (!enlisted.isEmpty()) {
                                 enlisted.forEach((groupId, groupMeta) -> {
                                     ClusterNode recipientNode = groupMeta.get1();
 
@@ -142,6 +144,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                 assert term != null;
 
                                 return txManager.finish(
+                                        observableTsTracker,
                                         commitPart,
                                         recipientNode,
                                         term,
@@ -150,10 +153,15 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                                         id()
                                 );
                             } else {
-                                // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
-                                txManager.changeState(id(), PENDING, commit ? COMMITED : ABORTED);
-
-                                return completedFuture(null);
+                                return txManager.finish(
+                                        observableTsTracker,
+                                        null,
+                                        null,
+                                        null,
+                                        commit,
+                                        groups,
+                                        id()
+                                );
                             }
                         }
                 );

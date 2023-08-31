@@ -83,18 +83,18 @@ public class MetaStorageWriteHandler {
             if (command instanceof MetaStorageWriteCommand) {
                 var cmdWithTime = (MetaStorageWriteCommand) command;
 
-                HybridTimestamp safeTime = cmdWithTime.safeTime();
+                if (command instanceof SyncTimeCommand) {
+                    var syncTimeCommand = (SyncTimeCommand) command;
 
-                handleWriteWithTime(clo, cmdWithTime, safeTime);
-            } else if (command instanceof SyncTimeCommand) {
-                var syncTimeCommand = (SyncTimeCommand) command;
+                    // Ignore the command if it has been sent by a stale leader.
+                    if (clo.term() != syncTimeCommand.initiatorTerm()) {
+                        clo.result(null);
 
-                // Ignore the command if it has been sent by a stale leader.
-                if (clo.term() == syncTimeCommand.initiatorTerm()) {
-                    clusterTime.updateSafeTime(syncTimeCommand.safeTime());
+                        return;
+                    }
                 }
 
-                clo.result(null);
+                handleWriteWithTime(clo, cmdWithTime);
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
@@ -118,9 +118,10 @@ public class MetaStorageWriteHandler {
      *
      * @param clo Command closure.
      * @param command Command.
-     * @param opTime Command's time.
      */
-    private void handleWriteWithTime(CommandClosure<WriteCommand> clo, MetaStorageWriteCommand command, HybridTimestamp opTime) {
+    private void handleWriteWithTime(CommandClosure<WriteCommand> clo, MetaStorageWriteCommand command) {
+        HybridTimestamp opTime = command.safeTime();
+
         if (command instanceof PutCommand) {
             PutCommand putCmd = (PutCommand) command;
 
@@ -177,6 +178,10 @@ public class MetaStorageWriteHandler {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
             clo.result(storage.invoke(toIf(cmd.iif()), opTime));
+        } else if (command instanceof SyncTimeCommand) {
+            storage.advanceSafeTime(command.safeTime());
+
+            clo.result(null);
         }
     }
 

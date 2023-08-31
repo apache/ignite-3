@@ -888,4 +888,15 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     public CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision) {
         return watchProcessor.notifyUpdateRevisionListeners(newRevision);
     }
+
+    @Override
+    public void advanceSafeTime(HybridTimestamp newSafeTime) {
+        synchronized (mux) {
+            if (!areWatchesEnabled) {
+                return;
+            }
+
+            watchProcessor.advanceSafeTime(newSafeTime);
+        }
+    }
 }

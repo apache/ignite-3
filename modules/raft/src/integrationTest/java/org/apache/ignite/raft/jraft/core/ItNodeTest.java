@@ -3851,6 +3851,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         nodeOptions.setRpcClient(new IgniteRpcClient(clusterService));
 
+        nodeOptions.setCommandsMarshaller(TestCluster.commandsMarshaller(clusterService));
+
         clusterService.start();
 
         var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer, nodeManager) {

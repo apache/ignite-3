@@ -26,7 +26,7 @@ import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 /**
  * Direct byte-buffer stream implementation that contains specific optimizations for optimized marshaller.
  */
-class OptimizedStream extends DirectByteBufferStreamImplV1 {
+public class OptimizedStream extends DirectByteBufferStreamImplV1 {
     /**
      * Constructor.
      *

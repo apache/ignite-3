@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -73,7 +73,7 @@ public class TxLocalTest extends TxAbstractTest {
 
         ReplicaMessagesFactory replicaMessagesFactory = new ReplicaMessagesFactory();
 
-        TestHybridClock localClock = new TestHybridClock(() -> 1);
+        HybridClockImpl localClock = new HybridClockImpl();
         MessagingService msgSvc = mock(MessagingService.class, RETURNS_DEEP_STUBS);
         ReplicaService replicaSvc = new ReplicaService(msgSvc, localClock);
 
@@ -86,7 +86,7 @@ public class TxLocalTest extends TxAbstractTest {
                 TimestampAware aware = (TimestampAware) request;
                 HybridTimestamp updated = DummyInternalTableImpl.CLOCK.update(aware.timestamp());
 
-                return replicaListener.invoke(request).handle((res, err) -> err == null ? replicaMessagesFactory
+                return replicaListener.invoke(request, "local").handle((res, err) -> err == null ? replicaMessagesFactory
                         .timestampAwareReplicaResponse()
                         .result(res)
                         .timestampLong(updated.longValue())
@@ -97,7 +97,7 @@ public class TxLocalTest extends TxAbstractTest {
                                 .timestampLong(updated.longValue())
                                 .build());
             } else {
-                return replicaListener.invoke(request).handle((res, err) -> err == null ? replicaMessagesFactory
+                return replicaListener.invoke(request, "local").handle((res, err) -> err == null ? replicaMessagesFactory
                         .replicaResponse()
                         .result(res)
                         .build() : replicaMessagesFactory
@@ -106,7 +106,7 @@ public class TxLocalTest extends TxAbstractTest {
                         .build());
             }
 
-        }).when(msgSvc).invoke((String) isNull(), any(), anyLong());
+        }).when(msgSvc).invoke(anyString(), any(), anyLong());
 
         PlacementDriver placementDriver = mock(PlacementDriver.class, RETURNS_DEEP_STUBS);
 
@@ -117,15 +117,29 @@ public class TxLocalTest extends TxAbstractTest {
                     tables.get(request.groupId()).txStateStorage().getTxStateStorage(0).get(request.txId()));
         }).when(placementDriver).sendMetaRequest(any(), any());
 
-        txManager = new TxManagerImpl(replicaSvc, lockManager, localClock, new TransactionIdGenerator(0xdeadbeef));
+        txManager = new TxManagerImpl(replicaSvc, lockManager, localClock, new TransactionIdGenerator(0xdeadbeef), () -> "local");
 
-        igniteTransactions = new IgniteTransactionsImpl(txManager);
+        igniteTransactions = new IgniteTransactionsImpl(txManager, timestampTracker);
 
-        DummyInternalTableImpl table = new DummyInternalTableImpl(replicaSvc, txManager, true, placementDriver, ACCOUNTS_SCHEMA);
+        DummyInternalTableImpl table = new DummyInternalTableImpl(
+                replicaSvc,
+                txManager,
+                true,
+                placementDriver,
+                ACCOUNTS_SCHEMA,
+                timestampTracker
+        );
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA), lockManager);
 
-        DummyInternalTableImpl table2 = new DummyInternalTableImpl(replicaSvc, txManager, true, placementDriver, CUSTOMERS_SCHEMA);
+        DummyInternalTableImpl table2 = new DummyInternalTableImpl(
+                replicaSvc,
+                txManager,
+                true,
+                placementDriver,
+                CUSTOMERS_SCHEMA,
+                timestampTracker
+        );
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA), lockManager);
 
@@ -137,12 +151,6 @@ public class TxLocalTest extends TxAbstractTest {
     @Override
     public void testScan() throws InterruptedException {
         // TODO asch IGNITE-15928 implement local scan
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20205")
-    @Override
-    public void testBalance() throws InterruptedException {
-        super.testBalance();
     }
 
     @Override

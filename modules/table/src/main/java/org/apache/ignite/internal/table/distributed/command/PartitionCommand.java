@@ -23,7 +23,7 @@ import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 /**
  * Partition transactional command.
  */
-public interface PartitionCommand extends SafeTimePropagatingCommand {
+public interface PartitionCommand extends SafeTimePropagatingCommand, CatalogVersionAware {
     /**
      * Returns a transaction id.
      */
@@ -33,4 +33,10 @@ public interface PartitionCommand extends SafeTimePropagatingCommand {
      * Returns {@code true} if a command represents a full (including all keys) transaction.
      */
     boolean full();
+
+    /**
+     * Returns version that the Catalog must have locally for the node to be allowed to accept this command via replication.
+     */
+    @Override
+    int requiredCatalogVersion();
 }

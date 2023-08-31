@@ -49,6 +49,7 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -78,7 +79,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -95,10 +95,13 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDa
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
@@ -225,6 +228,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     private CatalogManager catalogManager;
 
+    private SchemaSyncService schemaSyncService;
+
     private MetricManager metricManager;
 
     /** Returns current method name. */
@@ -288,8 +293,12 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         schemaManager.start();
 
         catalogManager = mock(CatalogManager.class);
-        when(catalogManager.createTable(any())).thenReturn(completedFuture(null));
+        when(catalogManager.createTableCommandBuilder()).thenReturn(new CreateTableCommand.Builder());
+        when(catalogManager.execute(any())).thenReturn(completedFuture(null));
         when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
+
+        schemaSyncService = mock(SchemaSyncService.class);
+        when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(completedFuture(null));
 
         cmgMgr = mock(ClusterManagementGroupManager.class);
 
@@ -555,7 +564,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         InternalTransaction tx = mock(InternalTransaction.class);
         when(tx.startTimestamp()).thenReturn(HybridTimestamp.MAX_VALUE);
-        when(tm.begin(anyBoolean(), any())).thenReturn(tx);
+        when(tm.begin(any(), anyBoolean())).thenReturn(tx);
         when(transactions.begin(any())).thenReturn(tx);
 
         when(replicaManager.stopReplica(any())).thenReturn(completedFuture(true));
@@ -588,7 +597,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 vaultManager,
                 cmgMgr,
-                distributionZoneManager
+                distributionZoneManager,
+                schemaSyncService,
+                catalogManager,
+                new HybridTimestampTracker()
         );
 
         tableManager.start();

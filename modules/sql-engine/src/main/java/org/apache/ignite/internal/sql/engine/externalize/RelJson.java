@@ -705,7 +705,7 @@ class RelJson {
         } else if (o instanceof Map) {
             Map<String, Object> map = (Map<String, Object>) o;
             String clazz = (String) map.get("class");
-            boolean nullable = Boolean.TRUE == map.get("nullable");
+            boolean nullable = Boolean.TRUE.equals(map.get("nullable"));
 
             if (clazz != null) {
                 RelDataType type = typeFactory.createJavaType(classForName(clazz, false));
@@ -826,7 +826,7 @@ class RelJson {
                 // Check if it is a local ref.
                 if (map.containsKey("type")) {
                     RelDataType type = toType(typeFactory, map.get("type"));
-                    return map.get("dynamic") == Boolean.TRUE
+                    return Boolean.TRUE.equals(map.get("dynamic"))
                             ? rexBuilder.makeDynamicParam(type, input)
                             : rexBuilder.makeLocalRef(type, input);
                 }
