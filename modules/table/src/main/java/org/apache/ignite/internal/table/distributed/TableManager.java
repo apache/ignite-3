@@ -1564,13 +1564,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Returns the latest tables by ID map, for which all assignment updates have been completed.
      */
     private Map<Integer, TableImpl> latestTablesById() {
-        long latestCausalityToken = assignmentsUpdatedVv.latestCausalityToken();
-
-        if (latestCausalityToken < 0L) {
+        if (assignmentsUpdatedVv.latestCausalityToken() < 0L) {
             // No tables at all in case of empty causality token.
             return emptyMap();
         } else {
-            CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(latestCausalityToken);
+            CompletableFuture<Map<Integer, TableImpl>> tablesByIdFuture = tablesByIdVv.get(tablesByIdVv.latestCausalityToken());
 
             assert tablesByIdFuture.isDone()
                     : "'tablesByIdVv' is always completed strictly before the 'assignmentsUpdatedVv'";
@@ -1630,7 +1628,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             HybridTimestamp now = clock.now();
 
             return anyOf(schemaSyncService.waitForMetadataCompleteness(now), stopManagerFuture)
-                    .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> tableAsyncInternalBusy(tableId)), ioExecutor);
+                    .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+                        int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
+
+                        // Check if the table has been deleted.
+                        if (catalogService.table(tableId, catalogVersion) == null) {
+                            return completedFuture(null);
+                        }
+
+                        return tableAsyncInternalBusy(tableId);
+                    }), ioExecutor);
         });
     }
 
@@ -1687,8 +1694,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             HybridTimestamp now = clock.now();
 
             return anyOf(schemaSyncService.waitForMetadataCompleteness(now), stopManagerFuture)
-                    .thenApplyAsync(unused -> inBusyLock(busyLock, () -> catalogService.table(name, now.longValue())), ioExecutor)
-                    .thenCompose(tableDescriptor -> inBusyLockAsync(busyLock, () -> {
+                    .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+                        CatalogTableDescriptor tableDescriptor = catalogService.table(name, now.longValue());
+
+                        // Check if the table has been deleted.
                         if (tableDescriptor == null) {
                             return completedFuture(null);
                         }
