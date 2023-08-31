@@ -89,9 +89,9 @@ public class CreateTableCommand extends AbstractCatalogCommand {
     ) throws CatalogValidationException {
         this.tableName = tableName;
         this.schemaName = schemaName;
-        this.primaryKeyColumns = primaryKeyColumns;
-        this.colocationColumns = colocationColumns;
-        this.columns = columns;
+        this.primaryKeyColumns = List.copyOf(primaryKeyColumns);
+        this.colocationColumns = List.copyOf(colocationColumns);
+        this.columns = List.copyOf(columns);
         this.zoneName = zoneName;
 
         validate();
