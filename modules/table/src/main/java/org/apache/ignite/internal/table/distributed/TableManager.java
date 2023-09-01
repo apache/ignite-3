@@ -1838,13 +1838,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Table id or {@code null} if not found.
      */
     private @Nullable Integer tableNameToId(String tableName, HybridTimestamp timestamp) {
-        CatalogTableDescriptor tableDescriptor = catalogService.table(tableName, timestamp.longValue());
 
-        // TODO IGNITE-19499: Drop the rest of code and return Id from catalog instead.
+        // TODO IGNITE-19499: Return Id from catalog.
+        // CatalogTableDescriptor tableDescriptor = catalogService.table(tableName, timestamp.longValue());
         // return tableDescriptor == null ? null : tableDescriptor.id();
-        if (tableDescriptor == null) {
-            return null;
-        }
 
         try {
             TableConfiguration tableCfg = tablesCfg.tables().get(tableName);
