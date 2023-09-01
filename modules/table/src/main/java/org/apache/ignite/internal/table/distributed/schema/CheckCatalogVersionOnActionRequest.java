@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
+
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -54,7 +56,7 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
         if (command instanceof CatalogVersionAware) {
             int requiredCatalogVersion = ((CatalogVersionAware) command).requiredCatalogVersion();
 
-            if (!isMetadataAvailableFor(requiredCatalogVersion)) {
+            if (!isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {
                 // TODO: IGNITE-20298 - throttle logging.
                 LOG.warn(
                         "Metadata not yet available, group {}, required level {}; rejecting ActionRequest with EBUSY.",
@@ -72,9 +74,5 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
         }
 
         return null;
-    }
-
-    private boolean isMetadataAvailableFor(int requiredCatalogVersion) {
-        return requiredCatalogVersion <= catalogService.latestCatalogVersion();
     }
 }

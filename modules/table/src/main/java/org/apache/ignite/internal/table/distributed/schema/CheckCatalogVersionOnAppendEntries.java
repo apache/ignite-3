@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
+
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -64,7 +66,7 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
         for (RaftOutter.EntryMeta entry : request.entriesList()) {
             int requiredCatalogVersion = readRequiredCatalogVersionForMeta(allData, entry, node.getOptions().getCommandsMarshaller());
 
-            if (requiredCatalogVersion != NO_VERSION_REQUIREMENT && !isMetadataAvailableFor(requiredCatalogVersion)) {
+            if (requiredCatalogVersion != NO_VERSION_REQUIREMENT && !isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {
                 // TODO: IGNITE-20298 - throttle logging.
                 LOG.warn(
                         "Metadata not yet available, group {}, required level {}; rejecting AppendEntriesRequest with EBUSY.",
@@ -104,9 +106,5 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
         }
 
         return NO_VERSION_REQUIREMENT;
-    }
-
-    private boolean isMetadataAvailableFor(int requiredCatalogVersion) {
-        return requiredCatalogVersion <= catalogService.latestCatalogVersion();
     }
 }
