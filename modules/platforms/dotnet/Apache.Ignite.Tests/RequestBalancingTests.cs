@@ -41,7 +41,7 @@ public class RequestBalancingTests
         };
 
         using var client = await IgniteClient.StartAsync(clientCfg);
-        client.WaitForConnections(2);
+        client.WaitForConnections(3);
 
         for (var i = 0; i < 10; i++)
         {
