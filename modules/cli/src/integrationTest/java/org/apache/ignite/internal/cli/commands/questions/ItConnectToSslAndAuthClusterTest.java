@@ -60,6 +60,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
 
         // And answer to the reconnect question is "y", to the SSL configuration question is "y",
         // trust store path and password are provided and key store is not configured
+        //ToDo: check question as well IGNITE-20324
         bindAnswers("y", "y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
 
         // When asked the question
@@ -101,6 +102,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
 
         // And answer to the reconnect question is "y", to the SSL configuration question is "y",
         // trust store path and password are provided and key store is not configured
+        //ToDo: check question as well IGNITE-20324
         bindAnswers("y", "y", NodeConfig.resolvedTruststorePath, "wrong_password", "n", "y", "admin", "password");
 
         // When asked the question
@@ -138,6 +140,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And answer to the reconnect question is "y", to the SSL configuration question is "y",
         // trust store path and password are provided and key store is not configured
         String wrongPath = "wrong-path";
+        //ToDo: check question as well IGNITE-20324
         bindAnswers("y", "y", wrongPath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
 
         // When asked the question
@@ -297,6 +300,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
 
         // And answer to the reconnect question is "y", to the SSL configuration question is "y",
         // trust store path and password are provided and key store is not configured
+        //ToDo: check question as well IGNITE-20324
         bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
 
         // When connect with auth parameters
