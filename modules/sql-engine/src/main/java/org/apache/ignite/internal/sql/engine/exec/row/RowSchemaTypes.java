@@ -86,7 +86,7 @@ public final class RowSchemaTypes {
 
     /** Returns a {@link NativeType} extracted from the row schema type. */
     public static @Nullable NativeType toNativeType(TypeSpec type) {
-        if (type == NULL) {
+        if (type instanceof NullTypeSpec) {
             return null;
         }
 
