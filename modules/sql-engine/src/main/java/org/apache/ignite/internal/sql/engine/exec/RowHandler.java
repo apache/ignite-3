@@ -46,12 +46,18 @@ public interface RowHandler<RowT> {
     RowT concat(RowT left, RowT right);
 
     /**
-     * Reassigns field values according to the provided field indexes mapping.
+     * Creates a new row containing only the fields specified in the provided mapping.
      *
-     * @param row Row which fields need to be remapped.
-     * @param mapping Field indexes mapping.
-     * @param offset Mapping field indexes offset.
-     * @return a new row with field values reassigned according to the provided mapping.
+     * <p>For example:
+     * <pre>
+     *    source row {5, 6, 7, 8} apply mapping {1, 3}
+     *    result row {6, 8}
+     * </pre>
+     *
+     * @param row Source row.
+     * @param mapping Target field indexes.
+     * @param offset Target field indexes offset.
+     * @return A new row with fields from the specified mapping.
      */
     RowT map(RowT row, int[] mapping, int offset);
 
@@ -100,7 +106,7 @@ public interface RowHandler<RowT> {
         RowT create(ByteBuffer raw);
 
         /**
-         * Wraps incoming binary tuple into a row.
+         * Wraps incoming binary tuple into a instantiation defined representation.
          *
          * @param tuple {@link InternalTuple} representation.
          * @return Instantiation defined representation.

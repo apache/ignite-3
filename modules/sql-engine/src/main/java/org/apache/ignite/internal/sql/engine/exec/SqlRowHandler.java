@@ -28,7 +28,20 @@ import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Handler for rows in storage format.
+ * Handler that uses a {@link RowWrapper wrapper} to operate with two types of row implementations.
+ *
+ * <ul>
+ *     <li>{@link ObjectsArrayWrapper Objects array}</li>
+ *     <li>{@link BinaryTupleWrapper Binary tuple}</li>
+ * </ul>
+ *
+ * <p>Each kind of rows is serialized to the same binary tuple format
+ * using the {@link #toByteBuffer(RowWrapper) toByteBuffer} method.
+ *
+ * <p>Factory methods {@link RowFactory#wrap(InternalTuple) wrap(InternalTuple)} and
+ * {@link RowFactory#create(ByteBuffer) create(ByteBuffer)} allow create rows without
+ * any additional conversions. But the fields in binary tuple must match the
+ * factory {@link RowSchema row schema}.
  */
 public class SqlRowHandler implements RowHandler<RowWrapper> {
     public static final RowHandler<RowWrapper> INSTANCE = new SqlRowHandler();
@@ -69,7 +82,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             schemaBuilder.addField(rightTypes.get(i));
         }
 
-        return new ArrayRowWrapper(schemaBuilder.build(), values);
+        return new ObjectsArrayWrapper(schemaBuilder.build(), values);
     }
 
     /** {@inheritDoc} */
@@ -81,7 +94,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             fields[i] = row.get(mapping[i] + offset);
         }
 
-        return new ArrayRowWrapper(row.rowSchema(), fields);
+        return new ObjectsArrayWrapper(row.rowSchema(), fields);
     }
 
     @Override
@@ -121,7 +134,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             public RowWrapper create(Object... fields) {
                 assert fields.length == rowLen;
 
-                return new ArrayRowWrapper(rowSchema, fields);
+                return new ObjectsArrayWrapper(rowSchema, fields);
             }
 
             /** {@inheritDoc} */
@@ -135,7 +148,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             public RowWrapper wrap(InternalTuple tuple) {
                 assert rowLen == tuple.elementCount();
 
-                return new ImmutableBinaryTupleWrapper(rowSchema, tuple);
+                return new BinaryTupleWrapper(rowSchema, tuple);
             }
         };
     }
@@ -155,11 +168,14 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         abstract ByteBuffer toByteBuffer();
     }
 
-    private static class ArrayRowWrapper extends RowWrapper {
-        private final Object[] row;
+    /**
+     * Wrapper over an array of objects.
+     */
+    private static class ObjectsArrayWrapper extends RowWrapper {
         private final RowSchema rowSchema;
+        private final Object[] row;
 
-        ArrayRowWrapper(RowSchema rowSchema, Object[] row) {
+        ObjectsArrayWrapper(RowSchema rowSchema, Object[] row) {
             this.row = row;
             this.rowSchema = rowSchema;
         }
@@ -190,18 +206,23 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         }
     }
 
-    private static class ImmutableBinaryTupleWrapper extends RowWrapper {
-        private final InternalTuple tuple;
+    /**
+     * Wrapper over an {@link BinaryTuple}.
+     *
+     * <p>Since {@link BinaryTuple binary tuple} is immutable this wrapper doesn't support {@link #set(int, Object)} operation.
+     */
+    private static class BinaryTupleWrapper extends RowWrapper {
         private final RowSchema rowSchema;
+        private final InternalTuple tuple;
 
-        ImmutableBinaryTupleWrapper(RowSchema rowSchema, InternalTuple tuple) {
+        BinaryTupleWrapper(RowSchema rowSchema, InternalTuple tuple) {
             this.tuple = tuple;
             this.rowSchema = rowSchema;
         }
 
         @Override
         int columnsCount() {
-            return rowSchema.fields().size();
+            return tuple.elementCount();
         }
 
         @Override
