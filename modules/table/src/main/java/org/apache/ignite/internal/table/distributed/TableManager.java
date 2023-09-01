@@ -81,7 +81,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -130,7 +129,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.ExtendedTableChange;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableChange;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesChange;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
@@ -275,15 +273,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final IncrementalVersionedValue<Map<Integer, TableImpl>> tablesByIdVv;
 
     /**
-     * Versioned store for local partition set by table id.
-     * Completed strictly after {@link #tablesByIdVv} and strictly before {@link #assignmentsUpdatedVv}.
+     * Versioned store for local partition set by table id. Completed strictly after {@link #tablesByIdVv} and strictly before
+     * {@link #assignmentsUpdatedVv}.
      */
     private final IncrementalVersionedValue<Map<Integer, PartitionSet>> localPartsByTableIdVv;
 
     /**
-     * Versioned store for tracking RAFT groups initialization and starting completion.
-     * Only explicitly updated in {@link #createTablePartitionsLocally(long, CompletableFuture, int, TableImpl)}.
-     * Completed strictly after {@link #localPartsByTableIdVv}.
+     * Versioned store for tracking RAFT groups initialization and starting completion. Only explicitly updated in
+     * {@link #createTablePartitionsLocally(long, CompletableFuture, int, TableImpl)}. Completed strictly after
+     * {@link #localPartsByTableIdVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
@@ -1823,14 +1821,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
         return schemaSyncService.waitForMetadataCompleteness(clock.now())
                 .thenCompose(ignore -> inBusyLock(busyLock, () -> {
-                    NamedListView<TableView> configuredTables = tablesCfg.tables().value();
+                    Collection<TableImpl> configuredTables = tablesByIdVv.latest().values();
 
                     var tableFuts = new CompletableFuture[configuredTables.size()];
 
                     var i = 0;
 
-                    for (TableView tbl : configuredTables) {
-                        tableFuts[i++] = tableReadyFuture(tbl.id());
+                    for (TableImpl tbl : configuredTables) {
+                        tableFuts[i++] = tableReadyFuture(tbl.tableId());
                     }
 
                     return allOf(tableFuts).thenApply(unused -> inBusyLock(busyLock, () -> {
@@ -1856,12 +1854,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private @Nullable Integer tableNameToId(String tableName) {
         try {
-            TableConfiguration tableCfg = tablesCfg.tables().get(tableName);
+            TableImpl table = findTableImplByName(tablesByIdVv.latest().values(), tableName);
 
-            if (tableCfg == null) {
+            if (table == null) {
                 return null;
             } else {
-                return tableCfg.id().value();
+                return table.tableId();
             }
         } catch (NoSuchElementException e) {
             return null;
@@ -1869,8 +1867,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Returns the tables by ID future for the given causality token.
-     * The future will only be completed when corresponding assignments update completes.
+     * Returns the tables by ID future for the given causality token. The future will only be completed when corresponding assignments
+     * update completes.
      *
      * @param causalityToken Causality token.
      * @return The future with tables map.
@@ -2045,7 +2043,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return completedFuture(table);
                     }
 
-                    if (tablesCfg.tables().value().stream().noneMatch(tbl -> tbl.id() == tableId)) {
+                    if (tablesByIdVv.latest().get(tableId) == null) {
                         // Table isn't configured.
                         return completedFuture(null);
                     }
