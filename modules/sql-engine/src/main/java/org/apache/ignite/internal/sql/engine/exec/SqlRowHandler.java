@@ -20,11 +20,15 @@ package org.apache.ignite.internal.sql.engine.exec;
 import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
 import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -227,7 +231,15 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
         @Override
         @Nullable Object get(int field) {
-            return rowSchema.value(field, tuple);
+            Object value = rowSchema.value(field, tuple);
+
+            if (value == null) {
+                return null;
+            }
+
+            NativeType nativeType = RowSchemaTypes.toNativeType(rowSchema.fields().get(field));
+
+            return TypeUtils.toInternal(value, Commons.nativeTypeToClass(nativeType));
         }
 
         @Override

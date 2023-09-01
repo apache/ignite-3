@@ -69,20 +69,16 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testMarshal() {
+    public void testBytebufferSerialization() {
         Object[] sourceData = values();
         RowSchema schema = rowSchema(sourceData);
 
         int elementsCount = schema.fields().size();
 
         RowFactory<RowWrapper> factory = handler.factory(schema);
-
         RowWrapper src = factory.create(sourceData);
 
-        for (int i = 0; i < elementsCount; i++) {
-            assertThat(handler.get(i, src), equalTo(sourceData[i]));
-        }
-
+        // Serialize.
         ByteBuffer buf = handler.toByteBuffer(src);
 
         BinaryTuple tuple = new BinaryTuple(elementsCount, buf);
@@ -90,13 +86,16 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         RowWrapper wrap = factory.wrap(tuple);
 
         for (int i = 0; i < elementsCount; i++) {
-            TypeSpec type = schema.fields().get(i);
+            String msg = schema.fields().get(i).toString();
 
+            assertThat(msg, handler.get(i, src), equalTo(sourceData[i]));
+            assertThat(msg, schema.value(i, tuple), equalTo(sourceData[i]));
+
+            // Binary tuple wrapper must return data in internal format.
             Object expected = TypeUtils.toInternal(sourceData[i]);
 
-            assertThat(type.toString(), schema.value(i, tuple), equalTo(expected));
-            assertThat(type.toString(), handler.get(i, dest), equalTo(expected));
-            assertThat(type.toString(), handler.get(i, wrap), equalTo(expected));
+            assertThat(msg, handler.get(i, dest), equalTo(expected));
+            assertThat(msg, handler.get(i, wrap), equalTo(expected));
         }
     }
 

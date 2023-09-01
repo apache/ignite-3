@@ -24,8 +24,6 @@ import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.row.InternalTuple;
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,11 +44,11 @@ public final class RowSchema {
     }
 
     /**
-     * Gets an Object representation from a tuple's field.
+     * Gets an object representation from a tuple's field.
      *
      * @param fieldIndex Field index to read.
      * @param tuple Tuple to read the value from.
-     * @return An Object representation of the value.
+     * @return An object representation of the value.
      */
     public @Nullable Object value(int fieldIndex, InternalTuple tuple) {
         TypeSpec type = fields().get(fieldIndex);
@@ -62,9 +60,27 @@ public final class RowSchema {
         }
 
         NativeType nativeType = RowSchemaTypes.toNativeType(type);
-        Object value = readTupleField(nativeType, fieldIndex, tuple);
 
-        return TypeUtils.toInternal(value, Commons.nativeTypeToClass(nativeType));
+        switch (nativeType.spec()) {
+            case BOOLEAN: return tuple.booleanValueBoxed(fieldIndex);
+            case INT8: return tuple.byteValueBoxed(fieldIndex);
+            case INT16: return tuple.shortValueBoxed(fieldIndex);
+            case INT32: return tuple.intValueBoxed(fieldIndex);
+            case INT64: return tuple.longValueBoxed(fieldIndex);
+            case FLOAT: return tuple.floatValueBoxed(fieldIndex);
+            case DOUBLE: return tuple.doubleValueBoxed(fieldIndex);
+            case DECIMAL: return tuple.decimalValue(fieldIndex, ((DecimalNativeType) nativeType).scale());
+            case UUID: return tuple.uuidValue(fieldIndex);
+            case STRING: return tuple.stringValue(fieldIndex);
+            case BYTES: return tuple.bytesValue(fieldIndex);
+            case BITMASK: return tuple.bitmaskValue(fieldIndex);
+            case NUMBER: return tuple.numberValue(fieldIndex);
+            case DATE: return tuple.dateValue(fieldIndex);
+            case TIME: return tuple.timeValue(fieldIndex);
+            case DATETIME: return tuple.dateTimeValue(fieldIndex);
+            case TIMESTAMP: return tuple.timestampValue(fieldIndex);
+            default: throw new InvalidTypeException("Unknown element type: " + nativeType);
+        }
     }
 
     /** {@inheritDoc}. */
@@ -126,29 +142,6 @@ public final class RowSchema {
         /** Creates an instance of row schema. */
         public RowSchema build() {
             return new RowSchema(types);
-        }
-    }
-
-    private static Object readTupleField(NativeType nativeType, int fieldIndex, InternalTuple tuple) {
-        switch (nativeType.spec()) {
-            case BOOLEAN: return tuple.booleanValueBoxed(fieldIndex);
-            case INT8: return tuple.byteValueBoxed(fieldIndex);
-            case INT16: return tuple.shortValueBoxed(fieldIndex);
-            case INT32: return tuple.intValueBoxed(fieldIndex);
-            case INT64: return tuple.longValueBoxed(fieldIndex);
-            case FLOAT: return tuple.floatValueBoxed(fieldIndex);
-            case DOUBLE: return tuple.doubleValueBoxed(fieldIndex);
-            case DECIMAL: return tuple.decimalValue(fieldIndex, ((DecimalNativeType) nativeType).scale());
-            case UUID: return tuple.uuidValue(fieldIndex);
-            case STRING: return tuple.stringValue(fieldIndex);
-            case BYTES: return tuple.bytesValue(fieldIndex);
-            case BITMASK: return tuple.bitmaskValue(fieldIndex);
-            case NUMBER: return tuple.numberValue(fieldIndex);
-            case DATE: return tuple.dateValue(fieldIndex);
-            case TIME: return tuple.timeValue(fieldIndex);
-            case DATETIME: return tuple.dateTimeValue(fieldIndex);
-            case TIMESTAMP: return tuple.timestampValue(fieldIndex);
-            default: throw new InvalidTypeException("Unknown element type: " + nativeType);
         }
     }
 }
