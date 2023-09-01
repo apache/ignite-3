@@ -26,7 +26,7 @@ import org.apache.ignite.internal.table.InternalTable;
  * Execution related APIs of a table.
  */
 public interface ExecutableTable {
-    /** TODO IGNITE-19499: Drop this hack to get underlying table. */
+    /** TODO IGNITE-20331: Drop this hack to get underlying table. */
     @Deprecated
     default InternalTable internalTable() {
         return null;

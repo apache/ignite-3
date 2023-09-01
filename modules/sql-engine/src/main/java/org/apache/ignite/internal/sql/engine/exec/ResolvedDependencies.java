@@ -60,7 +60,7 @@ public class ResolvedDependencies {
         return executableTable.fetchColocationGroup();
     }
 
-    /** TODO IGNITE-19499: Drop temporal method. */
+    /** TODO IGNITE-20331: Drop temporal method. */
     public InternalTable internalTable(int tableId) {
         return getTable(tableId).internalTable();
     }
