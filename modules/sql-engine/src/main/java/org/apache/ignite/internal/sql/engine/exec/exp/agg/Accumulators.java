@@ -92,7 +92,7 @@ public class Accumulators {
             case "ANY_VALUE":
                 return singleAnyValueFactory(false, call);
             case "LITERAL_AGG":
-                return LiteralVal.FACTORY;
+                return LiteralVal.newAccumulator(typeFactory.createSqlType(BOOLEAN));
             default:
                 throw new AssertionError(call.getAggregation().getName());
         }
@@ -229,30 +229,18 @@ public class Accumulators {
      * Calcite`s implementation RexImpTable#LiteralAggImplementor.
      */
     private static class LiteralVal extends AnyVal {
-        public static final Supplier<Accumulator> FACTORY = LiteralVal::new;
-
-        private LiteralVal() {
-            super(null);
+        private LiteralVal(RelDataType type) {
+            super(type);
         }
 
-        /** {@inheritDoc} */
-        @Override
-        public void add(Object... args) {
-            assert args.length == 1 : args.length;
-
-            super.add(args);
+        static Supplier<Accumulator> newAccumulator(RelDataType type) {
+            return () -> new LiteralVal(type);
         }
 
         /** {@inheritDoc} */
         @Override
         public Object end() {
             return holder != null;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createSqlType(BOOLEAN);
         }
     }
 
