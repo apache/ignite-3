@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.rel.agg;
 
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import com.google.common.collect.ImmutableList;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.List;
@@ -314,6 +315,7 @@ public class MapReduceAggregates {
                 call.isDistinct(),
                 call.isApproximate(),
                 call.ignoreNulls(),
+                ImmutableList.of(),
                 argList,
                 // there is no filtering on REDUCE phase
                 -1,
@@ -340,6 +342,7 @@ public class MapReduceAggregates {
                 call.isDistinct(),
                 call.isApproximate(),
                 call.ignoreNulls(),
+                ImmutableList.of(),
                 argList,
                 // there is no filtering on REDUCE phase
                 -1,
