@@ -27,6 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * Intercepts {@link ActionRequest}s as they come in. It might be used to handle such a request in a non-standard
  * way (like returning EBUSY under special circumstances instead of the standard behavior).
  */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface ActionRequestInterceptor {
     /**
      * Intercepts handling of an incoming request. If non-null message is returned, the standard handling is omitted.
