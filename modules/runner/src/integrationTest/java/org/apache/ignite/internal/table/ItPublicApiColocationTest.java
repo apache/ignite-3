@@ -47,7 +47,6 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -71,20 +70,11 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             NativeTypeSpec.TIMESTAMP)
             .collect(Collectors.toSet());
 
-    /**
-     * Clear tables after each test.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void clearTables() {
         for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
             sql("DROP TABLE " + t.name());
         }
-
-        super.tearDownBase(testInfo);
     }
 
     /**

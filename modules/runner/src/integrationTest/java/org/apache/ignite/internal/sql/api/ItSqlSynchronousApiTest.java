@@ -59,7 +59,6 @@ import org.apache.ignite.tx.Transaction;
 import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Tests for synchronous SQL API.
@@ -68,20 +67,11 @@ import org.junit.jupiter.api.TestInfo;
 public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     private static final int ROW_COUNT = 16;
 
-    /**
-     * Clear tables after each test.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void clearTables() {
         for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
             sql("DROP TABLE " + t.name());
         }
-
-        tearDownBase(testInfo);
     }
 
     @Test

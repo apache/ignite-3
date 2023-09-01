@@ -223,7 +223,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
      * @param leaderAndGroupRef Pair contains of leader and RAFT group name.
      * @return Atomic long that represents an applied index.
      */
-    private static AtomicLong partitionUpdateInhibitor(
+    private AtomicLong partitionUpdateInhibitor(
             IgniteImpl node,
             AtomicReference<IgniteBiTuple<ClusterNode, String>> leaderAndGroupRef
     ) {
@@ -327,7 +327,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
      *
      * @param ignite Ignite instance.
      */
-    private static void transferLeadershipToLocalNode(IgniteImpl ignite) {
+    private void transferLeadershipToLocalNode(IgniteImpl ignite) {
         TableImpl table = (TableImpl) ignite.tables().table(DEFAULT_TABLE_NAME);
 
         RaftGroupService raftGroupService = table.internalTable().partitionRaftGroupService(0);

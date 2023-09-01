@@ -28,7 +28,6 @@ import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Verifies that primary keys in the metadata are valid.
@@ -39,9 +38,7 @@ public class ItJdbcMetadataPrimaryKeysSelfTest extends AbstractJdbcSelfTest {
 
     /** {@inheritDoc} */
     @AfterEach
-    @Override protected void afterTest(TestInfo testInfo) throws Exception {
-        super.afterTest(testInfo);
-
+    protected void afterTest() throws Exception {
         executeUpdate("DROP TABLE IF EXISTS PUBLIC.TEST;");
     }
 

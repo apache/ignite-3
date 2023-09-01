@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.testframework;
 
 import java.nio.file.Path;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -29,30 +27,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class IgniteAbstractTest extends BaseIgniteAbstractTest {
     /** Work directory. */
+    @WorkDirectory
     protected Path workDir;
 
-    /**
-     * Invokes before the test will start.
-     *
-     * @param testInfo Test information oject.
-     * @param workDir  Work directory.
-     * @throws Exception If failed.
-     */
     @BeforeEach
-    public void setup(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
-        setupBase(testInfo, workDir);
-
-        this.workDir = workDir;
-    }
-
-    /**
-     * Invokes after the test has finished.
-     *
-     * @param testInfo Test information oject.
-     * @throws Exception If failed.
-     */
-    @AfterEach
-    public void tearDown(TestInfo testInfo) throws Exception {
-        tearDownBase(testInfo);
+    public void printWorkDir() {
+        logger().info("workDir: " + workDir);
     }
 }

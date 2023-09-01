@@ -21,24 +21,14 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSu
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /** Tests for correlated queries. */
 public class ItCorrelatesTest extends ClusterPerClassIntegrationTest {
     private static final String DISABLED_JOIN_RULES = " /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ ";
 
-    /**
-     * Clear tables after each test.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void clearTables() {
         dropAllTables();
-
-        super.tearDownBase(testInfo);
     }
 
     /** Checks correlates are assigned before access. */

@@ -36,24 +36,14 @@ import org.apache.ignite.lang.ErrorGroups.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Integration test for CREATE TABLE DDL command.
  */
 public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
-    /**
-     * Clear tables after each test.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void clearTables() {
         dropAllTables();
-
-        super.tearDownBase(testInfo);
     }
 
     @Test
