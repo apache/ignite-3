@@ -112,8 +112,7 @@ public class BasicAuthenticatorTests : IgniteTestsBase
         }
 
         // Wait for the server to apply the configuration change and drop the client connection.
-        // ReSharper disable once AccessToDisposedClosure
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 0, 3000);
+        client.WaitForConnections(0, 3000);
 
         _authnEnabled = enable;
     }
