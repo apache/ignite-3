@@ -1853,7 +1853,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Return actual table id by given name or {@code null} if table doesn't exist.
      *
      * @param tableName Table name.
-     * @return Table id or {@code null} if not found.
      */
     private @Nullable Integer tableNameToId(String tableName) {
         try {
@@ -2057,7 +2056,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Internal method for getting a table future, which is completed when the table will be published.
+     * Internal method for getting a table future, which is completed when the table is published.
      *
      * @param id Table id.
      * @return Future representing pending completion of the operation.
@@ -2115,16 +2114,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future result.
      */
     private <T> T join(CompletableFuture<T> future) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-
         try {
             return future.join();
         } catch (CompletionException ex) {
             throw convertThrowable(ex.getCause());
-        } finally {
-            busyLock.leaveBusy();
         }
     }
 
@@ -2716,6 +2709,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     public @Nullable TableImpl getTable(int tableId) {
         return startedTables.get(tableId);
+    }
+
+    /**
+     * Returns a table instance if it exists, {@code null} otherwise.
+     *
+     * @param tableName Table name.
+     */
+    public @Nullable TableImpl getTable(String tableName) {
+        return findTableImplByName(startedTables.values(), tableName);
+    }
+
+    private static @Nullable TableImpl findTableImplByName(Collection<TableImpl> tables, String name) {
+        return tables.stream().filter(table -> table.name().equals(name)).findAny().orElse(null);
     }
 
     private @Nullable CatalogTableDescriptor getTableDescriptor(int id) {

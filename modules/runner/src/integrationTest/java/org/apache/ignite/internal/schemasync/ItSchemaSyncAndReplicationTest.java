@@ -36,10 +36,10 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -51,7 +51,7 @@ import org.junit.jupiter.api.Test;
 class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     private static final int NODES_TO_START = 3;
 
-    private static final String TABLE_NAME = "test";
+    private static final String TABLE_NAME = "TEST";
 
     private final LogInspector appendEntriesInterceptorInspector = LogInspector.create(CheckCatalogVersionOnAppendEntries.class, true);
 
@@ -79,9 +79,6 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl nodeToInhibitMetaStorage = cluster.node(1);
 
-        Table notInhibitedNodeTable = cluster.node(notInhibitedNodeIndex).tables().table(TABLE_NAME);
-        TableImpl inhibitedNodeTable = (TableImpl) nodeToInhibitMetaStorage.tables().table(TABLE_NAME);
-
         WatchListenerInhibitor listenerInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(nodeToInhibitMetaStorage);
         listenerInhibitor.startInhibit();
 
@@ -89,16 +86,16 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
             CompletableFuture<?> rejectionTriggered = rejectionDueToMetadataLagTriggered();
 
             updateTableSchemaAt(notInhibitedNodeIndex);
-            putToTableAt(notInhibitedNodeTable);
+            putToTableAt(notInhibitedNodeIndex);
 
             assertThat("Did not see rejections due to lagging metadata", rejectionTriggered, willSucceedIn(10, TimeUnit.SECONDS));
 
-            assertTrue(solePartitionIsEmpty(inhibitedNodeTable), "Something was written to the partition");
+            assertTrue(solePartitionIsEmpty(nodeToInhibitMetaStorage), "Something was written to the partition");
 
             listenerInhibitor.stopInhibit();
 
             assertTrue(
-                    waitForCondition(() -> !solePartitionIsEmpty(inhibitedNodeTable), 10_000),
+                    waitForCondition(() -> !solePartitionIsEmpty(nodeToInhibitMetaStorage), 10_000),
                     "Nothing was written to partition even after inhibiting was cancelled"
             );
         } finally {
@@ -149,8 +146,12 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
         return rejectionTriggered;
     }
 
-    private void putToTableAt(Table table) {
-        table.keyValueView().put(null, Tuple.create().set("key", 1), Tuple.create().set("val", "one"));
+    private void putToTableAt(int nodeIndex) {
+        cluster.node(nodeIndex)
+                .tables()
+                .table(TABLE_NAME)
+                .keyValueView()
+                .put(null, Tuple.create().set("key", 1), Tuple.create().set("val", "one"));
     }
 
     private void updateTableSchemaAt(int nodeIndex) {
@@ -159,13 +160,16 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
         });
     }
 
-    private static boolean solePartitionIsEmpty(TableImpl table) {
-        MvPartitionStorage mvPartitionStorage = solePartitionStorage(table);
+    private static boolean solePartitionIsEmpty(IgniteImpl node) {
+        MvPartitionStorage mvPartitionStorage = solePartitionStorage(node);
         RowId rowId = mvPartitionStorage.closestRowId(RowId.lowestRowId(0));
         return rowId == null;
     }
 
-    private static MvPartitionStorage solePartitionStorage(TableImpl table) {
+    private static MvPartitionStorage solePartitionStorage(IgniteImpl node) {
+        // We use this api because there is no waiting for schemas to sync.
+        TableImpl table = ((TableManager) node.tables()).getTable(TABLE_NAME);
+
         MvPartitionStorage mvPartitionStorage = table.internalTable().storage().getMvPartition(0);
 
         assertThat(mvPartitionStorage, is(notNullValue()));
