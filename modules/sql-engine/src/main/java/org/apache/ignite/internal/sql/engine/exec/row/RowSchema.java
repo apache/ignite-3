@@ -53,13 +53,11 @@ public final class RowSchema {
     public @Nullable Object value(int fieldIndex, InternalTuple tuple) {
         TypeSpec type = fields().get(fieldIndex);
 
-        if (type instanceof NullTypeSpec) {
-            assert tuple.hasNullValue(fieldIndex) : "index=" + fieldIndex;
+        NativeType nativeType = RowSchemaTypes.toNativeType(type);
 
+        if (nativeType == null) {
             return null;
         }
-
-        NativeType nativeType = RowSchemaTypes.toNativeType(type);
 
         switch (nativeType.spec()) {
             case BOOLEAN: return tuple.booleanValueBoxed(fieldIndex);
