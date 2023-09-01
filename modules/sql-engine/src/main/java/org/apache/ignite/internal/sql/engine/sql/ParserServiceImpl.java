@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -41,6 +42,7 @@ public class ParserServiceImpl implements ParserService {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public ParsedResult parse(String query) {
         ParsedResult cachedResult = queryToParsedResultCache.get(query);

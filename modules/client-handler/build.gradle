@@ -45,6 +45,7 @@ dependencies {
     implementation libs.msgpack.core
     implementation libs.msgpack.jackson
     implementation libs.auto.service.annotations
+    implementation libs.opentelemetry.instrumentation.annotations
 
     testImplementation project(':ignite-configuration')
     testImplementation(testFixtures(project(':ignite-core')))

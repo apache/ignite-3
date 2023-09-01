@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -111,11 +112,13 @@ public class TxManagerImpl implements TxManager {
         this.transactionIdGenerator = transactionIdGenerator;
     }
 
+    @WithSpan
     @Override
     public InternalTransaction begin() {
         return begin(false, null);
     }
 
+    @WithSpan
     @Override
     public InternalTransaction begin(boolean readOnly, @Nullable HybridTimestamp observableTimestamp) {
         assert readOnly || observableTimestamp == null : "Observable timestamp is applicable just for read-only transactions.";
@@ -177,6 +180,7 @@ public class TxManagerImpl implements TxManager {
         return states.get(txId);
     }
 
+    @WithSpan
     @Override
     public void changeState(UUID txId, TxState before, TxState after) {
         TxState computeResult = states.compute(txId, (k, v) -> {
@@ -191,6 +195,7 @@ public class TxManagerImpl implements TxManager {
                 + " got = [" + computeResult + "], state to set = [" + after + ']';
     }
 
+    @WithSpan
     @Override
     public CompletableFuture<Void> finish(
             TablePartitionId commitPartition,
@@ -219,6 +224,7 @@ public class TxManagerImpl implements TxManager {
                 .thenRun(() -> changeState(txId, PENDING, commit ? COMMITED : ABORTED));
     }
 
+    @WithSpan
     @Override
     public CompletableFuture<Void> cleanup(
             ClusterNode recipientNode,

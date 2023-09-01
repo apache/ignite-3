@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.jdbc;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -52,6 +53,7 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
         long fetched0 = fetched.addAndGet(rows);
@@ -71,7 +73,7 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     }
 
     /** {@inheritDoc} */
-    @Override 
+    @Override
     public CompletableFuture<Void> closeAsync() {
         return cur.closeAsync();
     }

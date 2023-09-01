@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
@@ -70,6 +71,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public SchemaPlus schema(@Nullable String name, int version) {
         String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
@@ -79,6 +81,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public SchemaPlus schema(@Nullable String name, long timestamp) {
         String schemaName = name == null ? DEFAULT_SCHEMA_NAME : name;
@@ -103,6 +106,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         return catalogManager.catalogReadyFuture((int) version);
     }
 
+    @WithSpan
     private static SchemaPlus createSqlSchema(int version, CatalogSchemaDescriptor schemaDescriptor) {
         String schemaName = schemaDescriptor.name();
 
@@ -154,6 +158,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         return rootSchema.add(schemaName, igniteSchema);
     }
 
+    @WithSpan
     private static IgniteSchemaIndex createSchemaIndex(CatalogIndexDescriptor indexDescriptor, TableDescriptor tableDescriptor) {
         Type type;
         if (indexDescriptor instanceof CatalogSortedIndexDescriptor) {
@@ -168,6 +173,7 @@ public class CatalogSqlSchemaManager implements SqlSchemaManager {
         return new IgniteSchemaIndex(indexDescriptor.name(), type, tableDescriptor.distribution(), indexCollation);
     }
 
+    @WithSpan
     private static TableDescriptor createTableDescriptor(CatalogTableDescriptor descriptor) {
         List<ColumnDescriptor> colDescriptors = new ArrayList<>();
         List<Integer> colocationColumns = new ArrayList<>();

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -105,6 +106,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     protected CompletableFuture<Void> finish(boolean commit) {
         if (!FINISH_FUT_UPDATER.compareAndSet(this, null, new CompletableFuture<>())) {

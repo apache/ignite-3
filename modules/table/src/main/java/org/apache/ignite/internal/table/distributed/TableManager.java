@@ -44,6 +44,9 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -271,6 +274,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** Here a table future stores during creation (until the table can be provided to client). */
     private final Map<Integer, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
+
+    /** Used to propagate context. */
+    // TODO: 04.09.2023 most probably it is useless in case of multi node cluster
+    private final Map<Integer, Context> tableCreateContext = new ConcurrentHashMap<>();
 
     /**
      * Versioned store for tables by id. Only table instances are created here, local storages and RAFT groups may not be initialized yet.
@@ -512,7 +519,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tablesCfg.tables().listenElements(new ConfigurationNamedListListener<>() {
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableView> ctx) {
-                return onTableCreate(ctx);
+                Context context = null;
+                if (ctx.newValue() != null) {
+                    context = tableCreateContext.remove(ctx.newValue().id());
+                }
+                if(context == null) {
+                    context = Context.current();
+                }
+                try (Scope scope = context.makeCurrent()) {
+                    return onTableCreate(ctx);
+                }
             }
 
             @Override
@@ -583,6 +599,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param ctx Table configuration context.
      * @return A future.
      */
+    @WithSpan
     private CompletableFuture<?> onTableCreate(ConfigurationNotificationEvent<TableView> ctx) {
         if (!busyLock.enterBusy()) {
             fireEvent(TableEvent.CREATE,
@@ -699,6 +716,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param table Initialized table entity.
      * @return future, which will be completed when the partitions creations done.
      */
+    @WithSpan
     private CompletableFuture<?> createTablePartitionsLocally(
             long causalityToken,
             CompletableFuture<List<Set<Assignment>>> assignmentsFuture,
@@ -1225,6 +1243,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param assignmentsFuture Future with assignments.
      * @return Future that will be completed when local changes related to the table creation are applied.
      */
+    @WithSpan
     private CompletableFuture<?> createTableLocally(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
@@ -1293,6 +1312,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
      */
+
+    @WithSpan
     protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
         CatalogDataStorageDescriptor dataStorage = zoneDescriptor.dataStorage();
 
@@ -1472,6 +1493,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         </ul>
      * @see TableAlreadyExistsException
      */
+    @WithSpan
     public CompletableFuture<Table> createTableAsync(String name, String zoneName, Consumer<TableChange> tableInitChange) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
@@ -1484,6 +1506,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /** See {@link #createTableAsync(String, String, Consumer)} for details. */
+    @WithSpan
     private CompletableFuture<Table> createTableAsyncInternal(
             String name,
             String zoneName,
@@ -1522,8 +1545,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     }
 
                                     try {
+                                        Context context = Context.current();
                                         cmgMgr.logicalTopology()
-                                                .handle((cmgTopology, e) -> {
+                                                .handle(context.wrapFunction((cmgTopology, e) -> {
                                                     if (e == null) {
                                                         if (!busyLock.enterBusy()) {
                                                             NodeStoppingException nodeStoppingException = new NodeStoppingException();
@@ -1548,7 +1572,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     }
 
                                                     return null;
-                                                });
+                                                }));
                                     } finally {
                                         busyLock.leaveBusy();
                                     }
@@ -1575,12 +1599,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tableInitChange Table changer.
      * @param tblFut Future representing pending completion of the table creation.
      */
+    @WithSpan
     private void changeTablesConfigurationOnTableCreate(
             String name,
             int zoneId,
             Consumer<TableChange> tableInitChange,
             CompletableFuture<Table> tblFut
     ) {
+        Context context = Context.current();
         tablesCfg.change(tablesChange -> {
             incrementTablesGeneration(tablesChange);
 
@@ -1605,6 +1631,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     extConfCh.changeSchemaId(INITIAL_SCHEMA_VERSION);
 
                     tableCreateFuts.put(extConfCh.id(), tblFut);
+                    tableCreateContext.put(extConfCh.id(), context);
                 });
             });
         }).exceptionally(t -> {
@@ -1618,6 +1645,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 tblFut.completeExceptionally(ex);
 
                 tableCreateFuts.values().removeIf(fut -> fut == tblFut);
+                tableCreateContext.values().removeIf(ctx -> ctx == context);
             }
 
             return null;
@@ -1640,6 +1668,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         </ul>
      * @see TableNotFoundException
      */
+    @WithSpan
     public CompletableFuture<Void> alterTableAsync(String name, Function<TableChange, Boolean> tableChange) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
@@ -1652,6 +1681,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /** See {@link #alterTableAsync(String, Function)} for details. */
+    @WithSpan
     private CompletableFuture<Void> alterTableAsyncInternal(String name, Function<TableChange, Boolean> tableChange) {
         CompletableFuture<Void> tblFut = new CompletableFuture<>();
 
@@ -1735,6 +1765,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         </ul>
      * @see TableNotFoundException
      */
+    @WithSpan
     public CompletableFuture<Void> dropTableAsync(String name) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
@@ -1747,6 +1778,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /** See {@link #dropTableAsync(String)} for details. */
+    @WithSpan
     private CompletableFuture<Void> dropTableAsyncInternal(String name) {
         return tableAsyncInternal(name).thenCompose(tbl -> {
             // In case of drop it's an optimization that allows not to fire drop-change-closure if there's no such
@@ -1788,12 +1820,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public List<Table> tables() {
         return join(tablesAsync());
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
         if (!busyLock.enterBusy()) {
@@ -1811,6 +1845,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @return Future representing pending completion of the operation.
      */
+    @WithSpan
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
         return supplyAsync(() -> inBusyLock(busyLock, this::directTableIds), ioExecutor)
                 .thenCompose(tableIds -> inBusyLock(busyLock, () -> {
@@ -1978,12 +2013,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public TableImpl tableImpl(String name) {
         return join(tableImplAsync(name));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<TableImpl> tableImplAsync(String name) {
         return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name));
@@ -1995,6 +2032,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param name Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
+    @WithSpan
     public CompletableFuture<TableImpl> tableAsyncInternal(String name) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
@@ -2022,6 +2060,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         otherwise.
      * @return Future representing pending completion of the operation.
      */
+    @WithSpan
     public CompletableFuture<TableImpl> tableAsyncInternal(int id, boolean checkConfiguration) {
         CompletableFuture<Boolean> tblCfgFut = checkConfiguration
                 ? supplyAsync(() -> inBusyLock(busyLock, () -> isTableConfigured(id)), ioExecutor)

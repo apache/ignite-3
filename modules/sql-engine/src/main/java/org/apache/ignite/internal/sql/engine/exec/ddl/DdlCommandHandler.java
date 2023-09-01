@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.sql.engine.SqlQueryProcessor.DEFAULT_SC
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -126,6 +127,7 @@ public class DdlCommandHandler {
     }
 
     /** Handles ddl commands. */
+    @WithSpan
     public CompletableFuture<Boolean> handle(DdlCommand cmd) {
         validateCommand(cmd);
 
@@ -170,6 +172,7 @@ public class DdlCommandHandler {
     }
 
     /** Handles create distribution zone command. */
+    @WithSpan
     private CompletableFuture<Boolean> handleCreateZone(CreateZoneCommand cmd) {
         DistributionZoneConfigurationParameters.Builder zoneCfgBuilder =
                 new DistributionZoneConfigurationParameters.Builder(cmd.zoneName());
@@ -207,6 +210,7 @@ public class DdlCommandHandler {
 
 
     /** Handles rename zone command. */
+    @WithSpan
     private CompletableFuture<Boolean> handleRenameZone(AlterZoneRenameCommand cmd) {
         DistributionZoneConfigurationParameters.Builder zoneCfgBuilder =
                 new DistributionZoneConfigurationParameters.Builder(cmd.newZoneName());
@@ -218,6 +222,7 @@ public class DdlCommandHandler {
     }
 
     /** Handles alter zone command. */
+    @WithSpan
     private CompletableFuture<Boolean> handleAlterZone(AlterZoneSetCommand cmd) {
         DistributionZoneConfigurationParameters.Builder zoneCfgBuilder =
                 new DistributionZoneConfigurationParameters.Builder(cmd.zoneName());
@@ -251,12 +256,14 @@ public class DdlCommandHandler {
     }
 
     /** Handles drop distribution zone command. */
+    @WithSpan
     private CompletableFuture<Boolean> handleDropZone(DropZoneCommand cmd) {
         return distributionZoneManager.dropZone(cmd.zoneName())
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundException.class));
     }
 
     /** Handles create table command. */
+    @WithSpan
     private CompletableFuture<Boolean> handleCreateTable(CreateTableCommand cmd) {
         cmd.columns().stream()
                 .map(ColumnDefinition::name)
@@ -300,6 +307,7 @@ public class DdlCommandHandler {
     }
 
     /** Handles drop table command. */
+    @WithSpan
     private CompletableFuture<Boolean> handleDropTable(DropTableCommand cmd) {
         return tableManager.dropTableAsync(cmd.tableName())
                 .thenApply(v -> Boolean.TRUE)
@@ -307,6 +315,7 @@ public class DdlCommandHandler {
     }
 
     /** Handles add column command. */
+    @WithSpan
     private CompletableFuture<Boolean> handleAlterAddColumn(AlterTableAddCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
             return completedFuture(Boolean.FALSE);
@@ -317,6 +326,7 @@ public class DdlCommandHandler {
     }
 
     /** Handles drop column command. */
+    @WithSpan
     private CompletableFuture<Boolean> handleAlterDropColumn(AlterTableDropCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
             return completedFuture(Boolean.FALSE);
@@ -343,6 +353,7 @@ public class DdlCommandHandler {
     }
 
     /** Handles create index command. */
+    @WithSpan
     private CompletableFuture<Boolean> handleCreateIndex(CreateIndexCommand cmd) {
         cmd.columns().stream()
                 .filter(Predicate.not(new HashSet<>()::add))
@@ -376,6 +387,7 @@ public class DdlCommandHandler {
     }
 
     /** Handles drop index command. */
+    @WithSpan
     private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
         return indexManager.dropIndexAsync(cmd.schemaName(), cmd.indexName(), !cmd.ifNotExists());
     }

@@ -25,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -223,6 +224,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         messageService.register((n, m) -> onMessage(n, (ErrorMessage) m), SqlQueryMessageGroup.ERROR_MESSAGE);
     }
 
+    @WithSpan
     private AsyncCursor<List<Object>> executeQuery(
             InternalTransaction tx,
             BaseQueryContext ctx,
@@ -259,6 +261,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public AsyncCursor<List<Object>> executePlan(
             InternalTransaction tx, QueryPlan plan, BaseQueryContext ctx
@@ -292,6 +295,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return mgr.close(true);
     }
 
+    @WithSpan
     private AsyncCursor<List<Object>> executeDdl(DdlPlan plan) {
         CompletableFuture<Iterator<List<Object>>> ret = ddlCmdHnd.handle(plan.command())
                 .thenApply(applied -> List.of(List.<Object>of(applied)).iterator())
@@ -321,6 +325,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteInternalException(INTERNAL_ERR, e);
     }
 
+    @WithSpan
     private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan) {
         List<List<Object>> res = List.of(List.of(plan.plan()));
 
@@ -476,6 +481,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return List.copyOf(localFragments);
         }
 
+        @WithSpan
         private CompletableFuture<Void> sendFragment(
                 String targetNodeName, Fragment fragment, FragmentDescription desc, TxAttributes txAttributes
         ) {
@@ -500,6 +506,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return messageService.send(targetNodeName, request);
         }
 
+        @WithSpan
         private void acknowledgeFragment(String nodeName, long fragmentId, @Nullable Throwable ex) {
             if (ex != null) {
                 Long rootFragmentId0 = rootFragmentId;
@@ -532,6 +539,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .forEach(e -> e.getValue().completeExceptionally(new NodeLeftException(nodeName)));
         }
 
+        @WithSpan
         private CompletableFuture<Void> executeFragment(IgniteRel treeRoot, ResolvedDependencies deps, ExecutionContext<RowT> ectx) {
             String origNodeName = ectx.originatingNodeName();
 
@@ -591,6 +599,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             );
         }
 
+        @WithSpan
         private void submitFragment(
                 String initiatorNode,
                 String fragmentString,
@@ -639,6 +648,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
         }
 
+        @WithSpan
         private AsyncCursor<List<Object>> execute(InternalTransaction tx, MultiStepPlan notMappedPlan) {
             CompletableFuture<MultiStepPlan> f = mapFragments(notMappedPlan);
 
@@ -755,6 +765,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }, taskExecutor);
 
             return new AsyncCursor<>() {
+                @WithSpan
                 @Override
                 public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
                     return root.thenCompose(cur -> {
@@ -769,7 +780,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         return fut;
                     });
                 }
-
+                @WithSpan
                 @Override
                 public CompletableFuture<Void> closeAsync() {
                     return root.thenCompose(none -> DistributedQueryManager.this.close(false));
@@ -847,6 +858,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             });
         }
 
+        @WithSpan
         private CompletableFuture<Void> close(boolean cancel) {
             if (!cancelled.compareAndSet(false, true)) {
                 return cancelFut;
@@ -887,6 +899,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return cancelFut;
         }
 
+        @WithSpan
         private CompletableFuture<Void> closeLocalFragments() {
             ExecutionCancelledException ex = new ExecutionCancelledException();
 
@@ -904,6 +917,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             );
         }
 
+        @WithSpan
         private CompletableFuture<Void> awaitFragmentInitialisationAndClose() {
             Map<String, List<CompletableFuture<?>>> requestsPerNode = new HashMap<>();
             for (Map.Entry<RemoteFragmentKey, CompletableFuture<Void>> entry : remoteFragmentInitCompletion.entrySet()) {
@@ -949,6 +963,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
          * @param cancel Forces execution to terminate with {@link ExecutionCancelledException}.
          * @return Completable future that should run asynchronously.
          */
+        @WithSpan
         private CompletableFuture<Void> closeExecNode(boolean cancel) {
             CompletableFuture<Void> start = new CompletableFuture<>();
 
@@ -967,6 +982,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return start;
         }
 
+        @WithSpan
         private CompletableFuture<Map<Integer, ColocationGroup>> fetchColocationGroups(ResolvedDependencies deps) {
             List<CompletableFuture<Pair<Integer, ColocationGroup>>> list = new ArrayList<>();
 

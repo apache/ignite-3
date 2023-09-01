@@ -58,13 +58,14 @@ public class JdbcQueryEventHandlerInstrumentation implements TypeInstrumentation
     public static class JdbcQueryEventHandlerAdvice {
 
         /**
-         * onEnter.
+         * Add some attributes on enter to method.
          *
          * @param connectionId connection id.
          * @param req request.
          */
         @Advice.OnMethodEnter(suppress = Throwable.class)
         public static void onEnter(@Advice.Argument(value = 0) long connectionId, @Advice.Argument(value = 1) Object req) {
+            // TODO: 04.09.2023 rewrite using io.opentelemetry.instrumentation.api.instrumenter.Instrumenter
             Span.current()
                     .setAttribute("connectionId", connectionId)
                     .setAttribute("req", req.toString());

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -78,12 +79,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public V get(@Nullable Transaction tx, @NotNull K key) {
         return sync(getAsync(tx, key));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<V> getAsync(@Nullable Transaction tx, @NotNull K key) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key));
@@ -92,12 +95,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public NullableValue<V> getNullable(@Nullable Transaction tx, @NotNull K key) {
         return sync(getNullableAsync(tx, key));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, @NotNull K key) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key));
@@ -106,12 +111,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public V getOrDefault(@Nullable Transaction tx, @NotNull K key, V defaultValue) {
         return sync(getOrDefaultAsync(tx, key, defaultValue));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, @NotNull K key, V defaultValue) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key));
@@ -120,12 +127,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public Map<K, V> getAll(@Nullable Transaction tx, @NotNull Collection<K> keys) {
         return sync(getAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys) {
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keys));
@@ -134,12 +143,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public boolean contains(@Nullable Transaction tx, @NotNull K key) {
         return sync(containsAsync(tx, key));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, @NotNull K key) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key));
@@ -148,12 +159,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public void put(@Nullable Transaction tx, @NotNull K key, V val) {
         sync(putAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key), val);
@@ -162,12 +175,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public void putAll(@Nullable Transaction tx, @NotNull Map<K, V> pairs) {
         sync(putAllAsync(tx, pairs));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<K, V> pairs) {
         Collection<BinaryRowEx> rows = marshalPairs(Objects.requireNonNull(pairs).entrySet());
@@ -176,12 +191,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public V getAndPut(@Nullable Transaction tx, @NotNull K key, @NotNull V val) {
         return sync(getAndPutAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, @NotNull K key, @NotNull V val) {
         Objects.requireNonNull(key);
@@ -191,12 +208,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public NullableValue<V> getNullableAndPut(@Nullable Transaction tx, @NotNull K key, V val) {
         return sync(getNullableAndPutAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key), val);
@@ -206,12 +225,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public boolean putIfAbsent(@Nullable Transaction tx, @NotNull K key, V val) {
         return sync(putIfAbsentAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key), val);
@@ -220,18 +241,21 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public boolean remove(@Nullable Transaction tx, @NotNull K key) {
         return sync(removeAsync(tx, key));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public boolean remove(@Nullable Transaction tx, @NotNull K key, V val) {
         return sync(removeAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull K key) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key));
@@ -240,6 +264,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key), val);
@@ -248,12 +273,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public Collection<K> removeAll(@Nullable Transaction tx, @NotNull Collection<K> keys) {
         return sync(removeAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<K> keys) {
         Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keys));
@@ -262,12 +289,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public V getAndRemove(@Nullable Transaction tx, @NotNull K key) {
         return sync(getAndRemoveAsync(tx, key));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, @NotNull K key) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key));
@@ -276,12 +305,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, @NotNull K key) {
         return sync(getNullableAndRemoveAsync(tx, key));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, @NotNull K key) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key));
@@ -291,18 +322,21 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public boolean replace(@Nullable Transaction tx, @NotNull K key, V val) {
         return sync(replaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public boolean replace(@Nullable Transaction tx, @NotNull K key, V oldVal, V newVal) {
         return sync(replaceAsync(tx, key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key), val);
@@ -311,6 +345,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull K key, V oldVal, V newVal) {
         Objects.requireNonNull(key);
@@ -322,12 +357,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public V getAndReplace(@Nullable Transaction tx, @NotNull K key, @NotNull V val) {
         return sync(getAndReplaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, @NotNull V val) {
         Objects.requireNonNull(key);
@@ -337,12 +374,14 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, @NotNull K key, V val) {
         return sync(getNullableAndReplaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull K key, V val) {
         BinaryRowEx row = marshal(Objects.requireNonNull(key), val);
@@ -383,6 +422,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param key Key object.
      * @return Binary row.
      */
+    @WithSpan
     private BinaryRowEx marshal(@NotNull K key) {
         final KvMarshaller<K, V> marsh = marshaller();
 
@@ -400,6 +440,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param val Value object.
      * @return Binary row.
      */
+    @WithSpan
     private BinaryRowEx marshal(@NotNull K key, V val) {
         final KvMarshaller<K, V> marsh = marshaller();
 
@@ -416,6 +457,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param keys Key objects.
      * @return Binary rows.
      */
+    @WithSpan
     private Collection<BinaryRowEx> marshal(Collection<K> keys) {
         if (keys.isEmpty()) {
             return Collections.emptyList();
@@ -442,6 +484,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param pairs Key-value map.
      * @return Binary rows.
      */
+    @WithSpan
     private List<BinaryRowEx> marshalPairs(Collection<Entry<K, V>> pairs) {
         if (pairs.isEmpty()) {
             return Collections.emptyList();
@@ -468,6 +511,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param rows Binary rows.
      * @return Keys.
      */
+    @WithSpan
     private Collection<K> unmarshalKeys(Collection<BinaryRow> rows) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
@@ -496,6 +540,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param binaryRow Binary row.
      * @return Value object or {@code null} if not exists.
      */
+    @WithSpan
     private @Nullable V unmarshalNullableValue(@Nullable BinaryRow binaryRow) {
         if (binaryRow == null) {
             return null;
@@ -518,6 +563,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @param rows Binary rows.
      * @return Key-value pairs.
      */
+    @WithSpan
     private Map<K, V> unmarshalPairs(Collection<BinaryRow> rows) {
         if (rows.isEmpty()) {
             return Collections.emptyMap();
@@ -548,6 +594,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
      * @return Value object or {@code null} if not exists.
      * @throws UnexpectedNullValueException if value object is null.
      */
+    @WithSpan
     private @Nullable V unmarshallValue(@Nullable BinaryRow binaryRow) {
         if (binaryRow == null) {
             return null;
@@ -563,6 +610,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);

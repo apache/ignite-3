@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -70,7 +72,8 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
-        return dataCursor.requestNextAsync(rows).handle((batch, t) -> {
+        Context context = Context.current();
+        return dataCursor.requestNextAsync(rows).handle(context.wrapFunction((batch, t) -> {
             if (t != null) {
                 if (implicitTx != null) {
                     implicitTx.rollback();
@@ -85,7 +88,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
             }
 
             return batch;
-        });
+        }));
     }
 
     /** {@inheritDoc} */

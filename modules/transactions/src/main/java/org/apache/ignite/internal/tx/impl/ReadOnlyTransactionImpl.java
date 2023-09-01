@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -93,6 +94,7 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
         // No-op.
     }
 
+    @WithSpan
     @Override
     // TODO: IGNITE-17666 Close cursor tx finish and do it on the first finish invocation only.
     protected CompletableFuture<Void> finish(boolean commit) {

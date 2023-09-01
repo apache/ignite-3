@@ -22,6 +22,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -310,6 +311,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public SessionId createSession(PropertiesHolder properties) {
         properties = PropertiesHelper.merge(properties, DEFAULT_PROPERTIES);
@@ -321,6 +323,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Void> closeSession(SessionId sessionId) {
         var session = sessionManager.session(sessionId);
@@ -366,6 +369,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
             SessionId sessionId, QueryContext context, String qry, Object... params
@@ -399,6 +403,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         indexManager.listen(evt, lsnr);
     }
 
+    @WithSpan
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
             SessionId sessionId,
             QueryContext context,
@@ -457,16 +462,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                         return CompletableFuture.failedFuture(new SchemaNotFoundException(schemaName));
                     }
 
-                    BaseQueryContext ctx = BaseQueryContext.builder()
-                            .frameworkConfig(
-                                    Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                            .defaultSchema(schema)
-                                            .build()
-                            )
-                            .logger(LOG)
-                            .cancel(queryCancel)
-                            .parameters(params)
-                            .build();
+                    BaseQueryContext ctx = buildBaseQueryContext(params, schema, queryCancel);
 
                     return prepareSvc.prepareAsync(result, ctx)
                             .thenApply(plan -> {
@@ -482,6 +478,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                         plan.metadata(),
                                         implicitTxRequired ? tx.get() : null,
                                         new AsyncCursor<List<Object>>() {
+                                            @WithSpan
                                             @Override
                                             public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
                                                 session.touch();
@@ -489,6 +486,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                                                 return dataCursor.requestNextAsync(rows);
                                             }
 
+                                            @WithSpan
                                             @Override
                                             public CompletableFuture<Void> closeAsync() {
                                                 session.touch();
@@ -517,6 +515,20 @@ public class SqlQueryProcessor implements QueryProcessor {
         start.completeAsync(() -> null, taskExecutor);
 
         return stage;
+    }
+
+    @WithSpan
+    private static BaseQueryContext buildBaseQueryContext(Object[] params, SchemaPlus schema, QueryCancel queryCancel) {
+        return BaseQueryContext.builder()
+                .frameworkConfig(
+                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                .defaultSchema(schema)
+                                .build()
+                )
+                .logger(LOG)
+                .cancel(queryCancel)
+                .parameters(params)
+                .build();
     }
 
     @TestOnly

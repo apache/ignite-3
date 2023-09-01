@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -106,6 +107,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
         registerExistingTables();
     }
 
+    @WithSpan
     private void registerExistingTables() {
         // TODO: IGNITE-20051 - add proper recovery (consider tables that are removed now; take token and catalog version
         // exactly matching the tables).
@@ -120,6 +122,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
         registriesVv.complete(causalityToken);
     }
 
+    @WithSpan
     private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event, @Nullable Throwable ex) {
         if (ex != null) {
             return failedFuture(ex);
@@ -130,6 +133,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
         return onTableCreatedOrAltered(creationEvent.tableDescriptor(), creationEvent.causalityToken());
     }
 
+    @WithSpan
     private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event, @Nullable Throwable ex) {
         if (ex != null) {
             return failedFuture(ex);
@@ -146,6 +150,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
         return onTableCreatedOrAltered(tableDescriptor, event.causalityToken());
     }
 
+    @WithSpan
     private CompletableFuture<Boolean> onTableCreatedOrAltered(CatalogTableDescriptor tableDescriptor, long causalityToken) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
@@ -242,6 +247,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
      * @param schema Schema descriptor.
      * @return Future that will be completed when the schema gets saved.
      */
+    @WithSpan
     private CompletableFuture<Void> saveSchemaDescriptor(int tableId, SchemaDescriptor schema) {
         ByteArray schemaKey = schemaWithVerHistKey(tableId, schema.version());
         ByteArray latestSchemaVersionKey = latestSchemaVersionKey(tableId);
@@ -266,6 +272,7 @@ public class CatalogSchemaManager extends Producer<SchemaEvent, SchemaEventParam
      * @param schema The schema to register.
      * @return Registries after registering this schema.
      */
+    @WithSpan
     private Map<Integer, SchemaRegistryImpl> registerSchema(
             Map<Integer, SchemaRegistryImpl> registries,
             int tableId,

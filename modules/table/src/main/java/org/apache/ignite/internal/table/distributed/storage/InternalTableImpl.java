@@ -31,6 +31,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -224,6 +225,7 @@ public class InternalTableImpl implements InternalTable {
      * @param fac Replica requests factory.
      * @return The future.
      */
+    @WithSpan
     private <R> CompletableFuture<R> enlistInTx(
             BinaryRowEx row,
             @Nullable InternalTransaction tx,
@@ -281,6 +283,7 @@ public class InternalTableImpl implements InternalTable {
      * @param reducer Transform reducer.
      * @return The future.
      */
+    @WithSpan
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx,
@@ -366,6 +369,7 @@ public class InternalTableImpl implements InternalTable {
      * @param implicit {@code True} if the implicit txn.
      * @return Batch of retrieved rows.
      */
+    @WithSpan
     private CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
             InternalTransaction tx,
             int partId,
@@ -436,6 +440,7 @@ public class InternalTableImpl implements InternalTable {
      * @param attempts Number of attempts.
      * @return The future.
      */
+    @WithSpan
     private <R> CompletableFuture<R> enlistWithRetry(
             InternalTransaction tx,
             int partId,
@@ -496,6 +501,7 @@ public class InternalTableImpl implements InternalTable {
      * @param <T> Operation return type.
      * @return The future.
      */
+    @WithSpan
     private <T> CompletableFuture<T> postEnlist(CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full) {
         assert !(autoCommit && full) : "Invalid combination of flags";
 
@@ -533,6 +539,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
         if (tx != null && tx.isReadOnly()) {
@@ -556,6 +563,7 @@ public class InternalTableImpl implements InternalTable {
         }
     }
 
+    @WithSpan
     @Override
     public CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
@@ -575,6 +583,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
         if (tx != null && tx.isReadOnly()) {
@@ -606,6 +615,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<List<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
@@ -648,6 +658,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Void> upsert(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(
@@ -666,6 +677,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(
@@ -677,6 +689,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
         InternalTransaction tx = txManager.begin();
@@ -693,6 +706,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<BinaryRow> getAndUpsert(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(
@@ -712,6 +726,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Boolean> insert(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(
@@ -731,6 +746,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(
@@ -751,6 +767,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(
@@ -770,6 +787,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx oldRow, BinaryRowEx newRow, InternalTransaction tx) {
         return enlistInTx(
@@ -790,6 +808,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(
@@ -809,6 +828,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Boolean> delete(BinaryRowEx keyRow, InternalTransaction tx) {
         return enlistInTx(
@@ -828,6 +848,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Boolean> deleteExact(BinaryRowEx oldRow, InternalTransaction tx) {
         return enlistInTx(
@@ -847,6 +868,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(
@@ -866,6 +888,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(
@@ -886,6 +909,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Collection<BinaryRow>> deleteAllExact(
             Collection<BinaryRowEx> rows,

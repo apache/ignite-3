@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
+import io.opentelemetry.context.Context;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -76,15 +77,16 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
         CompletableFuture<Boolean> ddlCommandFuture = super.handle(cmd);
 
         // Pass supported commands to the Catalog.
+        Context ctx = Context.current();
         if (cmd instanceof CreateTableCommand) {
             return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.createTable(DdlToCatalogCommandConverter.convert((CreateTableCommand) cmd))
-                            .handle(handleModificationResult(((CreateTableCommand) cmd).ifTableExists(), TableAlreadyExistsException.class))
+                    .thenCompose(ctx.wrapFunction(res -> catalogManager.createTable(DdlToCatalogCommandConverter.convert((CreateTableCommand) cmd))
+                            .handle(handleModificationResult(((CreateTableCommand) cmd).ifTableExists(), TableAlreadyExistsException.class)))
                     );
         } else if (cmd instanceof DropTableCommand) {
             return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.dropTable(DdlToCatalogCommandConverter.convert((DropTableCommand) cmd))
-                            .handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class))
+                    .thenCompose(ctx.wrapFunction(res -> catalogManager.dropTable(DdlToCatalogCommandConverter.convert((DropTableCommand) cmd))
+                            .handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class)))
                     );
         } else if (cmd instanceof AlterTableAddCommand) {
             AlterTableAddCommand addCommand = (AlterTableAddCommand) cmd;

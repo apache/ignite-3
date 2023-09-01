@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
@@ -72,8 +74,10 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
-    public void execute(UUID qryId, long fragmentId, Runnable qryTask) {
+    public void execute(@SpanAttribute("qryId") UUID qryId, @SpanAttribute("fragmentId") long fragmentId,
+            @SpanAttribute("qryTask") Runnable qryTask) {
         int commandIdx = hash(qryId, fragmentId);
         stripedThreadPoolExecutor.execute(
                 () -> {
@@ -105,6 +109,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<?> submit(UUID qryId, long fragmentId, Runnable qryTask) {
         return stripedThreadPoolExecutor.submit(qryTask, hash(qryId, fragmentId));

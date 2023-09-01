@@ -28,6 +28,8 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.BitSet;
 import java.util.EnumMap;
 import java.util.Map;
@@ -243,6 +245,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         ByteBuf byteBuf = (ByteBuf) msg;
@@ -271,6 +274,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         super.channelInactive(ctx);
     }
 
+    @WithSpan
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
         try {
             writeMagic(ctx);
@@ -367,6 +371,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         metrics.bytesSentAdd(ClientMessageCommon.MAGIC_BYTES.length);
     }
 
+    @WithSpan
     private void write(ClientMessagePacker packer, ChannelHandlerContext ctx) {
         var buf = packer.getBuffer();
         int bytes = buf.readableBytes();
@@ -382,6 +387,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         metrics.bytesSentAdd(bytes);
     }
 
+    @WithSpan
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx) {
         LOG.warn("Error processing client request [id=" + requestId + ", op=" + opCode
                 + ", remoteAddress=" + ctx.channel().remoteAddress() + "]:" + err.getMessage(), err);
@@ -409,6 +415,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
+    @WithSpan
     private void writeErrorCore(Throwable err, ClientMessagePacker packer) {
         SchemaVersionMismatchException schemaVersionMismatchException = schemaVersionMismatchException(err);
         err = schemaVersionMismatchException == null ? ExceptionUtils.unwrapCause(err) : schemaVersionMismatchException;
@@ -453,6 +460,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         return new ClientMessageUnpacker(buf);
     }
 
+    @WithSpan
     private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in, ClientMessagePacker out) {
         long requestId = -1;
         int opCode = -1;
@@ -494,7 +502,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 var reqId = requestId;
                 var op = opCode;
 
-                fut.whenComplete((Object res, Object err) -> {
+                fut.whenComplete(Context.current().wrapConsumer((Object res, Object err) -> {
                     in.close();
                     metrics.requestsActiveDecrement();
 
@@ -512,7 +520,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                         LOG.trace("Client request processed [id=" + reqId + ", op=" + op
                                 + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
                     }
-                });
+                }));
             }
         } catch (Throwable t) {
             in.close();
@@ -524,6 +532,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
+    @WithSpan
     private @Nullable CompletableFuture processOperation(
             ClientMessageUnpacker in,
             ClientMessagePacker out,

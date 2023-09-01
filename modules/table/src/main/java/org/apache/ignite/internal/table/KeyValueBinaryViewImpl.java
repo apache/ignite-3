@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -67,12 +68,14 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public Tuple get(@Nullable Transaction tx, @NotNull Tuple key) {
         return sync(getAsync(tx, key));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
@@ -87,6 +90,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      *
      * @throws UnsupportedOperationException unconditionally.
      */
+    @WithSpan
     @Override
     public NullableValue<Tuple> getNullable(@Nullable Transaction tx, @NotNull Tuple key) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
@@ -97,18 +101,21 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      *
      * @throws UnsupportedOperationException unconditionally.
      */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public Tuple getOrDefault(@Nullable Transaction tx, @NotNull Tuple key, Tuple defaultValue) {
         return sync(getOrDefaultAsync(tx, key, defaultValue));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple defaultValue) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key), null);
@@ -117,12 +124,14 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public Map<Tuple, Tuple> getAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
         return sync(getAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
         List<BinaryRowEx> keyRows = marshalKeys(Objects.requireNonNull(keys));
@@ -131,24 +140,28 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public boolean contains(@Nullable Transaction tx, @NotNull Tuple key) {
         return get(tx, key) != null;
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         return getAsync(tx, key).thenApply(Objects::nonNull);
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public void put(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
         sync(putAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
@@ -160,12 +173,14 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public void putAll(@Nullable Transaction tx, @NotNull Map<Tuple, Tuple> pairs) {
         sync(putAllAsync(tx, pairs));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<@NotNull Tuple, @NotNull Tuple> pairs) {
         Objects.requireNonNull(pairs);
@@ -174,12 +189,14 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public Tuple getAndPut(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         return sync(getAndPutAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Tuple> getAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
@@ -195,6 +212,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      *
      * @throws UnsupportedOperationException unconditionally.
      */
+    @WithSpan
     @Override
     public NullableValue<Tuple> getNullableAndPut(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
@@ -205,6 +223,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      *
      * @throws UnsupportedOperationException unconditionally.
      */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key,
             Tuple val) {
@@ -212,12 +231,14 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public boolean putIfAbsent(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         return sync(putIfAbsentAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
@@ -229,18 +250,21 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public boolean remove(@Nullable Transaction tx, @NotNull Tuple key) {
         return sync(removeAsync(tx, key));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public boolean remove(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         return sync(removeAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
@@ -251,6 +275,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
@@ -262,12 +287,14 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public Collection<Tuple> removeAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
         return sync(removeAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
         List<BinaryRowEx> keyRows = marshalKeys(Objects.requireNonNull(keys));
@@ -277,6 +304,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public Tuple getAndRemove(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
@@ -285,6 +313,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
@@ -297,6 +326,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      *
      * @throws UnsupportedOperationException unconditionally.
      */
+    @WithSpan
     @Override
     public NullableValue<Tuple> getNullableAndRemove(@Nullable Transaction tx, @NotNull Tuple key) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
@@ -307,24 +337,28 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      *
      * @throws UnsupportedOperationException unconditionally.
      */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndRemoveAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public boolean replace(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         return sync(replaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public boolean replace(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple oldVal, @NotNull Tuple newVal) {
         return sync(replaceAsync(tx, key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
@@ -336,6 +370,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(
             @Nullable Transaction tx,
@@ -354,12 +389,14 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public Tuple getAndReplace(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         return sync(getAndReplaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<Tuple> getAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
@@ -373,6 +410,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      *
      * @throws UnsupportedOperationException unconditionally.
      */
+    @WithSpan
     @Override
     public NullableValue<Tuple> getNullableAndReplace(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
@@ -383,6 +421,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      *
      * @throws UnsupportedOperationException unconditionally.
      */
+    @WithSpan
     @Override
     public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple key,
             Tuple val) {
@@ -397,6 +436,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @return Row.
      * @throws IgniteException If failed to marshal key and/or value.
      */
+    @WithSpan
     private Row marshal(@NotNull Tuple key, @Nullable Tuple val) throws IgniteException {
         try {
             return marsh.marshal(key, val);
@@ -411,6 +451,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param row Binary row.
      * @return Value tuple.
      */
+    @WithSpan
     private @Nullable Tuple unmarshalValue(BinaryRow row) {
         if (row == null) {
             return null;
@@ -425,6 +466,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param rows Binary rows.
      * @return Key-value pairs of tuples.
      */
+    @WithSpan
     private Map<Tuple, Tuple> unmarshalValue(Collection<BinaryRow> rows) {
         Map<Tuple, Tuple> pairs = IgniteUtils.newHashMap(rows.size());
 
@@ -443,6 +485,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param keys Key tuples.
      * @return Rows.
      */
+    @WithSpan
     private List<BinaryRowEx> marshalKeys(Collection<Tuple> keys) {
         if (keys.isEmpty()) {
             return Collections.emptyList();
@@ -462,6 +505,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
      * @param rows Binary rows.
      * @return Value tuple.
      */
+    @WithSpan
     private Collection<Tuple> unmarshalKeys(Collection<BinaryRow> rows) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
@@ -477,6 +521,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
@@ -488,6 +533,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
 
+    @WithSpan
     private List<BinaryRowEx> marshalPairs(Collection<Entry<Tuple, Tuple>> pairs) {
         List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
 

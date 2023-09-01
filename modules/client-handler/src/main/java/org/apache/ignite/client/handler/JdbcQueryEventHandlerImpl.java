@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPO
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
+import io.opentelemetry.context.Context;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -54,6 +56,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -73,6 +76,7 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -195,6 +199,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<JdbcBatchExecuteResult> batchAsync(long connectionId, JdbcBatchExecuteRequest req) {
         JdbcConnectionContext connectionContext;
@@ -228,6 +233,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<JdbcBatchExecuteResult> batchPrepStatementAsync(long connectionId, JdbcBatchPreparedStmntRequest req) {
         JdbcConnectionContext connectionContext;
@@ -318,6 +324,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public CompletableFuture<JdbcFinishTxResult> finishTxAsync(long connectionId, boolean commit) {
         JdbcConnectionContext connectionContext;
@@ -367,8 +374,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @param req Execution request.
      * @return JdbcQuerySingleResult filled with first batch of data.
      */
+    @WithSpan
     private CompletionStage<JdbcQuerySingleResult> createJdbcResult(AsyncSqlCursor<List<Object>> cur, JdbcQueryExecuteRequest req) {
-        return cur.requestNextAsync(req.pageSize()).thenApply(batch -> {
+        Context context = Context.current();
+        return cur.requestNextAsync(req.pageSize()).thenApply(context.wrapFunction(batch -> {
             boolean hasNext = batch.hasMore();
 
             switch (cur.queryType()) {
@@ -398,7 +407,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                     return new JdbcQuerySingleResult(UNSUPPORTED_OPERATION,
                             "Query type is not supported yet [queryType=" + cur.queryType() + ']');
             }
-        });
+        }));
     }
 
     /**

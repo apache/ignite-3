@@ -26,7 +26,7 @@ import io.opentelemetry.sdk.trace.samplers.SamplingResult;
 import java.util.List;
 
 /**
- * IgniteDynamicRatioSampler.
+ * Dynamic ratio sampler.
  */
 public class DynamicRatioSampler implements Sampler, DynamicRatioSamplerMBean {
     /** Min valid sampling rate with special meaning that span won't be created. */
@@ -39,7 +39,11 @@ public class DynamicRatioSampler implements Sampler, DynamicRatioSamplerMBean {
     private volatile Sampler sampler;
 
     public DynamicRatioSampler() {
-        this.sampler = Sampler.alwaysOn();
+        this(Sampler.parentBased(Sampler.alwaysOn()));
+    }
+
+    public DynamicRatioSampler(Sampler sampler) {
+        this.sampler = sampler;
     }
 
     /** {@inheritDoc} */
@@ -71,6 +75,6 @@ public class DynamicRatioSampler implements Sampler, DynamicRatioSamplerMBean {
     /** {@inheritDoc} */
     @Override
     public String getDescription() {
-        return "Ignite dynamic ratio sampler";
+        return "Dynamic ratio sampler: " + sampler.getDescription();
     }
 }

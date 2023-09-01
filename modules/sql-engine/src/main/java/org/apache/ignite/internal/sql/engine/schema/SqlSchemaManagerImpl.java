@@ -25,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.Comparator;
@@ -152,12 +153,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public SchemaPlus schema(@Nullable String name, int version) {
         return latestSchema(name);
     }
 
     /** {@inheritDoc} */
+    @WithSpan
     @Override
     public SchemaPlus schema(@Nullable String name, long timestamp) {
         return latestSchema(name);
