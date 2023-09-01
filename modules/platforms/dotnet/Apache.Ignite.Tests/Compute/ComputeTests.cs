@@ -247,8 +247,6 @@ namespace Apache.Ignite.Tests.Compute
         {
             var proxies = GetProxies();
             using var client = await IgniteClient.StartAsync(GetConfig(proxies));
-
-            // ReSharper disable once AccessToDisposedClosure
             client.WaitForConnections(proxies.Count);
 
             var keyTuple = new IgniteTuple { [KeyCol] = key };

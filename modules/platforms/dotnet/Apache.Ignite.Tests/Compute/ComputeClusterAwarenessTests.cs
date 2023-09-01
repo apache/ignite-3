@@ -43,8 +43,6 @@ namespace Apache.Ignite.Tests.Compute
             };
 
             using var client = await IgniteClient.StartAsync(clientCfg);
-
-            // ReSharper disable once AccessToDisposedClosure
             client.WaitForConnections(3);
 
             var res2 = await client.Compute.ExecuteAsync<string>(
@@ -100,8 +98,6 @@ namespace Apache.Ignite.Tests.Compute
             };
 
             using var client = await IgniteClient.StartAsync(clientCfg);
-
-            // ReSharper disable once AccessToDisposedClosure
             client.WaitForConnections(2);
 
             var nodeNames = new HashSet<string>();
