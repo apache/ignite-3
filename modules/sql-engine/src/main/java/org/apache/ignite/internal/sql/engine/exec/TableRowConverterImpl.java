@@ -59,13 +59,13 @@ public class TableRowConverterImpl implements TableRowConverter {
         BinaryTupleSchema binarySchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
 
         BinaryTupleBuilder builder = requiredColumns == null
-                ? convertAllColumns(row, binarySchema)
-                : convertRequiredColumns(row, binarySchema, requiredColumns);
+                ? allColumnsTuple(row, binarySchema)
+                : requiredColumnsTuple(row, binarySchema, requiredColumns);
 
         return factory.wrap(new BinaryTuple(builder.numElements(), builder.build()));
     }
 
-    private BinaryTupleBuilder convertAllColumns(Row row, BinaryTupleSchema binarySchema) {
+    private BinaryTupleBuilder allColumnsTuple(Row row, BinaryTupleSchema binarySchema) {
         BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(desc.columnsCount());
 
         for (int i = 0; i < desc.columnsCount(); i++) {
@@ -77,7 +77,7 @@ public class TableRowConverterImpl implements TableRowConverter {
         return tupleBuilder;
     }
 
-    private BinaryTupleBuilder convertRequiredColumns(Row row, BinaryTupleSchema binarySchema, BitSet requiredColumns) {
+    private BinaryTupleBuilder requiredColumnsTuple(Row row, BinaryTupleSchema binarySchema, BitSet requiredColumns) {
         BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(requiredColumns.cardinality());
 
         for (int i = requiredColumns.nextSetBit(0); i != -1; i = requiredColumns.nextSetBit(i + 1)) {

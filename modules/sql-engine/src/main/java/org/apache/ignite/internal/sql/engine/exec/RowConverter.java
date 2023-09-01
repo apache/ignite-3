@@ -140,7 +140,7 @@ public final class RowConverter {
         for (int i = 0; i < values.length; i++) {
             Object value = values[i];
 
-            assert value != UNSPECIFIED_VALUE_PLACEHOLDER : "Invalid row field.";
+            assert value != UNSPECIFIED_VALUE_PLACEHOLDER : "Invalid row value.";
 
             appendValue(tupleBuilder, schema.fields().get(i), value);
         }

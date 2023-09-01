@@ -143,7 +143,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         RowWrapper left = factory1.create(data1);
         RowWrapper right = factory2.create(data2);
 
-        RowWrapper leftTuple = factory1.create(factory2.handler().toByteBuffer(left));
+        RowWrapper leftTuple = factory1.create(factory1.handler().toByteBuffer(left));
         RowWrapper rightTuple = factory2.create(factory2.handler().toByteBuffer(right));
 
         return Stream.of(
