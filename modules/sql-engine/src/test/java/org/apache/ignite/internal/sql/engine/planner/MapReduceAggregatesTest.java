@@ -91,7 +91,7 @@ public class MapReduceAggregatesTest {
 
     private static AggregateCall newCall(IgniteTypeFactory typeFactory, List<Integer> args) {
         return AggregateCall.create(SqlStdOperatorTable.COUNT,
-                false, false, false, args, -1, null,
+                false, false, false, ImmutableList.of(), args, -1, null,
                 RelCollations.EMPTY,
                 typeFactory.createSqlType(SqlTypeName.BIGINT),
                 "count");
