@@ -48,6 +48,11 @@ import org.jetbrains.annotations.Nullable;
  * A command that adds a new table to the catalog.
  */
 public class CreateTableCommand extends AbstractTableCommand {
+    /** Returns builder to create a command to create a new table. */
+    public static CreateTableCommandBuilder builder() {
+        return new Builder();
+    }
+
     /** Primary key columns. */
     private final List<String> primaryKeyColumns;
 
@@ -183,7 +188,7 @@ public class CreateTableCommand extends AbstractTableCommand {
     /**
      * Implementation of {@link CreateTableCommandBuilder}.
      */
-    public static class Builder implements CreateTableCommandBuilder {
+    private static class Builder implements CreateTableCommandBuilder {
         private @Nullable List<ColumnParams> columns;
 
         private @Nullable String schemaName;

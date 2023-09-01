@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.UpdateProducer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -31,7 +31,7 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void schemaNameMustNotBeNullOrBlank(String name) {
-        DropTableCommandBuilder builder = manager.dropTableCommandBuilder();
+        DropTableCommandBuilder builder = DropTableCommand.builder();
 
         builder.tableName("TEST")
                 .schemaName(name);
@@ -46,7 +46,7 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void tableNameMustNotBeNullOrBlank(String name) {
-        DropTableCommandBuilder builder = manager.dropTableCommandBuilder();
+        DropTableCommandBuilder builder = DropTableCommand.builder();
 
         builder.schemaName("TEST")
                 .tableName(name);
@@ -60,17 +60,17 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
 
     @Test
     void exceptionIsThrownIfSchemaNotExists() {
-        DropTableCommandBuilder builder = manager.dropTableCommandBuilder();
+        DropTableCommandBuilder builder = DropTableCommand.builder();
 
         Catalog catalog = emptyCatalog();
 
-        UpdateProducer updateProducer = (UpdateProducer) builder
+        CatalogCommand command = builder
                 .schemaName(SCHEMA_NAME + "_UNK")
                 .tableName("TEST")
                 .build();
 
         assertThrows(
-                () -> updateProducer.get(catalog),
+                () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
         );
@@ -78,17 +78,17 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
 
     @Test
     void exceptionIsThrownIfTableWithGivenNameNotFound() {
-        DropTableCommandBuilder builder = manager.dropTableCommandBuilder();
+        DropTableCommandBuilder builder = DropTableCommand.builder();
 
         Catalog catalog = emptyCatalog();
 
-        UpdateProducer updateProducer = (UpdateProducer) builder
+        CatalogCommand command = builder
                 .schemaName(SCHEMA_NAME)
                 .tableName("TEST")
                 .build();
 
         assertThrows(
-                () -> updateProducer.get(catalog),
+                () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST' not found"
         );

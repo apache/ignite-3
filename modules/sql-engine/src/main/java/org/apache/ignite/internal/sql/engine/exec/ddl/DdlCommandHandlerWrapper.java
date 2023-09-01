@@ -81,14 +81,14 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
         if (cmd instanceof CreateTableCommand) {
             return ddlCommandFuture
                     .thenCompose(res -> catalogManager.execute(
-                            DdlToCatalogCommandConverter.convert(catalogManager.createTableCommandBuilder(), (CreateTableCommand) cmd))
+                            DdlToCatalogCommandConverter.convert((CreateTableCommand) cmd))
                             .handle(handleModificationResult(
                                     ((CreateTableCommand) cmd).ifTableExists(), TableExistsValidationException.class))
                     ).handle(handleModificationResult(((CreateTableCommand) cmd).ifTableExists(), TableAlreadyExistsException.class));
         } else if (cmd instanceof DropTableCommand) {
             return ddlCommandFuture
                     .thenCompose(res -> catalogManager.execute(
-                            DdlToCatalogCommandConverter.convert(catalogManager.dropTableCommandBuilder(), (DropTableCommand) cmd))
+                            DdlToCatalogCommandConverter.convert((DropTableCommand) cmd))
                             .handle(handleModificationResult(
                                     ((DropTableCommand) cmd).ifTableExists(), TableNotFoundValidationException.class))
                     ).handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class));

@@ -37,6 +37,11 @@ import org.jetbrains.annotations.Nullable;
  * A command that drops table with specified name.
  */
 public class DropTableCommand extends AbstractTableCommand {
+    /** Returns builder to create a command to drop table with specified name. */
+    public static DropTableCommandBuilder builder() {
+        return new Builder();
+    }
+
     private DropTableCommand(String schemaName, String tableName) throws CatalogValidationException {
         super(schemaName, tableName);
     }
@@ -61,7 +66,7 @@ public class DropTableCommand extends AbstractTableCommand {
     /**
      * Implementation of {@link DropTableCommandBuilder}.
      */
-    public static class Builder implements DropTableCommandBuilder {
+    private static class Builder implements DropTableCommandBuilder {
         private @Nullable String schemaName;
 
         private @Nullable String tableName;

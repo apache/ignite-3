@@ -21,8 +21,8 @@ import static org.apache.ignite.sql.ColumnType.INT32;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.UpdateProducer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -37,7 +37,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void schemaNameMustNotBeNullOrBlank(String name) {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder);
 
@@ -53,7 +53,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void tableNameMustNotBeNullOrBlank(String name) {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder);
 
@@ -69,7 +69,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     @ParameterizedTest(name = "[{index}] {argumentsWithNames}")
     @MethodSource("nullAndEmptyLists")
     void tableShouldHaveAtLeastOneColumn(List<ColumnParams> columns) {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder);
 
@@ -85,7 +85,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void tableColumnNameMustNotBeNullOrBlank(String name) {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder);
 
@@ -102,7 +102,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void tableColumnShouldHaveType() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder)
                 .columns(List.of(
@@ -121,7 +121,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void columnShouldNotHaveDuplicates() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         ColumnParams column = ColumnParams.builder()
                 .name("C")
@@ -140,7 +140,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     @ParameterizedTest(name = "[{index}] {argumentsWithNames}")
     @MethodSource("nullAndEmptyLists")
     void tableShouldHaveAtLeastOnePrimaryKeyColumn(List<String> columns) {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder);
 
@@ -155,7 +155,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void pkColumnShouldNotHaveDuplicates() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder)
                 .primaryKeyColumns(List.of("C", "C"));
@@ -169,7 +169,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void pkColumnShouldBePresentedInColumnsList() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder)
                 .primaryKeyColumns(List.of("foo"));
@@ -183,7 +183,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void colocationColumnsCouldNotBeEmpty() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder)
                 .colocationColumns(List.of());
@@ -197,7 +197,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void colocationColumnShouldNotHaveDuplicates() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder)
                 .colocationColumns(List.of("C", "C"));
@@ -211,7 +211,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void colocationColumnShouldBePresentedInColumnsList() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         ColumnParams c1 = ColumnParams.builder()
                 .name("C1")
@@ -252,14 +252,14 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void exceptionIsThrownIfSchemaNotExists() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         Catalog catalog = emptyCatalog();
 
-        UpdateProducer updateProducer = (UpdateProducer) fillProperties(builder).schemaName(SCHEMA_NAME + "_UNK").build();
+        CatalogCommand command = fillProperties(builder).schemaName(SCHEMA_NAME + "_UNK").build();
 
         assertThrows(
-                () -> updateProducer.get(catalog),
+                () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
         );
@@ -267,14 +267,14 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void exceptionIsThrownIfZoneNotExists() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         Catalog catalog = emptyCatalog();
 
-        UpdateProducer updateProducer = (UpdateProducer) fillProperties(builder).zone(ZONE_NAME + "_UNK").build();
+        CatalogCommand command = fillProperties(builder).zone(ZONE_NAME + "_UNK").build();
 
         assertThrows(
-                () -> updateProducer.get(catalog),
+                () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Distribution zone with name 'DEFAULT_UNK' not found"
         );
@@ -282,14 +282,14 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void exceptionIsThrownIfTableWithGivenNameAlreadyExists() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         Catalog catalog = catalogWithTable("TEST");
 
-        UpdateProducer updateProducer = (UpdateProducer) fillProperties(builder).tableName("TEST").build();
+        CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
         assertThrows(
-                () -> updateProducer.get(catalog),
+                () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST' already exists"
         );
@@ -297,14 +297,14 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void exceptionIsThrownIfIndexWithGivenNameAlreadyExists() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         Catalog catalog = catalogWithIndex("TEST");
 
-        UpdateProducer updateProducer = (UpdateProducer) fillProperties(builder).tableName("TEST").build();
+        CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
         assertThrows(
-                () -> updateProducer.get(catalog),
+                () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Index with name 'PUBLIC.TEST' already exists"
         );
@@ -312,14 +312,14 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void exceptionIsThrownIfTableWithNameSimilarToAutogeneratedPkNameAlreadyExists() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         Catalog catalog = catalogWithTable("TEST_PK");
 
-        UpdateProducer updateProducer = (UpdateProducer) fillProperties(builder).tableName("TEST").build();
+        CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
         assertThrows(
-                () -> updateProducer.get(catalog),
+                () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST_PK' already exists"
         );
@@ -327,14 +327,14 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @Test
     void exceptionIsThrownIfIndexWithNameSimilarToAutogeneratedPkNameAlreadyExists() {
-        CreateTableCommandBuilder builder = manager.createTableCommandBuilder();
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         Catalog catalog = catalogWithIndex("TEST_PK");
 
-        UpdateProducer updateProducer = (UpdateProducer) fillProperties(builder).tableName("TEST").build();
+        CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
         assertThrows(
-                () -> updateProducer.get(catalog),
+                () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Index with name 'PUBLIC.TEST_PK' already exists"
         );

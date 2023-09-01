@@ -1696,28 +1696,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    void exceptionIsThrownIfCommandIsUnknown() {
-        CatalogCommand command = new CatalogCommand() {
-        };
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> manager.execute(command)
-        );
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> manager.execute(List.of(
-                        simpleTable("T1"),
-                        simpleTable("T2"),
-                        simpleTable("T3"),
-                        command,
-                        simpleTable("T4")
-                ))
-        );
-    }
-
-    @Test
     void bulkCommandEitherAppliedAtomicallyOrDoesntAppliedAtAll() {
         String tableName1 = "TEST1";
         String tableName2 = "TEST2";
