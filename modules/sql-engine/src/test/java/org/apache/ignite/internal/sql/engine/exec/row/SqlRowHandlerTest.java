@@ -54,36 +54,32 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class SqlRowHandlerTest extends IgniteAbstractTest {
     private static final RowHandler<RowWrapper> handler = SqlRowHandler.INSTANCE;
 
-    private static final long seed = ThreadLocalRandom.current().nextLong();
+    private final long seed = ThreadLocalRandom.current().nextLong();
 
-    private static final Random rnd = new Random(seed);
-
-    private static final List<ColumnType> columnTypes =
-            new ArrayList<>(EnumSet.complementOf(EnumSet.of(ColumnType.PERIOD, ColumnType.DURATION)));
+    private final Random rnd = new Random(seed);
 
     @BeforeEach
-    void init() {
+    void printSeed() {
         log.info("Using seed: " + seed);
-
-        Collections.shuffle(columnTypes, rnd);
     }
 
     @Test
     public void testBytebufferSerialization() {
-        Object[] sourceData = values();
-        RowSchema schema = rowSchema(sourceData);
+        List<ColumnType> columnTypes = columnTypes();
+        Object[] sourceData = values(columnTypes);
+        RowSchema schema = rowSchema(columnTypes, sourceData);
 
         int elementsCount = schema.fields().size();
 
         RowFactory<RowWrapper> factory = handler.factory(schema);
         RowWrapper src = factory.create(sourceData);
 
-        // Serialize.
+        // Serialization to binary tuple representation.
         ByteBuffer buf = handler.toByteBuffer(src);
 
         BinaryTuple tuple = new BinaryTuple(elementsCount, buf);
+        RowWrapper destWrap = factory.wrap(tuple);
         RowWrapper dest = factory.create(buf);
-        RowWrapper wrap = factory.wrap(tuple);
 
         for (int i = 0; i < elementsCount; i++) {
             String msg = schema.fields().get(i).toString();
@@ -95,65 +91,57 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
             Object expected = TypeUtils.toInternal(sourceData[i]);
 
             assertThat(msg, handler.get(i, dest), equalTo(expected));
-            assertThat(msg, handler.get(i, wrap), equalTo(expected));
+            assertThat(msg, handler.get(i, destWrap), equalTo(expected));
         }
     }
 
-    @ParameterizedTest(name = "{4} - {5}")
-    @MethodSource("concatTestParameters")
-    public void testConcat(RowSchema schema1, RowSchema schema2, Object[] data1, Object[] data2, RowWrapper left, RowWrapper right) {
-        RowWrapper concatenated = handler.concat(left, right);
+    @ParameterizedTest(name = "{0} - {1}")
+    @MethodSource("concatTestArguments")
+    public void testConcat(boolean leftTupleRequired, boolean rightTupleRequired) {
+        ConcatTestParameters params = new ConcatTestParameters(leftTupleRequired, rightTupleRequired);
 
-        int expElementsCount = schema1.fields().size() + schema2.fields().size();
+        RowWrapper concatenated = handler.concat(params.left, params.right);
 
-        assertThat(handler.columnCount(concatenated), equalTo(expElementsCount));
+        int leftLen = params.leftData.length;
+        int rightLen = params.rightData.length;
+        int totalElementsCount = leftLen + rightLen;
 
+        assertThat(handler.columnCount(concatenated), equalTo(totalElementsCount));
+
+        // Build combined schema.
         Builder builder = RowSchema.builder();
-        schema1.fields().forEach(builder::addField);
-        schema2.fields().forEach(builder::addField);
+        params.leftSchema.fields().forEach(builder::addField);
+        params.rightSchema.fields().forEach(builder::addField);
 
         RowSchema concatenatedSchema = builder.build();
 
+        // Serialize.
         ByteBuffer buf = handler.toByteBuffer(concatenated);
 
-        concatenated = handler.factory(concatenatedSchema).create(buf);
+        // Wrap into row.
+        RowWrapper wrapped = handler.factory(concatenatedSchema).wrap(new BinaryTuple(totalElementsCount, buf));
 
-        for (int i = 0; i < data1.length; i++) {
-            assertThat(handler.get(i, concatenated), equalTo(TypeUtils.toInternal(data1[i])));
-        }
+        for (int i = 0; i < Math.max(leftLen, rightLen); i++) {
+            if (i < leftLen) {
+                assertThat(handler.get(i, wrapped), equalTo(TypeUtils.toInternal(params.leftData[i])));
+            }
 
-        int offset = data1.length;
-
-        for (int i = 0; i < data2.length; i++) {
-            assertThat(handler.get(offset + i, concatenated), equalTo(TypeUtils.toInternal(data2[i])));
+            if (i < rightLen) {
+                assertThat(handler.get(leftLen + i, wrapped), equalTo(TypeUtils.toInternal(params.rightData[i])));
+            }
         }
     }
 
-    private static Stream<Arguments> concatTestParameters() {
-        Object[] data1 = values();
-        Object[] data2 = values();
-
-        RowSchema schema1 = rowSchema(data1);
-        RowSchema schema2 = rowSchema(data2);
-
-        RowFactory<RowWrapper> factory1 = handler.factory(schema1);
-        RowFactory<RowWrapper> factory2 = handler.factory(schema2);
-
-        RowWrapper left = factory1.create(data1);
-        RowWrapper right = factory2.create(data2);
-
-        RowWrapper leftTuple = factory1.create(factory1.handler().toByteBuffer(left));
-        RowWrapper rightTuple = factory2.create(factory2.handler().toByteBuffer(right));
-
+    private static Stream<Arguments> concatTestArguments() {
         return Stream.of(
-                Arguments.of(schema1, schema2, data1, data2, Named.of("array", left), Named.of("array", right)),
-                Arguments.of(schema1, schema2, data1, data2, Named.of("array", left), Named.of("tuple", rightTuple)),
-                Arguments.of(schema1, schema2, data1, data2, Named.of("tuple", leftTuple), Named.of("array", right)),
-                Arguments.of(schema1, schema2, data1, data2, Named.of("tuple", leftTuple), Named.of("tuple", rightTuple))
+                Arguments.of(Named.of("array", false), Named.of("array", false)),
+                Arguments.of(Named.of("array", false), Named.of("tuple", true)),
+                Arguments.of(Named.of("tuple", true), Named.of("array", false)),
+                Arguments.of(Named.of("tuple", true), Named.of("tuple", true))
         );
     }
 
-    private static RowSchema rowSchema(Object[] values) {
+    private RowSchema rowSchema(List<ColumnType> columnTypes, Object[] values) {
         Builder schemaBuilder = RowSchema.builder();
 
         for (int i = 0; i < values.length; i++) {
@@ -175,7 +163,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         return schemaBuilder.build();
     }
 
-    private static Object[] values() {
+    private Object[] values(List<ColumnType> columnTypes) {
         Object[] values = new Object[columnTypes.size()];
         int baseValue = rnd.nextInt();
 
@@ -186,5 +174,41 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         }
 
         return values;
+    }
+
+    private List<ColumnType> columnTypes() {
+        List<ColumnType> columnTypes = new ArrayList<>(EnumSet.complementOf(EnumSet.of(ColumnType.PERIOD, ColumnType.DURATION)));
+
+        Collections.shuffle(columnTypes, rnd);
+
+        return columnTypes;
+    }
+
+    private final class ConcatTestParameters {
+        final RowSchema leftSchema;
+        final RowSchema rightSchema;
+        final Object[] leftData;
+        final Object[] rightData;
+        final RowWrapper left;
+        final RowWrapper right;
+
+        ConcatTestParameters(boolean leftTupleRequired, boolean rightTupleRequired) {
+            List<ColumnType> columnTypes1 = columnTypes();
+            List<ColumnType> columnTypes2 = columnTypes();
+
+            leftData = values(columnTypes1);
+            rightData = values(columnTypes2);
+            leftSchema = rowSchema(columnTypes1, leftData);
+            rightSchema = rowSchema(columnTypes2, rightData);
+
+            RowFactory<RowWrapper> factory1 = handler.factory(leftSchema);
+            RowFactory<RowWrapper> factory2 = handler.factory(rightSchema);
+
+            RowWrapper left = factory1.create(leftData);
+            RowWrapper right = factory2.create(rightData);
+
+            this.left = leftTupleRequired ? factory1.create(handler.toByteBuffer(left)) : left;
+            this.right = rightTupleRequired ? factory2.create(handler.toByteBuffer(right)) : right;
+        }
     }
 }

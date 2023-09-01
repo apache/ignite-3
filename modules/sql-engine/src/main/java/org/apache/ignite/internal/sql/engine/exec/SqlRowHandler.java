@@ -35,8 +35,8 @@ import org.jetbrains.annotations.Nullable;
  * Handler that uses a {@link RowWrapper wrapper} to operate with two types of row implementations.
  *
  * <ul>
- *     <li>{@link ObjectsArrayWrapper Objects array}</li>
- *     <li>{@link BinaryTupleWrapper Binary tuple}</li>
+ *     <li>{@link ObjectsArrayRowWrapper Objects array}</li>
+ *     <li>{@link BinaryTupleRowWrapper Binary tuple}</li>
  * </ul>
  *
  * <p>Each kind of rows is serialized to the same binary tuple format
@@ -86,7 +86,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             schemaBuilder.addField(rightTypes.get(i));
         }
 
-        return new ObjectsArrayWrapper(schemaBuilder.build(), values);
+        return new ObjectsArrayRowWrapper(schemaBuilder.build(), values);
     }
 
     /** {@inheritDoc} */
@@ -98,7 +98,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             fields[i] = row.get(mapping[i] + offset);
         }
 
-        return new ObjectsArrayWrapper(row.rowSchema(), fields);
+        return new ObjectsArrayRowWrapper(row.rowSchema(), fields);
     }
 
     @Override
@@ -138,7 +138,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             public RowWrapper create(Object... fields) {
                 assert fields.length == rowLen;
 
-                return new ObjectsArrayWrapper(rowSchema, fields);
+                return new ObjectsArrayRowWrapper(rowSchema, fields);
             }
 
             /** {@inheritDoc} */
@@ -152,7 +152,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             public RowWrapper wrap(InternalTuple tuple) {
                 assert rowLen == tuple.elementCount();
 
-                return new BinaryTupleWrapper(rowSchema, tuple);
+                return new BinaryTupleRowWrapper(rowSchema, tuple);
             }
         };
     }
@@ -175,13 +175,13 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
     /**
      * Wrapper over an array of objects.
      */
-    private static class ObjectsArrayWrapper extends RowWrapper {
+    private static class ObjectsArrayRowWrapper extends RowWrapper {
         private final RowSchema rowSchema;
         private final Object[] row;
 
-        ObjectsArrayWrapper(RowSchema rowSchema, Object[] row) {
-            this.row = row;
+        ObjectsArrayRowWrapper(RowSchema rowSchema, Object[] row) {
             this.rowSchema = rowSchema;
+            this.row = row;
         }
 
         @Override
@@ -215,13 +215,13 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
      *
      * <p>Since {@link BinaryTuple binary tuple} is immutable this wrapper doesn't support {@link #set(int, Object)} operation.
      */
-    private static class BinaryTupleWrapper extends RowWrapper {
+    private static class BinaryTupleRowWrapper extends RowWrapper {
         private final RowSchema rowSchema;
         private final InternalTuple tuple;
 
-        BinaryTupleWrapper(RowSchema rowSchema, InternalTuple tuple) {
-            this.tuple = tuple;
+        BinaryTupleRowWrapper(RowSchema rowSchema, InternalTuple tuple) {
             this.rowSchema = rowSchema;
+            this.tuple = tuple;
         }
 
         @Override
