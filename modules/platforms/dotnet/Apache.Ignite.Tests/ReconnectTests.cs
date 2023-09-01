@@ -92,16 +92,16 @@ public class ReconnectTests
         using var servers = FakeServerGroup.Create(10);
         using var client = await servers.ConnectClientAsync(cfg);
 
-        WaitForConnections(client, 10);
+        client.WaitForConnections(10);
         servers.DropNewConnections = true;
         servers.DropExistingConnections();
 
         // Dropped connections are detected by heartbeat.
-        WaitForConnections(client, 0);
+        client.WaitForConnections(0);
 
         // Connections are restored in background due to ReconnectInterval.
         servers.DropNewConnections = false;
-        WaitForConnections(client, 10);
+        client.WaitForConnections(10);
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
     }
@@ -122,7 +122,7 @@ public class ReconnectTests
         servers.DropNewConnections = false;
 
         // When all servers are back online, connections are established in background due to ReconnectInterval.
-        WaitForConnections(client, 5);
+        client.WaitForConnections(5);
 
         Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
     }
@@ -163,13 +163,6 @@ public class ReconnectTests
 
         // All connections are restored.
         logger.Debug("Waiting for all connections to be restored...");
-        WaitForConnections(client, 10);
+        client.WaitForConnections(10);
     }
-
-    // TODO:  Reuse in other test fixtures
-    private static void WaitForConnections(IIgniteClient client, int count) =>
-        TestUtils.WaitForCondition(
-            condition: () => client.GetConnections().Count == count,
-            timeoutMs: 5000,
-            messageFactory: () => $"Connection count: expected = {count}, actual = {client.GetConnections().Count}");
 }
