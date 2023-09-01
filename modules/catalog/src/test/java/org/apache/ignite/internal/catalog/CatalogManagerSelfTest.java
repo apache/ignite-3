@@ -1768,6 +1768,26 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(versionAfter - versionBefore, is(1));
     }
 
+    @Test
+    void bulkUpdateDoesntIncrementVersionInCaseOfError() {
+        String tableName1 = "T1";
+
+        int versionBefore = manager.latestCatalogVersion();
+
+        assertThat(manager.table(tableName1, Long.MAX_VALUE), nullValue());
+
+        assertThat(
+                manager.execute(List.of(simpleTable(tableName1), simpleTable(tableName1))),
+                willThrow(CatalogValidationException.class)
+        );
+
+        int versionAfter = manager.latestCatalogVersion();
+
+        assertThat(manager.table(tableName1, Long.MAX_VALUE), nullValue());
+
+        assertThat(versionAfter, is(versionBefore));
+    }
+
     private CompletableFuture<Void> changeColumn(
             String tab,
             String col,
