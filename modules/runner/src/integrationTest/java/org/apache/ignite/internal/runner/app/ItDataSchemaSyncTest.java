@@ -40,7 +40,6 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
