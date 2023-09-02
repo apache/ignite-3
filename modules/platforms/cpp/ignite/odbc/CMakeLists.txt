@@ -19,6 +19,7 @@ project(ignite3-odbc)
 
 set(TARGET ${PROJECT_NAME})
 
+include(find_odbc)
 find_package(ODBC REQUIRED)
 
 set(SOURCES
@@ -49,7 +50,7 @@ set(SOURCES
 add_compile_definitions(CMAKE_PROJECT_VERSION="${CMAKE_PROJECT_VERSION}")
 
 add_library(${TARGET}-obj OBJECT ${SOURCES})
-target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ODBC_INCLUDE_DIRS})
 
 add_library(${TARGET} SHARED $<TARGET_OBJECTS:${TARGET}-obj> module.def)
 

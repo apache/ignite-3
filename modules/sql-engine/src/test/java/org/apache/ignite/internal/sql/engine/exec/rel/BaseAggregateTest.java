@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.math.BigDecimal;
@@ -78,6 +79,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 false,
                 false,
                 false,
+                ImmutableList.of(),
                 ImmutableIntList.of(),
                 -1,
                 null,
@@ -535,6 +537,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 false,
                 false,
                 false,
+                ImmutableList.of(),
                 ImmutableIntList.of(1),
                 -1,
                 null,
@@ -630,6 +633,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
                 false,
                 false,
                 false,
+                ImmutableList.of(),
                 ImmutableIntList.of(),
                 -1,
                 null,

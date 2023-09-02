@@ -29,8 +29,10 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
+import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
@@ -39,6 +41,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -847,6 +850,48 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          * <p>Distribution identity(1)
          */
         CASE_23C("SELECT val0, AVG(val1) FROM test GROUP BY val0", schema(identity(1))),
+
+        /**
+         * Query: SELECT COUNT(val0), COUNT(DISTINCT(val1) from test.
+         *
+         * <p>Distribution single()
+         */
+        CASE_24_1("SELECT COUNT(val0), COUNT(DISTINCT(val1)) from test", schema(single())),
+
+        /**
+         * Query: SELECT COUNT(val0), COUNT(DISTINCT(val1) from test.
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_24_1A("SELECT COUNT(val0), COUNT(DISTINCT(val1)) from test", schema(hash(0))),
+
+        /**
+         * Query: SELECT COUNT(val0), COUNT(DISTINCT(val1) from test.
+         *
+         * <p>Distribution hash(1)
+         */
+        CASE_24_1B("SELECT COUNT(val0), COUNT(DISTINCT(val1)) from test", schema(hash(1))),
+
+        /**
+         * Query: SELECT COUNT(val0), COUNT(DISTINCT(val1) from test.
+         *
+         * <p>Distribution hash(2)
+         */
+        CASE_24_1C("SELECT COUNT(val0), COUNT(DISTINCT(val1)) from test", schema(hash(2))),
+
+        /**
+         * Query: SELECT COUNT(val0), COUNT(DISTINCT(val1) from test.
+         *
+         * <p>Distribution identity(1)
+         */
+        CASE_24_1D("SELECT COUNT(val0), COUNT(DISTINCT(val1)) from test", schema(identity(1))),
+
+        /**
+         * Query: SELECT COUNT(val0), COUNT(DISTINCT(val1) from test.
+         *
+         * <p>Distribution identity(2)
+         */
+        CASE_24_1E("SELECT COUNT(val0), COUNT(DISTINCT(val1)) from test", schema(identity(2))),
         ;
 
         final String query;
@@ -991,6 +1036,33 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
             }
 
             return true;
+        };
+    }
+
+    <T> Predicate<T> hasGroupSets(Function<T, List<ImmutableBitSet>> groupSets, int groupKey) {
+        return (node) -> {
+            List<ImmutableBitSet> allGroupSets = groupSets.apply(node);
+            ImmutableBitSet firstGroupSet = allGroupSets.get(0);
+
+            boolean groupSetsMatch = allGroupSets.equals(List.of(ImmutableBitSet.of(groupKey)));
+            boolean groupSetMatches = firstGroupSet.equals(ImmutableBitSet.of(groupKey));
+
+            return groupSetMatches && groupSetsMatch;
+        };
+    }
+
+    <T> Predicate<T> hasNoGroupSets(Function<T, List<ImmutableBitSet>> groupSets) {
+        return (node) -> {
+            List<ImmutableBitSet> allGroupSets = groupSets.apply(node);
+            List<ImmutableBitSet> emptyGroupSets = List.of(ImmutableBitSet.of());
+            return emptyGroupSets.equals(allGroupSets);
+        };
+    }
+
+    <T extends RelNode> Predicate<T> hasCollation(RelCollation expected) {
+        return (node) -> {
+            RelCollation collation = TraitUtils.collation(node);
+            return expected.equals(collation);
         };
     }
 }

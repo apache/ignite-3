@@ -390,8 +390,7 @@ public class PartitionAwarenessTests
         };
 
         var client = await IgniteClient.StartAsync(cfg);
-
-        TestUtils.WaitForCondition(() => client.GetConnections().Count == 2);
+        client.WaitForConnections(2);
 
         return client;
     }

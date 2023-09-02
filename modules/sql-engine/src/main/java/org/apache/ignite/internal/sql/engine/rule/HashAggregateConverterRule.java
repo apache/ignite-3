@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.
 import static org.apache.ignite.internal.sql.engine.util.PlanUtils.complexDistinctAgg;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
@@ -44,7 +43,6 @@ import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.Aggrega
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
-import org.apache.ignite.internal.sql.engine.util.PlanUtils;
 
 /**
  * Planner rule that recognizes a {@link org.apache.calcite.rel.core.Aggregate}
@@ -106,6 +104,7 @@ public class HashAggregateConverterRule {
             RelOptCluster cluster = agg.getCluster();
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
+            Mapping fieldMappingOnReduce = Commons.trimmingMapping(agg.getGroupSet().length(), agg.getGroupSet());
 
             AggregateRelBuilder relBuilder = new AggregateRelBuilder() {
                 @Override
@@ -115,8 +114,8 @@ public class HashAggregateConverterRule {
                             cluster,
                             outTrait.replace(IgniteDistributions.random()),
                             input,
-                            agg.getGroupSet(),
-                            agg.getGroupSets(),
+                            groupSet,
+                            groupSets,
                             aggregateCalls
                     );
                 }
@@ -125,26 +124,19 @@ public class HashAggregateConverterRule {
                 public IgniteRel makeReduceAgg(RelOptCluster cluster, RelNode map, ImmutableBitSet groupSet,
                         List<ImmutableBitSet> groupSets, List<AggregateCall> aggregateCalls, RelDataType outputType) {
 
-                    Mapping mapping = PlanUtils.computeAggFieldMapping(groupSets);
-
-                    ImmutableBitSet groupSet1 = Commons.mapBitSet(groupSet, mapping);
-                    List<ImmutableBitSet> groupSets1 = groupSets.stream()
-                            .map(g -> Commons.mapBitSet(g, mapping))
-                            .collect(Collectors.toList());
-
                     return new IgniteReduceHashAggregate(
                             cluster,
                             outTrait.replace(IgniteDistributions.single()),
                             convert(map, inTrait.replace(IgniteDistributions.single())),
-                            groupSet1,
-                            groupSets1,
+                            groupSet,
+                            groupSets,
                             aggregateCalls,
                             outputType
                     );
                 }
             };
 
-            return MapReduceAggregates.buildAggregates(agg, relBuilder);
+            return MapReduceAggregates.buildAggregates(agg, relBuilder, fieldMappingOnReduce);
         }
     }
 }
