@@ -307,6 +307,7 @@ public abstract class QueryChecker {
 
     /** Validates no {@link #check()} method call was missed for a {@link QueryChecker}. */
     public static void ensureNoUnusedChecker() {
+        // Set to null allowing next tests to pass.
         QueryChecker queryChecker = CURRENT_CHECKER_HOLDER.reference.getAndSet(null);
 
         assertNull(queryChecker,
