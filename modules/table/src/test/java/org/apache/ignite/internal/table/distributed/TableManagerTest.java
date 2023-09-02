@@ -21,7 +21,9 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -420,11 +422,11 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertThrows(IgniteException.class, () -> igniteTables.dropTableAsync(DYNAMIC_TABLE_FOR_DROP_NAME));
 
-        assertThrows(IgniteException.class, () -> igniteTables.tables());
-        assertThrows(IgniteException.class, () -> igniteTables.tablesAsync());
+        assertThrowsWithCause(tableManager::tables, NodeStoppingException.class);
+        assertThat(tableManager.tablesAsync(), willThrow(NodeStoppingException.class));
 
-        assertThrows(IgniteException.class, () -> igniteTables.table(DYNAMIC_TABLE_FOR_DROP_NAME));
-        assertThrows(IgniteException.class, () -> igniteTables.tableAsync(DYNAMIC_TABLE_FOR_DROP_NAME));
+        assertThrowsWithCause(() -> tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME), NodeStoppingException.class);
+        assertThat(tableManager.tableAsync(DYNAMIC_TABLE_FOR_DROP_NAME), willThrow(NodeStoppingException.class));
     }
 
     /**
@@ -442,8 +444,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         int fakeTblId = 1;
 
-        assertThrows(IgniteException.class, () -> tableManager.table(fakeTblId));
-        assertThrows(IgniteException.class, () -> tableManager.tableAsync(fakeTblId));
+        assertThrowsWithCause(() -> tableManager.table(fakeTblId), NodeStoppingException.class);
+        assertThat(tableManager.tableAsync(fakeTblId), willThrow(NodeStoppingException.class));
     }
 
     /**
@@ -746,28 +748,25 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         TableDefinition tableDefinition = createTableDefinition(tableName);
 
-        tblsCfg.tables().listen(ctx -> {
-            boolean createTbl = ctx.newValue().get(tableDefinition.name()) != null
-                    && ctx.oldValue().get(tableDefinition.name()) == null;
-
-            boolean dropTbl = ctx.oldValue().get(tableDefinition.name()) != null
-                    && ctx.newValue().get(tableDefinition.name()) == null;
-
-            if (!createTbl && !dropTbl) {
-                return completedFuture(null);
-            }
-
-            if (phaser != null) {
-                phaser.arriveAndAwaitAdvance();
-            }
-
-            return completedFuture(null);
-        });
-
         CountDownLatch createTblLatch = new CountDownLatch(1);
 
         tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
+            TableImpl table = tableManager.getTable(parameters.tableId());
+
+            if (phaser != null && table != null && table.name().equals(tableDefinition.name())) {
+                phaser.arriveAndAwaitAdvance();
+            }
+
             createTblLatch.countDown();
+
+            return completedFuture(true);
+        });
+        tableManager.listen(TableEvent.DROP, (parameters, exception) -> {
+            TableImpl table = tableManager.latestTables().get(parameters.tableId());
+
+            if (phaser != null && table != null && table.name().equals(tableDefinition.name())) {
+                phaser.arriveAndAwaitAdvance();
+            }
 
             return completedFuture(true);
         });

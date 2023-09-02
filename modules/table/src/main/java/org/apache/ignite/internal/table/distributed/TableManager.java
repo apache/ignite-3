@@ -1804,7 +1804,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
         try {
             return tablesAsyncInternal();
@@ -1821,7 +1821,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
         return schemaSyncService.waitForMetadataCompleteness(clock.now())
                 .thenCompose(ignore -> inBusyLock(busyLock, () -> {
-                    Collection<TableImpl> configuredTables = tablesByIdVv.latest().values();
+                    Collection<TableImpl> configuredTables = startedTables.values();
 
                     var tableFuts = new CompletableFuture[configuredTables.size()];
 
@@ -1854,7 +1854,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private @Nullable Integer tableNameToId(String tableName) {
         try {
-            TableImpl table = findTableImplByName(tablesByIdVv.latest().values(), tableName);
+            TableImpl table = findTableImplByName(startedTables.values(), tableName);
 
             if (table == null) {
                 return null;
@@ -1935,7 +1935,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     public CompletableFuture<TableImpl> tableAsync(long causalityToken, int id) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
         try {
             return tablesById(causalityToken).thenApply(tablesById -> tablesById.get(id));
@@ -1948,7 +1948,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Override
     public CompletableFuture<TableImpl> tableAsync(int id) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
         try {
             return tableAsyncInternal(id);
@@ -1995,14 +1995,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     public CompletableFuture<TableImpl> tableAsyncInternal(String tableName) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
             HybridTimestamp now = clock.now();
 
             return schemaSyncService.waitForMetadataCompleteness(now)
-                    .thenComposeAsync(ignore -> {
+                    .thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
                         Integer tableId = tableNameToId(tableName);
 
                         if (tableId == null) {
@@ -2019,7 +2019,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         // Wait for table initialization.
                         return tableReadyFuture(tableId);
-                    }, ioExecutor);
+                    }), ioExecutor);
         } finally {
             busyLock.leaveBusy();
         }
@@ -2035,7 +2035,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         HybridTimestamp now = clock.now();
 
         return schemaSyncService.waitForMetadataCompleteness(now)
-                .thenComposeAsync(ignore -> {
+                .thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
                     TableImpl table = latestTablesById().get(tableId);
 
                     if (table != null) {
@@ -2043,14 +2043,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return completedFuture(table);
                     }
 
-                    if (tablesByIdVv.latest().get(tableId) == null) {
+                    if (startedTables.get(tableId) == null) {
                         // Table isn't configured.
                         return completedFuture(null);
                     }
 
                     // Wait for table initialization.
                     return tableReadyFuture(tableId);
-                }, ioExecutor);
+                }), ioExecutor);
     }
 
     /**
@@ -2060,49 +2060,41 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<TableImpl> tableReadyFuture(int id) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
+        CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
 
-        try {
-            CompletableFuture<TableImpl> getTblFut = new CompletableFuture<>();
+        CompletionListener<Void> tablesListener = (token, v, th) -> {
+            if (th == null) {
+                CompletableFuture<Map<Integer, TableImpl>> tablesFut = tablesByIdVv.get(token);
 
-            CompletionListener<Void> tablesListener = (token, v, th) -> {
-                if (th == null) {
-                    CompletableFuture<Map<Integer, TableImpl>> tablesFut = tablesByIdVv.get(token);
+                tablesFut.whenComplete((tables, e) -> {
+                    if (e != null) {
+                        getTblFut.completeExceptionally(e);
+                    } else {
+                        TableImpl table = tables.get(id);
 
-                    tablesFut.whenComplete((tables, e) -> {
-                        if (e != null) {
-                            getTblFut.completeExceptionally(e);
-                        } else {
-                            TableImpl table = tables.get(id);
-
-                            if (table != null) {
-                                getTblFut.complete(table);
-                            }
+                        if (table != null) {
+                            getTblFut.complete(table);
                         }
-                    });
-                } else {
-                    getTblFut.completeExceptionally(th);
-                }
-            };
-
-            assignmentsUpdatedVv.whenComplete(tablesListener);
-
-            // This check is needed for the case when we have registered tablesListener,
-            // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
-            TableImpl table = latestTablesById().get(id);
-
-            if (table != null) {
-                assignmentsUpdatedVv.removeWhenComplete(tablesListener);
-
-                return completedFuture(table);
+                    }
+                });
+            } else {
+                getTblFut.completeExceptionally(th);
             }
+        };
 
-            return getTblFut.whenComplete((unused, throwable) -> assignmentsUpdatedVv.removeWhenComplete(tablesListener));
-        } finally {
-            busyLock.leaveBusy();
+        assignmentsUpdatedVv.whenComplete(tablesListener);
+
+        // This check is needed for the case when we have registered tablesListener,
+        // but tablesByIdVv has already been completed, so listener would be triggered only for the next versioned value update.
+        TableImpl table = latestTablesById().get(id);
+
+        if (table != null) {
+            assignmentsUpdatedVv.removeWhenComplete(tablesListener);
+
+            return completedFuture(table);
         }
+
+        return getTblFut.whenComplete((unused, throwable) -> assignmentsUpdatedVv.removeWhenComplete(tablesListener));
     }
 
     /**
