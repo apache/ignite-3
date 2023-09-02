@@ -1456,10 +1456,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             .toArray(CompletableFuture[]::new);
 
                     return allOf(tableImplFutures)
-                            .thenApply(unused1 -> inBusyLock(
-                                    busyLock,
-                                    () -> Stream.of(tableImplFutures).map(CompletableFuture::join).collect(toList())
-                            ));
+                            .thenApply(unused1 -> Stream.of(tableImplFutures).map(CompletableFuture::join).collect(toList()));
                 }), ioExecutor);
     }
 

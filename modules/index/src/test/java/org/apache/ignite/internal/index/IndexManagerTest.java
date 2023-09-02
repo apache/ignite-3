@@ -30,7 +30,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -89,23 +88,9 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     public void setUp() {
         TableManager tableManagerMock = mock(TableManager.class);
 
-        when(tableManagerMock.tableAsync(anyLong(), anyInt())).thenAnswer(inv -> {
-            InternalTable tbl = mock(InternalTable.class);
+        when(tableManagerMock.tableAsync(anyLong(), anyInt())).thenAnswer(inv -> completedFuture(mockTable(inv.getArgument(1))));
 
-            int tableId = inv.getArgument(1);
-
-            when(tbl.tableId()).thenReturn(tableId);
-
-            return completedFuture(new TableImpl(tbl, new HeapLockManager()));
-        });
-
-        when(tableManagerMock.getTable(anyInt())).thenAnswer(inv -> {
-            InternalTable tbl = mock(InternalTable.class);
-
-            doReturn(inv.getArgument(0)).when(tbl).tableId();
-
-            return new TableImpl(tbl, new HeapLockManager());
-        });
+        when(tableManagerMock.getTable(anyInt())).thenAnswer(inv -> mockTable(inv.getArgument(0)));
 
         when(tableManagerMock.localPartitionSetAsync(anyLong(), anyInt())).thenReturn(completedFuture(PartitionSet.EMPTY_SET));
 
@@ -205,5 +190,13 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         assertThat(holder.get(), notNullValue());
         assertThat(holder.get().indexId(), equalTo(index.id()));
         assertThat(holder.get().tableId(), equalTo(tableId));
+    }
+
+    private static TableImpl mockTable(int tableId) {
+        InternalTable internalTable = mock(InternalTable.class);
+
+        when(internalTable.tableId()).thenReturn(tableId);
+
+        return new TableImpl(internalTable, new HeapLockManager());
     }
 }
