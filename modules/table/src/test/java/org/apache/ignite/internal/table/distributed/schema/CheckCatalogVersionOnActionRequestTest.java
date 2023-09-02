@@ -112,6 +112,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
                 .tablePartitionId(tableMessagesFactory.tablePartitionIdMessage().build())
                 .txId(UUID.randomUUID())
                 .rowUuid(UUID.randomUUID())
+                .txCoordinatorId("coordinator")
                 .requiredCatalogVersion(requiredVersion)
                 .build();
     }
