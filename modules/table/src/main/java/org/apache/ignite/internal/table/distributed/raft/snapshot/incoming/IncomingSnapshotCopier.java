@@ -94,7 +94,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private volatile SnapshotMeta snapshotMeta;
 
     @Nullable
-    private volatile CompletableFuture<?> rebalanceFuture;
+    private volatile CompletableFuture<Boolean> rebalanceFuture;
 
     /**
      * Future is to wait in {@link #join()} because it is important for us to wait for the rebalance to finish or abort.
@@ -133,16 +133,17 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                             .thenCompose(unused2 -> {
                                 if (metadataIsSufficientlyComplete()) {
                                     return loadSnapshotMvData(snapshotSender, executor)
-                                            .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor));
+                                            .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor))
+                                            .thenApply(unused1 -> true);
                                 } else {
                                     logMetadataInsufficiencyAndSetError();
 
-                                    return completedFuture(null);
+                                    return completedFuture(false);
                                 }
                             });
                 });
 
-        joinFuture = rebalanceFuture.handle((unused, throwable) -> completeRebalance(throwable)).thenCompose(Function.identity());
+        joinFuture = rebalanceFuture.handle(this::completeRebalance).thenCompose(Function.identity());
     }
 
     private CompletableFuture<?> waitForMetadataWithTimeout() {
@@ -393,9 +394,11 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     /**
      * Completes rebalancing of the partition storages.
      *
+     * @param sufficientMetadata If the metadata is sufficient and an attempt to transfer state was made ({@code null if thre is
+     *     an exception}.
      * @param throwable Error occurred while rebalancing the partition storages, {@code null} means that the rebalancing was successful.
      */
-    private CompletableFuture<Void> completeRebalance(@Nullable Throwable throwable) {
+    private CompletableFuture<Void> completeRebalance(@Nullable Boolean sufficientMetadata, @Nullable Throwable throwable) {
         if (!busyLock.enterBusy()) {
             if (isOk()) {
                 setError(RaftError.ECANCELED, "Copier is cancelled");
@@ -413,6 +416,11 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 }
 
                 return partitionSnapshotStorage.partition().abortRebalance().thenCompose(unused -> failedFuture(throwable));
+            }
+
+            if (!sufficientMetadata) {
+                // This is already logged and error already set, just abort rebalance.
+                return partitionSnapshotStorage.partition().abortRebalance();
             }
 
             SnapshotMeta meta = snapshotMeta;
