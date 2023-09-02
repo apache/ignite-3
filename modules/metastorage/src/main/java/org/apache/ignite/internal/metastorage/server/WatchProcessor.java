@@ -122,7 +122,7 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     /**
-     * Notifies registered watch about an update event.
+     * Notifies registered watches about an update event.
      */
     public void notifyWatches(List<Entry> updatedEntries, HybridTimestamp time) {
         assert time != null;
@@ -244,7 +244,9 @@ public class WatchProcessor implements ManuallyCloseable {
 
             var event = new WatchEvent(acceptedEntries, revision, time);
 
-            return revisionCallback.onRevisionApplied(event, time)
+            revisionCallback.onSafeTimeAdvanced(time);
+
+            return revisionCallback.onRevisionApplied(event)
                     .whenComplete((ignored, e) -> {
                         if (e != null) {
                             LOG.error("Error occurred when notifying watches", e);
@@ -255,6 +257,21 @@ public class WatchProcessor implements ManuallyCloseable {
 
             throw e;
         }
+    }
+
+    /**
+     * Advances safe time without notifying watches (as there is no new revision).
+     */
+    public void advanceSafeTime(HybridTimestamp time) {
+        assert time != null;
+
+        notificationFuture = notificationFuture
+                .thenRunAsync(() -> revisionCallback.onSafeTimeAdvanced(time), watchExecutor)
+                .whenComplete((ignored, e) -> {
+                    if (e != null) {
+                        LOG.error("Error occurred when notifying safe time advanced callback", e);
+                    }
+                });
     }
 
     @Override

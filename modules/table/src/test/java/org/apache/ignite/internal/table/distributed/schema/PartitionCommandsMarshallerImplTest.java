@@ -98,6 +98,7 @@ class PartitionCommandsMarshallerImplTest {
                 .txId(UUID.randomUUID())
                 .tablePartitionIds(List.of())
                 .requiredCatalogVersion(requiredCatalogVersion)
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
     }
 

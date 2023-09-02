@@ -83,6 +83,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .rowUuid(UUID.randomUUID())
                 .rowMessage(binaryRowMessage(1))
                 .txId(TestTransactionIds.newTransactionId())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         UpdateCommand readCmd = copyCommand(cmd);
@@ -100,6 +101,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 )
                 .rowUuid(UUID.randomUUID())
                 .txId(TestTransactionIds.newTransactionId())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         UpdateCommand readCmd = copyCommand(cmd);
@@ -125,6 +127,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 )
                 .rowsToUpdate(rowsToUpdate)
                 .txId(UUID.randomUUID())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         UpdateAllCommand readCmd = copyCommand(cmd);
@@ -157,6 +160,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 )
                 .rowsToUpdate(rowsToRemove)
                 .txId(UUID.randomUUID())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         UpdateAllCommand readCmd = copyCommand(cmd);
@@ -177,6 +181,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .txId(UUID.randomUUID())
                 .commit(true)
                 .commitTimestampLong(clock.nowLong())
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         TxCleanupCommand readCmd = copyCommand(cmd);
@@ -203,6 +208,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .commit(true)
                 .commitTimestampLong(clock.nowLong())
                 .tablePartitionIds(grps)
+                .txCoordinatorId(UUID.randomUUID().toString())
                 .build();
 
         FinishTxCommand readCmd = copyCommand(cmd);
@@ -224,6 +230,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .commit(finishTxCommand.commit())
                     .tablePartitionIds(finishTxCommand.tablePartitionIds())
                     .commitTimestampLong(finishTxCommand.commitTimestampLong())
+                    .txCoordinatorId(finishTxCommand.txCoordinatorId())
                     .build();
         } else if (cmd instanceof TxCleanupCommand) {
             TxCleanupCommand txCleanupCommand = (TxCleanupCommand) cmd;
@@ -232,6 +239,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .txId(txCleanupCommand.txId())
                     .commit(txCleanupCommand.commit())
                     .commitTimestampLong(txCleanupCommand.commitTimestampLong())
+                    .txCoordinatorId(txCleanupCommand.txCoordinatorId())
                     .build();
         } else if (cmd instanceof UpdateCommand) {
             UpdateCommand updateCommand = (UpdateCommand) cmd;
@@ -241,6 +249,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .rowUuid(updateCommand.rowUuid())
                     .tablePartitionId(updateCommand.tablePartitionId())
                     .rowMessage(updateCommand.rowMessage())
+                    .txCoordinatorId(updateCommand.txCoordinatorId())
                     .build();
         } else if (cmd instanceof UpdateAllCommand) {
             UpdateAllCommand updateCommand = (UpdateAllCommand) cmd;
@@ -249,6 +258,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .txId(updateCommand.txId())
                     .rowsToUpdate(updateCommand.rowsToUpdate())
                     .tablePartitionId(updateCommand.tablePartitionId())
+                    .txCoordinatorId(updateCommand.txCoordinatorId())
                     .build();
         } else {
             fail(cmd.toString());

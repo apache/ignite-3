@@ -125,6 +125,8 @@ public class ReplicaManager implements IgniteComponent {
     // TODO: IGNITE-20063 Maybe get rid of it
     private final ExecutorService executor;
 
+    private String localNodeId;
+
     /**
      * Constructor for a replica service.
      *
@@ -235,7 +237,10 @@ public class ReplicaManager implements IgniteComponent {
             // replicaFut is always completed here.
             Replica replica = replicaFut.join();
 
-            CompletableFuture<?> result = replica.processRequest(request);
+            // TODO IGNITE-20296 Id of the node should come along with the message itself.
+            String senderId = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId).id();
+
+            CompletableFuture<?> result = replica.processRequest(request, senderId);
 
             HybridTimestamp finalSendTimestamp = sendTimestamp;
             result.handle((res, ex) -> {
@@ -477,6 +482,8 @@ public class ReplicaManager implements IgniteComponent {
                     }
                 }
         );
+
+        localNodeId = clusterNetSvc.topologyService().localMember().id();
     }
 
     /** {@inheritDoc} */
@@ -608,7 +615,7 @@ public class ReplicaManager implements IgniteComponent {
                         .groupId(r.join().groupId())
                         .build();
 
-                r.join().processRequest(req);
+                r.join().processRequest(req, localNodeId);
             }
         });
     }

@@ -35,13 +35,15 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
@@ -55,6 +57,7 @@ import org.junit.jupiter.api.Test;
  */
 public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTest {
     private final ClusterNode clusterNode = new ClusterNodeImpl("test", "test", new NetworkAddress("test", 1000));
+    private final HybridTimestampTracker hybridTimestampTracker = new HybridTimestampTracker();
 
     @Test
     public void testRepeatedCommitRollbackAfterCommit() throws Exception {
@@ -63,7 +66,7 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
 
         TestTxManager txManager = new TestTxManager(txFinishStartedLatch, secondFinishLatch);
 
-        ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, UUID.randomUUID());
+        ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, hybridTimestampTracker, UUID.randomUUID());
 
         TablePartitionId partId = testTablePartitionId();
 
@@ -113,7 +116,7 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
 
         TestTxManager txManager = new TestTxManager(txFinishStartedLatch, secondFinishLatch);
 
-        ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, UUID.randomUUID());
+        ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, hybridTimestampTracker, UUID.randomUUID());
 
         TablePartitionId partId = testTablePartitionId();
 
@@ -156,10 +159,10 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
     public void testRepeatedCommitRollbackAfterCommitWithException() throws Exception {
         TestTxManager txManager = mock(TestTxManager.class);
 
-        when(txManager.finish(any(), any(), any(), anyBoolean(), any(), any()))
+        when(txManager.finish(any(), any(), any(), any(), anyBoolean(), any(), any()))
                 .thenReturn(failedFuture(new Exception("Expected exception.")));
 
-        ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, UUID.randomUUID());
+        ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, hybridTimestampTracker, UUID.randomUUID());
 
         TablePartitionId partId = testTablePartitionId();
 
@@ -191,10 +194,10 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
     public void testRepeatedCommitRollbackAfterRollbackWithException() throws Exception {
         TestTxManager txManager = mock(TestTxManager.class);
 
-        when(txManager.finish(any(), any(), any(), anyBoolean(), any(), any()))
+        when(txManager.finish(any(), any(), any(), any(), anyBoolean(), any(), any()))
                 .thenReturn(failedFuture(new Exception("Expected exception.")));
 
-        ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, UUID.randomUUID());
+        ReadWriteTransactionImpl tx = new ReadWriteTransactionImpl(txManager, hybridTimestampTracker, UUID.randomUUID());
 
         TablePartitionId partId = testTablePartitionId();
 
@@ -233,22 +236,22 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
         }
 
         @Override
-        public InternalTransaction begin() {
+        public InternalTransaction begin(HybridTimestampTracker timestampTracker) {
             return null;
         }
 
         @Override
-        public InternalTransaction begin(boolean readOnly, HybridTimestamp observableTimestamp) {
+        public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
             return null;
         }
 
         @Override
-        public @Nullable TxState state(UUID txId) {
+        public @Nullable TxStateMeta stateMeta(UUID txId) {
             return null;
         }
 
         @Override
-        public void changeState(UUID txId, @Nullable TxState before, TxState after) {
+        public void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
             // No-op.
         }
 
@@ -258,8 +261,19 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
         }
 
         @Override
-        public CompletableFuture<Void> finish(TablePartitionId commitPartition, ClusterNode recipientNode, Long term, boolean commit,
-                Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups, UUID txId) {
+        public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
+        }
+
+        @Override
+        public CompletableFuture<Void> finish(
+                HybridTimestampTracker timestampTracker,
+                TablePartitionId commitPartition,
+                ClusterNode recipientNode,
+                Long term,
+                boolean commit,
+                Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+                UUID txId
+        ) {
             txFinishStartedLatch.countDown();
 
             try {
@@ -272,9 +286,13 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
         }
 
         @Override
-        public CompletableFuture<Void> cleanup(ClusterNode recipientNode,
-                List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds, UUID txId, boolean commit,
-                @Nullable HybridTimestamp commitTimestamp) {
+        public CompletableFuture<Void> cleanup(
+                ClusterNode recipientNode,
+                List<IgniteBiTuple<TablePartitionId, Long>> tablePartitionIds,
+                UUID txId,
+                boolean commit,
+                @Nullable HybridTimestamp commitTimestamp
+        ) {
             return null;
         }
 
