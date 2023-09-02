@@ -47,6 +47,7 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexChange;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,7 +60,7 @@ import org.mockito.quality.Strictness;
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-public class IndexBuildControllerTest {
+public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     private static final String TABLE_NAME_0 = "test_table_0";
 
     private static final String TABLE_NAME_1 = "test_table_1";

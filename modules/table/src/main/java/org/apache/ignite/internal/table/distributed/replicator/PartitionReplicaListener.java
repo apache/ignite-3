@@ -2575,7 +2575,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         busyLock.block();
 
-        indexBuildController.onStopBeingPrimary(replicationGroupId);
+        if (primary) {
+            indexBuildController.onStopBeingPrimary(replicationGroupId);
+        }
     }
 
     private int partId() {
