@@ -20,9 +20,12 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
 
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -31,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -94,7 +98,10 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private volatile SnapshotMeta snapshotMeta;
 
     @Nullable
-    private volatile CompletableFuture<Boolean> rebalanceFuture;
+    private volatile CompletableFuture<Boolean> metadataSufficiencyFuture;
+
+    @Nullable
+    private volatile CompletableFuture<Void> rebalanceFuture;
 
     /**
      * Future is to wait in {@link #join()} because it is important for us to wait for the rebalance to finish or abort.
@@ -119,31 +126,39 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         LOG.info("Copier is started for the partition [{}]", createPartitionInfo());
 
-        rebalanceFuture = partitionSnapshotStorage.partition().startRebalance()
-                .thenCompose(unused -> {
-                    ClusterNode snapshotSender = getSnapshotSender(snapshotUri.nodeName);
+        ClusterNode snapshotSender = getSnapshotSender(snapshotUri.nodeName);
 
-                    if (snapshotSender == null) {
-                        throw new StorageRebalanceException("Snapshot sender not found: " + snapshotUri.nodeName);
-                    }
+        metadataSufficiencyFuture = snapshotSender == null
+                ? failedFuture(new StorageRebalanceException("Snapshot sender not found: " + snapshotUri.nodeName))
+                : loadSnapshotMeta(snapshotSender)
+                        // Give metadata some time to catch up as it's very probable that the leader is ahead metadata-wise.
+                        .thenCompose(unused -> waitForMetadataWithTimeout())
+                        .thenApply(unused -> metadataIsSufficientlyComplete())
+                ;
 
-                    return loadSnapshotMeta(snapshotSender)
-                            // Give metadata some time to catch up as it's very probable that the leader is ahead metadata-wise.
-                            .thenCompose(unused2 -> waitForMetadataWithTimeout())
-                            .thenCompose(unused2 -> {
-                                if (metadataIsSufficientlyComplete()) {
-                                    return loadSnapshotMvData(snapshotSender, executor)
-                                            .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor))
-                                            .thenApply(unused1 -> true);
-                                } else {
-                                    logMetadataInsufficiencyAndSetError();
+        rebalanceFuture = metadataSufficiencyFuture.thenCompose(metadataSufficient -> {
+            if (metadataSufficient) {
+                return partitionSnapshotStorage.partition().startRebalance()
+                        .thenCompose(unused -> {
+                            assert snapshotSender != null;
 
-                                    return completedFuture(false);
-                                }
-                            });
-                });
+                            return loadSnapshotMvData(snapshotSender, executor)
+                                    .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor));
+                        });
+            } else {
+                logMetadataInsufficiencyAndSetError();
 
-        joinFuture = rebalanceFuture.handle(this::completeRebalance).thenCompose(Function.identity());
+                return completedFuture(null);
+            }
+        });
+
+        joinFuture = metadataSufficiencyFuture.thenCompose(metadataSufficient -> {
+            if (metadataSufficient) {
+                return rebalanceFuture.handle((unused, throwable) -> completeRebalance(throwable)).thenCompose(Function.identity());
+            } else {
+                return completedFuture(null);
+            }
+        });
     }
 
     private CompletableFuture<?> waitForMetadataWithTimeout() {
@@ -176,14 +191,16 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             } catch (ExecutionException e) {
                 Throwable cause = e.getCause();
 
-                LOG.error("Error when completing the copier", cause);
+                if (!(cause instanceof CancellationException)) {
+                    LOG.error("Error when completing the copier", cause);
 
-                if (isOk()) {
-                    setError(RaftError.UNKNOWN, "Unknown error on completion the copier");
+                    if (isOk()) {
+                        setError(RaftError.UNKNOWN, "Unknown error on completion the copier");
+                    }
+
+                    // By analogy with LocalSnapshotCopier#join.
+                    throw new IllegalStateException(cause);
                 }
-
-                // By analogy with LocalSnapshotCopier#join.
-                throw new IllegalStateException(cause);
             }
         }
     }
@@ -199,11 +216,14 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         LOG.info("Copier is canceled for partition [{}]", createPartitionInfo());
 
-        CompletableFuture<?> fut = rebalanceFuture;
+        // Cancel all futures that might be upstream wrt joinFuture.
+        List<CompletableFuture<?>> futuresToCancel = Stream.of(metadataSufficiencyFuture, rebalanceFuture)
+                .filter(Objects::nonNull)
+                .collect(toList());
 
-        if (fut != null) {
-            fut.cancel(false);
+        futuresToCancel.forEach(future -> future.cancel(false));
 
+        if (!futuresToCancel.isEmpty()) {
             try {
                 // Because after the cancellation, no one waits for #join.
                 join();
@@ -334,7 +354,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     /**
      * Requests and stores data into {@link TxStateStorage}.
      */
-    private CompletableFuture<?> loadSnapshotTxData(ClusterNode snapshotSender, Executor executor) {
+    private CompletableFuture<Void> loadSnapshotTxData(ClusterNode snapshotSender, Executor executor) {
         if (!busyLock.enterBusy()) {
             return completedFuture(null);
         }
@@ -394,11 +414,9 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     /**
      * Completes rebalancing of the partition storages.
      *
-     * @param sufficientMetadata If the metadata is sufficient and an attempt to transfer state was made ({@code null if thre is
-     *     an exception}.
      * @param throwable Error occurred while rebalancing the partition storages, {@code null} means that the rebalancing was successful.
      */
-    private CompletableFuture<Void> completeRebalance(@Nullable Boolean sufficientMetadata, @Nullable Throwable throwable) {
+    private CompletableFuture<Void> completeRebalance(@Nullable Throwable throwable) {
         if (!busyLock.enterBusy()) {
             if (isOk()) {
                 setError(RaftError.ECANCELED, "Copier is cancelled");
@@ -416,11 +434,6 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 }
 
                 return partitionSnapshotStorage.partition().abortRebalance().thenCompose(unused -> failedFuture(throwable));
-            }
-
-            if (!sufficientMetadata) {
-                // This is already logged and error already set, just abort rebalance.
-                return partitionSnapshotStorage.partition().abortRebalance();
             }
 
             SnapshotMeta meta = snapshotMeta;

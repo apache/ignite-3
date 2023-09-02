@@ -40,6 +40,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -178,7 +179,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         createTargetStorages();
 
         MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
-                outgoingTxStatePartitionStorage, rowIds, txIds, snapshotId);
+                outgoingTxStatePartitionStorage, rowIds, txIds);
 
         PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
                 snapshotId,
@@ -231,16 +232,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     }
 
     private MessagingService messagingServiceForSuccessScenario(MvPartitionStorage outgoingMvPartitionStorage,
-            TxStateStorage outgoingTxStatePartitionStorage, List<RowId> rowIds, List<UUID> txIds, UUID snapshotId) {
+            TxStateStorage outgoingTxStatePartitionStorage, List<RowId> rowIds, List<UUID> txIds) {
         MessagingService messagingService = mock(MessagingService.class);
 
-        when(messagingService.invoke(eq(clusterNode), any(SnapshotMetaRequest.class), anyLong())).then(answer -> {
-            SnapshotMetaRequest snapshotMetaRequest = answer.getArgument(1);
-
-            assertEquals(snapshotId, snapshotMetaRequest.id());
-
-            return completedFuture(snapshotMetaResponse(0));
-        });
+        returnSnapshotMetaWhenAskedForIt(messagingService);
 
         when(messagingService.invoke(eq(clusterNode), any(SnapshotMvDataRequest.class), anyLong())).then(answer -> {
             SnapshotMvDataRequest snapshotMvDataRequest = answer.getArgument(1);
@@ -265,6 +260,16 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         });
 
         return messagingService;
+    }
+
+    private void returnSnapshotMetaWhenAskedForIt(MessagingService messagingService) {
+        when(messagingService.invoke(eq(clusterNode), any(SnapshotMetaRequest.class), anyLong())).then(answer -> {
+            SnapshotMetaRequest snapshotMetaRequest = answer.getArgument(1);
+
+            assertEquals(snapshotId, snapshotMetaRequest.id());
+
+            return completedFuture(snapshotMetaResponse(0));
+        });
     }
 
     private SnapshotMetaResponse snapshotMetaResponse(int requiredCatalogVersion) {
@@ -453,14 +458,55 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void cancellationMakesJoinFinishIfHangingOnNetworkCall() throws Exception {
+    void cancellationMakesJoinFinishIfHangingOnNetworkCallToSnapshotMetadata() throws Exception {
         createTargetStorages();
 
         CountDownLatch networkInvokeLatch = new CountDownLatch(1);
 
         MessagingService messagingService = mock(MessagingService.class);
 
-        when(messagingService.invoke(any(ClusterNode.class), any(), anyLong())).then(invocation -> {
+        when(messagingService.invoke(any(ClusterNode.class), any(SnapshotMetaRequest.class), anyLong())).then(invocation -> {
+            networkInvokeLatch.countDown();
+
+            return new CompletableFuture<>();
+        });
+
+        PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
+                snapshotId,
+                incomingMvTableStorage,
+                incomingTxStateTableStorage,
+                messagingService
+        );
+
+        SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
+                SnapshotUri.toStringUri(snapshotId, NODE_NAME),
+                mock(SnapshotCopierOptions.class)
+        );
+
+        networkInvokeLatch.await(1, TimeUnit.SECONDS);
+
+        CompletableFuture<?> cancelAndJoinFuture = runAsync(() -> {
+            snapshotCopier.cancel();
+
+            snapshotCopier.join();
+        });
+
+        assertThat(cancelAndJoinFuture, willSucceedIn(1, TimeUnit.SECONDS));
+
+        verify(partitionSnapshotStorage.partition(), never()).startRebalance();
+        verify(partitionSnapshotStorage.partition(), never()).abortRebalance();
+    }
+
+    @Test
+    void cancellationMakesJoinFinishIfHangingOnNetworkCallWhenGettingData() throws Exception {
+        createTargetStorages();
+
+        CountDownLatch networkInvokeLatch = new CountDownLatch(1);
+
+        MessagingService messagingService = mock(MessagingService.class);
+
+        returnSnapshotMetaWhenAskedForIt(messagingService);
+        when(messagingService.invoke(any(ClusterNode.class), any(SnapshotMvDataRequest.class), anyLong())).then(invocation -> {
             networkInvokeLatch.countDown();
 
             return new CompletableFuture<>();
@@ -498,7 +544,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         createTargetStorages();
 
         MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
-                outgoingTxStatePartitionStorage, rowIds, txIds, snapshotId);
+                outgoingTxStatePartitionStorage, rowIds, txIds);
 
         PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
                 snapshotId,
@@ -551,7 +597,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         createTargetStorages();
 
         MessagingService messagingService = messagingServiceForSuccessScenario(outgoingMvPartitionStorage,
-                outgoingTxStatePartitionStorage, rowIds, txIds, snapshotId);
+                outgoingTxStatePartitionStorage, rowIds, txIds);
 
         PartitionSnapshotStorage partitionSnapshotStorage = createPartitionSnapshotStorage(
                 snapshotId,
@@ -653,6 +699,12 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         assertThat(runAsync(snapshotCopier::join), willSucceedIn(1, TimeUnit.SECONDS));
 
         assertEquals(RaftError.EBUSY.getNumber(), snapshotCopier.getCode());
+
+        verify(messagingService, never()).invoke(any(ClusterNode.class), any(SnapshotMvDataRequest.class), anyLong());
+        verify(messagingService, never()).invoke(any(ClusterNode.class), any(SnapshotTxDataRequest.class), anyLong());
+
+        verify(partitionSnapshotStorage.partition(), never()).startRebalance();
+        verify(partitionSnapshotStorage.partition(), never()).abortRebalance();
 
         assertThatTargetStoragesAreEmpty(incomingMvTableStorage, incomingTxStateTableStorage);
     }
