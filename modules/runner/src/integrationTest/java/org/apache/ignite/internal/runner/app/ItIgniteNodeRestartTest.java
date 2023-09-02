@@ -113,6 +113,8 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.index.IndexBuildController;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -371,6 +373,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
 
+        var indexBuilder = new IndexBuilder(name, Runtime.getRuntime().availableProcessors());
+
+        var indexBuildController = new IndexBuildController(indexBuilder, tablesConfig);
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
@@ -398,10 +404,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 null,
                 schemaSyncService,
                 catalogManager,
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                indexBuildController
         );
 
-        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager);
+        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager, indexBuildController);
 
         var metricManager = new MetricManager();
 
@@ -470,7 +477,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopology,
                 cfgStorage,
                 distributedConfigurationGenerator,
-                clusterConfigRegistry
+                clusterConfigRegistry,
+                indexBuilder
         );
 
         partialNodes.add(partialNode);

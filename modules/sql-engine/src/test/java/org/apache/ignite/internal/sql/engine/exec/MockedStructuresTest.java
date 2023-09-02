@@ -94,6 +94,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDa
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.index.IndexBuildController;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -232,6 +233,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     private MetricManager metricManager;
 
+    @Mock
+    private IndexBuildController indexBuildController;
+
     /** Returns current method name. */
     private static String getCurrentMethodName() {
         return StackWalker.getInstance()
@@ -316,7 +320,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         tblManager = mockManagers();
 
-        idxManager = new IndexManager(tblsCfg, schemaManager, tblManager);
+        idxManager = new IndexManager(tblsCfg, schemaManager, tblManager, indexBuildController);
 
         idxManager.start();
 
@@ -600,7 +604,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                indexBuildController
         );
 
         tableManager.start();

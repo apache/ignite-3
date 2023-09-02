@@ -125,7 +125,7 @@ import org.apache.ignite.internal.table.distributed.command.PartitionCommand;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexBuildController;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
@@ -451,10 +451,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 schemas,
                 localNode,
                 new TestMvTableStorage(tblId, DEFAULT_PARTITION_COUNT),
-                mock(IndexBuilder.class),
                 schemaSyncService,
                 catalogService,
-                tablesConfig
+                mock(IndexBuildController.class)
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);

@@ -53,6 +53,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.index.IndexBuildController;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -105,7 +106,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         when(schManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(null));
 
-        indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock);
+        indexManager = new IndexManager(tablesConfig, schManager, tableManagerMock, mock(IndexBuildController.class));
         indexManager.start();
 
         assertThat(

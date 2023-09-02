@@ -260,7 +260,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 logicalTopology,
                 cfgStorage,
                 distributedConfigurationGenerator,
-                clusterConfigRegistry
+                clusterConfigRegistry,
+                null
         );
 
         partialNodes.add(partialNode);

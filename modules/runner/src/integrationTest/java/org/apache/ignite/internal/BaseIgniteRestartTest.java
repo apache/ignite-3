@@ -45,6 +45,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -214,13 +215,14 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * so returned partial node is started and ready to work.
      *
      * @param nodeCfgMgr Node configuration manager.
-     * @param clusterCfgMgr Cluster configuration manager..
+     * @param clusterCfgMgr Cluster configuration manager.
      * @param revisionCallback RevisionCallback Callback on storage revision update.
      * @param components Started components of a node.
      * @param localConfigurationGenerator Local configuration generator.
      * @param logicalTopology Logical topology.
-     * @param cfgStorage Distributed configuration storage..
-     * @param distributedConfigurationGenerator Distributes configuration generator..
+     * @param cfgStorage Distributed configuration storage.
+     * @param distributedConfigurationGenerator Distributes configuration generator.
+     * @param indexBuilder Index builder.
      * @return Partial node.
      */
     public static PartialNode partialNode(
@@ -233,7 +235,8 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             LogicalTopologyImpl logicalTopology,
             DistributedConfigurationStorage cfgStorage,
             ConfigurationTreeGenerator distributedConfigurationGenerator,
-            ConfigurationRegistry clusterConfigRegistry
+            ConfigurationRegistry clusterConfigRegistry,
+            @Nullable IndexBuilder indexBuilder
     ) {
         CompletableFuture<?> startFuture = CompletableFuture.allOf(
                 nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
@@ -252,11 +255,13 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         log.info("Completed recovery on partially started node, MetaStorage revision recovered to: " + recoveryRevision);
 
-        return new PartialNode(
-                components,
-                List.of(localConfigurationGenerator, distributedConfigurationGenerator),
-                logicalTopology
-        );
+        List<ManuallyCloseable> closeables = new ArrayList<>(List.of(localConfigurationGenerator, distributedConfigurationGenerator));
+
+        if (indexBuilder != null) {
+            closeables.add(indexBuilder);
+        }
+
+        return new PartialNode(components, closeables, logicalTopology);
     }
 
     /**

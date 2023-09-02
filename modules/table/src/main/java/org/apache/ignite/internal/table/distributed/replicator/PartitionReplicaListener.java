@@ -24,9 +24,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toIndexDescriptor;
-import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
-import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -59,17 +56,12 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Command;
@@ -87,10 +79,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesView;
-import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -101,7 +89,6 @@ import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
@@ -113,7 +100,7 @@ import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommandBuilder;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexBuildController;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.CommittableTxRequest;
@@ -233,15 +220,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Table storage. */
     private final MvTableStorage mvTableStorage;
 
-    /** Index builder. */
-    private final IndexBuilder indexBuilder;
-
     private final SchemaSyncService schemaSyncService;
 
     private final CatalogService catalogService;
-
-    /** Listener for configuration indexes, {@code null} if the replica is not the leader. */
-    private final AtomicReference<ConfigurationNamedListListener<TableIndexView>> indexesConfigurationListener = new AtomicReference<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -252,10 +233,11 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Flag indicates whether the current replica is the primary. */
     private volatile boolean primary;
 
-    private final TablesConfiguration tablesConfig;
-
     /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
     private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
+
+    /** Index build controller. */
+    private final IndexBuildController indexBuildController;
 
     /**
      * The constructor.
@@ -276,8 +258,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
      * @param localNode Instance of the local node.
      * @param mvTableStorage Table storage.
-     * @param indexBuilder Index builder.
-     * @param tablesConfig Tables configuration.
+     * @param indexBuildController Index buid controller.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -298,10 +279,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             Schemas schemas,
             ClusterNode localNode,
             MvTableStorage mvTableStorage,
-            IndexBuilder indexBuilder,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            TablesConfiguration tablesConfig
+            IndexBuildController indexBuildController
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -318,10 +298,9 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.storageUpdateHandler = storageUpdateHandler;
         this.localNode = localNode;
         this.mvTableStorage = mvTableStorage;
-        this.indexBuilder = indexBuilder;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
-        this.tablesConfig = tablesConfig;
+        this.indexBuildController = indexBuildController;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -2574,7 +2553,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 primary = true;
 
-                startBuildIndexes();
+                indexBuildController.onBecomePrimary(replicationGroupId, mvTableStorage, raftClient);
             } else {
                 if (!primary) {
                     // Current replica was not the primary replica, we do not need to do anything.
@@ -2583,7 +2562,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 primary = false;
 
-                stopBuildIndexes();
+                indexBuildController.onStopBeingPrimary(replicationGroupId);
             }
         });
     }
@@ -2596,70 +2575,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         busyLock.block();
 
-        stopBuildIndexes();
-    }
-
-    private void registerIndexesListener() {
-        // TODO: IGNITE-19498 Might need to listen to something else
-        ConfigurationNamedListListener<TableIndexView> listener = new ConfigurationNamedListListener<>() {
-            @Override
-            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {
-                inBusyLock(() -> {
-                    TableIndexView indexView = ctx.newValue();
-
-                    if (tableId() != indexView.tableId()) {
-                        return;
-                    }
-
-                    TableView tableView = findTableView(ctx.newValue(TablesView.class), tableId());
-
-                    assert tableView != null : tableId();
-
-                    CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
-                    CatalogIndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
-
-                    startBuildIndex(StorageIndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor));
-                });
-
-                return completedFuture(null);
-            }
-
-            @Override
-            public CompletableFuture<?> onRename(ConfigurationNotificationEvent<TableIndexView> ctx) {
-                return failedFuture(new UnsupportedOperationException());
-            }
-
-            @Override
-            public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableIndexView> ctx) {
-                inBusyLock(() -> {
-                    TableIndexView tableIndexView = ctx.oldValue();
-
-                    if (tableId() == tableIndexView.tableId()) {
-                        indexBuilder.stopBuildIndex(tableId(), partId(), tableIndexView.id());
-                    }
-                });
-
-                return completedFuture(null);
-            }
-
-            @Override
-            public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<TableIndexView> ctx) {
-                return failedFuture(new UnsupportedOperationException());
-            }
-        };
-
-        boolean casResult = indexesConfigurationListener.compareAndSet(null, listener);
-
-        assert casResult : replicationGroupId;
-
-        tablesConfig.indexes().listenElements(listener);
-    }
-
-    private void startBuildIndex(StorageIndexDescriptor indexDescriptor) {
-        // TODO: IGNITE-19112 We only need to create the index storage once
-        IndexStorage indexStorage = mvTableStorage.getOrCreateIndex(partId(), indexDescriptor);
-
-        indexBuilder.startBuildIndex(tableId(), partId(), indexDescriptor.id(), indexStorage, mvDataStorage, raftClient);
+        indexBuildController.onStopBeingPrimary(replicationGroupId);
     }
 
     private int partId() {
@@ -2684,38 +2600,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    private void startBuildIndexes() {
-        registerIndexesListener();
-
-        // Let's try to build an index for the previously created indexes for the table.
-        TablesView tablesView = tablesConfig.value();
-
-        for (TableIndexView indexView : tablesView.indexes()) {
-            if (indexView.tableId() != tableId()) {
-                continue;
-            }
-
-            TableView tableView = findTableView(tablesView, tableId());
-
-            assert tableView != null : tableId();
-
-            CatalogTableDescriptor catalogTableDescriptor = toTableDescriptor(tableView);
-            CatalogIndexDescriptor catalogIndexDescriptor = toIndexDescriptor(indexView);
-
-            startBuildIndex(StorageIndexDescriptor.create(catalogTableDescriptor, catalogIndexDescriptor));
-        }
-    }
-
-    private void stopBuildIndexes() {
-        ConfigurationNamedListListener<TableIndexView> listener = indexesConfigurationListener.getAndSet(null);
-
-        if (listener != null) {
-            tablesConfig.indexes().stopListenElements(listener);
-        }
-
-        indexBuilder.stopBuildIndexes(tableId(), partId());
     }
 
     private void cleanupLocally(UUID txId, boolean commit, HybridTimestamp commitTimestamp) {

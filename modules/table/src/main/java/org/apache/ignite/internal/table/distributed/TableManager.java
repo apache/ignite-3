@@ -151,7 +151,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexBuildController;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
@@ -378,13 +378,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final LowWatermark lowWatermark;
 
-    private final IndexBuilder indexBuilder;
-
     private final ConfiguredTablesCache configuredTablesCache;
 
     private final Marshaller raftCommandsMarshaller;
 
     private final HybridTimestampTracker observableTimestampTracker;
+
+    private final IndexBuildController indexBuildController;
 
     /**
      * Creates a new table manager.
@@ -406,6 +406,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         volatile tables.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
+     * @param indexBuildController Index build controller.
      */
     public TableManager(
             String nodeName,
@@ -434,7 +435,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             DistributionZoneManager distributionZoneManager,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            HybridTimestampTracker observableTimestampTracker
+            HybridTimestampTracker observableTimestampTracker,
+            IndexBuildController indexBuildController
     ) {
         this.tablesCfg = tablesCfg;
         this.zonesConfig = zonesConfig;
@@ -460,6 +462,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
+        this.indexBuildController = indexBuildController;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -511,8 +514,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         mvGc = new MvGc(nodeName, gcConfig);
 
         lowWatermark = new LowWatermark(nodeName, gcConfig.lowWatermark(), clock, txManager, vaultManager, mvGc);
-
-        indexBuilder = new IndexBuilder(nodeName, cpus);
 
         configuredTablesCache = new ConfiguredTablesCache(tablesCfg, getMetadataLocallyOnly);
 
@@ -1017,10 +1018,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 new NonHistoricSchemas(schemaManager),
                 localNode(),
                 table.internalTable().storage(),
-                indexBuilder,
                 schemaSyncService,
                 catalogService,
-                tablesCfg
+                indexBuildController
         );
     }
 
@@ -1124,7 +1124,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         cleanUpTablesResources(tablesToStop);
 
         try {
-            IgniteUtils.closeAllManually(lowWatermark, mvGc, indexBuilder);
+            IgniteUtils.closeAllManually(lowWatermark, mvGc);
         } catch (Throwable t) {
             LOG.error("Failed to close internal components", t);
         }

@@ -58,7 +58,6 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -70,7 +69,7 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexBuildController;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -345,10 +344,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new DummySchemas(schemaManager),
                 mockClusterNode(),
                 mock(MvTableStorage.class),
-                mock(IndexBuilder.class),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 mock(CatalogService.class),
-                mock(TablesConfiguration.class)
+                mock(IndexBuildController.class)
         );
 
         lenient().when(safeTime.waitFor(any())).thenReturn(completedFuture(null));

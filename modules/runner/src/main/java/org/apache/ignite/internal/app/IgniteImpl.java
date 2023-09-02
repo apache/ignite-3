@@ -128,6 +128,8 @@ import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.index.IndexBuildController;
+import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -295,12 +297,16 @@ public class IgniteImpl implements Ignite {
     private final RestAddressReporter restAddressReporter;
 
     private final DistributedConfigurationUpdater distributedConfigurationUpdater;
+
     private final CatalogManager catalogManager;
 
     private final AuthenticationManager authenticationManager;
 
     /** Timestamp tracker for embedded transactions. */
     private final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
+
+    /** Index builder. */
+    private final IndexBuilder indexBuilder;
 
     /**
      * The Constructor.
@@ -541,6 +547,10 @@ public class IgniteImpl implements Ignite {
 
         SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
 
+        indexBuilder = new IndexBuilder(name, Runtime.getRuntime().availableProcessors());
+
+        var indexBuildController = new IndexBuildController(indexBuilder, tablesConfig);
+
         distributedTblMgr = new TableManager(
                 name,
                 registry,
@@ -568,10 +578,11 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
-                observableTimestampTracker
+                observableTimestampTracker,
+                indexBuildController
         );
 
-        indexManager = new IndexManager(tablesConfig, schemaManager, distributedTblMgr);
+        indexManager = new IndexManager(tablesConfig, schemaManager, distributedTblMgr, indexBuildController);
 
         qryEngine = new SqlQueryProcessor(
                 registry,
@@ -840,17 +851,16 @@ public class IgniteImpl implements Ignite {
 
         LOG.debug(errMsg, e);
 
-        lifecycleManager.stopNode();
+        stop();
 
         return new IgniteException(errMsg, e);
     }
 
-    /**
-     * Stops ignite node.
-     */
+    /** Stops ignite node. */
     public void stop() {
         lifecycleManager.stopNode();
         restAddressReporter.removeReport();
+        indexBuilder.close();
     }
 
     /** {@inheritDoc} */

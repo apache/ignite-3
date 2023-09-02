@@ -40,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -148,6 +149,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.index.IndexBuildController;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -181,7 +183,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 
 /**
  * Test suite for rebalance process, when replicas' number changed.
@@ -805,7 +806,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterService,
                     raftManager,
                     replicaManager,
-                    Mockito.mock(LockManager.class),
+                    mock(LockManager.class),
                     replicaSvc,
                     baselineMgr,
                     clusterService.topologyService(),
@@ -823,7 +824,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
-                    new HybridTimestampTracker()
+                    new HybridTimestampTracker(),
+                    mock(IndexBuildController.class)
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

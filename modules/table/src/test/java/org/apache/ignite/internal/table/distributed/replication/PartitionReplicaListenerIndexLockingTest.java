@@ -76,7 +76,7 @@ import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
-import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
+import org.apache.ignite.internal.table.distributed.index.IndexBuildController;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
@@ -236,10 +236,9 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new DummySchemas(schemaManager),
                 mock(ClusterNode.class),
                 new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT),
-                mock(IndexBuilder.class),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 mock(CatalogService.class),
-                tablesConfig
+                mock(IndexBuildController.class)
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

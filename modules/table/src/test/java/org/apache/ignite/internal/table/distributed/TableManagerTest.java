@@ -111,6 +111,7 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataSto
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.index.IndexBuildController;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -836,9 +837,9 @@ public class TableManagerTest extends IgniteAbstractTest {
                 distributionZoneManager,
                 mock(SchemaSyncService.class),
                 mock(CatalogService.class),
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                mock(IndexBuildController.class)
         ) {
-
             @Override
             protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
                 mvTableStorage = spy(super.createTableStorage(tableDescriptor, zoneDescriptor));

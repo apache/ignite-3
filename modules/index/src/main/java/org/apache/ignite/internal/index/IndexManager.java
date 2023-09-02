@@ -68,6 +68,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.index.IndexBuildController;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups;
@@ -96,6 +97,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /** Table manager. */
     private final TableManager tableManager;
 
+    /** Index build controller. */
+    private final IndexBuildController indexBuildController;
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -108,15 +112,18 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
      * @param tablesCfg Tables and indexes configuration.
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
+     * @param indexBuildController Index build controller.
      */
     public IndexManager(
             TablesConfiguration tablesCfg,
             SchemaManager schemaManager,
-            TableManager tableManager
+            TableManager tableManager,
+            IndexBuildController indexBuildController
     ) {
         this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
         this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
         this.tableManager = tableManager;
+        this.indexBuildController = indexBuildController;
     }
 
     /** {@inheritDoc} */
@@ -503,7 +510,8 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             }
         });
 
-        return allOf(createIndexFuture, fireEventFuture);
+        return allOf(createIndexFuture, fireEventFuture)
+                .thenAccept(unused -> indexBuildController.onIndexCreate(tableDescriptor, indexDescriptor));
     }
 
     /**
