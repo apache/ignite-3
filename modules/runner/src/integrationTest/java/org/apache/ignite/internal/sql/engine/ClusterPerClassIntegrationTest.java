@@ -141,6 +141,11 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         LOG.info("End beforeAll()");
     }
 
+    @AfterEach
+    void afterTest() {
+        QueryChecker.ensureNoUnusedChecker();
+    }
+
     /**
      * Starts and initializes a test cluster.
      */

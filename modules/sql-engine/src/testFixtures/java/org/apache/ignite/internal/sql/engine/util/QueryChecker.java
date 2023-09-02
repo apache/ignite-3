@@ -21,9 +21,11 @@ import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromC
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Array;
@@ -37,6 +39,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -273,6 +276,45 @@ public abstract class QueryChecker {
         String createQuery();
     }
 
+    /** Holder for the current {@link QueryChecker}. */
+    private static class QueryCheckerHolder {
+        private AtomicReference<QueryChecker> reference = new AtomicReference<>();
+
+        void set(QueryChecker newChecker) {
+            reference.getAndUpdate(current -> {
+                if (current != null) {
+                    throw new IllegalStateException("Found previous QueryChecker: query=" + current.queryTemplate.originalQueryString());
+                }
+
+                return newChecker;
+            });
+        }
+
+        void remove(QueryChecker queryChecker) {
+            reference.getAndUpdate(current -> {
+                if (queryChecker != current) {
+                    throw new IllegalStateException(
+                            format("Unexpected QueryChecker instance: expected={}, actual={}",
+                                    current == null ? "null" : current.queryTemplate.originalQueryString(),
+                                    queryChecker.queryTemplate.originalQueryString()
+                            ));
+                }
+
+                return null;
+            });
+        }
+    }
+
+    /** Validates no {@link #check()} method call was missed for a {@link QueryChecker}. */
+    public static void ensureNoUnusedChecker() {
+        QueryChecker queryChecker = CURRENT_CHECKER_HOLDER.reference.getAndSet(null);
+
+        assertNull(queryChecker,
+                () -> "Found unused QueryChecker: query=" + queryChecker.queryTemplate.originalQueryString());
+    }
+
+    private static final QueryCheckerHolder CURRENT_CHECKER_HOLDER = new QueryCheckerHolder();
+
     private final QueryTemplate queryTemplate;
 
     private final ArrayList<Matcher<String>> planMatchers = new ArrayList<>();
@@ -281,17 +323,11 @@ public abstract class QueryChecker {
 
     private List<List<?>> expectedResult;
 
-    private List<String> expectedColumnNames;
-
-    private List<Type> expectedColumnTypes;
-
-    private List<MetadataMatcher> metadataMatchers;
+    private List<ColumnMatcher> metadataMatchers;
 
     private boolean ordered;
 
     private Object[] params = OBJECT_EMPTY_ARRAY;
-
-    private String exactPlan;
 
     private Transaction tx;
 
@@ -313,7 +349,10 @@ public abstract class QueryChecker {
      */
     public QueryChecker(Transaction tx, QueryTemplate queryTemplate) {
         this.tx = tx;
-        this.queryTemplate = new AddDisabledRulesTemplate(queryTemplate, disabledRules);
+        this.queryTemplate = new AddDisabledRulesTemplate(Objects.requireNonNull(queryTemplate), disabledRules);
+
+        //noinspection ThisEscapedInObjectConstruction
+        CURRENT_CHECKER_HOLDER.set(this);
     }
 
     /**
@@ -344,8 +383,8 @@ public abstract class QueryChecker {
     }
 
     /**
-     * Set a single param.
-     * Useful for specifying array parameters w/o triggering IDE-inspection warnings about confusing varargs/array params.
+     * Set a single param. Useful for specifying array parameters w/o triggering IDE-inspection warnings about confusing varargs/array
+     * params.
      *
      * @return This.
      */
@@ -419,7 +458,11 @@ public abstract class QueryChecker {
      * @return This.
      */
     public QueryChecker columnNames(String... columns) {
-        expectedColumnNames = Arrays.asList(columns);
+        assert metadataMatchers == null;
+
+        metadataMatchers = Arrays.stream(columns)
+                .map(name -> new MetadataMatcher().name(name))
+                .collect(Collectors.toList());
 
         return this;
     }
@@ -430,7 +473,15 @@ public abstract class QueryChecker {
      * @return This.
      */
     public QueryChecker columnTypes(Type... columns) {
-        expectedColumnTypes = Arrays.asList(columns);
+        assert metadataMatchers == null;
+
+        metadataMatchers = Arrays.stream(columns)
+                .map(t -> (ColumnMatcher) columnMetadata -> {
+                    Class<?> type = ColumnType.columnTypeToClass(columnMetadata.type());
+
+                    assertThat("Column type don't match", type, equalTo(t));
+                })
+                .collect(Collectors.toList());
 
         return this;
     }
@@ -441,18 +492,9 @@ public abstract class QueryChecker {
      * @return This.
      */
     public QueryChecker columnMetadata(MetadataMatcher... matchers) {
+        assert metadataMatchers == null;
+
         metadataMatchers = Arrays.asList(matchers);
-
-        return this;
-    }
-
-    /**
-     * Sets plan.
-     *
-     * @return This.
-     */
-    public QueryChecker planEquals(String plan) {
-        exactPlan = plan;
 
         return this;
     }
@@ -461,6 +503,8 @@ public abstract class QueryChecker {
      * Run checks.
      */
     public void check() {
+        CURRENT_CHECKER_HOLDER.remove(this);
+
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
@@ -472,7 +516,7 @@ public abstract class QueryChecker {
 
         try {
 
-            if (!CollectionUtils.nullOrEmpty(planMatchers) || exactPlan != null) {
+            if (!CollectionUtils.nullOrEmpty(planMatchers)) {
 
                 CompletableFuture<AsyncSqlCursor<List<Object>>> explainCursors = qryProc.querySingleAsync(sessionId,
                         context, transactions(), "EXPLAIN PLAN FOR " + qry, params);
@@ -486,10 +530,6 @@ public abstract class QueryChecker {
                         assertThat("Invalid plan:\n" + actualPlan, actualPlan, matcher);
                     }
                 }
-
-                if (exactPlan != null) {
-                    assertEquals(exactPlan, actualPlan);
-                }
             }
             // Check result.
             CompletableFuture<AsyncSqlCursor<List<Object>>> cursors =
@@ -499,31 +539,14 @@ public abstract class QueryChecker {
 
             checkMetadata(cur);
 
-            if (expectedColumnNames != null) {
-                List<String> colNames = cur.metadata().columns().stream()
-                        .map(ColumnMetadata::name)
-                        .collect(Collectors.toList());
-
-                assertThat("Column names don't match", colNames, equalTo(expectedColumnNames));
-            }
-
-            if (expectedColumnTypes != null) {
-                List<Type> colTypes = cur.metadata().columns().stream()
-                        .map(ColumnMetadata::type)
-                        .map(ColumnType::columnTypeToClass)
-                        .collect(Collectors.toList());
-
-                assertThat("Column types don't match", colTypes, equalTo(expectedColumnTypes));
-            }
-
             if (metadataMatchers != null) {
                 List<ColumnMetadata> columnMetadata = cur.metadata().columns();
 
                 Iterator<ColumnMetadata> valueIterator = columnMetadata.iterator();
-                Iterator<MetadataMatcher> matcherIterator = metadataMatchers.iterator();
+                Iterator<ColumnMatcher> matcherIterator = metadataMatchers.iterator();
 
                 while (matcherIterator.hasNext() && valueIterator.hasNext()) {
-                    MetadataMatcher matcher = matcherIterator.next();
+                    ColumnMatcher matcher = matcherIterator.next();
                     ColumnMetadata actualElement = valueIterator.next();
 
                     matcher.check(actualElement);
@@ -568,7 +591,7 @@ public abstract class QueryChecker {
      * @param exp Expected collection.
      * @param act Actual collection.
      */
-    private void assertEqualsCollections(Collection<?> exp, Collection<?> act) {
+    private static void assertEqualsCollections(Collection<?> exp, Collection<?> act) {
         assertEquals(exp.size(), act.size(), "Collections sizes are not equal:\nExpected: " + exp + "\nActual:   " + act);
 
         Iterator<?> it1 = exp.iterator();
