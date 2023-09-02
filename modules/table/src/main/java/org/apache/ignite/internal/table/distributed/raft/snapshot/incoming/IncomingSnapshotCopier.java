@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -250,7 +251,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     private boolean metadataIsSufficientlyComplete() {
-        return partitionSnapshotStorage.catalogService().latestCatalogVersion() >= snapshotMeta.requiredCatalogVersion();
+        return isMetadataAvailableFor(snapshotMeta.requiredCatalogVersion(), partitionSnapshotStorage.catalogService());
     }
 
     private void logMetadataInsufficiencyAndSetError() {
