@@ -156,6 +156,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         createTable(ignite0, TABLE_NAME);
 
         TableImpl table = (TableImpl) ignite0.tables().table(TABLE_NAME);
+        // Ensure CreateTable event reached the node, before we proceed with emulating metastorage lag.
+        TableImpl table1 = (TableImpl) ignite1.tables().table(TABLE_NAME);
 
         assertEquals(1, table.schemaView().schema().version());
 
@@ -165,15 +167,10 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         alterTable(ignite0, TABLE_NAME);
 
-        table = (TableImpl) ignite2.tables().table(TABLE_NAME);
+        TableImpl table2 = (TableImpl) ignite2.tables().table(TABLE_NAME);
+        assertTrue(waitForCondition(() -> table2.schemaView().schema().version() == 2, 5_000));
 
-        TableImpl table0 = table;
-        assertTrue(waitForCondition(() -> table0.schemaView().schema().version() == 2, 5_000));
-
-        // We use this api because there is no waiting for schemas to sync.
-        table = ((TableManager) ignite1.tables()).getTable(TABLE_NAME);
-
-        assertEquals(1, table.schemaView().schema().version());
+        assertEquals(1, table1.schemaView().schema().version());
 
         String nodeToStop = ignite1.name();
 
@@ -188,10 +185,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         ignite1 = (IgniteImpl) ignite1Fut.get();
 
-        table = ((TableManager) ignite1.tables()).getTable(TABLE_NAME);
-
-        TableImpl table1 = table;
-        assertTrue(waitForCondition(() -> table1.schemaView().schema().version() == 2, 5_000));
+        TableImpl table3 = (TableImpl) ignite1.tables().table(TABLE_NAME);
+        assertTrue(waitForCondition(() -> table3.schemaView().schema().version() == 2, 5_000));
     }
 
     /**
