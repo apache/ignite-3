@@ -1820,7 +1820,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<List<Table>> tablesAsyncInternal() {
         return schemaSyncService.waitForMetadataCompleteness(clock.now())
-                .thenCompose(ignore -> inBusyLock(busyLock, () -> {
+                .thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
                     Collection<TableImpl> configuredTables = startedTables.values();
 
                     var tableFuts = new CompletableFuture[configuredTables.size()];
@@ -1844,7 +1844,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         return tables;
                     }));
-                }));
+                }), ioExecutor);
     }
 
     /**
@@ -2697,6 +2697,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param tableId Table id.
      */
+    @TestOnly
     public @Nullable TableImpl getTable(int tableId) {
         return startedTables.get(tableId);
     }
@@ -2706,6 +2707,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param tableName Table name.
      */
+    @TestOnly
     public @Nullable TableImpl getTable(String tableName) {
         return findTableImplByName(startedTables.values(), tableName);
     }
