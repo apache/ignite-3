@@ -503,7 +503,7 @@ public class InternalTableImpl implements InternalTable {
             if (full) { // Full txn is already finished remotely. Just update local state.
                 txManager.updateTxMeta(
                         tx0.id(),
-                        old -> new TxStateMeta(e == null ? COMMITED : ABORTED, old.txCoordinatorId(), old.commitTimestamp())
+                        old -> new TxStateMeta(e == null ? COMMITED : ABORTED, old.txCoordinatorId(), old.commitTimestamp(), old.getFut())
                 );
                 return e != null ? failedFuture(wrapReplicationException(e)) : completedFuture(r);
             }

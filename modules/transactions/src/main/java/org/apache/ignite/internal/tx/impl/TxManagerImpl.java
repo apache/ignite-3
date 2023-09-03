@@ -130,7 +130,7 @@ public class TxManagerImpl implements TxManager {
 
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
-        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));
+        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null, null));
 
         if (!readOnly) {
             return new ReadWriteTransactionImpl(this, txId);
@@ -216,7 +216,10 @@ public class TxManagerImpl implements TxManager {
         // If there are no enlisted groups, just return - we already marked the tx as finished.
         boolean finishRequestNeeded = !groups.isEmpty();
 
-        updateTxMeta(txId, old -> new TxStateMeta(finishRequestNeeded ? FINISHING : ABORTED, old.txCoordinatorId(), commitTimestamp));
+        updateTxMeta(
+                txId,
+                old -> new TxStateMeta(finishRequestNeeded ? FINISHING : ABORTED, old.txCoordinatorId(), commitTimestamp, old.getFut())
+        );
 
         if (!finishRequestNeeded) {
             return completedFuture(null);
@@ -236,7 +239,8 @@ public class TxManagerImpl implements TxManager {
                 .thenRun(() -> updateTxMeta(txId, old -> new TxStateMeta(
                         commit ? COMMITED : ABORTED,
                         old.txCoordinatorId(),
-                        old.commitTimestamp()
+                        old.commitTimestamp(),
+                        old.getFut()
                 )));
     }
 

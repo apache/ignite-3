@@ -559,7 +559,8 @@ public class PartitionListener implements RaftGroupListener {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
                 full ? COMMITED : PENDING,
                 txCoordinatorId,
-                full ? commitTimestamp : null
+                full ? commitTimestamp : null,
+                null
         ));
     }
 
@@ -567,7 +568,8 @@ public class PartitionListener implements RaftGroupListener {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
                 commit ? COMMITED : ABORTED,
                 txCoordinatorId,
-                commit ? commitTimestamp : null
+                commit ? commitTimestamp : null,
+                old == null ? null : old.getFut()
         ));
     }
 }

@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDe
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.filter;
@@ -345,7 +346,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // Saving state is not needed for full transactions.
             if (!req.full()) {
-                txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null));
+                txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null, null));
             }
         }
 
@@ -2428,22 +2429,48 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         boolean readLatest = timestamp == null;
 
-        return placementDriver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
-                        .groupId(commitGrpId)
-                        .readTimestampLong((readLatest ? HybridTimestamp.MIN_VALUE : timestamp).longValue())
-                        .txId(txId)
-                        .build())
-                .thenApply(txMeta -> {
-                    if (txMeta == null) {
-                        return true;
-                    } else if (txMeta.txState() == COMMITED) {
-                        return !readLatest && txMeta.commitTimestamp().compareTo(timestamp) > 0;
-                    } else {
-                        assert txMeta.txState() == ABORTED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
+        TxStateMeta localMeta = txManager.stateMeta(txId);
 
-                        return true;
-                    }
-                });
+        if (localMeta == null) {
+            return placementDriver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
+                            .groupId(commitGrpId)
+                            .readTimestampLong((readLatest ? HybridTimestamp.MIN_VALUE : timestamp).longValue())
+                            .txId(txId)
+                            .build())
+                    .thenApply(txMeta -> {
+                        if (txMeta == null) {
+                            return true;
+                        } else if (txMeta.txState() == COMMITED) {
+                            return !readLatest && txMeta.commitTimestamp().compareTo(timestamp) > 0;
+                        } else {
+                            assert txMeta.txState() == ABORTED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
+
+                            return true;
+                        }
+                    });
+        } else if (localMeta.txState() == COMMITED) {
+            return completedFuture(!readLatest && localMeta.commitTimestamp().compareTo(timestamp) > 0);
+        } else if (localMeta.txState() == ABORTED) {
+            return completedFuture(true);
+        } else if (localMeta.txState() == FINISHING) {
+            return localMeta.getFut().thenApply(unused -> {
+                TxStateMeta finishedLocalMeta = txManager.stateMeta(txId);
+
+                if (finishedLocalMeta.txState() == COMMITED) {
+                    return !readLatest && localMeta.commitTimestamp().compareTo(timestamp) > 0;
+                } else {
+                    assert finishedLocalMeta.txState() == ABORTED :
+                            "Unexpected transaction state [state=" + finishedLocalMeta.txState() + ']';
+
+                    return true;
+                }
+            });
+        } else {
+            // Coordinator path
+            // Sent status request to localMeta.txCoordinatorId()
+
+            return completedFuture(false);
+        }
     }
 
     private CompletableFuture<UpdateCommand> updateCommand(
@@ -2751,6 +2778,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         txManager.updateTxMeta(txId, old -> old == null
                 ? null
-                : new TxStateMeta(txState, old.txCoordinatorId(), txState == COMMITED ? commitTimestamp : null));
+                : new TxStateMeta(txState, old.txCoordinatorId(), txState == COMMITED ? commitTimestamp : null, old.getFut()));
     }
 }

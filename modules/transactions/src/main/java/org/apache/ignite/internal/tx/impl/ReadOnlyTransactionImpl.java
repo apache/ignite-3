@@ -103,7 +103,7 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
         return ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()))
                 .thenRun(() -> txManager.updateTxMeta(
                         id(),
-                        old -> new TxStateMeta(COMMITED, old.txCoordinatorId(), old.commitTimestamp())
+                        old -> new TxStateMeta(COMMITED, old.txCoordinatorId(), old.commitTimestamp(), old.getFut())
                 ));
     }
 }
