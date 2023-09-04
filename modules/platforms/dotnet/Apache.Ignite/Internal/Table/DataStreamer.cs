@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -76,7 +77,7 @@ internal static class DataStreamer
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
-        var batches = new Dictionary<string, Batch>();
+        var batches = new Dictionary<string, Batch<T>>();
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
 
         // TODO: IGNITE-19710 Data Streamer schema synchronization
@@ -130,7 +131,7 @@ internal static class DataStreamer
             }
         }
 
-        (Batch Batch, string Partition) Add(T item)
+        (Batch<T> Batch, string Partition) Add(T item)
         {
             var tupleBuilder = new BinaryTupleBuilder(schema.Columns.Count, hashedColumnsPredicate: schema);
 
@@ -144,7 +145,7 @@ internal static class DataStreamer
             }
         }
 
-        (Batch Batch, string Partition) Add0(T item, ref BinaryTupleBuilder tupleBuilder)
+        (Batch<T> Batch, string Partition) Add0(T item, ref BinaryTupleBuilder tupleBuilder)
         {
             var columnCount = schema.Columns.Count;
 
@@ -163,7 +164,7 @@ internal static class DataStreamer
 
             lock (batch)
             {
-                batch.Count++;
+                batch.Items.Add(item);
 
                 noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
                 batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
@@ -174,13 +175,13 @@ internal static class DataStreamer
             return (batch, partition);
         }
 
-        Batch GetOrCreateBatch(string partition)
+        Batch<T> GetOrCreateBatch(string partition)
         {
             ref var batchRef = ref CollectionsMarshal.GetValueRefOrAddDefault(batches, partition, out _);
 
             if (batchRef == null)
             {
-                batchRef = new Batch();
+                batchRef = new Batch<T>(options.BatchSize);
                 InitBuffer(batchRef);
 
                 Metrics.StreamerBatchesActiveIncrement();
@@ -189,7 +190,7 @@ internal static class DataStreamer
             return batchRef;
         }
 
-        async Task SendAsync(Batch batch, string partition)
+        async Task SendAsync(Batch<T> batch, string partition)
         {
             var expectedSize = batch.Count;
 
@@ -210,9 +211,9 @@ internal static class DataStreamer
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
-                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Count);
+                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Items);
 
-                batch.Count = 0;
+                batch.Items.Clear();
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
                 InitBuffer(batch);
                 batch.LastFlush = Stopwatch.GetTimestamp();
@@ -221,22 +222,37 @@ internal static class DataStreamer
             }
         }
 
-        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask, int count)
+        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask, List<T> items)
         {
+            // TODO: ???
+            int? schemaVersion = null;
+
             try
             {
                 // Wait for the previous batch for this node to preserve item order.
                 await oldTask.ConfigureAwait(false);
+
+                // TODO: Rebuild the buffer if schema version changed.
                 await sender(buf, partition, retryPolicy).ConfigureAwait(false);
 
                 Metrics.StreamerBatchesSent.Add(1);
-                Metrics.StreamerItemsSent.Add(count);
+                Metrics.StreamerItemsSent.Add(items.Count);
+            }
+            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
+                                            schemaVersion != e.GetExpectedSchemaVersion())
+            {
+                schemaVersion = e.GetExpectedSchemaVersion();
+            }
+            catch (Exception e) when (e.CausedByUnmappedColumns() &&
+                                      schemaVersion == null)
+            {
+                schemaVersion = Table.SchemaVersionForceLatest;
             }
             finally
             {
                 buf.Dispose();
 
-                Metrics.StreamerItemsQueuedDecrement(count);
+                Metrics.StreamerItemsQueuedDecrement(items.Count);
                 Metrics.StreamerBatchesActiveDecrement();
             }
         }
@@ -258,7 +274,7 @@ internal static class DataStreamer
             }
         }
 
-        void InitBuffer(Batch batch)
+        void InitBuffer(Batch<T> batch)
         {
             var buf = batch.Buffer;
 
@@ -285,11 +301,16 @@ internal static class DataStreamer
         }
     }
 
-    private sealed record Batch
+    private sealed record Batch<T>
     {
+        public Batch(int capacity) => Items = new List<T>(capacity);
+
         public PooledArrayBuffer Buffer { get; set; } = ProtoCommon.GetMessageWriter();
 
-        public int Count { get; set; }
+        [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Private class.")]
+        public List<T> Items { get; }
+
+        public int Count => Items.Count;
 
         public int CountPos { get; set; }
 
