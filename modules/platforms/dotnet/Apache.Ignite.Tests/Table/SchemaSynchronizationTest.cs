@@ -350,19 +350,27 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         var options = DataStreamerOptions.Default with { BatchSize = 2 };
         await view.StreamDataAsync(GetData(), options);
 
+        var res1 = await view.GetAsync(null, GetTuple(2)); // Batch 1.
+        var res2 = await view.GetAsync(null, GetTuple(3)); // Batch 2.
+        var res3 = await view.GetAsync(null, GetTuple(5)); // Batch 3.
+
+        Assert.IsNull(res1.Value["VAL"]);
+        Assert.AreEqual("FOO", res2.Value["VAL"]);
+        Assert.AreEqual("FOO", res3.Value["VAL"]);
+
         async IAsyncEnumerable<IIgniteTuple> GetData()
         {
-            // First batch uses old schema.
+            // Batch 1 uses old schema.
             yield return GetTuple(1);
             yield return GetTuple(2);
 
-            // Second batch start.
+            // Batch 2 start.
             yield return GetTuple(3);
 
             // Update schema.
             await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
 
-            // Second batch continues.
+            // Batch 2 (continued) and batch 3.
             yield return GetTuple(4);
             yield return GetTuple(5);
         }
