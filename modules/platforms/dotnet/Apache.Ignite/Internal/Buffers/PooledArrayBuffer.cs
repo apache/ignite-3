@@ -93,16 +93,9 @@ namespace Apache.Ignite.Internal.Buffers
         }
 
         /// <summary>
-        /// Seeks to the specified position.
+        /// Resets the buffer to the initial state.
         /// </summary>
-        /// <param name="position">Position.</param>
-        public void Seek(int position)
-        {
-            Debug.Assert(position >= 0, "position >= 0");
-            Debug.Assert(position + _prefixSize < _buffer.Length, "position + _prefixSize < _buffer.Length");
-
-            _index = position + _prefixSize;
-        }
+        public void Reset() => _index = _prefixSize;
 
         /// <summary>
         /// Gets a span for writing.

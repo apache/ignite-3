@@ -132,11 +132,12 @@ internal static class DataStreamer
 
         (Batch<T> Batch, string Partition) Add(T item)
         {
-            var tupleBuilder = new BinaryTupleBuilder(schema.Columns.Count, hashedColumnsPredicate: schema);
+            var schema0 = schema;
+            var tupleBuilder = new BinaryTupleBuilder(schema0.Columns.Count, hashedColumnsPredicate: schema0);
 
             try
             {
-                return Add0(item, ref tupleBuilder);
+                return Add0(item, ref tupleBuilder, schema0);
             }
             finally
             {
@@ -144,16 +145,16 @@ internal static class DataStreamer
             }
         }
 
-        (Batch<T> Batch, string Partition) Add0(T item, ref BinaryTupleBuilder tupleBuilder)
+        (Batch<T> Batch, string Partition) Add0(T item, ref BinaryTupleBuilder tupleBuilder, Schema schema0)
         {
-            var columnCount = schema.Columns.Count;
+            var columnCount = schema0.Columns.Count;
 
             // Use MemoryMarshal to work around [CS8352]: "Cannot use variable 'noValueSet' in this context
             // because it may expose referenced variables outside of their declaration scope".
             Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
             Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
 
-            writer.Handler.Write(ref tupleBuilder, item, schema, columnCount, noValueSetRef);
+            writer.Handler.Write(ref tupleBuilder, item, schema0, columnCount, noValueSetRef);
 
             var partition = partitionAssignment == null
                 ? string.Empty // Default connection.
@@ -165,8 +166,11 @@ internal static class DataStreamer
             {
                 batch.Items.Add(item);
 
-                noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
-                batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
+                if (batch.Schema == schema0)
+                {
+                    noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
+                    batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
+                }
             }
 
             Metrics.StreamerItemsQueuedIncrement();
@@ -180,7 +184,7 @@ internal static class DataStreamer
 
             if (batchRef == null)
             {
-                batchRef = new Batch<T>(options.BatchSize);
+                batchRef = new Batch<T>(options.BatchSize, schema);
                 InitBuffer(batchRef);
 
                 Metrics.StreamerBatchesActiveIncrement();
@@ -217,6 +221,7 @@ internal static class DataStreamer
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
                 InitBuffer(batch);
                 batch.LastFlush = Stopwatch.GetTimestamp();
+                batch.Schema = schema;
 
                 Metrics.StreamerBatchesActiveIncrement();
             }
@@ -231,6 +236,7 @@ internal static class DataStreamer
                 int? schemaVersion = null;
                 while (true)
                 {
+                    // TODO: If batch schema is not equal to current schema - always rebuild.
                     if (schemaVersion != null)
                     {
                         if (schema.Version != schemaVersion)
@@ -240,7 +246,7 @@ internal static class DataStreamer
                         }
 
                         // Serialize again with the new schema.
-                        buf.Seek(0);
+                        buf.Reset();
                         writer.WriteMultiple(buf, null, schema, items);
                     }
 
@@ -322,12 +328,18 @@ internal static class DataStreamer
 
     private sealed record Batch<T>
     {
-        public Batch(int capacity) => Items = new List<T>(capacity);
+        public Batch(int capacity, Schema schema)
+        {
+            Items = new List<T>(capacity);
+            Schema = schema;
+        }
 
         public PooledArrayBuffer Buffer { get; set; } = ProtoCommon.GetMessageWriter();
 
         [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Private class.")]
         public List<T> Items { get; }
+
+        public Schema Schema { get; set; }
 
         public int Count => Items.Count;
 
