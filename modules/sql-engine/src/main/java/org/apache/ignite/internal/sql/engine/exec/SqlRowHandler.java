@@ -231,7 +231,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
         @Override
         @Nullable Object get(int field) {
-            Object value = rowSchema.value(field, tuple);
+            Object value = rowSchema.value(tuple, field);
 
             if (value == null) {
                 return null;

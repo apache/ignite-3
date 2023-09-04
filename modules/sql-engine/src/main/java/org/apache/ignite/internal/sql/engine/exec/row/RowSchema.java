@@ -46,11 +46,11 @@ public final class RowSchema {
     /**
      * Gets an object representation from a tuple's field.
      *
-     * @param fieldIndex Field index to read.
      * @param tuple Tuple to read the value from.
+     * @param fieldIndex Field index to read.
      * @return An object representation of the value.
      */
-    public @Nullable Object value(int fieldIndex, InternalTuple tuple) {
+    public @Nullable Object value(InternalTuple tuple, int fieldIndex) {
         TypeSpec type = fields().get(fieldIndex);
 
         NativeType nativeType = RowSchemaTypes.toNativeType(type);
