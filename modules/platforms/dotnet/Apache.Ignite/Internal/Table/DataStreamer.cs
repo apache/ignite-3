@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -210,7 +211,8 @@ internal static class DataStreamer
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
-                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Items);
+                // TODO: Use pooled arrays for Items.
+                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Items.ToArray());
 
                 batch.Items.Clear();
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
@@ -221,8 +223,10 @@ internal static class DataStreamer
             }
         }
 
-        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask, List<T> items)
+        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask, ICollection<T> items)
         {
+            Debug.Assert(items.Count > 0, "items.Count > 0");
+
             try
             {
                 var schemaReloaded = false;
@@ -245,14 +249,22 @@ internal static class DataStreamer
                         schema = await schemaProvider(e.GetExpectedSchemaVersion()).ConfigureAwait(false);
                         schemaReloaded = true;
 
-                        // TODO: Rebuild buffer.
+                        buf.Seek(0);
+                        var enumerator = items.GetEnumerator();
+                        enumerator.MoveNext();
+                        writer.WriteMultiple(buf, null, schema, enumerator);
                     }
                     catch (Exception e) when (e.CausedByUnmappedColumns() && !schemaReloaded)
                     {
+                        // TODO: Deduplicate code with the catch block above.
+                        // TODO: Test for this case.
                         schema = await schemaProvider(Table.SchemaVersionForceLatest).ConfigureAwait(false);
                         schemaReloaded = true;
 
-                        // TODO: Rebuild buffer.
+                        buf.Seek(0);
+                        var enumerator = items.GetEnumerator();
+                        enumerator.MoveNext();
+                        writer.WriteMultiple(buf, null, schema, enumerator);
                     }
                 }
             }
