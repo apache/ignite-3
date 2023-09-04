@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_URL
 
 import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.call.connect.ConnectCallInput;
-import org.apache.ignite.internal.cli.call.connect.ConnectSslCall;
+import org.apache.ignite.internal.cli.call.connect.ConnectWizardCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeNameOrUrl;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
@@ -46,7 +46,7 @@ public class ConnectReplCommand extends BaseCommand implements Runnable {
     private ConnectOptions connectOptions;
 
     @Inject
-    private ConnectSslCall connectCall;
+    private ConnectWizardCall connectCall;
 
     @Inject
     private ConnectToClusterQuestion question;
