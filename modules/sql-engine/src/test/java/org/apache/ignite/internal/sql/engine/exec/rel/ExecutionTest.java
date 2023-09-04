@@ -466,7 +466,8 @@ public class ExecutionTest extends AbstractExecutionTest {
                     + "which use LockSupport.parkNanos as way to sleep with nanotime to emulate different JVM pauses or another cases."
                     + "Windows doesn't support park() with nanos argument,"
                     + " see https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/19fb8f93c59dfd791f62d41f332db9e306bc1422/src/hotspot/os/windows/os_windows.cpp#L5228C59-L5228C59"
-                    + "So, as described above Windows OS doesn't support nanotime park without additional manipulation (different hacks via JNI)."
+                    + "So, as described above Windows OS doesn't support nanotime park "
+                    + "without additional manipulation (different hacks via JNI)."
     )
     public void testCorrelatedNestedLoopJoin(int leftSize, int rightSize, int rightBufSize, JoinRelType joinType) {
         ExecutionContext<Object[]> ctx = executionContext(true);
