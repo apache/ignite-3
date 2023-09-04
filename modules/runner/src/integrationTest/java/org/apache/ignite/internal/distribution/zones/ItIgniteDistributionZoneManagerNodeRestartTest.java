@@ -93,6 +93,7 @@ import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -433,9 +434,54 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
     }
 
-    @ParameterizedTest
-    @MethodSource("provideArgumentsRestartTests")
-    public void testScaleUpTriggeredByFilterUpdateIsRestoredAfterRestart(String zoneName) throws Exception {
+    @RepeatedTest(100)
+    public void testScaleUpTriggeredByFilterUpdateIsRestoredAfterRestart0() throws Exception {
+        String zoneName = DEFAULT_ZONE_NAME;
+        PartialNode node = startPartialNode(0);
+
+        createZoneOrAlterDefaultZone(node, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+
+        node.logicalTopology().putNode(A);
+
+        int zoneId = getZoneId(node, zoneName);
+
+        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
+
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A), TIMEOUT_MILLIS);
+
+        alterZone(node, zoneName, INFINITE_TIMER_VALUE, null, null);
+
+        node.logicalTopology().putNode(B);
+
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A), TIMEOUT_MILLIS);
+
+        blockUpdate(metastore, zoneScaleUpChangeTriggerKey(zoneId));
+
+        // Only Node B passes the filter
+        String filter = "$[?(@.dataRegionSize > 10)]";
+
+        alterZone(node, zoneName, null, null, filter);
+
+        assertValueInStorage(
+                metastore,
+                zoneDataNodesKey(zoneId),
+                (v) -> DistributionZonesUtil.dataNodes(fromBytes(v)).stream().map(Node::nodeName).collect(toSet()),
+                Set.of(A.name()),
+                TIMEOUT_MILLIS
+        );
+
+        node.stop();
+
+        node = startPartialNode(0);
+
+        distributionZoneManager = getDistributionZoneManager(node);
+
+        assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(B), TIMEOUT_MILLIS);
+    }
+
+    @RepeatedTest(100)
+    public void testScaleUpTriggeredByFilterUpdateIsRestoredAfterRestart1() throws Exception {
+        String zoneName = ZONE_NAME;
         PartialNode node = startPartialNode(0);
 
         createZoneOrAlterDefaultZone(node, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
