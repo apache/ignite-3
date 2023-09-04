@@ -115,7 +115,9 @@ public class LeaseTracker implements PlacementDriver {
                 leaseBatch.leases().forEach(lease -> {
                     leasesMap.put(lease.replicationGroupId(), lease);
 
-                    getOrCreatePrimaryReplicaWaiter(lease.replicationGroupId()).update(lease.getExpirationTime(), lease);
+                    if (lease.isAccepted()) {
+                        getOrCreatePrimaryReplicaWaiter(lease.replicationGroupId()).update(lease.getExpirationTime(), lease);
+                    }
                 });
             } else {
                 leasesBytes = BYTE_EMPTY_ARRAY;
