@@ -142,11 +142,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItNodeTest extends BaseIgniteAbstractTest {
+    private static final IgniteLogger log = Loggers.forClass(ItNodeTest.class);
+
     private static DumpThread dumpThread;
 
     private static class DumpThread extends Thread {
-        private static final IgniteLogger log = Loggers.forClass(DumpThread.class);
-
         private static long DUMP_TIMEOUT_MS = 5 * 60 * 1000;
         private volatile boolean stopped = false;
 
@@ -3772,6 +3772,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         RaftGroupService grp = cluster.getServer(peerId);
 
         if (grp == null) {
+            log.warn("Node has not been found {}", peerId);
+
             return false;
         }
 

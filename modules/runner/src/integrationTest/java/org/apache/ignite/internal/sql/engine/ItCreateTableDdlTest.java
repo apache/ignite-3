@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     @AfterEach
-    public void clearTables() {
+    public void dropTables() {
         dropAllTables();
     }
 

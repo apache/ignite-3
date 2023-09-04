@@ -71,7 +71,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             .collect(Collectors.toSet());
 
     @AfterEach
-    public void clearTables() {
+    public void dropTables() {
         for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
             sql("DROP TABLE " + t.name());
         }

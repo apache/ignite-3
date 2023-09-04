@@ -27,7 +27,7 @@ public class ItCorrelatesTest extends ClusterPerClassIntegrationTest {
     private static final String DISABLED_JOIN_RULES = " /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ ";
 
     @AfterEach
-    public void clearTables() {
+    public void dropTables() {
         dropAllTables();
     }
 

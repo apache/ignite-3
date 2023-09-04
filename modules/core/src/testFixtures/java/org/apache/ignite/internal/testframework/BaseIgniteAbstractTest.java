@@ -20,7 +20,6 @@ package org.apache.ignite.internal.testframework;
 import static org.apache.ignite.internal.util.IgniteUtils.monotonicMs;
 import static org.apache.ignite.lang.IgniteSystemProperties.IGNITE_SENSITIVE_DATA_LOGGING;
 import static org.apache.ignite.lang.IgniteSystemProperties.getString;
-import static org.mockito.Mockito.framework;
 
 import java.lang.reflect.Method;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -33,6 +32,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 
 /**
  * Ignite base test class.
@@ -59,7 +59,7 @@ public abstract class BaseIgniteAbstractTest {
      */
     @AfterAll
     static void clearInlineMocks() {
-        framework().clearInlineMocks();
+        Mockito.framework().clearInlineMocks();
     }
 
     @BeforeEach

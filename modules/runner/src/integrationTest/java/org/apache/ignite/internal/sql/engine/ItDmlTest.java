@@ -53,7 +53,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     }
 
     @AfterEach
-    public void clearTables() {
+    public void dropTables() {
         dropAllTables();
     }
 

@@ -68,7 +68,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
     private static final int ROW_COUNT = 16;
 
     @AfterEach
-    public void clearTables() {
+    public void dropTables() {
         for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
             sql("DROP TABLE " + t.name());
         }
