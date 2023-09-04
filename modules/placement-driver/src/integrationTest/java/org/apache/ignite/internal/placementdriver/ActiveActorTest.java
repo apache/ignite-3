@@ -432,6 +432,7 @@ public class ActiveActorTest extends IgniteAbstractTest {
             int nodes,
             int clientPort
     ) {
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(0L));
         when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(completedFuture(true));
 
         List<NetworkAddress> addresses = getNetworkAddresses(nodes);
