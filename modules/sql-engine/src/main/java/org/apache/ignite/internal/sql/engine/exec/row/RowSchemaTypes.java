@@ -84,7 +84,13 @@ public final class RowSchemaTypes {
         }
     }
 
-    /** Returns a {@link NativeType} extracted from the row schema type. */
+    /**
+     * Convert specified schema {@link TypeSpec type} to {@link NativeType native type}.
+     *
+     * @param type Row schema type.
+     * @return Native type or {@code null} if type is a {@link NullTypeSpec}.
+     * @throws IllegalArgumentException If provided type cannot be converted to a native type.
+     */
     public static @Nullable NativeType toNativeType(TypeSpec type) {
         if (type instanceof NullTypeSpec) {
             return null;
