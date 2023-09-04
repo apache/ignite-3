@@ -190,9 +190,9 @@ public final class IgniteTestUtils {
      * @param fieldName     name of the field
      * @return field value
      */
-    public static Object getFieldValue(@Nullable Object target, Class<?> declaredClass, String fieldName) {
+    public static <T> T getFieldValue(@Nullable Object target, Class<?> declaredClass, String fieldName) {
         try {
-            return getField(target, declaredClass, fieldName).get(target);
+            return (T) getField(target, declaredClass, fieldName).get(target);
         } catch (IllegalAccessException e) {
             throw new IgniteInternalException("Cannot get field value", e);
         }

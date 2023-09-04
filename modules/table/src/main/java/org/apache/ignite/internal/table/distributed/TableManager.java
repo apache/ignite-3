@@ -1098,6 +1098,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         partitionUpdateHandlers.indexUpdateHandler,
                         partitionUpdateHandlers.gcUpdateHandler
                 ),
+                catalogService,
                 incomingSnapshotsExecutor
         ));
 

@@ -173,6 +173,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals(DEFAULT_STORAGE_ENGINE, zone.dataStorage().engine());
         assertEquals(DEFAULT_DATA_REGION, zone.dataStorage().dataRegion());
+
+        assertThat(manager.latestCatalogVersion(), is(0));
     }
 
     @Test
