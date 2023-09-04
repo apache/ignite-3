@@ -50,8 +50,9 @@ public interface RowHandler<RowT> {
      *
      * <p>For example:
      * <pre>
-     *    source row {5, 6, 7, 8} apply mapping {1, 3}
-     *    result row {6, 8}
+     *    source row [5, 6, 7, 8] apply mapping [0, 2] with offset 1
+     *    result mapping will be [1, 3]
+     *    result row will be [6, 8]
      * </pre>
      *
      * @param row Source row.
