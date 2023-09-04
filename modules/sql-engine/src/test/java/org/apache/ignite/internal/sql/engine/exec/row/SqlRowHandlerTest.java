@@ -168,7 +168,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         for (int i = 0; i < values.length; i++) {
             ColumnType type = columnTypes.get(i);
 
-            values[i] = type == ColumnType.NULL || rnd.nextInt(4) == 1 ? null : generateValueByType(baseValue, type);
+            values[i] = type == ColumnType.NULL ? null : generateValueByType(baseValue, type);
         }
 
         return values;
