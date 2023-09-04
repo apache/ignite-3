@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -333,6 +334,38 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         Assert.IsTrue(res.HasValue);
         Assert.AreEqual("name1", res.Value);
+    }
+
+    [Test]
+    public async Task TestSchemaUpdateWhileStreaming()
+    {
+        // Updated schema has a new column with a default value, so it is not required to provide it in the stream.
+        // TODO: Same test with POCO and KV views? Is it a different code path?
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (ID bigint PRIMARY KEY)");
+
+        // TODO: There is no API to flush data manually in a streamer. Add tickets?
+        var table = await Client.Tables.GetTableAsync(TestTableName);
+        var view = table!.RecordBinaryView;
+
+        var options = DataStreamerOptions.Default with { BatchSize = 2 };
+        await view.StreamDataAsync(GetData(), options);
+
+        async IAsyncEnumerable<IIgniteTuple> GetData()
+        {
+            // First batch uses old schema.
+            yield return GetTuple(1);
+            yield return GetTuple(2);
+
+            // Second batch start.
+            yield return GetTuple(3);
+
+            // Update schema.
+            await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
+
+            // Second batch continues.
+            yield return GetTuple(4);
+            yield return GetTuple(5);
+        }
     }
 
     private async Task WaitForNewSchemaOnAllNodes(string tableName, int schemaVer, int timeoutMs = 5000)

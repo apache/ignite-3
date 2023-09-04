@@ -186,18 +186,6 @@ public class DataStreamerTests : IgniteTestsBase
         Assert.AreEqual(count / DataStreamerOptions.Default.BatchSize, server.DroppedConnectionCount);
     }
 
-    [Test]
-    public async Task TestSchemaUpdateWhileStreaming()
-    {
-        // TODO: Same test with POCO and KV views? Is it a different code path?
-        const string tableName = nameof(TestSchemaUpdateWhileStreaming);
-        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {tableName} (ID int PRIMARY KEY)");
-
-        // TODO: There is no API to flush data manually in a streamer. Add tickets?
-        var table = await Client.Tables.GetTableAsync(tableName);
-        table!.RecordBinaryView.StreamDataAsync()
-    }
-
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
     {
         for (var i = 0; i < count; i++)
