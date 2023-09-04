@@ -25,9 +25,9 @@ import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.core.param.SpacedParameter;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Parameters;
 
 /**
  * Command that updates cluster configuration in REPL mode.
@@ -39,8 +39,8 @@ public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runna
     private ClusterUrlMixin clusterUrl;
 
     /** Configuration that will be updated. */
-    @Parameters(index = "0")
-    private String config;
+    @Mixin
+    private SpacedParameter config;
 
     @Inject
     ClusterConfigUpdateCall call;
@@ -61,6 +61,9 @@ public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runna
     }
 
     private ClusterConfigUpdateCallInput configUpdateCallInput(String clusterUrl) {
-        return ClusterConfigUpdateCallInput.builder().config(config).clusterUrl(clusterUrl).build();
+        return ClusterConfigUpdateCallInput.builder()
+                .config(config.toString())
+                .clusterUrl(clusterUrl)
+                .build();
     }
 }

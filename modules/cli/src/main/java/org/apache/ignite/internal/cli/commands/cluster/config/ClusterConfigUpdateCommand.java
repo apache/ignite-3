@@ -25,9 +25,9 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
+import org.apache.ignite.internal.cli.core.param.SpacedParameter;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Parameters;
 
 /**
  * Command that updates cluster configuration.
@@ -39,8 +39,8 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
     private ClusterUrlProfileMixin clusterUrl;
 
     /** Configuration that will be updated. */
-    @Parameters(index = "0")
-    private String config;
+    @Mixin
+    private SpacedParameter config;
 
     @Inject
     ClusterConfigUpdateCall call;
@@ -63,7 +63,7 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
     private ClusterConfigUpdateCallInput buildCallInput() {
         return ClusterConfigUpdateCallInput.builder()
                 .clusterUrl(clusterUrl.getClusterUrl())
-                .config(config)
+                .config(config.toString())
                 .build();
     }
 }
