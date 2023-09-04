@@ -358,7 +358,8 @@ public class LeaseUpdater {
             var key = PLACEMENTDRIVER_LEASES_KEY;
 
             msManager.invoke(
-                    or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
+                    notExists(new ByteArray("not existing fake key")),
+//                    or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
                     put(key, renewedValue),
                     noop()
             ).thenAccept(success -> {
