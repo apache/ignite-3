@@ -362,6 +362,9 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             yield return GetTuple(1);
             yield return GetTuple(2);
 
+            // TODO: Wait for batch 1 to appear on server.
+            await Task.Delay(500);
+
             // Batch 2 start.
             yield return GetTuple(3);
 

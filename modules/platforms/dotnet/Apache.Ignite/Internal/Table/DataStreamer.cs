@@ -21,7 +21,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -229,9 +228,22 @@ internal static class DataStreamer
 
             try
             {
-                var schemaReloaded = false;
+                int? schemaVersion = null;
                 while (true)
                 {
+                    if (schemaVersion != null)
+                    {
+                        if (schema.Version != schemaVersion)
+                        {
+                            // Might be updated by another batch.
+                            schema = await schemaProvider(schemaVersion).ConfigureAwait(false);
+                        }
+
+                        // Serialize again with the new schema.
+                        buf.Seek(0);
+                        writer.WriteMultiple(buf, null, schema, items);
+                    }
+
                     try
                     {
                         // Wait for the previous batch for this node to preserve item order.
@@ -244,27 +256,14 @@ internal static class DataStreamer
                         return;
                     }
                     catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
-                                                    schema.Version != e.GetExpectedSchemaVersion())
+                                                    schemaVersion != e.GetExpectedSchemaVersion())
                     {
-                        schema = await schemaProvider(e.GetExpectedSchemaVersion()).ConfigureAwait(false);
-                        schemaReloaded = true;
-
-                        buf.Seek(0);
-                        var enumerator = items.GetEnumerator();
-                        enumerator.MoveNext();
-                        writer.WriteMultiple(buf, null, schema, enumerator);
+                        schemaVersion = e.GetExpectedSchemaVersion();
                     }
-                    catch (Exception e) when (e.CausedByUnmappedColumns() && !schemaReloaded)
+                    catch (Exception e) when (e.CausedByUnmappedColumns() && schemaVersion == null)
                     {
-                        // TODO: Deduplicate code with the catch block above.
                         // TODO: Test for this case.
-                        schema = await schemaProvider(Table.SchemaVersionForceLatest).ConfigureAwait(false);
-                        schemaReloaded = true;
-
-                        buf.Seek(0);
-                        var enumerator = items.GetEnumerator();
-                        enumerator.MoveNext();
-                        writer.WriteMultiple(buf, null, schema, enumerator);
+                        schemaVersion = Table.SchemaVersionForceLatest;
                     }
                 }
             }
