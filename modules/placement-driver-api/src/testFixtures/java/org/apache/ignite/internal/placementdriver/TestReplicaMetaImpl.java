@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.TestOnly;
 
-/** Test implementation of the {@link ReplicaMeta} */
+/** Test implementation of the {@link ReplicaMeta}. */
 @TestOnly
 public class TestReplicaMetaImpl implements ReplicaMeta {
     private static final long serialVersionUID = -382174507405586033L;
