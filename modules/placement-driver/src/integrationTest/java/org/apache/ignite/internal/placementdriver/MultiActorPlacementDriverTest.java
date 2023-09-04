@@ -278,7 +278,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             var placementDriverManager = new PlacementDriverManager(
                     nodeName,
                     metaStorageManager,
-                    vaultManager,
                     MetastorageGroupId.INSTANCE,
                     clusterService,
                     cmgManager::metaStorageNodes,

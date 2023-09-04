@@ -39,7 +39,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 
 /**
@@ -48,9 +47,6 @@ import org.apache.ignite.lang.ByteArray;
 public class AssignmentsTracker {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(AssignmentsTracker.class);
-
-    /** Vault manager. */
-    private final VaultManager vaultManager;
 
     /** Meta storage manager. */
     private final MetaStorageManager msManager;
@@ -64,11 +60,9 @@ public class AssignmentsTracker {
     /**
      * The constructor.
      *
-     * @param vaultManager Vault manager.
      * @param msManager Metastorage manager.
      */
-    public AssignmentsTracker(VaultManager vaultManager, MetaStorageManager msManager) {
-        this.vaultManager = vaultManager;
+    public AssignmentsTracker(MetaStorageManager msManager) {
         this.msManager = msManager;
 
         this.groupAssignments = new ConcurrentHashMap<>();

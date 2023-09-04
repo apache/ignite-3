@@ -105,10 +105,7 @@ public class PlacementDriverTest {
 
         revisionTracker = new PendingComparableValuesTracker<>(-1L);
 
-        placementDriver = new LeaseTracker(
-                vault,
-                metastore
-        );
+        placementDriver = new LeaseTracker(metastore);
 
         metastore.registerRevisionUpdateListener(rev -> {
             revisionTracker.update(rev, null);

@@ -454,7 +454,6 @@ public class IgniteImpl implements Ignite {
         placementDriverMgr = new PlacementDriverManager(
                 name,
                 metaStorageMgr,
-                vaultMgr,
                 MetastorageGroupId.INSTANCE,
                 clusterSvc,
                 cmgMgr::metaStorageNodes,

@@ -52,7 +52,6 @@ import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.network.ClusterNode;
@@ -116,7 +115,6 @@ public class LeaseUpdater {
      * Constructor.
      *
      * @param clusterService Cluster service.
-     * @param vaultManager Vault manager.
      * @param msManager Meta storage manager.
      * @param topologyService Topology service.
      * @param leaseTracker Lease tracker.
@@ -125,7 +123,6 @@ public class LeaseUpdater {
     LeaseUpdater(
             String nodeName,
             ClusterService clusterService,
-            VaultManager vaultManager,
             MetaStorageManager msManager,
             LogicalTopologyService topologyService,
             LeaseTracker leaseTracker,
@@ -138,7 +135,7 @@ public class LeaseUpdater {
         this.clock = clock;
 
         this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
-        this.assignmentsTracker = new AssignmentsTracker(vaultManager, msManager);
+        this.assignmentsTracker = new AssignmentsTracker(msManager);
         this.topologyTracker = new TopologyTracker(topologyService);
         this.updater = new Updater();
 
@@ -358,8 +355,7 @@ public class LeaseUpdater {
             var key = PLACEMENTDRIVER_LEASES_KEY;
 
             msManager.invoke(
-                    notExists(new ByteArray("not existing fake key")),
-//                    or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
+                    or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
                     put(key, renewedValue),
                     noop()
             ).thenAccept(success -> {

@@ -50,8 +50,6 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
-import org.apache.ignite.internal.vault.VaultEntry;
-import org.apache.ignite.internal.vault.VaultManager;
 
 /**
  * Class tracks cluster leases in memory.
@@ -60,9 +58,6 @@ import org.apache.ignite.internal.vault.VaultManager;
 public class LeaseTracker implements PlacementDriver {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseTracker.class);
-
-    /** Vault manager. */
-    private final VaultManager vaultManager;
 
     /** Meta storage manager. */
     private final MetaStorageManager msManager;
@@ -86,11 +81,9 @@ public class LeaseTracker implements PlacementDriver {
     /**
      * Constructor.
      *
-     * @param vaultManager Vault manager.
      * @param msManager Meta storage manager.
      */
-    public LeaseTracker(VaultManager vaultManager, MetaStorageManager msManager) {
-        this.vaultManager = vaultManager;
+    public LeaseTracker(MetaStorageManager msManager) {
         this.msManager = msManager;
     }
 
@@ -99,33 +92,33 @@ public class LeaseTracker implements PlacementDriver {
         inBusyLock(busyLock, () -> {
             msManager.registerPrefixWatch(PLACEMENTDRIVER_LEASES_KEY, updateListener);
 
-            CompletableFuture<VaultEntry> entryFut = vaultManager.get(PLACEMENTDRIVER_LEASES_KEY);
+            msManager.recoveryFinishedFuture().thenAccept(recoveryRevision -> {
+                Entry entry = msManager.getLocally(PLACEMENTDRIVER_LEASES_KEY, recoveryRevision);
 
-            VaultEntry entry = entryFut.join();
+                Map<ReplicationGroupId, Lease> leasesMap = new HashMap<>();
 
-            Map<ReplicationGroupId, Lease> leasesMap = new HashMap<>();
+                byte[] leasesBytes;
 
-            byte[] leasesBytes;
+                if (entry.empty() || entry.tombstone()) {
+                    leasesBytes = BYTE_EMPTY_ARRAY;
+                } else {
+                    leasesBytes = entry.value();
 
-            if (entry != null) {
-                leasesBytes = entry.value();
+                    LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(LITTLE_ENDIAN));
 
-                LeaseBatch leaseBatch = LeaseBatch.fromBytes(ByteBuffer.wrap(leasesBytes).order(LITTLE_ENDIAN));
+                    leaseBatch.leases().forEach(lease -> {
+                        leasesMap.put(lease.replicationGroupId(), lease);
 
-                leaseBatch.leases().forEach(lease -> {
-                    leasesMap.put(lease.replicationGroupId(), lease);
+                        if (lease.isAccepted()) {
+                            getOrCreatePrimaryReplicaWaiter(lease.replicationGroupId()).update(lease.getExpirationTime(), lease);
+                        }
+                    });
+                }
 
-                    if (lease.isAccepted()) {
-                        getOrCreatePrimaryReplicaWaiter(lease.replicationGroupId()).update(lease.getExpirationTime(), lease);
-                    }
-                });
-            } else {
-                leasesBytes = BYTE_EMPTY_ARRAY;
-            }
+                leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
 
-            leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
-
-            LOG.info("Leases cache recovered [leases={}]", leases);
+                LOG.info("Leases cache recovered [leases={}]", leases);
+            });
         });
     }
 

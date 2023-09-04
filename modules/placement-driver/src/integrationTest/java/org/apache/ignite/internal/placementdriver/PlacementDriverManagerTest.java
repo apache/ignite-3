@@ -194,7 +194,6 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
         placementDriverManager = new PlacementDriverManager(
                 nodeName,
                 metaStorageManager,
-                vaultManager,
                 MetastorageGroupId.INSTANCE,
                 clusterService,
                 cmgManager::metaStorageNodes,

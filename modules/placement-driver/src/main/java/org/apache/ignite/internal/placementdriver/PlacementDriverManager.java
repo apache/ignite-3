@@ -93,7 +93,6 @@ public class PlacementDriverManager implements IgniteComponent {
      *
      * @param nodeName Node name.
      * @param metaStorageMgr Meta Storage manager.
-     * @param vaultManager Vault manager.
      * @param replicationGroupId Id of placement driver group.
      * @param clusterService Cluster service.
      * @param placementDriverNodesNamesProvider Provider of the set of placement driver nodes' names.
@@ -105,7 +104,6 @@ public class PlacementDriverManager implements IgniteComponent {
     public PlacementDriverManager(
             String nodeName,
             MetaStorageManager metaStorageMgr,
-            VaultManager vaultManager,
             ReplicationGroupId replicationGroupId,
             ClusterService clusterService,
             Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider,
@@ -122,11 +120,10 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.raftClientFuture = new CompletableFuture<>();
 
-        this.leaseTracker = new LeaseTracker(vaultManager, metaStorageMgr);
+        this.leaseTracker = new LeaseTracker(metaStorageMgr);
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,
                 clusterService,
-                vaultManager,
                 metaStorageMgr,
                 logicalTopologyService,
                 leaseTracker,
