@@ -166,8 +166,14 @@ internal static class DataStreamer
             {
                 batch.Items.Add(item);
 
-                if (batch.Schema == schema0)
+                if (batch.Schema != schema0)
                 {
+                    batch.SchemaOutdated = true;
+                }
+
+                if (!batch.SchemaOutdated)
+                {
+                    // Optimization: we already have serialized item data, copy it to the batch buffer.
                     noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
                     batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
                 }
@@ -215,28 +221,39 @@ internal static class DataStreamer
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
                 // TODO: Use pooled arrays for Items.
-                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Items.ToArray());
+                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Items.ToArray(), batch.SchemaOutdated);
 
                 batch.Items.Clear();
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
                 InitBuffer(batch);
                 batch.LastFlush = Stopwatch.GetTimestamp();
                 batch.Schema = schema;
+                batch.SchemaOutdated = false;
 
                 Metrics.StreamerBatchesActiveIncrement();
             }
         }
 
-        async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask, ICollection<T> items)
+        async Task SendAndDisposeBufAsync(
+            PooledArrayBuffer buf,
+            string partition,
+            Task oldTask,
+            ICollection<T> items,
+            bool batchSchemaOutdated)
         {
             Debug.Assert(items.Count > 0, "items.Count > 0");
+
+            if (batchSchemaOutdated)
+            {
+                buf.Reset();
+                writer.WriteMultiple(buf, null, schema, items);
+            }
 
             try
             {
                 int? schemaVersion = null;
                 while (true)
                 {
-                    // TODO: If batch schema is not equal to current schema - always rebuild.
                     if (schemaVersion != null)
                     {
                         if (schema.Version != schemaVersion)
@@ -340,6 +357,8 @@ internal static class DataStreamer
         public List<T> Items { get; }
 
         public Schema Schema { get; set; }
+
+        public bool SchemaOutdated { get; set; }
 
         public int Count => Items.Count;
 
