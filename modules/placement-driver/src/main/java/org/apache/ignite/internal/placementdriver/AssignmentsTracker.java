@@ -104,7 +104,6 @@ public class AssignmentsTracker {
 
                     Set<Assignment> assignments = ByteUtils.fromBytes(entry.value());
 
-                    System.out.println("Group assignments put, groupId: " + grpId);
                     groupAssignments.put(grpId, assignments);
                 }
             }
