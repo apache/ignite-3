@@ -29,6 +29,7 @@ import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
 import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.lang.IgniteStringBuilder;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -108,7 +109,18 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
     @Override
     public String toString(RowWrapper row) {
-        return String.valueOf(row);
+        IgniteStringBuilder buf = new IgniteStringBuilder("Row[");
+        int maxIdx = columnCount(row) - 1;
+
+        for (int i = 0; i <= maxIdx; i++) {
+            buf.app(row.get(i));
+
+            if (i != maxIdx) {
+                buf.app(", ");
+            }
+        }
+
+        return buf.app(']').toString();
     }
 
     @Override
