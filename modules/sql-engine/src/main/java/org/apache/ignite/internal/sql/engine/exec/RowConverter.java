@@ -170,9 +170,11 @@ public final class RowConverter {
         return tupleBuilder.build();
     }
 
-    private static BinaryTupleBuilder appendValue(BinaryTupleBuilder builder, TypeSpec schemaType, @Nullable Object value) {
+    private static void appendValue(BinaryTupleBuilder builder, TypeSpec schemaType, @Nullable Object value) {
         if (value == null) {
-            return builder.appendNull();
+            builder.appendNull();
+
+            return;
         }
 
         NativeType nativeType = RowSchemaTypes.toNativeType(schemaType);
@@ -183,39 +185,73 @@ public final class RowConverter {
 
         switch (nativeType.spec()) {
             case BOOLEAN:
-                return builder.appendBoolean((boolean) value);
+                builder.appendBoolean((boolean) value);
+                break;
+
             case INT8:
-                return builder.appendByte((byte) value);
+                builder.appendByte((byte) value);
+                break;
+
             case INT16:
-                return builder.appendShort((short) value);
+                builder.appendShort((short) value);
+                break;
+
             case INT32:
-                return builder.appendInt((int) value);
+                builder.appendInt((int) value);
+                break;
+
             case INT64:
-                return builder.appendLong((long) value);
+                builder.appendLong((long) value);
+                break;
+
             case FLOAT:
-                return builder.appendFloat((float) value);
+                builder.appendFloat((float) value);
+                break;
+
             case DOUBLE:
-                return builder.appendDouble((double) value);
+                builder.appendDouble((double) value);
+                break;
+
             case NUMBER:
-                return builder.appendNumberNotNull((BigInteger) value);
+                builder.appendNumberNotNull((BigInteger) value);
+                break;
+
             case DECIMAL:
-                return builder.appendDecimalNotNull((BigDecimal) value, ((DecimalNativeType) nativeType).scale());
+                builder.appendDecimalNotNull((BigDecimal) value, ((DecimalNativeType) nativeType).scale());
+                break;
+
             case UUID:
-                return builder.appendUuidNotNull((UUID) value);
+                builder.appendUuidNotNull((UUID) value);
+                break;
+
             case BYTES:
-                return builder.appendBytesNotNull((byte[]) value);
+                builder.appendBytesNotNull((byte[]) value);
+                break;
+
             case STRING:
-                return builder.appendStringNotNull((String) value);
+                builder.appendStringNotNull((String) value);
+                break;
+
             case BITMASK:
-                return builder.appendBitmaskNotNull((BitSet) value);
+                builder.appendBitmaskNotNull((BitSet) value);
+                break;
+
             case DATE:
-                return builder.appendDateNotNull((LocalDate) value);
+                builder.appendDateNotNull((LocalDate) value);
+                break;
+
             case TIME:
-                return builder.appendTimeNotNull((LocalTime) value);
+                builder.appendTimeNotNull((LocalTime) value);
+                break;
+
             case DATETIME:
-                return builder.appendDateTimeNotNull((LocalDateTime) value);
+                builder.appendDateTimeNotNull((LocalDateTime) value);
+                break;
+
             case TIMESTAMP:
-                return builder.appendTimestampNotNull((Instant) value);
+                builder.appendTimestampNotNull((Instant) value);
+                break;
+
             default:
                 throw new UnsupportedOperationException("Unknown type " + nativeType);
         }
