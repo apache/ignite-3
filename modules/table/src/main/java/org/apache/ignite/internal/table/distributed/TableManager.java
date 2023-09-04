@@ -724,8 +724,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     ) {
         int tableId = table.tableId();
 
-        Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
-
         // Create new raft nodes according to new assignments.
         Supplier<CompletableFuture<Void>> updateAssignmentsClosure = () -> assignmentsFuture.thenCompose(newAssignments -> {
             // Empty assignments might be a valid case if tables are created from within cluster init HOCON
@@ -786,6 +784,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 );
 
                 mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
+
+                Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
 
                 CompletableFuture<Boolean> startGroupFut;
 
