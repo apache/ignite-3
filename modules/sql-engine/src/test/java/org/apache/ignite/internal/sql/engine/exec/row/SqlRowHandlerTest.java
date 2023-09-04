@@ -119,16 +119,14 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         ByteBuffer buf = handler.toByteBuffer(concatenated);
 
         // Wrap into row.
-        RowWrapper wrapped = handler.factory(concatenatedSchema).wrap(new BinaryTuple(totalElementsCount, buf));
+        RowWrapper result = handler.factory(concatenatedSchema).wrap(new BinaryTuple(totalElementsCount, buf));
 
-        for (int i = 0; i < Math.max(leftLen, rightLen); i++) {
-            if (i < leftLen) {
-                assertThat(handler.get(i, wrapped), equalTo(TypeUtils.toInternal(params.leftData[i])));
-            }
+        for (int i = 0; i < leftLen; i++) {
+            assertThat(handler.get(i, result), equalTo(TypeUtils.toInternal(params.leftData[i])));
+        }
 
-            if (i < rightLen) {
-                assertThat(handler.get(leftLen + i, wrapped), equalTo(TypeUtils.toInternal(params.rightData[i])));
-            }
+        for (int i = 0; i < rightLen; i++) {
+            assertThat(handler.get(leftLen + i, result), equalTo(TypeUtils.toInternal(params.rightData[i])));
         }
     }
 
