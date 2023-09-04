@@ -41,7 +41,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Various DML tests.
@@ -53,18 +52,9 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         return 3;
     }
 
-    /**
-     * Clear tables after each test.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void dropTables() {
         dropAllTables();
-
-        super.tearDownBase(testInfo);
     }
 
     @Test

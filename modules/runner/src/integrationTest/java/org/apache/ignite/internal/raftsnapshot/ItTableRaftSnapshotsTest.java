@@ -147,16 +147,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         cluster.shutdown();
     }
 
-    @BeforeEach
-    public void setup(TestInfo testInfo) throws Exception {
-        setupBase(testInfo, workDir);
-    }
-
-    @AfterEach
-    public void tearDown(TestInfo testInfo) throws Exception {
-        tearDownBase(testInfo);
-    }
-
     /**
      * Executes the given action, retrying it up to a few times if a transient failure occurs (like node unavailability) or
      * until {@code shouldStop} returns {@code true}, in that case this method throws {@link UnableToRetry} exception.
