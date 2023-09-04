@@ -40,6 +40,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
 import org.apache.ignite.internal.distributionzones.DistributionZoneConfigurationParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -336,6 +337,10 @@ public class DdlCommandHandler {
                 if (expErrCls.isAssignableFrom(err0.getClass())) {
                     return Boolean.FALSE;
                 }
+            }
+
+            if (err instanceof CatalogValidationException) {
+                throw new SqlException(STMT_VALIDATION_ERR, err.getMessage());
             }
 
             throw (err instanceof RuntimeException) ? (RuntimeException) err : new CompletionException(err);

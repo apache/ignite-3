@@ -33,8 +33,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @SuppressWarnings({"DataFlowIssue", "ThrowableNotThrown"})
 public class CreateTableCommandValidationTest extends AbstractCommandValidationTest {
-
-
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void schemaNameMustNotBeNullOrBlank(String name) {
@@ -277,7 +275,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         assertThrowsWithCause(
                 () -> command.get(catalog),
                 CatalogValidationException.class,
-                "Distribution zone with name 'DEFAULT_UNK' not found"
+                "Distribution zone with name 'Default_UNK' not found"
         );
     }
 
