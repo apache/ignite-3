@@ -339,11 +339,9 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     [Test]
     public async Task TestSchemaUpdateWhileStreaming()
     {
-        // Updated schema has a new column with a default value, so it is not required to provide it in the stream.
         // TODO: Same test with POCO and KV views? Is it a different code path?
-        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (ID bigint PRIMARY KEY)");
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (KEY bigint PRIMARY KEY)");
 
-        // TODO: There is no API to flush data manually in a streamer. Add tickets?
         var table = await Client.Tables.GetTableAsync(TestTableName);
         var view = table!.RecordBinaryView;
 
@@ -368,6 +366,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             yield return GetTuple(3);
 
             // Update schema.
+            // New schema has a new column with a default value, so it is not required to provide it in the streamed data.
             await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
 
             // Batch 2 (continued) and batch 3.
