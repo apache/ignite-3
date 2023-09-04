@@ -127,7 +127,7 @@ public final class RowConverter {
     }
 
     /**
-     * Converts an array of objects to a byte buffer representation of a {@link BinaryTuple binary tuple}. This method uses
+     * Converts an array of objects into a {@link ByteBuffer} representation of a {@link BinaryTuple binary tuple}. This method uses
      * {@link RowSchema} to resolve object types.
      *
      * @param schema Row schema.
