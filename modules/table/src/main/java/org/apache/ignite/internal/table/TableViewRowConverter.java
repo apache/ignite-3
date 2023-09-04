@@ -25,6 +25,9 @@ import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.lang.MarshallerException;
 
+/**
+ * Converts {@link BinaryRow binary rows} to {@link Row rows} using {@link SchemaRegistry}.
+ */
 final class TableViewRowConverter {
 
     private final SchemaRegistry schemaReg;
