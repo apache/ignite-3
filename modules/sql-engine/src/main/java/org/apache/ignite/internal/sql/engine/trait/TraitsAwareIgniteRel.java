@@ -87,7 +87,7 @@ public interface TraitsAwareIgniteRel extends IgniteRel {
      *
      * @param nodeTraits Relational node output traits.
      * @param inTraits   Relational node input traits.
-     * @return List of possible input-output traits combinations.
+     * @return Traits satisfied by this expression and traits that input nodes should satisfy.
      */
     default Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(RelTraitSet nodeTraits, List<RelTraitSet> inTraits) {
         if (inTraits.size() > 1) {

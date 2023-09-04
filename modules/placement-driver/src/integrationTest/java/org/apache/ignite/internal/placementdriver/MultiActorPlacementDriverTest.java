@@ -86,8 +86,6 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
-    private final HybridClock clock = new HybridClockImpl();
-
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
 
@@ -284,7 +282,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     logicalTopologyService,
                     raftManager,
                     topologyAwareRaftGroupServiceFactory,
-                    clock
+                    nodeClock
             );
 
             vaultManager.start();

@@ -15,27 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.rpc.impl.core;
+package org.apache.ignite.raft.jraft.rpc.impl;
 
-import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RaftServerService;
-import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
+import org.apache.ignite.raft.jraft.rpc.RpcContext;import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Intercepts {@link AppendEntriesRequest}s as they come in. It might be used to handle such a request in a non-standard
+ * Intercepts {@link ActionRequest}s as they come in. It might be used to handle such a request in a non-standard
  * way (like returning EBUSY under special circumstances instead of the standard behavior).
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface AppendEntriesRequestInterceptor {
+public interface ActionRequestInterceptor {
     /**
      * Intercepts handling of an incoming request. If non-null message is returned, the standard handling is omitted.
      *
-     * @param service Server service.
+     * @param rpcCtx RPC context.
      * @param request Request in question.
-     * @param done Done closure.
      * @return A message to return to the caller, or {@code null} if standard handling should be used.
      */
-    @Nullable Message intercept(RaftServerService service, AppendEntriesRequest request,  RpcRequestClosure done);
+    @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request);
 }

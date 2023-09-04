@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
@@ -48,6 +49,20 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @see #createTableCommandBuilder()
      */
     CompletableFuture<Void> execute(CatalogCommand command) throws IllegalArgumentException;
+
+    /**
+     * Executes given list of commands atomically. That is, either all commands will be applied at once
+     * or neither of them. The whole bulk will increment catalog's version by a single point.
+     *
+     * <p>Accepts only those commands provided by builders returned by this very {@link CatalogManager}.
+     * Otherwise will throw {@link IllegalArgumentException}.
+     *
+     * @param commands Commands to execute.
+     * @return Future representing result of execution.
+     * @throws IllegalArgumentException If given command was created not by this manager.
+     * @see #createTableCommandBuilder()
+     */
+    CompletableFuture<Void> execute(List<CatalogCommand> commands) throws IllegalArgumentException;
 
     /**
      * Returns builder to create a command to create a new table.

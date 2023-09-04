@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.calcite.rel.RelCollations;
@@ -103,6 +104,7 @@ public class PlanUtilsTest {
                 false,
                 false,
                 false,
+                ImmutableList.of(),
                 List.of(0),
                 -1,
                 ImmutableBitSet.of(),

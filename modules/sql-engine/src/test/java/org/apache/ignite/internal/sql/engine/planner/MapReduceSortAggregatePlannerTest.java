@@ -26,7 +26,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
@@ -37,6 +39,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
@@ -494,6 +497,46 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
     }
 
+    /**
+     * Validates a plan for a query with two aggregates: one w/o DISTINCT and one with DISTINCT: single distribution.
+     */
+    @Test
+    public void countDistinctGroupSetSingle() throws Exception {
+        Predicate<IgniteReduceSortAggregate> inputAgg = isInstanceOf(IgniteReduceSortAggregate.class)
+                .and(hasGroupSets(IgniteReduceSortAggregate::getGroupSets, 0))
+                .and(hasCollation(RelCollations.of(0)))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasCollation(RelCollations.of(0)))
+                        .and(hasDistribution(IgniteDistributions.single()))
+                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                .and(hasCollation(RelCollations.of(1)))
+                                .and(hasGroupSets(Aggregate::getGroupSets, 1))
+                ))));
+
+        assertPlan(TestCase.CASE_24_1, nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                        .and(hasNoGroupSets(IgniteReduceSortAggregate::getGroupSets))
+                        .and(hasCollation(RelCollations.EMPTY))
+                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                .and(hasNoGroupSets(IgniteMapSortAggregate::getGroupSets))
+                                .and(hasCollation(RelCollations.EMPTY))
+                                .and(input(isInstanceOf(IgniteProject.class).and(input(inputAgg)))
+                                ))
+                        )),
+                disableRules);
+    }
+
+    /**
+     * Validates a plan for a query with two aggregates: one w/o DISTINCT and one with DISTINCT: hash distribution.
+     */
+    @Test
+    public void countDistinctGroupSetHash() throws Exception {
+        checkCountDistinctHash(TestCase.CASE_24_1A);
+        checkCountDistinctHash(TestCase.CASE_24_1B);
+        checkCountDistinctHash(TestCase.CASE_24_1C);
+        checkCountDistinctHash(TestCase.CASE_24_1D);
+        checkCountDistinctHash(TestCase.CASE_24_1E);
+    }
+
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
@@ -820,5 +863,29 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         )),
                 disableRules
         );
+    }
+
+    private void checkCountDistinctHash(TestCase testCase) throws Exception {
+        Predicate<IgniteReduceSortAggregate> inputAgg = isInstanceOf(IgniteReduceSortAggregate.class)
+                .and(hasGroupSets(IgniteReduceSortAggregate::getGroupSets, 0))
+                .and(hasCollation(RelCollations.of(0)))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(IgniteDistributions.single()))
+                        .and(hasCollation(RelCollations.of(0)))
+                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                .and(hasGroupSets(Aggregate::getGroupSets, 1))
+                        ))
+                ));
+
+        assertPlan(testCase, nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                        .and(hasNoGroupSets(IgniteReduceSortAggregate::getGroupSets))
+                        .and(hasCollation(RelCollations.EMPTY))
+                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                .and(hasNoGroupSets(IgniteMapSortAggregate::getGroupSets))
+                                .and(hasCollation(RelCollations.EMPTY))
+                                .and(input(isInstanceOf(IgniteProject.class).and(input(inputAgg)))
+                                ))
+                        )),
+                disableRules);
     }
 }
