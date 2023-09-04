@@ -64,7 +64,7 @@ internal static class DataStreamer
         IAsyncEnumerable<T> data,
         Func<PooledArrayBuffer, string, IRetryPolicy, Task> sender,
         IRecordSerializerHandler<T> writer,
-        Func<Task<Schema>> schemaProvider,
+        Func<int?, Task<Schema>> schemaProvider,
         Func<ValueTask<string[]?>> partitionAssignmentProvider,
         DataStreamerOptions options,
         CancellationToken cancellationToken)
@@ -80,8 +80,7 @@ internal static class DataStreamer
         var batches = new Dictionary<string, Batch<T>>();
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
 
-        // TODO: IGNITE-19710 Data Streamer schema synchronization
-        var schema = await schemaProvider().ConfigureAwait(false);
+        var schema = await schemaProvider(null).ConfigureAwait(false);
         var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
         var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
         using var flushCts = new CancellationTokenSource();
@@ -224,29 +223,38 @@ internal static class DataStreamer
 
         async Task SendAndDisposeBufAsync(PooledArrayBuffer buf, string partition, Task oldTask, List<T> items)
         {
-            // TODO: ???
-            int? schemaVersion = null;
-
             try
             {
-                // Wait for the previous batch for this node to preserve item order.
-                await oldTask.ConfigureAwait(false);
+                var schemaReloaded = false;
+                while (true)
+                {
+                    try
+                    {
+                        // Wait for the previous batch for this node to preserve item order.
+                        await oldTask.ConfigureAwait(false);
+                        await sender(buf, partition, retryPolicy).ConfigureAwait(false);
 
-                // TODO: Rebuild the buffer if schema version changed.
-                await sender(buf, partition, retryPolicy).ConfigureAwait(false);
+                        Metrics.StreamerBatchesSent.Add(1);
+                        Metrics.StreamerItemsSent.Add(items.Count);
 
-                Metrics.StreamerBatchesSent.Add(1);
-                Metrics.StreamerItemsSent.Add(items.Count);
-            }
-            catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
-                                            schemaVersion != e.GetExpectedSchemaVersion())
-            {
-                schemaVersion = e.GetExpectedSchemaVersion();
-            }
-            catch (Exception e) when (e.CausedByUnmappedColumns() &&
-                                      schemaVersion == null)
-            {
-                schemaVersion = Table.SchemaVersionForceLatest;
+                        return;
+                    }
+                    catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
+                                                    schema.Version != e.GetExpectedSchemaVersion())
+                    {
+                        schema = await schemaProvider(e.GetExpectedSchemaVersion()).ConfigureAwait(false);
+                        schemaReloaded = true;
+
+                        // TODO: Rebuild buffer.
+                    }
+                    catch (Exception e) when (e.CausedByUnmappedColumns() && !schemaReloaded)
+                    {
+                        schema = await schemaProvider(Table.SchemaVersionForceLatest).ConfigureAwait(false);
+                        schemaReloaded = true;
+
+                        // TODO: Rebuild buffer.
+                    }
+                }
             }
             finally
             {
