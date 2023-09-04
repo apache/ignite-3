@@ -175,7 +175,10 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
     }
 
     private List<ColumnType> columnTypes() {
-        List<ColumnType> columnTypes = new ArrayList<>(EnumSet.complementOf(EnumSet.of(ColumnType.PERIOD, ColumnType.DURATION)));
+        List<ColumnType> columnTypes = new ArrayList<>(
+                // TODO Include ignored types to test after https://issues.apache.org/jira/browse/IGNITE-15200
+                EnumSet.complementOf(EnumSet.of(ColumnType.PERIOD, ColumnType.DURATION))
+        );
 
         Collections.shuffle(columnTypes, rnd);
 
