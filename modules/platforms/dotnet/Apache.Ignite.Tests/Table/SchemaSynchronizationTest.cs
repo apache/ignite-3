@@ -348,10 +348,12 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         var options = DataStreamerOptions.Default with { BatchSize = 2 };
         await view.StreamDataAsync(GetData(), options);
 
-        var res1 = await view.GetAsync(null, GetTuple(1)); // Old schema.
-        var res2 = await view.GetAsync(null, GetTuple(19)); // New schema.
+        // Inserted with old schema.
+        var res1 = await view.GetAsync(null, GetTuple(1));
+        Assert.AreEqual("FOO", res1.Value["VAL"]);
 
-        Assert.IsNull(res1.Value["VAL"]);
+        // Inserted with new schema.
+        var res2 = await view.GetAsync(null, GetTuple(19));
         Assert.AreEqual("FOO", res2.Value["VAL"]);
 
         async IAsyncEnumerable<IIgniteTuple> GetData()
