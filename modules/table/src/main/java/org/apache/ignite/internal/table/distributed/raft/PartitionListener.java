@@ -41,6 +41,7 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -102,7 +103,7 @@ public class PartitionListener implements RaftGroupListener {
     private final TxStateStorage txStateStorage;
 
     /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
-    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new HashMap<>();
+    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds;
 
     /** Safe time tracker. */
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
@@ -124,7 +125,8 @@ public class PartitionListener implements RaftGroupListener {
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
+            Map<UUID, SortedSet<RowId>> txsPendingRowIds
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -132,6 +134,7 @@ public class PartitionListener implements RaftGroupListener {
         this.txStateStorage = txStateStorage;
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
+        this.txsPendingRowIds = txsPendingRowIds;
 
         // TODO: IGNITE-18502 Excessive full partition scan on node start
         try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
@@ -364,7 +367,8 @@ public class PartitionListener implements RaftGroupListener {
 
         markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
 
-        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
+        Set<RowId> rowIds = txsPendingRowIds.remove(txId);
+        Set<RowId> pendingRowIds = rowIds == null ? EMPTY_SET : rowIds;
 
         if (cmd.commit()) {
             storage.runConsistently(locker -> {

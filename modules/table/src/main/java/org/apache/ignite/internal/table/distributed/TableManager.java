@@ -60,6 +60,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -722,6 +724,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     ) {
         int tableId = table.tableId();
 
+        Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
+
         // Create new raft nodes according to new assignments.
         Supplier<CompletableFuture<Void>> updateAssignmentsClosure = () -> assignmentsFuture.thenCompose(newAssignments -> {
             // Empty assignments might be a valid case if tables are created from within cluster init HOCON
@@ -848,7 +852,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             partitionUpdateHandlers.storageUpdateHandler,
                                             txStatePartitionStorage,
                                             safeTimeTracker,
-                                            storageIndexTracker
+                                            storageIndexTracker,
+                                            txsPendingRowIds
                                     ),
                                     new RebalanceRaftGroupEventsListener(
                                             metaStorageMgr,
@@ -899,7 +904,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         partitionStorage,
                                         txStateStorage,
                                         partitionUpdateHandlers,
-                                        updatedRaftGroupService
+                                        updatedRaftGroupService,
+                                        txsPendingRowIds
                                 );
                             } catch (NodeStoppingException ex) {
                                 throw new AssertionError("Loza was stopped before Table manager", ex);
@@ -957,7 +963,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvPartitionStorage mvPartitionStorage,
             TxStateStorage txStatePartitionStorage,
             PartitionUpdateHandlers partitionUpdateHandlers,
-            TopologyAwareRaftGroupService raftGroupService
+            TopologyAwareRaftGroupService raftGroupService,
+            Map<UUID, SortedSet<RowId>> txsPendingRowIds
     ) throws NodeStoppingException {
         PartitionReplicaListener listener = createReplicaListener(
                 replicaGrpId,
@@ -966,7 +973,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 mvPartitionStorage,
                 txStatePartitionStorage,
                 partitionUpdateHandlers,
-                raftGroupService
+                raftGroupService,
+                txsPendingRowIds
         );
 
         replicaMgr.startReplica(
@@ -988,7 +996,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvPartitionStorage mvPartitionStorage,
             TxStateStorage txStatePartitionStorage,
             PartitionUpdateHandlers partitionUpdateHandlers,
-            RaftGroupService raftClient
+            RaftGroupService raftClient,
+            Map<UUID, SortedSet<RowId>> txsPendingRowIds
     ) {
         int tableId = tablePartitionId.tableId();
         int partId = tablePartitionId.partitionId();
@@ -1015,7 +1024,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 indexBuilder,
                 schemaSyncService,
                 catalogService,
-                tablesCfg
+                tablesCfg,
+                txsPendingRowIds
         );
     }
 
@@ -2276,6 +2286,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         safeTimeTracker
                 );
 
+                Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
+
                 return runAsync(() -> inBusyLock(busyLock, () -> {
                     try {
                         startPartitionRaftGroupNode(
@@ -2287,7 +2299,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 internalTable,
                                 txStatePartitionStorage,
                                 partitionDataStorage,
-                                partitionUpdateHandlers
+                                partitionUpdateHandlers,
+                                txsPendingRowIds
                         );
 
                         startReplicaWithNewListener(
@@ -2298,7 +2311,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 mvPartitionStorage,
                                 txStatePartitionStorage,
                                 partitionUpdateHandlers,
-                                (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId)
+                                (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
+                                txsPendingRowIds
                         );
                     } catch (NodeStoppingException ignored) {
                         // No-op.
@@ -2345,7 +2359,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             InternalTable internalTable,
             TxStateStorage txStatePartitionStorage,
             PartitionDataStorage partitionDataStorage,
-            PartitionUpdateHandlers partitionUpdateHandlers
+            PartitionUpdateHandlers partitionUpdateHandlers,
+            Map<UUID, SortedSet<RowId>> txsPendingRowIds
     ) throws NodeStoppingException {
         ClusterNode localMember = localNode();
 
@@ -2362,7 +2377,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 partitionUpdateHandlers.storageUpdateHandler,
                 txStatePartitionStorage,
                 safeTimeTracker,
-                storageIndexTracker
+                storageIndexTracker,
+                txsPendingRowIds
         );
 
         RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(

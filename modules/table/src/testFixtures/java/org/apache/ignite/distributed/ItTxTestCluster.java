@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -75,6 +77,7 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
@@ -432,7 +435,7 @@ public class ItTxTestCluster {
                         new RaftGroupEventsClientListener()
                 );
 
-                TxManager txManager = txManagers.get(assignment);
+                Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
 
                 PartitionListener partitionListener = new PartitionListener(
                         txManagers.get(assignment),
@@ -440,7 +443,8 @@ public class ItTxTestCluster {
                         storageUpdateHandler,
                         txStateStorage,
                         safeTime,
-                        storageIndexTracker
+                        storageIndexTracker,
+                        txsPendingRowIds
                 );
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
@@ -478,7 +482,8 @@ public class ItTxTestCluster {
                                                 mock(IndexBuilder.class),
                                                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                                                 mock(CatalogService.class),
-                                                tablesConfig
+                                                tablesConfig,
+                                                txsPendingRowIds
                                         ),
                                         raftSvc,
                                         storageIndexTracker

@@ -255,7 +255,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final TablesConfiguration tablesConfig;
 
     /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
-    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
+    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds;
 
     /**
      * The constructor.
@@ -278,6 +278,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param mvTableStorage Table storage.
      * @param indexBuilder Index builder.
      * @param tablesConfig Tables configuration.
+     * @param txsPendingRowIds Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks
+     *     upon commit/abort.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -301,7 +303,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             IndexBuilder indexBuilder,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            TablesConfiguration tablesConfig
+            TablesConfiguration tablesConfig,
+            Map<UUID, SortedSet<RowId>> txsPendingRowIds
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -322,6 +325,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.tablesConfig = tablesConfig;
+        this.txsPendingRowIds = txsPendingRowIds;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -1313,35 +1317,31 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
 
             return completedFuture(null);
-        } else {
-            CompletableFuture<Void> result = allOffFuturesExceptionIgnored(txUpdateFutures, request)
-                    .thenCompose(ignored -> allOffFuturesExceptionIgnored(txReadFutures, request))
-                    .thenRun(() -> releaseTxLocks(request.txId()));
-
-            result.thenRun(() -> performAsyncTxCleanup(request));
-
-            return result;
         }
-    }
 
-    private CompletableFuture<Void> performAsyncTxCleanup(TxCleanupReplicaRequest request) {
-        long commandTimestamp = hybridClock.nowLong();
+        return allOffFuturesExceptionIgnored(txUpdateFutures, request).thenCompose(v -> {
+            long commandTimestamp = hybridClock.nowLong();
 
-        return catalogVersionFor(hybridTimestamp(commandTimestamp))
-                .thenCompose(catalogVersion -> {
-                    TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
-                            .txId(request.txId())
-                            .commit(request.commit())
-                            .commitTimestampLong(request.commitTimestampLong())
-                            .safeTimeLong(commandTimestamp)
-                            .txCoordinatorId(getTxCoordinatorId(request.txId()))
-                            .requiredCatalogVersion(catalogVersion)
-                            .build();
+            return catalogVersionFor(hybridTimestamp(commandTimestamp))
+                    .thenCompose(catalogVersion -> {
+                        TxCleanupCommand txCleanupCmd = MSG_FACTORY.txCleanupCommand()
+                                .txId(request.txId())
+                                .commit(request.commit())
+                                .commitTimestampLong(request.commitTimestampLong())
+                                .safeTimeLong(commandTimestamp)
+                                .txCoordinatorId(getTxCoordinatorId(request.txId()))
+                                .requiredCatalogVersion(catalogVersion)
+                                .build();
 
-                    cleanupLocally(request.txId(), request.commit(), request.commitTimestamp());
+                        cleanupLocally(request.txId(), request.commit(), request.commitTimestamp());
 
-                    return raftClient.run(txCleanupCmd);
-                });
+                        CompletableFuture<?> cleanupCmdFut = raftClient.run(txCleanupCmd);
+
+                        return allOffFuturesExceptionIgnored(txReadFutures, request)
+                                //.thenCompose(ignored -> cleanupCmdFut)
+                                .thenRun(() -> releaseTxLocks(request.txId()));
+                    });
+        });
     }
 
     private String getTxCoordinatorId(UUID txId) {
@@ -2725,7 +2725,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private void cleanupLocally(UUID txId, boolean commit, HybridTimestamp commitTimestamp) {
-        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
+        Set<RowId> rowIds = txsPendingRowIds.remove(txId);
+        Set<RowId> pendingRowIds = rowIds == null ? EMPTY_SET : rowIds;
 
         if (commit) {
             mvDataStorage.runConsistently(locker -> {

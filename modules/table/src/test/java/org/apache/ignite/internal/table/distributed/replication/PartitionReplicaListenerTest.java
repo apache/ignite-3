@@ -454,7 +454,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 mock(IndexBuilder.class),
                 schemaSyncService,
                 catalogService,
-                tablesConfig
+                tablesConfig,
+                new ConcurrentHashMap<>()
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);

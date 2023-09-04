@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -239,7 +240,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 mock(IndexBuilder.class),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 mock(CatalogService.class),
-                tablesConfig
+                tablesConfig,
+                new ConcurrentHashMap<>()
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

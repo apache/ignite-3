@@ -45,6 +45,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -212,7 +213,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 storageUpdateHandler,
                 txStateStorage,
                 safeTimeTracker,
-                new PendingComparableValuesTracker<>(0L)
+                new PendingComparableValuesTracker<>(0L),
+                new ConcurrentHashMap<>()
         );
     }
 
@@ -313,7 +315,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 storageUpdateHandler,
                 txStateStorage,
                 safeTimeTracker,
-                new PendingComparableValuesTracker<>(0L)
+                new PendingComparableValuesTracker<>(0L),
+                new ConcurrentHashMap<>()
         );
 
         txStateStorage.lastApplied(3L, 1L);
