@@ -63,7 +63,7 @@ internal static class DataStreamer
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<T> data,
         Func<PooledArrayBuffer, string, IRetryPolicy, Task> sender,
-        IRecordSerializerHandler<T> writer,
+        RecordSerializer<T> writer,
         Func<int?, Task<Schema>> schemaProvider,
         Func<ValueTask<string[]?>> partitionAssignmentProvider,
         DataStreamerOptions options,
@@ -153,7 +153,7 @@ internal static class DataStreamer
             Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
             Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
 
-            writer.Write(ref tupleBuilder, item, schema, columnCount, noValueSetRef);
+            writer.Handler.Write(ref tupleBuilder, item, schema, columnCount, noValueSetRef);
 
             var partition = partitionAssignment == null
                 ? string.Empty // Default connection.
