@@ -88,9 +88,9 @@ public class Accumulators {
             case "SOME":
                 return minMaxFactory(false, call);
             case "SINGLE_VALUE":
-                return singleAnyValueFactory(true, call);
+                return singleValueFactory(call);
             case "ANY_VALUE":
-                return singleAnyValueFactory(false, call);
+                return anyValueFactory(call);
             case "LITERAL_AGG":
                 return LiteralVal.newAccumulator(typeFactory.createSqlType(BOOLEAN));
             default:
@@ -186,14 +186,24 @@ public class Accumulators {
         }
     }
 
-    private Supplier<Accumulator> singleAnyValueFactory(boolean single, AggregateCall call) {
+    private Supplier<Accumulator> singleValueFactory(AggregateCall call) {
         RelDataType type = call.getType();
 
         if (type.getSqlTypeName() == ANY && !(type instanceof IgniteCustomType)) {
             throw unsupportedAggregateFunction(call);
         }
 
-        return single ? SingleVal.newAccumulator(type) : AnyVal.newAccumulator(type);
+        return SingleVal.newAccumulator(type);
+    }
+
+    private Supplier<Accumulator> anyValueFactory(AggregateCall call) {
+        RelDataType type = call.getType();
+
+        if (type.getSqlTypeName() == ANY && !(type instanceof IgniteCustomType)) {
+            throw unsupportedAggregateFunction(call);
+        }
+
+        return AnyVal.newAccumulator(type);
     }
 
     /**
