@@ -40,11 +40,15 @@ public class TableRowConverterImpl implements TableRowConverter {
 
     private final TableDescriptor desc;
 
+    private final BinaryTupleSchema binaryTupleSchema;
+
     /** Constructor. */
     public TableRowConverterImpl(SchemaRegistry schemaRegistry, SchemaDescriptor schemaDescriptor, TableDescriptor desc) {
         this.schemaRegistry = schemaRegistry;
         this.schemaDescriptor = schemaDescriptor;
         this.desc = desc;
+
+        this.binaryTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
     }
 
     /** {@inheritDoc} */
@@ -56,11 +60,10 @@ public class TableRowConverterImpl implements TableRowConverter {
             @Nullable BitSet requiredColumns
     ) {
         Row row = schemaRegistry.resolve(binaryRow, schemaDescriptor);
-        BinaryTupleSchema binarySchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
 
         BinaryTupleBuilder builder = requiredColumns == null
-                ? allColumnsTuple(row, binarySchema)
-                : requiredColumnsTuple(row, binarySchema, requiredColumns);
+                ? allColumnsTuple(row, binaryTupleSchema)
+                : requiredColumnsTuple(row, binaryTupleSchema, requiredColumns);
 
         return factory.wrap(new BinaryTuple(builder.numElements(), builder.build()));
     }
