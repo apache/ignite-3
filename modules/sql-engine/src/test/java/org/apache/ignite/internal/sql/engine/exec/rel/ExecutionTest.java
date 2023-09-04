@@ -462,7 +462,7 @@ public class ExecutionTest extends AbstractExecutionTest {
     @ParameterizedTest
     @MethodSource("provideArgumentsForCnlJtest")
     @DisabledOnOs(value = OS.WINDOWS, disabledReason =
-            "This test uses AbstractExecutionTest.IgniteTestStripedThreadPoolExecutor.IgniteTestStripedThreadPoolExecutor"
+            "This test uses AbstractExecutionTest.IgniteTestStripedThreadPoolExecutor"
                     + "which use LockSupport.parkNanos as way to sleep with nanotime to emulate different JVM pauses or another cases."
                     + "Windows doesn't support park() with nanos argument,"
                     + " see https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/19fb8f93c59dfd791f62d41f332db9e306bc1422/src/hotspot/os/windows/os_windows.cpp#L5228C59-L5228C59"
