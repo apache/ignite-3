@@ -2247,10 +2247,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (expectedTerm != null) {
             return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now().addPhysicalTime(HybridTimestamp.CLOCK_SKEW))
                     .thenCompose(primaryReplica -> {
-                                if (primaryReplica == null) {
-                                    return failedFuture(new PrimaryReplicaMissException(expectedTerm, -1));
-                                }
-
                                 long currentEnlistmentConsistencyToken = primaryReplica.getStartTime().longValue();
 
                                 if (expectedTerm.equals(currentEnlistmentConsistencyToken)) {
