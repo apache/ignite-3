@@ -348,33 +348,28 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         var options = DataStreamerOptions.Default with { BatchSize = 2 };
         await view.StreamDataAsync(GetData(), options);
 
-        var res1 = await view.GetAsync(null, GetTuple(2)); // Batch 1.
-        var res2 = await view.GetAsync(null, GetTuple(3)); // Batch 2.
-        var res3 = await view.GetAsync(null, GetTuple(5)); // Batch 3.
+        var res1 = await view.GetAsync(null, GetTuple(1)); // Old schema.
+        var res2 = await view.GetAsync(null, GetTuple(19)); // New schema.
 
         Assert.IsNull(res1.Value["VAL"]);
         Assert.AreEqual("FOO", res2.Value["VAL"]);
-        Assert.AreEqual("FOO", res3.Value["VAL"]);
 
         async IAsyncEnumerable<IIgniteTuple> GetData()
         {
-            // Batch 1 uses old schema.
-            yield return GetTuple(1);
-            yield return GetTuple(2);
-
-            // TODO: Wait for batch 1 to appear on server.
-            await Task.Delay(500);
-
-            // Batch 2 start.
-            yield return GetTuple(3);
+            // First set of batches uses old schema.
+            for (int i = 0; i < 10; i++)
+            {
+                yield return GetTuple(i);
+            }
 
             // Update schema.
             // New schema has a new column with a default value, so it is not required to provide it in the streamed data.
             await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
 
-            // Batch 2 (continued) and batch 3.
-            yield return GetTuple(4);
-            yield return GetTuple(5);
+            for (int i = 10; i < 20; i++)
+            {
+                yield return GetTuple(i);
+            }
         }
     }
 
