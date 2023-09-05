@@ -15,26 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.connect;
+package org.apache.ignite.raft.jraft.rpc.impl;
 
-import org.apache.ignite.internal.cli.core.call.CallInput;
+import org.apache.ignite.raft.jraft.rpc.ActionRequest;import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RpcContext;
+import org.jetbrains.annotations.Nullable;
 
-/** Input for the {@link ConnectSslConfigCall} call. */
-class ConnectSslConfigCallInput implements CallInput {
-    private final String url;
-
-    private final SslConfig config;
-
-    ConnectSslConfigCallInput(String url, SslConfig config) {
-        this.url = url;
-        this.config = config;
-    }
-
-    String getUrl() {
-        return url;
-    }
-
-    SslConfig getConfig() {
-        return config;
+/**
+ * An {@link ActionRequestInterceptor} that never intercepts anything and always asks the standard handling
+ * to be used.
+ */
+public class NullActionRequestInterceptor implements ActionRequestInterceptor {
+    @Override
+    public @Nullable Message intercept(RpcContext rpcCtx, ActionRequest request) {
+        return null;
     }
 }

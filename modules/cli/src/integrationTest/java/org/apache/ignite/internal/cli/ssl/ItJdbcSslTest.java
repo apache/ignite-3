@@ -24,22 +24,17 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /** Tests for SSL connection with JDBC URL. */
 public class ItJdbcSslTest extends CliSslClientConnectorIntegrationTestBase {
 
     @BeforeEach
-    @Override
-    public void setUp(TestInfo testInfo) throws Exception {
-        super.setUp(testInfo);
+    public void createTable() {
         createAndPopulateTable();
     }
 
-    @Override
     @AfterEach
-    public void tearDown() {
-        super.tearDown();
+    public void dropTables() {
         dropAllTables();
     }
 

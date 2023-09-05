@@ -324,12 +324,27 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> execute(CatalogCommand command) {
+        return saveUpdateAndWaitForActivation(toProducerOrThrow(command));
+    }
+
+    @Override
+    public CompletableFuture<Void> execute(List<CatalogCommand> commands) throws IllegalArgumentException {
+        List<UpdateProducer> producers = new ArrayList<>(commands.size());
+
+        for (CatalogCommand command : commands) {
+            producers.add(toProducerOrThrow(command));
+        }
+
+        return saveUpdateAndWaitForActivation(new BulkUpdateProducer(producers));
+    }
+
+    private static UpdateProducer toProducerOrThrow(CatalogCommand command) {
         if (!(command instanceof UpdateProducer)) {
             throw new IllegalArgumentException("Expected command created by this very manager, but got "
                     + (command == null ? "<null>" : command.getClass().getCanonicalName()));
         }
 
-        return saveUpdateAndWaitForActivation((UpdateProducer) command);
+        return (UpdateProducer) command;
     }
 
     @Override
@@ -848,6 +863,31 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
             if (table.columnDescriptor(column) == null) {
                 throw new ColumnNotFoundException(column);
             }
+        }
+    }
+
+    private static class BulkUpdateProducer implements UpdateProducer {
+        private final List<UpdateProducer> producers;
+
+        BulkUpdateProducer(List<UpdateProducer> producers) {
+            this.producers = producers;
+        }
+
+        @Override
+        public List<UpdateEntry> get(Catalog catalog) {
+            List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
+
+            for (UpdateProducer producer : producers) {
+                List<UpdateEntry> entries = producer.get(catalog);
+
+                for (UpdateEntry entry : entries) {
+                    catalog = entry.applyUpdate(catalog);
+                }
+
+                bulkUpdateEntries.addAll(entries);
+            }
+
+            return bulkUpdateEntries;
         }
     }
 }

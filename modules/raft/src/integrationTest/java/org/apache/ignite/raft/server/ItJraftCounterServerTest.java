@@ -825,7 +825,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
      * @return The counter value.
      * @throws Exception If failed.
      */
-    private static long applyIncrements(RaftGroupService client, int start, int stop) throws Exception {
+    private long applyIncrements(RaftGroupService client, int start, int stop) throws Exception {
         long val = 0;
 
         for (int i = start; i <= stop; i++) {

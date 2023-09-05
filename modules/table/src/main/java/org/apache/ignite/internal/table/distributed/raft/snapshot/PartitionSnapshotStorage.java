@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotReader;
@@ -56,6 +57,8 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     /** Instance of partition. */
     private final PartitionAccess partition;
 
+    private final CatalogService catalogService;
+
     /**
      *  Snapshot meta, constructed from the storage data and raft group configuration at startup.
      *  {@code null} if the storage is empty.
@@ -81,6 +84,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
      * @param snapshotUri Snapshot URI.
      * @param raftOptions RAFT options.
      * @param partition Partition.
+     * @param catalogService Catalog service.
      * @param startupSnapshotMeta Snapshot meta at startup. {@code null} if the storage is empty.
      * @param incomingSnapshotsExecutor Incoming snapshots executor.
      */
@@ -90,6 +94,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
             String snapshotUri,
             RaftOptions raftOptions,
             PartitionAccess partition,
+            CatalogService catalogService,
             @Nullable SnapshotMeta startupSnapshotMeta,
             Executor incomingSnapshotsExecutor
     ) {
@@ -98,6 +103,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
         this.snapshotUri = snapshotUri;
         this.raftOptions = raftOptions;
         this.partition = partition;
+        this.catalogService = catalogService;
         this.startupSnapshotMeta = startupSnapshotMeta;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
     }
@@ -135,6 +141,13 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
      */
     public PartitionAccess partition() {
         return partition;
+    }
+
+    /**
+     * Returns catalog service.
+     */
+    public CatalogService catalogService() {
+        return catalogService;
     }
 
     /**

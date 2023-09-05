@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.sql;
+package org.apache.ignite.internal.table.distributed.schema;
 
-import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
-import org.apache.ignite.internal.cli.core.repl.SessionDefaultValueProvider;
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.ignite.internal.catalog.CatalogService;
 
-/** Base class for testing CLI REPL sql command in the connected state. */
-public class CliSqlConnectCommandTestBase extends CliSqlCommandTestBase {
-    @Inject
-    private SessionDefaultValueProvider defaultValueProvider;
-
-    @BeforeEach
-    public void setDefaultValueProvider() {
-        commandLine().setDefaultValueProvider(defaultValueProvider);
+/**
+ * Logic that allows to determine whether the logcal Catalog version is sufficient.
+ */
+public class CatalogVersionSufficiency {
+    private CatalogVersionSufficiency() {
+        // Deny instantiation.
     }
 
-    @Override
-    protected Class<?> getCommandClass() {
-        return TopLevelCliReplCommand.class;
+    /**
+     * Determines whether the local Catalog version is sufficient.
+     *
+     * @param requiredCatalogVersion Minimal catalog version that is required to present.
+     * @param catalogService Catalog service.
+     * @return {@code true} iff the local Catalog version is sufficient.
+     */
+    public static boolean isMetadataAvailableFor(int requiredCatalogVersion, CatalogService catalogService) {
+        return requiredCatalogVersion <= catalogService.latestCatalogVersion();
     }
-
 }

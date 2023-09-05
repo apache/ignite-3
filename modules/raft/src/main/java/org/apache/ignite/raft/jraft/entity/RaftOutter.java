@@ -73,5 +73,8 @@ public final class RaftOutter {
 
         @Nullable
         Collection<String> oldLearnersList();
+
+        /** Minimum catalog version that is required for the snapshot to be accepted by a follower. */
+        int requiredCatalogVersion();
     }
 }

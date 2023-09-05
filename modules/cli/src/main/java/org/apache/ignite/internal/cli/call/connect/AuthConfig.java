@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.commands.sql;
+package org.apache.ignite.internal.cli.call.connect;
 
-import jakarta.inject.Inject;
-import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
-import org.apache.ignite.internal.cli.core.repl.SessionDefaultValueProvider;
-import org.junit.jupiter.api.BeforeEach;
+/** Basic authentication configuration for creating HTTP client. */
+public class AuthConfig {
+    private String username;
+    private String password;
 
-/** Base class for testing CLI REPL sql command in the connected state. */
-public class CliSqlConnectCommandTestBase extends CliSqlCommandTestBase {
-    @Inject
-    private SessionDefaultValueProvider defaultValueProvider;
-
-    @BeforeEach
-    public void setDefaultValueProvider() {
-        commandLine().setDefaultValueProvider(defaultValueProvider);
+    public String username() {
+        return username;
     }
 
-    @Override
-    protected Class<?> getCommandClass() {
-        return TopLevelCliReplCommand.class;
+    public void username(String username) {
+        this.username = username;
     }
 
+    public String password() {
+        return password;
+    }
+
+    public void password(String password) {
+        this.password = password;
+    }
 }

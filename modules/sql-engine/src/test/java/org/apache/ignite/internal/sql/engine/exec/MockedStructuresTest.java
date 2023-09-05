@@ -48,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -294,7 +295,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         catalogManager = mock(CatalogManager.class);
         when(catalogManager.createTableCommandBuilder()).thenReturn(new CreateTableCommand.Builder());
-        when(catalogManager.execute(any())).thenReturn(completedFuture(null));
+        when(catalogManager.execute(any(CatalogCommand.class))).thenReturn(completedFuture(null));
         when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
 
         schemaSyncService = mock(SchemaSyncService.class);
