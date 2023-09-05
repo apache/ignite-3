@@ -180,11 +180,11 @@ public class ItRestSslTest extends IgniteIntegrationTest {
         HttpRequest request = HttpRequest.newBuilder(uri).build();
 
         // Then response code is 200
-        assertResponseCodeIs(200, request);
+        assertResponseCodeIs(200, request, sslClient);
     }
 
-    private static void assertResponseCodeIs(int code, HttpRequest request) throws IOException, InterruptedException {
-        HttpResponse<String> response = sslClient.send(request, BodyHandlers.ofString());
+    private static void assertResponseCodeIs(int code, HttpRequest request, HttpClient client) throws IOException, InterruptedException {
+        HttpResponse<String> response = client.send(request, BodyHandlers.ofString());
         if (response.statusCode() != code) {
             throw new AssertionError("Expected response code " + code + " but was " + response.statusCode() + ", body: " + response.body());
         }
@@ -197,7 +197,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
         HttpRequest request = HttpRequest.newBuilder(uri).build();
 
         // Then response code is 200
-        assertResponseCodeIs(200, request);
+        assertResponseCodeIs(200, request, client);
     }
 
     @Test
@@ -210,10 +210,10 @@ public class ItRestSslTest extends IgniteIntegrationTest {
         HttpRequest httpsRequest = HttpRequest.newBuilder(httpsUri).build();
 
         // Then HTTP response code is 200
-        assertResponseCodeIs(200, httpsRequest);
+        assertResponseCodeIs(200, httpRequest, client);
 
         // And HTTPS response code is 200
-        assertResponseCodeIs(200, httpsRequest);
+        assertResponseCodeIs(200, httpsRequest, sslClient);
     }
 
     @Test
@@ -243,7 +243,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
         HttpRequest request = HttpRequest.newBuilder(uri).build();
 
         // Then response code is 200
-        assertResponseCodeIs(200, request);
+        assertResponseCodeIs(200, request, sslClientWithClientAuth);
     }
 
     @Test
@@ -256,13 +256,14 @@ public class ItRestSslTest extends IgniteIntegrationTest {
         assertThrows(IOException.class, () -> sslClient.send(request, BodyHandlers.ofString()));
     }
 
+    @Test
     void httpsWithCustomCipher(TestInfo testInfo) throws Exception {
         // When GET /management/v1/configuration/node
         URI uri = URI.create(httpsWithCustomCipherNode.httpsAddress() + "/management/v1/configuration/node");
         HttpRequest request = HttpRequest.newBuilder(uri).build();
 
         // Then response code is 200
-        assertResponseCodeIs(200, request);
+        assertResponseCodeIs(200, request, sslClient);
     }
 
     @Test
