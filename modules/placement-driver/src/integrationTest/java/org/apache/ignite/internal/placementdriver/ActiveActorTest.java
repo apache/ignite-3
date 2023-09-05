@@ -116,8 +116,7 @@ public class ActiveActorTest extends IgniteAbstractTest {
     MetaStorageManager msm;
 
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void tearDown() throws Exception {
         List<AutoCloseable> closeables = placementDriverManagers.values().stream().map(p -> (AutoCloseable) p::stop).collect(toList());
 
         closeAll(closeables);
@@ -125,8 +124,6 @@ public class ActiveActorTest extends IgniteAbstractTest {
         placementDriverManagers.clear();
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-
-        super.tearDown(testInfo);
     }
 
     /**

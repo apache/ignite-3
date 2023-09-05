@@ -17,24 +17,24 @@
 
 package org.apache.ignite.internal.cli.call.connect;
 
-import org.apache.ignite.internal.cli.core.call.CallInput;
+/** Basic authentication configuration for creating HTTP client. */
+public class AuthConfig {
+    private String username;
+    private String password;
 
-/** Input for the {@link ConnectSslConfigCall} call. */
-class ConnectSslConfigCallInput implements CallInput {
-    private final String url;
-
-    private final SslConfig config;
-
-    ConnectSslConfigCallInput(String url, SslConfig config) {
-        this.url = url;
-        this.config = config;
+    public String username() {
+        return username;
     }
 
-    String getUrl() {
-        return url;
+    public void username(String username) {
+        this.username = username;
     }
 
-    SslConfig getConfig() {
-        return config;
+    public String password() {
+        return password;
+    }
+
+    public void password(String password) {
+        this.password = password;
     }
 }

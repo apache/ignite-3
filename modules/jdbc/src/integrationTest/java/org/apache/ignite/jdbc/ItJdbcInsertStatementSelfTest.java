@@ -29,7 +29,6 @@ import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Statement test.
@@ -83,9 +82,7 @@ public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTe
     }
 
     @AfterEach
-    @Override public void afterTest(TestInfo testInfo) throws Exception {
-        super.afterTest(testInfo);
-
+    public void afterTest() throws Exception {
         if (prepStmt != null && !prepStmt.isClosed()) {
             prepStmt.close();
 

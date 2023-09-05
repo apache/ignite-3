@@ -34,7 +34,7 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -53,7 +53,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @SuppressWarnings("ZeroLengthArrayAllocation")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(WorkDirectoryExtension.class)
-public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
+public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
     protected static final String TABLE_NAME = "TBL1";
 
     protected static final String COLUMN_KEY = "key";
@@ -71,8 +71,6 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
      */
     @BeforeAll
     void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) throws InterruptedException {
-        this.workDir = workDir;
-
         String node0Name = testNodeName(testInfo, 3344);
         String node1Name = testNodeName(testInfo, 3345);
 

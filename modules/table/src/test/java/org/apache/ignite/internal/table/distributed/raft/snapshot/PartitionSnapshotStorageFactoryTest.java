@@ -25,6 +25,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -55,6 +56,7 @@ public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest 
                 mock(TopologyService.class),
                 mock(OutgoingSnapshotsManager.class),
                 partitionAccess,
+                mock(CatalogService.class),
                 mock(Executor.class)
         );
 
@@ -70,6 +72,7 @@ public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest 
                 mock(TopologyService.class),
                 mock(OutgoingSnapshotsManager.class),
                 partitionAccess,
+                mock(CatalogService.class),
                 mock(Executor.class)
         );
 

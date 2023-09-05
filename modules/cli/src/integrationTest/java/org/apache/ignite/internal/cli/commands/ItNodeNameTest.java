@@ -38,7 +38,7 @@ public class ItNodeNameTest extends CliCommandTestInitializedIntegrationBase {
     }
 
     @BeforeEach
-    void setUp() throws InterruptedException {
+    void connect() {
         execute("connect");
         resetOutput();
         // wait to pulling node names
