@@ -290,7 +290,7 @@ TEST_F(meta_queries_test, test_get_type_info_all_types) {
 }
 #endif // MUTED
 
-TEST_F(meta_queries_test, test_date_type_column_attribute_curdate) {
+TEST_F(meta_queries_test, date_type_column_attribute_curdate) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select {fn CURDATE()}";
@@ -309,7 +309,7 @@ TEST_F(meta_queries_test, test_date_type_column_attribute_curdate) {
     EXPECT_EQ(int_val, SQL_TYPE_DATE);
 }
 
-TEST_F(meta_queries_test, test_date_type_column_attribute_literal) {
+TEST_F(meta_queries_test, date_type_column_attribute_literal) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select DATE '2020-10-25'";
@@ -325,7 +325,7 @@ TEST_F(meta_queries_test, test_date_type_column_attribute_literal) {
     EXPECT_EQ(int_val, SQL_TYPE_DATE);
 }
 
-TEST_F(meta_queries_test, test_date_type_column_attribute_field) {
+TEST_F(meta_queries_test, date_type_column_attribute_field) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select {fn CONVERT(\"DATE\", DATE)} from TBL_ALL_COLUMNS_SQL";
@@ -343,7 +343,7 @@ TEST_F(meta_queries_test, test_date_type_column_attribute_field) {
     EXPECT_EQ(int_val, SQL_TYPE_DATE);
 }
 
-TEST_F(meta_queries_test, test_time_type_column_attribute_literal) {
+TEST_F(meta_queries_test, time_type_column_attribute_literal) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select TIME '12:42:13'";
@@ -359,7 +359,7 @@ TEST_F(meta_queries_test, test_time_type_column_attribute_literal) {
     EXPECT_EQ(int_val, SQL_TYPE_TIME);
 }
 
-TEST_F(meta_queries_test, test_time_type_column_attribute_field) {
+TEST_F(meta_queries_test, time_type_column_attribute_field) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select time2 from TBL_ALL_COLUMNS_SQL";
@@ -375,7 +375,7 @@ TEST_F(meta_queries_test, test_time_type_column_attribute_field) {
     EXPECT_EQ(int_val, SQL_TYPE_TIME);
 }
 
-TEST_F(meta_queries_test, test_col_attributes_column_length) {
+TEST_F(meta_queries_test, col_attributes_column_length) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select str from META_QUERIES_TEST";
@@ -393,7 +393,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_length) {
     EXPECT_EQ(int_val, 60);
 }
 
-TEST_F(meta_queries_test, test_col_attributes_column_presicion) {
+TEST_F(meta_queries_test, col_attributes_column_presicion) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select str from META_QUERIES_TEST";
@@ -411,7 +411,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_presicion) {
     EXPECT_EQ(int_val, 60);
 }
 
-TEST_F(meta_queries_test, test_col_attributes_column_scale) {
+TEST_F(meta_queries_test, col_attributes_column_scale) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR req[] = "select str from TBL_ALL_COLUMNS_SQL";
@@ -429,7 +429,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_scale) {
 
 // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
 #ifdef MUTED
-TEST_F(meta_queries_test, test_col_attributes_column_length_prepare) {
+TEST_F(meta_queries_test, col_attributes_column_length_prepare) {
     odbc_connect(get_basic_connection_string());
 
     insert_test_string();
@@ -459,7 +459,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_length_prepare) {
     EXPECT_EQ(int_val, 60);
 }
 
-TEST_F(meta_queries_test, test_col_attributes_column_presicion_prepare) {
+TEST_F(meta_queries_test, col_attributes_column_presicion_prepare) {
     odbc_connect(get_basic_connection_string());
 
     insert_test_string();
@@ -489,7 +489,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_presicion_prepare) {
     EXPECT_EQ(int_val, 60);
 }
 
-TEST_F(meta_queries_test, test_col_attributes_column_scale_prepare) {
+TEST_F(meta_queries_test, col_attributes_column_scale_prepare) {
     odbc_connect(get_basic_connection_string());
 
     insert_test_string();
@@ -518,7 +518,7 @@ TEST_F(meta_queries_test, test_col_attributes_column_scale_prepare) {
 
 // TODO: IGNITE-19216 Implement type info query.
 #ifdef MUTED
-TEST_F(meta_queries_test, test_get_data_with_get_type_info) {
+TEST_F(meta_queries_test, get_data_with_get_type_info) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret = SQLGetTypeInfo(m_statement, SQL_VARCHAR);
@@ -530,7 +530,7 @@ TEST_F(meta_queries_test, test_get_data_with_get_type_info) {
 }
 #endif // MUTED
 
-TEST_F(meta_queries_test, test_get_data_with_tables) {
+TEST_F(meta_queries_test, get_data_with_tables) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR any[] = "%";
@@ -546,7 +546,7 @@ TEST_F(meta_queries_test, test_get_data_with_tables) {
 
 // TODO: IGNITE-20346 Implement column metadata fetching
 #ifdef MUTED
-TEST_F(meta_queries_test, test_get_data_with_columns) {
+TEST_F(meta_queries_test, get_data_with_columns) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR empty[] = "";
@@ -562,7 +562,7 @@ TEST_F(meta_queries_test, test_get_data_with_columns) {
 }
 #endif // MUTED
 
-TEST_F(meta_queries_test, test_get_data_with_select_query) {
+TEST_F(meta_queries_test, get_data_with_select_query) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR insert_req[] = "insert into META_QUERIES_TEST(id, str) VALUES(1, 'Lorem ipsum')";
@@ -580,7 +580,7 @@ TEST_F(meta_queries_test, test_get_data_with_select_query) {
     check_single_row_result_set_with_get_data(m_statement);
 }
 
-TEST_F(meta_queries_test, test_insert_too_long_value_ok) {
+TEST_F(meta_queries_test, insert_too_long_value_ok) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR insert_req[] = "insert into META_QUERIES_TEST(id, str) "
@@ -592,7 +592,7 @@ TEST_F(meta_queries_test, test_insert_too_long_value_ok) {
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 }
 
-TEST_F(meta_queries_test, test_get_info_scroll_options) {
+TEST_F(meta_queries_test, get_info_scroll_options) {
     odbc_connect(get_basic_connection_string());
 
     SQLUINTEGER val = 0;
@@ -604,15 +604,13 @@ TEST_F(meta_queries_test, test_get_info_scroll_options) {
     EXPECT_NE(val, 0);
 }
 
-// TODO: IGNITE-19214 Implement tables metadata fetching
-#ifdef MUTED
-TEST_F(meta_queries_test, test_ddl_tables_meta) {
+TEST_F(meta_queries_test, ddl_tables_meta) {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR empty[] = "";
-    SQLCHAR table[] = "TestTable";
+    SQLCHAR any[] = "%";
+    SQLCHAR table[] = "META_QUERIES_TEST";
 
-    SQLRETURN ret = SQLTables(m_statement, empty, SQL_NTS, empty, SQL_NTS, table, SQL_NTS, empty, SQL_NTS);
+    SQLRETURN ret = SQLTables(m_statement, any, SQL_NTS, any, SQL_NTS, table, SQL_NTS, any, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
@@ -623,7 +621,7 @@ TEST_F(meta_queries_test, test_ddl_tables_meta) {
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     check_string_column(m_statement, 1, "");
-    check_string_column(m_statement, 2, "\"PUBLIC\"");
+    check_string_column(m_statement, 2, "PUBLIC");
     check_string_column(m_statement, 3, "META_QUERIES_TEST");
     check_string_column(m_statement, 4, "TABLE");
 
@@ -632,21 +630,15 @@ TEST_F(meta_queries_test, test_ddl_tables_meta) {
     ASSERT_EQ(ret, SQL_NO_DATA);
 }
 
-TEST_F(meta_queries_test, test_ddl_tables_meta_table_type_list) {
+TEST_F(meta_queries_test, ddl_tables_meta_table_type_list) {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR create_table[] = "create table TestTable(id int primary key, testColumn varchar)";
-    SQLRETURN ret = SQLExecDirect(m_statement, create_table, SQL_NTS);
+    SQLCHAR *type_lists[] = {(SQLCHAR *) "'TABLE'", (SQLCHAR *) "TABLE,VIEW"};
+    for (auto &type_list : type_lists) {
+        SQLCHAR any[] = "%";
+        SQLCHAR table[] = "META_QUERIES_TEST";
 
-    if (!SQL_SUCCEEDED(ret))
-        FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
-
-    SQLCHAR *typeLists[] = {(SQLCHAR *) "'TABLE'", (SQLCHAR *) "TABLE,VIEW"};
-    for (auto &type_list : typeLists) {
-        SQLCHAR empty[] = "";
-        SQLCHAR table[] = "TestTable";
-
-        ret = SQLTables(m_statement, empty, SQL_NTS, empty, SQL_NTS, table, SQL_NTS, type_list, SQL_NTS);
+        SQLRETURN ret = SQLTables(m_statement, any, SQL_NTS, any, SQL_NTS, table, SQL_NTS, type_list, SQL_NTS);
 
         if (!SQL_SUCCEEDED(ret))
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
@@ -657,8 +649,8 @@ TEST_F(meta_queries_test, test_ddl_tables_meta_table_type_list) {
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
         check_string_column(m_statement, 1, "");
-        check_string_column(m_statement, 2, "\"PUBLIC\"");
-        check_string_column(m_statement, 3, "TESTTABLE");
+        check_string_column(m_statement, 2, "PUBLIC");
+        check_string_column(m_statement, 3, "META_QUERIES_TEST");
         check_string_column(m_statement, 4, "TABLE");
 
         ret = SQLFetch(m_statement);
@@ -668,26 +660,19 @@ TEST_F(meta_queries_test, test_ddl_tables_meta_table_type_list) {
 }
 
 template<size_t n, size_t k>
-void check_meta(char columns[n][k], SQLLEN columns_len[n]) {
+void check_meta(char columns[n][k], SQLLEN columns_len[n], std::string table_name) {
     std::string catalog(columns[0], columns_len[0]);
     std::string schema(columns[1], columns_len[1]);
     std::string table(columns[2], columns_len[2]);
-    std::string tableType(columns[3], columns_len[3]);
+    std::string table_type(columns[3], columns_len[3]);
 
     EXPECT_EQ(catalog, std::string(""));
-    EXPECT_EQ(tableType, std::string("TABLE"));
+    EXPECT_EQ(table, table_name);
+    EXPECT_EQ(table_type, std::string("TABLE"));
     EXPECT_EQ(columns_len[4], SQL_NULL_DATA);
-
-    if (schema == "\"cache\"") {
-        EXPECT_EQ(table, std::string("TESTTYPE"));
-    } else if (schema == "\"cache2\"") {
-        EXPECT_EQ(table, std::string("COMPLEXTYPE"));
-    } else {
-        FAIL() << ("Unknown schema: " + schema);
-    }
 }
 
-TEST_F(queries_test, tables_meta) {
+TEST_F(meta_queries_test, tables_meta) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret;
@@ -709,10 +694,10 @@ TEST_F(queries_test, tables_meta) {
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
     }
 
-    SQLCHAR catalog_pattern[] = "";
-    SQLCHAR schema_pattern[] = "";
-    SQLCHAR table_pattern[] = "";
-    SQLCHAR table_type_pattern[] = "";
+    SQLCHAR catalog_pattern[] = "%";
+    SQLCHAR schema_pattern[] = "%";
+    SQLCHAR table_pattern[] = "TBL_ALL_COLUMNS%";
+    SQLCHAR table_type_pattern[] = "%";
 
     ret = SQLTables(m_statement, catalog_pattern, SQL_NTS, schema_pattern, SQL_NTS, table_pattern, SQL_NTS,
         table_type_pattern, SQL_NTS);
@@ -724,22 +709,21 @@ TEST_F(queries_test, tables_meta) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    check_meta<COLUMNS_NUM, ODBC_BUFFER_SIZE>(columns, columns_len);
+    check_meta<COLUMNS_NUM, ODBC_BUFFER_SIZE>(columns, columns_len, "TBL_ALL_COLUMNS");
 
     ret = SQLFetch(m_statement);
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    check_meta<COLUMNS_NUM, ODBC_BUFFER_SIZE>(columns, columns_len);
+    check_meta<COLUMNS_NUM, ODBC_BUFFER_SIZE>(columns, columns_len, "TBL_ALL_COLUMNS_SQL");
 
     ret = SQLFetch(m_statement);
     EXPECT_TRUE(ret == SQL_NO_DATA);
 }
-#endif // MUTED
 
-// TODO: IGNITE-19214 Implement table column metadata fetching
+// TODO: IGNITE-20346 Implement table column metadata fetching
 #ifdef MUTED
-TEST_F(meta_queries_test, test_ddl_columns_meta) {
+TEST_F(meta_queries_test, ddl_columns_meta) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR create_table[] = "create table TestTable(id int primary key, testColumn varchar)";
@@ -748,10 +732,10 @@ TEST_F(meta_queries_test, test_ddl_columns_meta) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    SQLCHAR empty[] = "";
+    SQLCHAR any[] = "%";
     SQLCHAR table[] = "TestTable";
 
-    ret = SQLColumns(m_statement, empty, SQL_NTS, empty, SQL_NTS, table, SQL_NTS, empty, SQL_NTS);
+    ret = SQLColumns(m_statement, any, SQL_NTS, any, SQL_NTS, table, SQL_NTS, any, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
@@ -781,7 +765,7 @@ TEST_F(meta_queries_test, test_ddl_columns_meta) {
     ASSERT_EQ(ret, SQL_NO_DATA);
 }
 
-TEST_F(meta_queries_test, test_ddl_columns_meta_escaped) {
+TEST_F(meta_queries_test, ddl_columns_meta_escaped) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR create_table[] = "create table ESG_FOCUS(id int primary key, TEST_COLUMN varchar)";
@@ -790,10 +774,10 @@ TEST_F(meta_queries_test, test_ddl_columns_meta_escaped) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    SQLCHAR empty[] = "";
+    SQLCHAR any[] = "%";
     SQLCHAR table[] = "ESG\\_FOCUS";
 
-    ret = SQLColumns(m_statement, empty, SQL_NTS, empty, SQL_NTS, table, SQL_NTS, empty, SQL_NTS);
+    ret = SQLColumns(m_statement, any, SQL_NTS, any, SQL_NTS, table, SQL_NTS, any, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
@@ -826,7 +810,7 @@ TEST_F(meta_queries_test, test_ddl_columns_meta_escaped) {
 
 // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
 #ifdef MUTED
-TEST_F(meta_queries_test, test_sqlnum_result_cols_after_sqlprepare) {
+TEST_F(meta_queries_test, sqlnum_result_cols_after_sqlprepare) {
     odbc_connect(get_basic_connection_string());
 
     SQLRETURN ret =
@@ -861,7 +845,7 @@ TEST_F(meta_queries_test, test_sqlnum_result_cols_after_sqlprepare) {
 /**
  * Check that SQLDescribeCol return valid scale and precision for columns of different type after Prepare.
  */
-TEST_F(meta_queries_test, test_sqldescribe_col_precision_and_scale_after_prepare) {
+TEST_F(meta_queries_test, sqldescribe_col_precision_and_scale_after_prepare) {
     // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
     //    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqldescribe_col);
 }
@@ -869,14 +853,14 @@ TEST_F(meta_queries_test, test_sqldescribe_col_precision_and_scale_after_prepare
 /**
  * Check that SQLDescribeCol return valid scale and precision for columns of different type after Execute.
  */
-TEST_F(meta_queries_test, test_sqldescribe_col_precision_and_scale_after_exec) {
+TEST_F(meta_queries_test, sqldescribe_col_precision_and_scale_after_exec) {
     check_col_precision_and_scale(&odbc_suite::exec_query, &check_column_meta_with_sqldescribe_col);
 }
 
 /**
  * Check that SQLColAttribute return valid scale and precision for columns of different type after Prepare.
  */
-TEST_F(meta_queries_test, test_sqlcol_attribute_precision_and_scale_after_prepare) {
+TEST_F(meta_queries_test, sqlcol_attribute_precision_and_scale_after_prepare) {
     // TODO: IGNITE-19854 Implement metadata fetching for the non-executed query.
     //    check_col_precision_and_scale(&odbc_suite::prepare_query, &check_column_meta_with_sqlcol_attribute);
 }
@@ -884,6 +868,6 @@ TEST_F(meta_queries_test, test_sqlcol_attribute_precision_and_scale_after_prepar
 /**
  * Check that SQLColAttribute return valid scale and precision for columns of different type after Execute.
  */
-TEST_F(meta_queries_test, test_sqlcol_attribute_precision_and_scale_after_exec) {
+TEST_F(meta_queries_test, sqlcol_attribute_precision_and_scale_after_exec) {
     check_col_precision_and_scale(&odbc_suite::exec_query, &check_column_meta_with_sqlcol_attribute);
 }
