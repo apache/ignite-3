@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
-
-import java.util.List;
+package org.apache.ignite.internal.catalog.commands;
 
 /**
- * Marker interface for commands executed by {@link CatalogManager}.
+ * Builder of a command that drop specified table.
  *
- * @see CatalogManager#execute(CatalogCommand)
- * @see CatalogManager#execute(List)
+ * <p>A builder is considered to be reusable, thus implementation have
+ * to make sure invocation of {@link #build()} method doesn't cause any
+ * side effects on builder's state or any object created by the same builder.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface CatalogCommand extends UpdateProducer {
+public interface DropTableCommandBuilder extends AbstractTableCommandBuilder<DropTableCommandBuilder> {
 }
