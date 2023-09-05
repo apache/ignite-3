@@ -61,7 +61,10 @@ import org.apache.ignite.internal.schema.configuration.index.TableIndexConfigura
 import org.apache.ignite.internal.schema.configuration.index.TableIndexView;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
+import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
+import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
@@ -87,10 +90,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Abstract basic integration test that starts a cluster once for all the tests it runs.
  */
+@ExtendWith(QueryCheckerExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ClusterPerClassIntegrationTest.class);
@@ -141,10 +146,8 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         LOG.info("End beforeAll()");
     }
 
-    @AfterEach
-    void afterTest() {
-        QueryChecker.ensureNoUnusedChecker();
-    }
+    @InjectQueryCheckerFactory
+    protected static QueryCheckerFactory queryCheckerFactory;
 
     /**
      * Starts and initializes a test cluster.
@@ -287,17 +290,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @return Instance of QueryChecker.
      */
     protected static QueryChecker assertQuery(Transaction tx, String qry) {
-        return new QueryChecker(tx, qry) {
-            @Override
-            protected QueryProcessor getEngine() {
-                return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
-            }
+        IgniteImpl node = (IgniteImpl) CLUSTER_NODES.get(0);
 
-            @Override
-            protected IgniteTransactions transactions() {
-                return CLUSTER_NODES.get(0).transactions();
-            }
-        };
+        return queryCheckerFactory.create(node.queryEngine(), node.transactions(), tx, qry);
     }
 
     /**
