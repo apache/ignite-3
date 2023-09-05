@@ -54,10 +54,7 @@ public class RemoteFragmentExecutionException extends RemoteException {
             int code,
             @Nullable String message
     ) {
-        super(traceId, code,
-                format("Query remote fragment execution failed: nodeName={}, queryId={}, fragmentId={}, originalMessage={}",
-                        nodeName, queryId, fragmentId, message)
-        );
+        super(traceId, code, message);
 
         this.nodeName = nodeName;
         this.queryId = queryId;

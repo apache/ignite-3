@@ -24,9 +24,11 @@ import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -63,7 +65,6 @@ import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
-import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandlerWrapper;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -500,7 +501,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 queryType,
                 plan.metadata(),
                 txWrapper,
-                new AsyncCursor<List<Object>>() {
+                new AsyncCursor<>() {
                     @Override
                     public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
                         session.touch();
@@ -669,9 +670,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         SqlQueryType queryType = parsedResult.queryType();
 
         if (!allowedTypes.contains(queryType)) {
-            String message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, queryType);
+            String message = format("Invalid SQL statement type of a statement. Expected {} but got {}.", allowedTypes, queryType);
 
-            throw new QueryValidationException(message);
+            throw new SqlException(STMT_VALIDATION_ERR, message);
         }
 
         if (parsedResult.dynamicParamsCount() != params.length) {

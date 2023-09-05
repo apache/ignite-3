@@ -56,10 +56,7 @@ public class SqlTestUtils {
      * @return Thrown the {@link SqlException}.
      */
     public static SqlException assertThrowsSqlException(int expectedCode, Executable executable) {
-        SqlException ex = assertThrows(SqlException.class, executable);
-        assertEquals(expectedCode, ex.code());
-
-        return ex;
+        return assertThrowsSqlException(expectedCode, "", executable);
     }
 
     /**
@@ -72,11 +69,31 @@ public class SqlTestUtils {
      * @return Thrown the {@link SqlException}.
      */
     public static SqlException assertThrowsSqlException(int expectedCode, String expectedMessage, Executable executable) {
-        SqlException ex = assertThrowsSqlException(expectedCode, executable);
+        return assertThrowsSqlException(SqlException.class, expectedCode, expectedMessage, executable);
+    }
+
+    /**
+     * <em>Assert</em> that execution of the supplied {@code executable} throws
+     * an expected {@link SqlException} with expected error code and message.
+     *
+     * @param expectedType Expected exception type.
+     * @param expectedCode Expected error code of {@link SqlException}.
+     * @param expectedMessage Expected error message of {@link SqlException}.
+     * @param executable Supplier to execute and check thrown exception.
+     * @return Thrown the {@link SqlException}.
+     */
+    public static <T extends SqlException> T assertThrowsSqlException(
+            Class<T> expectedType,
+            int expectedCode,
+            String expectedMessage,
+            Executable executable) {
+        T ex = assertThrows(expectedType, executable);
+        assertEquals(expectedCode, ex.code());
 
         assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
 
         return ex;
+
     }
 
     /**

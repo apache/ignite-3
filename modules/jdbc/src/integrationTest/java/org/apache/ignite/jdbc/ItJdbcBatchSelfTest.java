@@ -172,7 +172,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             assertEquals(0, updCnts.length, "Invalid update counts size");
 
-            assertThat(e.getMessage(), containsString("Given statement type does not match that declared by JDBC driver"));
+            assertThat(e.getMessage(), containsString("Invalid SQL statement type of a statement. Expected [DML, DDL] but got QUERY."));
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
@@ -217,24 +217,21 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         stmt.addBatch("insert into Person (id, firstName, lastName, age) values "
                 + generateValues(100, 7));
 
-        try {
-            stmt.executeBatch();
+        BatchUpdateException e = JdbcTestUtils.assertThrowsSqlException(
+                BatchUpdateException.class,
+                "Invalid SQL statement type of a statement. Expected [DML, DDL] but got QUERY.",
+                stmt::executeBatch);
 
-            fail("BatchUpdateException must be thrown");
-        } catch (BatchUpdateException e) {
-            int[] updCnts = e.getUpdateCounts();
+        int[] updCnts = e.getUpdateCounts();
 
-            assertEquals(successUpdates, updCnts.length, "Invalid update counts size");
+        assertEquals(successUpdates, updCnts.length, "Invalid update counts size");
 
-            for (int i = 0; i < successUpdates; ++i) {
-                assertEquals(i + 1, updCnts[i], "Invalid update count");
-            }
-
-            assertThat(e.getMessage(), containsString("Given statement type does not match that declared by JDBC driver"));
-
-            assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
-            assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
+        for (int i = 0; i < successUpdates; ++i) {
+            assertEquals(i + 1, updCnts[i], "Invalid update count");
         }
+
+        assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
+        assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
     }
 
     @Test

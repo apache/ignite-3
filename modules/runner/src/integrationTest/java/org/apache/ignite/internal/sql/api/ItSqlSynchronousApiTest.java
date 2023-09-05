@@ -57,6 +57,7 @@ import org.apache.ignite.tx.Transaction;
 import org.hamcrest.MatcherAssert;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -293,7 +294,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         // No result set error.
         {
             ResultSet rs = ses.execute(null, "CREATE TABLE TEST3 (ID INT PRIMARY KEY)");
-            assertThrowsPublicException(rs::next, NoRowSetExpectedException.class, Sql.QUERY_NO_RESULT_SET_ERR, "Query has no result set");
+            assertThrowsSqlException(NoRowSetExpectedException.class, Sql.QUERY_NO_RESULT_SET_ERR, "Query has no result set", rs::next);
         }
 
         // Cursor closed error.
@@ -301,8 +302,8 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
             ResultSet rs = ses.execute(null, "SELECT * FROM TEST");
             Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
             rs.close();
-            assertThrowsPublicException(() -> rs.forEachRemaining(Object::hashCode),
-                    CursorClosedException.class, Sql.CURSOR_CLOSED_ERR, null);
+            assertThrowsSqlException(CursorClosedException.class, Sql.CURSOR_CLOSED_ERR, "Cursor is closed",
+                    () -> rs.forEachRemaining(Object::hashCode));
         }
     }
 
@@ -344,6 +345,34 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         assertEquals(0, ((IgniteImpl) CLUSTER_NODES.get(0)).txManager().pending());
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20342")
+    @Test
+    public void runtimeErrorInTransaction() {
+        int size = 100;
+        sql("CREATE TABLE tst(id INT PRIMARY KEY, val INT)");
+        for (int i = 0; i < size; i++) {
+            sql("INSERT INTO tst VALUES (?,?)", i, i);
+        }
+
+        Session ses = igniteSql().createSession();
+        Transaction tx = igniteTx().begin();
+
+        try {
+            String sqlText = "UPDATE tst SET val = val/(val - ?) + " + size;
+
+            for (int i = 0; i < size; i++) {
+                int param = i;
+                assertThrowsSqlException(
+                        Sql.RUNTIME_ERR,
+                        "/ by zero",
+                        () -> ses.execute(tx, sqlText, param));
+
+            }
+        } finally {
+            tx.commit();
+        }
+    }
+
     @Test
     public void batch() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
@@ -368,14 +397,14 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         // Check invalid query type
         SqlException ex = assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
-                "Invalid SQL statement type in the batch",
+                "Invalid SQL statement type of a statement",
                 () -> ses.executeBatch(null, "SELECT * FROM TEST", args)
         );
         MatcherAssert.assertThat(ex, instanceOf(SqlBatchException.class));
 
         ex = assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
-                "Invalid SQL statement type in the batch",
+                "Invalid SQL statement type of a statement",
                 () -> ses.executeBatch(null, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args)
         );
         MatcherAssert.assertThat(ex, instanceOf(SqlBatchException.class));
