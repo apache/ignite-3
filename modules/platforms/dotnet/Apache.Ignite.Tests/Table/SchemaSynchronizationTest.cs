@@ -377,8 +377,27 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     [Test]
     public async Task TestSchemaUpdateBeforeStreaming()
     {
-        // Verify that streamer updates cached schema when necessary.
-        await Task.Delay(1);
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (KEY bigint PRIMARY KEY)");
+
+        var table = await Client.Tables.GetTableAsync(TestTableName);
+        var view = table!.RecordBinaryView;
+
+        // Insert some data - old schema gets cached.
+        await view.InsertAsync(null, GetTuple(-1));
+
+        // Update schema.
+        await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
+
+        // Stream data - old schema will be used initially. Server will reject it, client will reload schema and retry.
+        await view.StreamDataAsync(new[] { GetTuple(1) }.ToAsyncEnumerable());
+
+        // Inserted with old schema.
+        var res1 = await view.GetAsync(null, GetTuple(-1));
+        Assert.AreEqual("FOO", res1.Value["VAL"]);
+
+        // Inserted with new schema.
+        var res2 = await view.GetAsync(null, GetTuple(1));
+        Assert.AreEqual("FOO", res2.Value["VAL"]);
     }
 
     private async Task WaitForNewSchemaOnAllNodes(string tableName, int schemaVer, int timeoutMs = 5000)
