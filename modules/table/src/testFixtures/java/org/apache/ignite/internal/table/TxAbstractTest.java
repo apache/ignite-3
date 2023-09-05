@@ -1613,10 +1613,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         }
 
         if (firstErr.get() != null) {
-            throw new IgniteException("qqq txs=" + (ops.sum() + fails.sum()), firstErr.get());
+            throw new IgniteException(firstErr.get());
         }
-
-        System.out.println("qqq txs=" + (ops.sum() + fails.sum()));
 
         log.info("After test ops={} fails={}", ops.sum(), fails.sum());
 
