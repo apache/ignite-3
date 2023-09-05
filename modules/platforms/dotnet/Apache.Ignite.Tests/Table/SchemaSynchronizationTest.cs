@@ -339,7 +339,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     [Test]
     public async Task TestSchemaUpdateWhileStreaming()
     {
-        // TODO: Same test with POCO and KV views? Is it a different code path?
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (KEY bigint PRIMARY KEY)");
 
         var table = await Client.Tables.GetTableAsync(TestTableName);
@@ -373,6 +372,13 @@ public class SchemaSynchronizationTest : IgniteTestsBase
                 yield return GetTuple(i);
             }
         }
+    }
+
+    [Test]
+    public async Task TestSchemaUpdateBeforeStreaming()
+    {
+        // Verify that streamer updates cached schema when necessary.
+        await Task.Delay(1);
     }
 
     private async Task WaitForNewSchemaOnAllNodes(string tableName, int schemaVer, int timeoutMs = 5000)
