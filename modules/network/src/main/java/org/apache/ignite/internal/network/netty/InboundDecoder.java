@@ -26,7 +26,6 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.direct.DirectMarshallingUtils;
 import org.apache.ignite.internal.network.direct.DirectMessageReader;
 import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
@@ -49,6 +48,9 @@ public class InboundDecoder extends ByteToMessageDecoder {
 
     /** Message deserializer channel attribute key. */
     private static final AttributeKey<MessageDeserializer<NetworkMessage>> DESERIALIZER_KEY = AttributeKey.valueOf("DESERIALIZER");
+
+    /** Message group type, for partially read message headers. */
+    private static final AttributeKey<Short> GROUP_TYPE_KEY = AttributeKey.valueOf("GROUP_TYPE");
 
     /** Serialization service. */
     private final PerSessionSerializationService serializationService;
@@ -77,20 +79,38 @@ public class InboundDecoder extends ByteToMessageDecoder {
 
         Attribute<MessageDeserializer<NetworkMessage>> messageAttr = ctx.channel().attr(DESERIALIZER_KEY);
 
+        Attribute<Short> groupTypeAttr = ctx.channel().attr(GROUP_TYPE_KEY);
+        Short groupType = groupTypeAttr.get();
+
+        reader.setBuffer(buffer);
+        MessageDeserializer<NetworkMessage> msg = messageAttr.get();
+
         while (buffer.hasRemaining()) {
             int initialNioBufferPosition = buffer.position();
-
-            MessageDeserializer<NetworkMessage> msg = messageAttr.get();
 
             try {
                 // Read message type.
                 if (msg == null) {
-                    if (buffer.remaining() >= NetworkMessage.MSG_TYPE_SIZE_BYTES) {
-                        msg = serializationService.createMessageDeserializer(DirectMarshallingUtils.getShort(buffer),
-                                DirectMarshallingUtils.getShort(buffer));
-                    } else {
+                    if (groupType == null) {
+                        groupType = reader.readHeaderShort();
+
+                        if (!reader.isLastRead()) {
+                            break;
+                        }
+                    }
+
+                    short messageType = reader.readHeaderShort();
+
+                    if (!reader.isLastRead()) {
+                        groupTypeAttr.set(groupType);
+
                         break;
                     }
+
+                    msg = serializationService.createMessageDeserializer(groupType, messageType);
+
+                    groupType = null;
+                    groupTypeAttr.set(null);
                 }
 
                 boolean finished = false;
@@ -98,7 +118,6 @@ public class InboundDecoder extends ByteToMessageDecoder {
                 // Read message if buffer has remaining data.
                 if (msg != null && buffer.hasRemaining()) {
                     reader.setCurrentReadClass(msg.klass());
-                    reader.setBuffer(buffer);
 
                     finished = msg.readMessage(reader);
                 }

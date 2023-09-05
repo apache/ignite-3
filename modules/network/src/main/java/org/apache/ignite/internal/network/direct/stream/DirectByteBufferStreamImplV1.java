@@ -236,27 +236,31 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeShort(short val) {
-        lastFinished = buf.remaining() >= 2;
+        lastFinished = buf.remaining() >= 3;
 
         if (lastFinished) {
+            val++;
+
             int pos = buf.position();
 
-            long off = baseOff + pos;
+            while ((val & 0xFF80) != 0) {
+                byte b = (byte) (val | 0x80);
 
-            if (IS_BIG_ENDIAN) {
-                GridUnsafe.putShortLittleEndian(heapArr, off, val);
-            } else {
-                GridUnsafe.putShort(heapArr, off, val);
+                GridUnsafe.putByte(heapArr, baseOff + pos++, b);
+
+                val >>>= 7;
             }
 
-            buf.position(pos + 2);
+            GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) val);
+
+            buf.position(pos);
         }
     }
 
     @Override
     public void writeBoxedShort(@Nullable Short val) {
         if (val != null) {
-            lastFinished = buf.remaining() >= 1 + 2;
+            lastFinished = buf.remaining() >= 1 + 3;
 
             if (lastFinished) {
                 writeBoolean(true);
@@ -1010,19 +1014,38 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public short readShort() {
-        lastFinished = buf.remaining() >= 2;
+        lastFinished = false;
 
-        if (lastFinished) {
-            int pos = buf.position();
+        short val = 0;
 
-            buf.position(pos + 2);
+        int pos = buf.position();
 
-            long off = baseOff + pos;
+        int limit = buf.limit();
 
-            return IS_BIG_ENDIAN ? GridUnsafe.getShortLittleEndian(heapArr, off) : GridUnsafe.getShort(heapArr, off);
-        } else {
-            return 0;
+        while (pos < limit) {
+            byte b = GridUnsafe.getByte(heapArr, baseOff + pos);
+
+            pos++;
+
+            prim |= ((long) b & 0x7F) << (7 * primShift);
+
+            if ((b & 0x80) == 0) {
+                lastFinished = true;
+
+                val = (short) (prim - 1);
+
+                prim = 0;
+                primShift = 0;
+
+                break;
+            } else {
+                primShift++;
+            }
         }
+
+        buf.position(pos);
+
+        return val;
     }
 
     @Override
