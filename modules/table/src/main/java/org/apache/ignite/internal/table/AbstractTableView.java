@@ -81,9 +81,7 @@ abstract class AbstractTableView {
         } else {
             Throwable mapped = IgniteExceptionMapperUtil.mapToPublicException(t);
 
-            if (mapped instanceof IgniteCheckedException) {
-                return new IgniteException(Common.INTERNAL_ERR, mapped);
-            } else if (mapped instanceof IgniteException) {
+            if (mapped instanceof IgniteException) {
                 return (IgniteException) mapped;
             } else {
                 return new IgniteException(Common.INTERNAL_ERR, mapped);
