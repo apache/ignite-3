@@ -17,16 +17,17 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -50,14 +51,14 @@ public class CreateSystemViewCommandValidationTest extends BaseIgniteAbstractTes
     public void newSystemView() {
         CreateSystemViewCommand command = CreateSystemViewCommand.builder()
                 .name("view")
-                .columns(List.of(ColumnParams.builder().name("C1").type(ColumnType.INT32).build()))
+                .columns(List.of(ColumnParams.builder().name("C1").type(INT32).build()))
                 .build();
 
         assertEquals("view", command.name());
 
         ColumnParams column = command.columns().get(0);
         assertEquals("C1", column.name());
-        assertEquals(ColumnType.INT32, column.type());
+        assertEquals(INT32, column.type());
 
         assertEquals(1, command.columns().size(), "num columns");
     }
@@ -65,23 +66,90 @@ public class CreateSystemViewCommandValidationTest extends BaseIgniteAbstractTes
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     public void nameShouldNotBeNullOrBlank(String name) {
-        expectThrows(() -> systemView().name(name).build(), "Name");
+        CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
+
+        builder = fillProperties(builder).name(name);
+
+        expectValidationError(builder::build, "Name");
+    }
+
+    @ParameterizedTest(name = "[{index}] {argumentsWithNames}")
+    @MethodSource("nullAndEmptyLists")
+    void tableShouldHaveAtLeastOneColumn(List<ColumnParams> columns) {
+        CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(columns);
+
+        expectValidationError(builder::build, "System view should have at least one column");
+    }
+
+    @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
+    @MethodSource("nullAndBlankStrings")
+    void tableColumnNameMustNotBeNullOrBlank(String name) {
+        CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(List.of(
+                ColumnParams.builder().name(name).build()
+        ));
+
+        expectValidationError(builder::build, "Name of the column can't be null or blank");
+    }
+
+    @Test
+    void tableColumnShouldHaveType() {
+        CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
+
+        builder = fillProperties(builder)
+                .columns(List.of(
+                        ColumnParams.builder()
+                                .name("C")
+                                .type(null)
+                                .build()
+                ));
+
+        expectValidationError(builder::build, "Missing column type: C");
+    }
+
+    @Test
+    void columnShouldNotHaveDuplicates() {
+        CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
+
+        ColumnParams column = ColumnParams.builder()
+                .name("C")
+                .type(INT32)
+                .build();
+
+        fillProperties(builder);
+
+        builder = builder.columns(List.of(column, column));
+
+        expectValidationError(builder::build, "Column with name 'C' specified more than once");
     }
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndEmptyLists")
     public void columnsNotNotBeNullNorEmpty(List<ColumnParams> columns) {
-        expectThrows(() -> systemView().columns(columns).build(), "System view should have at least one column");
+        CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
+
+        fillProperties(builder);
+
+        expectValidationError(() -> builder.columns(columns).build(), "System view should have at least one column");
     }
 
-    private static CreateSystemViewCommandBuilder systemView() {
-        return CreateSystemViewCommand.builder()
-                .name("view")
-                .columns(List.of(ColumnParams.builder().name("C").type(ColumnType.INT8).build()));
+    private static void expectValidationError(RunnableX runnable, String message) {
+        CatalogValidationException ex = assertThrows(CatalogValidationException.class, runnable::run);
+
+        assertThat(ex.getMessage(), containsString(message));
     }
 
-    private static void expectThrows(Supplier<CreateSystemViewCommand> builder, String errorMessage) {
-        CatalogValidationException t = assertThrows(CatalogValidationException.class, builder::get);
-        assertThat("error message", t.getMessage(), containsString(errorMessage));
+    private static CreateSystemViewCommandBuilder fillProperties(CreateSystemViewCommandBuilder builder) {
+        ColumnParams column = ColumnParams.builder().name("C").type(ColumnType.INT8).build();
+        List<ColumnParams> columns = List.of(column);
+
+        return builder.name("view").columns(columns);
     }
 }
