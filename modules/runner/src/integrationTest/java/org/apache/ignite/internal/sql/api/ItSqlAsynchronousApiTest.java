@@ -634,7 +634,12 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         {
             AsyncResultSet ars = await(ses.executeAsync(null, "SELECT * FROM TEST"));
             await(ars.closeAsync());
-            assertThrowsSqlException(CursorClosedException.class, Sql.CURSOR_CLOSED_ERR, "Cursor is closed", () -> await(ars.fetchNextPage()));
+
+            assertThrowsSqlException(
+                    CursorClosedException.class,
+                    Sql.CURSOR_CLOSED_ERR,
+                    "Cursor is closed",
+                    () -> await(ars.fetchNextPage()));
         }
     }
 
@@ -828,7 +833,8 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(expectedApplied, ses, sql, null);
     }
 
-    private static <T extends IgniteException> T checkError(Class<T> expCls, Integer code, String msg, Session ses, String sql, Object... args) {
+    private static <T extends IgniteException> T checkError(Class<T> expCls, Integer code, String msg, Session ses, String sql,
+            Object... args) {
         return assertThrowsPublicException(() -> await(ses.executeAsync(null, sql, args)), expCls, code, msg);
     }
 

@@ -93,7 +93,6 @@ public class SqlTestUtils {
         assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
 
         return ex;
-
     }
 
     /**

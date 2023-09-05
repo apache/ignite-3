@@ -306,7 +306,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     private static RuntimeException convertDdlException(Throwable e) {
-        System.out.println("!!!!!!!--------");
         e = ExceptionUtils.unwrapCause(e);
 
         if (e instanceof ConfigurationChangeException) {

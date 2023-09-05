@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
-
 import java.util.UUID;
 import org.apache.ignite.lang.RemoteException;
 import org.jetbrains.annotations.Nullable;
