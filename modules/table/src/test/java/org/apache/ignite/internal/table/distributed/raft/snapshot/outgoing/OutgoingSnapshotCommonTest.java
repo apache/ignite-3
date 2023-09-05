@@ -25,12 +25,14 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,9 +41,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class OutgoingSnapshotCommonTest {
+class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
     @Mock
     private PartitionAccess partitionAccess;
+
+    @Mock
+    private CatalogService catalogService;
 
     private OutgoingSnapshot snapshot;
 
@@ -49,11 +54,13 @@ class OutgoingSnapshotCommonTest {
 
     private final PartitionKey partitionKey = new PartitionKey(1, 1);
 
+    private static final int REQUIRED_CATALOG_VERSION = 42;
+
     @BeforeEach
     void createTestInstance() {
         when(partitionAccess.partitionKey()).thenReturn(partitionKey);
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
+        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, catalogService);
     }
 
     @Test
@@ -74,6 +81,8 @@ class OutgoingSnapshotCommonTest {
                 List.of("learner1:3000")
         ));
 
+        when(catalogService.latestCatalogVersion()).thenReturn(REQUIRED_CATALOG_VERSION);
+
         snapshot.freezeScopeUnderMvLock();
 
         SnapshotMetaResponse response = getSnapshotMetaResponse();
@@ -84,6 +93,7 @@ class OutgoingSnapshotCommonTest {
         assertThat(response.meta().learnersList(), is(List.of("learner1:3000", "learner2:3000")));
         assertThat(response.meta().oldPeersList(), is(List.of("peer1:3000")));
         assertThat(response.meta().oldLearnersList(), is(List.of("learner1:3000")));
+        assertThat(response.meta().requiredCatalogVersion(), is(REQUIRED_CATALOG_VERSION));
     }
 
     private SnapshotMetaResponse getSnapshotMetaResponse() {

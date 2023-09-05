@@ -85,26 +85,6 @@ public class ApiClientFactory {
         return getClientFromSettings(settingsWithAuth(path));
     }
 
-    /**
-     * Returns {@link ApiClient} for the base path with basic authentication.
-     *
-     * @param path Base path.
-     * @return created API client.
-     */
-    public ApiClient getClient(String path, String username, String password) {
-        return getClientFromSettings(settingsWithAuth(path, username, password));
-    }
-
-    /**
-     * Returns {@link ApiClient} for the base path without basic authentication.
-     *
-     * @param path Base path.
-     * @return created API client.
-     */
-    public ApiClient getClientWithoutBasicAuthentication(String path) {
-        return getClientFromSettings(settingsWithoutAuth(path));
-    }
-
     private ApiClient getClientFromSettings(ApiClientSettings settings) {
         ApiClient apiClient = clientMap.computeIfAbsent(settings, ApiClientFactory::buildClient);
         CliLoggers.addApiClient(settings.basePath(), apiClient);
@@ -112,20 +92,14 @@ public class ApiClientFactory {
     }
 
     private ApiClientSettings settingsWithAuth(String path) {
-        ApiClientSettingsBuilder builder = settingsBuilder(path);
+        ConfigManager configManager = configManagerProvider.get();
+        ApiClientSettingsBuilder builder = ApiClientSettings.builder()
+                .basePath(path)
+                .keyStorePath(configManager.getCurrentProperty(REST_KEY_STORE_PATH.value()))
+                .keyStorePassword(configManager.getCurrentProperty(REST_KEY_STORE_PASSWORD.value()))
+                .trustStorePath(configManager.getCurrentProperty(REST_TRUST_STORE_PATH.value()))
+                .trustStorePassword(configManager.getCurrentProperty(REST_TRUST_STORE_PASSWORD.value()));
         return setupAuthentication(builder).build();
-    }
-
-    private ApiClientSettings settingsWithAuth(String path, String username, String password) {
-        ApiClientSettingsBuilder clientSettingsBuilder = settingsBuilder(path);
-        clientSettingsBuilder.basicAuthenticationUsername(username);
-        clientSettingsBuilder.basicAuthenticationPassword(password);
-        return clientSettingsBuilder.build();
-    }
-
-    private ApiClientSettings settingsWithoutAuth(String path) {
-        ApiClientSettingsBuilder builder = settingsBuilder(path);
-        return builder.build();
     }
 
     private ApiClientSettingsBuilder settingsBuilder(String path) {

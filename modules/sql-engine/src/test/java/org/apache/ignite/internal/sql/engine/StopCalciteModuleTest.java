@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -50,8 +49,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.event.IndexEvent;
 import org.apache.ignite.internal.index.event.IndexEventParameters;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -76,8 +73,8 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
@@ -88,6 +85,7 @@ import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -99,10 +97,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Stop Calcite module test.
  */
 @ExtendWith(MockitoExtension.class)
-public class StopCalciteModuleTest {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(StopCalciteModuleTest.class);
-
+public class StopCalciteModuleTest extends BaseIgniteAbstractTest {
     private static final int ROWS = 5;
 
     private static final String NODE_NAME = "mock-node-name";
@@ -126,7 +121,7 @@ public class StopCalciteModuleTest {
     private MessagingService msgSrvc;
 
     @Mock
-    private TxManager txManager;
+    private IgniteTransactions transactions;
 
     @Mock
     private DistributionZoneManager distributionZoneManager;
@@ -228,8 +223,6 @@ public class StopCalciteModuleTest {
                 s.onComplete();
             };
         }).when(tbl).scan(anyInt(), any(), any());
-
-        LOG.info(">>>> Starting test {}", testInfo.getTestMethod().orElseThrow().getName());
     }
 
     @Test
@@ -241,7 +234,6 @@ public class StopCalciteModuleTest {
                 indexManager,
                 schemaManager,
                 dataStorageManager,
-                txManager,
                 distributionZoneManager,
                 Map::of,
                 mock(ReplicaService.class),
@@ -262,7 +254,7 @@ public class StopCalciteModuleTest {
         when(tbl.storage()).thenReturn(mock(MvTableStorage.class));
         when(tbl.storage().getTableDescriptor()).thenReturn(new StorageTableDescriptor(tblId, 1, "none"));
 
-        when(txManager.begin(anyBoolean(), any())).thenReturn(new NoOpTransaction(localNode.name()));
+        when(transactions.begin(any())).thenReturn(new NoOpTransaction(localNode.name()));
 
         qryProc.start();
 
@@ -274,6 +266,7 @@ public class StopCalciteModuleTest {
         var cursors = qryProc.querySingleAsync(
                 sessionId,
                 context,
+                transactions,
                 "SELECT * FROM TEST"
         );
 
@@ -299,6 +292,7 @@ public class StopCalciteModuleTest {
         assertTrue(assertThrows(IgniteInternalException.class, () -> qryProc.querySingleAsync(
                 sessionId,
                 context,
+                transactions,
                 "SELECT 1"
         )).getCause() instanceof NodeStoppingException);
 

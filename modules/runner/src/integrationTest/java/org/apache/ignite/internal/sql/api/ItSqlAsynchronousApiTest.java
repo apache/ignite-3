@@ -53,7 +53,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import javax.annotation.Nullable;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
@@ -88,9 +87,9 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Tests for asynchronous SQL API.
@@ -99,20 +98,11 @@ import org.junit.jupiter.api.TestInfo;
 public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
     private static final int ROW_COUNT = 16;
 
-    /**
-     * Clear tables after each test.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void dropTables() {
         for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
             sql("DROP TABLE " + t.name());
         }
-
-        tearDownBase(testInfo);
     }
 
     @Test
@@ -459,12 +449,13 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
     @Test
     public void select() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
 
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 4).build();
+
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            ses.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
 
         TestPageProcessor pageProc = new TestPageProcessor(4);
         await(ses.executeAsync(null, "SELECT ID FROM TEST").thenCompose(pageProc));
@@ -481,10 +472,11 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
     @Test
     public void metadata() {
         sql("CREATE TABLE TEST(COL0 BIGINT PRIMARY KEY, COL1 VARCHAR NOT NULL)");
-        sql("INSERT INTO TEST VALUES (?, ?)", 1L, "some string");
 
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().build();
+
+        ses.execute(null, "INSERT INTO TEST VALUES (?, ?)", 1L, "some string");
 
         AsyncResultSet<SqlRow> rs = await(ses.executeAsync(null, "SELECT COL1, COL0 FROM TEST"));
 
@@ -561,12 +553,13 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
     @Test
     public void pageSequence() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
 
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(1).build();
+
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            ses.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
 
         AsyncResultSet<SqlRow> ars0 = await(ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID"));
         var p0 = ars0.currentPage();
@@ -601,12 +594,13 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
     @Test
     public void errors() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT NOT NULL)");
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
 
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
+
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            ses.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
 
         // Parse error.
         checkError(SqlException.class, STMT_PARSE_ERR, "Failed to parse query", ses, "SELECT ID FROM");
@@ -678,19 +672,20 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
             );
             tx.commit();
 
-            assertEquals(1, sql("SELECT ID FROM TEST WHERE ID = -1").size());
+            assertTrue(await(ses.executeAsync(null, "SELECT ID FROM TEST WHERE ID = -1")).currentPage().iterator().hasNext());
         }
     }
 
     @Test
     public void closeSession() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
 
         IgniteSql sql = igniteSql();
         Session ses = sql.sessionBuilder().defaultPageSize(2).build();
+
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            ses.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
 
         AsyncResultSet ars0 = await(ses.executeAsync(null, "SELECT ID FROM TEST"));
 
@@ -769,13 +764,14 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
     @Test
     public void resultSetCloseShouldFinishImplicitTransaction() throws InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
 
         IgniteSql sql = igniteSql();
-
         Session ses = sql.sessionBuilder().defaultPageSize(2).build();
+
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            ses.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
         CompletableFuture<AsyncResultSet<SqlRow>> f = ses.executeAsync(null, "SELECT * FROM TEST");
 
         AsyncResultSet<SqlRow> ars = f.join();
@@ -790,14 +786,16 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
     @Test
     public void resultSetFullReadShouldFinishImplicitTransaction() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
 
         IgniteSql sql = igniteSql();
 
         // Fetch all data in one read.
         Session ses = sql.sessionBuilder().defaultPageSize(100).build();
+
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            ses.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
         CompletableFuture<AsyncResultSet<SqlRow>> f = ses.executeAsync(null, "SELECT * FROM TEST");
 
         AsyncResultSet<SqlRow> ars = f.join();

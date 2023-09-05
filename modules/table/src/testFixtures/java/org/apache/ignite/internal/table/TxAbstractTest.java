@@ -57,6 +57,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
@@ -114,6 +115,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     protected static final double BALANCE_2 = 500;
 
     protected static final double DELTA = 100;
+
+    protected HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
 
     protected IgniteTransactions igniteTransactions;
 
@@ -1541,7 +1544,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                     }
 
                     while (!stop.get() && firstErr.get() == null) {
-                        InternalTransaction tx = txManager(accounts).begin();
+                        InternalTransaction tx = txManager(accounts).begin(timestampTracker);
 
                         var table = accounts.recordView();
 
@@ -1947,7 +1950,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         var txId = ((ReadWriteTransactionImpl) tx).id();
 
-        Transaction sameTxWithoutFinishGuard = new ReadWriteTransactionImpl(txManager(accounts), txId);
+        Transaction sameTxWithoutFinishGuard = new ReadWriteTransactionImpl(txManager(accounts), timestampTracker, txId);
 
         log.info("Started transaction {}", txId);
 

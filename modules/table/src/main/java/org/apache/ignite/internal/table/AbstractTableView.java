@@ -76,7 +76,7 @@ abstract class AbstractTableView {
             return (IgniteException) th;
         }
 
-        //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
+        //TODO: IGNITE-20181 KV/Binary view public API should only throw public exceptions for the end user.
         return new IgniteException(th);
     }
 }

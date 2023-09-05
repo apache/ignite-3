@@ -39,6 +39,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Persis
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -47,7 +48,7 @@ import org.mockito.ArgumentCaptor;
  * For {@link PageMemoryDataRegionValidatorImpl} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class PageMemoryDataRegionValidatorImplTest {
+public class PageMemoryDataRegionValidatorImplTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private VolatilePageMemoryStorageEngineConfiguration volatileEngineConfig;
 

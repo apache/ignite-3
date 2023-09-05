@@ -30,6 +30,7 @@ import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.TestExporter;
 import org.apache.ignite.internal.metrics.exporters.TestExporterChange;
 import org.apache.ignite.internal.metrics.exporters.TestExporterConfigurationSchema;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,7 +39,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for exporters' configurations.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class MetricConfigurationTest {
+public class MetricConfigurationTest extends BaseIgniteAbstractTest {
     @InjectConfiguration(
             polymorphicExtensions = {
                     TestExporterConfigurationSchema.class

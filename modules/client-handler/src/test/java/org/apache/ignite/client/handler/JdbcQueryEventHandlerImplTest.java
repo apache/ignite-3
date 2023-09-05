@@ -175,7 +175,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         when(queryProcessor.createSession(any())).thenReturn(expectedSessionId);
 
-        when(queryProcessor.querySingleAsync(eq(expectedSessionId), any(), any()))
+        when(queryProcessor.querySingleAsync(eq(expectedSessionId), any(), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("This is fine")));
 
         long connectionId = acquireConnectionId();
@@ -185,7 +185,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         )));
 
         verify(queryProcessor).createSession(any());
-        verify(queryProcessor).querySingleAsync(eq(expectedSessionId), any(), any(), any(Object[].class));
+        verify(queryProcessor).querySingleAsync(eq(expectedSessionId), any(), any(), any(), any(Object[].class));
         verifyNoMoreInteractions(queryProcessor);
     }
 
@@ -240,7 +240,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void singleTxUsedForMultipleOperations() {
-        when(queryProcessor.querySingleAsync(any(), any(), any()))
+        when(queryProcessor.querySingleAsync(any(), any(), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Expected")));
 
         Transaction tx = mock(Transaction.class);
@@ -273,7 +273,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         verify(tx).commitAsync();
 
         verifyNoMoreInteractions(igniteTransactions);
-        verify(queryProcessor, times(5)).querySingleAsync(any(), any(), any(), any(Object[].class));
+        verify(queryProcessor, times(5)).querySingleAsync(any(), any(), any(), any(), any(Object[].class));
     }
 
     @Test

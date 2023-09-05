@@ -41,6 +41,7 @@ import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.RepeatedTest;
@@ -51,7 +52,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Abstract class for testing descendants of {@link AbstractFilePageStoreIo}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public abstract class AbstractFilePageStoreIoTest {
+public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest {
     protected static final int PAGE_SIZE = 1024;
 
     @WorkDirectory

@@ -300,8 +300,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
         this.lsnr = lsnr;
 
-        // TODO: registerPrefixWatch could throw OperationTimeoutException and CompactedException and we should
-        // TODO: properly handle such cases https://issues.apache.org/jira/browse/IGNITE-14604
         metaStorageMgr.registerPrefixWatch(DST_KEYS_START_RANGE, new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent events) {
@@ -339,8 +337,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
             @Override
             public void onError(Throwable e) {
-                // TODO: need to handle this case and there should some mechanism for registering new watch as far as
-                // TODO: onError unregisters failed watch https://issues.apache.org/jira/browse/IGNITE-14604
                 LOG.warn("Meta storage listener issue", e);
             }
         });

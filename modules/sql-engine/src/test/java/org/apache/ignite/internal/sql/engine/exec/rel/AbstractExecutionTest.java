@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
@@ -32,6 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
@@ -47,6 +49,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.thread.LogUncaughtExceptionHandler;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
@@ -94,6 +97,14 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
                     new LogUncaughtExceptionHandler(log),
                     false,
                     0);
+
+            StripedThreadPoolExecutor stripedThreadPoolExecutor = (StripedThreadPoolExecutor) IgniteTestUtils.getFieldValue(
+                    taskExecutor,
+                    QueryTaskExecutorImpl.class,
+                    "stripedThreadPoolExecutor"
+            );
+            stripedThreadPoolExecutor.shutdown();
+
             IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
         }
 
@@ -182,6 +193,7 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
         @Override public void shutdown() {
             stop.set(true);
 
+            exec.shutdown();
             fut.cancel(true);
 
             super.shutdown();
@@ -191,9 +203,10 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
         @Override public List<Runnable> shutdownNow() {
             stop.set(true);
 
+            List<Runnable> runnables = exec.shutdownNow();
             fut.cancel(true);
 
-            return super.shutdownNow();
+            return Stream.concat(runnables.stream(), super.shutdownNow().stream()).collect(Collectors.toList());
         }
     }
 
@@ -342,6 +355,11 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
             @Override
             public Object[] create(Object... fields) {
                 return fields;
+            }
+
+            @Override
+            public Object[] create(ByteBuffer raw) {
+                return ByteUtils.fromBytes(raw.array());
             }
         };
     }

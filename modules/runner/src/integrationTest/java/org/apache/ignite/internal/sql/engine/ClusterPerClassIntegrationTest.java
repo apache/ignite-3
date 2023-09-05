@@ -82,9 +82,7 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 
@@ -232,28 +230,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
-     * Invokes before the test will start.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
-    @BeforeEach
-    public void setup(TestInfo testInfo) throws Exception {
-        setupBase(testInfo, WORK_DIR);
-    }
-
-    /**
-     * Invokes after the test has finished.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
-    @AfterEach
-    public void tearDown(TestInfo testInfo) throws Exception {
-        tearDownBase(testInfo);
-    }
-
-    /**
      * Returns table index configuration of the given index at the given node, or {@code null} if no such index exists.
      *
      * @param node  A node.
@@ -286,6 +262,11 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             @Override
             protected QueryProcessor getEngine() {
                 return ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
+            }
+
+            @Override
+            protected IgniteTransactions transactions() {
+                return CLUSTER_NODES.get(0).transactions();
             }
         };
     }
@@ -446,7 +427,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             var context = QueryContext.create(SqlQueryType.ALL, tx);
 
             return getAllFromCursor(
-                    await(queryEngine.querySingleAsync(sessionId, context, sql, args))
+                    await(queryEngine.querySingleAsync(sessionId, context, CLUSTER_NODES.get(0).transactions(), sql, args))
             );
         } finally {
             queryEngine.closeSession(sessionId);

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.externalize;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.sql.engine.util.Commons.rexBuilder;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -95,6 +96,7 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSelectKeyword;
 import org.apache.calcite.sql.SqlSyntax;
 import org.apache.calcite.sql.SqlWindow;
+import org.apache.calcite.sql.fun.SqlLiteralAggFunction;
 import org.apache.calcite.sql.fun.SqlTrimFunction;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
@@ -337,6 +339,11 @@ class RelJson {
         map.put("operands", node.getArgList());
         map.put("filter", node.filterArg);
         map.put("name", node.getName());
+        // workaround for https://issues.apache.org/jira/browse/CALCITE-5969
+        if (node.getAggregation() == SqlLiteralAggFunction.INSTANCE) {
+            RexNode boolLiteral = rexBuilder().makeLiteral(true);
+            map.put("rexList", toJson(boolLiteral));
+        }
         return map;
     }
 
@@ -676,6 +683,11 @@ class RelJson {
         List<Integer> keys = (List<Integer>) map.get("keys");
 
         switch (functionName) {
+            case "identity": {
+                assert keys.size() == 1;
+
+                return IgniteDistributions.identity(keys.get(0));
+            }
             case "hash":
                 return IgniteDistributions.hash(keys, DistributionFunction.hash());
             default: {
@@ -700,7 +712,7 @@ class RelJson {
         } else if (o instanceof Map) {
             Map<String, Object> map = (Map<String, Object>) o;
             String clazz = (String) map.get("class");
-            boolean nullable = Boolean.TRUE == map.get("nullable");
+            boolean nullable = Boolean.TRUE.equals(map.get("nullable"));
 
             if (clazz != null) {
                 RelDataType type = typeFactory.createJavaType(classForName(clazz, false));
@@ -821,7 +833,7 @@ class RelJson {
                 // Check if it is a local ref.
                 if (map.containsKey("type")) {
                     RelDataType type = toType(typeFactory, map.get("type"));
-                    return map.get("dynamic") == Boolean.TRUE
+                    return Boolean.TRUE.equals(map.get("dynamic"))
                             ? rexBuilder.makeDynamicParam(type, input)
                             : rexBuilder.makeLocalRef(type, input);
                 }

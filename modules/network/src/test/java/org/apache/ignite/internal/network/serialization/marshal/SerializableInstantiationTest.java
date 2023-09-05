@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -32,7 +33,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for {@link SerializableInstantiation}.
  */
 @ExtendWith(MockitoExtension.class)
-class SerializableInstantiationTest {
+class SerializableInstantiationTest extends BaseIgniteAbstractTest {
     private final Instantiation instantiation = new SerializableInstantiation();
 
     @Test

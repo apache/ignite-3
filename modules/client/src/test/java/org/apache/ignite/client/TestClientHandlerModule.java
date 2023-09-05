@@ -30,6 +30,7 @@ import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
@@ -198,7 +199,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         compute,
                                         clusterService,
                                         ignite.sql(),
-                                        clusterId,
+                                        CompletableFuture.completedFuture(clusterId),
                                         metrics,
                                         authenticationManager(authenticationConfiguration),
                                         clock));

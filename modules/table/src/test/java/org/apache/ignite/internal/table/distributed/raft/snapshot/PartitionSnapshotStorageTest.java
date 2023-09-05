@@ -24,8 +24,10 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.startup.StartupPartitionSnapshotReader;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
@@ -33,7 +35,7 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-class PartitionSnapshotStorageTest {
+class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
     @Test
     void returnsNullWhenOpeningOnCleanStorage() {
         var storage = storageForStartupMeta(null);
@@ -60,6 +62,7 @@ class PartitionSnapshotStorageTest {
                 "",
                 mock(RaftOptions.class),
                 mock(PartitionAccess.class),
+                mock(CatalogService.class),
                 metaForCleanStorage,
                 mock(Executor.class)
         );

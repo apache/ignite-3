@@ -24,6 +24,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.junit.jupiter.api.Test;
@@ -32,7 +34,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class ReadWriteTransactionImplTest {
+class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
     @Mock
     private TxManager txManager;
 
@@ -43,7 +45,7 @@ class ReadWriteTransactionImplTest {
         HybridTimestamp beginTs = clock.now();
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(beginTs);
 
-        var tx = new ReadWriteTransactionImpl(txManager, txId);
+        var tx = new ReadWriteTransactionImpl(txManager, new HybridTimestampTracker(), txId);
 
         assertThat(tx.startTimestamp(), is(beginTs));
     }

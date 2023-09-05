@@ -26,23 +26,27 @@ import static org.apache.calcite.rel.core.JoinRelType.LEFT;
 import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
 import static org.apache.calcite.rel.core.JoinRelType.SEMI;
 import static org.apache.ignite.internal.sql.engine.util.Commons.getFieldFromBiRows;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -59,7 +63,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  * ExecutionTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-@DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
 public class ExecutionTest extends AbstractExecutionTest {
     @Test
     public void testSimpleExecution() {
@@ -117,6 +120,29 @@ public class ExecutionTest extends AbstractExecutionTest {
 
         assertArrayEquals(new Object[]{2, "Ivan", "Calcite"}, rows.get(0));
         assertArrayEquals(new Object[]{2, "Ivan", "Ignite"}, rows.get(1));
+    }
+
+    @Test
+    public void testRowFactoryAssembly() {
+        ExecutionContext<Object[]> ctx = executionContext(false);
+
+        RelDataType rowType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, String.class, boolean.class);
+
+        RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+
+        RowFactory<Object[]> rowFactory = ctx.rowHandler().factory(rowSchema);
+
+        Object[] row1 = rowFactory.create();
+
+        ctx.rowHandler().set(0, row1, 1);
+        ctx.rowHandler().set(1, row1, "2");
+        ctx.rowHandler().set(2, row1, false);
+
+        ByteBuffer bb = ctx.rowHandler().toByteBuffer(row1);
+
+        Object[] row2 = rowFactory.create(bb);
+
+        assertArrayEquals(row1, row2);
     }
 
     @Test
@@ -435,6 +461,14 @@ public class ExecutionTest extends AbstractExecutionTest {
      */
     @ParameterizedTest
     @MethodSource("provideArgumentsForCnlJtest")
+    @DisabledOnOs(value = OS.WINDOWS, disabledReason =
+            "This test uses AbstractExecutionTest.IgniteTestStripedThreadPoolExecutor"
+                    + "which use LockSupport.parkNanos as way to sleep with nanotime to emulate different JVM pauses or another cases."
+                    + "Windows doesn't support park() with nanos argument,"
+                    + " see https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/19fb8f93c59dfd791f62d41f332db9e306bc1422/src/hotspot/os/windows/os_windows.cpp#L5228C59-L5228C59"
+                    + "So, as described above Windows OS doesn't support nanotime park "
+                    + "without additional manipulation (different hacks via JNI)."
+    )
     public void testCorrelatedNestedLoopJoin(int leftSize, int rightSize, int rightBufSize, JoinRelType joinType) {
         ExecutionContext<Object[]> ctx = executionContext(true);
         IgniteTypeFactory tf = ctx.getTypeFactory();

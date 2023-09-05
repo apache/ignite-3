@@ -23,13 +23,14 @@ import static org.hamcrest.Matchers.nullValue;
 
 import java.util.List;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class SnapshotMetaUtilsTest {
+class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
     @Test
     void buildsSnapshotMeta() {
         RaftGroupConfiguration config = new RaftGroupConfiguration(
@@ -37,7 +38,7 @@ class SnapshotMetaUtilsTest {
                 List.of("peer1:3000"), List.of("learner1:3000")
         );
 
-        SnapshotMeta meta = SnapshotMetaUtils.snapshotMetaAt(100, 3, config);
+        SnapshotMeta meta = SnapshotMetaUtils.snapshotMetaAt(100, 3, config, 42);
 
         assertThat(meta.lastIncludedIndex(), is(100L));
         assertThat(meta.lastIncludedTerm(), is(3L));
@@ -45,11 +46,12 @@ class SnapshotMetaUtilsTest {
         assertThat(meta.learnersList(), is(List.of("learner1:3000", "learner2:3000")));
         assertThat(meta.oldPeersList(), is(List.of("peer1:3000")));
         assertThat(meta.oldLearnersList(), is(List.of("learner1:3000")));
+        assertThat(meta.requiredCatalogVersion(), is(42));
     }
 
     @Test
     void doesNotIncludeOldConfigWhenItIsNotThere() {
-        SnapshotMeta meta = SnapshotMetaUtils.snapshotMetaAt(100, 3, new RaftGroupConfiguration(List.of(), List.of(), null, null));
+        SnapshotMeta meta = SnapshotMetaUtils.snapshotMetaAt(100, 3, new RaftGroupConfiguration(List.of(), List.of(), null, null), 42);
 
         assertThat(meta.oldPeersList(), is(nullValue()));
         assertThat(meta.oldLearnersList(), is(nullValue()));

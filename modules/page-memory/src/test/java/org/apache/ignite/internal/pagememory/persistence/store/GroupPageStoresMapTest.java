@@ -37,6 +37,7 @@ import java.util.Collection;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.apache.ignite.internal.pagememory.persistence.store.GroupPageStoresMap.GroupPartitionPageStore;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,7 +46,7 @@ import org.junit.jupiter.api.Test;
 /**
  * For {@link GroupPageStoresMap} testing.
  */
-public class GroupPageStoresMapTest {
+public class GroupPageStoresMapTest extends BaseIgniteAbstractTest {
     private LongOperationAsyncExecutor longOperationAsyncExecutor;
 
     private GroupPageStoresMap<PageStore> groupPageStoresMap;

@@ -20,8 +20,10 @@ package org.apache.ignite.internal.sql.engine.sql.fun;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.fun.SqlInternalOperators;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.fun.SqlSubstringFunction;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -97,11 +99,6 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
                     null,
                     OperandTypes.SAME_SAME,
                     SqlFunctionCategory.SYSTEM);
-
-    /**
-     * Substring function.
-     */
-    public static final SqlFunction SUBSTRING = new SqlSubstringFunction();
 
     /**
      * Generic {@code SUBSTR(string, position [, length]} function.
@@ -249,7 +246,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlLibraryOperators.FROM_BASE64);
         register(SqlLibraryOperators.MD5);
         register(SqlLibraryOperators.SHA1);
-        register(SUBSTRING);
+        register(SqlStdOperatorTable.SUBSTRING);
         register(SqlLibraryOperators.LEFT);
         register(SqlLibraryOperators.RIGHT);
         register(SqlStdOperatorTable.REPLACE);
@@ -415,6 +412,9 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.IS_NOT_JSON_OBJECT);
         register(SqlStdOperatorTable.IS_NOT_JSON_ARRAY);
         register(SqlStdOperatorTable.IS_NOT_JSON_SCALAR);
+
+        // Aggregate functions.
+        register(SqlInternalOperators.LITERAL_AGG);
 
         // Current time functions.
         register(SqlStdOperatorTable.CURRENT_TIME);

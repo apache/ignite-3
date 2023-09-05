@@ -24,6 +24,7 @@ dependencies {
     implementation libs.jetbrains.annotations
     api libs.rocksdb.jni
 
+    testImplementation testFixtures(project(':ignite-core'))
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.junit
 }

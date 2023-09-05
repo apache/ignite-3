@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.server.impl;
 
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
@@ -74,9 +75,13 @@ import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.rpc.impl.NullActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
+import org.apache.ignite.raft.jraft.rpc.impl.core.NullAppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.StableClosureEvent;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
@@ -121,11 +126,17 @@ public class JraftServerImpl implements RaftServer {
     /** Request executor. */
     private ExecutorService requestExecutor;
 
-    /** Marshaller for RAFT commands. */
-    private final Marshaller commandsMarshaller;
+    /** Marshaller for RAFT commands that is used if a marshaller is not specified in {@link RaftGroupOptions}. */
+    private final Marshaller defaultCommandsMarshaller;
 
     /** Raft service event interceptor. */
-    private RaftServiceEventInterceptor serviceEventInterceptor;
+    private final RaftServiceEventInterceptor serviceEventInterceptor;
+
+    /** Interceptor for AppendEntriesRequests. Not thread-safe, should be assigned and read in the same thread. */
+    private AppendEntriesRequestInterceptor appendEntriesRequestInterceptor = new NullAppendEntriesRequestInterceptor();
+
+    /** Interceptor for ActionRequests. Not thread-safe, should be assigned and read in the same thread. */
+    private ActionRequestInterceptor actionRequestInterceptor = new NullActionRequestInterceptor();
 
     /** The number of parallel raft groups starts. */
     private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
@@ -189,8 +200,28 @@ public class JraftServerImpl implements RaftServer {
 
         startGroupInProgressMonitors = Collections.unmodifiableList(monitors);
 
-        commandsMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
+        defaultCommandsMarshaller = new ThreadLocalOptimizedMarshaller(service.serializationRegistry());
         serviceEventInterceptor = new RaftServiceEventInterceptor();
+    }
+
+    /**
+     * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
+     * to {@link #start()} the component.
+     *
+     * @param appendEntriesRequestInterceptor Interceptor to use.
+     */
+    public void appendEntriesRequestInterceptor(AppendEntriesRequestInterceptor appendEntriesRequestInterceptor) {
+        this.appendEntriesRequestInterceptor = appendEntriesRequestInterceptor;
+    }
+
+    /**
+     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used
+     * to {@link #start()} the component.
+     *
+     * @param actionRequestInterceptor Interceptor to use.
+     */
+    public void actionRequestInterceptor(ActionRequestInterceptor actionRequestInterceptor) {
+        this.actionRequestInterceptor = actionRequestInterceptor;
     }
 
     /** {@inheritDoc} */
@@ -239,7 +270,9 @@ public class JraftServerImpl implements RaftServer {
                 opts.getRaftMessagesFactory(),
                 requestExecutor,
                 serviceEventInterceptor,
-                raftGroupEventsClientListener
+                raftGroupEventsClientListener,
+                appendEntriesRequestInterceptor,
+                actionRequestInterceptor
         );
 
         if (opts.getfSMCallerExecutorDisruptor() == null) {
@@ -424,6 +457,9 @@ public class JraftServerImpl implements RaftServer {
             nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
 
             nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
+
+            Marshaller commandsMarshaller = requireNonNullElse(groupOptions.commandsMarshaller(), defaultCommandsMarshaller);
+            nodeOptions.setCommandsMarshaller(commandsMarshaller);
 
             nodeOptions.setFsm(new DelegatingStateMachine(lsnr, commandsMarshaller));
 

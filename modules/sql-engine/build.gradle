@@ -57,6 +57,8 @@ dependencies {
     implementation libs.classgraph
     implementation libs.javassist
     implementation libs.auto.service.annotations
+    implementation libs.jsr305
+    implementation libs.guava
 
     annotationProcessor project(':ignite-network-annotation-processor')
     annotationProcessor libs.value.annotation.processor
@@ -93,5 +95,7 @@ dependencies {
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-schema')
+    testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation libs.jetbrains.annotations
+    testFixturesImplementation libs.hamcrest.core
 }

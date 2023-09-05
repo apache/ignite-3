@@ -27,6 +27,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHolder;
 import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionInfo;
+import org.apache.ignite.tx.IgniteTransactions;
 
 /**
  * Fake {@link QueryProcessor}.
@@ -49,7 +50,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
 
     @Override
     public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(
-            SessionId sessionid, QueryContext context, String qry,
+            SessionId sessionid, QueryContext context, IgniteTransactions transactions, String qry,
             Object... params) {
         return CompletableFuture.completedFuture(new FakeCursor());
     }

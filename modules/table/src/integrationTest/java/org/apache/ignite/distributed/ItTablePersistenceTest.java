@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
@@ -90,6 +91,7 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -154,7 +156,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     /** Map of node indexes to transaction managers. */
     private final Map<Integer, TxManager> txManagers = new ConcurrentHashMap<>();
 
-    private ReplicaService replicaService;
+    private final ReplicaService replicaService = mock(ReplicaService.class);
 
     private final Function<String, ClusterNode> consistentIdToNode = addr
             -> new ClusterNodeImpl(NODE_NAME, NODE_NAME, new NetworkAddress(addr, 3333));
@@ -187,18 +189,24 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     public void beforeFollowerStop(RaftGroupService service, RaftServer server) throws Exception {
         PartitionReplicaListener partitionReplicaListener = mockPartitionReplicaListener(service);
 
-        replicaService = mock(ReplicaService.class);
-
         when(replicaService.invoke(any(ClusterNode.class), any()))
-                .thenAnswer(invocationOnMock -> partitionReplicaListener.invoke(invocationOnMock.getArgument(1)));
+                .thenAnswer(invocationOnMock -> {
+                    ClusterNode node = invocationOnMock.getArgument(0);
+
+                    return partitionReplicaListener.invoke(invocationOnMock.getArgument(1), node.id());
+                });
 
         for (int i = 0; i < nodes(); i++) {
-            TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i));
-            txManagers.put(i, txManager);
-            closeables.add(txManager::stop);
+            if (!txManagers.containsKey(i)) {
+                TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(i),
+                        () -> "local");
+                txManagers.put(i, txManager);
+                closeables.add(txManager::stop);
+            }
         }
 
-        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1));
+        TxManager txManager = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock, new TransactionIdGenerator(-1),
+                () -> "local");
         closeables.add(txManager::stop);
 
         table = new InternalTableImpl(
@@ -212,6 +220,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 new TestTxStateTableStorage(),
                 replicaService,
                 hybridClock,
+                new HybridTimestampTracker(),
                 new TestPlacementDriver(NODE_NAME)
         );
 
@@ -223,7 +232,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     private PartitionReplicaListener mockPartitionReplicaListener(RaftGroupService service) {
         PartitionReplicaListener partitionReplicaListener = mock(PartitionReplicaListener.class);
 
-        when(partitionReplicaListener.invoke(any())).thenAnswer(invocationOnMock -> {
+        when(partitionReplicaListener.invoke(any(), any())).thenAnswer(invocationOnMock -> {
             ReplicaRequest req = invocationOnMock.getArgument(0);
 
             if (req instanceof ReadWriteSingleRowReplicaRequest) {
@@ -264,6 +273,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         .rowUuid(new RowId(0).uuid())
                         .rowMessage(binaryRow)
                         .safeTimeLong(hybridClock.nowLong())
+                        .txCoordinatorId(UUID.randomUUID().toString())
                         .build();
 
                 return service.run(cmd);
@@ -276,6 +286,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                         .commitTimestampLong(req0.commitTimestampLong())
                         .tablePartitionIds(asList(tablePartitionId(new TablePartitionId(1, 0))))
                         .safeTimeLong(hybridClock.nowLong())
+                        .txCoordinatorId(UUID.randomUUID().toString())
                         .build();
 
                 return service.run(cmd)
@@ -285,6 +296,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                                     .commit(req0.commit())
                                     .commitTimestampLong(req0.commitTimestampLong())
                                     .safeTimeLong(hybridClock.nowLong())
+                                    .txCoordinatorId(UUID.randomUUID().toString())
                                     .build();
 
                             return service.run(cleanupCmd);
@@ -414,7 +426,17 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
                     );
 
+                    TxManager txManager = txManagers.computeIfAbsent(index, k -> {
+                        TxManager txMgr = new TxManagerImpl(replicaService, new HeapLockManager(), hybridClock,
+                                new TransactionIdGenerator(index), () -> "local");
+                        txMgr.start();
+                        closeables.add(txMgr::stop);
+
+                        return txMgr;
+                    });
+
                     PartitionListener listener = new PartitionListener(
+                            txManager,
                             partitionDataStorage,
                             storageUpdateHandler,
                             new TestTxStateStorage(),
