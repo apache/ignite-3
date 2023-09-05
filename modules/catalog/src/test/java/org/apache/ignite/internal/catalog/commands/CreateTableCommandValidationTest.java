@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
 
 import java.util.List;
@@ -30,7 +31,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests to verify validation of {@link CreateTableCommand}.
  */
-@SuppressWarnings("DataFlowIssue")
+@SuppressWarnings({"DataFlowIssue", "ThrowableNotThrown"})
 public class CreateTableCommandValidationTest extends AbstractCommandValidationTest {
 
 
@@ -43,7 +44,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         builder.schemaName(name);
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "Name of the schema can't be null or blank"
@@ -59,7 +60,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         builder.tableName(name);
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "Name of the table can't be null or blank"
@@ -75,7 +76,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         builder.columns(columns);
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "Table should have at least one column"
@@ -93,7 +94,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                 ColumnParams.builder().name(name).build()
         ));
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "Name of the column can't be null or blank"
@@ -112,7 +113,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                                 .build()
                 ));
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "Missing column type: C"
@@ -130,7 +131,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         builder = fillProperties(builder).columns(List.of(column, column));
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "Column with name 'C' specified more than once"
@@ -146,7 +147,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         builder.primaryKeyColumns(columns);
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "Table should have primary key"
@@ -160,7 +161,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         builder = fillProperties(builder)
                 .primaryKeyColumns(List.of("C", "C"));
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "PK column 'C' specified more that once"
@@ -174,7 +175,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         builder = fillProperties(builder)
                 .primaryKeyColumns(List.of("foo"));
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "PK column 'foo' is not part of table"
@@ -188,7 +189,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         builder = fillProperties(builder)
                 .colocationColumns(List.of());
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "Colocation columns could not be empty"
@@ -202,7 +203,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         builder = fillProperties(builder)
                 .colocationColumns(List.of("C", "C"));
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "Colocation column 'C' specified more that once"
@@ -228,7 +229,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                 .primaryKeyColumns(List.of("C1"))
                 .colocationColumns(List.of("C2"));
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "Colocation column 'C2' is not part of PK"
@@ -258,7 +259,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         CatalogCommand command = fillProperties(builder).schemaName(SCHEMA_NAME + "_UNK").build();
 
-        assertThrows(
+        assertThrowsWithCause(
                 () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
@@ -273,7 +274,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         CatalogCommand command = fillProperties(builder).zone(ZONE_NAME + "_UNK").build();
 
-        assertThrows(
+        assertThrowsWithCause(
                 () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Distribution zone with name 'DEFAULT_UNK' not found"
@@ -288,7 +289,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
-        assertThrows(
+        assertThrowsWithCause(
                 () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST' already exists"
@@ -303,7 +304,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
-        assertThrows(
+        assertThrowsWithCause(
                 () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Index with name 'PUBLIC.TEST' already exists"
@@ -318,7 +319,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
-        assertThrows(
+        assertThrowsWithCause(
                 () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST_PK' already exists"
@@ -333,7 +334,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         CatalogCommand command = fillProperties(builder).tableName("TEST").build();
 
-        assertThrows(
+        assertThrowsWithCause(
                 () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Index with name 'PUBLIC.TEST_PK' already exists"

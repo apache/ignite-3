@@ -31,7 +31,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * A command that drops table with specified name.
@@ -67,9 +66,9 @@ public class DropTableCommand extends AbstractTableCommand {
      * Implementation of {@link DropTableCommandBuilder}.
      */
     private static class Builder implements DropTableCommandBuilder {
-        private @Nullable String schemaName;
+        private String schemaName;
 
-        private @Nullable String tableName;
+        private String tableName;
 
         @Override
         public DropTableCommandBuilder schemaName(String schemaName) {
@@ -85,7 +84,6 @@ public class DropTableCommand extends AbstractTableCommand {
             return this;
         }
 
-        @SuppressWarnings("DataFlowIssue") // params are validated in constructor
         @Override
         public CatalogCommand build() {
             return new DropTableCommand(

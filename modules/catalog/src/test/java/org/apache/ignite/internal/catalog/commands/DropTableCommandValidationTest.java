@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -27,6 +29,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests to verify validation of {@link DropTableCommand}.
  */
+@SuppressWarnings("ThrowableNotThrown")
 public class DropTableCommandValidationTest extends AbstractCommandValidationTest {
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
@@ -36,7 +39,7 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
         builder.tableName("TEST")
                 .schemaName(name);
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "Name of the schema can't be null or blank"
@@ -51,7 +54,7 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
         builder.schemaName("TEST")
                 .tableName(name);
 
-        assertThrows(
+        assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
                 "Name of the table can't be null or blank"
@@ -69,7 +72,7 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
                 .tableName("TEST")
                 .build();
 
-        assertThrows(
+        assertThrowsWithCause(
                 () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
@@ -87,7 +90,7 @@ public class DropTableCommandValidationTest extends AbstractCommandValidationTes
                 .tableName("TEST")
                 .build();
 
-        assertThrows(
+        assertThrowsWithCause(
                 () -> command.get(catalog),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST' not found"

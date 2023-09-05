@@ -42,7 +42,6 @@ import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
 import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * A command that adds a new table to the catalog.
@@ -189,17 +188,17 @@ public class CreateTableCommand extends AbstractTableCommand {
      * Implementation of {@link CreateTableCommandBuilder}.
      */
     private static class Builder implements CreateTableCommandBuilder {
-        private @Nullable List<ColumnParams> columns;
+        private List<ColumnParams> columns;
 
-        private @Nullable String schemaName;
+        private String schemaName;
 
-        private @Nullable String tableName;
+        private String tableName;
 
-        private @Nullable List<String> primaryKeyColumns;
+        private List<String> primaryKeyColumns;
 
-        private @Nullable List<String> colocationColumns;
+        private List<String> colocationColumns;
 
-        private @Nullable String zoneName;
+        private String zoneName;
 
         @Override
         public CreateTableCommandBuilder schemaName(String schemaName) {
@@ -243,7 +242,6 @@ public class CreateTableCommand extends AbstractTableCommand {
             return this;
         }
 
-        @SuppressWarnings("DataFlowIssue") // params are validated in constructor
         @Override
         public CatalogCommand build() {
             String zoneName = requireNonNullElse(this.zoneName, CatalogService.DEFAULT_ZONE_NAME);

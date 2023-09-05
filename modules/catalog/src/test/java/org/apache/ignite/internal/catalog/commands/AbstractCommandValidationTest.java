@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.sql.ColumnType.INT32;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
@@ -35,9 +34,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
-import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.provider.Arguments;
 
 /**
@@ -64,18 +60,6 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
 
     static Stream<Arguments> nullAndEmptyLists() {
         return Stream.of(null, List.of()).map(Arguments::of);
-    }
-
-    static <T extends Throwable> void assertThrows(RunnableX runnable, Class<T> expectedType, String message) {
-        T ex = Assertions.assertThrows(
-                expectedType,
-                runnable::run
-        );
-
-        assertThat(
-                ex.getMessage(),
-                Matchers.containsString(message)
-        );
     }
 
     static Catalog emptyCatalog() {
