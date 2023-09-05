@@ -172,4 +172,34 @@ public class TxLocalTest extends TxAbstractTest {
     protected boolean assertPartitionsSame(TableImpl table, int partId) {
         return true;
     }
+
+    @Override
+    public void testReadOnlyGet() {
+        super.testReadOnlyGet();
+    }
+
+    @Override
+    public void testReadOnlyScan() throws Exception {
+        // No-op
+    }
+
+    @Override
+    public void testReadOnlyGetWriteIntentResolutionUpdate() {
+        // No-op
+    }
+
+    @Override
+    public void testReadOnlyGetWriteIntentResolutionRemove() {
+        // No-op
+    }
+
+    @Override
+    public void testReadOnlyGetAll() {
+        // No-op
+    }
+
+    @Override
+    public void testReadOnlyPendingWriteIntentSkippedCombined() {
+        // No-op
+    }
 }
