@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-#include "ignite/odbc/type_traits.h"
+#include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/odbc_error.h"
 #include "ignite/odbc/sql_connection.h"
 #include "ignite/odbc/string_utils.h"
-#include "ignite/odbc/query/table_metadata_query.h"
+#include "ignite/odbc/type_traits.h"
 
-namespace
-{
+namespace {
 
-enum class result_column
-{
+enum class result_column {
     /** Catalog name. NULL if not applicable to the data source. */
     TABLE_CAT = 1,
 
@@ -43,42 +41,37 @@ enum class result_column
     REMARKS
 };
 
-} // namespace ignite
+} // namespace
 
+namespace ignite {
 
-namespace ignite
-{
-
-table_metadata_query::table_metadata_query(diagnosable_adapter& diag, sql_connection& connection,
-    const std::string& catalog,const std::string& schema, const std::string& table, const std::string& table_type) :
-    query(diag, query_type::TABLE_METADATA),
-    m_connection(connection),
-    m_catalog(catalog),
-    m_schema(schema),
-    m_table(table),
-    m_table_type(table_type)
-{
+table_metadata_query::table_metadata_query(diagnosable_adapter &diag, sql_connection &connection,
+    const std::string &catalog, const std::string &schema, const std::string &table, const std::string &table_type)
+    : query(diag, query_type::TABLE_METADATA)
+    , m_connection(connection)
+    , m_catalog(catalog)
+    , m_schema(schema)
+    , m_table(table)
+    , m_table_type(table_type) {
     m_columns_meta.reserve(5);
 
     const std::string sch("");
     const std::string tbl("");
 
-    m_columns_meta.emplace_back(sch, tbl, "TABLE_CAT",   ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "TABLE_CAT", ignite_type::STRING);
     m_columns_meta.emplace_back(sch, tbl, "TABLE_SCHEM", ignite_type::STRING);
-    m_columns_meta.emplace_back(sch, tbl, "TABLE_NAME",  ignite_type::STRING);
-    m_columns_meta.emplace_back(sch, tbl, "TABLE_TYPE",  ignite_type::STRING);
-    m_columns_meta.emplace_back(sch, tbl, "REMARKS",     ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "TABLE_NAME", ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "TABLE_TYPE", ignite_type::STRING);
+    m_columns_meta.emplace_back(sch, tbl, "REMARKS", ignite_type::STRING);
 }
 
-sql_result table_metadata_query::execute()
-{
+sql_result table_metadata_query::execute() {
     if (m_executed)
         close();
 
     sql_result result = make_request_get_tables_meta();
 
-    if (result == sql_result::AI_SUCCESS)
-    {
+    if (result == sql_result::AI_SUCCESS) {
         m_executed = true;
         m_fetched = false;
 
@@ -88,15 +81,12 @@ sql_result table_metadata_query::execute()
     return result;
 }
 
-const column_meta_vector* table_metadata_query::get_meta()
-{
+const column_meta_vector *table_metadata_query::get_meta() {
     return &m_columns_meta;
 }
 
-sql_result table_metadata_query::fetch_next_row(column_binding_map& column_bindings)
-{
-    if (!m_executed)
-    {
+sql_result table_metadata_query::fetch_next_row(column_binding_map &column_bindings) {
+    if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
         return sql_result::AI_ERROR;
@@ -118,52 +108,43 @@ sql_result table_metadata_query::fetch_next_row(column_binding_map& column_bindi
     return sql_result::AI_SUCCESS;
 }
 
-sql_result table_metadata_query::get_column(std::uint16_t column_idx, application_data_buffer & buffer)
-{
-    if (!m_executed)
-    {
+sql_result table_metadata_query::get_column(std::uint16_t column_idx, application_data_buffer &buffer) {
+    if (!m_executed) {
         m_diag.add_status_record(sql_state::SHY010_SEQUENCE_ERROR, "Query was not executed.");
 
         return sql_result::AI_ERROR;
     }
 
-    if (m_cursor == m_meta.end())
-    {
+    if (m_cursor == m_meta.end()) {
         m_diag.add_status_record(sql_state::S24000_INVALID_CURSOR_STATE, "Cursor has reached end of the result set.");
 
         return sql_result::AI_ERROR;
     }
 
-    const table_meta& current_column = *m_cursor;
+    const table_meta &current_column = *m_cursor;
 
-    switch (result_column(column_idx))
-    {
-        case result_column::TABLE_CAT:
-        {
+    switch (result_column(column_idx)) {
+        case result_column::TABLE_CAT: {
             buffer.put_string(current_column.get_catalog_name());
             break;
         }
 
-        case result_column::TABLE_SCHEM:
-        {
+        case result_column::TABLE_SCHEM: {
             buffer.put_string(current_column.get_schema_name());
             break;
         }
 
-        case result_column::TABLE_NAME:
-        {
+        case result_column::TABLE_NAME: {
             buffer.put_string(current_column.get_table_name());
             break;
         }
 
-        case result_column::TABLE_TYPE:
-        {
+        case result_column::TABLE_TYPE: {
             buffer.put_string(current_column.get_table_type());
             break;
         }
 
-        case result_column::REMARKS:
-        {
+        case result_column::REMARKS: {
             buffer.put_null();
             break;
         }
@@ -175,8 +156,7 @@ sql_result table_metadata_query::get_column(std::uint16_t column_idx, applicatio
     return sql_result::AI_SUCCESS;
 }
 
-sql_result table_metadata_query::close()
-{
+sql_result table_metadata_query::close() {
     m_meta.clear();
 
     m_executed = false;
@@ -184,37 +164,32 @@ sql_result table_metadata_query::close()
     return sql_result::AI_SUCCESS;
 }
 
-bool table_metadata_query::is_data_available() const
-{
+bool table_metadata_query::is_data_available() const {
     return m_cursor != m_meta.end();
 }
 
-int64_t table_metadata_query::affected_rows() const
-{
+int64_t table_metadata_query::affected_rows() const {
     return 0;
 }
 
-sql_result table_metadata_query::next_result_set()
-{
+sql_result table_metadata_query::next_result_set() {
     return sql_result::AI_NO_DATA;
 }
 
-sql_result table_metadata_query::make_request_get_tables_meta()
-{
+sql_result table_metadata_query::make_request_get_tables_meta() {
     auto table_types = split(m_table_type, ',');
 
     auto success = m_diag.catch_errors([&] {
-        auto response = m_connection.sync_request(
-            protocol::client_operation::JDBC_TABLE_META, [&](protocol::writer &writer) {
+        auto response =
+            m_connection.sync_request(protocol::client_operation::JDBC_TABLE_META, [&](protocol::writer &writer) {
+                writer.write(m_schema);
+                writer.write(m_table);
 
-            writer.write(m_schema);
-            writer.write(m_table);
-
-            writer.write_array_header(table_types.size());
-            for (auto table_type : table_types) {
-                writer.write(table_type);
-            }
-        });
+                writer.write_array_header(table_types.size());
+                for (auto table_type : table_types) {
+                    writer.write(table_type);
+                }
+            });
 
         protocol::reader reader{response.get_bytes_view()};
         m_has_result_set = reader.read_bool();
@@ -235,12 +210,10 @@ sql_result table_metadata_query::make_request_get_tables_meta()
         return sql_result::AI_ERROR;
 
     int idx = 0;
-    for (auto& column : m_meta)
-    {
-        LOG_MSG("\n[" << idx << "] catalog_name: " << column.get_catalog_name()
-             << "\n[" << idx << "] schema_name:  " << column.get_schema_name()
-             << "\n[" << idx << "] table_name:   " << column.get_table_name()
-             << "\n[" << idx << "] table_type:   " << column.get_table_type());
+    for (auto &column : m_meta) {
+        LOG_MSG("\n[" << idx << "] catalog_name: " << column.get_catalog_name() << "\n[" << idx << "] schema_name:  "
+                      << column.get_schema_name() << "\n[" << idx << "] table_name:   " << column.get_table_name()
+                      << "\n[" << idx << "] table_type:   " << column.get_table_type());
         ++idx;
     }
 
@@ -248,4 +221,3 @@ sql_result table_metadata_query::make_request_get_tables_meta()
 }
 
 } // namespace ignite
-

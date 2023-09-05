@@ -101,9 +101,7 @@ inline void for_every_delimited(
  */
 inline std::vector<std::string_view> split(std::string_view str, char delimiter) {
     std::vector<std::string_view> res;
-    for_every_delimited(str, delimiter, [&res](auto part) {
-        res.push_back(part);
-    });
+    for_every_delimited(str, delimiter, [&res](auto part) { res.push_back(part); });
     return res;
 }
 

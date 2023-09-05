@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <ignite/client/detail/connection_event_handler.h>
 #include "ignite/protocol/protocol_context.h"
+#include <ignite/client/detail/connection_event_handler.h>
 #include <ignite/client/detail/response_handler.h>
 #include <ignite/client/ignite_client_configuration.h>
 #include <ignite/protocol/client_operation.h>

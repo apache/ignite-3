@@ -17,11 +17,10 @@
 
 #pragma once
 
-#include "ignite/odbc/query/query.h"
 #include "ignite/odbc/meta/table_meta.h"
+#include "ignite/odbc/query/query.h"
 
-namespace ignite
-{
+namespace ignite {
 
 /** Connection forward-declaration. */
 class sql_connection;
@@ -29,8 +28,7 @@ class sql_connection;
 /**
  * Table metadata query.
  */
-class table_metadata_query : public query
-{
+class table_metadata_query : public query {
 public:
     /**
      * Constructor.
@@ -42,8 +40,8 @@ public:
      * @param table Table search pattern.
      * @param table_type Table type search pattern.
      */
-    table_metadata_query(diagnosable_adapter& diag, sql_connection& connection, const std::string& catalog,
-        const std::string& schema, const std::string& table, const std::string& table_type);
+    table_metadata_query(diagnosable_adapter &diag, sql_connection &connection, const std::string &catalog,
+        const std::string &schema, const std::string &table, const std::string &table_type);
 
     /**
      * Destructor.
@@ -62,14 +60,14 @@ public:
      *
      * @return Column metadata.
      */
-    virtual const column_meta_vector* get_meta();
+    virtual const column_meta_vector *get_meta();
 
     /**
      * Fetch next result row to application buffers.
      *
      * @return Operation result.
      */
-    virtual sql_result fetch_next_row(column_binding_map& column_bindings);
+    virtual sql_result fetch_next_row(column_binding_map &column_bindings);
 
     /**
      * Get data of the specified column in the result set.
@@ -78,7 +76,7 @@ public:
      * @param buffer Buffer to put column data to.
      * @return Operation result.
      */
-    virtual sql_result get_column(std::uint16_t column_idx, application_data_buffer& buffer);
+    virtual sql_result get_column(std::uint16_t column_idx, application_data_buffer &buffer);
 
     /**
      * Close query.
@@ -117,7 +115,7 @@ private:
     sql_result make_request_get_tables_meta();
 
     /** Connection associated with the statement. */
-    sql_connection& m_connection;
+    sql_connection &m_connection;
 
     /** Catalog search pattern. */
     std::string m_catalog;
