@@ -76,8 +76,6 @@ abstract class AbstractTableView {
     protected IgniteException convertException(Throwable t) {
         if (t instanceof IgniteException) {
             return (IgniteException) t;
-        } else if (t instanceof IgniteInternalException || t instanceof IgniteInternalCheckedException) {
-            return new IgniteException(Common.INTERNAL_ERR, t);
         } else {
             return new IgniteException(Common.INTERNAL_ERR, t);
         }
