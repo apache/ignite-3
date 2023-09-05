@@ -22,8 +22,6 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteExceptionMapperUtil;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -77,11 +75,8 @@ abstract class AbstractTableView {
     protected IgniteException convertException(Throwable t) {
         if (t instanceof IgniteException) {
             return (IgniteException) t;
-        } else if (t instanceof IgniteInternalCheckedException || t instanceof IgniteInternalException) {
-            // Map internal errors to IgniteException with code internal_err.
-            return new IgniteException(Common.INTERNAL_ERR, t);
         } else {
-            // Map all other exceptions to IgniteException with code internal_err.
+            // Wrap all other exceptions in IgniteException with code internal_err.
             return new IgniteException(Common.INTERNAL_ERR, t);
         }
     }
