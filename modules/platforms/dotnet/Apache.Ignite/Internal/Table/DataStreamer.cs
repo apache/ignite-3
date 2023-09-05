@@ -171,9 +171,13 @@ internal static class DataStreamer
                     batch.SchemaOutdated = true;
                 }
 
+                // 1. To compute target partition, we need key hash.
+                // 2. To compute key hash, we need to serialize the key.
+                // 3. Since we already serialized the key, we can use it for the message body and avoid re-serialization.
+                // However, if schema gets updated, we need to re-serialize the whole batch.
+                // Schema update is rare, so we optimize for the happy path.
                 if (!batch.SchemaOutdated)
                 {
-                    // Optimization: we already have serialized item data, copy it to the batch buffer.
                     noValueSet.CopyTo(batch.Buffer.MessageWriter.WriteBitSet(columnCount));
                     batch.Buffer.MessageWriter.Write(tupleBuilder.Build().Span);
                 }
