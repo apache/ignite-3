@@ -83,6 +83,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -146,6 +147,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         ) {
             @Override
             public CompletableFuture<Void> finish(
+                    HybridTimestampTracker timestampTracker,
                     TablePartitionId commitPartition,
                     ClusterNode recipientNode,
                     Long term,
@@ -241,7 +243,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 Mockito.mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaService,
-                Mockito.mock(HybridClock.class)
+                Mockito.mock(HybridClock.class),
+                new HybridTimestampTracker()
         );
     }
 

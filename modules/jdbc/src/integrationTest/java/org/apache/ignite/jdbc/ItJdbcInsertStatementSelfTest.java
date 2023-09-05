@@ -20,17 +20,15 @@ package org.apache.ignite.jdbc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
+import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Statement test.
@@ -84,9 +82,7 @@ public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTe
     }
 
     @AfterEach
-    @Override public void afterTest(TestInfo testInfo) throws Exception {
-        super.afterTest(testInfo);
-
+    public void afterTest() throws Exception {
         if (prepStmt != null && !prepStmt.isClosed()) {
             prepStmt.close();
 
@@ -196,7 +192,7 @@ public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTe
 
         assertFalse(stmt.execute(sql));
 
-        assertThrows(SQLException.class, () -> stmt.execute(SQL), "Failed to INSERT some keys because they are already in cache.");
+        JdbcTestUtils.assertThrowsSqlException("PK unique constraint is violated", () -> stmt.execute(SQL));
 
         stmt.execute("select count(*) from PUBLIC.PERSON;");
 

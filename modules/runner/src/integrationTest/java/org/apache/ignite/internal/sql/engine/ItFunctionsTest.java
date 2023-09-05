@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.calcite.util.Static.RESOURCE;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -32,10 +33,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
-import org.apache.calcite.runtime.Resources.ExInst;
-import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.validate.SqlValidatorException;
-import org.apache.ignite.internal.sql.engine.util.IgniteResource;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 
@@ -131,8 +130,10 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
 
         assertEquals(0, sql("SELECT * FROM table(system_range(null, 1))").size());
 
-        IgniteException ex = assertThrows(IgniteException.class,
-                () -> sql("SELECT * FROM table(system_range(1, 1, 0))"), "Increment can't be 0");
+        IgniteException ex = assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Increment can't be 0",
+                () -> sql("SELECT * FROM table(system_range(1, 1, 0))"));
 
         assertTrue(
                 ex.getCause() instanceof IllegalArgumentException,
@@ -273,18 +274,25 @@ public class ItFunctionsTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT NULL::CHAR::BOOLEAN").returns(NULL_RESULT).check();
         assertQuery("SELECT ?::CHAR::BOOLEAN").withParams(NULL_RESULT).returns(NULL_RESULT).check();
 
-        ExInst<SqlValidatorException> errDynParams = IgniteResource.INSTANCE.operationRequiresExplicitCast(SqlKind.CAST.name());
-        String errStrDynParams = errDynParams.ex().getMessage();
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, deriveCannotCastMessage("INTEGER", "BOOLEAN"), () -> sql("SELECT 1::BOOLEAN"));
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                deriveCannotCastMessage("INTEGER", "BOOLEAN"),
+                () -> sql("SELECT ?::BOOLEAN", 1));
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                deriveCannotCastMessage("DECIMAL(2, 1)", "BOOLEAN"),
+                () -> sql("SELECT 1.0::BOOLEAN"));
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                deriveCannotCastMessage("DOUBLE", "BOOLEAN"),
+                () -> sql("SELECT ?::BOOLEAN", 1.0));
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Invalid character for cast", () -> sql("SELECT '1'::BOOLEAN"));
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Invalid character for cast", () -> sql("SELECT ?::BOOLEAN", "1"));
+    }
 
-        ExInst<SqlValidatorException> errWithoutDynParams = RESOURCE.incompatibleValueType(SqlKind.CAST.name());
-        String errStrWithoutDynParams = errWithoutDynParams.ex().getMessage();
-
-        assertThrows(IgniteException.class, () -> sql("SELECT 1::BOOLEAN"), errStrWithoutDynParams);
-        assertThrows(IgniteException.class, () -> sql("SELECT ?::BOOLEAN", 1), errStrDynParams);
-        assertThrows(IgniteException.class, () -> sql("SELECT 1.0::BOOLEAN"), errStrWithoutDynParams);
-        assertThrows(IgniteException.class, () -> sql("SELECT ?::BOOLEAN", 1.0), errStrDynParams);
-        assertThrows(IgniteException.class, () -> sql("SELECT '1'::BOOLEAN"), errStrWithoutDynParams);
-        assertThrows(IgniteException.class, () -> sql("SELECT ?::BOOLEAN", "1"), errStrDynParams);
+    private String deriveCannotCastMessage(String fromType, String toType) {
+        return RESOURCE.cannotCastValue(fromType, toType).ex().getMessage();
     }
 
     @Test

@@ -33,6 +33,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -59,6 +60,9 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
     @Mock
     private PartitionAccess partitionAccess;
 
+    @Mock
+    private CatalogService catalogService;
+
     private OutgoingSnapshot snapshot;
 
     private final TableMessagesFactory messagesFactory = new TableMessagesFactory();
@@ -82,7 +86,7 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
 
         lenient().when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
+        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, catalogService);
     }
 
     @Test

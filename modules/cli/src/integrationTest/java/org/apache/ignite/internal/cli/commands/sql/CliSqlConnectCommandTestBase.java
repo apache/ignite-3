@@ -21,7 +21,6 @@ import jakarta.inject.Inject;
 import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 import org.apache.ignite.internal.cli.core.repl.SessionDefaultValueProvider;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
 
 /** Base class for testing CLI REPL sql command in the connected state. */
 public class CliSqlConnectCommandTestBase extends CliSqlCommandTestBase {
@@ -29,9 +28,7 @@ public class CliSqlConnectCommandTestBase extends CliSqlCommandTestBase {
     private SessionDefaultValueProvider defaultValueProvider;
 
     @BeforeEach
-    @Override
-    public void setUp(TestInfo testInfo) throws Exception {
-        super.setUp(testInfo);
+    public void setDefaultValueProvider() {
         commandLine().setDefaultValueProvider(defaultValueProvider);
     }
 
