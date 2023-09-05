@@ -1335,10 +1335,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         cleanupLocally(request.txId(), request.commit(), request.commitTimestamp());
 
-                        CompletableFuture<?> cleanupCmdFut = raftClient.run(txCleanupCmd);
+                        raftClient.run(txCleanupCmd);
 
                         return allOffFuturesExceptionIgnored(txReadFutures, request)
-                                //.thenCompose(ignored -> cleanupCmdFut)
                                 .thenRun(() -> releaseTxLocks(request.txId()));
                     });
         });
