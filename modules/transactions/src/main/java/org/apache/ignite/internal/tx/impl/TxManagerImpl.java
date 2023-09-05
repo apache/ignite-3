@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLo
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
-import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.util.Comparator;
@@ -30,17 +29,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -52,7 +56,6 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.NetworkMessageHandler;
@@ -66,6 +69,8 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager, NetworkMessageHandler {
+    private static final IgniteLogger LOGGER = Loggers.forClass(TxManagerImpl.class);
+
     /** Hint for maximum concurrent txns. */
     private static final int MAX_CONCURRENT_TXNS = 1024;
 
@@ -107,9 +112,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    /** {@code True} if this transaction is locked for updates. */
-    private volatile boolean locked;
 
     /**
      * The constructor.
@@ -199,20 +201,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public void changeState(UUID txId, TxState before, TxState after) {
-        TxState computeResult = states.compute(txId, (k, v) -> {
+        states.compute(txId, (k, v) -> {
             if (v == before) {
                 return after;
             } else {
                 return v;
             }
         });
-
-        assert computeResult == after : "Unable to change transaction state, expected = [" + before + "],"
-                + " got = [" + computeResult + "], state to set = [" + after + ']';
     }
 
     @Override
-    public CompletableFuture<Void> finish(
+    public CompletableFuture<Void> finish( // TODO FIXME commit aborted, abort committed ???
             TablePartitionId commitPartition,
             ClusterNode recipientNode,
             Long term,
@@ -222,21 +221,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     ) {
         assert groups != null && !groups.isEmpty();
 
-        TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
-            assert tuple0 != null;
-
-            tuple0.locked = true;
-
-            return tuple0;
-        });
-
-        // All inflights have been completed before the finish.
-        if (tuple.inflights == 0 && tuple.locked) {
-            tuple.finishFut.complete(null);
-        }
-
-        // Wait for commit acks first, then proceed with the finish request.
-        return tuple.finishFut.thenCompose(res -> {
+        Function<Void, CompletableFuture<Void>> clo = ignored -> {
             HybridTimestamp commitTimestamp = commit ? clock.now() : null;
 
             TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
@@ -252,7 +237,77 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return replicaService.invoke(recipientNode, req)
                     // TODO: IGNITE-20033 TestOnly code, let's consider using Txn state map instead of states.
                     .thenRun(() -> changeState(txId, PENDING, commit ? COMMITED : ABORTED));
+        };
+
+        if (!commit) {
+            AtomicReference<CompletableFuture<Void>> ref = new AtomicReference<>();
+            TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
+                if (tuple0 == null) {
+                    return null;
+                }
+
+                if (tuple0.finishFut == null) {
+                    tuple0.finishFut = new CompletableFuture<>();
+                    ref.set(tuple0.finishFut);
+                }
+
+                return tuple0;
+            });
+
+            if (tuple == null) {
+                return CompletableFuture.completedFuture(null); // No writes enlisted.
+            }
+
+            if (ref.get() != null) { // This is aborting thread.
+                return clo.apply(null).handle((ignored, err) -> {
+                    if (err == null) {
+                        tuple.finishFut.complete(null);
+                    } else {
+                        tuple.finishFut.completeExceptionally(err);
+                    }
+                    return null;
+                });
+            } else {
+                return tuple.finishFut;
+            }
+        }
+
+        // Wait for commit acks first, then proceed with the finish request.
+        AtomicReference<CompletableFuture<Void>> ref = new AtomicReference<>();
+        TxContext tuple = txCtxMap.compute(txId, (uuid, tuple0) -> {
+            if (tuple0 == null) {
+                return null;
+            }
+
+            if (tuple0.finishFut == null) {
+                tuple0.finishFut = new CompletableFuture<>();
+                ref.set(tuple0.finishFut);
+            }
+
+            return tuple0;
         });
+
+        if (tuple == null) {
+            return CompletableFuture.completedFuture(null); // No writes enlisted.
+        }
+
+        if (ref.get() != null) { // This is committing thread.
+            // All inflights have been completed before the finish.
+            if (tuple.inflights == 0) {
+                tuple.waitRepFut.complete(null);
+            }
+
+            return tuple.waitRepFut.thenCompose(clo).handle((ignored, err) -> {
+                if (err == null) {
+                    tuple.finishFut.complete(null);
+                } else {
+                    tuple.finishFut.completeExceptionally(err);
+                }
+                return null;
+            });
+        } else {
+            return tuple.finishFut;
+        }
     }
 
     @Override
@@ -346,6 +401,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public boolean addInflight(@NotNull UUID txId) {
+
         boolean[] res = {true};
 
         txCtxMap.compute(txId, (uuid, tuple) -> {
@@ -353,7 +409,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 tuple = new TxContext();
             }
 
-            if (tuple.locked) {
+            if (tuple.finishFut != null) {
                 res[0] = false;
                 return tuple;
             } else {
@@ -364,12 +420,38 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             return tuple;
         });
 
+        LOGGER.info("DBG: add {} {} {}", txId.toString(), txCtxMap.size(), this.hashCode());
+
         return res[0];
     }
 
     @Override
+    public void removeInflight(@NotNull UUID txId) {
+
+        TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
+            assert ctx != null;
+
+            //noinspection NonAtomicOperationOnVolatileField
+            ctx.inflights--;
+
+            return ctx;
+        });
+
+        if (tuple.inflights == 0 && tuple.finishFut != null) {
+            tuple.waitRepFut.complete(null); // Avoid completion under lock.
+        }
+
+        LOGGER.info("DBG: remove {} {}", txId.toString(), txCtxMap.size());
+    }
+
+    @Override
     public void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
-        if (!(message instanceof ReplicaResponse)) {
+        if (!(message instanceof ReplicaResponse) || correlationId != null) {
+            return;
+        }
+
+        // Ignore error responses here. A transaction will be rolled back in other place.
+        if (message instanceof ErrorReplicaResponse) {
             return;
         }
 
@@ -377,33 +459,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         ReplicaResponse request = (ReplicaResponse) message;
 
         if (!busyLock.enterBusy()) {
-            // TODO just ignore ?
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
+            return; // Just ignore.
         }
 
         Object result = request.result();
 
         if (result instanceof UUID) {
-            UUID txId = (UUID) result;
-
-            TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
-                assert ctx != null;
-
-                //noinspection NonAtomicOperationOnVolatileField
-                ctx.inflights--;
-
-                return ctx;
-            });
-
-            if (tuple.inflights == 0 && tuple.locked) {
-                tuple.finishFut.complete(null); // Avoid completion under lock.
-            }
+            removeInflight((UUID) result);
         }
     }
 
     private static class TxContext {
         volatile long inflights = 0; // Updated under lock.
-        final CompletableFuture<Void> finishFut = new CompletableFuture<>();
-        volatile boolean locked = false; // Used as a shared flag.
+        final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
+        volatile CompletableFuture<Void> finishFut = null; // TODO don't need volatile
     }
 }

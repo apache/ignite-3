@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import static it.unimi.dsi.fastutil.objects.ObjectSortedSets.EMPTY_SET;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -548,7 +549,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<List<BinaryRow>> retrieveExactEntriesUntilCursorEmpty(UUID txId, IgniteUuid cursorId, int count) {
         return retrieveExactEntriesUntilCursorEmpty(txId, null, cursorId, count).thenCompose(rows -> {
             if (CollectionUtils.nullOrEmpty(rows)) {
-                return completedFuture(Collections.emptyList());
+                return completedFuture(emptyList());
             }
 
             CompletableFuture[] futs = new CompletableFuture[rows.size()];
@@ -1190,7 +1191,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Finishes a transaction.
+     * Finishes a transaction. This operation is idempotent.
      *
      * @param aggregatedGroupIds Partition identifies which are enlisted in the transaction.
      * @param txId Transaction id.
@@ -1624,7 +1625,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     if (rowIdsToDelete.isEmpty()) {
                         return completedFuture(
-                                new CompletionResult(result, request.full() ? null : completedFuture(null)));
+                                new CompletionResult(null, null));
                     }
 
                     return updateAllCommand(request, rowIdsToDelete)
@@ -1664,7 +1665,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     if (rowIdsToDelete.isEmpty()) {
-                        return completedFuture(new CompletionResult(result, request.full() ? null : completedFuture(null)));
+                        return completedFuture(new CompletionResult(null, null));
                     }
 
                     return updateAllCommand(request, rowIdsToDelete)
@@ -1709,7 +1710,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     if (rowsToInsert.isEmpty()) {
                         return completedFuture(
-                                new CompletionResult(result, request.full() ? null : completedFuture(null)));
+                                new CompletionResult(null, null));
                     }
 
                     CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] insertLockFuts = new CompletableFuture[rowsToInsert.size()];
@@ -1771,9 +1772,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                         rowsToUpdate.put(lockedRow.uuid(), row);
                     }
 
-                    // TODO FIXME delayed ack will not be send!
                     if (rowsToUpdate.isEmpty()) {
-                        return completedFuture(new CompletionResult(null, request.full() ? null : completedFuture(null)));
+                        return completedFuture(new CompletionResult(null, null));
                     }
 
                     return updateAllCommand(request, rowsToUpdate)
@@ -1785,7 +1785,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             .forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
                                 }
 
-                                return new CompletionResult(null, res);
+                                return new CompletionResult(emptyList(), res);
                             });
                 });
             }
@@ -1944,7 +1944,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_GET: {
                 return resolveRowByPk(binaryTuple(searchRow), txId, (rowId, row) -> {
                     if (rowId == null) {
-                        return completedFuture(new CompletionResult(null, null));
+                        return completedFuture(null);
                     }
 
                     return takeLocksForGet(rowId, txId)
@@ -1954,7 +1954,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_DELETE: {
                 return resolveRowByPk(binaryTuple(searchRow), txId, (rowId, row) -> {
                     if (rowId == null) {
-                        return completedFuture(new CompletionResult(false, request.full() ? null : completedFuture(null)));
+                        return completedFuture(new CompletionResult(false, null));
                     }
 
                     return takeLocksForDelete(row, rowId, txId)
@@ -1966,7 +1966,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_GET_AND_DELETE: {
                 return resolveRowByPk(binaryTuple(searchRow), txId, (rowId, row) -> {
                     if (rowId == null) {
-                        return completedFuture(new CompletionResult(null, request.full() ? null : completedFuture(null)));
+                        return completedFuture(new CompletionResult(null, null));
                     }
 
                     return takeLocksForDelete(row, rowId, txId)
@@ -1978,7 +1978,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_DELETE_EXACT: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row) -> {
                     if (rowId == null) {
-                        return completedFuture(new CompletionResult(false, request.full() ? null : completedFuture(null)));
+                        return completedFuture(new CompletionResult(false, null));
                     }
 
                     return takeLocksForDeleteExact(searchRow, rowId, row, txId)
@@ -1996,7 +1996,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_INSERT: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row) -> {
                     if (rowId != null) {
-                        return completedFuture(new CompletionResult(false, request.full() ? null : completedFuture(null)));
+                        return completedFuture(new CompletionResult(false, null));
                     }
 
                     RowId rowId0 = new RowId(partId(), UUID.randomUUID());
@@ -2060,7 +2060,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_GET_AND_REPLACE: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row) -> {
                     if (rowId == null) {
-                        return completedFuture(new CompletionResult(null, request.full() ? null : completedFuture(null)));
+                        return completedFuture(new CompletionResult(null, null));
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
@@ -2078,7 +2078,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_REPLACE_IF_EXIST: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row) -> {
                     if (rowId == null) {
-                        return completedFuture(new CompletionResult(false, request.full() ? null : completedFuture(null)));
+                        return completedFuture(new CompletionResult(false, null));
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
@@ -2142,7 +2142,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         Collection<IndexLocker> indexes = indexesLockers.get().values();
 
         if (nullOrEmpty(indexes)) {
-            return completedFuture(Collections.emptyList());
+            return completedFuture(emptyList());
         }
 
         CompletableFuture<Lock>[] locks = new CompletableFuture[indexes.size()];

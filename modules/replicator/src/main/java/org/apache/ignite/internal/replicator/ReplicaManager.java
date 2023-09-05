@@ -263,6 +263,7 @@ public class ReplicaManager implements IgniteComponent {
 
                 // Handle delayed response. It may be a future for delayed response, or a replication result, which is expected to be null.
                 if (res.delayedResult() != null) {
+                    LOG.info("Procesing delayed response for replica request [request={}]", request);
                     assert res.delayedResult() instanceof CompletableFuture : "Unexpected replication result, should always be null";
 
                     // Delayed result is always expected to be null
