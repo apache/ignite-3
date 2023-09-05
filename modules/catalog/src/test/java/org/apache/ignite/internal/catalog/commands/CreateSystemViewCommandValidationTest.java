@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.commands.CreateSystemViewCommand.Builder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
