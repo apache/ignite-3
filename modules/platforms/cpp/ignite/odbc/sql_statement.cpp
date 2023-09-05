@@ -20,6 +20,7 @@
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/odbc_error.h"
 #include "ignite/odbc/query/data_query.h"
+#include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/sql_connection.h"
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/system/odbc_constants.h"
