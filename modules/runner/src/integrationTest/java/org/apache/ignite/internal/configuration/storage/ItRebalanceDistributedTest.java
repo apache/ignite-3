@@ -128,6 +128,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
@@ -549,6 +550,23 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         checkInvokeDestroyedPartitionStorages(newNode, TABLE_NAME, 0);
     }
 
+    /**
+     * Test checks rebances from [A,B,C] to [A,B] and then again to [A,B,C].
+     * In this case the raft group node and {@link Replica} are started only once on each node.
+     *
+     * <p>1. We have an in-progress rebalance and current metastore keys:
+     * ms.stable = a,b,c. ms.pending = a,b. ms.planned = a,b,c
+     * so, the current active peers is the a,b,c.
+     * 2. When the rebalance done, keys wil be updated:
+     * ms.stable = a,b. ms.pending = a,b,c. ms.planned = empty
+     * 3. Pending event handler receives the entry {old.pending = a,b; new.pending = a,b,c} and:
+     * - it will receive the current stable a,b with the revision of current pending event
+     * - compare it with new pending a,b,c and want to start node c
+     * - but this node is still alive, because the stable handler is not stopped it yet (and we don't want to stop actually)
+     * - so we don't need to start it again
+     *
+     * @throws Exception If failed.
+     */
     @Test
     void testRebalanceWithTheSameNodes() throws Exception {
         Node node = getNode(0);
