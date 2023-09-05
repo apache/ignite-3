@@ -21,7 +21,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 
@@ -77,7 +79,15 @@ abstract class AbstractTableView {
         if (t instanceof IgniteException) {
             return (IgniteException) t;
         } else {
-            return new IgniteException(Common.INTERNAL_ERR, t);
+            Throwable mapped = IgniteExceptionMapperUtil.mapToPublicException(t);
+
+            if (mapped instanceof IgniteCheckedException) {
+                return new IgniteException(Common.INTERNAL_ERR, mapped);
+            } else if (mapped instanceof IgniteException) {
+                return (IgniteException) mapped;
+            } else {
+                return new IgniteException(Common.INTERNAL_ERR, mapped);
+            }
         }
     }
 }
