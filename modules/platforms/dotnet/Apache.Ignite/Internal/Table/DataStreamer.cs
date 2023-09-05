@@ -245,6 +245,7 @@ internal static class DataStreamer
 
             if (batchSchemaOutdated)
             {
+                // Schema update was detected while the batch was being filled.
                 buf.Reset();
                 writer.WriteMultiple(buf, null, schema, items);
             }
@@ -281,6 +282,7 @@ internal static class DataStreamer
                     catch (IgniteException e) when (e.Code == ErrorGroups.Table.SchemaVersionMismatch &&
                                                     schemaVersion != e.GetExpectedSchemaVersion())
                     {
+                        // Schema update detected after the batch was serialized.
                         schemaVersion = e.GetExpectedSchemaVersion();
                     }
                     catch (Exception e) when (e.CausedByUnmappedColumns() && schemaVersion == null)
