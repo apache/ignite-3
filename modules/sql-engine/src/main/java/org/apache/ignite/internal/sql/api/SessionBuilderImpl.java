@@ -41,7 +41,9 @@ public class SessionBuilderImpl implements SessionBuilder {
 
     private final QueryProcessor qryProc;
 
-    private final IgniteTransactions transactions;
+    private final Map<String, Object> props;
+
+    private IgniteTransactions transactions;
 
     private long queryTimeout = DEFAULT_QUERY_TIMEOUT;
 
@@ -50,8 +52,6 @@ public class SessionBuilderImpl implements SessionBuilder {
     private String schema = AbstractSession.DEFAULT_SCHEMA;
 
     private int pageSize = AbstractSession.DEFAULT_PAGE_SIZE;
-
-    private final Map<String, Object> props;
 
     /**
      * Session builder constructor.
@@ -64,6 +64,20 @@ public class SessionBuilderImpl implements SessionBuilder {
         this.qryProc = qryProc;
         this.transactions = transactions;
         this.props = props;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteTransactions igniteTransactions() {
+        return transactions;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SessionBuilder igniteTransactions(IgniteTransactions transactions) {
+        this.transactions = transactions;
+
+        return this;
     }
 
     /** {@inheritDoc} */

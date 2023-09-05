@@ -147,9 +147,8 @@ public final class IgniteSystemProperties {
      *
      * @param name Name of the system property or environment variable.
      * @param dflt Default value.
-     * @return Value of the system property or environment variable. Returns {@code null} if neither can be found for given name.
+     * @return Value of the system property or environment variable. Returns {@code dflt} if neither can be found for given name.
      */
-    @Nullable
     public static String getString(String name, String dflt) {
         String val = getString(name);
 

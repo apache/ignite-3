@@ -90,6 +90,7 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -215,7 +216,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaService,
-                hybridClock
+                hybridClock,
+                new HybridTimestampTracker()
         );
 
         closeables.add(() -> table.close());

@@ -51,7 +51,6 @@ import org.junit.jupiter.api.Assertions;
  * </pre>
  */
 final class Statement extends Command {
-
     private final List<String> queries;
 
     private final ExpectedStatementStatus expected;
@@ -113,11 +112,14 @@ final class Statement extends Command {
                     Assertions.fail("Not expected result at: " + posDesc + ". Statement: " + qry, e);
                 }
             } else {
-                Throwable err = Assertions.assertThrows(Throwable.class, () -> ctx.executeQuery(qry),
-                        "Not expected result at: " + posDesc + ". Statement: " + qry + ". Error: " + expected.errorMessage);
+                Throwable err = Assertions.assertThrows(
+                        Throwable.class,
+                        () -> ctx.executeQuery(qry),
+                        "Not expected result at: " + posDesc + ". Statement: " + qry + ". No error occurred");
 
-                assertThat("Not expected result at: " + posDesc + ". Statement: " + qry
-                        + ". Expected: " + expected.errorMessage, err.getMessage(), expected.errorMessage);
+                assertThat(
+                        "Not expected result at: " + posDesc + ". Statement: " + qry + ". Expected: " + expected.errorMessage,
+                        err.getMessage(), expected.errorMessage);
             }
         }
     }

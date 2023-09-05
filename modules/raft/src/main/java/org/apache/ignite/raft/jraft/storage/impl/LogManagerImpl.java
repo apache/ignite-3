@@ -532,7 +532,11 @@ public class LogManagerImpl implements LogManager {
                         long startMs = Utils.monotonicMs();
                         try {
                             final TruncatePrefixClosure tpc = (TruncatePrefixClosure) done;
-                            LOG.debug("Truncating storage to firstIndexKept={}.", tpc.firstIndexKept);
+                            LOG.info(
+                                    "Truncating log storage prefix [groupId={}, firstIndexKept={}]",
+                                    nodeId.getGroupId(),
+                                    tpc.firstIndexKept
+                            );
                             ret = LogManagerImpl.this.logStorage.truncatePrefix(tpc.firstIndexKept);
                         }
                         finally {
@@ -544,7 +548,11 @@ public class LogManagerImpl implements LogManager {
                         startMs = Utils.monotonicMs();
                         try {
                             final TruncateSuffixClosure tsc = (TruncateSuffixClosure) done;
-                            LOG.warn("Truncating storage to lastIndexKept={}.", tsc.lastIndexKept);
+                            LOG.warn(
+                                    "Truncating log storage suffix [groupId={}, lastIndexKept={}]",
+                                    nodeId.getGroupId(),
+                                    tsc.lastIndexKept
+                            );
                             ret = LogManagerImpl.this.logStorage.truncateSuffix(tsc.lastIndexKept);
                             if (ret) {
                                 this.lastId.setIndex(tsc.lastIndexKept);
@@ -559,7 +567,7 @@ public class LogManagerImpl implements LogManager {
                         break;
                     case RESET:
                         final ResetClosure rc = (ResetClosure) done;
-                        LOG.info("Resetting storage to nextLogIndex={}.", rc.nextLogIndex);
+                        LOG.info("Resetting log storage [groupId={}, nextLogIndex={}]", nodeId.getGroupId(), rc.nextLogIndex);
                         ret = LogManagerImpl.this.logStorage.reset(rc.nextLogIndex);
                         break;
                     default:

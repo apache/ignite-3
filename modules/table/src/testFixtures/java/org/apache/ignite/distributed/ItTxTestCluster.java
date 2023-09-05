@@ -102,6 +102,7 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummySchemas;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
@@ -196,6 +197,9 @@ public class ItTxTestCluster {
 
     private final TestInfo testInfo;
 
+    /** Observable timestamp tracker. */
+    private final HybridTimestampTracker timestampTracker;
+
     /**
      * The constructor.
      */
@@ -207,7 +211,8 @@ public class ItTxTestCluster {
             Path workDir,
             int nodes,
             int replicas,
-            boolean startClient
+            boolean startClient,
+            HybridTimestampTracker timestampTracker
     ) {
         this.raftConfig = raftConfig;
         this.gcConfig = gcConfig;
@@ -217,6 +222,7 @@ public class ItTxTestCluster {
         this.replicas = replicas;
         this.startClient = startClient;
         this.testInfo = testInfo;
+        this.timestampTracker = timestampTracker;
     }
 
     /**
@@ -342,7 +348,7 @@ public class ItTxTestCluster {
 
         assertNotNull(clientTxManager);
 
-        igniteTransactions = new IgniteTransactionsImpl(clientTxManager);
+        igniteTransactions = new IgniteTransactionsImpl(clientTxManager, timestampTracker);
     }
 
     public IgniteTransactions igniteTransactions() {
@@ -544,7 +550,8 @@ public class ItTxTestCluster {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
-                startClient ? clientClock : clocks.get(localNodeName)
+                startClient ? clientClock : clocks.get(localNodeName),
+                timestampTracker
         ), new DummySchemaManagerImpl(schemaDescriptor), clientTxManager.lockManager());
     }
 

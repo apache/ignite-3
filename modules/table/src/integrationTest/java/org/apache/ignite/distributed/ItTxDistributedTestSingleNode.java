@@ -128,7 +128,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 workDir,
                 nodes(),
                 replicas(),
-                startClient()
+                startClient(),
+                timestampTracker
         );
         txTestCluster.prepareCluster();
 
