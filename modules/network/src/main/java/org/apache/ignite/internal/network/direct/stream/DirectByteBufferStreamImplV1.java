@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.INT_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.IS_BIG_ENDIAN;
 import static org.apache.ignite.internal.util.GridUnsafe.LONG_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.SHORT_ARR_OFF;
+import static org.apache.ignite.network.NetworkMessage.NULL_GROUP_TYPE;
 
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
@@ -803,7 +804,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 lastFinished = false;
             }
         } else {
-            writeShort(Short.MIN_VALUE);
+            writeShort(NULL_GROUP_TYPE);
         }
     }
 
@@ -1467,9 +1468,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     @Nullable
     public <T extends NetworkMessage> T readMessage(MessageReader reader) {
-        // if the deserializer is null then we haven't finished reading the message header
+        // If the deserializer is null then we haven't finished reading the message header.
         if (msgDeserializer == null) {
-            // read the message group type
+            // Read the message group type.
             if (!msgGroupTypeRead) {
                 msgGroupType = readShort();
 
@@ -1477,16 +1478,16 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     return null;
                 }
 
-                // message group type will be equal to Short.MIN_VALUE if a nested message is null
-                if (msgGroupType == Short.MIN_VALUE) { // lastFinished is "true" here, so no further parsing will be required
+                // Message group type will be equal to NetworkMessage.NULL_GROUP_TYPE if a nested message is null.
+                if (msgGroupType == NULL_GROUP_TYPE) { // "lastFinished" is "true" here, so no further parsing will be required.
                     return null;
                 }
 
-                // save current progress, because we can read the header in two chunks
+                // Save current progress, because we can read the header in two chunks.
                 msgGroupTypeRead = true;
             }
 
-            // read the message type
+            // Read the message type.
             short msgType = readShort();
 
             if (!lastFinished) {
@@ -1496,8 +1497,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             msgDeserializer = serializationRegistry.createDeserializer(msgGroupType, msgType);
         }
 
-        // if the deserializer is not null then we have definitely finished parsing the header and can read the message
-        // body
+        // If the deserializer is not null then we have definitely finished parsing the header and can read the message
+        // body.
         reader.beforeInnerMessageRead();
 
         try {
