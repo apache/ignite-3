@@ -27,11 +27,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -66,6 +61,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -118,9 +114,6 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
-import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
-import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -569,25 +562,23 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         alterZone(node, ZONE_NAME, 3);
 
-        checkAssignments();
+        checkPartitionAssignmentsSyncedAndRebalanceKeysEmpty();
 
-        updateAssignments();
+        directUpdateMetastoreRebalanceAssignmentKeys();
 
-        checkAssignments();
+        checkPartitionAssignmentsSyncedAndRebalanceKeysEmpty();
 
         verifyThatRaftNodesAndReplicasWereStartedOnlyOnce();
     }
 
     private void clearSpyInvocations() {
-        clearInvocations(getNode(0).getRaftManager());
-        clearInvocations(getNode(0).getReplicaManager());
-        clearInvocations(getNode(1).getRaftManager());
-        clearInvocations(getNode(1).getReplicaManager());
-        clearInvocations(getNode(2).getRaftManager());
-        clearInvocations(getNode(2).getReplicaManager());
+        for (int i = 0; i < NODE_COUNT; i++) {
+            clearInvocations(getNode(i).raftManager);
+            clearInvocations(getNode(i).replicaManager);
+        }
     }
 
-    private void checkAssignments() throws Exception {
+    private void checkPartitionAssignmentsSyncedAndRebalanceKeysEmpty() throws Exception {
         waitPartitionPlannedAssignmentsSyncedToExpected(0, 0);
         waitPartitionPendingAssignmentsSyncedToExpected(0, 0);
         waitPartitionAssignmentsSyncedToExpected(0, 3);
@@ -598,12 +589,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
      *
      * @throws Exception If fail.
      */
-    private void updateAssignments() throws Exception {
+    private void directUpdateMetastoreRebalanceAssignmentKeys() throws Exception {
         Collection<String> dataNodes = new HashSet<>();
-        dataNodes.add(getNode(0).getName());
-        dataNodes.add(getNode(1).getName());
-        dataNodes.add(getNode(2).getName());
 
+        for (int i = 0; i < NODE_COUNT; i++) {
+            dataNodes.add(getNode(i).name);
+        }
 
         Set<Assignment> pendingAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 2);
         Set<Assignment> plannedAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, 0, 3);
@@ -613,40 +604,23 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         TablePartitionId partId = new TablePartitionId(1, 0);
 
-        ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
 
-        SimpleCondition condition = exists(partAssignmentsStableKey);
+        Map<ByteArray, byte[]> msEntries = new HashMap<>();
 
-        Update update = ops(
-                put(partAssignmentsPendingKey, bytesPendingAssignments),
-                put(partAssignmentsPlannedKey, bytesPlannedAssignments)
-        ).yield(true);
+        msEntries.put(partAssignmentsPendingKey, bytesPendingAssignments);
+        msEntries.put(partAssignmentsPlannedKey, bytesPlannedAssignments);
 
-        Iif iif = iif(
-                condition,
-                update,
-                ops().yield(false)
-        );
-
-        MetaStorageManager metaStorageMgr = getNode(0).getMetaStorageManager();
-
-        assertTrue(metaStorageMgr.invoke(iif).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS).getAsBoolean());
+        getNode(0).metaStorageManager.putAll(msEntries).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
     }
 
     private void verifyThatRaftNodesAndReplicasWereStartedOnlyOnce() throws Exception {
-        verify(getNode(0).getRaftManager(), times(1))
-                .startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
-        verify(getNode(0).getReplicaManager(), times(1)).startReplica(any(), any(), any(), any(), any());
-
-        verify(getNode(1).getRaftManager(), times(1))
-                .startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
-        verify(getNode(1).getReplicaManager(), times(1)).startReplica(any(), any(), any(), any(), any());
-
-        verify(getNode(2).getRaftManager(), times(1))
-                .startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
-        verify(getNode(2).getReplicaManager(), times(1)).startReplica(any(), any(), any(), any(), any());
+        for (int i = 0; i < NODE_COUNT; i++) {
+            verify(getNode(i).raftManager, times(1))
+                    .startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class));
+            verify(getNode(i).replicaManager, times(1)).startReplica(any(), any(), any(), any(), any());
+        }
     }
 
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) throws Exception {
@@ -717,7 +691,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private class Node {
-        private final String name;
+        final String name;
+
+        final Loza raftManager;
+
+        final ReplicaManager replicaManager;
+
+        final MetaStorageManager metaStorageManager;
 
         private final VaultManager vaultManager;
 
@@ -726,12 +706,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         private final LockManager lockManager;
 
         private final TxManager txManager;
-
-        private final Loza raftManager;
-
-        private final ReplicaManager replicaManager;
-
-        private final MetaStorageManager metaStorageManager;
 
         private final DistributedConfigurationStorage cfgStorage;
 
@@ -1122,22 +1096,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             InternalTable internalTable = getInternalTable(this, tableName);
 
             return new TablePartitionId(internalTable.tableId(), partitionId);
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        MetaStorageManager getMetaStorageManager() {
-            return metaStorageManager;
-        }
-
-        Loza getRaftManager() {
-            return raftManager;
-        }
-
-        ReplicaManager getReplicaManager() {
-            return replicaManager;
         }
     }
 
