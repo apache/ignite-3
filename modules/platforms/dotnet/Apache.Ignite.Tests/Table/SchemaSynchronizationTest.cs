@@ -390,8 +390,9 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
         await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
-        // Stream data - old schema will be used initially. Server will reject it, client will reload schema and retry.
-        await view.StreamDataAsync(new[] { GetTuple(1) }.ToAsyncEnumerable());
+        // Stream data with new schema. Client does not yet know about the new schema,
+        // but unmapped column exception will trigger schema reload.
+        await view.StreamDataAsync(new[] { GetTuple(1, "BAR") }.ToAsyncEnumerable());
 
         // Inserted with old schema.
         var res1 = await view.GetAsync(null, GetTuple(-1));
@@ -399,7 +400,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         // Inserted with new schema.
         var res2 = await view.GetAsync(null, GetTuple(1));
-        Assert.AreEqual("FOO", res2.Value["VAL"]);
+        Assert.AreEqual("BAR", res2.Value["VAL"]);
     }
 
     private async Task WaitForNewSchemaOnAllNodes(string tableName, int schemaVer, int timeoutMs = 5000)

@@ -291,7 +291,6 @@ internal static class DataStreamer
                     }
                     catch (Exception e) when (e.CausedByUnmappedColumns() && schemaVersion == null)
                     {
-                        // TODO: Test for this case.
                         schemaVersion = Table.SchemaVersionForceLatest;
                     }
                 }
