@@ -66,7 +66,7 @@ internal static class DataStreamer
         IAsyncEnumerable<T> data,
         Func<PooledArrayBuffer, string, IRetryPolicy, Task> sender,
         RecordSerializer<T> writer,
-        Func<int?, Task<Schema>> schemaProvider,
+        Func<int?, Task<Schema>> schemaProvider, // Not a ValueTask because Tasks are cached.
         Func<ValueTask<string[]?>> partitionAssignmentProvider,
         DataStreamerOptions options,
         CancellationToken cancellationToken)
@@ -135,7 +135,7 @@ internal static class DataStreamer
 
         return;
 
-        async Task<(Batch<T> Batch, string Partition)> AddWithRetryUnmapped(T item)
+        async ValueTask<(Batch<T> Batch, string Partition)> AddWithRetryUnmapped(T item)
         {
             try
             {
