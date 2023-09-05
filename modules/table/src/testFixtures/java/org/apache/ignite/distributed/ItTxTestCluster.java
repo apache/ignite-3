@@ -384,16 +384,16 @@ public class ItTxTestCluster {
             TablePartitionId grpId = grpIds.get(p);
 
             for (String assignment : partAssignments) {
+                int partId = p;
+
                 var mvTableStorage = new TestMvTableStorage(tableId, DEFAULT_PARTITION_COUNT);
-                var mvPartStorage = new TestMvPartitionStorage(0);
+                var mvPartStorage = new TestMvPartitionStorage(partId);
                 var txStateStorage = txStateStorages.get(assignment);
                 var placementDriver = new PlacementDriver(replicaServices.get(assignment), consistentIdToNode);
 
                 for (int part = 0; part < assignments.size(); part++) {
                     placementDriver.updateAssignment(grpIds.get(part), assignments.get(part));
                 }
-
-                int partId = p;
 
                 int indexId = globalIndexId++;
 
