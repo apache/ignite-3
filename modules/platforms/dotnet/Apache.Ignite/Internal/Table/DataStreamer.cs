@@ -22,6 +22,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -243,7 +244,7 @@ internal static class DataStreamer
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
-                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Items, batch.SchemaOutdated);
+                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
 
                 batch.Items = ArrayPool<T>.Shared.Rent(options.BatchSize);
                 batch.Count = 0;
@@ -262,6 +263,7 @@ internal static class DataStreamer
             string partition,
             Task oldTask,
             T[] items,
+            int count,
             bool batchSchemaOutdated)
         {
             Debug.Assert(items.Length > 0, "items.Length > 0");
@@ -270,7 +272,7 @@ internal static class DataStreamer
             {
                 // Schema update was detected while the batch was being filled.
                 buf.Reset();
-                writer.WriteMultiple(buf, null, schema, items);
+                writer.WriteMultiple(buf, null, schema, items.Take(count));
             }
 
             try
@@ -290,7 +292,7 @@ internal static class DataStreamer
 
                             // Serialize again with the new schema.
                             buf.Reset();
-                            writer.WriteMultiple(buf, null, schema, items);
+                            writer.WriteMultiple(buf, null, schema, items.Take(count));
                         }
 
                         // Wait for the previous batch for this node to preserve item order.
@@ -298,7 +300,7 @@ internal static class DataStreamer
                         await sender(buf, partition, retryPolicy).ConfigureAwait(false);
 
                         Metrics.StreamerBatchesSent.Add(1);
-                        Metrics.StreamerItemsSent.Add(items.Length);
+                        Metrics.StreamerItemsSent.Add(count);
 
                         return;
                     }
@@ -319,7 +321,7 @@ internal static class DataStreamer
                 buf.Dispose();
                 ArrayPool<T>.Shared.Return(items);
 
-                Metrics.StreamerItemsQueuedDecrement(items.Length);
+                Metrics.StreamerItemsQueuedDecrement(count);
                 Metrics.StreamerBatchesActiveDecrement();
             }
         }
