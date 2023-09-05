@@ -82,7 +82,7 @@ abstract class AbstractTableView {
             if (mapped instanceof IgniteException) {
                 return (IgniteException) mapped;
             } else {
-                // The mapped exception could be neither IgniteInternalException non IgniteException,
+                // The mapped exception could be neither IgniteInternalException nor IgniteException,
                 // wrap it into IgniteException with internal err code.
                 return new IgniteException(Common.INTERNAL_ERR, mapped);
             }
