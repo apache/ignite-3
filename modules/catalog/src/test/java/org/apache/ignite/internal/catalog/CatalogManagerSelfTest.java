@@ -1104,9 +1104,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Validate catalog version from the past.
         assertNull(manager.zone(zoneName, 0));
-        assertNull(manager.zone(3, 0));
         assertNull(manager.zone(zoneName, 123L));
-        assertNull(manager.zone(3, 123L));
+        // Validate that catalog returns null for not existing ids.
+        assertNull(manager.zone(10, 0));
+        assertNull(manager.zone(10, 123L));
 
         // Validate actual catalog
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
