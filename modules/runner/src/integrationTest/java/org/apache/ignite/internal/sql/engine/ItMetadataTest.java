@@ -19,12 +19,12 @@ package org.apache.ignite.internal.sql.engine;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Stream.generate;
+import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.MAX_LENGTH_OF_ALIASES;
 import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -45,16 +45,14 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void trimColumnNames() {
-        String var300 = generate(() -> "X").limit(300).collect(joining());
-        String var256 = "'" + var300.substring(0, 255);
+        String var300 = "'" + generate(() -> "X").limit(300).collect(joining()) + "'";
+        String var256 = var300.substring(0, Math.min(var300.length(), MAX_LENGTH_OF_ALIASES));
 
-        assertQuery("select '" + var300 + "' from person").columnNames(var256).check();
+        assertQuery("select " + var300 + " from person").columnNames(var256).check();
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void columnNames() {
         assertQuery("select (select count(*) from person), (select avg(salary) from person) from person")
                 .columnNames("EXPR$0", "EXPR$1").check();
@@ -62,31 +60,32 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
                 .columnNames("SUBQUERY").check();
 
         assertQuery("select salary*2, salary/2, salary+2, salary-2, mod(salary, 2)  from person")
-                .columnNames("SALARY * 2", "SALARY / 2", "SALARY + 2", "SALARY - 2", "MOD(SALARY, 2)").check();
-        assertQuery("select salary*2 as first, salary/2 as secOND from person").columnNames("FIRST", "SECOND").check();
+                .columnNames("PERSON.SALARY * 2", "PERSON.SALARY / 2", "PERSON.SALARY + 2", "PERSON.SALARY - 2",
+                        "MOD(CAST(PERSON.SALARY AS DECIMAL(30, 15)), 2)").check();
+        assertQuery("select salary*2 as first, salary/2 as laST from person").columnNames("FIRST", "LAST").check();
 
         assertQuery("select trim(name) tr_name from person").columnNames("TR_NAME").check();
-        assertQuery("select trim(name) from person").columnNames("TRIM(BOTH ' ' FROM NAME)").check();
+        assertQuery("select trim(name) from person").columnNames("TRIM(BOTH ' ' FROM PERSON.NAME)").check();
         assertQuery("select ceil(salary), floor(salary), position('text' IN salary) from person")
-                .columnNames("CEIL(SALARY)", "FLOOR(SALARY)", "POSITION('text' IN SALARY)").check();
+                .columnNames("CEIL(PERSON.SALARY)", "FLOOR(PERSON.SALARY)",
+                        "POSITION('text' IN CAST(PERSON.SALARY AS VARCHAR CHARACTER SET \"UTF-8\"))").check();
 
         assertQuery("select count(*) from person").columnNames("COUNT(*)").check();
-        assertQuery("select count(name) from person").columnNames("COUNT(NAME)").check();
-        assertQuery("select max(salary) from person").columnNames("MAX(SALARY)").check();
-        assertQuery("select min(salary) from person").columnNames("MIN(SALARY)").check();
-        assertQuery("select aVg(salary) from person").columnNames("AVG(SALARY)").check();
-        assertQuery("select sum(salary) from person").columnNames("SUM(SALARY)").check();
+        assertQuery("select count(name) from person").columnNames("COUNT(PERSON.NAME)").check();
+        assertQuery("select max(salary) from person").columnNames("MAX(PERSON.SALARY)").check();
+        assertQuery("select min(salary) from person").columnNames("MIN(PERSON.SALARY)").check();
+        assertQuery("select aVg(salary) from person").columnNames("AVG(PERSON.SALARY)").check();
+        assertQuery("select sum(salary) from person").columnNames("SUM(PERSON.SALARY)").check();
 
-        assertQuery("select typeOf(salary) from person").columnNames("TYPEOF(SALARY)").check();
+        assertQuery("select typeOf(salary) from person").columnNames("TYPEOF(PERSON.SALARY)").check();
         assertQuery("select typeOf(null) from person").columnNames("TYPEOF(NULL)").check();
 
-        assertQuery("select salary, count(name) from person group by salary").columnNames("SALARY", "COUNT(NAME)").check();
+        assertQuery("select salary, count(name) from person group by salary").columnNames("SALARY", "COUNT(PERSON.NAME)").check();
 
         assertQuery("select 1, -1, 'some string' from person").columnNames("1", "-1", "'some string'").check();
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken after upgrading to calcite 1.34")
     public void infixTypeCast() {
         assertQuery("select id, id::tinyint as tid, id::smallint as sid, id::varchar as vid, id::interval hour, "
                 + "id::interval year from person")

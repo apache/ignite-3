@@ -66,8 +66,10 @@ import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperatorTable;
+import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
@@ -241,7 +243,21 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         RelDataType type = validator().getValidatedNodeType(validatedNode);
         List<List<String>> origins = validator().getFieldOrigins(validatedNode);
 
-        return new ValidationResult(validatedNode, type, origins);
+        List<String> derived = null;
+        if (validatedNode instanceof SqlSelect) {
+            SelectScope list = validator().getRawSelectScope((SqlSelect) validatedNode);
+
+            requireNonNull(list, "list");
+            requireNonNull(list.getExpandedSelectList(), "expandedSelectList");
+
+            int cnt = 0;
+            derived = new ArrayList<>(list.getExpandedSelectList().size());
+            for (SqlNode node : list.getExpandedSelectList()) {
+                derived.add(validator().deriveAlias(node, cnt++));
+            }
+        }
+
+        return new ValidationResult(validatedNode, type, origins, derived == null ? List.of() : derived);
     }
 
     /** {@inheritDoc} */
