@@ -69,7 +69,7 @@ class ItComputeTestBaseEmbedded extends ItComputeBaseTest {
         /** {@inheritDoc} */
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            return context.ignite().name();
+            return Thread.currentThread().getName();
         }
     }
 
