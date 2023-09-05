@@ -259,21 +259,21 @@ internal static class DataStreamer
                 int? schemaVersion = null;
                 while (true)
                 {
-                    if (schemaVersion != null)
-                    {
-                        if (schema.Version != schemaVersion)
-                        {
-                            // Might be updated by another batch.
-                            schema = await schemaProvider(schemaVersion).ConfigureAwait(false);
-                        }
-
-                        // Serialize again with the new schema.
-                        buf.Reset();
-                        writer.WriteMultiple(buf, null, schema, items);
-                    }
-
                     try
                     {
+                        if (schemaVersion != null)
+                        {
+                            // Might be updated by another batch.
+                            if (schema.Version != schemaVersion)
+                            {
+                                schema = await schemaProvider(schemaVersion).ConfigureAwait(false);
+                            }
+
+                            // Serialize again with the new schema.
+                            buf.Reset();
+                            writer.WriteMultiple(buf, null, schema, items);
+                        }
+
                         // Wait for the previous batch for this node to preserve item order.
                         await oldTask.ConfigureAwait(false);
                         await sender(buf, partition, retryPolicy).ConfigureAwait(false);
