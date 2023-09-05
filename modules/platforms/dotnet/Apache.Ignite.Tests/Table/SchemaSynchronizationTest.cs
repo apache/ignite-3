@@ -366,6 +366,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             // Update schema.
             // New schema has a new column with a default value, so it is not required to provide it in the streamed data.
             await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
+            await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
             for (int i = 10; i < 20; i++)
             {
@@ -387,6 +388,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         // Update schema.
         await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
+        await WaitForNewSchemaOnAllNodes(TestTableName, 2);
 
         // Stream data - old schema will be used initially. Server will reject it, client will reload schema and retry.
         await view.StreamDataAsync(new[] { GetTuple(1) }.ToAsyncEnumerable());
