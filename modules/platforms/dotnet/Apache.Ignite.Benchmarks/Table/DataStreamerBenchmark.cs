@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Benchmarks.Table;
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -82,7 +83,7 @@ public class DataStreamerBenchmark
 
         _client = await IgniteClient.StartAsync(cfg);
         _table = (await _client.Tables.GetTableAsync(FakeServer.ExistingTableName))!;
-        _data = Enumerable.Range(1, 100_000).Select(x => new IgniteTuple { ["id"] = x, ["name"] = "name " + x }).ToList();
+        _data = Enumerable.Range(1, 100_000).Select(x => new IgniteTuple { ["id"] = x }).ToList();
     }
 
     [GlobalCleanup]
