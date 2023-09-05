@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.lang.ErrorGroups.Sql.CURSOR_NO_MORE_PAGES_ERR;
-import static org.apache.ignite.lang.IgniteExceptionMapperUtil.mapToPublicException;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -29,13 +28,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
@@ -135,16 +133,12 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         if (!hasMorePages()) {
             return (CompletableFuture<? extends AsyncResultSet<T>>) HAS_NO_MORE_PAGE_FUTURE;
         } else {
-            return cur.requestNextAsync(pageSize)
+            return IgniteExceptionMapperUtil.convertToPublicFuture(cur.requestNextAsync(pageSize)
                     .thenApply(page -> {
                         curPage = page;
 
                         return this;
-                    }).exceptionally(th -> {
-                        Throwable cause = ExceptionUtils.unwrapCause(th);
-
-                        throw new CompletionException(mapToPublicException(cause));
-                    });
+                    }));
         }
     }
 
