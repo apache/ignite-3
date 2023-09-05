@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.IsNot.not;
 import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -45,19 +46,6 @@ import org.junit.jupiter.api.function.Executable;
  */
 public class SqlTestUtils {
     private static final ThreadLocalRandom RND = ThreadLocalRandom.current();
-
-
-    /**
-     * <em>Assert</em> that execution of the supplied {@code executable} throws
-     * an {@link SqlException} with expected error code and return the exception.
-     *
-     * @param expectedCode Expected error code of {@link SqlException}
-     * @param executable Supplier to execute and check thrown exception.
-     * @return Thrown the {@link SqlException}.
-     */
-    public static SqlException assertThrowsSqlException(int expectedCode, Executable executable) {
-        return assertThrowsSqlException(expectedCode, "", executable);
-    }
 
     /**
      * <em>Assert</em> that execution of the supplied {@code executable} throws
@@ -91,6 +79,8 @@ public class SqlTestUtils {
         assertEquals(expectedCode, ex.code());
 
         assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
+
+        assertThat("Exception shouldn't be in internal package", ex.getClass().getPackageName(), not(containsString("internal")));
 
         return ex;
     }
@@ -172,9 +162,9 @@ public class SqlTestUtils {
             case INT64:
                 return (long) base;
             case FLOAT:
-                return (float) base + ((float) base / 1000);
+                return base + ((float) base / 1000);
             case DOUBLE:
-                return (double) base + ((double) base / 1000);
+                return base + ((double) base / 1000);
             case STRING:
                 return "str_" + base;
             case BYTE_ARRAY:
@@ -182,7 +172,7 @@ public class SqlTestUtils {
             case NULL:
                 return null;
             case DECIMAL:
-                return BigDecimal.valueOf((double) base + ((double) base / 1000));
+                return BigDecimal.valueOf(base + ((double) base / 1000));
             case NUMBER:
                 return BigInteger.valueOf(base);
             case UUID:

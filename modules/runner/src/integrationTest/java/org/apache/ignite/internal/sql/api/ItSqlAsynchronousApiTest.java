@@ -697,9 +697,12 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         // Fetched page is available after cancel.
         ars0.currentPage();
 
-        SqlException sqlEx = assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, () -> await(ars0.fetchNextPage()));
-        assertTrue(IgniteTestUtils.hasCause(sqlEx, QueryCancelledException.class, null));
+        SqlException sqlEx = assertThrowsSqlException(
+                Sql.EXECUTION_CANCELLED_ERR,
+                "The query was cancelled while executing",
+                () -> await(ars0.fetchNextPage()));
 
+        assertTrue(IgniteTestUtils.hasCause(sqlEx, QueryCancelledException.class, null));
         assertThrowsSqlException(Sql.SESSION_CLOSED_ERR, "Session is closed", () -> await(ses.executeAsync(null, "SELECT ID FROM TEST")));
     }
 
