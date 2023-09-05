@@ -34,12 +34,10 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -63,10 +61,10 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
  * Converter for DDL command classes to Catalog command params classes.
  */
 class DdlToCatalogCommandConverter {
-    static CatalogCommand convert(CreateTableCommandBuilder commandBuilder, CreateTableCommand cmd) {
+    static CatalogCommand convert(CreateTableCommand cmd) {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
-        return commandBuilder
+        return org.apache.ignite.internal.catalog.commands.CreateTableCommand.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
 
@@ -79,8 +77,8 @@ class DdlToCatalogCommandConverter {
                 .build();
     }
 
-    static DropTableParams convert(DropTableCommand cmd) {
-        return DropTableParams.builder()
+    static CatalogCommand convert(DropTableCommand cmd) {
+        return org.apache.ignite.internal.catalog.commands.DropTableCommand.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
                 .build();

@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
+package org.apache.ignite.internal.catalog.commands;
 
-import java.util.List;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 
 /**
- * Marker interface for commands executed by {@link CatalogManager}.
+ * Abstract builder of table-related commands.
  *
- * @see CatalogManager#execute(CatalogCommand)
- * @see CatalogManager#execute(List)
+ * <p>Every table-related command, disregard it going to create new table or modify existing one,
+ * should specify name of the table and namespace (schema) where to find existing/put new table.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
-public interface CatalogCommand extends UpdateProducer {
+public interface AbstractTableCommandBuilder<T extends AbstractTableCommandBuilder<T>> {
+    /** A name of the schema a table belongs to. Should not be null or blank. */
+    T schemaName(String schemaName);
+
+    /** A name of the table. Should not be null or blank. */
+    T tableName(String tableName);
+
+    /** Returns a command with specified parameters. */
+    CatalogCommand build();
 }

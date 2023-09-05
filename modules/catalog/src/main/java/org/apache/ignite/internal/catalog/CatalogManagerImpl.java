@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropIndexParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropTableParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
@@ -55,11 +54,8 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
-import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -75,7 +71,6 @@ import org.apache.ignite.internal.catalog.storage.AlterColumnEntry;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
-import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.Fireable;
 import org.apache.ignite.internal.catalog.storage.NewColumnsEntry;
@@ -313,53 +308,12 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
     @Override
     public CompletableFuture<Void> execute(CatalogCommand command) {
-        return saveUpdateAndWaitForActivation(toProducerOrThrow(command));
+        return saveUpdateAndWaitForActivation(command);
     }
 
     @Override
     public CompletableFuture<Void> execute(List<CatalogCommand> commands) throws IllegalArgumentException {
-        List<UpdateProducer> producers = new ArrayList<>(commands.size());
-
-        for (CatalogCommand command : commands) {
-            producers.add(toProducerOrThrow(command));
-        }
-
-        return saveUpdateAndWaitForActivation(new BulkUpdateProducer(producers));
-    }
-
-    private static UpdateProducer toProducerOrThrow(CatalogCommand command) {
-        if (!(command instanceof UpdateProducer)) {
-            throw new IllegalArgumentException("Expected command created by this very manager, but got "
-                    + (command == null ? "<null>" : command.getClass().getCanonicalName()));
-        }
-
-        return (UpdateProducer) command;
-    }
-
-    @Override
-    public CreateTableCommandBuilder createTableCommandBuilder() {
-        return new CreateTableCommand.Builder();
-    }
-
-    @Override
-    public CompletableFuture<Void> dropTable(DropTableParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            validateDropTableParams(params);
-
-            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
-
-            CatalogTableDescriptor table = getTable(schema, params.tableName());
-
-            List<UpdateEntry> updateEntries = new ArrayList<>();
-
-            Arrays.stream(schema.indexes())
-                    .filter(index -> index.tableId() == table.id())
-                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id(), index.tableId())));
-
-            updateEntries.add(new DropTableEntry(table.id()));
-
-            return updateEntries;
-        });
+        return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
     }
 
     @Override
@@ -856,17 +810,17 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     private static class BulkUpdateProducer implements UpdateProducer {
-        private final List<UpdateProducer> producers;
+        private final List<? extends UpdateProducer> commands;
 
-        BulkUpdateProducer(List<UpdateProducer> producers) {
-            this.producers = producers;
+        BulkUpdateProducer(List<? extends UpdateProducer> producers) {
+            this.commands = producers;
         }
 
         @Override
         public List<UpdateEntry> get(Catalog catalog) {
             List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
 
-            for (UpdateProducer producer : producers) {
+            for (UpdateProducer producer : commands) {
                 List<UpdateEntry> entries = producer.get(catalog);
 
                 for (UpdateEntry entry : entries) {
