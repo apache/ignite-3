@@ -241,17 +241,20 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (lastFinished) {
             val++;
 
+            // Simplifies bit operations.
+            int intVal = Short.toUnsignedInt(val);
+
             int pos = buf.position();
 
-            while ((val & 0xFF80) != 0) {
-                byte b = (byte) (val | 0x80);
+            while ((intVal & 0xFF80) != 0) {
+                byte b = (byte) (intVal | 0x80);
 
                 GridUnsafe.putByte(heapArr, baseOff + pos++, b);
 
-                val >>>= 7;
+                intVal >>>= 7;
             }
 
-            GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) val);
+            GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) intVal);
 
             buf.position(pos);
         }
@@ -1464,7 +1467,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     @Nullable
     public <T extends NetworkMessage> T readMessage(MessageReader reader) {
-        // if the deserialzer is null then we haven't finished reading the message header
+        // if the deserializer is null then we haven't finished reading the message header
         if (msgDeserializer == null) {
             // read the message group type
             if (!msgGroupTypeRead) {

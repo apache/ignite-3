@@ -83,10 +83,11 @@ public class InboundDecoder extends ByteToMessageDecoder {
         Short groupType = groupTypeAttr.get();
 
         reader.setBuffer(buffer);
-        MessageDeserializer<NetworkMessage> msg = messageAttr.get();
 
         while (buffer.hasRemaining()) {
             int initialNioBufferPosition = buffer.position();
+
+            MessageDeserializer<NetworkMessage> msg = messageAttr.get();
 
             try {
                 // Read message type.
@@ -95,6 +96,8 @@ public class InboundDecoder extends ByteToMessageDecoder {
                         groupType = reader.readHeaderShort();
 
                         if (!reader.isLastRead()) {
+                            fixNettyBufferReaderIndex(in, buffer, initialNioBufferPosition);
+
                             break;
                         }
                     }
@@ -103,6 +106,8 @@ public class InboundDecoder extends ByteToMessageDecoder {
 
                     if (!reader.isLastRead()) {
                         groupTypeAttr.set(groupType);
+
+                        fixNettyBufferReaderIndex(in, buffer, initialNioBufferPosition);
 
                         break;
                     }
@@ -122,10 +127,7 @@ public class InboundDecoder extends ByteToMessageDecoder {
                     finished = msg.readMessage(reader);
                 }
 
-                int readBytes = buffer.position() - initialNioBufferPosition;
-
-                // Set read position to Netty's ByteBuf.
-                in.readerIndex(in.readerIndex() + readBytes);
+                int readBytes = fixNettyBufferReaderIndex(in, buffer, initialNioBufferPosition);
 
                 if (finished) {
                     reader.reset();
@@ -156,6 +158,15 @@ public class InboundDecoder extends ByteToMessageDecoder {
                 throw e;
             }
         }
+    }
+
+    private static int fixNettyBufferReaderIndex(ByteBuf in, ByteBuffer buffer, int initialNioBufferPosition) {
+        int readBytes = buffer.position() - initialNioBufferPosition;
+
+        // Set read position to Netty's ByteBuf.
+        in.readerIndex(in.readerIndex() + readBytes);
+
+        return readBytes;
     }
 
     private void onClassDescriptorMessage(ClassDescriptorListMessage msg) {

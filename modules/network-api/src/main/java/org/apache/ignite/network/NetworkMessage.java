@@ -23,9 +23,6 @@ import it.unimi.dsi.fastutil.ints.IntSet;
  * Message for exchanging information in a cluster.
  */
 public interface NetworkMessage {
-    /** Size of the message type (in bytes), used during (de-)serialization. */
-    int MSG_TYPE_SIZE_BYTES = 4;
-
     /**
      * Message type. Must be <b>distinct</b> among all messages in a <i>message group</i>. Only positive values are allowed.
      *
