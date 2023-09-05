@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-#include "ignite/common/config.h"
 #include "odbc_connection.h"
 #include "odbc_suite.h"
+
+#include "ignite/odbc/string_utils.h"
+#include "ignite/common/config.h"
 
 #include <gtest/gtest.h>
 
@@ -528,24 +530,21 @@ TEST_F(meta_queries_test, test_get_data_with_get_type_info) {
 }
 #endif // MUTED
 
-// TODO: IGNITE-19214 Implement tables metadata fetching
-#ifdef MUTED
 TEST_F(meta_queries_test, test_get_data_with_tables) {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR empty[] = "";
-    SQLCHAR table[] = "TestType";
+    SQLCHAR any[] = "%";
+    auto table = to_sqlchar(to_upper(TABLE_NAME_ALL_COLUMNS_SQL));
 
-    SQLRETURN ret = SQLTables(m_statement, empty, SQL_NTS, empty, SQL_NTS, table, SQL_NTS, empty, SQL_NTS);
+    SQLRETURN ret = SQLTables(m_statement, any, SQL_NTS, any, SQL_NTS, table.data(), SQL_NTS, any, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
     check_single_row_result_set_with_get_data(m_statement);
 }
-#endif // MUTED
 
-// TODO: IGNITE-19214 Implement table column metadata fetching
+// TODO: IGNITE-20346 Implement column metadata fetching
 #ifdef MUTED
 TEST_F(meta_queries_test, test_get_data_with_columns) {
     odbc_connect(get_basic_connection_string());

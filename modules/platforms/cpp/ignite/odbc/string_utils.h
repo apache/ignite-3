@@ -147,4 +147,15 @@ T1 lexical_cast(const T2 &val) {
     return value;
 }
 
+/**
+ * Convert to upper.
+ *
+ * @param value Value.
+ * @return Upper value.
+ */
+[[nodiscard]] inline std::string to_upper(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), ::toupper);
+    return value;
+}
+
 } // namespace ignite

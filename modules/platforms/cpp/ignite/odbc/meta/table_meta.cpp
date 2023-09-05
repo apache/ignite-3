@@ -20,13 +20,22 @@
 namespace ignite {
 
 void table_meta::read(protocol::reader &reader) {
+    auto has_data = reader.read_bool();
+    assert(has_data);
+
+    auto status = reader.read_int32();
+    assert(status == 0);
+
+    auto err_msg = reader.read_string_nullable();
+    assert(!err_msg);
+
     schema_name = reader.read_string();
     table_name = reader.read_string();
     table_type = reader.read_string();
 }
 
 table_meta_vector read_table_meta_vector(protocol::reader &reader) {
-    auto meta_num = reader.read_array_size();
+    auto meta_num = reader.read_int32();
 
     table_meta_vector meta;
     meta.reserve(static_cast<std::size_t>(meta_num));
