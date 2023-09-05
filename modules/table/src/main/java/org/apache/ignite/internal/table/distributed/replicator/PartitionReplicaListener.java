@@ -1264,7 +1264,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Processes transaction cleanup request:
      * <ol>
-     *     <li>Waits for finishing of transactional operations;</>
+     *     <li>Waits for finishing of transactional operations;</li>
      *     <li>Runs asynchronously the specific raft {@code TxCleanupCommand} command, that will convert all pending entries(writeIntents)
      *     to either regular values({@link TxState#COMMITED}) or removing them ({@link TxState#ABORTED});</li>
      *     <li>Releases all locks that were held on local Replica by given transaction.</li>
