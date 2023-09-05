@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
@@ -42,6 +41,7 @@ import java.time.LocalDate;
 import java.util.GregorianCalendar;
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -151,19 +151,23 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
         assertTrue(rs0.next());
         assertFalse(rs0.getBoolean(1));
 
-        assertThrows(SQLException.class, () -> {
-            ResultSet badRs = stmt.executeQuery("select ''");
+        JdbcTestUtils.assertThrowsSqlException(
+                "Cannot convert to boolean: ",
+                () -> {
+                    ResultSet badRs = stmt.executeQuery("select ''");
 
-            assertTrue(badRs.next());
-            assertTrue(badRs.getBoolean(1));
-        }, "Cannot convert to boolean: ");
+                    assertTrue(badRs.next());
+                    assertTrue(badRs.getBoolean(1));
+                });
 
-        assertThrows(SQLException.class, () -> {
-            ResultSet badRs = stmt.executeQuery("select 'qwe'");
+        JdbcTestUtils.assertThrowsSqlException(
+                "Cannot convert to boolean: qwe",
+                () -> {
+                    ResultSet badRs = stmt.executeQuery("select 'qwe'");
 
-            assertTrue(badRs.next());
-            assertTrue(badRs.getBoolean(1));
-        }, "Cannot convert to boolean: qwe");
+                    assertTrue(badRs.next());
+                    assertTrue(badRs.getBoolean(1));
+                });
     }
 
     @Test
@@ -626,19 +630,19 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testFindColumn() throws Exception {
-        final ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
+        ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
 
         assertNotNull(rs);
         assertTrue(rs.next());
 
         assertEquals(1, rs.findColumn("id"));
 
-        assertThrows(SQLException.class, () -> rs.findColumn("wrong"), "Column not found: wrong");
+        JdbcTestUtils.assertThrowsSqlException("Column not found: wrong", () -> rs.findColumn("wrong"));
     }
 
     @Test
     public void testNotSupportedTypes() throws Exception {
-        final ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
+        ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
 
         assertTrue(rs.next());
 
@@ -689,7 +693,7 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testUpdateNotSupported() throws Exception {
-        final ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
+        ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
 
         assertTrue(rs.next());
 
@@ -862,7 +866,7 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testExceptionOnClosedResultSet() throws Exception {
-        final ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
+        ResultSet rs = stmt.executeQuery(SQL_SINGLE_RES);
 
         rs.close();
 

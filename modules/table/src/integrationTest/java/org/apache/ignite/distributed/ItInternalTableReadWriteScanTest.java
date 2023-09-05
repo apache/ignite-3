@@ -24,6 +24,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.RollbackTxOnErrorPublisher;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -33,6 +34,9 @@ import org.apache.ignite.network.ClusterNode;
  * Tests for {@link InternalTable#scan(int, InternalTransaction)}.
  */
 public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableScanTest {
+    /** Timestamp tracker. */
+    private static final HybridTimestampTracker HYBRID_TIMESTAMP_TRACKER = new HybridTimestampTracker();
+
     @Override
     protected Publisher<BinaryRow> scan(int part, InternalTransaction tx) {
         if (tx == null) {
@@ -50,7 +54,7 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
 
     @Override
     protected InternalTransaction startTx() {
-        InternalTransaction tx = internalTbl.txManager().begin();
+        InternalTransaction tx = internalTbl.txManager().begin(HYBRID_TIMESTAMP_TRACKER);
 
         TablePartitionId tblPartId = new TablePartitionId(internalTbl.tableId(), ((TablePartitionId) internalTbl.groupId()).partitionId());
         RaftGroupService raftSvc = internalTbl.partitionRaftGroupService(tblPartId.partitionId());

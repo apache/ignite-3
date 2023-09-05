@@ -28,8 +28,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
+import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.CursorClosedException;
 
 /**

@@ -292,19 +292,18 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithoutKeyField(MarshallerFactory factory) {
-        Column[] keyCols = new Column[]{
+        Column[] keyCols = {
                 new Column("id".toUpperCase(), INT64, false),
                 new Column("id2".toUpperCase(), INT64, false),
         };
 
-        Column[] valCols = new Column[]{
+        Column[] valCols = {
                 new Column("primitiveDoubleCol", DOUBLE, false)
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
 
-        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestKeyObject.class, TestObjectWithAllTypes.class),
-                "No field found for column id2");
+        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, TestKeyObject.class, TestObjectWithAllTypes.class));
     }
 
     @ParameterizedTest

@@ -91,7 +91,7 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
     }
 
     private static @Nullable Long lastObservableTimestamp() {
-        HybridTimestamp ts = ignite.txManager().lastObservableTimestamp();
+        HybridTimestamp ts = ignite.timestampTracker().get();
 
         return ts == null ? null : ts.longValue() >> LOGICAL_TIME_BITS_SIZE;
     }

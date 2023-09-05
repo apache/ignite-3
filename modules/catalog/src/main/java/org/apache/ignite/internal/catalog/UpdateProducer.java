@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.catalog;
 
-/** DROP TABLE statement. */
-public class DropTableParams extends AbstractTableCommandParams {
-    /** Creates parameters builder. */
-    public static Builder builder() {
-        return new Builder();
-    }
+import java.util.List;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
-    private DropTableParams() {
-        // No-op.
-    }
-
-    /** Parameters builder. */
-    public static class Builder extends AbstractTableBuilder<DropTableParams, Builder> {
-        private Builder() {
-            super(new DropTableParams());
-        }
-    }
+/**
+ * Interface that describes object that can generate list of changes to bring given catalog
+ * to desired state.
+ */
+@FunctionalInterface
+public interface UpdateProducer {
+    /**
+     * Returns list of {@link UpdateEntry entries} to be applied to catalog to bring it to the state
+     * described in the command.
+     *
+     * @param catalog Catalog on the basis of which to generate the list of updates.
+     * @return List of updates. Should be empty if no updates actually required.
+     */
+    List<UpdateEntry> get(Catalog catalog);
 }

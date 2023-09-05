@@ -148,7 +148,7 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
         }
 
         Mappings.TargetMapping mapping = scan.requiredColumns() == null ? null :
-                Commons.inverseTrimmingMapping(fieldCnt, scan.requiredColumns());
+                Commons.trimmingMapping(fieldCnt, scan.requiredColumns());
 
         for (RexNode op : operands) {
             BitSet conditionFields = new BitSet(fieldCnt);

@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -39,6 +38,7 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -115,9 +115,7 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     }
 
     @BeforeEach
-    protected void beforeTest(TestInfo testInfo) throws Exception {
-        setupBase(testInfo, WORK_DIR);
-
+    protected void setUpBase() throws Exception {
         conn.setAutoCommit(true);
 
         stmt = conn.createStatement();
@@ -127,14 +125,12 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    protected void afterTest(TestInfo testInfo) throws Exception {
+    protected void tearDownBase() throws Exception {
         if (stmt != null) {
             stmt.close();
 
             assert stmt.isClosed();
         }
-
-        tearDownBase(testInfo);
     }
 
     /**
@@ -143,7 +139,7 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
      * @param ex Executable function that throws an error.
      */
     protected void checkResultSetClosed(Executable ex) {
-        assertThrows(SQLException.class, ex, "Result set is closed");
+        JdbcTestUtils.assertThrowsSqlException("Result set is closed", ex);
     }
 
     /**
@@ -152,7 +148,7 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
      * @param ex Executable function that throws an error.
      */
     protected void checkStatementClosed(Executable ex) {
-        assertThrows(SQLException.class, ex, "Statement is closed");
+        JdbcTestUtils.assertThrowsSqlException("Statement is closed", ex);
     }
 
     /**
@@ -161,7 +157,7 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
      * @param ex Executable function that throws an error.
      */
     protected void checkConnectionClosed(Executable ex) {
-        assertThrows(SQLException.class, ex, "Connection is closed");
+        JdbcTestUtils.assertThrowsSqlException("Connection is closed", ex);
     }
 
     /**

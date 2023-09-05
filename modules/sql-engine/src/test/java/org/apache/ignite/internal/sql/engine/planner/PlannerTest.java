@@ -598,7 +598,7 @@ public class PlannerTest extends AbstractPlannerTest {
         return new MappingQueryContext(locNodeName, mappingService);
     }
 
-    private static PlanningContext plannerContext(SchemaPlus schema, String sql, Object... params) {
+    private PlanningContext plannerContext(SchemaPlus schema, String sql, Object... params) {
         return PlanningContext.builder()
                 .parentContext(BaseQueryContext.builder()
                         .logger(log)

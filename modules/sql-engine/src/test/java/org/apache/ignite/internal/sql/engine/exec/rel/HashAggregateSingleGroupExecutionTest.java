@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
@@ -373,6 +374,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
                 false,
                 false,
                 false,
+                ImmutableList.of(),
                 ImmutableIntList.of(),
                 -1,
                 null,

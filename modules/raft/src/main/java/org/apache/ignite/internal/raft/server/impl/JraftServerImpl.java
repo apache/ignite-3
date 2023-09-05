@@ -75,8 +75,10 @@ import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
+import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.rpc.impl.NullActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.NullAppendEntriesRequestInterceptor;
@@ -132,6 +134,9 @@ public class JraftServerImpl implements RaftServer {
 
     /** Interceptor for AppendEntriesRequests. Not thread-safe, should be assigned and read in the same thread. */
     private AppendEntriesRequestInterceptor appendEntriesRequestInterceptor = new NullAppendEntriesRequestInterceptor();
+
+    /** Interceptor for ActionRequests. Not thread-safe, should be assigned and read in the same thread. */
+    private ActionRequestInterceptor actionRequestInterceptor = new NullActionRequestInterceptor();
 
     /** The number of parallel raft groups starts. */
     private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
@@ -209,6 +214,16 @@ public class JraftServerImpl implements RaftServer {
         this.appendEntriesRequestInterceptor = appendEntriesRequestInterceptor;
     }
 
+    /**
+     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used
+     * to {@link #start()} the component.
+     *
+     * @param actionRequestInterceptor Interceptor to use.
+     */
+    public void actionRequestInterceptor(ActionRequestInterceptor actionRequestInterceptor) {
+        this.actionRequestInterceptor = actionRequestInterceptor;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() {
@@ -256,7 +271,8 @@ public class JraftServerImpl implements RaftServer {
                 requestExecutor,
                 serviceEventInterceptor,
                 raftGroupEventsClientListener,
-                appendEntriesRequestInterceptor
+                appendEntriesRequestInterceptor,
+                actionRequestInterceptor
         );
 
         if (opts.getfSMCallerExecutorDisruptor() == null) {

@@ -42,10 +42,8 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.jetbrains.annotations.Nullable;
@@ -663,97 +661,10 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    void testValidateTableNameOnTableDrop() {
-        assertThat(
-                manager.dropTable(DropTableParams.builder().build()),
-                willThrowFast(CatalogValidationException.class, "Missing table name")
-        );
-    }
-
-    @Test
-    void testValidateTableNameOnTableCreation() {
-        assertThat(
-                manager.createTable(CreateTableParams.builder().build()),
-                willThrowFast(CatalogValidationException.class, "Missing table name")
-        );
-    }
-
-    @Test
-    void testValidateColumnsOnTableCreation() {
-        assertThat(
-                manager.createTable(createTableParams(TABLE_NAME, null, null, null)),
-                willThrowFast(CatalogValidationException.class, "Columns not specified")
-        );
-
-        assertThat(
-                manager.createTable(createTableParams(TABLE_NAME, List.of(), null, null)),
-                willThrowFast(CatalogValidationException.class, "Columns not specified")
-        );
-
-        assertThat(
-                manager.createTable(createTableParams(TABLE_NAME, List.of(ColumnParams.builder().build()), null, null)),
-                willThrowFast(CatalogValidationException.class, "Missing column name")
-        );
-
-        assertThat(
-                manager.createTable(createTableParams(TABLE_NAME, List.of(ColumnParams.builder().name("key").build()), null, null)),
-                willThrowFast(CatalogValidationException.class, "Missing column type: key")
-        );
-
-        assertThat(
-                manager.createTable(
-                        createTableParams(TABLE_NAME, List.of(columnParams("key", INT32), columnParams("key", INT64)), null, null)
-                ),
-                willThrowFast(CatalogValidationException.class, "Duplicate columns are present: [key]")
-        );
-    }
-
-    @Test
-    void testValidatePrimaryKeyColumnsOnTableCreation() {
-        assertThat(
-                manager.createTable(simpleTableParamsWithPrimaryKeys(null)),
-                willThrowFast(CatalogValidationException.class, "Primary key columns not specified")
-        );
-
-        assertThat(
-                manager.createTable(simpleTableParamsWithPrimaryKeys(List.of())),
-                willThrowFast(CatalogValidationException.class, "Primary key columns not specified")
-        );
-
-        assertThat(
-                manager.createTable(simpleTableParamsWithPrimaryKeys(List.of("key", "key"))),
-                willThrowFast(CatalogValidationException.class, "Duplicate primary key columns are present: [key]")
-        );
-
-        assertThat(
-                manager.createTable(simpleTableParamsWithPrimaryKeys(List.of("foo", "bar"))),
-                willThrowFast(CatalogValidationException.class, "Primary key columns missing in columns: [foo, bar]")
-        );
-    }
-
-    @Test
-    void testValidatePrimaryColocationColumnsOnTableCreation() {
-        assertThat(
-                manager.createTable(simpleTableParamsWithColocationColumns(List.of())),
-                willThrowFast(CatalogValidationException.class, "Colocation columns not specified")
-        );
-
-        assertThat(
-                manager.createTable(simpleTableParamsWithColocationColumns(List.of("key", "key"))),
-                willThrowFast(CatalogValidationException.class, "Duplicate colocation columns are present: [key]")
-        );
-
-        assertThat(
-                manager.createTable(simpleTableParamsWithColocationColumns(List.of("foo", "bar"))),
-                willThrowFast(CatalogValidationException.class, "Colocation columns missing in primary key columns: [foo, bar]")
-        );
-    }
-
-    @Test
     void testValidateTableNameOnDropColumn() {
         assertThat(
                 manager.dropColumn(AlterTableDropColumnParams.builder().build()),
-                willThrowFast(CatalogValidationException.class, "Missing table name")
+                willThrowFast(CatalogValidationException.class, "Name of the table can't be null or blank")
         );
     }
 
@@ -774,7 +685,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     void testValidateTableNameOnAddColumn() {
         assertThat(
                 manager.addColumn(AlterTableAddColumnParams.builder().build()),
-                willThrowFast(CatalogValidationException.class, "Missing table name")
+                willThrowFast(CatalogValidationException.class, "Name of the table can't be null or blank")
         );
     }
 
@@ -792,7 +703,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.addColumn(addColumnParams(ColumnParams.builder().build())),
-                willThrowFast(CatalogValidationException.class, "Missing column name")
+                willThrowFast(CatalogValidationException.class, "Name of the column can't be null or blank")
         );
 
         assertThat(
@@ -810,7 +721,7 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
     void testValidateTableNameOnAlterColumn() {
         assertThat(
                 manager.alterColumn(AlterColumnParams.builder().build()),
-                willThrowFast(CatalogValidationException.class, "Missing table name")
+                willThrowFast(CatalogValidationException.class, "Name of the table can't be null or blank")
         );
     }
 
@@ -853,18 +764,5 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
                 .dataNodesAutoAdjustScaleUp(scaleUp)
                 .dataNodesAutoAdjustScaleDown(scaleDown)
                 .build();
-    }
-
-    private CreateTableParams simpleTableParamsWithPrimaryKeys(@Nullable List<String> primaryKeys) {
-        return createTableParams(TABLE_NAME, List.of(columnParams("key", INT32), columnParams("val", INT64)), primaryKeys, null);
-    }
-
-    private CreateTableParams simpleTableParamsWithColocationColumns(@Nullable List<String> colocationColumns) {
-        return createTableParams(
-                TABLE_NAME,
-                List.of(columnParams("key", INT32), columnParams("val", INT64)),
-                List.of("key"),
-                colocationColumns
-        );
     }
 }

@@ -30,6 +30,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -461,6 +462,29 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_23C, checkPlan, disableRules);
     }
 
+    /**
+     * Validate query with two aggregates: one w/o DISTINCT and one with DISTINCT.
+     */
+    @Test
+    public void countDistinctGroupSetSingle() throws Exception {
+        assertPlan(TestCase.CASE_24_1, isInstanceOf(IgniteColocatedSortAggregate.class)
+                .and(hasNoGroupSets(IgniteColocatedSortAggregate::getGroupSets))
+                .and(input(isInstanceOf(IgniteTableScan.class)
+                )), disableRules);
+    }
+
+    /**
+     * Validate query with two aggregates: one w/o DISTINCT and one with DISTINCT: hash distribution.
+     */
+    @Test
+    public void countDistinctGroupSetHash() throws Exception {
+        checkCountDistinctHash(TestCase.CASE_24_1A);
+        checkCountDistinctHash(TestCase.CASE_24_1B);
+        checkCountDistinctHash(TestCase.CASE_24_1C);
+        checkCountDistinctHash(TestCase.CASE_24_1D);
+        checkCountDistinctHash(TestCase.CASE_24_1E);
+    }
+
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
@@ -725,5 +749,14 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         )),
                 disableRules
         );
+    }
+
+    private void checkCountDistinctHash(TestCase testCase) throws Exception {
+        assertPlan(testCase, isInstanceOf(IgniteColocatedSortAggregate.class)
+                .and(hasNoGroupSets(IgniteColocatedSortAggregate::getGroupSets))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(IgniteDistributions.single()))
+                        .and(input(isInstanceOf(IgniteTableScan.class))))
+                ), disableRules);
     }
 }
