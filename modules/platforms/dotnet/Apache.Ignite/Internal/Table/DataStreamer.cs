@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table;
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -124,6 +125,7 @@ internal static class DataStreamer
             foreach (var batch in batches.Values)
             {
                 batch.Buffer.Dispose();
+                ArrayPool<T>.Shared.Return(batch.Items);
 
                 Metrics.StreamerItemsQueuedDecrement(batch.Count);
                 Metrics.StreamerBatchesActiveDecrement();
@@ -181,7 +183,7 @@ internal static class DataStreamer
 
             lock (batch)
             {
-                batch.Items.Add(item);
+                batch.Items[batch.Count++] = item;
 
                 if (batch.Schema != schema0)
                 {
@@ -241,10 +243,10 @@ internal static class DataStreamer
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
-                // TODO: Use pooled arrays for Items.
-                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Items.ToArray(), batch.SchemaOutdated);
+                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Items, batch.SchemaOutdated);
 
-                batch.Items.Clear();
+                batch.Items = ArrayPool<T>.Shared.Rent(options.BatchSize);
+                batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
                 InitBuffer(batch);
                 batch.LastFlush = Stopwatch.GetTimestamp();
@@ -259,10 +261,10 @@ internal static class DataStreamer
             PooledArrayBuffer buf,
             string partition,
             Task oldTask,
-            ICollection<T> items,
+            T[] items,
             bool batchSchemaOutdated)
         {
-            Debug.Assert(items.Count > 0, "items.Count > 0");
+            Debug.Assert(items.Length > 0, "items.Length > 0");
 
             if (batchSchemaOutdated)
             {
@@ -296,7 +298,7 @@ internal static class DataStreamer
                         await sender(buf, partition, retryPolicy).ConfigureAwait(false);
 
                         Metrics.StreamerBatchesSent.Add(1);
-                        Metrics.StreamerItemsSent.Add(items.Count);
+                        Metrics.StreamerItemsSent.Add(items.Length);
 
                         return;
                     }
@@ -315,8 +317,9 @@ internal static class DataStreamer
             finally
             {
                 buf.Dispose();
+                ArrayPool<T>.Shared.Return(items);
 
-                Metrics.StreamerItemsQueuedDecrement(items.Count);
+                Metrics.StreamerItemsQueuedDecrement(items.Length);
                 Metrics.StreamerBatchesActiveDecrement();
             }
         }
@@ -369,20 +372,20 @@ internal static class DataStreamer
     {
         public Batch(int capacity, Schema schema)
         {
-            Items = new List<T>(capacity);
+            Items = ArrayPool<T>.Shared.Rent(capacity);
             Schema = schema;
         }
 
         public PooledArrayBuffer Buffer { get; set; } = ProtoCommon.GetMessageWriter();
 
-        [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Private class.")]
-        public List<T> Items { get; }
+        [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Private record")]
+        public T[] Items { get; set; }
 
         public Schema Schema { get; set; }
 
         public bool SchemaOutdated { get; set; }
 
-        public int Count => Items.Count;
+        public int Count { get; set; }
 
         public int CountPos { get; set; }
 
