@@ -337,7 +337,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestSchemaUpdateWhileStreaming()
+    public async Task TestSchemaUpdateWhileStreaming([Values(true, false)] bool insertNewColumn)
     {
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (KEY bigint PRIMARY KEY)");
 
@@ -353,7 +353,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         // Inserted with new schema.
         var res2 = await view.GetAsync(null, GetTuple(19));
-        Assert.AreEqual("FOO", res2.Value["VAL"]);
+        Assert.AreEqual(insertNewColumn ? "BAR_19" : "FOO", res2.Value["VAL"]);
 
         async IAsyncEnumerable<IIgniteTuple> GetData()
         {
@@ -370,7 +370,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
             for (int i = 10; i < 20; i++)
             {
-                yield return GetTuple(i);
+                yield return insertNewColumn ? GetTuple(i, "BAR_" + i) : GetTuple(i);
             }
         }
     }
