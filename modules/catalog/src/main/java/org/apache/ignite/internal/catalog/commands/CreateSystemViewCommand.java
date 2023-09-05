@@ -36,7 +36,10 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
- * Parameters for create view command.
+ * Create system view command - creates or replaces a system view.
+ *
+ * <p>If a system with with the given name does not exists, this command adds this system view to {@code SYSTEM} schema.
+ * If a system with with the given name exists, this command replaces the existing system view.
  */
 public class CreateSystemViewCommand extends AbstractCatalogCommand {
 
@@ -50,7 +53,7 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
      * @param name View name.
      * @param columns List of view columns.
      */
-    public CreateSystemViewCommand(String name, List<ColumnParams> columns) {
+    CreateSystemViewCommand(String name, List<ColumnParams> columns) {
         this.name = name;
         this.columns = columns;
 
@@ -111,9 +114,9 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
     }
 
     /**
-     * Creates a builder to construct instances of system views.
+     * Creates a builder to construct instances of create system view command.
      *
-     * @return A builder to create instances of system views.
+     * @return A builder to create instances of create system view command.
      */
     public static Builder builder() {
         return new Builder();
@@ -131,7 +134,7 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
         /**
          * Constructor.
          */
-        public Builder() {
+        Builder() {
 
         }
 

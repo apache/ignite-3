@@ -41,9 +41,9 @@ public interface CreateSystemViewCommandBuilder {
     CreateSystemViewCommandBuilder columns(List<ColumnParams> columns);
 
     /**
-     * Creates an instance of create view params.
+     * Creates an instance of create view command.
      *
-     * @return Create view params.
+     * @return An instance of create system view command.
      */
     CreateSystemViewCommand build();
 }

@@ -49,7 +49,7 @@ public class CreateSystemViewCommandValidationTest extends BaseIgniteAbstractTes
 
     @Test
     public void newSystemView() {
-        CreateSystemViewCommand command = new Builder()
+        CreateSystemViewCommand command = CreateSystemViewCommand.builder()
                 .name("view")
                 .columns(List.of(ColumnParams.builder().name("C1").type(ColumnType.INT32).build()))
                 .build();
@@ -76,7 +76,7 @@ public class CreateSystemViewCommandValidationTest extends BaseIgniteAbstractTes
     }
 
     private static CreateSystemViewCommandBuilder systemView() {
-        return new Builder()
+        return CreateSystemViewCommand.builder()
                 .name("view")
                 .columns(List.of(ColumnParams.builder().name("C").type(ColumnType.INT8).build()));
     }
