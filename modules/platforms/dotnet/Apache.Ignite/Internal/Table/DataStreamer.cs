@@ -95,7 +95,7 @@ internal static class DataStreamer
                 // However, not all producers support cancellation, so we need to check it here as well.
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var (batch, partition) = Add(item);
+                var (batch, partition) = await AddWithRetryUnmapped(item).ConfigureAwait(false);
                 if (batch.Count >= options.BatchSize)
                 {
                     await SendAsync(batch, partition).ConfigureAwait(false);
@@ -130,6 +130,21 @@ internal static class DataStreamer
             }
         }
 
+        return;
+
+        async Task<(Batch<T> Batch, string Partition)> AddWithRetryUnmapped(T item)
+        {
+            try
+            {
+                return Add(item);
+            }
+            catch (Exception e) when (e.CausedByUnmappedColumns())
+            {
+                schema = await schemaProvider(Table.SchemaVersionForceLatest).ConfigureAwait(false);
+                return Add(item);
+            }
+        }
+
         (Batch<T> Batch, string Partition) Add(T item)
         {
             var schema0 = schema;
@@ -156,9 +171,11 @@ internal static class DataStreamer
 
             writer.Handler.Write(ref tupleBuilder, item, schema0, columnCount, noValueSetRef);
 
-            var partition = partitionAssignment == null
+            // ReSharper disable once AccessToModifiedClosure (reviewed)
+            var partitionAssignment0 = partitionAssignment;
+            var partition = partitionAssignment0 == null
                 ? string.Empty // Default connection.
-                : partitionAssignment[Math.Abs(tupleBuilder.GetHash() % partitionAssignment.Length)];
+                : partitionAssignment0[Math.Abs(tupleBuilder.GetHash() % partitionAssignment0.Length)];
 
             var batch = GetOrCreateBatch(partition);
 
