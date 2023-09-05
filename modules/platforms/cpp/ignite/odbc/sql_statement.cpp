@@ -573,10 +573,6 @@ void sql_statement::execute_get_tables_meta_query(
 
 sql_result sql_statement::internal_execute_get_tables_meta_query(
     const std::string &catalog, const std::string &schema, const std::string &table, const std::string &table_type) {
-    UNUSED_VALUE catalog;
-    UNUSED_VALUE schema;
-    UNUSED_VALUE table;
-    UNUSED_VALUE table_type;
 
     if (m_current_query)
         m_current_query->close();
