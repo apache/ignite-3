@@ -23,6 +23,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteExceptionMapperUtil;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -76,16 +77,11 @@ abstract class AbstractTableView {
     protected IgniteException convertException(Throwable t) {
         if (t instanceof IgniteException) {
             return (IgniteException) t;
+        } else if (t instanceof IgniteInternalCheckedException || t instanceof IgniteInternalException) {
+            return new IgniteException(Common.INTERNAL_ERR, t);
         } else {
-            Throwable mapped = IgniteExceptionMapperUtil.mapToPublicException(t);
-
-            if (mapped instanceof IgniteException) {
-                return (IgniteException) mapped;
-            } else {
-                // The mapped exception could be neither IgniteInternalException nor IgniteInternalCheckedException,
-                // wrap it into IgniteException with internal err code.
-                return new IgniteException(Common.INTERNAL_ERR, mapped);
-            }
+            // Map all other exceptions to IgniteException code internal_err.
+            return new IgniteException(Common.INTERNAL_ERR, t);
         }
     }
 }
