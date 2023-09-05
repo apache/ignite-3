@@ -581,9 +581,8 @@ sql_result sql_statement::internal_execute_get_tables_meta_query(
     if (m_current_query)
         m_current_query->close();
 
-    // TODO: IGNITE-19214 Implement tables metadata fetching
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Tables metadata is not supported.");
-    return sql_result::AI_ERROR;
+    m_current_query = std::make_unique<table_metadata_query>(*this, m_connection, catalog, schema, table, table_type);
+    return m_current_query->execute();
 }
 
 void sql_statement::execute_get_foreign_keys_query(const std::string &primary_catalog,
