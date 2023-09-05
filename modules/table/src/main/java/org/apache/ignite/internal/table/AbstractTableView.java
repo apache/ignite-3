@@ -78,6 +78,7 @@ abstract class AbstractTableView {
         if (t instanceof IgniteException) {
             return (IgniteException) t;
         } else if (t instanceof IgniteInternalCheckedException || t instanceof IgniteInternalException) {
+            // Map internal errors to IgniteException code internal_err.
             return new IgniteException(Common.INTERNAL_ERR, t);
         } else {
             // Map all other exceptions to IgniteException code internal_err.
