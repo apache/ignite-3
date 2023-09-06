@@ -77,7 +77,7 @@ public class InboundDecoder extends ByteToMessageDecoder {
             readerAttr.set(reader);
         }
 
-        Attribute<MessageDeserializer<NetworkMessage>> messageAttr = ctx.channel().attr(DESERIALIZER_KEY);
+        Attribute<MessageDeserializer<NetworkMessage>> deserializerAttr = ctx.channel().attr(DESERIALIZER_KEY);
 
         Attribute<Short> groupTypeAttr = ctx.channel().attr(GROUP_TYPE_KEY);
 
@@ -86,11 +86,11 @@ public class InboundDecoder extends ByteToMessageDecoder {
         while (buffer.hasRemaining()) {
             int initialNioBufferPosition = buffer.position();
 
-            MessageDeserializer<NetworkMessage> msg = messageAttr.get();
+            MessageDeserializer<NetworkMessage> deserializer = deserializerAttr.get();
 
             try {
                 // Read message type.
-                if (msg == null) {
+                if (deserializer == null) {
                     Short groupType = groupTypeAttr.get();
 
                     if (groupType == null) {
@@ -113,7 +113,7 @@ public class InboundDecoder extends ByteToMessageDecoder {
                         break;
                     }
 
-                    msg = serializationService.createMessageDeserializer(groupType, messageType);
+                    deserializer = serializationService.createMessageDeserializer(groupType, messageType);
 
                     groupTypeAttr.set(null);
                 }
@@ -121,19 +121,19 @@ public class InboundDecoder extends ByteToMessageDecoder {
                 boolean finished = false;
 
                 // Read message if buffer has remaining data.
-                if (msg != null && buffer.hasRemaining()) {
-                    reader.setCurrentReadClass(msg.klass());
+                if (deserializer != null && buffer.hasRemaining()) {
+                    reader.setCurrentReadClass(deserializer.klass());
 
-                    finished = msg.readMessage(reader);
+                    finished = deserializer.readMessage(reader);
                 }
 
                 int readBytes = fixNettyBufferReaderIndex(in, buffer, initialNioBufferPosition);
 
                 if (finished) {
                     reader.reset();
-                    messageAttr.set(null);
+                    deserializerAttr.set(null);
 
-                    NetworkMessage message = msg.getMessage();
+                    NetworkMessage message = deserializer.getMessage();
 
                     if (message instanceof ClassDescriptorListMessage) {
                         onClassDescriptorMessage((ClassDescriptorListMessage) message);
@@ -141,7 +141,7 @@ public class InboundDecoder extends ByteToMessageDecoder {
                         out.add(message);
                     }
                 } else {
-                    messageAttr.set(msg);
+                    deserializerAttr.set(deserializer);
                 }
 
                 if (readBytes == 0) {
@@ -151,8 +151,8 @@ public class InboundDecoder extends ByteToMessageDecoder {
                     break;
                 }
             } catch (Throwable e) {
-                LOG.debug("Failed to read message [msg={}, buf={}, reader={}, reason={}]",
-                                e, msg, buffer, reader, e.getMessage()
+                LOG.debug("Failed to read message [deserializer={}, buf={}, reader={}, reason={}]",
+                                e, deserializer, buffer, reader, e.getMessage()
                 );
 
                 throw e;

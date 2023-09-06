@@ -77,6 +77,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** Flag that indicates that byte buffer has Big Endinan order. */
     protected static final byte BYTE_BUFFER_BIG_ENDIAN_FLAG = 2;
 
+    /** {@code Short.SIZE / 7} rounded up. */
+    private static final int MAX_VAR_SHORT_BYTES = 3;
+
+    /** {@code Integer.SIZE / 7} rounded up. */
+    private static final int MAX_VAR_INT_BYTES = 5;
+
+    /** {@code Long.SIZE / 7} rounded up. */
+    private static final int MAX_VAR_LONG_BYTES = 10;
+
     /** Message serialization registry. */
     private final MessageSerializationRegistry serializationRegistry;
 
@@ -237,34 +246,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeShort(short val) {
-        lastFinished = buf.remaining() >= 3;
+        lastFinished = buf.remaining() >= MAX_VAR_SHORT_BYTES;
 
-        if (lastFinished) {
-            val++;
-
-            // Simplifies bit operations.
-            int intVal = Short.toUnsignedInt(val);
-
-            int pos = buf.position();
-
-            while ((intVal & 0xFF80) != 0) {
-                byte b = (byte) (intVal | 0x80);
-
-                GridUnsafe.putByte(heapArr, baseOff + pos++, b);
-
-                intVal >>>= 7;
-            }
-
-            GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) intVal);
-
-            buf.position(pos);
-        }
+        writeVarInt(Short.toUnsignedLong(val));
     }
 
     @Override
     public void writeBoxedShort(@Nullable Short val) {
         if (val != null) {
-            lastFinished = buf.remaining() >= 1 + 3;
+            lastFinished = buf.remaining() >= 1 + MAX_VAR_SHORT_BYTES;
 
             if (lastFinished) {
                 writeBoolean(true);
@@ -279,31 +269,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeInt(int val) {
-        lastFinished = buf.remaining() >= 5;
+        lastFinished = buf.remaining() >= MAX_VAR_INT_BYTES;
 
-        if (lastFinished) {
-            val++;
-
-            int pos = buf.position();
-
-            while ((val & 0xFFFF_FF80) != 0) {
-                byte b = (byte) (val | 0x80);
-
-                GridUnsafe.putByte(heapArr, baseOff + pos++, b);
-
-                val >>>= 7;
-            }
-
-            GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) val);
-
-            buf.position(pos);
-        }
+        writeVarInt(Integer.toUnsignedLong(val));
     }
 
     @Override
     public void writeBoxedInt(@Nullable Integer val) {
         if (val != null) {
-            lastFinished = buf.remaining() >= 1 + 5;
+            lastFinished = buf.remaining() >= 1 + MAX_VAR_INT_BYTES;
 
             if (lastFinished) {
                 writeBoolean(true);
@@ -318,8 +292,27 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeLong(long val) {
-        lastFinished = buf.remaining() >= 10;
+        lastFinished = buf.remaining() >= MAX_VAR_LONG_BYTES;
 
+        writeVarInt(val);
+    }
+
+    @Override
+    public void writeBoxedLong(@Nullable Long val) {
+        if (val != null) {
+            lastFinished = buf.remaining() >= 1 + MAX_VAR_LONG_BYTES;
+
+            if (lastFinished) {
+                writeBoolean(true);
+
+                writeLong(val);
+            }
+        } else {
+            writeBoolean(false);
+        }
+    }
+
+    private void writeVarInt(long val) {
         if (lastFinished) {
             val++;
 
@@ -336,21 +329,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) val);
 
             buf.position(pos);
-        }
-    }
-
-    @Override
-    public void writeBoxedLong(@Nullable Long val) {
-        if (val != null) {
-            lastFinished = buf.remaining() >= 1 + 10;
-
-            if (lastFinished) {
-                writeBoolean(true);
-
-                writeLong(val);
-            }
-        } else {
-            writeBoolean(false);
         }
     }
 
