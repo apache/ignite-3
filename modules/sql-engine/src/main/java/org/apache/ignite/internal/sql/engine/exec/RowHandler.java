@@ -50,17 +50,15 @@ public interface RowHandler<RowT> {
      *
      * <p>For example:
      * <pre>
-     *    source row [5, 6, 7, 8] apply mapping [0, 2] with offset 1
-     *    result mapping will be [1, 3]
+     *    source row [5, 6, 7, 8] apply mapping [1, 3]
      *    result row will be [6, 8]
      * </pre>
      *
      * @param row Source row.
      * @param mapping Target field indexes.
-     * @param offset Target field indexes offset.
      * @return A new row with fields from the specified mapping.
      */
-    RowT map(RowT row, int[] mapping, int offset);
+    RowT map(RowT row, int[] mapping);
 
     /** Return column count contained in the incoming row. */
     int columnCount(RowT row);

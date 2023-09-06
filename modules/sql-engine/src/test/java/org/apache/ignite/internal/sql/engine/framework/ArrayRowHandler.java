@@ -54,11 +54,11 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
     /** {@inheritDoc} */
     @Override
-    public Object[] map(Object[] row, int[] mapping, int offset) {
+    public Object[] map(Object[] row, int[] mapping) {
         Object[] newRow = new Object[mapping.length];
 
         for (int i = 0; i < mapping.length; i++) {
-            newRow[i] = row[mapping[i] + offset];
+            newRow[i] = row[mapping[i]];
         }
 
         return newRow;

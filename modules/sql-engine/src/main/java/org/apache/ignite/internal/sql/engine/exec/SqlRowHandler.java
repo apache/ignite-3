@@ -106,11 +106,11 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
     /** {@inheritDoc} */
     @Override
-    public RowWrapper map(RowWrapper row, int[] mapping, int offset) {
+    public RowWrapper map(RowWrapper row, int[] mapping) {
         Object[] fields = new Object[mapping.length];
 
         for (int i = 0; i < mapping.length; i++) {
-            fields[i] = row.get(mapping[i] + offset);
+            fields[i] = row.get(mapping[i]);
         }
 
         return new ObjectsArrayRowWrapper(row.rowSchema(), fields);
