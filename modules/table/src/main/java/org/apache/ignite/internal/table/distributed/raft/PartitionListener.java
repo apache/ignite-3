@@ -257,7 +257,6 @@ public class PartitionListener implements RaftGroupListener {
             updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
         }
 
-        // TODO: sanpwc ask Denis whether I should put replicaTouch inside safeTime check block
         replicaTouch(cmd.txId(), cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
     }
 
@@ -294,7 +293,6 @@ public class PartitionListener implements RaftGroupListener {
             updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
         }
 
-        // TODO: sanpwc ask Denis whether I should put replicaTouch inside safeTime check block
         replicaTouch(cmd.txId(), cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
     }
 
