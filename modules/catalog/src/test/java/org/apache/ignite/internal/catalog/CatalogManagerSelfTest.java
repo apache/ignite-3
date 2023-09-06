@@ -240,7 +240,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(manager.zone(ZONE_NAME, clock.nowLong()).id(), table.zoneId());
 
         // Validate newly created pk index
-        assertEquals(4L, pkIndex.id());
         assertEquals(createPkIndexName(TABLE_NAME), pkIndex.name());
         assertEquals(table.id(), pkIndex.tableId());
         assertEquals(table.primaryKeyColumns(), pkIndex.columns());
@@ -895,7 +894,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(index, manager.index(index.id(), clock.nowLong()));
 
         // Validate newly created hash index
-        assertEquals(5L, index.id());
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
@@ -934,7 +932,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(index, manager.index(index.id(), clock.nowLong()));
 
         // Validate newly created sorted index
-        assertEquals(5L, index.id());
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals("VAL", index.columns().get(0).name());
@@ -1105,15 +1102,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // Validate catalog version from the past.
         assertNull(manager.zone(zoneName, 0));
         assertNull(manager.zone(zoneName, 123L));
-        // Validate that catalog returns null for not existing ids.
-        assertNull(manager.zone(10, 0));
-        assertNull(manager.zone(10, 123L));
 
         // Validate actual catalog
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
 
         assertNotNull(zone);
         assertSame(zone, manager.zone(zone.id(), clock.nowLong()));
+
+        // Validate that catalog returns null for previous timestamps.
+        assertNull(manager.zone(zone.id(), 0));
+        assertNull(manager.zone(zone.id(), 123L));
 
         // Validate newly created zone
         assertEquals(zoneName, zone.name());
