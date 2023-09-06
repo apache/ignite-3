@@ -29,6 +29,7 @@ import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -63,7 +64,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog emptyCatalog() {
-        return catalog(new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0]);
+        return catalog(new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
     }
 
     static Catalog catalogWithTable(String name) {
@@ -79,17 +80,20 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                 tableId, name, zoneId, tableVersion, columns, pkColumns, pkColumns
         );
 
-        return catalog(new CatalogTableDescriptor[]{table}, new CatalogIndexDescriptor[0]);
+        return catalog(new CatalogTableDescriptor[]{table}, new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
     }
 
     static Catalog catalogWithIndex(String name) {
         CatalogIndexDescriptor index = new CatalogHashIndexDescriptor(
                 0, name, 0, false, List.of("C"));
 
-        return catalog(new CatalogTableDescriptor[0], new CatalogIndexDescriptor[]{index});
+        return catalog(new CatalogTableDescriptor[0], new CatalogIndexDescriptor[]{index}, new CatalogSystemViewDescriptor[0]);
     }
 
-    private static Catalog catalog(CatalogTableDescriptor[] tables, CatalogIndexDescriptor[] indexes) {
+    private static Catalog catalog(CatalogTableDescriptor[] tables,
+            CatalogIndexDescriptor[] indexes,
+            CatalogSystemViewDescriptor[] systemViews) {
+
         return new Catalog(
                 1,
                 0L,
@@ -99,7 +103,8 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         0,
                         SCHEMA_NAME,
                         tables,
-                        indexes
+                        indexes,
+                        systemViews
                 ))
         );
     }

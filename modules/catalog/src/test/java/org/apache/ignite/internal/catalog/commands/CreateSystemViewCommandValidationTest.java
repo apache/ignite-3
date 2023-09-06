@@ -24,28 +24,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests to verify validation of {@link CreateSystemViewCommand}.
  */
-public class CreateSystemViewCommandValidationTest extends BaseIgniteAbstractTest {
-
-    private static Stream<Arguments> nullAndBlankStrings() {
-        return Stream.of(null, "", " ", "  ").map(Arguments::of);
-    }
-
-    private static Stream<Arguments> nullAndEmptyLists() {
-        return Stream.of(null, List.of()).map(Arguments::of);
-    }
+public class CreateSystemViewCommandValidationTest extends AbstractCommandValidationTest {
 
     @Test
     public void newSystemView() {
