@@ -61,14 +61,14 @@ public class TableRowConverterImpl implements TableRowConverter {
     ) {
         Row row = schemaRegistry.resolve(binaryRow, schemaDescriptor);
 
-        BinaryTupleBuilder builder = requiredColumns == null
+        BinaryTuple tuple = requiredColumns == null
                 ? allColumnsTuple(row, binaryTupleSchema)
                 : requiredColumnsTuple(row, binaryTupleSchema, requiredColumns);
 
-        return factory.create(new BinaryTuple(builder.numElements(), builder.build()));
+        return factory.create(tuple);
     }
 
-    private BinaryTupleBuilder allColumnsTuple(Row row, BinaryTupleSchema binarySchema) {
+    private BinaryTuple allColumnsTuple(Row row, BinaryTupleSchema binarySchema) {
         BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(desc.columnsCount());
 
         for (int i = 0; i < desc.columnsCount(); i++) {
@@ -77,10 +77,10 @@ public class TableRowConverterImpl implements TableRowConverter {
             BinaryRowConverter.appendValue(tupleBuilder, binarySchema.element(index), binarySchema.value(row, index));
         }
 
-        return tupleBuilder;
+        return new BinaryTuple(tupleBuilder.numElements(), tupleBuilder.build());
     }
 
-    private BinaryTupleBuilder requiredColumnsTuple(Row row, BinaryTupleSchema binarySchema, BitSet requiredColumns) {
+    private BinaryTuple requiredColumnsTuple(Row row, BinaryTupleSchema binarySchema, BitSet requiredColumns) {
         BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(requiredColumns.cardinality());
 
         for (int i = requiredColumns.nextSetBit(0); i != -1; i = requiredColumns.nextSetBit(i + 1)) {
@@ -89,6 +89,6 @@ public class TableRowConverterImpl implements TableRowConverter {
             BinaryRowConverter.appendValue(tupleBuilder, binarySchema.element(index), binarySchema.value(row, index));
         }
 
-        return tupleBuilder;
+        return new BinaryTuple(tupleBuilder.numElements(), tupleBuilder.build());
     }
 }
