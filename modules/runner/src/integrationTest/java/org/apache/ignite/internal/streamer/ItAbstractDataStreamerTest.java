@@ -141,14 +141,17 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @Test
     public void testAutoFlushByTimer() throws InterruptedException {
         RecordView<Tuple> view = this.defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().autoFlushFrequency(100).build();
-            view.streamData(publisher, options);
+            streamerFut = view.streamData(publisher, options);
 
             publisher.submit(tuple(1, "foo"));
             waitForKey(view, tupleKey(1));
         }
+
+        assertThat(streamerFut, willSucceedIn(5, TimeUnit.SECONDS));
     }
 
     @Test
