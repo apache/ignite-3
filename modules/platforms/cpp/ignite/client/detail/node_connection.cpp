@@ -56,7 +56,8 @@ bool node_connection::handshake() {
         extensions.emplace("authn-secret", authenticator->get_secret());
     }
 
-    std::vector<std::byte> message = protocol::make_handshake_request(CLIENT_TYPE, m_protocol_context.get_version(), extensions);
+    std::vector<std::byte> message =
+        protocol::make_handshake_request(CLIENT_TYPE, m_protocol_context.get_version(), extensions);
     return m_pool->send(m_id, std::move(message));
 }
 
