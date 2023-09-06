@@ -52,16 +52,12 @@ public class CreateTableCommand extends AbstractTableCommand {
         return new Builder();
     }
 
-    /** Primary key columns. */
     private final List<String> primaryKeyColumns;
 
-    /** Colocation columns. */
     private final List<String> colocationColumns;
 
-    /** Columns. */
     private final List<ColumnParams> columns;
 
-    /** Distribution zone name. */
     private final String zoneName;
 
     /**
@@ -73,7 +69,7 @@ public class CreateTableCommand extends AbstractTableCommand {
      *      Should be subset of columns in param `columns`.
      * @param colocationColumns Name of the columns participating in distribution calculation.
      *      Should be subset of the primary key columns.
-     * @param columns List of the columns containing by the table. There is should be at least one column.
+     * @param columns List of the columns containing by the table. There should be at least one column.
      * @param zoneName Name of the zone to create table in. Should not be null or blank.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */

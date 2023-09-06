@@ -22,14 +22,16 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_S
 
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
-import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
+import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
+import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
@@ -56,6 +58,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Converter for DDL command classes to Catalog command params classes.
@@ -131,13 +134,21 @@ class DdlToCatalogCommandConverter {
                 .build();
     }
 
-    static AlterColumnParams convert(AlterColumnCommand cmd) {
-        AlterColumnParams.Builder builder = AlterColumnParams.builder()
+    static CatalogCommand convert(AlterColumnCommand cmd) {
+        AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
-                .columnName(cmd.columnName())
-                .notNull(cmd.notNull())
-                .defaultValueResolver(cmd.defaultValueResolver());
+                .columnName(cmd.columnName());
+
+        Boolean notNull = cmd.notNull();
+        if (notNull != null) {
+            builder.nullable(!notNull);
+        }
+
+        Function<ColumnType, DefaultValue> defaultValueResolver = cmd.defaultValueResolver();
+        if (defaultValueResolver != null) {
+            builder.deferredDefaultValue(defaultValueResolver::apply);
+        }
 
         RelDataType type = cmd.type();
 
@@ -160,10 +171,10 @@ class DdlToCatalogCommandConverter {
         return builder.build();
     }
 
-    static AlterTableAddColumnParams convert(AlterTableAddCommand cmd) {
+    static CatalogCommand convert(AlterTableAddCommand cmd) {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
-        return AlterTableAddColumnParams.builder()
+        return AlterTableAddColumnCommand.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
 
@@ -172,8 +183,8 @@ class DdlToCatalogCommandConverter {
                 .build();
     }
 
-    static AlterTableDropColumnParams convert(AlterTableDropCommand cmd) {
-        return AlterTableDropColumnParams.builder()
+    static CatalogCommand convert(AlterTableDropCommand cmd) {
+        return AlterTableDropColumnCommand.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
 
