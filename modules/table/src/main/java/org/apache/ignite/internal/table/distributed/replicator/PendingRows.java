@@ -39,7 +39,7 @@ public class PendingRows {
     private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
 
     /**
-     * Adds row ID to the list of pending rows.
+     * Adds row ID to the collection of pending rows.
      *
      * @param txId Transaction ID.
      * @param rowId Row ID.
@@ -58,7 +58,7 @@ public class PendingRows {
     }
 
     /**
-     * Adds row IDs to the list of pending rows.
+     * Adds row IDs to the collection of pending rows.
      *
      * @param txId Transaction ID.
      * @param rowIds Row IDs.
@@ -77,7 +77,7 @@ public class PendingRows {
     }
 
     /**
-     * Removes row ID from the list of pending rows.
+     * Removes all row IDs for the given transaction.
      *
      * @param txId Transaction ID.
      */
