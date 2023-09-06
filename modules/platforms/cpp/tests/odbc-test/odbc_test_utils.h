@@ -119,7 +119,9 @@ constexpr size_t ODBC_BUFFER_SIZE = 1024;
  * @return SQLCHAR vector.
  */
 [[nodiscard]] inline std::vector<SQLCHAR> to_sqlchar(std::string_view str) {
-    return {str.begin(), str.end()};
+    std::vector<SQLCHAR> res{str.begin(), str.end()};
+    res.push_back(0);
+    return res;
 }
 
 /**
