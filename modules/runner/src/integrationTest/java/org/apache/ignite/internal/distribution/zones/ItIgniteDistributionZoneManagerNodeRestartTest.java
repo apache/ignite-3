@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.ByteUtils.booleanToByte;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
@@ -78,6 +79,8 @@ import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.dsl.StatementResultImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
@@ -679,7 +682,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             byte[] keyScaleUp = key.bytes();
 
             return iif1.andThen().update().operations().stream().anyMatch(op -> Arrays.equals(keyScaleUp, op.key()));
-        }))).thenThrow(new RuntimeException("Expected"));
+        }))).then(invocation -> {
+            StatementResult statementResult = StatementResultImpl.builder()
+                    .result(new byte[]{booleanToByte(true)})
+                    .build();
+            return completedFuture(statementResult);
+        });
     }
 
     private static <T extends IgniteComponent> T getStartedComponent(PartialNode node, Class<T> componentClass) {
