@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.streamer;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -152,14 +154,17 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @Test
     public void testAutoFlushDisabled() throws InterruptedException {
         RecordView<Tuple> view = this.defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().autoFlushFrequency(-1).build();
-            view.streamData(publisher, options);
+            streamerFut = view.streamData(publisher, options);
 
             publisher.submit(tuple(1, "foo"));
             assertFalse(waitForCondition(() -> view.get(null, tupleKey(1)) != null, 1000));
         }
+
+        assertThat(streamerFut, willSucceedIn(5, TimeUnit.SECONDS));
     }
 
     @Test
