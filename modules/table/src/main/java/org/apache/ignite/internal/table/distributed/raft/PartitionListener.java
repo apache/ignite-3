@@ -365,8 +365,7 @@ public class PartitionListener implements RaftGroupListener {
 
         markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
 
-        Set<RowId> rowIds = txsPendingRowIds.remove(txId);
-        Set<RowId> pendingRowIds = rowIds == null ? EMPTY_SET : rowIds;
+        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
 
         if (cmd.commit()) {
             storage.runConsistently(locker -> {
