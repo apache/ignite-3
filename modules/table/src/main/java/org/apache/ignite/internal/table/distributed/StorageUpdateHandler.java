@@ -234,12 +234,59 @@ public class StorageUpdateHandler {
     }
 
     /**
+     * Handles the cleanup of a transaction. The transaction is either committed or rolled back.
+     *
+     * @param pendingRowIds Row ids of write-intents to be finalized, either committed or rolled back.
+     * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
+     * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
+     */
+    public void handleTransactionCleanup(Set<RowId> pendingRowIds, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+        handleTransactionCleanup(pendingRowIds, commit, commitTimestamp, () -> {});
+    }
+
+    /**
+     * Handles the cleanup of a transaction. The transaction is either committed or rolled back.
+     *
+     * @param pendingRowIds Row ids of write-intents to be finalized, either committed or rolled back.
+     * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
+     * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
+     * @param onApplication On application callback.
+     */
+    public void handleTransactionCleanup(Set<RowId> pendingRowIds, boolean commit,
+            @Nullable HybridTimestamp commitTimestamp, Runnable onApplication) {
+        if (commit) {
+            handleTransactionCommit(pendingRowIds, commitTimestamp, onApplication);
+        } else {
+            handleTransactionAbortion(pendingRowIds, onApplication);
+        }
+    }
+
+    /**
+     * Handles the commit of a transaction.
+     *
+     * @param pendingRowIds Row ids of write-intents to be committed.
+     * @param commitTimestamp Commit timestamp.
+     * @param onApplication On application callback.
+     */
+    private void handleTransactionCommit(Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp, Runnable onApplication) {
+        storage.runConsistently(locker -> {
+            pendingRowIds.forEach(locker::lock);
+
+            pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp));
+
+            onApplication.run();
+
+            return null;
+        });
+    }
+
+    /**
      * Handles the abortion of a transaction.
      *
      * @param pendingRowIds Row ids of write-intents to be rolled back.
      * @param onApplication On application callback.
      */
-    public void handleTransactionAbortion(Set<RowId> pendingRowIds, Runnable onApplication) {
+    private void handleTransactionAbortion(Set<RowId> pendingRowIds, Runnable onApplication) {
         storage.runConsistently(locker -> {
             for (RowId rowId : pendingRowIds) {
                 locker.lock(rowId);

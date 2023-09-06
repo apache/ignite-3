@@ -47,7 +47,7 @@ public class IndexCleanupTest extends IndexBaseTest {
         assertThat(sortedInnerStorage.allRowsIds(), contains(rowId));
         assertThat(hashInnerStorage.allRowsIds(), contains(rowId));
 
-        storageUpdateHandler.handleTransactionAbortion(Set.of(rowId), () -> {});
+        storageUpdateHandler.handleTransactionCleanup(Set.of(rowId), false, null);
 
         assertEquals(0, storage.rowsCount());
         assertTrue(pkInnerStorage.allRowsIds().isEmpty());
@@ -95,7 +95,7 @@ public class IndexCleanupTest extends IndexBaseTest {
         writer.addWrite(storageUpdateHandler, rowUuid, row);
         writer.addWrite(storageUpdateHandler, rowUuid, null);
 
-        storageUpdateHandler.handleTransactionAbortion(Set.of(rowId), () -> {});
+        storageUpdateHandler.handleTransactionCleanup(Set.of(rowId), false, null);
 
         assertEquals(0, storage.rowsCount());
         assertTrue(pkInnerStorage.allRowsIds().isEmpty());
@@ -120,7 +120,7 @@ public class IndexCleanupTest extends IndexBaseTest {
 
         writer.addWrite(storageUpdateHandler, rowUuid2, binaryRow(key2, value));
 
-        storageUpdateHandler.handleTransactionAbortion(Set.of(rowId2), () -> {});
+        storageUpdateHandler.handleTransactionCleanup(Set.of(rowId2), false, null);
 
         assertEquals(1, storage.rowsCount());
 
@@ -153,7 +153,7 @@ public class IndexCleanupTest extends IndexBaseTest {
 
         writer.addWrite(storageUpdateHandler, rowUuid, row2);
 
-        storageUpdateHandler.handleTransactionAbortion(Set.of(rowId), () -> {});
+        storageUpdateHandler.handleTransactionCleanup(Set.of(rowId), false, null);
 
         assertEquals(1, storage.rowsCount());
 
@@ -174,7 +174,7 @@ public class IndexCleanupTest extends IndexBaseTest {
 
         writer.addWrite(storageUpdateHandler, rowUuid, null);
 
-        storageUpdateHandler.handleTransactionAbortion(Set.of(rowId), () -> {});
+        storageUpdateHandler.handleTransactionCleanup(Set.of(rowId), false, null);
 
         assertEquals(1, storage.rowsCount());
         assertThat(pkInnerStorage.allRowsIds(), contains(rowId));
@@ -195,7 +195,7 @@ public class IndexCleanupTest extends IndexBaseTest {
 
         writer.addWrite(storageUpdateHandler, rowUuid, row);
 
-        storageUpdateHandler.handleTransactionAbortion(Set.of(rowId), () -> {});
+        storageUpdateHandler.handleTransactionCleanup(Set.of(rowId), false, null);
 
         assertEquals(1, storage.rowsCount());
         assertThat(pkInnerStorage.allRowsIds(), contains(rowId));

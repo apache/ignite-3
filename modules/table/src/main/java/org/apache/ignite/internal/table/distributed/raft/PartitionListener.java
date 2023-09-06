@@ -364,29 +364,20 @@ public class PartitionListener implements RaftGroupListener {
 
         markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
 
+        cleanupLocally(txId, cmd.commit(), cmd.commitTimestamp(), () -> storage.lastApplied(commandIndex, commandTerm));
+    }
+
+    private void cleanupLocally(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp, Runnable onApplication) {
         Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
 
-        if (cmd.commit()) {
-            storage.runConsistently(locker -> {
-                pendingRowIds.forEach(locker::lock);
+        storageUpdateHandler.handleTransactionCleanup(pendingRowIds, commit, commitTimestamp, () -> {
+            // on application callback
+            txsPendingRowIds.remove(txId);
 
-                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
-
-                txsPendingRowIds.remove(txId);
-
-                storage.lastApplied(commandIndex, commandTerm);
-
-                return null;
-            });
-        } else {
-            storageUpdateHandler.handleTransactionAbortion(pendingRowIds, () -> {
-                // on replication callback
-                txsPendingRowIds.remove(txId);
-
-                storage.lastApplied(commandIndex, commandTerm);
-            });
-        }
+            onApplication.run();
+        });
     }
+
 
     /**
      * Handler for the {@link SafeTimeSyncCommand}.

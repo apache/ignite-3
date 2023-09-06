@@ -2721,22 +2721,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     private void cleanupLocally(UUID txId, boolean commit, HybridTimestamp commitTimestamp) {
         Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
 
-        if (commit) {
-            mvDataStorage.runConsistently(locker -> {
-                pendingRowIds.forEach(locker::lock);
-
-                pendingRowIds.forEach(rowId -> mvDataStorage.commitWrite(rowId, commitTimestamp));
-
-                txsPendingRowIds.remove(txId);
-
-                return null;
-            });
-        } else {
-            storageUpdateHandler.handleTransactionAbortion(pendingRowIds, () -> {
-                // on application callback
-                txsPendingRowIds.remove(txId);
-            });
-        }
+        storageUpdateHandler.handleTransactionCleanup(pendingRowIds, commit, commitTimestamp, () -> {
+            // on application callback
+            txsPendingRowIds.remove(txId);
+        });
     }
 
     /**
