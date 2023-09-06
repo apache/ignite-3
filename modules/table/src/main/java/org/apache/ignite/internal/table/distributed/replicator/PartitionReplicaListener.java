@@ -2351,7 +2351,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                                 if (expectedTerm.equals(currentEnlistmentConsistencyToken)) {
                                     if (primaryReplica.getExpirationTime().before(hybridClock.now())) {
-                                        return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
+                                        return failedFuture(
+                                                new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
                                     } else {
                                         return completedFuture(null);
                                     }
