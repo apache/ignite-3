@@ -18,13 +18,12 @@
 package org.apache.ignite.jdbc;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Statement;
+import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -61,7 +60,7 @@ public class ItJdbcStatementCancelSelfTest extends ItJdbcAbstractStatementSelfTe
 
         stmt.cancel();
 
-        assertThrows(SQLException.class, () -> stmt.getResultSet(), "The query was cancelled while executing.");
+        JdbcTestUtils.assertThrowsSqlException("The query was cancelled while executing.", stmt::getResultSet);
     }
 
     /**
@@ -80,7 +79,7 @@ public class ItJdbcStatementCancelSelfTest extends ItJdbcAbstractStatementSelfTe
 
         stmt.cancel();
 
-        assertThrows(SQLException.class, () -> stmt.getResultSet(), "The query was cancelled while executing.");
+        JdbcTestUtils.assertThrowsSqlException("The query was cancelled while executing.", stmt::getResultSet);
     }
 
     /**
@@ -93,7 +92,7 @@ public class ItJdbcStatementCancelSelfTest extends ItJdbcAbstractStatementSelfTe
     public void testCancelClosedStmt() throws Exception {
         stmt.close();
 
-        assertThrows(SQLException.class, () -> stmt.cancel(), "Statement is closed.");
+        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", stmt::cancel);
     }
 
     /**
@@ -112,7 +111,7 @@ public class ItJdbcStatementCancelSelfTest extends ItJdbcAbstractStatementSelfTe
 
         stmt.cancel();
 
-        assertThrows(SQLException.class, rs::next, "The query was cancelled while executing.");
+        JdbcTestUtils.assertThrowsSqlException("The query was cancelled while executing.", rs::next);
     }
 
     /**
@@ -149,7 +148,7 @@ public class ItJdbcStatementCancelSelfTest extends ItJdbcAbstractStatementSelfTe
 
             stmt.cancel();
 
-            assertThrows(SQLException.class, rs1::next, "The query was cancelled while executing.");
+            JdbcTestUtils.assertThrowsSqlException("The query was cancelled while executing.", rs1::next);
 
             assertTrue(rs2.next(), "The other cursor mustn't be closed");
         }

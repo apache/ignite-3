@@ -98,7 +98,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     /** Another node name. The node name is matched to {@code anotherClusterService}. */
     private String anotherNodeName;
 
-    private HybridClock clock = new HybridClockImpl();
+    private HybridClock nodeClock = new HybridClockImpl();
 
     private VaultManager vaultManager;
 
@@ -168,7 +168,6 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 eventsClientListener
         );
 
-        HybridClock nodeClock = new HybridClockImpl();
         raftManager = new Loza(
                 clusterService,
                 raftConfiguration,
@@ -201,7 +200,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 logicalTopologyService,
                 raftManager,
                 topologyAwareRaftGroupServiceFactory,
-                clock
+                nodeClock
         );
 
         vaultManager.start();
@@ -309,7 +308,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             Lease lease = leaseFromBytes(fut.join().value(), grpPart0);
 
-            return lease.getExpirationTime().compareTo(clock.now()) < 0;
+            return lease.getExpirationTime().compareTo(nodeClock.now()) < 0;
 
         }, 10_000));
 
@@ -322,7 +321,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             Lease lease = leaseFromBytes(fut.join().value(), grpPart0);
 
-            return lease.getExpirationTime().compareTo(clock.now()) > 0;
+            return lease.getExpirationTime().compareTo(nodeClock.now()) > 0;
         }, 10_000));
     }
 

@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.startup.StartupPartitionSnapshotReader;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -61,6 +62,7 @@ class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
                 "",
                 mock(RaftOptions.class),
                 mock(PartitionAccess.class),
+                mock(CatalogService.class),
                 metaForCleanStorage,
                 mock(Executor.class)
         );

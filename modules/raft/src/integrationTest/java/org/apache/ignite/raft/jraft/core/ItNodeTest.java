@@ -133,8 +133,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -142,6 +140,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItNodeTest extends BaseIgniteAbstractTest {
+    private static final IgniteLogger log = Loggers.forClass(ItNodeTest.class);
+
     private static DumpThread dumpThread;
 
     private static class DumpThread extends Thread {
@@ -1769,7 +1769,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
     public void testSetPeer2() throws Exception {
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
 

@@ -876,7 +876,7 @@ public class DdlSqlToCommandConverter {
             }
         } catch (Throwable th) {
             // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
-            throw new SqlException(STMT_VALIDATION_ERR, "Unable co convert literal", th);
+            throw new SqlException(STMT_VALIDATION_ERR, "Unable convert literal", th);
         }
     }
 

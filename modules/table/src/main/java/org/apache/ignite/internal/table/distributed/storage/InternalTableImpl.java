@@ -21,8 +21,6 @@ import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
-import static org.apache.ignite.internal.tx.TxState.ABORTED;
-import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -82,11 +80,11 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadOnly
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteScanRetrieveBatchReplicaRequestBuilder;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -148,6 +146,9 @@ public class InternalTableImpl implements InternalTable {
     /** A hybrid logical clock. */
     private final HybridClock clock;
 
+    /** Observable timestamp tracker. */
+    private final HybridTimestampTracker observableTimestampTracker;
+
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> safeTimeTrackerByPartitionId = emptyMap();
 
@@ -177,7 +178,8 @@ public class InternalTableImpl implements InternalTable {
             MvTableStorage tableStorage,
             TxStateTableStorage txStateStorage,
             ReplicaService replicaSvc,
-            HybridClock clock
+            HybridClock clock,
+            HybridTimestampTracker observableTimestampTracker
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -190,6 +192,7 @@ public class InternalTableImpl implements InternalTable {
         this.replicaSvc = replicaSvc;
         this.tableMessagesFactory = new TableMessagesFactory();
         this.clock = clock;
+        this.observableTimestampTracker = observableTimestampTracker;
     }
 
     /** {@inheritDoc} */
@@ -243,7 +246,7 @@ public class InternalTableImpl implements InternalTable {
 
         boolean implicit = tx == null;
 
-        InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+        InternalTransaction tx0 = implicit ? txManager.begin(observableTimestampTracker) : tx;
 
         int partId = partitionId(row);
 
@@ -307,7 +310,7 @@ public class InternalTableImpl implements InternalTable {
                     "The operation is attempted for completed transaction"));
         }
 
-        InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+        InternalTransaction tx0 = implicit ? txManager.begin(observableTimestampTracker) : tx;
 
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
@@ -501,10 +504,8 @@ public class InternalTableImpl implements InternalTable {
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
             if (full) { // Full txn is already finished remotely. Just update local state.
-                txManager.updateTxMeta(
-                        tx0.id(),
-                        old -> new TxStateMeta(e == null ? COMMITED : ABORTED, old.txCoordinatorId(), old.commitTimestamp())
-                );
+                txManager.finishFull(observableTimestampTracker, tx0.id(), e == null);
+
                 return e != null ? failedFuture(wrapReplicationException(e)) : completedFuture(r);
             }
 
@@ -681,7 +682,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, int partition) {
-        InternalTransaction tx = txManager.begin();
+        InternalTransaction tx = txManager.begin(observableTimestampTracker);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
         CompletableFuture<Void> fut = enlistWithRetry(
@@ -1025,7 +1026,7 @@ public class InternalTableImpl implements InternalTable {
 
         boolean implicit = tx == null;
 
-        InternalTransaction tx0 = implicit ? txManager.begin() : tx;
+        InternalTransaction tx0 = implicit ? txManager.begin(observableTimestampTracker) : tx;
 
         return new PartitionScanPublisher(
                 (scanId, batchSize) -> enlistCursorInTx(

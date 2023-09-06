@@ -173,6 +173,7 @@ import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -383,6 +384,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final Marshaller raftCommandsMarshaller;
 
+    private final HybridTimestampTracker observableTimestampTracker;
+
     /**
      * Creates a new table manager.
      *
@@ -430,7 +433,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             ClusterManagementGroupManager cmgMgr,
             DistributionZoneManager distributionZoneManager,
             SchemaSyncService schemaSyncService,
-            CatalogService catalogService
+            CatalogService catalogService,
+            HybridTimestampTracker observableTimestampTracker
     ) {
         this.tablesCfg = tablesCfg;
         this.zonesConfig = zonesConfig;
@@ -455,6 +459,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.distributionZoneManager = distributionZoneManager;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
+        this.observableTimestampTracker = observableTimestampTracker;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -1093,6 +1098,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         partitionUpdateHandlers.indexUpdateHandler,
                         partitionUpdateHandlers.gcUpdateHandler
                 ),
+                catalogService,
                 incomingSnapshotsExecutor
         ));
 
@@ -1264,7 +1270,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         InternalTableImpl internalTable = new InternalTableImpl(tableName, tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
                 partitions, clusterNodeResolver, txManager, tableStorage,
-                txStateStorage, replicaSvc, clock);
+                txStateStorage, replicaSvc, clock, observableTimestampTracker);
 
         var table = new TableImpl(internalTable, lockMgr);
 
@@ -2278,28 +2284,36 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 return runAsync(() -> inBusyLock(busyLock, () -> {
                     try {
-                        startPartitionRaftGroupNode(
-                                replicaGrpId,
-                                pendingConfiguration,
-                                stableConfiguration,
-                                safeTimeTracker,
-                                storageIndexTracker,
-                                internalTable,
-                                txStatePartitionStorage,
-                                partitionDataStorage,
-                                partitionUpdateHandlers
-                        );
+                        Peer serverPeer = pendingConfiguration.peer(localMember.name());
 
-                        startReplicaWithNewListener(
-                                replicaGrpId,
-                                tbl,
-                                safeTimeTracker,
-                                storageIndexTracker,
-                                mvPartitionStorage,
-                                txStatePartitionStorage,
-                                partitionUpdateHandlers,
-                                (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId)
-                        );
+                        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
+
+                        if (!((Loza) raftMgr).isStarted(raftNodeId)) {
+                            startPartitionRaftGroupNode(
+                                    replicaGrpId,
+                                    pendingConfiguration,
+                                    stableConfiguration,
+                                    safeTimeTracker,
+                                    storageIndexTracker,
+                                    internalTable,
+                                    txStatePartitionStorage,
+                                    partitionDataStorage,
+                                    partitionUpdateHandlers
+                            );
+                        }
+
+                        if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
+                            startReplicaWithNewListener(
+                                    replicaGrpId,
+                                    tbl,
+                                    safeTimeTracker,
+                                    storageIndexTracker,
+                                    mvPartitionStorage,
+                                    txStatePartitionStorage,
+                                    partitionUpdateHandlers,
+                                    (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId)
+                            );
+                        }
                     } catch (NodeStoppingException ignored) {
                         // No-op.
                     }

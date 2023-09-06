@@ -807,7 +807,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
      * Class sleeps a short quanta of time to increase chances of data race between {@link IgniteToStringBuilder} iterating over collection
      * user thread concurrently modifying it.
      */
-    private static class SlowToStringObject {
+    private class SlowToStringObject {
         /** {@inheritDoc} */
         @Override
         public String toString() {
