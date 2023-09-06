@@ -621,6 +621,16 @@ public class ReplicaManager implements IgniteComponent {
     }
 
     /**
+     * Check if replica is started.
+     *
+     * @param replicaGrpId Replication group id.
+     * @return True if the replica is started.
+     */
+    public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
+        return replicas.containsKey(replicaGrpId);
+    }
+
+    /**
      * Returns started replication groups.
      *
      * @return Set of started replication groups.
