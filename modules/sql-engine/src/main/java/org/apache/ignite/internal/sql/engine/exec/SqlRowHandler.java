@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Each kind of rows is serialized to the same binary tuple format
  * using the {@link #toByteBuffer(RowWrapper) toByteBuffer} method.
  *
- * <p>Factory methods {@link RowFactory#wrap(InternalTuple) wrap(InternalTuple)} and
+ * <p>Factory methods {@link RowFactory#create(InternalTuple) wrap(InternalTuple)} and
  * {@link RowFactory#create(ByteBuffer) create(ByteBuffer)} allow create rows without
  * any additional conversions. But the fields in binary tuple must match the
  * factory {@link RowSchema row schema}.
@@ -156,12 +156,12 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             /** {@inheritDoc} */
             @Override
             public RowWrapper create(ByteBuffer buf) {
-                return wrap(new BinaryTuple(rowLen, buf));
+                return create(new BinaryTuple(rowLen, buf));
             }
 
             /** {@inheritDoc} */
             @Override
-            public RowWrapper wrap(InternalTuple tuple) {
+            public RowWrapper create(InternalTuple tuple) {
                 assert rowLen == tuple.elementCount();
 
                 return new BinaryTupleRowWrapper(rowSchema, tuple);

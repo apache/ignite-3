@@ -65,7 +65,7 @@ public class TableRowConverterImpl implements TableRowConverter {
                 ? allColumnsTuple(row, binaryTupleSchema)
                 : requiredColumnsTuple(row, binaryTupleSchema, requiredColumns);
 
-        return factory.wrap(new BinaryTuple(builder.numElements(), builder.build()));
+        return factory.create(new BinaryTuple(builder.numElements(), builder.build()));
     }
 
     private BinaryTupleBuilder allColumnsTuple(Row row, BinaryTupleSchema binarySchema) {

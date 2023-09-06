@@ -107,11 +107,11 @@ public interface RowHandler<RowT> {
         RowT create(ByteBuffer raw);
 
         /**
-         * Wraps incoming binary tuple into a instantiation defined representation.
+         * Create row using incoming binary tuple.
          *
          * @param tuple {@link InternalTuple} representation.
          * @return Instantiation defined representation.
          */
-        RowT wrap(InternalTuple tuple);
+        RowT create(InternalTuple tuple);
     }
 }

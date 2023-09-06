@@ -116,7 +116,7 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
             /** {@inheritDoc} */
             @Override
-            public Object[] wrap(InternalTuple tuple) {
+            public Object[] create(InternalTuple tuple) {
                 throw new UnsupportedOperationException();
             }
         };

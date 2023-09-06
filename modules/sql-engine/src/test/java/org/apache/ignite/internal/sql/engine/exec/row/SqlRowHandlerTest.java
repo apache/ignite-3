@@ -78,7 +78,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         ByteBuffer buf = handler.toByteBuffer(src);
 
         BinaryTuple tuple = new BinaryTuple(elementsCount, buf);
-        RowWrapper destWrap = factory.wrap(tuple);
+        RowWrapper destWrap = factory.create(tuple);
         RowWrapper dest = factory.create(buf);
 
         for (int i = 0; i < elementsCount; i++) {
@@ -119,7 +119,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         ByteBuffer buf = handler.toByteBuffer(concatenated);
 
         // Wrap into row.
-        RowWrapper result = handler.factory(concatenatedSchema).wrap(new BinaryTuple(totalElementsCount, buf));
+        RowWrapper result = handler.factory(concatenatedSchema).create(new BinaryTuple(totalElementsCount, buf));
 
         for (int i = 0; i < leftLen; i++) {
             assertThat(handler.get(i, result), equalTo(TypeUtils.toInternal(params.leftData[i])));

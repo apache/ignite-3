@@ -353,7 +353,7 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
             }
 
             @Override
-            public Object[] wrap(InternalTuple tuple) {
+            public Object[] create(InternalTuple tuple) {
                 throw new UnsupportedOperationException();
             }
         };
