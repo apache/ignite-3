@@ -20,11 +20,9 @@ package org.apache.ignite.internal.table;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteExceptionMapperUtil;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Base class for Table views.
@@ -61,10 +59,9 @@ abstract class AbstractTableView {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
             throw sneakyThrow(convertException(e));
-        } catch (ExecutionException e) {
-            throw sneakyThrow(convertException(e.getCause()));
-        } catch (IgniteInternalException e) {
-            throw sneakyThrow(convertException(e));
+        } catch (Exception e) {
+            Throwable cause = ExceptionUtils.unwrapCause(e);
+            throw sneakyThrow(convertException(cause));
         }
     }
 
