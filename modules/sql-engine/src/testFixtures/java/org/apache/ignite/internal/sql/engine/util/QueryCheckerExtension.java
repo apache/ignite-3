@@ -41,11 +41,11 @@ import org.junit.platform.commons.support.HierarchyTraversalMode;
  */
 public class QueryCheckerExtension implements BeforeEachCallback, BeforeAllCallback, AfterEachCallback {
     /** QueryCheckers instances that are managed by this extension. */
-    private static final Set<QueryChecker> QUERY_CHECKERS = new HashSet<>();
+    private final Set<QueryChecker> queryCheckers = new HashSet<>();
 
-    private static final QueryCheckerFactory FACTORY_INSTANCE = new QueryCheckerFactoryImpl(
-            QueryCheckerExtension::register,
-            QueryCheckerExtension::unregister
+    private final QueryCheckerFactory factory = new QueryCheckerFactoryImpl(
+            this::register,
+            this::unregister
     );
 
     /** {@inheritDoc} */
@@ -66,7 +66,7 @@ public class QueryCheckerExtension implements BeforeEachCallback, BeforeAllCallb
         ensureNoUnusedChecker();
     }
 
-    private static void injectFields(ExtensionContext context, boolean forStatic) throws Exception {
+    private void injectFields(ExtensionContext context, boolean forStatic) throws Exception {
         Class<?> testClass = context.getRequiredTestClass();
         Object testInstance = context.getTestInstance().orElse(null);
 
@@ -82,22 +82,16 @@ public class QueryCheckerExtension implements BeforeEachCallback, BeforeAllCallb
         for (Field field : annotatedFields) {
             field.setAccessible(true);
 
-            field.set(forStatic ? null : testInstance, FACTORY_INSTANCE);
+            field.set(forStatic ? null : testInstance, factory);
         }
     }
 
-    /**
-     * Remembers the given QueryChecker instance.
-     */
-    private static void register(QueryChecker newChecker) {
-        QUERY_CHECKERS.add(newChecker);
+    private void register(QueryChecker newChecker) {
+        queryCheckers.add(newChecker);
     }
 
-    /**
-     * Unregisters created QueryChecker instance.
-     */
-    private static void unregister(QueryChecker queryChecker) {
-        boolean remove = QUERY_CHECKERS.remove(queryChecker);
+    private void unregister(QueryChecker queryChecker) {
+        boolean remove = queryCheckers.remove(queryChecker);
 
         if (!remove) {
             throw new IllegalStateException(format("Unknown QueryChecker instance for SQL query: {}", queryChecker));
@@ -110,17 +104,17 @@ public class QueryCheckerExtension implements BeforeEachCallback, BeforeAllCallb
      * @throws AssertionError If found any registered QueryChecker.
      * @see QueryCheckerExtension
      */
-    private static void ensureNoUnusedChecker() {
-        if (QUERY_CHECKERS.isEmpty()) {
+    private void ensureNoUnusedChecker() {
+        if (queryCheckers.isEmpty()) {
             return;
         }
 
-        String failureDetails = QUERY_CHECKERS.stream()
+        String failureDetails = queryCheckers.stream()
                 .map(Object::toString)
                 .collect(Collectors.joining("\n", "Found unused QueryCheckers for queries: ", ""));
 
         // Clear collection to allow passing next tests in suite.
-        QUERY_CHECKERS.clear();
+        queryCheckers.clear();
 
         fail(failureDetails);
     }
