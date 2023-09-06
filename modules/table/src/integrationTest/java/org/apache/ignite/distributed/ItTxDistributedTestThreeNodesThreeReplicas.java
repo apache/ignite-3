@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -59,11 +58,5 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends ItTxDistributedT
         } finally {
             super.after();
         }
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20366")
-    @Override
-    public void testBatchPutConcurrently() {
-        // No-op.
     }
 }
