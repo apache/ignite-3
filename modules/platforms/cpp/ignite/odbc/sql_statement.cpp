@@ -20,6 +20,7 @@
 #include "ignite/odbc/log.h"
 #include "ignite/odbc/odbc_error.h"
 #include "ignite/odbc/query/data_query.h"
+#include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/sql_connection.h"
 #include "ignite/odbc/sql_statement.h"
 #include "ignite/odbc/system/odbc_constants.h"
@@ -560,7 +561,7 @@ sql_result sql_statement::internal_execute_get_columns_meta_query(
     if (m_current_query)
         m_current_query->close();
 
-    // TODO: IGNITE-19214 Implement table column metadata fetching
+    // TODO: IGNITE-20346 Implement table column metadata fetching
     add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Column metadata is not supported.");
     return sql_result::AI_ERROR;
 }
@@ -572,17 +573,12 @@ void sql_statement::execute_get_tables_meta_query(
 
 sql_result sql_statement::internal_execute_get_tables_meta_query(
     const std::string &catalog, const std::string &schema, const std::string &table, const std::string &table_type) {
-    UNUSED_VALUE catalog;
-    UNUSED_VALUE schema;
-    UNUSED_VALUE table;
-    UNUSED_VALUE table_type;
 
     if (m_current_query)
         m_current_query->close();
 
-    // TODO: IGNITE-19214 Implement tables metadata fetching
-    add_status_record(sql_state::SHYC00_OPTIONAL_FEATURE_NOT_IMPLEMENTED, "Tables metadata is not supported.");
-    return sql_result::AI_ERROR;
+    m_current_query = std::make_unique<table_metadata_query>(*this, m_connection, catalog, schema, table, table_type);
+    return m_current_query->execute();
 }
 
 void sql_statement::execute_get_foreign_keys_query(const std::string &primary_catalog,
