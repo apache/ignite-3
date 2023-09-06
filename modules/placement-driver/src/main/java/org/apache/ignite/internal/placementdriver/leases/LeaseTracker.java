@@ -216,7 +216,7 @@ public class LeaseTracker implements PlacementDriver {
 
             Lease lease = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);
 
-            if (lease.getExpirationTime().after(timestamp) && lease.isAccepted()) {
+            if (lease.getExpirationTime().after(timestamp)) {
                 return completedFuture(lease);
             }
 
@@ -226,7 +226,7 @@ public class LeaseTracker implements PlacementDriver {
                     .thenApply(ignored -> inBusyLock(busyLock, () -> {
                         Lease lease0 = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);
 
-                        if (lease0.getExpirationTime().after(timestamp) && lease.isAccepted()) {
+                        if (lease0.getExpirationTime().after(timestamp)) {
                             return lease0;
                         } else {
                             return null;
