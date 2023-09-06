@@ -17,12 +17,21 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Read only multi row replica request.
+ * Read-write multi-row replica request involving table's Primary Keys.
  */
-@Transferable(TableMessageGroup.RO_MULTI_ROW_REPLICA_REQUEST)
-public interface ReadOnlyMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadOnlyReplicaRequest {
+@Transferable(TableMessageGroup.RW_MULTI_ROW_PK_REPLICA_REQUEST)
+public interface ReadWriteMultiRowPkReplicaRequest extends MultipleRowPkReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
+    /**
+     * Gets a commit partition id.
+     *
+     * @return Table partition id.
+     */
+    @Marshallable
+    TablePartitionId commitPartitionId();
 }

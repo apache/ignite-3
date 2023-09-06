@@ -47,9 +47,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
@@ -79,6 +79,7 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
@@ -160,19 +161,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
         BinaryTupleSchema valueSchema = BinaryTupleSchema.createValueSchema(schemaDescriptor);
-        BinaryRowConverter valueExtractor = new BinaryRowConverter(rowSchema, valueSchema);
 
-        row2SortKeyConverter = new ColumnsExtractor() {
-            @Override
-            public BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public BinaryTuple extractColumns(BinaryRow row) {
-                return valueExtractor.toTuple(row);
-            }
-        };
+        row2SortKeyConverter = new BinaryRowConverter(rowSchema, valueSchema);
 
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 SORTED_INDEX_ID,
@@ -265,12 +255,20 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             insertRows(List.of(new Pair<>(testBinaryRow, rowId)), TestTransactionIds.newTransactionId());
         }
 
-        BinaryRow rowMessage;
+        ReplicaRequest request;
 
         switch (arg.type) {
             case RW_DELETE:
             case RW_GET_AND_DELETE:
-                rowMessage = testPk;
+                request = TABLE_MESSAGES_FACTORY.readWriteSingleRowPkReplicaRequest()
+                        .groupId(PARTITION_ID)
+                        .term(1L)
+                        .commitPartitionId(PARTITION_ID)
+                        .transactionId(TRANSACTION_ID)
+                        .primaryKeyMessage(primaryKeyMessage(testPk))
+                        .requestType(arg.type)
+                        .build();
+
                 break;
 
             case RW_DELETE_EXACT:
@@ -279,21 +277,21 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             case RW_REPLACE_IF_EXIST:
             case RW_GET_AND_REPLACE:
             case RW_GET_AND_UPSERT:
-                rowMessage = testBinaryRow;
+                request = TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
+                        .groupId(PARTITION_ID)
+                        .term(1L)
+                        .commitPartitionId(PARTITION_ID)
+                        .transactionId(TRANSACTION_ID)
+                        .binaryRowMessage(binaryRowMessage(testBinaryRow))
+                        .requestType(arg.type)
+                        .build();
                 break;
 
             default:
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteSingleRowReplicaRequest()
-                .groupId(PARTITION_ID)
-                .term(1L)
-                .commitPartitionId(PARTITION_ID)
-                .transactionId(TRANSACTION_ID)
-                .binaryRowMessage(binaryRowMessage(rowMessage))
-                .requestType(arg.type)
-                .build(), "local");
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, "local");
 
         await(fut);
 
@@ -338,31 +336,40 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
             }
         }
 
-        List<BinaryRow> rowMessages;
+        ReplicaRequest request;
 
         switch (arg.type) {
             case RW_DELETE_ALL:
-                rowMessages = pks;
+                request = TABLE_MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
+                        .groupId(PARTITION_ID)
+                        .term(1L)
+                        .commitPartitionId(PARTITION_ID)
+                        .transactionId(TRANSACTION_ID)
+                        .primaryKeyMessages(pks.stream().map(PartitionReplicaListenerIndexLockingTest::primaryKeyMessage).collect(toList()))
+                        .requestType(arg.type)
+                        .build();
+
                 break;
 
             case RW_DELETE_EXACT_ALL:
             case RW_INSERT_ALL:
             case RW_UPSERT_ALL:
-                rowMessages = rows;
+                request = TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
+                        .groupId(PARTITION_ID)
+                        .term(1L)
+                        .commitPartitionId(PARTITION_ID)
+                        .transactionId(TRANSACTION_ID)
+                        .binaryRowMessages(rows.stream().map(PartitionReplicaListenerIndexLockingTest::binaryRowMessage).collect(toList()))
+                        .requestType(arg.type)
+                        .build();
+
                 break;
 
             default:
                 throw new AssertionError("Unexpected operation type: " + arg.type);
         }
 
-        CompletableFuture<?> fut = partitionReplicaListener.invoke(TABLE_MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
-                .groupId(PARTITION_ID)
-                .term(1L)
-                .commitPartitionId(PARTITION_ID)
-                .transactionId(TRANSACTION_ID)
-                .binaryRowMessages(rowMessages.stream().map(PartitionReplicaListenerIndexLockingTest::binaryRowMessage).collect(toList()))
-                .requestType(arg.type)
-                .build(), "local");
+        CompletableFuture<?> fut = partitionReplicaListener.invoke(request, "local");
 
         await(fut);
 
@@ -454,6 +461,13 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         return TABLE_MESSAGES_FACTORY.binaryRowMessage()
                 .binaryTuple(binaryRow.tupleSlice())
                 .schemaVersion(binaryRow.schemaVersion())
+                .build();
+    }
+
+    private static BinaryTupleMessage primaryKeyMessage(BinaryRow primaryKey) {
+        return TABLE_MESSAGES_FACTORY.binaryTupleMessage()
+                .tuple(primaryKey.tupleSlice())
+                .elementCount(schemaDescriptor.keyColumns().length())
                 .build();
     }
 

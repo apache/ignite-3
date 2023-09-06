@@ -15,18 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema;
+package org.apache.ignite.internal.table.distributed.replication.request;
+
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Class for extracting a subset of columns from {@code BinaryRow}s.
+ * Read only multi row replica request.
  */
-@FunctionalInterface
-public interface ColumnsExtractor {
-    /**
-     * Extracts a subset of columns from a given {@code BinaryRow}.
-     *
-     * @param row Row with data (both key and value).
-     * @return Subset of columns, packed into a {@code BinaryTuple}.
-     */
-    BinaryTuple extractColumns(BinaryRow row);
+@Transferable(TableMessageGroup.RO_MULTI_ROW_REPLICA_REQUEST)
+public interface ReadOnlyMultiRowPkReplicaRequest extends MultipleRowPkReplicaRequest, ReadOnlyReplicaRequest {
 }

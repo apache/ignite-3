@@ -244,7 +244,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new TestTxStateTableStorage(),
                 replicaService,
                 Mockito.mock(HybridClock.class),
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                3
         );
     }
 

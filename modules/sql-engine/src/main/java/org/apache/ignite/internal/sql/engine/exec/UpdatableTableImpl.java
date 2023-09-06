@@ -51,6 +51,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.SqlException;
@@ -199,6 +200,21 @@ public final class UpdatableTableImpl implements UpdatableTable {
         return result;
     }
 
+    private List<BinaryTupleMessage> serializePrimaryKeys(Collection<BinaryRow> rows) {
+        var result = new ArrayList<BinaryTupleMessage>(rows.size());
+
+        for (BinaryRow row : rows) {
+            BinaryTupleMessage message = MESSAGES_FACTORY.binaryTupleMessage()
+                    .tuple(row.tupleSlice())
+                    .elementCount(keyColumnsOrderedByPhysSchema.length)
+                    .build();
+
+            result.add(message);
+        }
+
+        return result;
+    }
+
     @Override
     public TableDescriptor descriptor() {
         return desc;
@@ -295,10 +311,10 @@ public final class UpdatableTableImpl implements UpdatableTable {
             TablePartitionId partGroupId = new TablePartitionId(tableId, partToRows.getIntKey());
             NodeWithTerm nodeWithTerm = ectx.description().mapping().updatingTableAssignments().get(partToRows.getIntKey());
 
-            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
+            ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                     .groupId(partGroupId)
                     .commitPartitionId(commitPartitionId)
-                    .binaryRowMessages(serializeBinaryRows(partToRows.getValue()))
+                    .primaryKeyMessages(serializePrimaryKeys(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_DELETE_ALL)

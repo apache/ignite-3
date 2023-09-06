@@ -221,7 +221,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestTxStateTableStorage(),
                 replicaSvc,
                 CLOCK,
-                tracker
+                tracker,
+                schema.keyColumns().length()
         );
         RaftGroupService svc = raftGroupServiceByPartitionId.get(0);
 

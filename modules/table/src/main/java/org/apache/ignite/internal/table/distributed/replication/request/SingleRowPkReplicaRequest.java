@@ -17,12 +17,21 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.network.annotations.Marshallable;
 
 /**
- * Read only single row replica request.
+ * Single row replica request involving a table's Primary Key.
  */
-@Transferable(TableMessageGroup.RO_SINGLE_ROW_REPLICA_REQUEST)
-public interface ReadOnlySingleRowReplicaRequest extends SingleRowReplicaRequest, ReadOnlyReplicaRequest {
+public interface SingleRowPkReplicaRequest extends ReplicaRequest {
+    BinaryTupleMessage primaryKeyMessage();
+
+    default BinaryTuple primaryKey() {
+        return primaryKeyMessage().asBinaryTuple();
+    }
+
+    @Marshallable
+    RequestType requestType();
 }

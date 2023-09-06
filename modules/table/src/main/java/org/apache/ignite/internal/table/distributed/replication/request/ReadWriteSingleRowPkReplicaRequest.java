@@ -17,34 +17,21 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
-import java.util.ArrayList;
-import java.util.List;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Multiple row replica request.
+ * Read-write single-row replica request involving a table's Primary Key..
  */
-public interface MultipleRowReplicaRequest extends ReplicaRequest {
-    List<BinaryRowMessage> binaryRowMessages();
-
+@Transferable(TableMessageGroup.RW_SINGLE_ROW_PK_REPLICA_REQUEST)
+public interface ReadWriteSingleRowPkReplicaRequest extends SingleRowPkReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
     /**
-     * Deserializes binary row byte buffers into binary rows.
+     * Gets a commit partition id.
+     *
+     * @return Table partition id.
      */
-    default List<BinaryRow> binaryRows() {
-        List<BinaryRowMessage> binaryRowMessages = binaryRowMessages();
-
-        var result = new ArrayList<BinaryRow>(binaryRowMessages.size());
-
-        for (BinaryRowMessage message : binaryRowMessages) {
-            result.add(message.asBinaryRow());
-        }
-
-        return result;
-    }
-
     @Marshallable
-    RequestType requestType();
+    TablePartitionId commitPartitionId();
 }
