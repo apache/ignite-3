@@ -75,10 +75,6 @@ abstract class AbstractTableView {
      * @return Public exception.
      */
     private static Throwable convertException(Throwable t) {
-        if (t instanceof IgniteException) {
-            return t;
-        } else {
-            return IgniteExceptionMapperUtil.mapToPublicException(t);
-        }
+        return IgniteExceptionMapperUtil.mapToPublicException(t);
     }
 }
