@@ -371,6 +371,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
         @Override
         void set(int field, @Nullable Object value) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-20356
             throw new UnsupportedOperationException();
         }
 
