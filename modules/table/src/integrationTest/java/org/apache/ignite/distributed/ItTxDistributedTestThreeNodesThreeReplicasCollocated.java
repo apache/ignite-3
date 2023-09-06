@@ -25,6 +25,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -73,5 +74,11 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
                         .filter(txMeta -> txMeta != null && txMeta.txState() == TxState.COMMITED)
                         .count() >= 2,
                 5_000));
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20366")
+    @Override
+    public void testBatchPutConcurrently() {
+        // No-op.
     }
 }

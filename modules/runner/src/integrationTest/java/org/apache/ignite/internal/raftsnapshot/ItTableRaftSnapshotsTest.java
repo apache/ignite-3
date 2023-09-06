@@ -668,6 +668,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * stuck because one 'download' task will remain unfinished forever.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20367")
     void snapshotInstallTimeoutDoesNotBreakSubsequentInstallsWhenSecondAttemptIsIdenticalToFirst() throws Exception {
         AtomicBoolean snapshotInstallFailedDueToIdenticalRetry = new AtomicBoolean(false);
 

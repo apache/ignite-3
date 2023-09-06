@@ -535,6 +535,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20365")
     public void testTxStateReplicaRequestMissLeaderMiss() throws Exception {
         localLeader = false;
 
