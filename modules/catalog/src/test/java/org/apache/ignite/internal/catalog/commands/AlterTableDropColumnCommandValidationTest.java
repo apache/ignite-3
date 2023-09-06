@@ -161,4 +161,47 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
                 "Column with name 'TEST_UNK' not found in table 'PUBLIC.TEST'"
         );
     }
+
+    @Test
+    void exceptionIsThrownIfColumnBelongsToPrimaryKey() {
+        String tableName = "TEST";
+        String columnName1 = "C1";
+        String columnName2 = "C2";
+        Catalog catalog = catalogWithTable(builder -> builder
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(List.of(
+                        ColumnParams.builder().name(columnName1).type(INT32).build(),
+                        ColumnParams.builder().name(columnName2).type(INT32).build()
+                ))
+                .primaryKeyColumns(List.of(columnName1, columnName2))
+        );
+
+        AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(tableName)
+                .columns(Set.of(columnName2));
+
+        assertThrowsWithCause(
+                () -> builder.build().get(catalog),
+                CatalogValidationException.class,
+                "Deleting column belonging to primary key is not allowed"
+        );
+    }
+
+    @Test
+    void exceptionIsThrownIfColumnBelongsToIndex() {
+        Catalog catalog = catalogWithIndex("TEST_IDX");
+
+        AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("VAL"));
+
+        assertThrowsWithCause(
+                () -> builder.build().get(catalog),
+                CatalogValidationException.class,
+                "Deleting indexed column is not allowed"
+        );
+    }
 }

@@ -41,6 +41,7 @@ import org.junit.jupiter.params.provider.Arguments;
  */
 abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     static final String SCHEMA_NAME = "PUBLIC";
+    static final String TABLE_NAME = "TEST";
     static final String ZONE_NAME = "Default";
 
     private static final CatalogZoneDescriptor DEFAULT_ZONE = new CatalogZoneDescriptor(
@@ -94,10 +95,20 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog catalogWithIndex(String name) {
+        CatalogTableColumnDescriptor id = new CatalogTableColumnDescriptor(
+                "ID", INT32, false, -1, -1, -1, null
+        );
+        CatalogTableColumnDescriptor val = new CatalogTableColumnDescriptor(
+                "VAL", INT32, true, -1, -1, -1, null
+        );
+        CatalogTableDescriptor table = new CatalogTableDescriptor(
+                0, TABLE_NAME, 0, 1, List.of(id, val), List.of("ID"), List.of("ID")
+        );
         CatalogIndexDescriptor index = new CatalogHashIndexDescriptor(
-                0, name, 0, false, List.of("C"));
+                1, name, 0, false, List.of("VAL")
+        );
 
-        return catalog(new CatalogTableDescriptor[0], new CatalogIndexDescriptor[]{index});
+        return catalog(new CatalogTableDescriptor[]{table}, new CatalogIndexDescriptor[]{index});
     }
 
     private static Catalog catalog(CatalogTableDescriptor[] tables, CatalogIndexDescriptor[] indexes) {
