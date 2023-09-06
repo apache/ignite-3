@@ -50,7 +50,6 @@ import java.util.function.LongFunction;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -294,9 +293,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         schemaManager.start();
 
         catalogManager = mock(CatalogManager.class);
-        when(catalogManager.createTableCommandBuilder()).thenReturn(new CreateTableCommand.Builder());
         when(catalogManager.execute(any(CatalogCommand.class))).thenReturn(completedFuture(null));
-        when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
 
         schemaSyncService = mock(SchemaSyncService.class);
         when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(completedFuture(null));

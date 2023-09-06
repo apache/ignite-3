@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,12 +15,23 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks;
+package org.apache.ignite.internal.catalog.commands;
 
-using BenchmarkDotNet.Running;
-using Table;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 
-internal static class Program
-{
-    private static void Main() => BenchmarkRunner.Run<DataStreamerBenchmark>();
+/**
+ * Abstract builder of table-related commands.
+ *
+ * <p>Every table-related command, disregard it going to create new table or modify existing one,
+ * should specify name of the table and namespace (schema) where to find existing/put new table.
+ */
+public interface AbstractTableCommandBuilder<T extends AbstractTableCommandBuilder<T>> {
+    /** A name of the schema a table belongs to. Should not be null or blank. */
+    T schemaName(String schemaName);
+
+    /** A name of the table. Should not be null or blank. */
+    T tableName(String tableName);
+
+    /** Returns a command with specified parameters. */
+    CatalogCommand build();
 }

@@ -2296,30 +2296,38 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 return runAsync(() -> inBusyLock(busyLock, () -> {
                     try {
-                        startPartitionRaftGroupNode(
-                                replicaGrpId,
-                                pendingConfiguration,
-                                stableConfiguration,
-                                safeTimeTracker,
-                                storageIndexTracker,
-                                internalTable,
-                                txStatePartitionStorage,
-                                partitionDataStorage,
-                                partitionUpdateHandlers,
-                                txsPendingRowIds
-                        );
+                        Peer serverPeer = pendingConfiguration.peer(localMember.name());
 
-                        startReplicaWithNewListener(
-                                replicaGrpId,
-                                tbl,
-                                safeTimeTracker,
-                                storageIndexTracker,
-                                mvPartitionStorage,
-                                txStatePartitionStorage,
-                                partitionUpdateHandlers,
-                                (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
-                                txsPendingRowIds
-                        );
+                        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
+
+                        if (!((Loza) raftMgr).isStarted(raftNodeId)) {
+                            startPartitionRaftGroupNode(
+                                    replicaGrpId,
+                                    pendingConfiguration,
+                                    stableConfiguration,
+                                    safeTimeTracker,
+                                    storageIndexTracker,
+                                    internalTable,
+                                    txStatePartitionStorage,
+                                    partitionDataStorage,
+                                    partitionUpdateHandlers,
+                                    txsPendingRowIds
+                            );
+                        }
+
+                        if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
+                            startReplicaWithNewListener(
+                                    replicaGrpId,
+                                    tbl,
+                                    safeTimeTracker,
+                                    storageIndexTracker,
+                                    mvPartitionStorage,
+                                    txStatePartitionStorage,
+                                    partitionUpdateHandlers,
+                                    (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
+                                    txsPendingRowIds
+                            );
+                        }
                     } catch (NodeStoppingException ignored) {
                         // No-op.
                     }

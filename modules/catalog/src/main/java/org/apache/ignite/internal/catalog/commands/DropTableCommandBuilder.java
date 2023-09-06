@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks;
+package org.apache.ignite.internal.catalog.commands;
 
-using BenchmarkDotNet.Running;
-using Table;
-
-internal static class Program
-{
-    private static void Main() => BenchmarkRunner.Run<DataStreamerBenchmark>();
+/**
+ * Builder of a command that drop specified table.
+ *
+ * <p>A builder is considered to be reusable, thus implementation have
+ * to make sure invocation of {@link #build()} method doesn't cause any
+ * side effects on builder's state or any object created by the same builder.
+ */
+public interface DropTableCommandBuilder extends AbstractTableCommandBuilder<DropTableCommandBuilder> {
 }
