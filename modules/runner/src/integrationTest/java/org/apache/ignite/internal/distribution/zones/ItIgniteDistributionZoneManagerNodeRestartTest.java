@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.util.ByteUtils.booleanToByte;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
@@ -78,6 +79,8 @@ import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
+import org.apache.ignite.internal.metastorage.dsl.StatementResultImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
@@ -400,8 +403,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 TIMEOUT_MILLIS
         );
 
-        // Block scale up
-        blockUpdate(metastore, zoneScaleUpChangeTriggerKey(zoneId));
+        // Skip scale up
+        skipUpdate(metastore, zoneScaleUpChangeTriggerKey(zoneId));
 
         node.logicalTopology().putNode(C);
         node.logicalTopology().removeNodes(Set.of(B));
@@ -450,7 +453,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         alterZone(node, zoneName, INFINITE_TIMER_VALUE, null, null);
 
-        blockUpdate(metastore, zoneScaleUpChangeTriggerKey(zoneId));
+        skipUpdate(metastore, zoneScaleUpChangeTriggerKey(zoneId));
 
         node.logicalTopology().putNode(B);
 
@@ -493,7 +496,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A), TIMEOUT_MILLIS);
 
-        blockUpdate(metastore, zoneScaleUpChangeTriggerKey(zoneId));
+        skipUpdate(metastore, zoneScaleUpChangeTriggerKey(zoneId));
 
         alterZone(node, zoneName, 100, null, null);
 
@@ -556,8 +559,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         int zoneId = getZoneId(node, zoneName);
 
-        // Block scale down
-        blockUpdate(metastore, zoneScaleDownChangeTriggerKey(zoneId));
+        // Skip scale down
+        skipUpdate(metastore, zoneScaleDownChangeTriggerKey(zoneId));
 
         node.logicalTopology().putNode(A);
         node.logicalTopology().putNode(B);
@@ -625,14 +628,19 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         }
     }
 
-    private static void blockUpdate(MetaStorageManager metaStorageManager, ByteArray key) {
+    private static void skipUpdate(MetaStorageManager metaStorageManager, ByteArray key) {
         when(metaStorageManager.invoke(argThat(iif -> {
             If iif1 = MetaStorageWriteHandler.toIf(iif);
 
             byte[] keyScaleUp = key.bytes();
 
             return iif1.andThen().update().operations().stream().anyMatch(op -> Arrays.equals(keyScaleUp, op.key()));
-        }))).thenThrow(new RuntimeException("Expected"));
+        }))).then(invocation -> {
+            StatementResult statementResult = StatementResultImpl.builder()
+                    .result(new byte[]{booleanToByte(true)})
+                    .build();
+            return completedFuture(statementResult);
+        });
     }
 
     private static <T extends IgniteComponent> T getStartedComponent(PartialNode node, Class<T> componentClass) {
