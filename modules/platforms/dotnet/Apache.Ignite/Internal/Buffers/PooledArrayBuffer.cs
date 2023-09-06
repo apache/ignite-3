@@ -87,14 +87,15 @@ namespace Apache.Ignite.Internal.Buffers
         public void Advance(int count)
         {
             Debug.Assert(count >= 0, "count >= 0");
-
-            if (_index > _buffer.Length - count)
-            {
-                throw new InvalidOperationException("Can't advance past buffer limit.");
-            }
+            Debug.Assert(_index + count < _buffer.Length, "_index + count < _buffer.Length");
 
             _index += count;
         }
+
+        /// <summary>
+        /// Resets the buffer to the initial state.
+        /// </summary>
+        public void Reset() => _index = _prefixSize;
 
         /// <summary>
         /// Gets a span for writing.
@@ -120,24 +121,6 @@ namespace Apache.Ignite.Internal.Buffers
             Advance(size);
 
             return span;
-        }
-
-        /// <summary>
-        /// Gets a span for writing at the specified position.
-        /// </summary>
-        /// <param name="position">Position.</param>
-        /// <param name="size">Size.</param>
-        /// <returns>Span for writing.</returns>
-        public Span<byte> GetSpan(int position, int size)
-        {
-            var overflow = _prefixSize + position + size - _index;
-
-            if (overflow > 0)
-            {
-                CheckAndResizeBuffer(overflow);
-            }
-
-            return _buffer.AsSpan(_prefixSize + position, size);
         }
 
         /// <inheritdoc />

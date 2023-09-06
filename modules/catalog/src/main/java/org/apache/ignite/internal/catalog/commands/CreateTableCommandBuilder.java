@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -28,13 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * to make sure invocation of {@link #build()} method doesn't cause any
  * side effects on builder's state or any object created by the same builder.
  */
-public interface CreateTableCommandBuilder {
-    /** A name of the schema to add new table to. Should not be null or blank. */
-    CreateTableCommandBuilder schemaName(String schemaName);
-
-    /** A name of the table to add. Should not be null or blank. */
-    CreateTableCommandBuilder tableName(String tableName);
-
+public interface CreateTableCommandBuilder extends AbstractTableCommandBuilder<CreateTableCommandBuilder> {
     /** List of columns a new table should be created with. There must be at least one column. */
     CreateTableCommandBuilder columns(List<ColumnParams> columns);
 
@@ -52,7 +45,4 @@ public interface CreateTableCommandBuilder {
 
     /** A name of the zone to create new table in. Should not be null or blank. */
     CreateTableCommandBuilder zone(@Nullable String zoneName);
-
-    /** Returns a command with specified parameters. */
-    CatalogCommand build();
 }

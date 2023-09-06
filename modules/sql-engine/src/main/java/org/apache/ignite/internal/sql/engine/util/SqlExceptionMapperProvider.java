@@ -26,6 +26,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
+import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteFragmentExecutionException;
 import org.apache.ignite.lang.IgniteException;
@@ -54,6 +57,9 @@ public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvide
 
         mappers.add(unchecked(CalciteContextException.class,
                 err -> new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. " + err.getMessage(), err)));
+
+        mappers.add(unchecked(CatalogValidationException.class,
+                err -> new SqlException(err.traceId(), STMT_VALIDATION_ERR, "Failed to validate query. " + err.getMessage(), err)));
 
         return mappers;
     }
