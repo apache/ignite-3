@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -58,11 +60,11 @@ abstract class AbstractTableView {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-            throw convertException(e);
+            throw sneakyThrow(convertException(e));
         } catch (ExecutionException e) {
-            throw convertException(e.getCause());
+            throw sneakyThrow(convertException(e.getCause()));
         } catch (IgniteInternalException e) {
-            throw convertException(e);
+            throw sneakyThrow(convertException(e));
         }
     }
 
@@ -72,12 +74,11 @@ abstract class AbstractTableView {
      * @param t Internal exception.
      * @return Public exception.
      */
-    protected IgniteException convertException(Throwable t) {
+    private static Throwable convertException(Throwable t) {
         if (t instanceof IgniteException) {
-            return (IgniteException) t;
+            return t;
         } else {
-            // Wrap all other exceptions in IgniteException with code internal_err.
-            return new IgniteException(Common.INTERNAL_ERR, t);
+            return IgniteExceptionMapperUtil.mapToPublicException(t);
         }
     }
 }
