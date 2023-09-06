@@ -58,20 +58,10 @@ abstract class AbstractTableView {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-            throw sneakyThrow(convertException(e));
+            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
         } catch (Exception e) {
             Throwable cause = ExceptionUtils.unwrapCause(e);
-            throw sneakyThrow(convertException(cause));
+            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(cause));
         }
-    }
-
-    /**
-     * Converts an internal exception to a public one.
-     *
-     * @param t Internal exception.
-     * @return Public exception.
-     */
-    private static Throwable convertException(Throwable t) {
-        return IgniteExceptionMapperUtil.mapToPublicException(t);
     }
 }
