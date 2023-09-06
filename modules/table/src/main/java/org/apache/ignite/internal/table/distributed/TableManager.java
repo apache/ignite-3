@@ -2311,31 +2311,40 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         );
 
                         PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
-                        PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
 
                         try {
-                            startPartitionRaftGroupNode(
-                                    replicaGrpId,
-                                    pendingConfiguration,
-                                    stableConfiguration,
-                                    safeTimeTracker,
-                                    storageIndexTracker,
-                                    internalTable,
-                                    txStatePartitionStorage,
-                                    partitionDataStorage,
-                                    partitionUpdateHandlers
-                            );
+                            Peer serverPeer = pendingConfiguration.peer(localMember.name());
 
-                            startReplicaWithNewListener(
-                                    replicaGrpId,
-                                    tbl,
-                                    safeTimeTracker,
-                                    storageIndexTracker,
-                                    mvPartitionStorage,
-                                    txStatePartitionStorage,
-                                    partitionUpdateHandlers,
-                                    (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId)
-                            );
+                            RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
+
+                            if (!((Loza) raftMgr).isStarted(raftNodeId)) {
+                                PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
+
+                                startPartitionRaftGroupNode(
+                                        replicaGrpId,
+                                        pendingConfiguration,
+                                        stableConfiguration,
+                                        safeTimeTracker,
+                                        storageIndexTracker,
+                                        internalTable,
+                                        txStatePartitionStorage,
+                                        partitionDataStorage,
+                                        partitionUpdateHandlers
+                                );
+                            }
+
+                            if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
+                                startReplicaWithNewListener(
+                                        replicaGrpId,
+                                        tbl,
+                                        safeTimeTracker,
+                                        storageIndexTracker,
+                                        mvPartitionStorage,
+                                        txStatePartitionStorage,
+                                        partitionUpdateHandlers,
+                                        (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId)
+                                );
+                            }
                         } catch (NodeStoppingException ignored) {
                             // No-op.
                         }
