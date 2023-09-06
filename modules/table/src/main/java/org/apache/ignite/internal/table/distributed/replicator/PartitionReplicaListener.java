@@ -2350,14 +2350,16 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 long currentEnlistmentConsistencyToken = primaryReplica.getStartTime().longValue();
 
                                 if (expectedTerm.equals(currentEnlistmentConsistencyToken)) {
-                                    // TODO: sanpwc check exp time and now and throw something if not matched.
-                                    return completedFuture(null);
+                                    if (primaryReplica.getExpirationTime().before(hybridClock.now())) {
+                                        return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
+                                    } else {
+                                        return completedFuture(null);
+                                    }
                                 } else {
                                     return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
                                 }
                             }
                     );
-            // TODO: sanpwc that should be reworked.
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
             return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now().addPhysicalTime(HybridTimestamp.CLOCK_SKEW))
                     .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));

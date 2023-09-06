@@ -112,7 +112,6 @@ public class InternalTableImpl implements InternalTable {
     /** Number of attempts. */
     private static final int ATTEMPTS_TO_ENLIST_PARTITION = 5;
 
-    // TODO: sanpwc tmp
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
@@ -1168,7 +1167,6 @@ public class InternalTableImpl implements InternalTable {
         entries.sort(Comparator.comparingInt(Entry::getIntKey));
 
         for (Entry<RaftGroupService> e : entries) {
-            // TODO: sanpwc timeout
             CompletableFuture<ReplicaMeta> f = placementDriver.awaitPrimaryReplica(e.getValue().groupId(), clock.now())
                     .orTimeout(AWAIT_PRIMARY_REPLICA_TIMEOUT, TimeUnit.SECONDS);
 
@@ -1355,7 +1353,7 @@ public class InternalTableImpl implements InternalTable {
         tx.assignCommitPartition(tablePartitionId);
 
         HybridTimestamp now = clock.now();
-        // TODO: sanpwc timeout
+
         CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(tablePartitionId, now)
                 .orTimeout(AWAIT_PRIMARY_REPLICA_TIMEOUT, TimeUnit.SECONDS);
 
@@ -1563,7 +1561,6 @@ public class InternalTableImpl implements InternalTable {
     protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
-        // TODO: sanpwc timeout
         return placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now())
                 .orTimeout(AWAIT_PRIMARY_REPLICA_TIMEOUT, TimeUnit.SECONDS).handle((res, e) -> {
                     if (e != null) {

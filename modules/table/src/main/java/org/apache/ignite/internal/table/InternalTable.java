@@ -476,6 +476,5 @@ public interface InternalTable extends ManuallyCloseable {
      */
     @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId);
 
-    // TODO: sanpwc tmp remove
     Function<String, ClusterNode> getClusterNodeResolver();
 }
