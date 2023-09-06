@@ -43,7 +43,7 @@ import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -157,8 +157,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
         assertThat(
-                catalogManager.createTable(
-                        CreateTableParams.builder()
+                catalogManager.execute(
+                        CreateTableCommand.builder()
                                 .schemaName(DEFAULT_SCHEMA_NAME)
                                 .zone(DEFAULT_ZONE_NAME)
                                 .tableName(TABLE_NAME)

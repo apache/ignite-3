@@ -1431,7 +1431,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
 
-        // Changed storage states and expect all storage operations to stop soon.
+        // Change storage states and expect all storage operations to stop soon.
         busyLock.block();
 
         try {

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
 import static org.apache.calcite.sql.type.SqlTypeName.ANY;
 import static org.apache.calcite.sql.type.SqlTypeName.BIGINT;
+import static org.apache.calcite.sql.type.SqlTypeName.BOOLEAN;
 import static org.apache.calcite.sql.type.SqlTypeName.DECIMAL;
 import static org.apache.calcite.sql.type.SqlTypeName.DOUBLE;
 import static org.apache.calcite.sql.type.SqlTypeName.VARBINARY;
@@ -41,8 +42,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
- * Accumulators.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Accumulators implementations.
  */
 public class Accumulators {
 
@@ -89,6 +89,8 @@ public class Accumulators {
                 return minMaxFactory(false, call);
             case "SINGLE_VALUE":
                 return SingleVal.FACTORY;
+            case "LITERAL_AGG":
+                return LiteralVal.FACTORY;
             case "ANY_VALUE":
                 return AnyVal.FACTORY;
             default:
@@ -204,14 +206,41 @@ public class Accumulators {
 
             super.add(args);
         }
+    }
 
+    /**
+     * LITERAL_AGG accumulator, return {@code true} if incoming data is not empty, {@code false} otherwise.
+     * Calcite`s implementation RexImpTable#LiteralAggImplementor.
+     */
+    private static class LiteralVal extends AnyVal {
+        public static final Supplier<Accumulator> FACTORY = LiteralVal::new;
+
+        /** {@inheritDoc} */
+        @Override
+        public void add(Object... args) {
+            assert args.length == 1 : args.length;
+
+            super.add(args);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Object end() {
+            return holder != null;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
+            return typeFactory.createSqlType(BOOLEAN);
+        }
     }
 
     /**
      * ANY_VALUE accumulator.
      */
     private static class AnyVal implements Accumulator {
-        private Object holder;
+        protected Object holder;
 
         public static final Supplier<Accumulator> FACTORY = AnyVal::new;
 

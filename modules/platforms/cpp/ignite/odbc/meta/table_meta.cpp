@@ -20,22 +20,32 @@
 namespace ignite {
 
 void table_meta::read(protocol::reader &reader) {
-    catalog_name = reader.read_string();
+    auto has_data = reader.read_bool();
+    assert(has_data);
+
+    auto status = reader.read_int32();
+    assert(status == 0);
+
+    auto err_msg = reader.read_string_nullable();
+    assert(!err_msg);
+
     schema_name = reader.read_string();
     table_name = reader.read_string();
     table_type = reader.read_string();
 }
 
-void read_table_meta_vector(protocol::reader &reader, table_meta_vector &meta) {
-    std::int32_t meta_num = reader.read_int32();
+table_meta_vector read_table_meta_vector(protocol::reader &reader) {
+    auto meta_num = reader.read_int32();
 
-    meta.clear();
+    table_meta_vector meta;
     meta.reserve(static_cast<std::size_t>(meta_num));
 
     for (std::int32_t i = 0; i < meta_num; ++i) {
         meta.emplace_back();
         meta.back().read(reader);
     }
+
+    return meta;
 }
 
 } // namespace ignite

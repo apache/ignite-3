@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
@@ -37,12 +38,11 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 import org.apache.ignite.lang.ErrorGroups.Index;
@@ -53,7 +53,21 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Utility class for validating catalog commands parameters.
  */
-class CatalogParamsValidationUtils {
+public class CatalogParamsValidationUtils {
+    /**
+     * Validates that given identifier string neither null nor blank.
+     *
+     * @param identifier Identifier to validate.
+     * @param context Context to build message for exception in case validation fails.
+     *      The message has the following format: `{context} can't be null or blank`.
+     * @throws CatalogValidationException If the specified identifier does not meet the requirements.
+     */
+    public static void validateIdentifier(@Nullable String identifier, String context) throws CatalogValidationException {
+        if (StringUtils.nullOrBlank(identifier)) {
+            throw new CatalogValidationException(format("{} can't be null or blank", context));
+        }
+    }
+
     static void validateCreateZoneParams(CreateZoneParams params) {
         validateUpdateZoneFieldsParameters(
                 params.zoneName(),
@@ -103,56 +117,6 @@ class CatalogParamsValidationUtils {
     static void validateRenameZoneParams(RenameZoneParams params) {
         validateZoneName(params.zoneName());
         validateZoneName(params.newZoneName(), "Missing new zone name");
-    }
-
-    static void validateDropTableParams(DropTableParams params) {
-        validateCommonTableParams(params);
-    }
-
-    static void validateCreateTableParams(CreateTableParams params) {
-        validateCommonTableParams(params);
-
-        List<String> columnNames = Objects.<List<ColumnParams>>requireNonNullElse(params.columns(), List.of()).stream()
-                .peek(CatalogParamsValidationUtils::validateColumnParams)
-                .map(ColumnParams::name)
-                .collect(toList());
-
-        validateColumns(
-                columnNames,
-                Table.TABLE_DEFINITION_ERR,
-                "Columns not specified",
-                "Duplicate columns are present: {}"
-        );
-
-        validateColumns(
-                params.primaryKeyColumns(),
-                Table.TABLE_DEFINITION_ERR,
-                "Primary key columns not specified",
-                "Duplicate primary key columns are present: {}"
-        );
-
-        validateColumnsAreContainedInAnotherColumns(
-                params.primaryKeyColumns(),
-                columnNames,
-                Table.TABLE_DEFINITION_ERR,
-                "Primary key columns missing in columns: {}"
-        );
-
-        if (params.colocationColumns() != null) {
-            validateColumns(
-                    params.colocationColumns(),
-                    Table.TABLE_DEFINITION_ERR,
-                    "Colocation columns not specified",
-                    "Duplicate colocation columns are present: {}"
-            );
-
-            validateColumnsAreContainedInAnotherColumns(
-                    params.colocationColumns(),
-                    params.primaryKeyColumns(),
-                    Table.TABLE_DEFINITION_ERR,
-                    "Colocation columns missing in primary key columns: {}"
-            );
-        }
     }
 
     static void validateDropColumnParams(AlterTableDropColumnParams params) {
@@ -332,31 +296,39 @@ class CatalogParamsValidationUtils {
         }
     }
 
-    private static void validateColumnsAreContainedInAnotherColumns(
-            List<String> columnsToCheck,
-            List<String> anotherColumns,
-            int errorCode,
-            String errorMessageFormat
-    ) {
-        List<String> notContained = columnsToCheck.stream()
-                .filter(Predicate.not(anotherColumns::contains))
-                .collect(toList());
+    private static void validateCommonTableParams(AbstractTableCommandParams params) {
+        validateIdentifier(params.tableName(), "Name of the table");
+    }
 
-        if (!notContained.isEmpty()) {
-            throw new CatalogValidationException(errorCode, errorMessageFormat, notContained);
+    /**
+     * Validates given column parameters.
+     *
+     * @param params Parameters to validate.
+     * @throws CatalogValidationException If validation has failed.
+     */
+    // TODO: IGNITE-19938 Add validation column length, precision and scale
+    public static void validateColumnParams(ColumnParams params) {
+        validateIdentifier(params.name(), "Name of the column");
+
+        if (params.type() == null) {
+            throw new CatalogValidationException("Missing column type: " + params.name());
         }
     }
 
-    private static void validateCommonTableParams(AbstractTableCommandParams params) {
-        validateNameField(params.tableName(), Table.TABLE_DEFINITION_ERR, "Missing table name");
-    }
+    /**
+     * Validates that given schema doesn't contain any relation with specified name.
+     *
+     * @param schema Schema to look up relation with specified name.
+     * @param name Name of the relation to look up.
+     * @throws CatalogValidationException If relation with specified name exists in given schema.
+     */
+    public static void ensureNoTableOrIndexExistsWithGivenName(CatalogSchemaDescriptor schema, String name) {
+        if (schema.index(name) != null) {
+            throw new CatalogValidationException(format("Index with name '{}.{}' already exists", schema.name(), name));
+        }
 
-    // TODO: IGNITE-19938 Add validation column length, precision and scale
-    private static void validateColumnParams(ColumnParams params) {
-        validateNameField(params.name(), Table.TABLE_DEFINITION_ERR, "Missing column name");
-
-        if (params.type() == null) {
-            throw new CatalogValidationException(Table.TABLE_DEFINITION_ERR, "Missing column type: " + params.name());
+        if (schema.table(name) != null) {
+            throw new TableExistsValidationException(format("Table with name '{}.{}' already exists", schema.name(), name));
         }
     }
 }

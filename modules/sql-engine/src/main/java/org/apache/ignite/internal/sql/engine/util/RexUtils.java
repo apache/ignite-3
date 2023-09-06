@@ -260,7 +260,7 @@ public class RexUtils {
         Mappings.TargetMapping mapping = null;
 
         if (requiredColumns != null) {
-            mapping = Commons.inverseTrimmingMapping(types.size(), requiredColumns);
+            mapping = Commons.trimmingMapping(types.size(), requiredColumns);
         }
 
         List<SearchBounds> bounds = Arrays.asList(new SearchBounds[collation.getFieldCollations().size()]);
@@ -337,7 +337,7 @@ public class RexUtils {
 
         Mappings.TargetMapping toTrimmedRowMapping = null;
         if (requiredColumns != null) {
-            toTrimmedRowMapping = Commons.inverseTrimmingMapping(types.size(), requiredColumns);
+            toTrimmedRowMapping = Commons.trimmingMapping(types.size(), requiredColumns);
         }
 
         List<RelFieldCollation> fieldCollations = collation.getFieldCollations();
@@ -392,7 +392,7 @@ public class RexUtils {
         Mappings.TargetMapping mapping = null;
 
         if (requiredColumns != null) {
-            mapping = Commons.inverseTrimmingMapping(types.size(), requiredColumns);
+            mapping = Commons.trimmingMapping(types.size(), requiredColumns);
         }
 
         for (Entry<List<RexCall>> fld : fieldsToPredicates.int2ObjectEntrySet()) {

@@ -15,26 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.connect;
+package org.apache.ignite.internal.catalog;
 
-import org.apache.ignite.internal.cli.core.call.CallInput;
+import java.util.List;
 
-/** Input for the {@link ConnectSslConfigCall} call. */
-class ConnectSslConfigCallInput implements CallInput {
-    private final String url;
-
-    private final SslConfig config;
-
-    ConnectSslConfigCallInput(String url, SslConfig config) {
-        this.url = url;
-        this.config = config;
-    }
-
-    String getUrl() {
-        return url;
-    }
-
-    SslConfig getConfig() {
-        return config;
-    }
+/**
+ * Marker interface for commands executed by {@link CatalogManager}.
+ *
+ * @see CatalogManager#execute(CatalogCommand)
+ * @see CatalogManager#execute(List)
+ */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface CatalogCommand extends UpdateProducer {
 }

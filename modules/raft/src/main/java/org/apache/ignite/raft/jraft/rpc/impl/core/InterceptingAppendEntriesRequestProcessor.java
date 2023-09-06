@@ -44,10 +44,10 @@ public class InterceptingAppendEntriesRequestProcessor extends AppendEntriesRequ
 
     @Override
     public Message processRequest0(RaftServerService service, AppendEntriesRequest request, RpcRequestClosure done) {
-        Message result = interceptor.intercept(service, request,  done);
+        Message interceptionResult = interceptor.intercept(service, request,  done);
 
-        if (result != null) {
-            return result;
+        if (interceptionResult != null) {
+            return interceptionResult;
         }
 
         return super.processRequest0(service, request, done);

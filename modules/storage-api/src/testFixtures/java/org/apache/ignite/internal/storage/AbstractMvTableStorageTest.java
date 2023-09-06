@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -62,7 +61,6 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -764,19 +762,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     private static void createTestTableAndIndexes(CatalogService catalogService) {
-        CreateTableParams createTableParams = CreateTableParams.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
-                .zone(DEFAULT_ZONE_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name("INTKEY").type(INT32).build(),
-                        ColumnParams.builder().name("STRKEY").type(STRING).build(),
-                        ColumnParams.builder().name("INTVAL").type(INT32).build(),
-                        ColumnParams.builder().name("STRVAL").type(STRING).build()
-                ))
-                .primaryKeyColumns(List.of("INTKEY"))
-                .build();
-
         CreateSortedIndexParams createSortedIndexParams = CreateSortedIndexParams.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .tableName(TABLE_NAME)
@@ -799,15 +784,29 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         int sortedIndexId = id++;
         int hashIndexId = id++;
 
-        CatalogTableDescriptor table = CatalogUtils.fromParams(tableId, zoneId, createTableParams);
+        CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
+                tableId,
+                TABLE_NAME,
+                zoneId,
+                1,
+                List.of(
+                        CatalogUtils.fromParams(ColumnParams.builder().name("INTKEY").type(INT32).build()),
+                        CatalogUtils.fromParams(ColumnParams.builder().name("STRKEY").type(STRING).build()),
+                        CatalogUtils.fromParams(ColumnParams.builder().name("INTVAL").type(INT32).build()),
+                        CatalogUtils.fromParams(ColumnParams.builder().name("STRVAL").type(STRING).build())
+                ),
+                List.of("INTKEY"),
+                null
+        );
+
         CatalogSortedIndexDescriptor sortedIndex = CatalogUtils.fromParams(sortedIndexId, tableId, createSortedIndexParams);
         CatalogHashIndexDescriptor hashIndex = CatalogUtils.fromParams(hashIndexId, tableId, createHashIndexParams);
 
-        when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(table);
+        when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
         when(catalogService.index(eq(SORTED_INDEX_NAME), anyLong())).thenReturn(sortedIndex);
         when(catalogService.index(eq(HASH_INDEX_NAME), anyLong())).thenReturn(hashIndex);
 
-        when(catalogService.table(eq(tableId), anyInt())).thenReturn(table);
+        when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
         when(catalogService.index(eq(sortedIndexId), anyInt())).thenReturn(sortedIndex);
         when(catalogService.index(eq(hashIndexId), anyInt())).thenReturn(hashIndex);
     }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -32,17 +33,30 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteTransactionsImpl implements IgniteTransactions {
     private final TxManager txManager;
 
+    private final HybridTimestampTracker observableTimestampTracker;
+
     /**
      * The constructor.
      *
      * @param txManager The manager.
      */
-    public IgniteTransactionsImpl(TxManager txManager) {
+    public IgniteTransactionsImpl(TxManager txManager, HybridTimestampTracker observableTimestampTracker) {
         this.txManager = txManager;
+        this.observableTimestampTracker = observableTimestampTracker;
+    }
+
+    /**
+     * Updates observable timestamp.
+     *
+     * @param ts Timestamp.
+     */
+    public void updateObservableTimestamp(HybridTimestamp ts) {
+        observableTimestampTracker.update(ts);
     }
 
     /**
      * Begins a transaction.
+     * TODO:IGNITE-20232 Remove this method; instead, an interface method should be used.
      *
      * @param options Transaction options.
      * @param observableTimestamp Observable timestamp, applicable only for read-only transactions. Read-only transactions
@@ -52,23 +66,25 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
      * @return The started transaction.
      */
     public InternalTransaction begin(@Nullable TransactionOptions options, @Nullable HybridTimestamp observableTimestamp) {
-        if (options != null && options.timeoutMillis() != 0) {
-            // TODO: IGNITE-15936.
-            throw new UnsupportedOperationException("Timeouts are not supported yet");
-        }
+        observableTimestampTracker.update(observableTimestamp);
 
-        return txManager.begin(options != null && options.readOnly(), observableTimestamp);
+        return (InternalTransaction) begin(options);
     }
 
     /** {@inheritDoc} */
     @Override
     public Transaction begin(@Nullable TransactionOptions options) {
-        return begin(options, null);
+        if (options != null && options.timeoutMillis() != 0) {
+            // TODO: IGNITE-15936.
+            throw new UnsupportedOperationException("Timeouts are not supported yet");
+        }
+
+        return txManager.begin(observableTimestampTracker, options != null && options.readOnly());
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
-        return CompletableFuture.completedFuture(begin(options, null));
+        return CompletableFuture.completedFuture(begin(options));
     }
 }

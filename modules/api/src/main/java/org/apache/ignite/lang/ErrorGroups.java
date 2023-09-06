@@ -487,4 +487,13 @@ public class ErrorGroups {
         /** Class loader error. */
         public static final int CLASS_LOADER_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 2);
     }
+
+    /** Catalog error group. */
+    public static class Catalog {
+        /** Catalog error group. */
+        public static final ErrorGroup CATALOG_ERR_GROUP = registerGroup("CATALOG", (short) 17);
+
+        /** Command to the catalog has not passed the validation. See exception message for details. */
+        public static final int VALIDATION_ERR = CATALOG_ERR_GROUP.registerErrorCode((short) 1);
+    }
 }

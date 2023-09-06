@@ -158,8 +158,6 @@ public class SqlReservedWordsTest extends AbstractDdlParserTest {
             "OUTER", // OUTER JOIN
             "OVER",
             "PARTITION",
-            "PERCENTILE_CONT",
-            "PERCENTILE_DISC",
             "PERCENT_RANK",
             "PERIOD",
             "PERMUTE",

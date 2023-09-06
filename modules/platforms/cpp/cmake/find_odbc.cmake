@@ -27,6 +27,9 @@ if(WIN32)
 endif()
 
 ### Try unixODBC or iODBC config program ######################################
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+    LINK_DIRECTORIES(/opt/local/lib)
+endif()
 if (UNIX)
     find_program(ODBC_CONFIG
             NAMES odbc_config iodbc-config

@@ -51,7 +51,7 @@ class ItConnectionHeartbeatTest extends CliCommandTestInitializedIntegrationBase
     private final AtomicInteger connectionRestoredCount = new AtomicInteger(0);
 
     @BeforeEach
-    void setUp() {
+    void resetConnectionCounts() {
         connectionLostCount.set(0);
         connectionRestoredCount.set(0);
 

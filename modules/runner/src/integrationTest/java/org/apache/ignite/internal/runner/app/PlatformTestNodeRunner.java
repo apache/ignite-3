@@ -45,8 +45,9 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
@@ -278,7 +279,7 @@ public class PlatformTestNodeRunner {
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
         ));
 
-        CreateTableParams createTableParams = CreateTableParams.builder()
+        CatalogCommand createTableCommand = CreateTableCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(ZONE_NAME)
                 .tableName(TABLE_NAME)
@@ -289,7 +290,7 @@ public class PlatformTestNodeRunner {
                 .primaryKeyColumns(List.of(keyCol))
                 .build();
 
-        assertThat(ignite.catalogManager().createTable(createTableParams), willBe(nullValue()));
+        assertThat(ignite.catalogManager().execute(createTableCommand), willBe(nullValue()));
 
         int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
 
@@ -320,7 +321,7 @@ public class PlatformTestNodeRunner {
                 SchemaConfigurationConverter.convert(schTblAll, tblCh)
         ));
 
-        CreateTableParams createTableParamsAll = CreateTableParams.builder()
+        CatalogCommand createTableCommandAll = CreateTableCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(ZONE_NAME)
                 .tableName(TABLE_NAME_ALL_COLUMNS)
@@ -358,7 +359,7 @@ public class PlatformTestNodeRunner {
                 .primaryKeyColumns(List.of(keyCol))
                 .build();
 
-        assertThat(ignite.catalogManager().createTable(createTableParamsAll), willBe(nullValue()));
+        assertThat(ignite.catalogManager().execute(createTableCommandAll), willBe(nullValue()));
 
         // TODO IGNITE-18431 remove extra table, use TABLE_NAME_ALL_COLUMNS for SQL tests.
         TableDefinition schTblAllSql = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS_SQL).columns(
@@ -387,7 +388,7 @@ public class PlatformTestNodeRunner {
                 SchemaConfigurationConverter.convert(schTblAllSql, tblCh)
         ));
 
-        CreateTableParams createTableParamsAllSql = CreateTableParams.builder()
+        CatalogCommand createTableCommandAllSql = CreateTableCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(ZONE_NAME)
                 .tableName(TABLE_NAME_ALL_COLUMNS_SQL)
@@ -423,7 +424,7 @@ public class PlatformTestNodeRunner {
                 .primaryKeyColumns(List.of(keyCol))
                 .build();
 
-        assertThat(ignite.catalogManager().createTable(createTableParamsAllSql), willBe(nullValue()));
+        assertThat(ignite.catalogManager().execute(createTableCommandAllSql), willBe(nullValue()));
 
         createTwoColumnTable(node, ColumnType.INT8);
         createTwoColumnTable(node, ColumnType.BOOLEAN);
@@ -571,7 +572,7 @@ public class PlatformTestNodeRunner {
                 ? ColumnType.blob().typeSpec().name()
                 : keyColumnParams.type().name();
 
-        CreateTableParams createTableParams = CreateTableParams.builder()
+        CatalogCommand createTableCommand = CreateTableCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(ZONE_NAME)
                 .tableName(("tbl_" + tableNamePostfix).toUpperCase())
@@ -579,7 +580,7 @@ public class PlatformTestNodeRunner {
                 .primaryKeyColumns(List.of(keyColumnParams.name()))
                 .build();
 
-        assertThat(ignite.catalogManager().createTable(createTableParams), willBe(nullValue()));
+        assertThat(ignite.catalogManager().execute(createTableCommand), willBe(nullValue()));
     }
 
     /**

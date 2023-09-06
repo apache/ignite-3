@@ -225,7 +225,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @param clock Hybrid clock.
      * @return Partial node.
      */
-    public static PartialNode partialNode(
+    public PartialNode partialNode(
             ConfigurationManager nodeCfgMgr,
             ConfigurationManager clusterCfgMgr,
             MetaStorageManager metaStorageMgr,
@@ -259,6 +259,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
                 components,
                 List.of(localConfigurationGenerator, distributedConfigurationGenerator),
                 logicalTopology,
+                log,
                 clock
         );
     }
@@ -273,17 +274,21 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         private final LogicalTopology logicalTopology;
 
+        private final IgniteLogger log;
+
         private final HybridClock clock;
 
         PartialNode(
                 List<IgniteComponent> startedComponents,
                 List<ManuallyCloseable> closeables,
                 LogicalTopology logicalTopology,
+                IgniteLogger log,
                 HybridClock clock
         ) {
             this.startedComponents = startedComponents;
             this.closeables = closeables;
             this.logicalTopology = logicalTopology;
+            this.log = log;
             this.clock = clock;
         }
 

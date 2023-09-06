@@ -95,6 +95,20 @@ public:
         , m_nullability(nullable ? nullability::NULLABLE : nullability::NO_NULL) {}
 
     /**
+     * Constructor.
+     *
+     * @param schema_name Schema name.
+     * @param table_name Table name.
+     * @param column_name Column name.
+     * @param data_type Data type.
+     */
+    column_meta(std::string schema_name, std::string table_name, std::string column_name, ignite_type data_type)
+        : m_schema_name(std::move(schema_name))
+        , m_table_name(std::move(table_name))
+        , m_column_name(std::move(column_name))
+        , m_data_type(data_type) {}
+
+    /**
      * Get schema name.
      *
      * @return Schema name.
@@ -166,7 +180,7 @@ private:
     std::string m_column_name;
 
     /** Data type. */
-    ignite_type m_data_type{0};
+    ignite_type m_data_type{ignite_type::UNDEFINED};
 
     /** Column precision. */
     std::int32_t m_precision{-1};

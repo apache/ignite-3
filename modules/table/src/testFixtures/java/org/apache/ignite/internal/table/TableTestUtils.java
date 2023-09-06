@@ -22,10 +22,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,14 +52,15 @@ public class TableTestUtils {
             List<ColumnParams> columns,
             List<String> pkColumns
     ) {
-        CreateTableParams.Builder builder = CreateTableParams.builder()
+        CatalogCommand command = CreateTableCommand.builder()
                 .schemaName(schemaName)
                 .zone(zoneName)
                 .tableName(tableName)
                 .columns(columns)
-                .primaryKeyColumns(pkColumns);
+                .primaryKeyColumns(pkColumns)
+                .build();
 
-        assertThat(catalogManager.createTable(builder.build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(command), willCompleteSuccessfully());
     }
 
     /**
