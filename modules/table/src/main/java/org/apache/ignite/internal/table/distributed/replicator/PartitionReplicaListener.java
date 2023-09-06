@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
-import static it.unimi.dsi.fastutil.objects.ObjectSortedSets.EMPTY_SET;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -47,8 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -254,8 +251,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final TablesConfiguration tablesConfig;
 
-    /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
-    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
@@ -1328,7 +1323,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 .requiredCatalogVersion(catalogVersion)
                                 .build();
 
-                        cleanupLocally(request.txId(), request.commit(), request.commitTimestamp());
+                        storageUpdateHandler.handleTransactionCleanup(request.txId(), request.commit(), request.commitTimestamp());
 
                         return raftClient
                                 .run(txCleanupCmd)
@@ -1864,15 +1859,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     cmd.rowUuid(),
                     cmd.tablePartitionId().asTablePartitionId(),
                     cmd.row(),
-                    rowId -> txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
-                        if (v == null) {
-                            v = new TreeSet<>();
-                        }
-
-                        v.add(rowId);
-
-                        return v;
-                    }),
+                    true,
+                    null,
                     null);
         }
 
@@ -1884,6 +1872,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         cmd.rowUuid(),
                         cmd.tablePartitionId().asTablePartitionId(),
                         cmd.row(),
+                        false,
                         null,
                         cmd.safeTime());
             }
@@ -1904,15 +1893,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     cmd.txId(),
                     cmd.rowsToUpdate(),
                     cmd.tablePartitionId().asTablePartitionId(),
-                    rowIds -> txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
-                        if (v == null) {
-                            v = new TreeSet<>();
-                        }
-
-                        v.addAll(rowIds);
-
-                        return v;
-                    }),
+                    true,
+                    null,
                     null);
         }
 
@@ -1922,6 +1904,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         cmd.txId(),
                         cmd.rowsToUpdate(),
                         cmd.tablePartitionId().asTablePartitionId(),
+                        false,
                         null,
                         cmd.safeTime());
             }
@@ -2716,15 +2699,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         indexBuilder.stopBuildIndexes(tableId(), partId());
-    }
-
-    private void cleanupLocally(UUID txId, boolean commit, HybridTimestamp commitTimestamp) {
-        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
-
-        storageUpdateHandler.handleTransactionCleanup(pendingRowIds, commit, commitTimestamp, () -> {
-            // on application callback
-            txsPendingRowIds.remove(txId);
-        });
     }
 
     /**

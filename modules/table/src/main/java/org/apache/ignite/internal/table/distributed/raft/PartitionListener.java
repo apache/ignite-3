@@ -31,13 +31,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -89,9 +84,6 @@ public class PartitionListener implements RaftGroupListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
-    /** Empty sorted set. */
-    private static final SortedSet<RowId> EMPTY_SET = Collections.emptySortedSet();
-
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
 
@@ -100,9 +92,6 @@ public class PartitionListener implements RaftGroupListener {
 
     /** Storage of transaction metadata. */
     private final TxStateStorage txStateStorage;
-
-    /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
-    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new HashMap<>();
 
     /** Safe time tracker. */
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
@@ -139,7 +128,7 @@ public class PartitionListener implements RaftGroupListener {
                 ReadResult readResult = cursor.next();
 
                 if (readResult.isWriteIntent()) {
-                    txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new TreeSet<>()).add(readResult.rowId());
+                    storageUpdateHandler.handleReadWriteIntent(readResult.transactionId(), readResult.rowId());
                 }
             }
         }
@@ -242,14 +231,8 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.row(),
-                rowId -> {
-                    // Cleanup is not required for one-phase transactions.
-                    if (!cmd.full()) {
-                        txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId);
-                    }
-
-                    storage.lastApplied(commandIndex, commandTerm);
-                },
+                !cmd.full(),
+                () -> storage.lastApplied(commandIndex, commandTerm),
                 cmd.full() ? cmd.safeTime() : null
         );
 
@@ -270,16 +253,8 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(),
-                rowIds -> {
-                    // Cleanup is not required for one-phase transactions.
-                    if (!cmd.full()) {
-                        for (RowId rowId : rowIds) {
-                            txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new TreeSet<>()).add(rowId);
-                        }
-                    }
-
-                    storage.lastApplied(commandIndex, commandTerm);
-                },
+                !cmd.full(),
+                () -> storage.lastApplied(commandIndex, commandTerm),
                 cmd.full() ? cmd.safeTime() : null
         );
 
@@ -364,20 +339,9 @@ public class PartitionListener implements RaftGroupListener {
 
         markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
 
-        cleanupLocally(txId, cmd.commit(), cmd.commitTimestamp(), () -> storage.lastApplied(commandIndex, commandTerm));
+        storageUpdateHandler.handleTransactionCleanup(txId, cmd.commit(), cmd.commitTimestamp(),
+                () -> storage.lastApplied(commandIndex, commandTerm));
     }
-
-    private void cleanupLocally(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp, Runnable onApplication) {
-        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
-
-        storageUpdateHandler.handleTransactionCleanup(pendingRowIds, commit, commitTimestamp, () -> {
-            // on application callback
-            txsPendingRowIds.remove(txId);
-
-            onApplication.run();
-        });
-    }
-
 
     /**
      * Handler for the {@link SafeTimeSyncCommand}.
