@@ -82,7 +82,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
                 })
                 .collect(toList());
 
-        nodes.forEach(RestNode::start);
+        nodes.stream().parallel().forEach(RestNode::start);
     }
 
     @Test
@@ -277,7 +277,7 @@ public class ItAuthenticationTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        nodes.forEach(RestNode::stop);
+        nodes.stream().parallel().forEach(RestNode::stop);
     }
 
     private static void waitForAllNodesStarted(List<RestNode> nodes) {

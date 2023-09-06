@@ -170,6 +170,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
                 .build();
 
         Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode, httpsWithCustomCipherNode)
+                .parallel()
                 .forEach(RestNode::start);
     }
 
@@ -279,6 +280,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
     @AfterAll
     static void afterAll() {
         Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode, httpsWithCustomCipherNode)
+                .parallel()
                 .forEach(RestNode::stop);
     }
 
