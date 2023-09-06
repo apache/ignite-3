@@ -397,8 +397,8 @@ TEST_F(sql_test, uuid_literal) {
 
 TEST_F(sql_test, uuid_argument) {
     uuid req{0x123e4567e89b12d3, 0x7456426614174000};
-    auto result_set =
-        m_client.get_sql().execute(nullptr, {"select MAX(\"UUID\") from TBL_ALL_COLUMNS_SQL WHERE \"UUID\" = ?"}, {req});
+    auto result_set = m_client.get_sql().execute(
+        nullptr, {"select MAX(\"UUID\") from TBL_ALL_COLUMNS_SQL WHERE \"UUID\" = ?"}, {req});
 
     EXPECT_TRUE(result_set.has_rowset());
 
