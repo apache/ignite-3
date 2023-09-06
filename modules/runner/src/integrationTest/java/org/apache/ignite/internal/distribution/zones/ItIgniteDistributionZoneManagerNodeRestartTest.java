@@ -450,11 +450,11 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         alterZone(node, zoneName, INFINITE_TIMER_VALUE, null, null);
 
+        blockUpdate(metastore, zoneScaleUpChangeTriggerKey(zoneId));
+
         node.logicalTopology().putNode(B);
 
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, zoneId, Set.of(A), TIMEOUT_MILLIS);
-
-        blockUpdate(metastore, zoneScaleUpChangeTriggerKey(zoneId));
 
         // Only Node B passes the filter
         String filter = "$[?(@.dataRegionSize > 10)]";
