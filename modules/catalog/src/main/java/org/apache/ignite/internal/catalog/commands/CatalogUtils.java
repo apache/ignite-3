@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -355,6 +357,26 @@ public class CatalogUtils {
         }
 
         return schema;
+    }
+
+    /**
+     * Returns table with given name, or throws {@link TableNotFoundValidationException} if table with given name not exists.
+     *
+     * @param schema Schema to look up table in.
+     * @param name Name of the table of interest.
+     * @return Table with given name. Never null.
+     * @throws TableNotFoundValidationException If table with given name is not exists.
+     */
+    static CatalogTableDescriptor tableOrThrow(CatalogSchemaDescriptor schema, String name) throws TableNotFoundValidationException {
+        name = Objects.requireNonNull(name, "tableName");
+
+        CatalogTableDescriptor table = schema.table(name);
+
+        if (table == null) {
+            throw new TableNotFoundValidationException(format("Table with name '{}.{}' not found", schema.name(), name));
+        }
+
+        return table;
     }
 
     /**

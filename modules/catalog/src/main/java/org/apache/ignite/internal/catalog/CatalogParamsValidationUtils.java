@@ -40,7 +40,6 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -118,10 +117,6 @@ public class CatalogParamsValidationUtils {
     static void validateRenameZoneParams(RenameZoneParams params) {
         validateZoneName(params.zoneName());
         validateZoneName(params.newZoneName(), "Missing new zone name");
-    }
-
-    static void validateDropTableParams(DropTableParams params) {
-        validateCommonTableParams(params);
     }
 
     static void validateDropColumnParams(AlterTableDropColumnParams params) {

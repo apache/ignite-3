@@ -29,7 +29,7 @@ using Proto.MsgPack;
 /// <summary>
 /// Serializer handler for <see cref="IIgniteTuple"/>.
 /// </summary>
-internal class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgniteTuple, IIgniteTuple>>
+internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPair<IIgniteTuple, IIgniteTuple>>
 {
     /// <summary>
     /// Singleton instance.

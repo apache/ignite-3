@@ -15,23 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.catalog;
 
-/** DROP TABLE statement. */
-public class DropTableParams extends AbstractTableCommandParams {
-    /** Creates parameters builder. */
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    private DropTableParams() {
-        // No-op.
-    }
-
-    /** Parameters builder. */
-    public static class Builder extends AbstractTableBuilder<DropTableParams, Builder> {
-        private Builder() {
-            super(new DropTableParams());
-        }
+/**
+ * This exception is thrown when table that going to be deleted not found in the schema.
+ *
+ * <p>This exception is used to properly handle IF EXISTS flag in ddl command handler.
+ */
+public class TableNotFoundValidationException extends CatalogValidationException {
+    public TableNotFoundValidationException(String message) {
+        super(message);
     }
 }

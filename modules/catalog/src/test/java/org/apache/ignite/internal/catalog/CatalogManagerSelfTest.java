@@ -273,7 +273,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         long beforeDropTimestamp = clock.nowLong();
 
-        assertThat(manager.dropTable(dropTableParams(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(2);
@@ -820,7 +820,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         long beforeDropTimestamp = clock.nowLong();
 
-        assertThat(manager.dropTable(dropTableParams(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(2);
@@ -1019,7 +1019,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         verify(eventListener).notify(any(CreateTableEventParameters.class), isNull());
 
-        assertThat(manager.dropTable(dropTableParams(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
         verify(eventListener).notify(any(DropTableEventParameters.class), isNull());
 
         verifyNoMoreInteractions(eventListener);
@@ -1060,7 +1060,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         clearInvocations(eventListener);
 
         // Drop table with pk index.
-        assertThat(manager.dropTable(dropTableParams(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
         // Try drop index once again.
         assertThat(manager.dropIndex(dropIndexParams), willThrow(IndexNotFoundException.class));
@@ -1447,7 +1447,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(tableId, eventParameters.tableId());
 
         // Let's delete the table.
-        assertThat(manager.dropTable(dropTableParams(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
         // Let's make sure that the PK index has been deleted.
         eventParameters = captor.getValue();
@@ -1634,7 +1634,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testDropNotExistingTable() {
-        assertThat(manager.dropTable(dropTableParams(TABLE_NAME)), willThrowFast(TableNotFoundException.class));
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willThrowFast(CatalogValidationException.class));
     }
 
     @Test
@@ -1694,28 +1694,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                         List.of("key1")
                 )),
                 willCompleteSuccessfully()
-        );
-    }
-
-    @Test
-    void exceptionIsThrownIfCommandIsUnknown() {
-        CatalogCommand command = new CatalogCommand() {
-        };
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> manager.execute(command)
-        );
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> manager.execute(List.of(
-                        simpleTable("T1"),
-                        simpleTable("T2"),
-                        simpleTable("T3"),
-                        command,
-                        simpleTable("T4")
-                ))
         );
     }
 

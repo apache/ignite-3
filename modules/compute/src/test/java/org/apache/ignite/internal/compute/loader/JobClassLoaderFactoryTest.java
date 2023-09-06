@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.loader;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getPath;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -40,7 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
-    private final Path unitsDir = Path.of(JobClassLoaderFactory.class.getClassLoader().getResource("units").getPath());
+    private final Path unitsDir = getPath(JobClassLoaderFactory.class.getClassLoader().getResource("units"));
 
     private final JobClassLoaderFactory jobClassLoaderFactory = new JobClassLoaderFactory();
 
@@ -154,18 +155,16 @@ class JobClassLoaderFactoryTest extends BaseIgniteAbstractTest {
     @DisplayName("Load resource from unit directory")
     public void unit1_5_0_0() throws IOException {
 
-        String resourcePath = JobClassLoaderFactoryTest.class.getClassLoader()
-                .getResource("units/unit1/5.0.0/test.txt")
-                .getPath();
-        String expectedContent = Files.readString(Path.of(resourcePath));
+        Path resourcePath = unitsDir.resolve("unit1/5.0.0/test.txt");
+        String expectedContent = Files.readString(resourcePath);
 
         // when unit with files is loaded
         List<DisposableDeploymentUnit> units = toDisposableDeploymentUnits(new DeploymentUnit("unit1", "5.0.0"));
 
         // then the files are accessible
         try (JobClassLoader classLoader = jobClassLoaderFactory.createClassLoader(units)) {
-            String resource = Files.readString(Path.of(classLoader.getResource("test.txt").getPath()));
-            String subDirResource = Files.readString(Path.of(classLoader.getResource("subdir/test.txt").getPath()));
+            String resource = Files.readString(getPath(classLoader.getResource("test.txt")));
+            String subDirResource = Files.readString(getPath(classLoader.getResource("subdir/test.txt")));
             assertEquals(expectedContent, resource);
             assertEquals(expectedContent, subDirResource);
 

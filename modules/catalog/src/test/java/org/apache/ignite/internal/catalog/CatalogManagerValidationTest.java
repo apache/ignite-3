@@ -44,7 +44,6 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.jetbrains.annotations.Nullable;
@@ -658,14 +657,6 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
         assertThat(
                 manager.dropIndex(DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).build()),
                 willThrowFast(CatalogValidationException.class, "Missing index name")
-        );
-    }
-
-    @Test
-    void testValidateTableNameOnTableDrop() {
-        assertThat(
-                manager.dropTable(DropTableParams.builder().build()),
-                willThrowFast(CatalogValidationException.class, "Name of the table can't be null or blank")
         );
     }
 
