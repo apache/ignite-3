@@ -85,7 +85,6 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
             String msg = schema.fields().get(i).toString();
 
             assertThat(msg, handler.get(i, src), equalTo(sourceData[i]));
-            assertThat(msg, schema.value(tuple, i), equalTo(sourceData[i]));
 
             // Binary tuple wrapper must return data in internal format.
             Object expected = TypeUtils.toInternal(sourceData[i]);

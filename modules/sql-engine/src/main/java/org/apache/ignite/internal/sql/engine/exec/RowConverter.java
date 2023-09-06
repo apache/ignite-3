@@ -19,16 +19,8 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl.UNSPECIFIED_VALUE_PLACEHOLDER;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.BitSet;
 import java.util.List;
-import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -36,15 +28,10 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
-import org.apache.ignite.internal.schema.DecimalNativeType;
-import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
-import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Helper class provides method to convert binary tuple to rows and vice-versa.
@@ -96,7 +83,7 @@ public final class RowConverter {
 
         BinaryTuplePrefixBuilder tupleBuilder = new BinaryTuplePrefixBuilder(specifiedCols, indexedColumnsCount);
 
-        return new BinaryTuplePrefix(indexedColumnsCount, toByteBuffer(binarySchema, handler, tupleBuilder, specifiedCols, searchRow));
+        return new BinaryTuplePrefix(indexedColumnsCount, toByteBuffer(ectx, binarySchema, handler, tupleBuilder, searchRow));
     }
 
     /**
@@ -121,44 +108,34 @@ public final class RowConverter {
 
         assert rowColumnsCount == binarySchema.elementCount() : "Invalid lookup key.";
 
-        BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(rowColumnsCount);
-
-        return new BinaryTuple(rowColumnsCount, toByteBuffer(binarySchema, handler, tupleBuilder, rowColumnsCount, searchRow));
-    }
-
-    /**
-     * Converts an array of objects into a {@link ByteBuffer} representation of a {@link BinaryTuple binary tuple}. This method uses
-     * {@link RowSchema} to resolve object types.
-     *
-     * @param schema Row schema.
-     * @param values Array of objects to be stored in the buffer.
-     * @return Buffer in binary tuple format.
-     */
-    static ByteBuffer toByteBuffer(RowSchema schema, Object[] values) {
-        BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(values.length);
-
-        for (int i = 0; i < values.length; i++) {
-            Object value = values[i];
-
-            assert value != UNSPECIFIED_VALUE_PLACEHOLDER : "Invalid row value.";
-
-            appendValue(tupleBuilder, schema.fields().get(i), value);
+        if (IgniteUtils.assertionsEnabled()) {
+            for (int i = 0; i < rowColumnsCount; i++) {
+                if (handler.get(i, searchRow) == UNSPECIFIED_VALUE_PLACEHOLDER) {
+                    throw new AssertionError("Invalid lookup key.");
+                }
+            }
         }
 
-        return tupleBuilder.build();
+        BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(rowColumnsCount);
+
+        return new BinaryTuple(rowColumnsCount, toByteBuffer(ectx, binarySchema, handler, tupleBuilder, searchRow));
     }
 
     private static <RowT> ByteBuffer toByteBuffer(
+            ExecutionContext<RowT> ectx,
             BinaryTupleSchema binarySchema,
             RowHandler<RowT> handler,
             BinaryTupleBuilder tupleBuilder,
-            int columnsCount,
             RowT searchRow
     ) {
+        int columnsCount = handler.columnCount(searchRow);
+
         for (int i = 0; i < columnsCount; i++) {
             Object val = handler.get(i, searchRow);
 
-            assert val != UNSPECIFIED_VALUE_PLACEHOLDER : "Invalid lookup key.";
+            if (val == UNSPECIFIED_VALUE_PLACEHOLDER) {
+                break; // No more columns in prefix.
+            }
 
             Element element = binarySchema.element(i);
 
@@ -168,92 +145,5 @@ public final class RowConverter {
         }
 
         return tupleBuilder.build();
-    }
-
-    private static void appendValue(BinaryTupleBuilder builder, TypeSpec schemaType, @Nullable Object value) {
-        if (value == null) {
-            builder.appendNull();
-
-            return;
-        }
-
-        NativeType nativeType = RowSchemaTypes.toNativeType(schemaType);
-
-        value = TypeUtils.fromInternal(value, NativeTypeSpec.toClass(nativeType.spec(), schemaType.isNullable()));
-
-        assert value != null : nativeType;
-
-        switch (nativeType.spec()) {
-            case BOOLEAN:
-                builder.appendBoolean((boolean) value);
-                break;
-
-            case INT8:
-                builder.appendByte((byte) value);
-                break;
-
-            case INT16:
-                builder.appendShort((short) value);
-                break;
-
-            case INT32:
-                builder.appendInt((int) value);
-                break;
-
-            case INT64:
-                builder.appendLong((long) value);
-                break;
-
-            case FLOAT:
-                builder.appendFloat((float) value);
-                break;
-
-            case DOUBLE:
-                builder.appendDouble((double) value);
-                break;
-
-            case NUMBER:
-                builder.appendNumberNotNull((BigInteger) value);
-                break;
-
-            case DECIMAL:
-                builder.appendDecimalNotNull((BigDecimal) value, ((DecimalNativeType) nativeType).scale());
-                break;
-
-            case UUID:
-                builder.appendUuidNotNull((UUID) value);
-                break;
-
-            case BYTES:
-                builder.appendBytesNotNull((byte[]) value);
-                break;
-
-            case STRING:
-                builder.appendStringNotNull((String) value);
-                break;
-
-            case BITMASK:
-                builder.appendBitmaskNotNull((BitSet) value);
-                break;
-
-            case DATE:
-                builder.appendDateNotNull((LocalDate) value);
-                break;
-
-            case TIME:
-                builder.appendTimeNotNull((LocalTime) value);
-                break;
-
-            case DATETIME:
-                builder.appendDateTimeNotNull((LocalDateTime) value);
-                break;
-
-            case TIMESTAMP:
-                builder.appendTimestampNotNull((Instant) value);
-                break;
-
-            default:
-                throw new UnsupportedOperationException("Unknown type " + nativeType);
-        }
     }
 }
