@@ -80,7 +80,6 @@ public class InboundDecoder extends ByteToMessageDecoder {
         Attribute<MessageDeserializer<NetworkMessage>> messageAttr = ctx.channel().attr(DESERIALIZER_KEY);
 
         Attribute<Short> groupTypeAttr = ctx.channel().attr(GROUP_TYPE_KEY);
-        Short groupType = groupTypeAttr.get();
 
         reader.setBuffer(buffer);
 
@@ -92,6 +91,8 @@ public class InboundDecoder extends ByteToMessageDecoder {
             try {
                 // Read message type.
                 if (msg == null) {
+                    Short groupType = groupTypeAttr.get();
+
                     if (groupType == null) {
                         groupType = reader.readHeaderShort();
 
@@ -114,7 +115,6 @@ public class InboundDecoder extends ByteToMessageDecoder {
 
                     msg = serializationService.createMessageDeserializer(groupType, messageType);
 
-                    groupType = null;
                     groupTypeAttr.set(null);
                 }
 
