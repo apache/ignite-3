@@ -668,7 +668,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         SqlQueryType queryType = parsedResult.queryType();
 
         if (!allowedTypes.contains(queryType)) {
-            String message = format("Invalid SQL statement type of a statement. Expected {} but got {}.", allowedTypes, queryType);
+            String message = format("Invalid SQL statement type. Expected {} but got {}", allowedTypes, queryType);
 
             throw new SqlException(STMT_VALIDATION_ERR, message);
         }

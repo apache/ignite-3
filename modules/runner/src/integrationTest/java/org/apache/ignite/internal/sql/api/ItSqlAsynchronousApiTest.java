@@ -731,13 +731,13 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
         assertThrowsSqlException(
                 SqlBatchException.class,
                 Sql.STMT_VALIDATION_ERR,
-                "Invalid SQL statement type of a statement",
+                "Invalid SQL statement type",
                 () -> await(ses.executeBatchAsync(null, "SELECT * FROM TEST", args)));
 
         assertThrowsSqlException(
                 SqlBatchException.class,
                 Sql.STMT_VALIDATION_ERR,
-                "Invalid SQL statement type of a statement",
+                "Invalid SQL statement type",
                 () -> await(ses.executeBatchAsync(null, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args)));
     }
 

@@ -341,7 +341,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @param t Throwable.
      * @return String filled with exception message.
      */
-    private String getErrorMessage(Throwable t) {
+    @Nullable private String getErrorMessage(Throwable t) {
         Throwable cause = ExceptionUtils.unwrapCause(t);
         return cause.getMessage();
     }

@@ -397,14 +397,14 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         // Check invalid query type
         SqlException ex = assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
-                "Invalid SQL statement type of a statement",
+                "Invalid SQL statement type",
                 () -> ses.executeBatch(null, "SELECT * FROM TEST", args)
         );
         MatcherAssert.assertThat(ex, instanceOf(SqlBatchException.class));
 
         ex = assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
-                "Invalid SQL statement type of a statement",
+                "Invalid SQL statement type",
                 () -> ses.executeBatch(null, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args)
         );
         MatcherAssert.assertThat(ex, instanceOf(SqlBatchException.class));

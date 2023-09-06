@@ -482,7 +482,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         final String sqlText = "select * from TEST;";
 
         JdbcTestUtils.assertThrowsSqlException(
-                "Invalid SQL statement type of a statement.",
+                "Invalid SQL statement type",
                 () -> stmt.executeUpdate(sqlText));
     }
 
@@ -758,7 +758,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         stmt.executeQuery("select 1;");
 
         JdbcTestUtils.assertThrowsSqlException(
-                "Invalid SQL statement type of a statement.",
+                "Invalid SQL statement type",
                 () -> stmt.executeUpdate("select 1;")
         );
 
@@ -768,7 +768,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     @Test
     public void testStatementTypeMismatchUpdate() throws Exception {
         JdbcTestUtils.assertThrowsSqlException(
-                "Invalid SQL statement type of a statement.",
+                "Invalid SQL statement type",
                 () -> stmt.executeQuery("update TEST set NAME='28' where ID=1")
         );
 
