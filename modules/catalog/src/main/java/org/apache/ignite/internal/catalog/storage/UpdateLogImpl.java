@@ -30,8 +30,6 @@ import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -54,7 +52,6 @@ import org.jetbrains.annotations.Nullable;
  * Metastore-based implementation of UpdateLog.
  */
 public class UpdateLogImpl implements UpdateLog {
-    private static final IgniteLogger LOG = Loggers.forClass(UpdateLogImpl.class);
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
