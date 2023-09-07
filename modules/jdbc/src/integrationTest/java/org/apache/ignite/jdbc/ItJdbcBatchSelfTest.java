@@ -45,7 +45,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Statement test.
@@ -83,10 +82,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     /** {@inheritDoc} */
     @BeforeEach
-    @Override
-    protected void beforeTest(TestInfo testInfo) throws Exception {
-        super.beforeTest(testInfo);
-
+    protected void beforeTest() throws Exception {
         pstmt = conn.prepareStatement(SQL_PREPARED);
 
         assertNotNull(pstmt);
@@ -99,15 +95,12 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     /** {@inheritDoc} */
     @AfterEach
-    @Override
-    protected void afterTest(TestInfo testInfo) throws Exception {
+    protected void afterTest() throws Exception {
         if (pstmt != null && !pstmt.isClosed()) {
             pstmt.close();
         }
 
         assertTrue(pstmt.isClosed());
-
-        super.afterTest(testInfo);
     }
 
     @Test

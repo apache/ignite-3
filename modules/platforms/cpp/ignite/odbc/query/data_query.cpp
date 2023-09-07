@@ -314,7 +314,6 @@ sql_result data_query::next_result_set() {
 sql_result data_query::make_request_execute() {
     auto &schema = m_connection.get_schema();
 
-    network::data_buffer_owning response;
     auto success = m_diag.catch_errors([&] {
         auto tx = m_connection.get_transaction_id();
         if (!tx && !m_connection.is_auto_commit()) {
@@ -324,7 +323,7 @@ sql_result data_query::make_request_execute() {
             tx = m_connection.get_transaction_id();
             assert(tx);
         }
-        response = m_connection.sync_request(protocol::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
+        auto response = m_connection.sync_request(protocol::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
             if (tx)
                 writer.write(*tx);
             else

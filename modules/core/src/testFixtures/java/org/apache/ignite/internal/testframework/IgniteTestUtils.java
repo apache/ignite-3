@@ -190,9 +190,9 @@ public final class IgniteTestUtils {
      * @param fieldName     name of the field
      * @return field value
      */
-    public static Object getFieldValue(@Nullable Object target, Class<?> declaredClass, String fieldName) {
+    public static <T> T getFieldValue(@Nullable Object target, Class<?> declaredClass, String fieldName) {
         try {
-            return getField(target, declaredClass, fieldName).get(target);
+            return (T) getField(target, declaredClass, fieldName).get(target);
         } catch (IllegalAccessException e) {
             throw new IgniteInternalException("Cannot get field value", e);
         }
@@ -832,7 +832,7 @@ public final class IgniteTestUtils {
      * @return A file system path matching the path component of the resource URL.
      */
     public static String getResourcePath(Class<?> cls, String resourceName) {
-        return getPath(cls.getClassLoader().getResource(resourceName));
+        return getPath(cls.getClassLoader().getResource(resourceName)).toString();
     }
 
     /**
@@ -853,9 +853,9 @@ public final class IgniteTestUtils {
      * @param url A resource URL.
      * @return A file system path matching the path component of the URL.
      */
-    public static String getPath(URL url) {
+    public static Path getPath(URL url) {
         try {
-            return Path.of(url.toURI()).toString();
+            return Path.of(url.toURI());
         } catch (URISyntaxException e) {
             throw new RuntimeException(e); // Shouldn't happen if the URL is obtained from the class loader.
         }

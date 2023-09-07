@@ -77,6 +77,14 @@ public interface RaftServer extends IgniteComponent {
     );
 
     /**
+     * Check if the node is started.
+     *
+     * @param nodeId Raft node ID.
+     * @return True if the node is started.
+     */
+    boolean isStarted(RaftNodeId nodeId);
+
+    /**
      * Returns a future, which complete when the raft node is ready and committed updates are applied.
      *
      * @param groupId Raft group ID.

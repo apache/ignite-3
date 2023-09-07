@@ -64,7 +64,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -122,13 +121,7 @@ public class ItIgnitePicocliCommandsTest extends CliCommandTestInitializedIntegr
     }
 
     @BeforeEach
-    @Override
-    public void setUp(TestInfo testInfo) throws Exception {
-        super.setUp(testInfo);
-        setupSystemCompleter();
-    }
-
-    private void setupSystemCompleter() {
+    void setupSystemCompleter() {
         dynamicCompleterActivationPoint.activateDynamicCompleter(dynamicCompleterRegistry);
 
         List<CompleterFilter> filters = List.of(

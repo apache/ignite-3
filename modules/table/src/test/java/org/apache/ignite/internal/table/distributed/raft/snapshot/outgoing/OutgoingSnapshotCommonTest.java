@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
@@ -44,17 +45,22 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
     @Mock
     private PartitionAccess partitionAccess;
 
+    @Mock
+    private CatalogService catalogService;
+
     private OutgoingSnapshot snapshot;
 
     private final TableMessagesFactory messagesFactory = new TableMessagesFactory();
 
     private final PartitionKey partitionKey = new PartitionKey(1, 1);
 
+    private static final int REQUIRED_CATALOG_VERSION = 42;
+
     @BeforeEach
     void createTestInstance() {
         when(partitionAccess.partitionKey()).thenReturn(partitionKey);
 
-        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess);
+        snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, catalogService);
     }
 
     @Test
@@ -75,6 +81,8 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
                 List.of("learner1:3000")
         ));
 
+        when(catalogService.latestCatalogVersion()).thenReturn(REQUIRED_CATALOG_VERSION);
+
         snapshot.freezeScopeUnderMvLock();
 
         SnapshotMetaResponse response = getSnapshotMetaResponse();
@@ -85,6 +93,7 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
         assertThat(response.meta().learnersList(), is(List.of("learner1:3000", "learner2:3000")));
         assertThat(response.meta().oldPeersList(), is(List.of("peer1:3000")));
         assertThat(response.meta().oldLearnersList(), is(List.of("learner1:3000")));
+        assertThat(response.meta().requiredCatalogVersion(), is(REQUIRED_CATALOG_VERSION));
     }
 
     private SnapshotMetaResponse getSnapshotMetaResponse() {
