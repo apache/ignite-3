@@ -1822,6 +1822,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 case REMOVE_COLUMN: {
                     List<ColumnParams> columns = new ArrayList<>(COLUMNS);
                     columns.remove(0);
+
                     builder.columns(columns);
                     break;
                 }
