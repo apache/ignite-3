@@ -142,6 +142,7 @@ import org.awaitility.Awaitility;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -889,7 +890,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
-    @Test
+    @RepeatedTest(100)
     public void testTwoNodesRestartDirect() throws InterruptedException {
         twoNodesRestart(true);
     }
@@ -1194,10 +1195,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                     .until(() -> {
                         try {
                             Tuple row = table.keyValueView().get(null, Tuple.create().set("id", fi));
+                            if (row == null) {
+                                return false;
+                            } else {
+                                assertEquals(VALUE_PRODUCER.apply(fi), row.stringValue("name"));
 
-                            assertEquals(VALUE_PRODUCER.apply(fi), row.stringValue("name"));
-
-                            return true;
+                                return true;
+                            }
                         } catch (TransactionException te) {
                             // There may be an exception if the primary replica node was stopped. We should wait for new primary to appear.
                             return false;
