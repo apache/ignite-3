@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
@@ -31,9 +30,6 @@ import org.apache.ignite.internal.storage.RowId;
  * A container for rows that were inserted, updated or removed.
  */
 public class PendingRows {
-
-    /** Empty sorted set. */
-    private static final SortedSet<RowId> EMPTY_SET = Collections.emptySortedSet();
 
     /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
     private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
