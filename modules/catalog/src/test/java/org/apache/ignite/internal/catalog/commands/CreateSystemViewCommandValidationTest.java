@@ -74,7 +74,7 @@ public class CreateSystemViewCommandValidationTest extends AbstractCommandValida
 
         builder = fillProperties(builder);
 
-        builder.columns(columns);
+        builder = builder.columns(columns);
 
         expectValidationError(builder::build, "System view should have at least one column");
     }
@@ -131,7 +131,20 @@ public class CreateSystemViewCommandValidationTest extends AbstractCommandValida
 
         fillProperties(builder);
 
-        expectValidationError(() -> builder.columns(columns).build(), "System view should have at least one column");
+        builder = builder.columns(columns);
+
+        expectValidationError(builder::build, "System view should have at least one column");
+    }
+
+    @Test
+    public void typeShouldBeSpecified() {
+        CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
+
+        builder = fillProperties(builder);
+
+        builder = builder.type(null);
+
+        expectValidationError(builder::build, "System view type is not specified");
     }
 
     private static void expectValidationError(RunnableX runnable, String message) {
@@ -144,6 +157,6 @@ public class CreateSystemViewCommandValidationTest extends AbstractCommandValida
         ColumnParams column = ColumnParams.builder().name("C").type(ColumnType.INT8).build();
         List<ColumnParams> columns = List.of(column);
 
-        return builder.name("view").columns(columns);
+        return builder.name("view").columns(columns).type(SystemViewType.LOCAL);
     }
 }
