@@ -174,6 +174,13 @@ public class TxManagerImpl implements TxManager {
      */
     private HybridTimestamp currentReadTimestamp() {
         return clock.now();
+
+        // TODO: IGNITE-20378 Fix it
+        // return new HybridTimestamp(now.getPhysical()
+        //         - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+        //         - HybridTimestamp.CLOCK_SKEW,
+        //         0
+        // );
     }
 
     @Override
