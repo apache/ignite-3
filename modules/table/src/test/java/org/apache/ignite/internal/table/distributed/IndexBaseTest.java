@@ -115,6 +115,11 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     GcUpdateHandler gcUpdateHandler;
 
+
+    public static UUID getTxId() {
+        return TX_ID;
+    }
+
     @BeforeEach
     void setUp(@InjectConfiguration GcConfiguration gcConfig) {
         int pkIndexId = 1;
@@ -188,7 +193,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     static void addWrite(StorageUpdateHandler handler, UUID rowUuid, @Nullable BinaryRow row) {
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
-        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, (unused) -> {}, null);
+        handler.handleUpdate(TX_ID, rowUuid, partitionId, row, false, null, null);
     }
 
     static BinaryRow defaultRow() {
@@ -248,7 +253,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         USE_UPDATE {
             @Override
             void addWrite(StorageUpdateHandler handler, TablePartitionId partitionId, UUID rowUuid, @Nullable BinaryRow row) {
-                handler.handleUpdate(TX_ID, rowUuid, partitionId, row, (unused) -> {}, null);
+                handler.handleUpdate(TX_ID, rowUuid, partitionId, row, true, null, null);
             }
         },
         /** Uses updateAll api. */
@@ -266,7 +271,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                         TX_ID,
                         singletonMap(rowUuid, rowMessage),
                         partitionId,
-                        (unused) -> {},
+                        true,
+                        null,
                         null
                 );
             }

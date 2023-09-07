@@ -437,8 +437,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                             storageUpdateHandler,
                             new TestTxStateStorage(),
                             safeTime,
-                            new PendingComparableValuesTracker<>(0L),
-                            new ConcurrentHashMap<>()
+                            new PendingComparableValuesTracker<>(0L)
                     ) {
                         @Override
                         public void onShutdown() {

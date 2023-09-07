@@ -53,7 +53,6 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
@@ -64,6 +63,7 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
+import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandlerWrapper;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -282,7 +282,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 sqlSchemaManager,
                 ddlCommandHandler,
                 taskExecutor,
-                ArrayRowHandler.INSTANCE,
+                SqlRowHandler.INSTANCE,
                 mailboxRegistry,
                 exchangeService,
                 dependencyResolver

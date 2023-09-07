@@ -30,6 +30,9 @@ namespace ignite {
 enum class query_type {
     /** Data query type. */
     DATA,
+
+    /** Table metadata. */
+    TABLE_METADATA,
 };
 
 /**

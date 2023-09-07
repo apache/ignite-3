@@ -26,10 +26,8 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
-import java.util.SortedSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
@@ -62,7 +60,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
@@ -329,8 +326,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
 
-        Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
-
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
                 raftGroupServiceByPartitionId.get(PART_ID),
@@ -353,8 +348,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(IndexBuilder.class),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 mock(CatalogService.class),
-                mock(TablesConfiguration.class),
-                txsPendingRowIds
+                mock(TablesConfiguration.class)
         );
 
         lenient().when(safeTime.waitFor(any())).thenReturn(completedFuture(null));
@@ -366,8 +360,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 storageUpdateHandler,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 safeTime,
-                new PendingComparableValuesTracker<>(0L),
-                txsPendingRowIds
+                new PendingComparableValuesTracker<>(0L)
         );
     }
 

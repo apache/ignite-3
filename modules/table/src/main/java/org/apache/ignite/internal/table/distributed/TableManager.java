@@ -790,8 +790,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 mvGc.addStorage(replicaGrpId, partitionUpdateHandlers.gcUpdateHandler);
 
-                Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
-
                 CompletableFuture<Boolean> startGroupFut;
 
                 // start new nodes, only if it is table creation, other cases will be covered by rebalance logic
@@ -857,8 +855,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             partitionUpdateHandlers.storageUpdateHandler,
                                             txStatePartitionStorage,
                                             safeTimeTracker,
-                                            storageIndexTracker,
-                                            txsPendingRowIds
+                                            storageIndexTracker
                                     ),
                                     new RebalanceRaftGroupEventsListener(
                                             metaStorageMgr,
@@ -909,8 +906,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         partitionStorage,
                                         txStateStorage,
                                         partitionUpdateHandlers,
-                                        updatedRaftGroupService,
-                                        txsPendingRowIds
+                                        updatedRaftGroupService
                                 );
                             } catch (NodeStoppingException ex) {
                                 throw new AssertionError("Loza was stopped before Table manager", ex);
@@ -968,8 +964,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvPartitionStorage mvPartitionStorage,
             TxStateStorage txStatePartitionStorage,
             PartitionUpdateHandlers partitionUpdateHandlers,
-            TopologyAwareRaftGroupService raftGroupService,
-            Map<UUID, SortedSet<RowId>> txsPendingRowIds
+            TopologyAwareRaftGroupService raftGroupService
     ) throws NodeStoppingException {
         PartitionReplicaListener listener = createReplicaListener(
                 replicaGrpId,
@@ -978,8 +973,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 mvPartitionStorage,
                 txStatePartitionStorage,
                 partitionUpdateHandlers,
-                raftGroupService,
-                txsPendingRowIds
+                raftGroupService
         );
 
         replicaMgr.startReplica(
@@ -1001,8 +995,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             MvPartitionStorage mvPartitionStorage,
             TxStateStorage txStatePartitionStorage,
             PartitionUpdateHandlers partitionUpdateHandlers,
-            RaftGroupService raftClient,
-            Map<UUID, SortedSet<RowId>> txsPendingRowIds
+            RaftGroupService raftClient
     ) {
         int tableId = tablePartitionId.tableId();
         int partId = tablePartitionId.partitionId();
@@ -1029,8 +1022,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 indexBuilder,
                 schemaSyncService,
                 catalogService,
-                tablesCfg,
-                txsPendingRowIds
+                tablesCfg
         );
     }
 
@@ -2310,8 +2302,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     internalTable,
                                     txStatePartitionStorage,
                                     partitionDataStorage,
-                                    partitionUpdateHandlers,
-                                    txsPendingRowIds
+                                    partitionUpdateHandlers
                             );
                         }
 
@@ -2324,8 +2315,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     mvPartitionStorage,
                                     txStatePartitionStorage,
                                     partitionUpdateHandlers,
-                                    (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId),
-                                    txsPendingRowIds
+                                    (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId)
                             );
                         }
                     } catch (NodeStoppingException ignored) {
@@ -2373,8 +2363,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             InternalTable internalTable,
             TxStateStorage txStatePartitionStorage,
             PartitionDataStorage partitionDataStorage,
-            PartitionUpdateHandlers partitionUpdateHandlers,
-            Map<UUID, SortedSet<RowId>> txsPendingRowIds
+            PartitionUpdateHandlers partitionUpdateHandlers
     ) throws NodeStoppingException {
         ClusterNode localMember = localNode();
 
@@ -2391,8 +2380,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 partitionUpdateHandlers.storageUpdateHandler,
                 txStatePartitionStorage,
                 safeTimeTracker,
-                storageIndexTracker,
-                txsPendingRowIds
+                storageIndexTracker
         );
 
         RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(

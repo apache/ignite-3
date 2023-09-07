@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.sql.engine.framework;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import org.apache.ignite.internal.schema.row.InternalTuple;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -48,6 +50,18 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
     @Override
     public Object[] concat(Object[] left, Object[] right) {
         return ArrayUtils.concat(left, right);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Object[] map(Object[] row, int[] mapping) {
+        Object[] newRow = new Object[mapping.length];
+
+        for (int i = 0; i < mapping.length; i++) {
+            newRow[i] = row[mapping[i]];
+        }
+
+        return newRow;
     }
 
     /** {@inheritDoc} */
@@ -98,6 +112,12 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
             @Override
             public Object[] create(ByteBuffer raw) {
                 return ByteUtils.fromBytes(raw.array());
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public Object[] create(InternalTuple tuple) {
+                throw new UnsupportedOperationException();
             }
         };
     }

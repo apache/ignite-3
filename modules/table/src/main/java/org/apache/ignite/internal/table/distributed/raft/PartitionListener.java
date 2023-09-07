@@ -33,10 +33,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -88,9 +84,6 @@ public class PartitionListener implements RaftGroupListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
-    /** Empty sorted set. */
-    private static final SortedSet<RowId> EMPTY_SET = Collections.emptySortedSet();
-
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
 
@@ -99,9 +92,6 @@ public class PartitionListener implements RaftGroupListener {
 
     /** Storage of transaction metadata. */
     private final TxStateStorage txStateStorage;
-
-    /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
-    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds;
 
     /** Safe time tracker. */
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
@@ -123,8 +113,7 @@ public class PartitionListener implements RaftGroupListener {
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-            PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            Map<UUID, SortedSet<RowId>> txsPendingRowIds
+            PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -132,7 +121,6 @@ public class PartitionListener implements RaftGroupListener {
         this.txStateStorage = txStateStorage;
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
-        this.txsPendingRowIds = txsPendingRowIds;
 
         // TODO: IGNITE-18502 Excessive full partition scan on node start
         try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
@@ -140,7 +128,7 @@ public class PartitionListener implements RaftGroupListener {
                 ReadResult readResult = cursor.next();
 
                 if (readResult.isWriteIntent()) {
-                    txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new TreeSet<>()).add(readResult.rowId());
+                    storageUpdateHandler.handleWriteIntentRead(readResult.transactionId(), readResult.rowId());
                 }
             }
         }
@@ -243,22 +231,8 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.row(),
-                rowId -> {
-                    // Cleanup is not required for one-phase transactions.
-                    if (!cmd.full()) {
-                        txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
-                            if (v == null) {
-                                v = new TreeSet<>();
-                            }
-
-                            v.add(rowId);
-
-                            return v;
-                        });
-                    }
-
-                    storage.lastApplied(commandIndex, commandTerm);
-                },
+                !cmd.full(),
+                () -> storage.lastApplied(commandIndex, commandTerm),
                 cmd.full() ? cmd.safeTime() : null
         );
 
@@ -279,24 +253,8 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(),
-                rowIds -> {
-                    // Cleanup is not required for one-phase transactions.
-                    if (!cmd.full()) {
-                        for (RowId rowId : rowIds) {
-                            txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
-                                if (v == null) {
-                                    v = new TreeSet<>();
-                                }
-
-                                v.add(rowId);
-
-                                return v;
-                            });
-                        }
-                    }
-
-                    storage.lastApplied(commandIndex, commandTerm);
-                },
+                !cmd.full(),
+                () -> storage.lastApplied(commandIndex, commandTerm),
                 cmd.full() ? cmd.safeTime() : null
         );
 
@@ -381,28 +339,8 @@ public class PartitionListener implements RaftGroupListener {
 
         markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
 
-        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
-
-        if (cmd.commit()) {
-            storage.runConsistently(locker -> {
-                pendingRowIds.forEach(locker::lock);
-
-                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
-
-                txsPendingRowIds.remove(txId);
-
-                storage.lastApplied(commandIndex, commandTerm);
-
-                return null;
-            });
-        } else {
-            storageUpdateHandler.handleTransactionAbortion(pendingRowIds, () -> {
-                // on replication callback
-                txsPendingRowIds.remove(txId);
-
-                storage.lastApplied(commandIndex, commandTerm);
-            });
-        }
+        storageUpdateHandler.handleTransactionCleanup(txId, cmd.commit(), cmd.commitTimestamp(),
+                () -> storage.lastApplied(commandIndex, commandTerm));
     }
 
     /**

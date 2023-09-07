@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
-import static it.unimi.dsi.fastutil.objects.ObjectSortedSets.EMPTY_SET;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -47,8 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -259,8 +256,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final TablesConfiguration tablesConfig;
 
-    /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
-    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds;
 
     /**
      * The constructor.
@@ -283,8 +278,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param mvTableStorage Table storage.
      * @param indexBuilder Index builder.
      * @param tablesConfig Tables configuration.
-     * @param txsPendingRowIds Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks
-     *     upon commit/abort.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -308,8 +301,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             IndexBuilder indexBuilder,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            TablesConfiguration tablesConfig,
-            Map<UUID, SortedSet<RowId>> txsPendingRowIds
+            TablesConfiguration tablesConfig
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -330,7 +322,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.tablesConfig = tablesConfig;
-        this.txsPendingRowIds = txsPendingRowIds;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -1338,7 +1329,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 .requiredCatalogVersion(catalogVersion)
                                 .build();
 
-                        cleanupLocally(request.txId(), request.commit(), request.commitTimestamp());
+                        storageUpdateHandler.handleTransactionCleanup(request.txId(), request.commit(), request.commitTimestamp());
 
                         raftClient.run(txCleanupCmd)
                                 .exceptionally(e -> {
@@ -1879,15 +1870,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     cmd.rowUuid(),
                     cmd.tablePartitionId().asTablePartitionId(),
                     cmd.row(),
-                    rowId -> txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
-                        if (v == null) {
-                            v = new TreeSet<>();
-                        }
-
-                        v.add(rowId);
-
-                        return v;
-                    }),
+                    true,
+                    null,
                     null);
         }
 
@@ -1899,6 +1883,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         cmd.rowUuid(),
                         cmd.tablePartitionId().asTablePartitionId(),
                         cmd.row(),
+                        false,
                         null,
                         cmd.safeTime());
             }
@@ -1919,15 +1904,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     cmd.txId(),
                     cmd.rowsToUpdate(),
                     cmd.tablePartitionId().asTablePartitionId(),
-                    rowIds -> txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
-                        if (v == null) {
-                            v = new TreeSet<>();
-                        }
-
-                        v.addAll(rowIds);
-
-                        return v;
-                    }),
+                    true,
+                    null,
                     null);
         }
 
@@ -1937,6 +1915,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         cmd.txId(),
                         cmd.rowsToUpdate(),
                         cmd.tablePartitionId().asTablePartitionId(),
+                        false,
                         null,
                         cmd.safeTime());
             }
@@ -2731,28 +2710,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         indexBuilder.stopBuildIndexes(tableId(), partId());
-    }
-
-    private void cleanupLocally(UUID txId, boolean commit, HybridTimestamp commitTimestamp) {
-        Set<RowId> rowIds = txsPendingRowIds.remove(txId);
-        Set<RowId> pendingRowIds = rowIds == null ? EMPTY_SET : rowIds;
-
-        if (commit) {
-            mvDataStorage.runConsistently(locker -> {
-                pendingRowIds.forEach(locker::lock);
-
-                pendingRowIds.forEach(rowId -> mvDataStorage.commitWrite(rowId, commitTimestamp));
-
-                txsPendingRowIds.remove(txId);
-
-                return null;
-            });
-        } else {
-            storageUpdateHandler.handleTransactionAbortion(pendingRowIds, () -> {
-                // on application callback
-                txsPendingRowIds.remove(txId);
-            });
-        }
     }
 
     /**
