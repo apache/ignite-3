@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogParamsValidationUtils;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
@@ -105,10 +106,20 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
         List<CatalogTableColumnDescriptor> viewColumns = columns.stream().map(CatalogUtils::fromParams).collect(toList());
         CatalogSystemViewDescriptor descriptor = new CatalogSystemViewDescriptor(id, name, viewColumns, systemViewType);
 
+        boolean replaceSystemView = false;
+
+        // If the same view exists, do not update the catalog.
         for (CatalogSystemViewDescriptor existingView : systemSchema.systemViews()) {
             if (descriptor.equals(existingView)) {
                 return List.of();
             }
+            if (descriptor.name().equals(name)) {
+                replaceSystemView = true;
+            }
+        }
+
+        if (!replaceSystemView) {
+            CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName(systemSchema, name);
         }
 
         return List.of(

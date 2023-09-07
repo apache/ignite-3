@@ -100,7 +100,7 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
         }
 
         return List.of(
-                new DropColumnsEntry(table.id(), columns)
+                new DropColumnsEntry(table.id(), columns, schemaName)
         );
     }
 

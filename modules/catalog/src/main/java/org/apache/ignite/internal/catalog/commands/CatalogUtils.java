@@ -272,7 +272,7 @@ public class CatalogUtils {
             Collection<CatalogSchemaDescriptor> schemas) {
 
         return schemas.stream().map(s -> {
-            if (Objects.equals(s.id(), newSchema.id())) {
+            if (Objects.equals(s.name(), newSchema.name())) {
                 return newSchema;
             } else {
                 return s;

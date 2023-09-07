@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-
 import java.util.Arrays;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -38,13 +36,17 @@ public class DropTableEntry implements UpdateEntry, Fireable {
 
     private final int tableId;
 
+    private final String schemaName;
+
     /**
      * Constructs the object.
      *
      * @param tableId An id of a table to drop.
+     * @param schemaName A schema name.
      */
-    public DropTableEntry(int tableId) {
+    public DropTableEntry(int tableId, String schemaName) {
         this.tableId = tableId;
+        this.schemaName = schemaName;
     }
 
     /** Returns an id of a table to drop. */
@@ -64,7 +66,7 @@ public class DropTableEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
 
         return new Catalog(
                 catalog.version(),

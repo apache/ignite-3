@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -38,13 +36,17 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
 
     private final CatalogIndexDescriptor descriptor;
 
+    private final String schemaName;
+
     /**
      * Constructs the object.
      *
      * @param descriptor A descriptor of an index to add.
+     * @param schemaName Schema name.
      */
-    public NewIndexEntry(CatalogIndexDescriptor descriptor) {
+    public NewIndexEntry(CatalogIndexDescriptor descriptor, String schemaName) {
         this.descriptor = descriptor;
+        this.schemaName = schemaName;
     }
 
     /** Gets descriptor of an index to add. */
@@ -64,7 +66,7 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
 
         return new Catalog(
                 catalog.version(),

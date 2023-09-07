@@ -52,7 +52,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -325,7 +324,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
             CatalogHashIndexDescriptor index = fromParams(catalog.objectIdGenState(), table.id(), params);
 
             return List.of(
-                    new NewIndexEntry(index),
+                    new NewIndexEntry(index, schema.name()),
                     new ObjectIdGenUpdateEntry(1)
             );
         });
@@ -347,7 +346,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
             CatalogSortedIndexDescriptor index = fromParams(catalog.objectIdGenState(), table.id(), params);
 
             return List.of(
-                    new NewIndexEntry(index),
+                    new NewIndexEntry(index, schema.name()),
                     new ObjectIdGenUpdateEntry(1)
             );
         });
@@ -367,7 +366,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
             }
 
             return List.of(
-                    new DropIndexEntry(index.id(), index.tableId())
+                    new DropIndexEntry(index.id(), index.tableId(), schema.name())
             );
         });
     }

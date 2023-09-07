@@ -30,6 +30,8 @@ import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -52,6 +54,7 @@ import org.jetbrains.annotations.Nullable;
  * Metastore-based implementation of UpdateLog.
  */
 public class UpdateLogImpl implements UpdateLog {
+    private static final IgniteLogger LOG = Loggers.forClass(UpdateLogImpl.class);
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
@@ -197,25 +200,29 @@ public class UpdateLogImpl implements UpdateLog {
 
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
-            for (EntryEvent eventEntry : event.entryEvents()) {
-                assert eventEntry.newEntry() != null;
-                assert !eventEntry.newEntry().empty();
+            try {
+                for (EntryEvent eventEntry : event.entryEvents()) {
+                    assert eventEntry.newEntry() != null;
+                    assert !eventEntry.newEntry().empty();
 
-                byte[] payload = eventEntry.newEntry().value();
+                    byte[] payload = eventEntry.newEntry().value();
 
-                assert payload != null;
+                    assert payload != null;
 
-                VersionedUpdate update = fromBytes(payload);
+                    VersionedUpdate update = fromBytes(payload);
 
-                onUpdateHandler.handle(update, event.timestamp(), event.revision());
+                    onUpdateHandler.handle(update, event.timestamp(), event.revision());
+                }
+
+                return CompletableFuture.completedFuture(null);
+            } catch (Throwable e) {
+                return failedFuture(e);
             }
-
-            return CompletableFuture.completedFuture(null);
         }
 
         @Override
         public void onError(Throwable e) {
-            assert false;
+            // This code should never throw an error. See WatchProcessor::notifyWatches
         }
     }
 }

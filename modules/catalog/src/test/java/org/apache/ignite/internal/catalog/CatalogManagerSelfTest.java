@@ -81,7 +81,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
@@ -1783,11 +1782,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotEquals(view1.id(), initialViews.get(0).id(), "view1 id");
     }
 
+    /**
+     * View modifications that lead to update.
+     */
     public enum SystemViewModification {
         CHANGE_TYPE,
         ADD_COLUMN,
         REMOVE_COLUMN,
-        CHANGE_COLUMN;
+        MODIFY_COLUMN;
 
         private static final List<ColumnParams> COLUMNS = List.of(
                 ColumnParams.builder().name("col1").type(INT32).build(),
@@ -1825,7 +1827,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                     builder.columns(columns);
                     break;
                 }
-                case CHANGE_COLUMN: {
+                case MODIFY_COLUMN: {
                     ColumnParams column = ColumnParams.builder()
                             .name(COLUMNS.get(0).name())
                             .type(ColumnType.BYTE_ARRAY)
@@ -1889,6 +1891,52 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // View1 should have been replaced.
         CatalogSystemViewDescriptor view1 = views.get(0);
         assertEquals(view1.id(), initialViews.get(0).id(), "view1 id");
+    }
+
+    @Test
+    public void testCreateSystemViewFailsWhenTableWithTheSameNameExistsInTheSystemSchema() {
+        CatalogCommand createTable = createTableCommandBuilder("view",
+                List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
+                List.of("key1"),
+                List.of("key1"))
+                .schemaName(SYSTEM_SCHEMA_NAME)
+                .build();
+
+        assertThat(manager.execute(createTable), willCompleteSuccessfully());
+
+        CreateSystemViewCommand createView = CreateSystemViewCommand.builder()
+                .name("view")
+                .columns(List.of(
+                        ColumnParams.builder().name("col1").type(INT32).build(),
+                        ColumnParams.builder().name("col2").type(STRING).build()
+                ))
+                .type(SystemViewType.LOCAL)
+                .build();
+
+        assertThat(manager.execute(createView), willThrowFast(TableExistsValidationException.class));
+    }
+
+    @Test
+    public void createTableFailsWhenSystemViewWithTheSameNameExistsInTheSystemSchema() {
+        CreateSystemViewCommand createView = CreateSystemViewCommand.builder()
+                .name("view")
+                .columns(List.of(
+                        ColumnParams.builder().name("col1").type(INT32).build(),
+                        ColumnParams.builder().name("col2").type(STRING).build()
+                ))
+                .type(SystemViewType.LOCAL)
+                .build();
+
+        assertThat(manager.execute(createView), willCompleteSuccessfully());
+
+        CatalogCommand createTable = createTableCommandBuilder("view",
+                List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
+                List.of("key1"),
+                List.of("key1"))
+                .schemaName(SYSTEM_SCHEMA_NAME)
+                .build();
+
+        assertThat(manager.execute(createTable), willThrowFast(CatalogValidationException.class));
     }
 
     private void createSomeTable(String tableName) {

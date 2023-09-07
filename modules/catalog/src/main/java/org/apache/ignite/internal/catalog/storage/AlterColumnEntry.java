@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -42,15 +41,19 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
 
     private final CatalogTableColumnDescriptor column;
 
+    private final String schemaName;
+
     /**
      * Constructs the object.
      *
      * @param tableId An id the table to be modified.
      * @param column A modified descriptor of the column to be replaced.
+     * @param schemaName Schema name.
      */
-    public AlterColumnEntry(int tableId, CatalogTableColumnDescriptor column) {
+    public AlterColumnEntry(int tableId, CatalogTableColumnDescriptor column, String schemaName) {
         this.tableId = tableId;
         this.column = column;
+        this.schemaName = schemaName;
     }
 
     /** Returns an id the table to be modified. */
@@ -75,7 +78,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
 
     @Override
     public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(DEFAULT_SCHEMA_NAME));
+        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
 
         return new Catalog(
                 catalog.version(),
