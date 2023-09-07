@@ -1881,24 +1881,27 @@ public class PartitionReplicaListener implements ReplicaListener {
                     null);
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
-            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+            synchronized (safeTime) {
+                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+            }
         }
 
         return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
             // Try to avoid double write if an entry is already replicated.
-            if (cmd.full() && cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                storageUpdateHandler.handleUpdate(
-                        cmd.txId(),
-                        cmd.rowUuid(),
-                        cmd.tablePartitionId().asTablePartitionId(),
-                        cmd.row(),
-                        null,
-                        cmd.safeTime());
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+            synchronized (safeTime) {
+                if (cmd.full() && cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                    storageUpdateHandler.handleUpdate(
+                            cmd.txId(),
+                            cmd.rowUuid(),
+                            cmd.tablePartitionId().asTablePartitionId(),
+                            cmd.row(),
+                            null,
+                            cmd.safeTime());
 
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
-                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                }
             }
-
             return res;
         });
     }
@@ -1927,20 +1930,24 @@ public class PartitionReplicaListener implements ReplicaListener {
                     null);
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
-            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+            synchronized (safeTime) {
+                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+            }
         }
 
         return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
-            if (cmd.full() && cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                storageUpdateHandler.handleUpdateAll(
-                        cmd.txId(),
-                        cmd.rowsToUpdate(),
-                        cmd.tablePartitionId().asTablePartitionId(),
-                        null,
-                        cmd.safeTime());
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+            synchronized (safeTime) {
+                if (cmd.full() && cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                    storageUpdateHandler.handleUpdateAll(
+                            cmd.txId(),
+                            cmd.rowsToUpdate(),
+                            cmd.tablePartitionId().asTablePartitionId(),
+                            null,
+                            cmd.safeTime());
 
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
-                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                }
             }
 
             return res;
