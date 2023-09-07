@@ -63,13 +63,16 @@ import org.apache.calcite.rex.RexExecutor;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.SqlDataTypeSpec;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlOperatorTable;
+import org.apache.calcite.sql.SqlOrderBy;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
-import org.apache.calcite.sql.validate.SelectScope;
+import org.apache.calcite.sql.validate.SqlNonNullableAccessors;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlRexConvertletTable;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
@@ -238,21 +241,44 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
      * @param sqlNode Root node of the SQL parse tree.
      * @return Validated node, its validated type and type's origins.
      */
-    public ValidationResult validateAndGetTypeMetadata(SqlNode sqlNode) {
+    ValidationResult validateAndGetTypeMetadata(SqlNode sqlNode) {
+        SqlNodeList selectItems = null;
+        boolean skipAliases = false;
+        SqlNode sqlNode0 = sqlNode;
+
+        if (!(sqlNode instanceof SqlSelect)) {
+            if (sqlNode instanceof SqlOrderBy) {
+                sqlNode0 = ((SqlOrderBy) sqlNode).query;
+            }
+        }
+
+        if (sqlNode0 instanceof SqlSelect) {
+            selectItems = SqlNonNullableAccessors.getSelectList((SqlSelect) sqlNode0);
+
+            // skip aliases evaluation for select *
+            if (selectItems.size() == 1) {
+                SqlNode item = selectItems.get(0);
+                if (item instanceof SqlIdentifier) {
+                    SqlIdentifier id = (SqlIdentifier) item;
+                    if (id.isStar()) {
+                        skipAliases = true;
+                    }
+                }
+            }
+        }
+
         SqlNode validatedNode = validator().validate(sqlNode);
         RelDataType type = validator().getValidatedNodeType(validatedNode);
         List<List<String>> origins = validator().getFieldOrigins(validatedNode);
 
         List<String> derived = null;
-        if (validatedNode instanceof SqlSelect) {
-            SelectScope list = validator().getRawSelectScope((SqlSelect) validatedNode);
-
-            requireNonNull(list, "list");
-            requireNonNull(list.getExpandedSelectList(), "expandedSelectList");
+        if (validatedNode instanceof SqlSelect && !skipAliases) {
+            requireNonNull(selectItems, "selectItems");
 
             int cnt = 0;
-            derived = new ArrayList<>(list.getExpandedSelectList().size());
-            for (SqlNode node : list.getExpandedSelectList()) {
+            derived = new ArrayList<>(selectItems.size());
+
+            for (SqlNode node : selectItems) {
                 derived.add(validator().deriveAlias(node, cnt++));
             }
         }

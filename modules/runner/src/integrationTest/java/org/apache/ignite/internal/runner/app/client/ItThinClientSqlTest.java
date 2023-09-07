@@ -213,7 +213,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(3, columns.size());
         assertEquals("MYVALUE", columns.get(0).name());
         assertEquals("ID", columns.get(1).name());
-        assertEquals("TESTEXECUTEASYNCDDLDML.ID + 1", columns.get(2).name());
+        assertEquals("ID + 1", columns.get(2).name());
 
         var rows = new ArrayList<SqlRow>();
         selectRes.currentPage().forEach(rows::add);
@@ -297,7 +297,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals("TESTEXECUTEDDLDML", columns.get(1).origin().tableName());
         assertFalse(columns.get(1).nullable());
 
-        assertEquals("TESTEXECUTEDDLDML.ID + 1", columns.get(2).name());
+        assertEquals("ID + 1", columns.get(2).name());
         assertNull(columns.get(2).origin());
 
         var rows = new ArrayList<SqlRow>();

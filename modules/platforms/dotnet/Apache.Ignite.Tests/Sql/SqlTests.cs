@@ -311,7 +311,7 @@ namespace Apache.Ignite.Tests.Sql
             Assert.AreEqual(0, columns[1].Scale);
             Assert.AreEqual(10, columns[1].Precision);
 
-            Assert.AreEqual("TESTDDLDML.ID + 1", columns[2].Name);
+            Assert.AreEqual("ID + 1", columns[2].Name);
             Assert.IsNull(columns[2].Origin);
 
             // Update data.

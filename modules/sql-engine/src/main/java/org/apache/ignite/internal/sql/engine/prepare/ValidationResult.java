@@ -40,13 +40,13 @@ public class ValidationResult {
      * @param sqlNode  Validated SQL node.
      * @param dataType Validated type.
      * @param origins  Type fields provenance.
-     * @param derived  Derived column names.
+     * @param aliases  Derived column names.
      */
-    ValidationResult(SqlNode sqlNode, RelDataType dataType, List<List<String>> origins, List<String> derived) {
+    ValidationResult(SqlNode sqlNode, RelDataType dataType, List<List<String>> origins, List<String> aliases) {
         this.sqlNode = sqlNode;
         this.dataType = dataType;
         this.origins = origins;
-        this.aliases = derived;
+        this.aliases = aliases;
     }
 
     /**
@@ -70,7 +70,7 @@ public class ValidationResult {
         return origins;
     }
 
-    /** Return alternative derived column names. */
+    /** Return alternatively derived column names. */
     public List<String> aliases() {
         return aliases;
     }
