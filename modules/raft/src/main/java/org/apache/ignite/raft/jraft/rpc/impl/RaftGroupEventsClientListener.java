@@ -79,15 +79,19 @@ public class RaftGroupEventsClientListener {
      * @param term Election term.
     */
     public void onLeaderElected(ReplicationGroupId groupId, ClusterNode leader, long term) {
-        List<LeaderElectionListener> listeners = leaderElectionListeners.get(groupId);
+        List<LeaderElectionListener> listenersToInvoke = new ArrayList<>();
 
-        if (listeners != null) {
-            for (LeaderElectionListener listener : listeners) {
-                try {
-                    listener.onLeaderElected(leader, term);
-                } catch (Exception e) {
-                    LOG.warn("Failed to notify leader election listener for group=" + groupId, e);
-                }
+        leaderElectionListeners.computeIfPresent(groupId, (k, listeners) -> {
+                listenersToInvoke.addAll(listeners);
+
+            return listeners;
+        });
+
+        for (LeaderElectionListener listener : listenersToInvoke) {
+            try {
+                listener.onLeaderElected(leader, term);
+            } catch (Exception e) {
+                LOG.warn("Failed to notify leader election listener for group=" + groupId, e);
             }
         }
     }
