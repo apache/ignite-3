@@ -128,7 +128,7 @@ public class PartitionListener implements RaftGroupListener {
                 ReadResult readResult = cursor.next();
 
                 if (readResult.isWriteIntent()) {
-                    storageUpdateHandler.handleReadWriteIntent(readResult.transactionId(), readResult.rowId());
+                    storageUpdateHandler.handleWriteIntentRead(readResult.transactionId(), readResult.rowId());
                 }
             }
         }

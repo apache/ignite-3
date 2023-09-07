@@ -253,7 +253,7 @@ public class StorageUpdateHandler {
      * @param txId Transaction id.
      * @param rowId Row id.
      */
-    public void handleReadWriteIntent(UUID txId, RowId rowId) {
+    public void handleWriteIntentRead(UUID txId, RowId rowId) {
         pendingRows.addPendingRowId(txId, rowId);
     }
 
