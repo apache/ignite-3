@@ -248,7 +248,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public void writeShort(short val) {
         lastFinished = buf.remaining() >= MAX_VAR_SHORT_BYTES;
 
-        writeVarInt(Short.toUnsignedLong(++val));
+        writeVarInt(Short.toUnsignedLong((short) (val + 1)));
     }
 
     @Override
@@ -271,7 +271,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public void writeInt(int val) {
         lastFinished = buf.remaining() >= MAX_VAR_INT_BYTES;
 
-        writeVarInt(Integer.toUnsignedLong(++val));
+        writeVarInt(Integer.toUnsignedLong(val + 1));
     }
 
     @Override
@@ -294,7 +294,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public void writeLong(long val) {
         lastFinished = buf.remaining() >= MAX_VAR_LONG_BYTES;
 
-        writeVarInt(++val);
+        writeVarInt(val + 1);
     }
 
     @Override
