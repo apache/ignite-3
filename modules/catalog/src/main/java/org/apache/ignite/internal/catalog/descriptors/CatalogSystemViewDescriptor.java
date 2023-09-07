@@ -30,6 +30,8 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
 
     private final List<CatalogTableColumnDescriptor> columns;
 
+    private final SystemViewType systemViewType;
+
     /**
      * Constructor.
      *
@@ -37,10 +39,11 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
      * @param name View name.
      * @param columns View columns.
      */
-    public CatalogSystemViewDescriptor(int id, String name, List<CatalogTableColumnDescriptor> columns) {
+    public CatalogSystemViewDescriptor(int id, String name, List<CatalogTableColumnDescriptor> columns, SystemViewType systemViewType) {
         super(id, Type.SYSTEM_VIEW, name);
 
         this.columns = Objects.requireNonNull(columns, "columns");
+        this.systemViewType = Objects.requireNonNull(systemViewType, "viewType");
     }
 
     /**
@@ -50,6 +53,15 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
      */
     public List<CatalogTableColumnDescriptor> columns() {
         return columns;
+    }
+
+    /**
+     * Returns a type of this view.
+     *
+     * @return A type of this view.
+     */
+    public SystemViewType systemViewType() {
+        return systemViewType;
     }
 
     /** {@inheritDoc} */
@@ -62,18 +74,32 @@ public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
             return false;
         }
         CatalogSystemViewDescriptor that = (CatalogSystemViewDescriptor) o;
-        return Objects.equals(columns, that.columns);
+        return Objects.equals(columns, that.columns) && systemViewType == that.systemViewType;
     }
 
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(columns);
+        return Objects.hash(columns, systemViewType);
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(CatalogSystemViewDescriptor.class, this, "id", id(), "columns", columns, "type", type());
+        return S.toString(CatalogSystemViewDescriptor.class, this, "id", id(), "columns", columns, "systemViewType", systemViewType());
+    }
+
+    /**
+     * Type of a system view.
+     */
+    public enum SystemViewType {
+        /**
+         * Node system view.
+         */
+        LOCAL,
+        /**
+         * Cluster-wide system view.
+         */
+        GLOBAL
     }
 }

@@ -27,13 +27,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.storage.NewSystemViewEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
-import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
  * Create system view command - creates or replaces a system view.
@@ -47,15 +49,19 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
 
     private final List<ColumnParams> columns;
 
+    private final SystemViewType systemViewType;
+
     /**
      * Constructor.
      *
      * @param name View name.
      * @param columns List of view columns.
+     * @param systemViewType View type.
      */
-    CreateSystemViewCommand(String name, List<ColumnParams> columns) {
+    CreateSystemViewCommand(String name, List<ColumnParams> columns, SystemViewType systemViewType) {
         this.name = name;
         this.columns = columns;
+        this.systemViewType = systemViewType;
 
         validate();
     }
@@ -78,6 +84,16 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
         return columns;
     }
 
+
+    /**
+     * Returns a view type.
+     *
+     * @return View type.
+     */
+    public SystemViewType systemViewType() {
+        return systemViewType;
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -85,8 +101,15 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         int id = catalog.objectIdGenState();
 
+        CatalogSchemaDescriptor systemSchema = catalog.schema(CatalogManager.SYSTEM_SCHEMA_NAME);
         List<CatalogTableColumnDescriptor> viewColumns = columns.stream().map(CatalogUtils::fromParams).collect(toList());
-        CatalogSystemViewDescriptor descriptor = new CatalogSystemViewDescriptor(id, name, viewColumns);
+        CatalogSystemViewDescriptor descriptor = new CatalogSystemViewDescriptor(id, name, viewColumns, systemViewType);
+
+        for (CatalogSystemViewDescriptor existingView : systemSchema.systemViews()) {
+            if (descriptor.equals(existingView)) {
+                return List.of();
+            }
+        }
 
         return List.of(
                 new NewSystemViewEntry(descriptor),
@@ -101,14 +124,17 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
             throw new CatalogValidationException("System view should have at least one column");
         }
 
+        if (systemViewType == null) {
+            throw new CatalogValidationException("System view type is not specified");
+        }
+
         Set<String> columnNames = new HashSet<>();
 
         for (ColumnParams column : columns) {
             validateColumnParams(column);
 
             if (!columnNames.add(column.name())) {
-                throw new CatalogValidationException(Common.INTERNAL_ERR,
-                        format("Column with name '{}' specified more than once", column.name()));
+                throw new CatalogValidationException(format("Column with name '{}' specified more than once", column.name()));
             }
         }
     }
@@ -118,18 +144,20 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
      *
      * @return A builder to create instances of create system view command.
      */
-    public static Builder builder() {
+    public static CreateSystemViewCommandBuilder builder() {
         return new Builder();
     }
 
     /**
      * Implementation of {@link CreateSystemViewCommandBuilder}.
      */
-    public static class Builder implements CreateSystemViewCommandBuilder {
+    private static class Builder implements CreateSystemViewCommandBuilder {
 
         private String name;
 
         private List<ColumnParams> columns;
+
+        private SystemViewType systemViewType;
 
         /**
          * Constructor.
@@ -147,6 +175,13 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
 
         /** {@inheritDoc} */
         @Override
+        public CreateSystemViewCommandBuilder type(SystemViewType systemViewType) {
+            this.systemViewType = systemViewType;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public CreateSystemViewCommandBuilder columns(List<ColumnParams> columns) {
             this.columns = columns;
             return this;
@@ -155,7 +190,7 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
         /** {@inheritDoc} */
         @Override
         public CreateSystemViewCommand build() {
-            return new CreateSystemViewCommand(name, columns);
+            return new CreateSystemViewCommand(name, columns, systemViewType);
         }
     }
 }

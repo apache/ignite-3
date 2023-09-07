@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 
 /**
  * A builder to construct create system view commands.
@@ -31,6 +32,14 @@ public interface CreateSystemViewCommandBuilder {
      * @return this.
      */
     CreateSystemViewCommandBuilder name(String name);
+
+    /**
+     * Sets type of system view.
+     *
+     * @param systemViewType System view type.
+     * @return this.
+     */
+    CreateSystemViewCommandBuilder type(SystemViewType systemViewType);
 
     /**
      * Sets a list of columns.

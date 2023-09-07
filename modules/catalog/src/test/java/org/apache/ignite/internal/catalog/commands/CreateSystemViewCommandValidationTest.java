@@ -25,10 +25,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -36,11 +38,13 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class CreateSystemViewCommandValidationTest extends AbstractCommandValidationTest {
 
-    @Test
-    public void newSystemView() {
+    @ParameterizedTest
+    @EnumSource(SystemViewType.class)
+    public void newSystemView(SystemViewType type) {
         CreateSystemViewCommand command = CreateSystemViewCommand.builder()
                 .name("view")
                 .columns(List.of(ColumnParams.builder().name("C1").type(INT32).build()))
+                .type(type)
                 .build();
 
         assertEquals("view", command.name());
@@ -48,6 +52,7 @@ public class CreateSystemViewCommandValidationTest extends AbstractCommandValida
         ColumnParams column = command.columns().get(0);
         assertEquals("C1", column.name());
         assertEquals(INT32, column.type());
+        assertEquals(type, command.systemViewType());
 
         assertEquals(1, command.columns().size(), "num columns");
     }

@@ -81,6 +81,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
@@ -89,6 +90,7 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSystemViewCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSystemViewCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
@@ -101,6 +103,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -1716,7 +1719,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .columns(List.of(
                         ColumnParams.builder().name("col1").type(INT32).build(),
                         ColumnParams.builder().name("col2").type(STRING).build()
-                )).build();
+                ))
+                .type(SystemViewType.LOCAL)
+                .build();
 
         assertThat(manager.execute(command), willCompleteSuccessfully());
 
@@ -1743,24 +1748,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(STRING, col2.type());
     }
 
-    @Test
-    public void testCreateSystemViewReplacesExistingViewWithTheSameName() {
-        CreateSystemViewCommand command1 = CreateSystemViewCommand.builder()
-                .name("view1")
-                .columns(List.of(
-                        ColumnParams.builder().name("col1").type(INT32).build(),
-                        ColumnParams.builder().name("col2").type(STRING).build()
-                )).build();
+    @ParameterizedTest
+    @EnumSource(SystemViewModification.class)
+    public void testCreateSystemViewReplacesExistingViewWhenViewChanges(SystemViewModification systemViewModification) {
+        CreateSystemViewCommandBuilder viewBuilder = SystemViewModification.newSystemView();
 
-        CreateSystemViewCommand command2 = CreateSystemViewCommand.builder()
-                .name("view2")
-                .columns(List.of(
-                        ColumnParams.builder().name("col1").type(ColumnType.FLOAT).build()
-                ))
-                .build();
+        CreateSystemViewCommand initialCommand = viewBuilder.build();
 
-        assertThat(manager.execute(command1), willCompleteSuccessfully());
-        assertThat(manager.execute(command2), willCompleteSuccessfully());
+        assertThat(manager.execute(initialCommand), willCompleteSuccessfully());
 
         CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, manager.latestCatalogVersion());
         assertNotNull(systemSchema, "systemSchema");
@@ -1768,15 +1763,117 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         List<CatalogSystemViewDescriptor> initialViews = Arrays.stream(systemSchema.systemViews())
                 .sorted(Comparator.comparing(CatalogObjectDescriptor::name)).collect(toList());
 
-        assertEquals(2, initialViews.size());
+        // Replace view1
+
+        systemViewModification.apply(viewBuilder);
+
+        assertThat(manager.execute(viewBuilder.build()), willCompleteSuccessfully());
+
+        CatalogSchemaDescriptor mostRecentSchema = manager.schema(SYSTEM_SCHEMA_NAME, manager.latestCatalogVersion());
+        assertNotNull(mostRecentSchema, "systemSchema");
+
+        // Retrieve the most actual system views
+        List<CatalogSystemViewDescriptor> views = Arrays.stream(mostRecentSchema.systemViews())
+                .sorted(Comparator.comparing(CatalogObjectDescriptor::name)).collect(toList());
+
+        assertEquals(1, views.size());
+
+        // View1 should have been replaced.
+        CatalogSystemViewDescriptor view1 = views.get(0);
+        assertNotEquals(view1.id(), initialViews.get(0).id(), "view1 id");
+    }
+
+    public enum SystemViewModification {
+        CHANGE_TYPE,
+        ADD_COLUMN,
+        REMOVE_COLUMN,
+        CHANGE_COLUMN;
+
+        private static final List<ColumnParams> COLUMNS = List.of(
+                ColumnParams.builder().name("col1").type(INT32).build(),
+                ColumnParams.builder().name("col2").type(STRING).build()
+        );
+
+        static CreateSystemViewCommandBuilder newSystemView() {
+            return CreateSystemViewCommand.builder()
+                    .name("view1")
+                    .columns(COLUMNS)
+                    .type(SystemViewType.LOCAL);
+        }
+
+        void apply(CreateSystemViewCommandBuilder builder) {
+            switch (this) {
+                case CHANGE_TYPE: {
+                    builder.type(SystemViewType.GLOBAL);
+                    break;
+                }
+                case ADD_COLUMN: {
+                    ColumnParams column = ColumnParams.builder()
+                            .name("col-x")
+                            .type(ColumnType.BYTE_ARRAY)
+                            .build();
+
+                    List<ColumnParams> columns = new ArrayList<>(COLUMNS);
+                    columns.add(column);
+
+                    builder.columns(columns);
+                    break;
+                }
+                case REMOVE_COLUMN: {
+                    List<ColumnParams> columns = new ArrayList<>(COLUMNS);
+                    columns.remove(0);
+                    builder.columns(columns);
+                    break;
+                }
+                case CHANGE_COLUMN: {
+                    ColumnParams column = ColumnParams.builder()
+                            .name(COLUMNS.get(0).name())
+                            .type(ColumnType.BYTE_ARRAY)
+                            .build();
+
+                    List<ColumnParams> columns = new ArrayList<>(COLUMNS);
+                    columns.set(0, column);
+
+                    builder.columns(columns);
+                    break;
+                }
+                default:
+                    throw new IllegalArgumentException("Unexpected modification type: " + this);
+            }
+        }
+    }
+
+    @Test
+    public void testCreateSystemViewDoesReplacesExistingViewWithTheSameNameIfDataIsTheSame() {
+        CreateSystemViewCommand command1 = CreateSystemViewCommand.builder()
+                .name("view1")
+                .columns(List.of(
+                        ColumnParams.builder().name("col1").type(INT32).build(),
+                        ColumnParams.builder().name("col2").type(STRING).build()
+                ))
+                .type(SystemViewType.LOCAL)
+                .build();
+
+        assertThat(manager.execute(command1), willCompleteSuccessfully());
+
+        CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, manager.latestCatalogVersion());
+        assertNotNull(systemSchema, "systemSchema");
+
+        List<CatalogSystemViewDescriptor> initialViews = Arrays.stream(systemSchema.systemViews())
+                .sorted(Comparator.comparing(CatalogObjectDescriptor::name)).collect(toList());
+
+        assertEquals(1, initialViews.size());
 
         // Replace view1
 
         CreateSystemViewCommand command3 = CreateSystemViewCommand.builder()
                 .name("view1")
                 .columns(List.of(
-                        ColumnParams.builder().name("col1").type(INT32).build()
-                )).build();
+                        ColumnParams.builder().name("col1").type(INT32).build(),
+                        ColumnParams.builder().name("col2").type(STRING).build()
+                ))
+                .type(SystemViewType.LOCAL)
+                .build();
 
         assertThat(manager.execute(command3), willCompleteSuccessfully());
 
@@ -1787,16 +1884,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         List<CatalogSystemViewDescriptor> views = Arrays.stream(mostRecentSchema.systemViews())
                 .sorted(Comparator.comparing(CatalogObjectDescriptor::name)).collect(toList());
 
-        assertEquals(2, views.size());
+        assertEquals(1, views.size());
 
         // View1 should have been replaced.
         CatalogSystemViewDescriptor view1 = views.get(0);
-        assertEquals(1, view1.columns().size());
-        assertNotEquals(view1.id(), initialViews.get(0).id(), "view1 id");
-
-        // View2 should remain the same.
-        CatalogSystemViewDescriptor view2 = views.get(1);
-        assertEquals(view2.id(), initialViews.get(1).id(), "view2 id");
+        assertEquals(view1.id(), initialViews.get(0).id(), "view1 id");
     }
 
     private void createSomeTable(String tableName) {
