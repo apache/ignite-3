@@ -26,28 +26,22 @@ import com.jayway.jsonpath.JsonPath;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AbstractTableCommandParams;
-import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
 import org.apache.ignite.lang.ErrorGroups.Index;
-import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.util.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -118,39 +112,6 @@ public class CatalogParamsValidationUtils {
     static void validateRenameZoneParams(RenameZoneParams params) {
         validateZoneName(params.zoneName());
         validateZoneName(params.newZoneName(), "Missing new zone name");
-    }
-
-    static void validateDropTableParams(DropTableParams params) {
-        validateCommonTableParams(params);
-    }
-
-    static void validateDropColumnParams(AlterTableDropColumnParams params) {
-        validateCommonTableParams(params);
-
-        validateCollectionIsNotEmpty(params.columns(), Table.TABLE_DEFINITION_ERR, "Columns not specified");
-    }
-
-    static void validateAddColumnParams(AlterTableAddColumnParams params) {
-        validateCommonTableParams(params);
-
-        List<String> columnNames = Objects.<List<ColumnParams>>requireNonNullElse(params.columns(), List.of()).stream()
-                .peek(CatalogParamsValidationUtils::validateColumnParams)
-                .map(ColumnParams::name)
-                .collect(toList());
-
-        validateColumns(
-                columnNames,
-                Table.TABLE_DEFINITION_ERR,
-                "Columns not specified",
-                "Duplicate columns are present: {}"
-        );
-    }
-
-    // TODO: IGNITE-19938 Add validation column length, precision and scale
-    static void validateAlterColumnParams(AlterColumnParams params) {
-        validateCommonTableParams(params);
-
-        validateNameField(params.columnName(), Table.TABLE_DEFINITION_ERR, "Missing column name");
     }
 
     private static void validateUpdateZoneFieldsParameters(

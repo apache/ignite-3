@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
@@ -50,6 +51,8 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     /** Partition storage. */
     private final PartitionAccess partition;
 
+    private final CatalogService catalogService;
+
     /**
      * RAFT log index, min of {@link MvPartitionStorage#lastAppliedIndex()} and {@link TxStateStorage#lastAppliedIndex()}
      * at the moment of this factory instantiation.
@@ -62,6 +65,8 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
     /** RAFT configuration corresponding to {@link #lastIncludedRaftIndex}. */
     private final RaftGroupConfiguration lastIncludedConfiguration;
 
+    private final int lastCatalogVersionAtStart;
+
     /** Incoming snapshots executor. */
     private final Executor incomingSnapshotsExecutor;
 
@@ -71,6 +76,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
      * @param topologyService Topology service.
      * @param outgoingSnapshotsManager Snapshot manager.
      * @param partition MV partition storage.
+     * @param catalogService Access to the Catalog.
      * @param incomingSnapshotsExecutor Incoming snapshots executor.
      * @see SnapshotMeta
      */
@@ -79,11 +85,13 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
             TopologyService topologyService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             PartitionAccess partition,
+            CatalogService catalogService,
             Executor incomingSnapshotsExecutor
     ) {
         this.topologyService = topologyService;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.partition = partition;
+        this.catalogService = catalogService;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
 
         // We must choose the minimum applied index for local recovery so that we don't skip the raft commands for the storage with the
@@ -92,12 +100,14 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
         lastIncludedRaftTerm = partition.minLastAppliedTerm();
 
         lastIncludedConfiguration = partition.committedGroupConfiguration();
+
+        lastCatalogVersionAtStart = catalogService.latestCatalogVersion();
     }
 
     @Override
     public PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
         SnapshotMeta startupSnapshotMeta = lastIncludedRaftIndex == 0 ? null : SnapshotMetaUtils.snapshotMetaAt(
-                lastIncludedRaftIndex, lastIncludedRaftTerm, lastIncludedConfiguration
+                lastIncludedRaftIndex, lastIncludedRaftTerm, lastIncludedConfiguration, lastCatalogVersionAtStart
         );
 
         return new PartitionSnapshotStorage(
@@ -106,6 +116,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
                 uri,
                 raftOptions,
                 partition,
+                catalogService,
                 startupSnapshotMeta,
                 incomingSnapshotsExecutor
         );

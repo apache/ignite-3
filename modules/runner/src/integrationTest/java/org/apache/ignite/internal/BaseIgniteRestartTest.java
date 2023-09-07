@@ -225,7 +225,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
      * @param indexBuilder Index builder.
      * @return Partial node.
      */
-    public static PartialNode partialNode(
+    public PartialNode partialNode(
             ConfigurationManager nodeCfgMgr,
             ConfigurationManager clusterCfgMgr,
             MetaStorageManager metaStorageMgr,
@@ -261,7 +261,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             closeables.add(indexBuilder);
         }
 
-        return new PartialNode(components, closeables, logicalTopology);
+        return new PartialNode(components, closeables, logicalTopology, log);
     }
 
     /**
@@ -275,10 +275,18 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
 
         private final LogicalTopology logicalTopology;
 
-        PartialNode(List<IgniteComponent> startedComponents, List<ManuallyCloseable> closeables, LogicalTopology logicalTopology) {
+        private final IgniteLogger log;
+
+        PartialNode(
+                List<IgniteComponent> startedComponents,
+                List<ManuallyCloseable> closeables,
+                LogicalTopology logicalTopology,
+                IgniteLogger log
+        ) {
             this.startedComponents = startedComponents;
             this.closeables = closeables;
             this.logicalTopology = logicalTopology;
+            this.log = log;
         }
 
         /**

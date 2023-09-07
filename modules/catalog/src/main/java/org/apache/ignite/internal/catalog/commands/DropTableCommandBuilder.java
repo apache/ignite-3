@@ -15,26 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.call.connect;
+package org.apache.ignite.internal.catalog.commands;
 
-import org.apache.ignite.internal.cli.core.call.CallInput;
-
-/** Input for the {@link ConnectSslConfigCall} call. */
-class ConnectSslConfigCallInput implements CallInput {
-    private final String url;
-
-    private final SslConfig config;
-
-    ConnectSslConfigCallInput(String url, SslConfig config) {
-        this.url = url;
-        this.config = config;
-    }
-
-    String getUrl() {
-        return url;
-    }
-
-    SslConfig getConfig() {
-        return config;
-    }
+/**
+ * Builder of a command that drop specified table.
+ *
+ * <p>A builder is considered to be reusable, thus implementation have
+ * to make sure invocation of {@link #build()} method doesn't cause any
+ * side effects on builder's state or any object created by the same builder.
+ */
+public interface DropTableCommandBuilder extends AbstractTableCommandBuilder<DropTableCommandBuilder> {
 }

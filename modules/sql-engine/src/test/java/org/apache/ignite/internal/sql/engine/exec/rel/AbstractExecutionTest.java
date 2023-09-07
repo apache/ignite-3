@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
@@ -96,6 +97,14 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
                     new LogUncaughtExceptionHandler(log),
                     false,
                     0);
+
+            StripedThreadPoolExecutor stripedThreadPoolExecutor = (StripedThreadPoolExecutor) IgniteTestUtils.getFieldValue(
+                    taskExecutor,
+                    QueryTaskExecutorImpl.class,
+                    "stripedThreadPoolExecutor"
+            );
+            stripedThreadPoolExecutor.shutdown();
+
             IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
         }
 
@@ -184,6 +193,7 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
         @Override public void shutdown() {
             stop.set(true);
 
+            exec.shutdown();
             fut.cancel(true);
 
             super.shutdown();
@@ -193,9 +203,10 @@ public abstract class AbstractExecutionTest extends IgniteAbstractTest {
         @Override public List<Runnable> shutdownNow() {
             stop.set(true);
 
+            List<Runnable> runnables = exec.shutdownNow();
             fut.cancel(true);
 
-            return super.shutdownNow();
+            return Stream.concat(runnables.stream(), super.shutdownNow().stream()).collect(Collectors.toList());
         }
     }
 

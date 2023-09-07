@@ -32,7 +32,6 @@ import org.jline.terminal.Terminal;
 import org.jline.terminal.impl.DumbTerminal;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
 import picocli.CommandLine.Help.Ansi;
 
 /**
@@ -56,11 +55,8 @@ public class ItConnectToClusterTestBase extends CliCommandTestInitializedIntegra
         return TopLevelCliReplCommand.class;
     }
 
-    @Override
     @BeforeEach
-    public void setUp(TestInfo testInfo) throws Exception {
-        super.setUp(testInfo);
-
+    public void setUpTerminal() throws Exception {
         input = Files.createTempFile(WORK_DIR, "input", "");
         terminal = new DumbTerminal(Files.newInputStream(input), new FileOutputStream(FileDescriptor.out));
         QuestionAskerFactory.setWriterReaderFactory(new JlineQuestionWriterReaderFactory(terminal));

@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.catalog;
 
+import java.util.List;
+
 /**
  * Marker interface for commands executed by {@link CatalogManager}.
  *
  * @see CatalogManager#execute(CatalogCommand)
+ * @see CatalogManager#execute(List)
  */
-public interface CatalogCommand {
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface CatalogCommand extends UpdateProducer {
 }
