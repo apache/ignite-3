@@ -72,7 +72,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
         final Row keyRow = marshal(keyRec, true); // Convert to portable format to pass TX/storage layer.
 
-        return tableOps.get(keyRow, (InternalTransaction) tx).thenApply(this::wrap);
+        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::wrap);
     }
 
     @Override
@@ -84,7 +84,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<List<Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return tableOps.getAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(binaryRows -> wrap(binaryRows, true));
+        return tbl.getAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(binaryRows -> wrap(binaryRows, true));
     }
 
     /** {@inheritDoc} */
@@ -100,7 +100,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
         final Row row = marshal(rec, false);
 
-        return tableOps.upsert(row, (InternalTransaction) tx);
+        return tbl.upsert(row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -114,7 +114,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return tableOps.upsertAll(mapToBinary(recs, false), (InternalTransaction) tx);
+        return tbl.upsertAll(mapToBinary(recs, false), (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -130,7 +130,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
         final Row row = marshal(rec, false);
 
-        return tableOps.getAndUpsert(row, (InternalTransaction) tx).thenApply(this::wrap);
+        return tbl.getAndUpsert(row, (InternalTransaction) tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -146,7 +146,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
         final Row row = marshal(rec, false);
 
-        return tableOps.insert(row, (InternalTransaction) tx);
+        return tbl.insert(row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -160,7 +160,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Collection<Tuple>> insertAllAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return tableOps.insertAll(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(rows -> wrap(rows, false));
+        return tbl.insertAll(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(rows -> wrap(rows, false));
     }
 
     /** {@inheritDoc} */
@@ -182,7 +182,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
         final Row row = marshal(rec, false);
 
-        return tableOps.replace(row, (InternalTransaction) tx);
+        return tbl.replace(row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -194,7 +194,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
         final Row oldRow = marshal(oldRec, false);
         final Row newRow = marshal(newRec, false);
 
-        return tableOps.replace(oldRow, newRow, (InternalTransaction) tx);
+        return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -210,7 +210,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
         final Row row = marshal(rec, false);
 
-        return tableOps.getAndReplace(row, (InternalTransaction) tx).thenApply(this::wrap);
+        return tbl.getAndReplace(row, (InternalTransaction) tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -226,7 +226,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
         final Row keyRow = marshal(keyRec, true);
 
-        return tableOps.delete(keyRow, (InternalTransaction) tx);
+        return tbl.delete(keyRow, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -242,7 +242,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
         final Row row = marshal(rec, false);
 
-        return tableOps.deleteExact(row, (InternalTransaction) tx);
+        return tbl.deleteExact(row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -258,7 +258,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
 
         final Row keyRow = marshal(keyRec, true);
 
-        return tableOps.getAndDelete(keyRow, (InternalTransaction) tx).thenApply(this::wrap);
+        return tbl.getAndDelete(keyRow, (InternalTransaction) tx).thenApply(this::wrap);
     }
 
     /** {@inheritDoc} */
@@ -272,7 +272,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Collection<Tuple>> deleteAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return tableOps.deleteAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(this::wrapKeys);
+        return tbl.deleteAll(mapToBinary(keyRecs, true), (InternalTransaction) tx).thenApply(this::wrapKeys);
     }
 
     /** {@inheritDoc} */
@@ -286,7 +286,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Collection<Tuple>> deleteAllExactAsync(@Nullable Transaction tx, Collection<Tuple> recs) {
         Objects.requireNonNull(recs);
 
-        return tableOps.deleteAllExact(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(rows -> wrap(rows, false));
+        return tbl.deleteAllExact(mapToBinary(recs, false), (InternalTransaction) tx).thenApply(rows -> wrap(rows, false));
     }
 
     /**
@@ -380,10 +380,9 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        InternalTable tbl = tableOps.internalTable();
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) ->
-                tableOps.upsertAll(mapToBinary(items, false), partitionId);
+                this.tbl.upsertAll(mapToBinary(items, false), partitionId);
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
