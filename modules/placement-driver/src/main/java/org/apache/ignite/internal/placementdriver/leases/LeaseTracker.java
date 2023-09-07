@@ -212,7 +212,7 @@ public class LeaseTracker implements PlacementDriver {
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
-       HybridTimestamp timestampWithClockSkew = timestamp.addPhysicalTime(CLOCK_SKEW);
+        HybridTimestamp timestampWithClockSkew = timestamp.addPhysicalTime(CLOCK_SKEW);
 
         return inBusyLockAsync(busyLock, () -> {
             Map<ReplicationGroupId, Lease> leasesMap = leases.leaseByGroupId();
