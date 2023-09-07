@@ -31,7 +31,7 @@ abstract class AbstractTableView {
     /** Internal table. */
     protected final InternalTable tbl;
 
-    /** Schema registry. */
+    /** Table row view converter. */
     protected final TableViewRowConverter rowConverter;
 
     /**

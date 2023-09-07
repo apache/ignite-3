@@ -557,7 +557,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
         V v = unmarshalNullableValue(binaryRow);
 
         if (v == null) {
-            throw new UnexpectedNullValueException("use `getNullable` sibling method instead.");
+            throw new UnexpectedNullValueException("Got unexpected null value: use `getNullable` sibling method instead.");
         }
 
         return v;
