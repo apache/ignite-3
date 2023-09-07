@@ -265,9 +265,7 @@ public class StorageUpdateHandler {
      * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
      */
     public void handleTransactionCleanup(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
-        Set<RowId> pendingRowIds = pendingRows.getPendingRowIds(txId);
-
-        handleTransactionCleanup(pendingRowIds, commit, commitTimestamp, () -> pendingRows.removePendingRowIds(txId));
+        handleTransactionCleanup(txId, commit, commitTimestamp, () -> {});
     }
 
     /**
@@ -283,7 +281,7 @@ public class StorageUpdateHandler {
         Set<RowId> pendingRowIds = pendingRows.getPendingRowIds(txId);
 
         handleTransactionCleanup(pendingRowIds, commit, commitTimestamp, () -> {
-            pendingRows.removePendingRowIds(txId);
+            pendingRows.removePendingRowIds(txId, pendingRowIds);
 
             onApplication.run();
         });

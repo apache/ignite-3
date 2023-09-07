@@ -81,8 +81,12 @@ public class PendingRows {
      *
      * @param txId Transaction ID.
      */
-    public void removePendingRowIds(UUID txId) {
-        txsPendingRowIds.remove(txId);
+    public void removePendingRowIds(UUID txId, Set<RowId> pendingRowIds) {
+        txsPendingRowIds.computeIfPresent(txId, (k, v) -> {
+            v.removeAll(pendingRowIds);
+
+            return v.isEmpty() ? null : v;
+        });
     }
 
     /**
@@ -92,8 +96,15 @@ public class PendingRows {
      * @return Pending row IDs.
      */
     public Set<RowId> getPendingRowIds(UUID txId) {
-        return txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
-    }
+        Set<RowId> pendingRows = new TreeSet<>();
 
+        txsPendingRowIds.computeIfPresent(txId, (k, v) -> {
+            pendingRows.addAll(v);
+
+            return v;
+        });
+
+        return pendingRows;
+    }
 
 }
