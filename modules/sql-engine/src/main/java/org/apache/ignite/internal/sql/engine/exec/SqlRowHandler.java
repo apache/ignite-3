@@ -144,7 +144,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
     @Override
     public RowFactory<RowWrapper> factory(RowSchema rowSchema) {
-        int rowLen = rowSchema.fields().size();
+        int schemaLen = rowSchema.fields().size();
 
         return new RowFactory<>() {
             /** {@inheritDoc} */
@@ -156,13 +156,13 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             /** {@inheritDoc} */
             @Override
             public RowWrapper create() {
-                return create(new Object[rowLen]);
+                return create(new Object[schemaLen]);
             }
 
             /** {@inheritDoc} */
             @Override
             public RowWrapper create(Object... fields) {
-                assert fields.length == rowLen;
+                assert fields.length == schemaLen;
 
                 return new ObjectsArrayRowWrapper(rowSchema, fields);
             }
@@ -170,13 +170,13 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             /** {@inheritDoc} */
             @Override
             public RowWrapper create(ByteBuffer buf) {
-                return create(new BinaryTuple(rowLen, buf));
+                return create(new BinaryTuple(schemaLen, buf));
             }
 
             /** {@inheritDoc} */
             @Override
             public RowWrapper create(InternalTuple tuple) {
-                assert rowLen == tuple.elementCount();
+                assert schemaLen == tuple.elementCount();
 
                 return new BinaryTupleRowWrapper(rowSchema, tuple);
             }

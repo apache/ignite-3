@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.equalTo;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -126,6 +127,45 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
         for (int i = 0; i < rightLen; i++) {
             assertThat(handler.get(leftLen + i, result), equalTo(TypeUtils.toInternal(params.rightData[i])));
+        }
+    }
+
+    @Test
+    public void testMap() {
+        List<ColumnType> columnTypes = List.of(
+                ColumnType.INT32,
+                ColumnType.STRING,
+                ColumnType.BOOLEAN,
+                ColumnType.INT32,
+                ColumnType.DOUBLE,
+                ColumnType.STRING
+        );
+
+        int[] mapping = {3, 5};
+
+        Object[] sourceData = values(columnTypes);
+        RowSchema schema = rowSchema(columnTypes, sourceData);
+
+        RowFactory<RowWrapper> factory = handler.factory(schema);
+
+        RowWrapper srcRow = factory.create(sourceData);
+        RowWrapper srcBinRow = factory.create(new BinaryTuple(handler.columnCount(srcRow), handler.toByteBuffer(srcRow)));
+
+        RowWrapper mappedRow = handler.map(srcRow, mapping);
+        RowWrapper mappedFromBinRow = handler.map(srcBinRow, mapping);
+
+        RowSchema mappedSchema = rowSchema(columnTypes.subList(0, mapping.length), Arrays.copyOf(sourceData, mapping.length));
+        RowWrapper deserializedMappedBinRow = handler.factory(mappedSchema).create(handler.toByteBuffer(mappedFromBinRow));
+
+        assertThat(handler.columnCount(mappedRow), equalTo(mapping.length));
+        assertThat(handler.columnCount(mappedFromBinRow), equalTo(mapping.length));
+
+        for (int i = 0; i < mapping.length; i++) {
+            Object expected = handler.get(mapping[i], srcRow);
+
+            assertThat(handler.get(i, mappedRow), equalTo(expected));
+            assertThat(handler.get(i, mappedFromBinRow), equalTo(expected));
+            assertThat(handler.get(i, deserializedMappedBinRow), equalTo(expected));
         }
     }
 
