@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
-import org.apache.ignite.internal.logger.IgniteLogger;
+import java.util.concurrent.CopyOnWriteArrayList;import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -42,15 +42,7 @@ public class RaftGroupEventsClientListener {
      * @param listener Listener.
     */
     public void addLeaderElectionListener(ReplicationGroupId groupId, LeaderElectionListener listener) {
-        leaderElectionListeners.compute(groupId, (k, listeners) -> {
-            if (listeners == null) {
-                listeners = new ArrayList<>();
-            }
-
-            listeners.add(listener);
-
-            return listeners;
-        });
+        leaderElectionListeners.computeIfAbsent(groupId, k -> new CopyOnWriteArrayList<>()).add(listener);
     }
 
     /**
@@ -60,14 +52,10 @@ public class RaftGroupEventsClientListener {
      * @param listener Listener.
     */
     public void removeLeaderElectionListener(ReplicationGroupId groupId, LeaderElectionListener listener) {
-        leaderElectionListeners.compute(groupId, (k, listeners) -> {
-            if (listeners == null) {
-                return null;
-            }
-
+        leaderElectionListeners.computeIfPresent(groupId, (k, listeners) -> {
             listeners.remove(listener);
 
-            return listeners;
+            return listeners.isEmpty()? null : listeners;
         });
     }
 
@@ -79,19 +67,15 @@ public class RaftGroupEventsClientListener {
      * @param term Election term.
     */
     public void onLeaderElected(ReplicationGroupId groupId, ClusterNode leader, long term) {
-        List<LeaderElectionListener> listenersToInvoke = new ArrayList<>();
+        List<LeaderElectionListener> listeners = leaderElectionListeners.get(groupId);
 
-        leaderElectionListeners.computeIfPresent(groupId, (k, listeners) -> {
-                listenersToInvoke.addAll(listeners);
-
-            return listeners;
-        });
-
-        for (LeaderElectionListener listener : listenersToInvoke) {
-            try {
-                listener.onLeaderElected(leader, term);
-            } catch (Exception e) {
-                LOG.warn("Failed to notify leader election listener for group=" + groupId, e);
+        if (listeners != null) {
+            for (LeaderElectionListener listener : listeners) {
+                try {
+                    listener.onLeaderElected(leader, term);
+                } catch (Exception e) {
+                    LOG.warn("Failed to notify leader election listener for group=" + groupId, e);
+                }
             }
         }
     }
