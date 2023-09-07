@@ -200,29 +200,25 @@ public class UpdateLogImpl implements UpdateLog {
 
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
-            try {
-                for (EntryEvent eventEntry : event.entryEvents()) {
-                    assert eventEntry.newEntry() != null;
-                    assert !eventEntry.newEntry().empty();
+            for (EntryEvent eventEntry : event.entryEvents()) {
+                assert eventEntry.newEntry() != null;
+                assert !eventEntry.newEntry().empty();
 
-                    byte[] payload = eventEntry.newEntry().value();
+                byte[] payload = eventEntry.newEntry().value();
 
-                    assert payload != null;
+                assert payload != null;
 
-                    VersionedUpdate update = fromBytes(payload);
+                VersionedUpdate update = fromBytes(payload);
 
-                    onUpdateHandler.handle(update, event.timestamp(), event.revision());
-                }
-
-                return CompletableFuture.completedFuture(null);
-            } catch (Throwable e) {
-                return failedFuture(e);
+                onUpdateHandler.handle(update, event.timestamp(), event.revision());
             }
+
+            return CompletableFuture.completedFuture(null);
         }
 
         @Override
         public void onError(Throwable e) {
-            // This code should never throw an error. See WatchProcessor::notifyWatches
+            // Do nothing.
         }
     }
 }
