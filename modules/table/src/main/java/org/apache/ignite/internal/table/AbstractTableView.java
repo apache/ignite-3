@@ -61,7 +61,7 @@ abstract class AbstractTableView {
             throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
         } catch (Exception e) {
             Throwable cause = ExceptionUtils.unwrapCause(e);
-            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(cause));
+            throw sneakyThrow(cause);
         }
     }
 }
