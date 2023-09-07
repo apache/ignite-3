@@ -27,14 +27,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
+import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams.Builder;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
+import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -159,30 +158,20 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         return createSortedIndexParams(indexName, false, indexColumns, columnsCollations);
     }
 
-    protected static CreateTableParams createTableParams(
+    protected static CatalogCommand createTableCommand(
             String tableName,
-            @Nullable List<ColumnParams> columns,
-            @Nullable List<String> primaryKeys,
+            List<ColumnParams> columns,
+            List<String> primaryKeys,
             @Nullable List<String> colocationColumns
     ) {
-        Builder builder = CreateTableParams.builder()
+        return CreateTableCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(DEFAULT_ZONE_NAME)
-                .tableName(tableName);
-
-        if (columns != null) {
-            builder.columns(columns);
-        }
-
-        if (primaryKeys != null) {
-            builder.primaryKeyColumns(primaryKeys);
-        }
-
-        if (colocationColumns != null) {
-            builder.colocationColumns(colocationColumns);
-        }
-
-        return builder.build();
+                .tableName(tableName)
+                .columns(columns)
+                .primaryKeyColumns(primaryKeys)
+                .colocationColumns(colocationColumns)
+                .build();
     }
 
     protected static ColumnParams columnParams(String name, ColumnType type) {
@@ -201,15 +190,15 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         return ColumnParams.builder().name(name).nullable(nullable).type(type);
     }
 
-    protected static DropTableParams dropTableParams(String tableName) {
-        return DropTableParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).build();
+    protected static CatalogCommand dropTableCommand(String tableName) {
+        return DropTableCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).build();
     }
 
-    protected static AlterTableDropColumnParams dropColumnParams(String... columns) {
-        return AlterTableDropColumnParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).columns(Set.of(columns)).build();
+    protected static CatalogCommand dropColumnParams(String... columns) {
+        return AlterTableDropColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).columns(Set.of(columns)).build();
     }
 
-    protected static AlterTableAddColumnParams addColumnParams(ColumnParams... columns) {
-        return AlterTableAddColumnParams.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).columns(List.of(columns)).build();
+    protected static CatalogCommand addColumnParams(ColumnParams... columns) {
+        return AlterTableAddColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(TABLE_NAME).columns(List.of(columns)).build();
     }
 }

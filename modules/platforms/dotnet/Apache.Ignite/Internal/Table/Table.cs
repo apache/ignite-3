@@ -183,18 +183,6 @@ namespace Apache.Ignite.Internal.Table
             : GetCachedSchemaAsync(version ?? _latestSchemaVersion);
 
         /// <summary>
-        /// Gets the latest schema.
-        /// </summary>
-        /// <returns>Schema.</returns>
-        internal Task<Schema> GetLatestSchemaAsync()
-        {
-            // _latestSchemaVersion can be -1 (unknown) or a valid version.
-            // In case of unknown version, we request latest from the server and cache it with -1 key
-            // to avoid duplicate requests for latest schema.
-            return GetCachedSchemaAsync(_latestSchemaVersion);
-        }
-
-        /// <summary>
         /// Gets the preferred node by colocation hash.
         /// </summary>
         /// <param name="colocationHash">Colocation hash.</param>

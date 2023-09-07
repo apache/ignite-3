@@ -22,11 +22,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
+import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
+import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.jetbrains.annotations.Nullable;
 
@@ -52,14 +53,15 @@ public class TableTestUtils {
             List<ColumnParams> columns,
             List<String> pkColumns
     ) {
-        CreateTableParams.Builder builder = CreateTableParams.builder()
+        CatalogCommand command = CreateTableCommand.builder()
                 .schemaName(schemaName)
                 .zone(zoneName)
                 .tableName(tableName)
                 .columns(columns)
-                .primaryKeyColumns(pkColumns);
+                .primaryKeyColumns(pkColumns)
+                .build();
 
-        assertThat(catalogManager.createTable(builder.build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(command), willCompleteSuccessfully());
     }
 
     /**
@@ -71,7 +73,7 @@ public class TableTestUtils {
      */
     public static void dropTable(CatalogManager catalogManager, String schemaName, String tableName) {
         assertThat(
-                catalogManager.dropTable(DropTableParams.builder().schemaName(schemaName).tableName(tableName).build()),
+                catalogManager.execute(DropTableCommand.builder().schemaName(schemaName).tableName(tableName).build()),
                 willCompleteSuccessfully()
         );
     }

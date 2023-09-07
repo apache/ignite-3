@@ -395,8 +395,8 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(UUID).build(),
-                ColumnParams.builder().name("VAL").type(UUID).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.UUID).build(),
+                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.UUID).nullable(true).build()
         );
 
         createTwoColumnTable(

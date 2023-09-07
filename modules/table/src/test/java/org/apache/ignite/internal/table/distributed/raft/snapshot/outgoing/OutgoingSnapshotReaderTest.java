@@ -24,6 +24,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
@@ -60,6 +61,7 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
                 "",
                 mock(RaftOptions.class),
                 partitionAccess,
+                mock(CatalogService.class),
                 mock(SnapshotMeta.class),
                 mock(Executor.class)
         );

@@ -44,7 +44,7 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
      *
      * @return Replication group id.
      */
-    protected static TablePartitionId createTableAssignment(MetaStorageManager metastore, int tableId, List<String> dataNodes) {
+    protected TablePartitionId createTableAssignment(MetaStorageManager metastore, int tableId, List<String> dataNodes) {
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(dataNodes, 1, dataNodes.size());
 
         Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());

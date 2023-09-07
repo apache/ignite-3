@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -40,12 +39,12 @@ import java.time.LocalTime;
 import java.util.Arrays;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
+import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Statement test.
@@ -83,10 +82,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     /** {@inheritDoc} */
     @BeforeEach
-    @Override
-    protected void beforeTest(TestInfo testInfo) throws Exception {
-        super.beforeTest(testInfo);
-
+    protected void beforeTest() throws Exception {
         pstmt = conn.prepareStatement(SQL_PREPARED);
 
         assertNotNull(pstmt);
@@ -99,15 +95,12 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     /** {@inheritDoc} */
     @AfterEach
-    @Override
-    protected void afterTest(TestInfo testInfo) throws Exception {
+    protected void afterTest() throws Exception {
         if (pstmt != null && !pstmt.isClosed()) {
             pstmt.close();
         }
 
         assertTrue(pstmt.isClosed());
-
-        super.afterTest(testInfo);
     }
 
     @Test
@@ -136,7 +129,10 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
         stmt.addBatch(ins1 + ";" + ins2);
 
-        assertThrows(BatchUpdateException.class, () -> stmt.executeBatch(), "Multiple statements are not allowed.");
+        JdbcTestUtils.assertThrowsSqlException(
+                BatchUpdateException.class,
+                "Multiple statements are not allowed.",
+                () -> stmt.executeBatch());
     }
 
     @Test
@@ -147,17 +143,17 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         stmt2.close();
         pstmt2.close();
 
-        assertThrows(SQLException.class, () -> stmt2.addBatch(""), "Statement is closed.");
+        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", () -> stmt2.addBatch(""));
 
-        assertThrows(SQLException.class, stmt2::clearBatch, "Statement is closed.");
+        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", stmt2::clearBatch);
 
-        assertThrows(SQLException.class, stmt2::executeBatch, "Statement is closed.");
+        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", stmt2::executeBatch);
 
-        assertThrows(SQLException.class, pstmt2::addBatch, "Statement is closed.");
+        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", pstmt2::addBatch);
 
-        assertThrows(SQLException.class, pstmt2::clearBatch, "Statement is closed.");
+        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", pstmt2::clearBatch);
 
-        assertThrows(SQLException.class, pstmt2::executeBatch, "Statement is closed.");
+        JdbcTestUtils.assertThrowsSqlException("Statement is closed.", pstmt2::executeBatch);
     }
 
     @Test

@@ -39,6 +39,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.network.ClusterNode;
@@ -95,7 +96,8 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 workDir,
                 NODES,
                 NODES,
-                false
+                false,
+                new HybridTimestampTracker()
         );
 
         testCluster.prepareCluster();

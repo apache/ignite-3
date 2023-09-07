@@ -32,14 +32,16 @@ public class SnapshotMetaUtils {
      * @param logIndex RAFT log index.
      * @param term Term corresponding to the index.
      * @param config RAFT group configuration.
+     * @param requiredCatalogVersion Catalog version that a follower/learner must have to have ability to accept this snapshot.
      * @return SnapshotMeta corresponding to the given log index.
      */
-    public static SnapshotMeta snapshotMetaAt(long logIndex, long term, RaftGroupConfiguration config) {
+    public static SnapshotMeta snapshotMetaAt(long logIndex, long term, RaftGroupConfiguration config, int requiredCatalogVersion) {
         SnapshotMetaBuilder metaBuilder = new RaftMessagesFactory().snapshotMeta()
                 .lastIncludedIndex(logIndex)
                 .lastIncludedTerm(term)
                 .peersList(config.peers())
-                .learnersList(config.learners());
+                .learnersList(config.learners())
+                .requiredCatalogVersion(requiredCatalogVersion);
 
         if (!config.isStable()) {
             //noinspection ConstantConditions

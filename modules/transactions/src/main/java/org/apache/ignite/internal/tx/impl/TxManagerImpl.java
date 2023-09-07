@@ -42,9 +42,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -120,25 +120,27 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public InternalTransaction begin() {
-        return begin(false, null);
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker) {
+        return begin(timestampTracker, false);
     }
 
     @Override
-    public InternalTransaction begin(boolean readOnly, @Nullable HybridTimestamp observableTimestamp) {
-        assert readOnly || observableTimestamp == null : "Observable timestamp is applicable just for read-only transactions.";
-
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
         updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));
 
         if (!readOnly) {
-            return new ReadWriteTransactionImpl(this, txId);
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId);
         }
+
+        HybridTimestamp observableTimestamp = timestampTracker.get();
 
         HybridTimestamp readTimestamp = observableTimestamp != null
                 ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
-                : clock.now();
+                : currentReadTimestamp();
+
+        timestampTracker.update(readTimestamp);
 
         lowWatermarkReadWriteLock.readLock().lock();
 
@@ -171,13 +173,14 @@ public class TxManagerImpl implements TxManager {
      * @return Current read timestamp.
      */
     private HybridTimestamp currentReadTimestamp() {
-        HybridTimestamp now = clock.now();
+        return clock.now();
 
-        return new HybridTimestamp(now.getPhysical()
-                - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
-                - HybridTimestamp.CLOCK_SKEW,
-                0
-        );
+        // TODO: IGNITE-20378 Fix it
+        // return new HybridTimestamp(now.getPhysical()
+        //         - ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+        //         - HybridTimestamp.CLOCK_SKEW,
+        //         0
+        // );
     }
 
     @Override
@@ -201,7 +204,23 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
+    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
+        TxState finalState;
+
+        if (commit) {
+            timestampTracker.update(clock.now());
+
+            finalState = COMMITED;
+        } else {
+            finalState = ABORTED;
+        }
+
+        updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitTimestamp()));
+    }
+
+    @Override
     public CompletableFuture<Void> finish(
+            HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
             ClusterNode recipientNode,
             Long term,
@@ -221,6 +240,8 @@ public class TxManagerImpl implements TxManager {
         if (!finishRequestNeeded) {
             return completedFuture(null);
         }
+
+        timestampTracker.update(commitTimestamp);
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                 .txId(txId)

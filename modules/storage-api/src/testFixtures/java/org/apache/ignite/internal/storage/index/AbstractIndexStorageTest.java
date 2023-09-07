@@ -19,9 +19,8 @@ package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateMvPartition;
+import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -51,7 +50,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -148,23 +146,23 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
      * Configures a test table with columns of all supported types.
      */
     private static void createTestTable(CatalogService catalogService, AtomicInteger catalogId) {
-        ColumnParams pkColumn = ColumnParams.builder().name("pk").type(ColumnType.INT32).nullable(false).build();
-
-        CreateTableParams createTableParams = CreateTableParams.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
-                .zone(DEFAULT_ZONE_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_PARAMS.stream()).collect(toList()))
-                .primaryKeyColumns(List.of("pk"))
-                .build();
+        ColumnParams pkColumn = ColumnParams.builder().name("pk").type(INT32).nullable(false).build();
 
         int tableId = catalogId.getAndIncrement();
         int zoneId = catalogId.getAndIncrement();
 
-        CatalogTableDescriptor table = CatalogUtils.fromParams(tableId, zoneId, createTableParams);
+        CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
+                tableId,
+                TABLE_NAME,
+                zoneId,
+                1,
+                Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_PARAMS.stream()).map(CatalogUtils::fromParams).collect(toList()),
+                List.of("pk"),
+                null
+        );
 
-        when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(table);
-        when(catalogService.table(eq(tableId), anyInt())).thenReturn(table);
+        when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
+        when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
     }
 
     /**

@@ -76,9 +76,7 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 
@@ -223,28 +221,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                         String.join(",", idx.getValue())));
             }
         }
-    }
-
-    /**
-     * Invokes before the test will start.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
-    @BeforeEach
-    public void setup(TestInfo testInfo) throws Exception {
-        setupBase(testInfo, WORK_DIR);
-    }
-
-    /**
-     * Invokes after the test has finished.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
-    @AfterEach
-    public void tearDown(TestInfo testInfo) throws Exception {
-        tearDownBase(testInfo);
     }
 
     /**

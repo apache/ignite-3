@@ -77,6 +77,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -158,15 +159,17 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *                        by itself.
      * @param placementDriver Placement driver.
      * @param schema Schema descriptor.
+     * @param tracker Observable timestamp tracker.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             TxManager txManager,
             boolean crossTableUsage,
             PlacementDriver placementDriver,
-            SchemaDescriptor schema
+            SchemaDescriptor schema,
+            HybridTimestampTracker tracker
     ) {
-        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, placementDriver, schema);
+        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, placementDriver, schema, tracker);
     }
 
     /**
@@ -176,8 +179,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param mvPartStorage Multi version partition storage.
      * @param schema Schema descriptor.
      */
-    public DummyInternalTableImpl(ReplicaService replicaSvc, MvPartitionStorage mvPartStorage, SchemaDescriptor schema) {
-        this(replicaSvc, mvPartStorage, null, false, null, schema);
+    public DummyInternalTableImpl(
+            ReplicaService replicaSvc,
+            MvPartitionStorage mvPartStorage,
+            SchemaDescriptor schema
+    ) {
+        this(replicaSvc, mvPartStorage, null, false, null, schema, new HybridTimestampTracker());
     }
 
     /**
@@ -197,7 +204,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             @Nullable TxManager txManager,
             boolean crossTableUsage,
             PlacementDriver placementDriver,
-            SchemaDescriptor schema
+            SchemaDescriptor schema,
+            HybridTimestampTracker tracker
     ) {
         super(
                 "test",
@@ -211,7 +219,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaSvc,
-                CLOCK
+                CLOCK,
+                tracker
         );
         RaftGroupService svc = raftGroupServiceByPartitionId.get(0);
 

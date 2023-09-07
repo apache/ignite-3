@@ -127,10 +127,12 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -295,6 +297,9 @@ public class IgniteImpl implements Ignite {
     private final CatalogManager catalogManager;
 
     private final AuthenticationManager authenticationManager;
+
+    /** Timestamp tracker for embedded transactions. */
+    private final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
 
     /**
      * The Constructor.
@@ -514,6 +519,7 @@ public class IgniteImpl implements Ignite {
         );
 
         raftMgr.appendEntriesRequestInterceptor(new CheckCatalogVersionOnAppendEntries(catalogManager));
+        raftMgr.actionRequestInterceptor(new CheckCatalogVersionOnActionRequest(catalogManager));
 
         SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
 
@@ -551,7 +557,8 @@ public class IgniteImpl implements Ignite {
                 vaultMgr,
                 distributionZoneManager,
                 schemaSyncService,
-                catalogManager
+                catalogManager,
+                observableTimestampTracker
         );
 
         indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
@@ -570,7 +577,7 @@ public class IgniteImpl implements Ignite {
                 metricManager
         );
 
-        sql = new IgniteSqlImpl(qryEngine, new IgniteTransactionsImpl(txManager));
+        sql = new IgniteSqlImpl(qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
@@ -600,7 +607,8 @@ public class IgniteImpl implements Ignite {
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
-                new IgniteTransactionsImpl(txManager),
+                //TODO: IGNITE-20232 The observable timestamp should be different for each client.
+                new IgniteTransactionsImpl(txManager, new HybridTimestampTracker()),
                 nodeConfigRegistry,
                 compute,
                 clusterSvc,
@@ -857,7 +865,7 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
-        return new IgniteTransactionsImpl(txManager);
+        return new IgniteTransactionsImpl(txManager, observableTimestampTracker);
     }
 
     /** {@inheritDoc} */

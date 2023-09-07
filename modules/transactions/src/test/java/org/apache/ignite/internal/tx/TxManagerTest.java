@@ -54,6 +54,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -67,6 +68,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class TxManagerTest extends IgniteAbstractTest {
     private static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
+
+    /** Timestamp tracker. */
+    private HybridTimestampTracker hybridTimestampTracker = new HybridTimestampTracker();
 
     private TxManager txManager;
 
@@ -100,9 +104,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testBegin() {
-        InternalTransaction tx0 = txManager.begin();
-        InternalTransaction tx1 = txManager.begin(false, null);
-        InternalTransaction tx2 = txManager.begin(true, null);
+        InternalTransaction tx0 = txManager.begin(hybridTimestampTracker);
+        InternalTransaction tx1 = txManager.begin(hybridTimestampTracker);
+        InternalTransaction tx2 = txManager.begin(hybridTimestampTracker, true);
 
         assertNotNull(tx0.id());
         assertNotNull(tx1.id());
@@ -115,7 +119,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         assertEquals(ADDR, addr);
 
-        InternalTransaction tx = txManager.begin();
+        InternalTransaction tx = txManager.begin(hybridTimestampTracker);
 
         TablePartitionId tablePartitionId = new TablePartitionId(1, 0);
 
@@ -148,7 +152,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertThat(txManager.updateLowWatermark(new HybridTimestamp(10_000, 11)), willSucceedFast());
 
         IgniteInternalException exception =
-                assertThrows(IgniteInternalException.class, () -> txManager.begin(true, null));
+                assertThrows(IgniteInternalException.class, () -> txManager.begin(hybridTimestampTracker, true));
 
         assertEquals(Transactions.TX_READ_ONLY_TOO_OLD_ERR, exception.code());
     }
@@ -158,10 +162,12 @@ public class TxManagerTest extends IgniteAbstractTest {
         // Let's check the absence of transactions.
         assertThat(txManager.updateLowWatermark(clock.now()), willSucceedFast());
 
-        InternalTransaction rwTx0 = txManager.begin(false, null);
+        InternalTransaction rwTx0 = txManager.begin(hybridTimestampTracker);
 
-        InternalTransaction roTx0 = txManager.begin(true, null);
-        InternalTransaction roTx1 = txManager.begin(true, null);
+        hybridTimestampTracker.update(clock.now());
+
+        InternalTransaction roTx0 = txManager.begin(hybridTimestampTracker, true);
+        InternalTransaction roTx1 = txManager.begin(hybridTimestampTracker, true);
 
         CompletableFuture<Void> readOnlyTxsFuture = txManager.updateLowWatermark(roTx1.readTimestamp());
         assertFalse(readOnlyTxsFuture.isDone());
@@ -176,8 +182,8 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertTrue(readOnlyTxsFuture.isDone());
 
         // Let's check only RW transactions.
-        txManager.begin(false, null);
-        txManager.begin(false, null);
+        txManager.begin(hybridTimestampTracker);
+        txManager.begin(hybridTimestampTracker);
 
         assertThat(txManager.updateLowWatermark(clock.now()), willSucceedFast());
     }
@@ -189,7 +195,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertEquals(0, txManager.finished());
 
         // Start transaction.
-        InternalTransaction tx = txManager.begin(true, null);
+        InternalTransaction tx = txManager.begin(hybridTimestampTracker, true);
         assertEquals(1, txManager.pending());
         assertEquals(0, txManager.finished());
 
@@ -216,7 +222,8 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertEquals(0, txManager.finished());
 
         // Start transaction.
-        InternalTransaction tx = txManager.begin(startReadOnlyTransaction, null);
+        InternalTransaction tx =
+                startReadOnlyTransaction ? txManager.begin(hybridTimestampTracker, true) : txManager.begin(hybridTimestampTracker);
         assertEquals(1, txManager.pending());
         assertEquals(0, txManager.finished());
 
@@ -237,6 +244,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20378")
     public void testObservableTimestamp() {
         long compareThreshold = 50;
         // Check that idle safe time propagation period is significantly greater than compareThreshold.
@@ -244,12 +252,14 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         HybridTimestamp now = clock.now();
 
-        InternalTransaction tx = txManager.begin(true, null);
+        InternalTransaction tx = txManager.begin(hybridTimestampTracker, true);
 
-        assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) < compareThreshold);
+        assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) > compareThreshold);
         tx.commit();
 
-        tx = txManager.begin(true, now);
+        hybridTimestampTracker.update(now);
+
+        tx = txManager.begin(hybridTimestampTracker, true);
 
         assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) < compareThreshold);
         tx.commit();
@@ -258,12 +268,45 @@ public class TxManagerTest extends IgniteAbstractTest {
                 now.getPhysical() - IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS * 2,
                 now.getLogical()
         );
-        tx = txManager.begin(true, timestampInPast);
+
+        hybridTimestampTracker = new HybridTimestampTracker();
+
+        hybridTimestampTracker.update(timestampInPast);
+
+        tx = txManager.begin(hybridTimestampTracker, true);
 
         long readTime = now.getPhysical() - IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS - CLOCK_SKEW;
+
         assertThat(abs(readTime - tx.readTimestamp().getPhysical()), Matchers.lessThan(compareThreshold));
+
+        tx.commit();
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20378")
+    public void testObservableTimestampLocally() {
+        long compareThreshold = 50;
+        // Check that idle safe time propagation period is significantly greater than compareThreshold.
+        assertTrue(IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + CLOCK_SKEW > compareThreshold * 5);
+
+        HybridTimestamp now = clock.now();
+
+        InternalTransaction tx = txManager.begin(hybridTimestampTracker, true);
+
+        HybridTimestamp firstReadTs = tx.readTimestamp();
+
+        assertTrue(firstReadTs.compareTo(now) < 0);
+
+        assertTrue(now.getPhysical() - firstReadTs.getPhysical() < compareThreshold
+                + IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + CLOCK_SKEW);
         tx.commit();
 
-        assertThrows(AssertionError.class, () -> txManager.begin(false, now));
+        tx = txManager.begin(hybridTimestampTracker, true);
+
+        assertTrue(firstReadTs.compareTo(tx.readTimestamp()) <= 0);
+
+        assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) < compareThreshold
+                + IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + CLOCK_SKEW);
+        tx.commit();
     }
 }

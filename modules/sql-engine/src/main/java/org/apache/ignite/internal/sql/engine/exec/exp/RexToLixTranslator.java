@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
 //CHECKSTYLE:OFF
+import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.adapter.enumerable.PhysType;
@@ -109,7 +110,8 @@ import static java.util.Objects.requireNonNull;
  * 4. RexToLixTranslator#translateCast() case INTERVAL_SECOND -> case CHARACTER special case converters.
  * 5. RexToLixTranslator#translateCast() case TIMESTAMP -> case CHAR  special case converters.
  * 6. RexToLixTranslator#translateLiteral() case DECIMAL special case converters.
- * 7. EnumUtils.convert -> ConverterUtils.convert
+ * 7. RexToLixTranslator#translateCast() ANY branch
+ * 8. EnumUtils.convert -> ConverterUtils.convert
  */
 public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result> {
     public static final Map<Method, SqlOperator> JAVA_TO_SQL_METHOD_MAP =
@@ -287,6 +289,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
             RelDataType sourceType,
             RelDataType targetType,
             Expression operand) {
+        final Supplier<Expression> defaultExpression = () ->
+                EnumUtils.convert(operand, typeFactory.getJavaClass(targetType));
+
         Expression convert = null;
         switch (targetType.getSqlTypeName()) {
             case ANY:
@@ -301,12 +306,11 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 switch (sourceType.getSqlTypeName()) {
                     case CHAR:
                     case VARCHAR:
-                        convert = Expressions.call(BuiltInMethod.ST_GEOM_FROM_EWKT.method, operand);
-                        break;
+                        return Expressions.call(BuiltInMethod.ST_GEOM_FROM_EWKT.method, operand);
+
                     default:
-                        break;
+                        return defaultExpression.get();
                 }
-                break;
             case DATE:
                 convert = translateCastToDate(sourceType, operand);
                 break;

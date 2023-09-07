@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.util;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

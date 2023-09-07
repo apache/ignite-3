@@ -35,7 +35,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     /// Object serializer handler.
     /// </summary>
     /// <typeparam name="T">Object type.</typeparam>
-    internal class ObjectSerializerHandler<T> : IRecordSerializerHandler<T>
+    internal sealed class ObjectSerializerHandler<T> : IRecordSerializerHandler<T>
     {
         private readonly ConcurrentDictionary<(int, int), WriteDelegate<T>> _writers = new();
 

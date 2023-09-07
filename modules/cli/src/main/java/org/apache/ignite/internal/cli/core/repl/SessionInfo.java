@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.cli.core.repl;
 
+import org.apache.ignite.internal.cli.core.call.CallInput;
 import org.jetbrains.annotations.Nullable;
 
 /** Representation of session details. */
-public class SessionInfo {
+public class SessionInfo implements CallInput {
     private final String nodeUrl;
 
     private final String nodeName;

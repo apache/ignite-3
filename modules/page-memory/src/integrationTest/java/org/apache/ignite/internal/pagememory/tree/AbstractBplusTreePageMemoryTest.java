@@ -103,7 +103,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * An abstract class for testing {@link BplusTree} using different implementations of {@link PageMemory}.
@@ -152,9 +151,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     private boolean debugPrint = false;
 
     @BeforeEach
-    protected void beforeEach(TestInfo testInfo) throws Exception {
-        setupBase(testInfo, null);
-
+    protected void beforeEach() throws Exception {
         stop.set(false);
 
         long seed = System.nanoTime();
@@ -171,7 +168,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     }
 
     @AfterEach
-    protected void afterTest(TestInfo testInfo) throws Exception {
+    protected void afterTest() throws Exception {
         rnd = null;
 
         try {
@@ -210,8 +207,6 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             RMV_INC = -1;
             CNT = 10;
         }
-
-        tearDownBase(testInfo);
     }
 
     /**

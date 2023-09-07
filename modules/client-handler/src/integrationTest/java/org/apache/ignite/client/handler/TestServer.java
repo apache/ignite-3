@@ -24,7 +24,6 @@ import static org.mockito.Mockito.mock;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import javax.annotation.Nullable;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.configuration.AuthenticationConfiguration;
@@ -43,6 +42,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.sql.IgniteSql;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mockito;
 
