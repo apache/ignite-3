@@ -113,12 +113,6 @@ final class TableOperations {
     }
 
     private static  <T> CompletableFuture<T> convertExceptionAsync(CompletionStage<T> f) {
-        return f.handle((r, t) -> {
-            if (t != null) {
-                throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(t));
-            } else {
-                return r;
-            }
-        }).toCompletableFuture();
+        return IgniteExceptionMapperUtil.convertToPublicFuture(f.toCompletableFuture());
     }
 }

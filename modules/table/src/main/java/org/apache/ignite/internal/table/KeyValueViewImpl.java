@@ -570,7 +570,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView implements KeyValu
     public CompletableFuture<Void> streamData(Publisher<Entry<K, V>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        var tbl = tableOps.internalTable();
+        InternalTable tbl = tableOps.internalTable();
         var partitioner = new KeyValuePojoStreamerPartitionAwarenessProvider<>(rowConverter.registry(), tbl.partitions(), marshaller());
         StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items)
                 -> tableOps.upsertAll(marshalPairs(items), partitionId);

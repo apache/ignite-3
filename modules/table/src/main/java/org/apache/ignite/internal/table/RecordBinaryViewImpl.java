@@ -380,7 +380,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
     public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        var tbl = tableOps.internalTable();
+        InternalTable tbl = tableOps.internalTable();
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, items) ->
                 tableOps.upsertAll(mapToBinary(items, false), partitionId);

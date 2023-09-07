@@ -441,7 +441,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        var tbl = tableOps.internalTable();
+        InternalTable tbl = tableOps.internalTable();
         var partitioner = new PojoStreamerPartitionAwarenessProvider<>(rowConverter.registry(), tbl.partitions(), marshaller());
         StreamerBatchSender<R, Integer> batchSender = (partitionId, items) -> tableOps.upsertAll(marshal(items), partitionId);
 
