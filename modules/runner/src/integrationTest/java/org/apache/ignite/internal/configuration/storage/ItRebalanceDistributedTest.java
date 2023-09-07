@@ -796,7 +796,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-            raftManager = spy(new Loza(clusterService, raftConfiguration, dir, clock, raftGroupEventsClientListener));
+            raftManager = spy(new Loza(clusterService, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener));
 
             var clusterStateStorage = new TestClusterStateStorage();
             var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
@@ -1244,7 +1244,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static @Nullable Integer getTableId(Node node, String tableName) {
-        return TableTestUtils.getTableId(node.catalogManager, tableName, node.clock.nowLong());
+        return TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
     }
 
     private Node getNode(int nodeIndex) {

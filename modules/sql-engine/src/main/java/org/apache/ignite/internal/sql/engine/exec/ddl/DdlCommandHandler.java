@@ -26,6 +26,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.TableExistsValidationException;
+import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
@@ -44,8 +46,6 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
-import org.apache.ignite.lang.TableAlreadyExistsException;
-import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.SqlException;
 
 /** DDL commands handler. */
@@ -116,14 +116,14 @@ public class DdlCommandHandler {
 
     /** Handles create table command. */
     private CompletableFuture<Boolean> handleCreateTable(CreateTableCommand cmd) {
-        return catalogManager.createTable(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifTableExists(), TableAlreadyExistsException.class));
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifTableExists(), TableExistsValidationException.class));
     }
 
     /** Handles drop table command. */
     private CompletableFuture<Boolean> handleDropTable(DropTableCommand cmd) {
-        return catalogManager.dropTable(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundValidationException.class));
     }
 
     /** Handles add column command. */
@@ -132,8 +132,8 @@ public class DdlCommandHandler {
             return completedFuture(Boolean.FALSE);
         }
 
-        return catalogManager.addColumn(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundValidationException.class));
     }
 
     /** Handles drop column command. */
@@ -142,14 +142,14 @@ public class DdlCommandHandler {
             return completedFuture(Boolean.FALSE);
         }
 
-        return catalogManager.dropColumn(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundValidationException.class));
     }
 
     /** Handles drop column command. */
     private CompletableFuture<Boolean> handleAlterColumn(AlterColumnCommand cmd) {
-        return catalogManager.alterColumn(DdlToCatalogCommandConverter.convert(cmd))
-                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundException.class));
+        return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
+                .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundValidationException.class));
     }
 
     private static BiFunction<Object, Throwable, Boolean> handleModificationResult(boolean ignoreExpectedError, Class<?> expErrCls) {

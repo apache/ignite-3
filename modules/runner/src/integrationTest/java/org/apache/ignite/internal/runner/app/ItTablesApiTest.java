@@ -431,7 +431,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param node Ignite node.
      * @param tableName Table name.
      */
-    private static void addColumnIfNotExists(Ignite node, String tableName) {
+    private void addColumnIfNotExists(Ignite node, String tableName) {
         try {
             addColumn(node, tableName);
         } catch (ColumnAlreadyExistsException e) {

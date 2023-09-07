@@ -45,7 +45,6 @@ public class DropIndexEntry implements UpdateEntry, Fireable {
      *
      * @param indexId An id of an index to drop.
      * @param tableId Table ID for which the index was removed.
-     *
      */
     public DropIndexEntry(int indexId, int tableId) {
         this.indexId = indexId;
