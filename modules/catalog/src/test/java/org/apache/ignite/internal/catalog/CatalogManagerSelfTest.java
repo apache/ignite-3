@@ -1762,8 +1762,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         List<CatalogSystemViewDescriptor> initialViews = Arrays.stream(systemSchema.systemViews())
                 .sorted(Comparator.comparing(CatalogObjectDescriptor::name)).collect(toList());
 
-        // Replace view1
-
         systemViewModification.apply(viewBuilder);
 
         assertThat(manager.execute(viewBuilder.build()), willCompleteSuccessfully());
@@ -1777,13 +1775,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertEquals(1, views.size());
 
-        // View1 should have been replaced.
+        // System view should have been updated.
         CatalogSystemViewDescriptor view1 = views.get(0);
-        assertNotEquals(view1.id(), initialViews.get(0).id(), "view1 id");
+        assertNotEquals(view1.id(), initialViews.get(0).id(), "view id didn't change");
     }
 
     /**
-     * View modifications that lead to update.
+     * System view modifications.
      */
     public enum SystemViewModification {
         CHANGE_TYPE,
@@ -1846,7 +1844,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void testCreateSystemViewDoesReplacesExistingViewWithTheSameNameIfDataIsTheSame() {
+    public void testCreateSystemViewDoesNotReplaceExistingViewWithTheSameNameIfItsStructureIsTheSame() {
         CreateSystemViewCommand command1 = CreateSystemViewCommand.builder()
                 .name("view1")
                 .columns(List.of(
