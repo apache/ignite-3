@@ -246,7 +246,15 @@ public class PartitionListener implements RaftGroupListener {
                 rowId -> {
                     // Cleanup is not required for one-phase transactions.
                     if (!cmd.full()) {
-                        txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId);
+                        txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
+                            if (v == null) {
+                                v = new TreeSet<>();
+                            }
+
+                            v.add(rowId);
+
+                            return v;
+                        });
                     }
 
                     storage.lastApplied(commandIndex, commandTerm);
@@ -275,7 +283,15 @@ public class PartitionListener implements RaftGroupListener {
                     // Cleanup is not required for one-phase transactions.
                     if (!cmd.full()) {
                         for (RowId rowId : rowIds) {
-                            txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new TreeSet<>()).add(rowId);
+                            txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
+                                if (v == null) {
+                                    v = new TreeSet<>();
+                                }
+
+                                v.add(rowId);
+
+                                return v;
+                            });
                         }
                     }
 

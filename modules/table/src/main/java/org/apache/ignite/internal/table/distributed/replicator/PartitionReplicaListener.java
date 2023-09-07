@@ -72,6 +72,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -161,6 +163,9 @@ import org.jetbrains.annotations.Nullable;
 
 /** Partition replication listener. */
 public class PartitionReplicaListener implements ReplicaListener {
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaListener.class);
+
     /** Factory to create RAFT command messages. */
     private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
 
@@ -1264,7 +1269,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Processes transaction cleanup request:
      * <ol>
-     *     <li>Waits for finishing of transactional operations;</li>
+     *     <li>Waits for finishing of local transactional operations;</li>
      *     <li>Runs asynchronously the specific raft {@code TxCleanupCommand} command, that will convert all pending entries(writeIntents)
      *     to either regular values({@link TxState#COMMITED}) or removing them ({@link TxState#ABORTED});</li>
      *     <li>Releases all locks that were held on local Replica by given transaction.</li>
@@ -1335,7 +1340,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                         cleanupLocally(request.txId(), request.commit(), request.commitTimestamp());
 
-                        raftClient.run(txCleanupCmd);
+                        raftClient.run(txCleanupCmd)
+                                .exceptionally(e -> {
+                                    LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', e);
+
+                                    return completedFuture(null);
+                                });
 
                         return allOffFuturesExceptionIgnored(txReadFutures, request)
                                 .thenRun(() -> releaseTxLocks(request.txId()));
