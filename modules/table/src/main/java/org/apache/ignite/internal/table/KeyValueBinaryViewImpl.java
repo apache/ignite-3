@@ -486,7 +486,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender =
-                (partitionId, items) -> this.tbl.upsertAll(marshalPairs(items), partitionId);
+                (partitionId, items) -> convertToPublicFuture(this.tbl.upsertAll(marshalPairs(items), partitionId));
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }
