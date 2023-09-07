@@ -60,8 +60,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -2283,8 +2281,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         tbl,
                         safeTimeTracker
                 );
-
-                Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
 
                 return runAsync(() -> inBusyLock(busyLock, () -> {
                     try {
