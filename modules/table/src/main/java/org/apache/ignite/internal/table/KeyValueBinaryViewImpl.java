@@ -79,7 +79,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row keyRow = marshal(key, null);
 
-        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::unmarshalValue);
+        return tableOps.get(keyRow, (InternalTransaction) tx).thenApply(this::unmarshalValue);
     }
 
     /**
@@ -113,7 +113,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, Tuple key, Tuple defaultValue) {
         BinaryRowEx keyRow = marshal(Objects.requireNonNull(key), null);
 
-        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(r -> IgniteUtils.nonNullOrElse(unmarshalValue(r), defaultValue));
+        return tableOps.get(keyRow, (InternalTransaction) tx).thenApply(r -> IgniteUtils.nonNullOrElse(unmarshalValue(r), defaultValue));
     }
 
     /** {@inheritDoc} */
@@ -127,7 +127,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
         List<BinaryRowEx> keyRows = marshalKeys(Objects.requireNonNull(keys));
 
-        return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(this::unmarshalValue);
+        return tableOps.getAll(keyRows, (InternalTransaction) tx).thenApply(this::unmarshalValue);
     }
 
     /** {@inheritDoc} */
@@ -156,7 +156,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row row = marshal(key, val);
 
-        return tbl.upsert(row, (InternalTransaction) tx);
+        return tableOps.upsert(row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -170,7 +170,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, Map<Tuple, Tuple> pairs) {
         Objects.requireNonNull(pairs);
 
-        return tbl.upsertAll(marshalPairs(pairs.entrySet()), (InternalTransaction) tx);
+        return tableOps.upsertAll(marshalPairs(pairs.entrySet()), (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -187,7 +187,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row row = marshal(key, val);
 
-        return tbl.getAndUpsert(row, (InternalTransaction) tx).thenApply(this::unmarshalValue);
+        return tableOps.getAndUpsert(row, (InternalTransaction) tx).thenApply(this::unmarshalValue);
     }
 
     /**
@@ -225,7 +225,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row row = marshal(key, val);
 
-        return tbl.insert(row, (InternalTransaction) tx);
+        return tableOps.insert(row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -247,7 +247,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row row = marshal(key, null);
 
-        return tbl.delete(row, (InternalTransaction) tx);
+        return tableOps.delete(row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -258,7 +258,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row row = marshal(key, val);
 
-        return tbl.deleteExact(row, (InternalTransaction) tx);
+        return tableOps.deleteExact(row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -272,7 +272,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
         List<BinaryRowEx> keyRows = marshalKeys(Objects.requireNonNull(keys));
 
-        return tbl.deleteAll(keyRows, (InternalTransaction) tx)
+        return tableOps.deleteAll(keyRows, (InternalTransaction) tx)
                        .thenApply(this::unmarshalKeys);
     }
 
@@ -289,7 +289,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, Tuple key) {
         Objects.requireNonNull(key);
 
-        return tbl.getAndDelete(marshal(key, null), (InternalTransaction) tx).thenApply(this::unmarshalValue);
+        return tableOps.getAndDelete(marshal(key, null), (InternalTransaction) tx).thenApply(this::unmarshalValue);
     }
 
     /**
@@ -332,7 +332,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
         Row row = marshal(key, val);
 
-        return tbl.replace(row, (InternalTransaction) tx);
+        return tableOps.replace(row, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -350,7 +350,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Row oldRow = marshal(key, oldVal);
         Row newRow = marshal(key, newVal);
 
-        return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
+        return tableOps.replace(oldRow, newRow, (InternalTransaction) tx);
     }
 
     /** {@inheritDoc} */
@@ -365,7 +365,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return tbl.getAndReplace(marshal(key, val), (InternalTransaction) tx).thenApply(this::unmarshalValue);
+        return tableOps.getAndReplace(marshal(key, val), (InternalTransaction) tx).thenApply(this::unmarshalValue);
     }
 
     /**
@@ -481,9 +481,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
+        var tbl = tableOps.internalTable();
         var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender =
-                (partitionId, items) -> tbl.upsertAll(marshalPairs(items), partitionId);
+                (partitionId, items) -> tableOps.upsertAll(marshalPairs(items), partitionId);
 
         return DataStreamer.streamData(publisher, options, batchSender, partitioner);
     }

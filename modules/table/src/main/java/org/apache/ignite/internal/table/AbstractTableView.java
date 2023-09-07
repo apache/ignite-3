@@ -29,7 +29,7 @@ import org.apache.ignite.lang.IgniteExceptionMapperUtil;
  */
 abstract class AbstractTableView {
     /** Internal table. */
-    protected final InternalTable tbl;
+    protected final TableOperations tableOps;
 
     /** Table row view converter. */
     protected final TableViewRowConverter rowConverter;
@@ -41,7 +41,7 @@ abstract class AbstractTableView {
      * @param schemaReg Schema registry.
      */
     protected AbstractTableView(InternalTable tbl, SchemaRegistry schemaReg) {
-        this.tbl = tbl;
+        this.tableOps = new TableOperations(tbl);
         this.rowConverter = new TableViewRowConverter(schemaReg);
     }
 
