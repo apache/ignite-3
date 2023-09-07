@@ -83,12 +83,10 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandB
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.commands.DropIndexParams;
+import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -821,7 +819,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void testDropTableWithIndex() {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
+        assertThat(manager.execute(simpleIndex()), willBe(nullValue()));
 
         long beforeDropTimestamp = clock.nowLong();
 
@@ -862,7 +860,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testCreateHashIndex() {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
-        assertThat(manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("VAL", "ID"))), willBe(nullValue()));
+        assertThat(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID"))), willBe(nullValue()));
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(1);
@@ -893,14 +891,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testCreateSortedIndex() {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
-        CreateSortedIndexParams params = createSortedIndexParams(
+        CatalogCommand command = createSortedIndexCommand(
                 INDEX_NAME,
                 true,
                 List.of("VAL", "ID"),
                 List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST)
         );
 
-        assertThat(manager.createIndex(params), willBe(nullValue()));
+        assertThat(manager.execute(command), willBe(nullValue()));
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(1);
@@ -1032,9 +1030,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateIndexEvents() {
-        CreateHashIndexParams createIndexParams = createHashIndexParams(INDEX_NAME, List.of("ID"));
+        CatalogCommand createIndexCmd = createHashIndexCommand(INDEX_NAME, List.of("ID"));
 
-        DropIndexParams dropIndexParams = DropIndexParams.builder().indexName(INDEX_NAME).build();
+        CatalogCommand dropIndexCmd = DropIndexCommand.builder().indexName(INDEX_NAME).build();
 
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
         when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
@@ -1043,7 +1041,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.INDEX_DROP, eventListener);
 
         // Try to create index without table.
-        assertThat(manager.createIndex(createIndexParams), willThrow(TableNotFoundException.class));
+        assertThat(manager.execute(createIndexCmd), willThrow(TableNotFoundException.class));
         verifyNoInteractions(eventListener);
 
         // Create table with PK index.
@@ -1053,13 +1051,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         clearInvocations(eventListener);
 
         // Create index.
-        assertThat(manager.createIndex(createIndexParams), willCompleteSuccessfully());
+        assertThat(manager.execute(createIndexCmd), willCompleteSuccessfully());
         verify(eventListener).notify(any(CreateIndexEventParameters.class), isNull());
 
         clearInvocations(eventListener);
 
         // Drop index.
-        assertThat(manager.dropIndex(dropIndexParams), willBe(nullValue()));
+        assertThat(manager.execute(dropIndexCmd), willBe(nullValue()));
         verify(eventListener).notify(any(DropIndexEventParameters.class), isNull());
 
         clearInvocations(eventListener);
@@ -1068,7 +1066,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
         // Try drop index once again.
-        assertThat(manager.dropIndex(dropIndexParams), willThrow(IndexNotFoundException.class));
+        assertThat(manager.execute(dropIndexCmd), willThrow(IndexNotFoundException.class));
 
         verify(eventListener).notify(any(DropIndexEventParameters.class), isNull());
     }
@@ -1425,7 +1423,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     void testGetTableIdOnDropIndexEvent() {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
-        assertThat(manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("VAL"))), willBe(nullValue()));
+        assertThat(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL"))), willBe(nullValue()));
 
         int tableId = manager.table(TABLE_NAME, clock.nowLong()).id();
         int pkIndexId = manager.index(createPkIndexName(TABLE_NAME), clock.nowLong()).id();
@@ -1443,7 +1441,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Let's remove the index.
         assertThat(
-                manager.dropIndex(DropIndexParams.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                manager.execute(DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build()),
                 willBe(nullValue())
         );
 
@@ -1469,7 +1467,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertEquals(1, manager.latestCatalogVersion());
 
-        assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
+        assertThat(manager.execute(simpleIndex()), willBe(nullValue()));
         assertEquals(2, manager.latestCatalogVersion());
     }
 
@@ -1486,7 +1484,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     void testIndexes() {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
+        assertThat(manager.execute(simpleIndex()), willBe(nullValue()));
 
         assertThat(manager.indexes(0), empty());
         assertThat(manager.indexes(1), hasItems(index(1, createPkIndexName(TABLE_NAME))));
@@ -1562,15 +1560,15 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     void testCreateIndexWithAlreadyExistingName() {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
-        assertThat(manager.createIndex(simpleIndex()), willCompleteSuccessfully());
+        assertThat(manager.execute(simpleIndex()), willCompleteSuccessfully());
 
         assertThat(
-                manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("VAL"))),
+                manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL"))),
                 willThrowFast(IndexAlreadyExistsException.class)
         );
 
         assertThat(
-                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
+                manager.execute(createSortedIndexCommand(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
                 willThrowFast(IndexAlreadyExistsException.class)
         );
     }
@@ -1580,12 +1578,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         assertThat(
-                manager.createIndex(createHashIndexParams(TABLE_NAME, List.of("VAL"))),
+                manager.execute(createHashIndexCommand(TABLE_NAME, List.of("VAL"))),
                 willThrowFast(TableAlreadyExistsException.class)
         );
 
         assertThat(
-                manager.createIndex(createSortedIndexParams(TABLE_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
+                manager.execute(createSortedIndexCommand(TABLE_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
                 willThrowFast(TableAlreadyExistsException.class)
         );
     }
@@ -1593,12 +1591,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     void testCreateIndexWithNotExistingTable() {
         assertThat(
-                manager.createIndex(createHashIndexParams(TABLE_NAME, List.of("VAL"))),
+                manager.execute(createHashIndexCommand(TABLE_NAME, List.of("VAL"))),
                 willThrowFast(TableNotFoundException.class)
         );
 
         assertThat(
-                manager.createIndex(createSortedIndexParams(TABLE_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
+                manager.execute(createSortedIndexCommand(TABLE_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
                 willThrowFast(TableNotFoundException.class)
         );
     }
@@ -1608,12 +1606,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         assertThat(
-                manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("fake"))),
+                manager.execute(createHashIndexCommand(INDEX_NAME, List.of("fake"))),
                 willThrowFast(ColumnNotFoundException.class)
         );
 
         assertThat(
-                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("fake"), List.of(ASC_NULLS_LAST))),
+                manager.execute(createSortedIndexCommand(INDEX_NAME, List.of("fake"), List.of(ASC_NULLS_LAST))),
                 willThrowFast(ColumnNotFoundException.class)
         );
     }
@@ -1623,19 +1621,19 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         assertThat(
-                manager.createIndex(createHashIndexParams(INDEX_NAME, true, List.of("VAL"))),
+                manager.execute(createHashIndexCommand(INDEX_NAME, true, List.of("VAL"))),
                 willThrowFast(IgniteException.class, "Unique index must include all colocation columns")
         );
 
         assertThat(
-                manager.createIndex(createSortedIndexParams(INDEX_NAME, true, List.of("VAL"), List.of(ASC_NULLS_LAST))),
+                manager.execute(createSortedIndexCommand(INDEX_NAME, true, List.of("VAL"), List.of(ASC_NULLS_LAST))),
                 willThrowFast(IgniteException.class, "Unique index must include all colocation columns")
         );
     }
 
     @Test
     void testDropNotExistingIndex() {
-        assertThat(manager.dropIndex(DropIndexParams.builder().indexName(INDEX_NAME).build()), willThrowFast(IndexNotFoundException.class));
+        assertThat(manager.execute(DropIndexCommand.builder().indexName(INDEX_NAME).build()), willThrowFast(IndexNotFoundException.class));
     }
 
     @Test
@@ -1668,7 +1666,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     void testDropColumnWithIndexColumns() {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
-        assertThat(manager.createIndex(simpleIndex()), willCompleteSuccessfully());
+        assertThat(manager.execute(simpleIndex()), willCompleteSuccessfully());
 
         assertThat(
                 manager.execute(dropColumnParams("VAL")),
@@ -1830,8 +1828,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         return createTableCommand(tableName, cols, List.of(cols.get(0).name()), List.of(cols.get(0).name()));
     }
 
-    private static CreateSortedIndexParams simpleIndex() {
-        return createSortedIndexParams(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST));
+    private static CatalogCommand simpleIndex() {
+        return createSortedIndexCommand(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST));
     }
 
     private static class TestColumnTypeParams {
