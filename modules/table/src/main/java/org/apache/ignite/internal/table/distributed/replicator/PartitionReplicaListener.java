@@ -412,7 +412,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result future.
      */
     private CompletableFuture<LeaderOrTxState> processTxStateReplicaRequest(TxStateReplicaRequest request) {
-        return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now().addPhysicalTime(HybridTimestamp.CLOCK_SKEW))
+        return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
                 .thenCompose(primaryReplica -> {
                     if (isLocalPeer(primaryReplica.getLeaseholder())) {
                         CompletableFuture<TxMeta> txStateFut = getTxStateConcurrently(request);
@@ -2352,12 +2352,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         if (expectedTerm != null) {
-            return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now().addPhysicalTime(HybridTimestamp.CLOCK_SKEW))
+            return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
                     .thenCompose(primaryReplica -> {
                                 long currentEnlistmentConsistencyToken = primaryReplica.getStartTime().longValue();
 
                                 if (expectedTerm.equals(currentEnlistmentConsistencyToken)) {
                                     if (primaryReplica.getExpirationTime().before(hybridClock.now())) {
+                                        // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
                                         return failedFuture(
                                                 new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
                                     } else {
@@ -2369,7 +2370,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             }
                     );
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
-            return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now().addPhysicalTime(HybridTimestamp.CLOCK_SKEW))
+            return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
                     .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
         } else {
             return completedFuture(null);

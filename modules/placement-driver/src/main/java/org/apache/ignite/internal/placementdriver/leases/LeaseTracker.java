@@ -21,6 +21,7 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.placementdriver.leases.Lease.EMPTY_LEASE;
@@ -211,22 +212,24 @@ public class LeaseTracker implements PlacementDriver {
 
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+       HybridTimestamp timestampWithClockSkew = timestamp.addPhysicalTime(CLOCK_SKEW);
+
         return inBusyLockAsync(busyLock, () -> {
             Map<ReplicationGroupId, Lease> leasesMap = leases.leaseByGroupId();
 
             Lease lease = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);
 
-            if (lease.getExpirationTime().after(timestamp)) {
+            if (lease.getExpirationTime().after(timestampWithClockSkew)) {
                 return completedFuture(lease);
             }
 
             return msManager
                     .clusterTime()
-                    .waitFor(timestamp)
+                    .waitFor(timestampWithClockSkew)
                     .thenApply(ignored -> inBusyLock(busyLock, () -> {
                         Lease lease0 = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);
 
-                        if (lease0.getExpirationTime().after(timestamp)) {
+                        if (lease0.getExpirationTime().after(timestampWithClockSkew)) {
                             return lease0;
                         } else {
                             return null;

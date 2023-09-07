@@ -1566,7 +1566,7 @@ public class InternalTableImpl implements InternalTable {
                     if (e != null) {
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
                     } else {
-                        if (res == null || res.getLeaseholder() == null) {
+                        if (res == null) {
                             throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
                         } else {
                             return clusterNodeResolver.apply(res.getLeaseholder());
