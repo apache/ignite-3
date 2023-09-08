@@ -120,6 +120,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         var ex = assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
+                "PK unique constraint is violated",
                 () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
         );
 
@@ -170,6 +171,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         SqlException ex = assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
+                "PK unique constraint is violated",
                 () -> sql(insertStatement)
         );
 
@@ -397,7 +399,10 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE test2 (k int PRIMARY KEY, a int, b int)");
 
-        SqlException ex = assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, () -> sql(
+        SqlException ex = assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "PK unique constraint is violated",
+                () -> sql(
                         "MERGE INTO test2 USING test1 ON test1.a = test2.a "
                                 + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
                                 + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
