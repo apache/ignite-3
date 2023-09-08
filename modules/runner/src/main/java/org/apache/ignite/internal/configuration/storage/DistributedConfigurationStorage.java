@@ -21,7 +21,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
-import static org.apache.ignite.lang.util.StringUtils.incrementLastChar;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -76,13 +75,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      */
     private static final ByteArray DST_KEYS_START_RANGE = new ByteArray(DISTRIBUTED_PREFIX);
 
-    /**
-     * This key is expected to be the last key in lexicographical order of distributed configuration keys. It is possible because keys are
-     * in lexicographical order in meta storage and adding {@code (char)('.' + 1)} to the end will produce all keys with prefix
-     * {@link DistributedConfigurationStorage#DISTRIBUTED_PREFIX}
-     */
-    private static final ByteArray DST_KEYS_END_RANGE = new ByteArray(incrementLastChar(DISTRIBUTED_PREFIX));
-
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
@@ -130,13 +122,11 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<String, ? extends Serializable>> readAllLatest(String prefix) {
-        var rangeStart = new ByteArray(DISTRIBUTED_PREFIX + prefix);
-
-        var rangeEnd = new ByteArray(incrementLastChar(DISTRIBUTED_PREFIX + prefix));
+        var prefixBytes = new ByteArray(DISTRIBUTED_PREFIX + prefix);
 
         var resultFuture = new CompletableFuture<Map<String, ? extends Serializable>>();
 
-        metaStorageMgr.range(rangeStart, rangeEnd).subscribe(new Subscriber<>() {
+        metaStorageMgr.prefix(prefixBytes).subscribe(new Subscriber<>() {
             private final Map<String, Serializable> data = new HashMap<>();
 
             @Override
@@ -207,7 +197,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         byte[] masterKey = MASTER_KEY.bytes();
         boolean sawMasterKey = false;
 
-        try (Cursor<Entry> cursor = metaStorageMgr.getLocally(DST_KEYS_START_RANGE, DST_KEYS_END_RANGE, cfgRevision)) {
+        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(DST_KEYS_START_RANGE, cfgRevision)) {
             for (Entry entry : cursor) {
                 if (entry.tombstone()) {
                     continue;

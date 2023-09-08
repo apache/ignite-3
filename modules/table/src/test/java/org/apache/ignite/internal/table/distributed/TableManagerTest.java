@@ -692,7 +692,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(0L));
 
-        when(msm.getLocally(any(), any(), anyLong())).thenReturn(CursorUtils.emptyCursor());
+        when(msm.prefixLocally(any(), anyLong())).thenReturn(CursorUtils.emptyCursor());
     }
 
     /**

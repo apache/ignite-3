@@ -44,7 +44,6 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-import static org.apache.ignite.lang.util.StringUtils.incrementLastChar;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
@@ -579,10 +578,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private CompletableFuture<Void> performRebalanceOnRecovery(long revision) {
-        var startRange = new ByteArray(PENDING_ASSIGNMENTS_PREFIX);
-        var endRange = new ByteArray(incrementLastChar(PENDING_ASSIGNMENTS_PREFIX));
+        var prefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX);
 
-        try (Cursor<Entry> cursor = metaStorageMgr.getLocally(startRange, endRange, revision)) {
+        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(prefix, revision)) {
             CompletableFuture<?>[] futures = cursor.stream()
                     .map(this::handleChangePendingAssignmentEvent)
                     .toArray(CompletableFuture[]::new);
