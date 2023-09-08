@@ -100,6 +100,7 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     @Test
     public void columnOrder() {
         sql("CREATE TABLE column_order (double_c DOUBLE, long_c BIGINT PRIMARY KEY, string_c VARCHAR, int_c INT)");
+        sql("CREATE TABLE column_order1 (double_c DOUBLE, long_c BIGINT PRIMARY KEY, string_c VARCHAR)");
 
         assertQuery("select *, double_c * 2 from column_order")
                 .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "DOUBLE_C * 2")
@@ -119,6 +120,15 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
 
         assertQuery("select * from column_order")
                 .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C")
+                .check();
+
+        assertQuery("select a.*, a.double_c * 2, b.*  from column_order a, column_order1 b where a.double_c = b.double_c")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "A.DOUBLE_C * 2", "DOUBLE_C0", "LONG_C0", "STRING_C0")
+                .check();
+
+        assertQuery("select a.*, a.double_c * 2, a.double_c * 2 as J, b.*  from column_order a, column_order1 b "
+                + "where a.double_c = b.double_c")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "A.DOUBLE_C * 2", "J", "DOUBLE_C0", "LONG_C0", "STRING_C0")
                 .check();
     }
 
