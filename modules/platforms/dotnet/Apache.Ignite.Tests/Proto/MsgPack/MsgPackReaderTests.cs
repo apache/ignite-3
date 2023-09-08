@@ -49,28 +49,6 @@ public class MsgPackReaderTests
     };
 
     [Test]
-    public void TestReadArrayHeader()
-    {
-        var bufWriter = new ArrayBufferWriter<byte>();
-        var writer = new MessagePackWriter(bufWriter);
-        var numbers = GetNumbers(int.MaxValue / 2, unsignedOnly: true).ToList();
-
-        foreach (var num in numbers)
-        {
-            writer.WriteArrayHeader((uint)num);
-        }
-
-        writer.Flush();
-
-        var reader = new MsgPackReader(bufWriter.WrittenSpan);
-
-        foreach (var num in numbers)
-        {
-            Assert.AreEqual((uint)num, reader.ReadArrayHeader());
-        }
-    }
-
-    [Test]
     public void TestTryReadNil()
     {
         var buf = new[] { MsgPackCode.Nil, MsgPackCode.Int8 };
@@ -94,7 +72,7 @@ public class MsgPackReaderTests
             // There is enough data in the array, but we take a smaller slice, which is not enough for Array16 header.
             var span = buf.AsSpan()[..2];
             var reader = new MsgPackReader(span);
-            reader.ReadArrayHeader();
+            reader.ReadInt32();
         });
     }
 
@@ -106,7 +84,7 @@ public class MsgPackReaderTests
         Test(m => new MsgPackReader(m.Span).ReadInt32());
         Test(m => new MsgPackReader(m.Span).ReadInt64());
         Test(m => new MsgPackReader(m.Span).ReadStringHeader());
-        Test(m => new MsgPackReader(m.Span).ReadArrayHeader());
+        Test(m => new MsgPackReader(m.Span).ReadInt32());
         Test(m => new MsgPackReader(m.Span).ReadMapHeader());
         Test(m => new MsgPackReader(m.Span).ReadBinaryHeader());
         Test(m => new MsgPackReader(m.Span).ReadGuid());

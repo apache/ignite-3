@@ -158,19 +158,6 @@ internal ref struct MsgPackReader
     }
 
     /// <summary>
-    /// Reads array header.
-    /// </summary>
-    /// <returns>Array size.</returns>
-    public int ReadArrayHeader() =>
-        _span[_pos++] switch
-        {
-            var code when MsgPackCode.IsFixArr(code) => code & 0x0F,
-            MsgPackCode.Array16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
-            MsgPackCode.Array32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
-            var invalid => throw GetInvalidCodeException("array", invalid)
-        };
-
-    /// <summary>
     /// Reads string header.
     /// </summary>
     /// <returns>String length in bytes.</returns>
