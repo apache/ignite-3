@@ -54,8 +54,8 @@ public class RaftGroupEventsClientListener {
     public void removeLeaderElectionListener(ReplicationGroupId groupId, LeaderElectionListener listener) {
         leaderElectionListeners.computeIfPresent(groupId, (k, listeners) -> {
             listeners.remove(listener);
-
-            return listeners.isEmpty()? null : listeners;
+            
+            return listeners;
         });
     }
 
