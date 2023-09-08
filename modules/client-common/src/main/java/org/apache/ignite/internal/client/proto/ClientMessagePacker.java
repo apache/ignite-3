@@ -541,7 +541,7 @@ public class ClientMessagePacker implements AutoCloseable {
             return;
         }
 
-        packArrayHeader(arr.length);
+        packInt(arr.length);
 
         for (int i : arr) {
             packInt(i);

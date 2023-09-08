@@ -58,7 +58,7 @@ public class ClientSchemasGetRequest {
 
                 writeSchema(out, schema.version(), schema);
             } else {
-                var cnt = in.unpackArrayHeader();
+                var cnt = in.unpackInt();
                 out.packMapHeader(cnt);
 
                 for (var i = 0; i < cnt; i++) {

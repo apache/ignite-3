@@ -135,7 +135,7 @@ public class ClientMessageUnpackerTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testUnpackArrayHeader(int i) {
-        testUnpacker(p -> p.packArrayHeader(i), ClientMessageUnpacker::unpackArrayHeader, i);
+        testUnpacker(p -> p.packInt(i), ClientMessageUnpacker::unpackArrayHeader, i);
     }
 
     @ParameterizedTest

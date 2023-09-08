@@ -80,7 +80,7 @@ public class JdbcMetaColumnsResult extends Response {
             return;
         }
 
-        packer.packArrayHeader(meta.size());
+        packer.packInt(meta.size());
 
         for (JdbcColumnMeta m : meta) {
             m.writeBinary(packer);
@@ -96,7 +96,7 @@ public class JdbcMetaColumnsResult extends Response {
             return;
         }
 
-        int size = unpacker.unpackArrayHeader();
+        int size = unpacker.unpackInt();
 
         if (size == 0) {
             meta = Collections.emptyList();

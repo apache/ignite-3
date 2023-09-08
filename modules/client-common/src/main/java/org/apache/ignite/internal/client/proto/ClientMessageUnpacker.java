@@ -725,7 +725,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public int[] unpackIntArray() {
         assert refCnt > 0 : "Unpacker is closed";
 
-        int size = unpackArrayHeader();
+        int size = unpackInt();
 
         if (size == 0) {
             return ArrayUtils.INT_EMPTY_ARRAY;
