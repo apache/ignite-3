@@ -197,51 +197,6 @@ public:
     [[nodiscard]] uuid read_uuid() { return read_object<uuid>(); }
 
     /**
-     * Read Map size.
-     *
-     * @return Map size.
-     */
-    [[nodiscard]] uint32_t read_map_size() const {
-        check_data_in_stream();
-
-        if (m_current_val.data.type != MSGPACK_OBJECT_MAP)
-            throw ignite_error("The value in stream is not a Map");
-
-        return m_current_val.data.via.map.size;
-    }
-
-    /**
-     * Read Map raw.
-     *
-     * @param handler Pair handler.
-     */
-    void read_map_raw(const std::function<void(const msgpack_object_kv &)> &handler) {
-        auto size = read_map_size();
-        for (std::uint32_t i = 0; i < size; ++i) {
-            handler(m_current_val.data.via.map.ptr[i]);
-        }
-        next();
-    }
-
-    /**
-     * Read Map.
-     *
-     * @tparam K key type.
-     * @tparam V Value type.
-     * @param handler Pair handler.
-     */
-    template<typename K, typename V>
-    void read_map(const std::function<void(K &&, V &&)> &handler) {
-        auto size = read_map_size();
-        for (std::uint32_t i = 0; i < size; ++i) {
-            auto key = unpack_object<K>(m_current_val.data.via.map.ptr[i].key);
-            auto val = unpack_object<V>(m_current_val.data.via.map.ptr[i].val);
-            handler(std::move(key), std::move(val));
-        }
-        next();
-    }
-
-    /**
      * Read array.
      *
      * @return Binary data view.

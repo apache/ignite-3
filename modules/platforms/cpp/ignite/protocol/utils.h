@@ -186,21 +186,6 @@ template<>
 [[nodiscard]] bool unpack_object(const msgpack_object &object);
 
 /**
- * Get array size.
- *
- * @param object Object.
- * @return Array size.
- */
-[[nodiscard]] std::uint32_t unpack_array_size(const msgpack_object &object);
-
-/**
- * Unpack array.
- *
- * @param object Object.
- */
-void unpack_array_raw(const msgpack_object &object, const std::function<void(const msgpack_object &)> &read_func);
-
-/**
  * Get binary data.
  *
  * @param object Object.

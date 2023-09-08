@@ -175,18 +175,6 @@ bool unpack_object(const msgpack_object &object) {
     return object.via.boolean;
 }
 
-std::uint32_t unpack_array_size(const msgpack_object &object) {
-    if (object.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
-        throw ignite_error("The value in stream is not an Array : " + std::to_string(object.type));
-    return object.via.i64;
-}
-
-void unpack_array_raw(const msgpack_object &object, const std::function<void(const msgpack_object &)> &read_func) {
-    auto size = unpack_array_size(object);
-    for (std::uint32_t i = 0; i < size; ++i)
-        read_func(object.via.array.ptr[i]);
-}
-
 bytes_view unpack_binary(const msgpack_object &object) {
     if (object.type != MSGPACK_OBJECT_BIN)
         throw ignite_error("The value in stream is not a Binary data : " + std::to_string(object.type));
