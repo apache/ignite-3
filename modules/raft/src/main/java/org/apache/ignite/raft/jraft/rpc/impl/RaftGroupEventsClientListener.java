@@ -17,11 +17,11 @@
 
 package org.apache.ignite.raft.jraft.rpc.impl;
 
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;import org.apache.ignite.internal.logger.IgniteLogger;
+import java.util.concurrent.CopyOnWriteArrayList;
+import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
