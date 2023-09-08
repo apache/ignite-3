@@ -108,7 +108,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(false, ses, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR");
         checkError(
                 ColumnAlreadyExistsException.class,
-                ErrorGroups.Table.TABLE_ALREADY_EXISTS_ERR,
+                ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR,
                 "Column already exists [name=\"VAL1\"]",
                 ses,
                 "ALTER TABLE TEST ADD COLUMN VAL1 INT"
