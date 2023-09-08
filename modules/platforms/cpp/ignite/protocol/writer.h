@@ -143,13 +143,6 @@ public:
     }
 
     /**
-     * Write array header.
-     *
-     * @param size Size of the array.
-     */
-    void write_array_header(std::size_t size) { msgpack_pack_array(m_packer.get(), size); }
-
-    /**
      * Write bitset.
      *
      * @param data Bitset to write.
