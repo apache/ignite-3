@@ -51,6 +51,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -171,7 +172,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
-                    .commitPartitionId(commitPartitionId)
+                    .commitPartitionId(serializeTablePartitionId(commitPartitionId))
                     .binaryRowMessages(serializeBinaryRows(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
@@ -208,6 +209,13 @@ public final class UpdatableTableImpl implements UpdatableTable {
         }
 
         return result;
+    }
+
+    private static TablePartitionIdMessage serializeTablePartitionId(TablePartitionId id) {
+        return MESSAGES_FACTORY.tablePartitionIdMessage()
+                .partitionId(id.partitionId())
+                .tableId(id.tableId())
+                .build();
     }
 
     @Override
@@ -250,7 +258,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowReplicaRequest()
                     .groupId(partGroupId)
-                    .commitPartitionId(commitPartitionId)
+                    .commitPartitionId(serializeTablePartitionId(commitPartitionId))
                     .binaryRowMessages(serializeBinaryRows(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
@@ -308,7 +316,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                     .groupId(partGroupId)
-                    .commitPartitionId(commitPartitionId)
+                    .commitPartitionId(serializeTablePartitionId(commitPartitionId))
                     .primaryKeys(serializePrimaryKeys(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())

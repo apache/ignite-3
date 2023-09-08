@@ -46,6 +46,7 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -56,9 +57,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItTxDistributedTestSingleNode extends TxAbstractTest {
-    protected static final int ACC_TABLE_ID = 1;
+    protected static int ACC_TABLE_ID;
 
-    protected static final int CUST_TABLE_ID = 2;
+    protected static int CUST_TABLE_ID;
 
     protected static final String ACC_TABLE_NAME = "accounts";
 
@@ -71,7 +72,12 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     @InjectConfiguration
     private static GcConfiguration gcConfig;
 
-    @InjectConfiguration("mock.tables.foo {}")
+    @InjectConfiguration(
+            "mock.tables { "
+                    + "accounts {id = 0, primaryKey.columns: [accountNumber]}, "
+                    + "customers {id = 1, primaryKey.columns: [accountNumber]}"
+                    + "}"
+    )
     private static TablesConfiguration tablesConfig;
 
     /**
@@ -114,10 +120,15 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         this.testInfo = testInfo;
     }
 
+    @BeforeAll
+    static void initTableIds() {
+        ACC_TABLE_ID = tablesConfig.value().tables().get(ACC_TABLE_NAME).id();
+        CUST_TABLE_ID = tablesConfig.value().tables().get(CUST_TABLE_NAME).id();
+    }
+
     /**
      * Initialize the test state.
      */
-    @Override
     @BeforeEach
     public void before() throws Exception {
         txTestCluster = new ItTxTestCluster(

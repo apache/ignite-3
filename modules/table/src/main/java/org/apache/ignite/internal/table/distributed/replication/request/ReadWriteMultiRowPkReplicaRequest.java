@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Marshallable;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
@@ -32,6 +31,5 @@ public interface ReadWriteMultiRowPkReplicaRequest extends MultipleRowPkReplicaR
      *
      * @return Table partition id.
      */
-    @Marshallable
-    TablePartitionId commitPartitionId();
+    TablePartitionIdMessage commitPartitionId();
 }

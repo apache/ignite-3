@@ -43,7 +43,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
@@ -78,7 +77,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -124,6 +122,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.command.CatalogVersionAware;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.PartitionCommand;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
@@ -334,7 +333,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @BeforeEach
     public void beforeTest(
             @InjectConfiguration GcConfiguration gcConfig,
-            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig
+            @InjectConfiguration("mock.tables.foo.primaryKey.columns: [foo, bar]") TablesConfiguration tablesConfig
     ) {
         when(mockRaftClient.refreshAndGetLeaderWithTerm()).thenAnswer(invocationOnMock -> {
             if (!localLeader) {
@@ -429,11 +428,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }).when(txManager).updateTxMeta(any(), any());
 
         doAnswer(invocation -> txStateMeta).when(txManager).stateMeta(any());
-
-        CatalogTableDescriptor mockDescriptor = mock(CatalogTableDescriptor.class);
-
-        when(catalogService.table(eq(tblId), anyInt())).thenReturn(mockDescriptor);
-        when(mockDescriptor.primaryKeyColumns()).thenReturn(List.of("foo", "bar"));
 
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,
@@ -1086,8 +1080,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         );
     }
 
-    private static TablePartitionId commitPartitionId() {
-        return new TablePartitionId(999, partId);
+    private TablePartitionIdMessage commitPartitionId() {
+        return TABLE_MESSAGES_FACTORY.tablePartitionIdMessage()
+                .partitionId(partId)
+                .tableId(tblId)
+                .build();
     }
 
     private CompletableFuture<?> doMultiRowRequest(UUID txId, Collection<BinaryRow> binaryRows, RequestType requestType) {
@@ -1774,7 +1771,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                     .transactionId(txId)
                     .binaryRowMessage(binaryRowMessage(row))
                     .term(1L)
-                    .commitPartitionId(new TablePartitionId(tblId, partId))
+                    .commitPartitionId(commitPartitionId())
                     .build(),
                 localNode.id()
         ).join();
@@ -1787,7 +1784,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                     .transactionId(txId)
                     .primaryKey(row.tupleSlice())
                     .term(1L)
-                    .commitPartitionId(new TablePartitionId(tblId, partId))
+                    .commitPartitionId(commitPartitionId())
                     .build(),
                 localNode.id()
         ).join();
