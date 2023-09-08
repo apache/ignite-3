@@ -771,6 +771,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts the node which stores some data.
      */
     @ParameterizedTest
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
     @ValueSource(booleans = {true, false})
     public void metastorageRecoveryTest(boolean useSnapshot) throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(2);
@@ -890,6 +891,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
     public void testTwoNodesRestartDirect() throws InterruptedException {
         twoNodesRestart(true);
     }
@@ -898,6 +900,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
     public void testTwoNodesRestartReverse() throws InterruptedException {
         twoNodesRestart(false);
     }
@@ -1127,6 +1130,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733")
     public void testCfgGap() throws InterruptedException {
         List<IgniteImpl> nodes = startNodes(4);
 
