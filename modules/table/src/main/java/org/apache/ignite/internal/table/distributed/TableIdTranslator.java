@@ -15,61 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator.action;
+package org.apache.ignite.internal.table.distributed;
 
 /**
- * Transaction operation type.
+ * Translates configuration-defined table IDs to Catalog-defined table IDs.
  */
-public enum RequestType {
-    RW_GET,
-
-    RW_GET_ALL,
-
-    RW_DELETE,
-
-    RW_DELETE_ALL,
-
-    RW_DELETE_EXACT,
-
-    RW_DELETE_EXACT_ALL,
-
-    RW_INSERT,
-
-    RW_INSERT_ALL,
-
-    RW_UPSERT,
-
-    RW_UPSERT_ALL,
-
-    RW_REPLACE,
-
-    RW_REPLACE_IF_EXIST,
-
-    RW_GET_AND_DELETE,
-
-    RW_GET_AND_REPLACE,
-
-    RW_GET_AND_UPSERT,
-
-    RW_SCAN,
-
-    RO_GET,
-
-    RO_GET_ALL,
-
-    RO_SCAN;
-
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+// TODO: IGNITE-20386 - remove after the switch to the Catalog.
+public interface TableIdTranslator {
     /**
-     * Returns {@code true} if the operation is an RW read.
+     * Translates a configuration-defined table ID to a Catalog-defined table IDs.
+     *
+     * @param configTableId Configuration-defined table ID to translate.
+     * @return Catalog-defined table ID corresponding to the argument.
      */
-    public boolean isRwRead() {
-        switch (this) {
-            case RW_GET:
-            case RW_GET_ALL:
-            case RW_SCAN:
-                return true;
-            default:
-                return false;
-        }
-    }
+    int configIdToCatalogId(int configTableId);
 }

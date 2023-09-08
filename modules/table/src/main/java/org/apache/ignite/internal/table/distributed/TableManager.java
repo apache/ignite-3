@@ -92,6 +92,8 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -163,6 +165,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
+import org.apache.ignite.internal.table.distributed.replicator.CatalogTablesWithIdConversion;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
@@ -386,6 +389,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final HybridTimestampTracker observableTimestampTracker;
 
+    private final TableIdRegistry tableIdTranslator = new TableIdRegistry();
+
     /**
      * Creates a new table manager.
      *
@@ -558,6 +563,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         addMessageHandler(clusterService.messagingService());
+
+        catalogService.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
+            CreateTableEventParameters event = (CreateTableEventParameters) parameters;
+
+            TableView tableConfig = tablesCfg.tables().value().get(event.tableDescriptor().name());
+
+            assert tableConfig != null : "No table config found by name " + event.tableDescriptor().name();
+
+            tableIdTranslator.registerMapping(tableConfig.id(), event.tableId());
+
+            return completedFuture(false);
+        });
     }
 
     /**
@@ -614,6 +631,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
+//            tableIdTranslator.registerMapping(ctx.newValue().id(), catalogService.table(ctx.newValue().name(), Long.MAX_VALUE).id());
+
             CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.newValue());
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
 
@@ -1020,6 +1039,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 indexBuilder,
                 schemaSyncService,
                 catalogService,
+                // TODO: IGNITE-19499 - replace with DirectCatalogTables
+                new CatalogTablesWithIdConversion(catalogService, tableIdTranslator),
                 tablesCfg
         );
     }

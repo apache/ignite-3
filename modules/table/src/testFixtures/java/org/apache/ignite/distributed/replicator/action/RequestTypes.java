@@ -24,9 +24,9 @@ import org.apache.ignite.internal.table.distributed.replicator.action.RequestTyp
  */
 public class RequestTypes {
     /**
-     * Returns {@code true} if the operation works with a single row.
+     * Returns {@code true} if the operation works with a single row and it's RW.
      */
-    public static boolean isSingleRow(RequestType type) {
+    public static boolean isSingleRowRw(RequestType type) {
         switch (type) {
             case RW_GET:
             case RW_DELETE:
@@ -44,16 +44,23 @@ public class RequestTypes {
     }
 
     /**
-     * Returns {@code true} if the operation works with a single row and it's a write.
+     * Returns {@code true} if the operation works with a single row and it's an RW read.
      */
-    public static boolean isSingleRowWrite(RequestType type) {
-        return isSingleRow(type) && type != RequestType.RW_GET;
+    public static boolean isSingleRowRwRead(RequestType type) {
+        return isSingleRowRw(type) && type.isRwRead();
     }
 
     /**
-     * Returns {@code true} if the operation works with multiple rows.
+     * Returns {@code true} if the operation works with a single row and it's a write.
      */
-    public static boolean isMultipleRows(RequestType type) {
+    public static boolean isSingleRowWrite(RequestType type) {
+        return isSingleRowRw(type) && type != RequestType.RW_GET;
+    }
+
+    /**
+     * Returns {@code true} if the operation works with multiple rows and it's RW.
+     */
+    public static boolean isMultipleRowsRw(RequestType type) {
         switch (type) {
             case RW_GET_ALL:
             case RW_DELETE_ALL:
@@ -67,10 +74,17 @@ public class RequestTypes {
     }
 
     /**
-     * Returns {@code true} if the operation works with multiple rows.
+     * Returns {@code true} if the operation works with multiple rows and it is a read.
+     */
+    public static boolean isMultipleRowsRwRead(RequestType type) {
+        return isMultipleRowsRw(type) && type.isRwRead();
+    }
+
+    /**
+     * Returns {@code true} if the operation works with multiple rows and it is a write.
      */
     public static boolean isMultipleRowsWrite(RequestType type) {
-        return isMultipleRows(type) && type != RequestType.RW_GET_ALL;
+        return isMultipleRowsRw(type) && type != RequestType.RW_GET_ALL;
     }
 
     /**

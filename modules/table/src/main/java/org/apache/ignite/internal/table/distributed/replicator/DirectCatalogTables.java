@@ -15,61 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator.action;
+package org.apache.ignite.internal.table.distributed.replicator;
+
+import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Transaction operation type.
+ * Does not perform any table ID translation and should be used after we switch to the Catalog completely
+ * (when there are only Catalog-defined table IDs, no configuration-defined IDs).
  */
-public enum RequestType {
-    RW_GET,
+public class DirectCatalogTables implements CatalogTables {
+    private final CatalogService catalogService;
 
-    RW_GET_ALL,
+    public DirectCatalogTables(CatalogService catalogService) {
+        this.catalogService = catalogService;
+    }
 
-    RW_DELETE,
-
-    RW_DELETE_ALL,
-
-    RW_DELETE_EXACT,
-
-    RW_DELETE_EXACT_ALL,
-
-    RW_INSERT,
-
-    RW_INSERT_ALL,
-
-    RW_UPSERT,
-
-    RW_UPSERT_ALL,
-
-    RW_REPLACE,
-
-    RW_REPLACE_IF_EXIST,
-
-    RW_GET_AND_DELETE,
-
-    RW_GET_AND_REPLACE,
-
-    RW_GET_AND_UPSERT,
-
-    RW_SCAN,
-
-    RO_GET,
-
-    RO_GET_ALL,
-
-    RO_SCAN;
-
-    /**
-     * Returns {@code true} if the operation is an RW read.
-     */
-    public boolean isRwRead() {
-        switch (this) {
-            case RW_GET:
-            case RW_GET_ALL:
-            case RW_SCAN:
-                return true;
-            default:
-                return false;
-        }
+    @Override
+    public @Nullable CatalogTableDescriptor table(int tableId, long timestamp) {
+        return catalogService.table(tableId, timestamp);
     }
 }
