@@ -242,8 +242,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final CatalogService catalogService;
 
-    private final CatalogTables catalogTables;
-
     /** Listener for configuration indexes, {@code null} if the replica is not the leader. */
     private final AtomicReference<ConfigurationNamedListListener<TableIndexView>> indexesConfigurationListener = new AtomicReference<>();
 
@@ -324,7 +322,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.indexBuilder = indexBuilder;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
-        this.catalogTables = catalogTables;
         this.tablesConfig = tablesConfig;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
@@ -1487,16 +1484,16 @@ public class PartitionReplicaListener implements ReplicaListener {
                     .thenCompose(unused -> op.get())
                     .thenCompose(actionResult -> validateTsIfWriteDidNotDoTsValidation(actionResult, txId, cmdType))
                     .whenComplete((v, th) -> {
-                if (full) { // Fast unlock.
-                    releaseTxLocks(txId);
-                }
+                        if (full) { // Fast unlock.
+                            releaseTxLocks(txId);
+                        }
 
-                if (th != null) {
-                    fut.completeExceptionally(th);
-                } else {
-                    fut.complete(v);
-                }
-            });
+                        if (th != null) {
+                            fut.completeExceptionally(th);
+                        } else {
+                            fut.complete(v);
+                        }
+                    });
         }
 
         return fut;
@@ -2501,7 +2498,14 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable BinaryRow row,
             String txCoordinatorId
     ) {
-        return chooseOpTsValidateAndBuildUpdateCommand(request.commitPartitionId(), rowUuid, row, request.transactionId(), request.full(), txCoordinatorId);
+        return chooseOpTsValidateAndBuildUpdateCommand(
+                request.commitPartitionId(),
+                rowUuid,
+                row,
+                request.transactionId(),
+                request.full(),
+                txCoordinatorId
+        );
     }
 
     /**

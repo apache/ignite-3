@@ -64,7 +64,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
     }
 
     /**
-     * Makes sure that the following sequence results in an operation failure and transaction rollback:
+     * Makes sure that the following sequence results in an operation failure and transaction rollback.
      *
      * <ol>
      *     <li>A table is created</li>

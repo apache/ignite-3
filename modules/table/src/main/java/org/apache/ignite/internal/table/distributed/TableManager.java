@@ -631,8 +631,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-//            tableIdTranslator.registerMapping(ctx.newValue().id(), catalogService.table(ctx.newValue().name(), Long.MAX_VALUE).id());
-
             CatalogTableDescriptor tableDescriptor = toTableDescriptor(ctx.newValue());
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor.zoneId());
 

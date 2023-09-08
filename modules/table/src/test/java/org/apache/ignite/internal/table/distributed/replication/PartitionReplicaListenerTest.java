@@ -1745,7 +1745,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     @CartesianTest.MethodFactory("singleRowReadOrWriteRequestTypesFactory")
-    public void singleRowRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
+    void singleRowRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
             RequestType requestType, boolean onExistingRow, boolean full
     ) {
         testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(onExistingRow, (targetTxId, key) -> {
@@ -1797,7 +1797,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     @CartesianTest.MethodFactory("multiRowsReadOrWriteRequestTypesFactory")
-    public void multiRowRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
+    void multiRowRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
             RequestType requestType, boolean onExistingRow, boolean full
     ) {
         testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(onExistingRow, (targetTxId, key) -> {
@@ -1818,7 +1818,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
-    public void replaceRequestFailsIfTableSchemaVersionIncreasedSinceTxStart(
+    void replaceRequestFailsIfTableSchemaVersionIncreasedSinceTxStart(
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
     ) {
@@ -1833,7 +1833,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
-    public void rwScanRequestFailsIfTableSchemaVersionIncreasedSinceTxStart(
+    void rwScanRequestFailsIfTableSchemaVersionIncreasedSinceTxStart(
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
     ) {
