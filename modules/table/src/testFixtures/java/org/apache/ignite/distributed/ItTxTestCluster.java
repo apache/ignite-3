@@ -26,6 +26,9 @@ import static org.apache.ignite.utils.ClusterServiceTestUtils.waitForTopology;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -47,6 +50,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -458,6 +462,10 @@ public class ItTxTestCluster {
                         raftSvc -> {
                             try {
                                 DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schemaDescriptor);
+
+                                CatalogTables catalogTables = mock(CatalogTables.class);
+                                lenient().when(catalogTables.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
+
                                 replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tableId, partId),
                                         completedFuture(null),
@@ -483,7 +491,7 @@ public class ItTxTestCluster {
                                                 mock(IndexBuilder.class),
                                                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                                                 mock(CatalogService.class),
-                                                mock(CatalogTables.class),
+                                                catalogTables,
                                                 tablesConfig
                                         ),
                                         raftSvc,
