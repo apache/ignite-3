@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 
 /**
  * Base class for Table views.
@@ -30,8 +32,8 @@ abstract class AbstractTableView {
     /** Internal table. */
     protected final InternalTable tbl;
 
-    /** Schema registry. */
-    protected final SchemaRegistry schemaReg;
+    /** Table row view converter. */
+    protected final TableViewRowConverter rowConverter;
 
     /**
      * Constructor.
@@ -41,7 +43,7 @@ abstract class AbstractTableView {
      */
     protected AbstractTableView(InternalTable tbl, SchemaRegistry schemaReg) {
         this.tbl = tbl;
-        this.schemaReg = schemaReg;
+        this.rowConverter = new TableViewRowConverter(schemaReg);
     }
 
     /**
@@ -57,26 +59,10 @@ abstract class AbstractTableView {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
-            throw convertException(e);
+            throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
         } catch (ExecutionException e) {
-            throw convertException(e.getCause());
-        } catch (IgniteInternalException e) {
-            throw convertException(e);
+            Throwable cause = ExceptionUtils.unwrapCause(e);
+            throw sneakyThrow(cause);
         }
-    }
-
-    /**
-     * Converts an internal exception to a public one.
-     *
-     * @param th Internal exception.
-     * @return Public exception.
-     */
-    protected IgniteException convertException(Throwable th) {
-        if (th instanceof IgniteException) {
-            return (IgniteException) th;
-        }
-
-        //TODO: IGNITE-20181 KV/Binary view public API should only throw public exceptions for the end user.
-        return new IgniteException(th);
     }
 }
