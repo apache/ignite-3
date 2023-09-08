@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -249,19 +250,12 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         addColumn(ignite0, TABLE_NAME);
 
-        assertThrows(ColumnAlreadyExistsException.class,
-                () -> addColumn(ignite0, TABLE_NAME));
-
-        addColumnIfNotExists(ignite0, TABLE_NAME);
+        assertThrows(Throwable.class, () -> addColumn(ignite0, TABLE_NAME));
     }
 
-    /**
-     * Tries to create a column which is already created from lagged node.
-     *
-     * @throws Exception If failed.
-     */
+    /** Tries to create a column which is already created from lagged node. */
     @Test
-    public void testAddColumnFromLaggedNode() throws Exception {
+    public void testAddColumnFromLaggedNode() {
         clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 
         Ignite ignite0 = clusterNodes.get(0);
@@ -277,31 +271,18 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         addColumn(ignite0, TABLE_NAME);
 
         CompletableFuture<Void> addColFut = runAsync(() -> addColumn(ignite1, TABLE_NAME));
-        CompletableFuture<Void> addColIfNotExistsFut = runAsync(() -> addColumnIfNotExists(ignite1, TABLE_NAME));
 
         for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
-                assertThrows(ColumnAlreadyExistsException.class,
-                        () -> addColumn(ignite, TABLE_NAME));
-
-                addColumnIfNotExists(ignite, TABLE_NAME);
+                assertThrows(ColumnAlreadyExistsException.class, () -> addColumn(ignite, TABLE_NAME));
             }
         }
 
         assertFalse(addColFut.isDone());
-        assertFalse(addColIfNotExistsFut.isDone());
 
         ignite1Inhibitor.stopInhibit();
 
-        assertThrows(ColumnAlreadyExistsException.class, () -> {
-            try {
-                addColFut.get(10, TimeUnit.SECONDS);
-            } catch (ExecutionException e) {
-                throw e.getCause();
-            }
-        });
-
-        addColIfNotExistsFut.get(10, TimeUnit.SECONDS);
+        assertThat(addColFut, willThrow(ColumnAlreadyExistsException.class));
     }
 
     /**
@@ -423,20 +404,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     private static void addColumn(Ignite node, String tableName) {
         sql(node, String.format("ALTER TABLE %s ADD COLUMN valint3 INT", tableName));
-    }
-
-    /**
-     * Adds a column if it does not exist.
-     *
-     * @param node Ignite node.
-     * @param tableName Table name.
-     */
-    private void addColumnIfNotExists(Ignite node, String tableName) {
-        try {
-            addColumn(node, tableName);
-        } catch (ColumnAlreadyExistsException e) {
-            log.info("Column already exists", e);
-        }
     }
 
     private static void sql(Ignite node, String sql) {

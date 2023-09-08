@@ -90,11 +90,12 @@ public class TableTestUtils {
     }
 
     /**
-     * Returns table descriptor form catalog, {@code null} if table is absent.
+     * Returns table descriptor form catalog.
      *
      * @param catalogService Catalog service.
      * @param tableName Table name.
      * @param timestamp Timestamp.
+     * @throws AssertionError If table descriptor is absent.
      */
     public static CatalogTableDescriptor getTableStrict(CatalogService catalogService, String tableName, long timestamp) {
         CatalogTableDescriptor table = catalogService.table(tableName, timestamp);

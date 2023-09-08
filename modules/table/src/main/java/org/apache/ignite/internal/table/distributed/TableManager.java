@@ -1162,6 +1162,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             // Check if the table already has assignments in the vault.
             // So, it means, that it is a recovery process and we should use the vault assignments instead of calculation for the new ones.
+            // TODO: IGNITE-20210 Fix it
             if (partitionAssignments(vaultManager, tableId, 0) != null) {
                 assignmentsFuture = completedFuture(tableAssignments(vaultManager, tableId, zoneDescriptor.partitions()));
             } else {
@@ -1664,17 +1665,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param future Completable future.
      * @return Future result.
      */
-    private <T> T join(CompletableFuture<T> future) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-
+    private static <T> T join(CompletableFuture<T> future) {
         try {
             return future.join();
         } catch (CompletionException ex) {
             throw convertThrowable(ex.getCause());
-        } finally {
-            busyLock.leaveBusy();
         }
     }
 
@@ -2300,6 +2295,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         List<CompletableFuture<?>> startTableFutures = new ArrayList<>();
 
+        // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from volt and metastore
         for (CatalogTableDescriptor tableDescriptor : catalogService.tables(catalogVersion)) {
             startTableFutures.add(createTableLocally(causalityToken, catalogVersion, tableDescriptor));
         }
