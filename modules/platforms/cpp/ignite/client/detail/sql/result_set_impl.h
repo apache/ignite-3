@@ -229,7 +229,7 @@ private:
             if (!origin_name)
                 origin_name = name;
 
-            auto origin_schema_id = reader.read_int32_nullable();
+            auto origin_schema_id = reader.try_read_int32();
             std::string origin_schema;
             if (origin_schema_id) {
                 if (*origin_schema_id >= std::int32_t(columns.size())) {
@@ -241,7 +241,7 @@ private:
                 origin_schema = reader.read_string();
             }
 
-            auto origin_table_id = reader.read_int32_nullable();
+            auto origin_table_id = reader.try_read_int32();
             std::string origin_table;
             if (origin_table_id) {
                 if (*origin_table_id >= std::int32_t(columns.size())) {
