@@ -1270,7 +1270,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         InternalTableImpl internalTable = new InternalTableImpl(tableName, tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
                 partitions, clusterNodeResolver, txManager, tableStorage,
-                txStateStorage, replicaSvc, clock, observableTimestampTracker, tableDescriptor.primaryKeyColumns().size());
+                txStateStorage, replicaSvc, clock, observableTimestampTracker);
 
         var table = new TableImpl(internalTable, lockMgr);
 

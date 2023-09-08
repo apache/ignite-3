@@ -546,8 +546,7 @@ public class ItTxTestCluster {
                 mock(TxStateTableStorage.class),
                 startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient ? clientClock : clocks.get(localNodeName),
-                timestampTracker,
-                schemaDescriptor.keyColumns().length()
+                timestampTracker
         ), new DummySchemaManagerImpl(schemaDescriptor), clientTxManager.lockManager());
     }
 

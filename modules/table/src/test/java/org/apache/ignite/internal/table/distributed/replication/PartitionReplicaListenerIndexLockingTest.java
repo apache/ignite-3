@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.replication;
 
+import static java.util.Collections.nCopies;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.distributionzones.DistributionZoneManager.DEFAULT_PARTITION_COUNT;
@@ -25,6 +26,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -39,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -79,7 +83,6 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexBuilder;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
@@ -193,6 +196,12 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TEST_MV_PARTITION_STORAGE);
 
+        CatalogService catalogService = mock(CatalogService.class);
+        CatalogTableDescriptor mockDescriptor = mock(CatalogTableDescriptor.class);
+
+        when(catalogService.table(eq(TABLE_ID), anyInt())).thenReturn(mockDescriptor);
+        when(mockDescriptor.primaryKeyColumns()).thenReturn(nCopies(schemaDescriptor.keyColumns().length(), "foo"));
+
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
                 mockRaftClient,
@@ -228,7 +237,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT),
                 mock(IndexBuilder.class),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
-                mock(CatalogService.class),
+                catalogService,
                 tablesConfig
         );
 
@@ -265,7 +274,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .term(1L)
                         .commitPartitionId(PARTITION_ID)
                         .transactionId(TRANSACTION_ID)
-                        .primaryKeyMessage(primaryKeyMessage(testPk))
+                        .primaryKey(testPk.tupleSlice())
                         .requestType(arg.type)
                         .build();
 
@@ -345,7 +354,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         .term(1L)
                         .commitPartitionId(PARTITION_ID)
                         .transactionId(TRANSACTION_ID)
-                        .primaryKeyMessages(pks.stream().map(PartitionReplicaListenerIndexLockingTest::primaryKeyMessage).collect(toList()))
+                        .primaryKeys(pks.stream().map(BinaryRow::tupleSlice).collect(toList()))
                         .requestType(arg.type)
                         .build();
 
@@ -461,13 +470,6 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         return TABLE_MESSAGES_FACTORY.binaryRowMessage()
                 .binaryTuple(binaryRow.tupleSlice())
                 .schemaVersion(binaryRow.schemaVersion())
-                .build();
-    }
-
-    private static BinaryTupleMessage primaryKeyMessage(BinaryRow primaryKey) {
-        return TABLE_MESSAGES_FACTORY.binaryTupleMessage()
-                .tuple(primaryKey.tupleSlice())
-                .elementCount(schemaDescriptor.keyColumns().length())
                 .build();
     }
 

@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -51,7 +52,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
-import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.SqlException;
@@ -200,16 +200,11 @@ public final class UpdatableTableImpl implements UpdatableTable {
         return result;
     }
 
-    private List<BinaryTupleMessage> serializePrimaryKeys(Collection<BinaryRow> rows) {
-        var result = new ArrayList<BinaryTupleMessage>(rows.size());
+    private static List<ByteBuffer> serializePrimaryKeys(Collection<BinaryRow> rows) {
+        var result = new ArrayList<ByteBuffer>(rows.size());
 
         for (BinaryRow row : rows) {
-            BinaryTupleMessage message = MESSAGES_FACTORY.binaryTupleMessage()
-                    .tuple(row.tupleSlice())
-                    .elementCount(keyColumnsOrderedByPhysSchema.length)
-                    .build();
-
-            result.add(message);
+            result.add(row.tupleSlice());
         }
 
         return result;
@@ -314,7 +309,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ReplicaRequest request = MESSAGES_FACTORY.readWriteMultiRowPkReplicaRequest()
                     .groupId(partGroupId)
                     .commitPartitionId(commitPartitionId)
-                    .primaryKeyMessages(serializePrimaryKeys(partToRows.getValue()))
+                    .primaryKeys(serializePrimaryKeys(partToRows.getValue()))
                     .transactionId(txAttributes.id())
                     .term(nodeWithTerm.term())
                     .requestType(RequestType.RW_DELETE_ALL)

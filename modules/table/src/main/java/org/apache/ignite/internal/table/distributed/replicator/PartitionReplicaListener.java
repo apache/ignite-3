@@ -258,6 +258,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
     private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
 
+    private final int pkLength;
+
     /**
      * The constructor.
      *
@@ -329,6 +331,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
         schemaCompatValidator = new SchemaCompatValidator(schemas);
+
+        pkLength = catalogService.table(tableId, catalogService.latestCatalogVersion()).primaryKeyColumns().size();
     }
 
     @Override
@@ -596,7 +600,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result future.
      */
     private CompletableFuture<BinaryRow> processReadOnlySingleEntryAction(ReadOnlySingleRowPkReplicaRequest request, Boolean isPrimary) {
-        BinaryTuple primaryKey = request.primaryKey();
+        BinaryTuple primaryKey = resolvePk(request.primaryKey());
         HybridTimestamp readTimestamp = request.readTimestamp();
 
         if (request.requestType() != RequestType.RO_GET) {
@@ -632,7 +636,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             ReadOnlyMultiRowPkReplicaRequest request,
             Boolean isPrimary
     ) {
-        Collection<BinaryTuple> primaryKeys = request.primaryKeys();
+        List<BinaryTuple> primaryKeys = resolvePks(request.primaryKeys());
         HybridTimestamp readTimestamp = request.readTimestamp();
 
         if (request.requestType() != RequestType.RO_GET_ALL) {
@@ -644,16 +648,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                 : safeTime.waitFor(request.readTimestamp());
 
         return safeReadFuture.thenCompose(unused -> {
-            var resolutionFuts = new ArrayList<CompletableFuture<BinaryRow>>(primaryKeys.size());
+            CompletableFuture<BinaryRow>[] resolutionFuts = new CompletableFuture[primaryKeys.size()];
 
-            for (BinaryTuple primaryKey : primaryKeys) {
-                CompletableFuture<BinaryRow> fut = resolveRowByPkForReadOnly(primaryKey, readTimestamp);
-
-                resolutionFuts.add(fut);
+            for (int i = 0; i < primaryKeys.size(); i++) {
+                resolutionFuts[i] = resolveRowByPkForReadOnly(primaryKeys.get(i), readTimestamp);
             }
 
-            return allOf(resolutionFuts.toArray(new CompletableFuture[0])).thenApply(unused1 -> {
-                var result = new ArrayList<BinaryRow>(resolutionFuts.size());
+            return allOf(resolutionFuts).thenApply(unused1 -> {
+                var result = new ArrayList<BinaryRow>(resolutionFuts.length);
 
                 for (CompletableFuture<BinaryRow> resolutionFut : resolutionFuts) {
                     BinaryRow resolvedReadResult = resolutionFut.join();
@@ -1772,7 +1774,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Object> processMultiEntryAction(ReadWriteMultiRowPkReplicaRequest request, String txCoordinatorId) {
         UUID txId = request.transactionId();
         TablePartitionId committedPartitionId = request.commitPartitionId();
-        List<BinaryTuple> primaryKeys = request.primaryKeys();
+        List<BinaryTuple> primaryKeys = resolvePks(request.primaryKeys());
 
         assert committedPartitionId != null || request.requestType() == RequestType.RW_GET_ALL
                 : "Commit partition is null [type=" + request.requestType() + ']';
@@ -1781,10 +1783,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_GET_ALL: {
                 CompletableFuture<BinaryRow>[] rowFuts = new CompletableFuture[primaryKeys.size()];
 
-                int i = 0;
-
-                for (BinaryTuple primaryKey : primaryKeys) {
-                    rowFuts[i++] = resolveRowByPk(primaryKey, txId, (rowId, row) -> {
+                for (int i = 0; i < primaryKeys.size(); i++) {
+                    rowFuts[i] = resolveRowByPk(primaryKeys.get(i), txId, (rowId, row) -> {
                         if (rowId == null) {
                             return completedFuture(null);
                         }
@@ -2095,7 +2095,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     private CompletableFuture<?> processSingleEntryAction(ReadWriteSingleRowPkReplicaRequest request, String txCoordinatorId) {
         UUID txId = request.transactionId();
-        BinaryTuple primaryKey = request.primaryKey();
+        BinaryTuple primaryKey = resolvePk(request.primaryKey());
         TablePartitionId commitPartitionId = request.commitPartitionId();
 
         assert commitPartitionId != null || request.requestType() == RequestType.RW_GET :
@@ -2145,6 +2145,20 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private BinaryTuple extractPk(BinaryRow row) {
         return pkIndexStorage.get().indexRowResolver().extractColumns(row);
+    }
+
+    private BinaryTuple resolvePk(ByteBuffer bytes) {
+        return new BinaryTuple(pkLength, bytes);
+    }
+
+    private List<BinaryTuple> resolvePks(List<ByteBuffer> bytesList) {
+        var pks = new ArrayList<BinaryTuple>(bytesList.size());
+
+        for (ByteBuffer bytes : bytesList) {
+            pks.add(resolvePk(bytes));
+        }
+
+        return pks;
     }
 
     private Cursor<RowId> getFromPkIndex(BinaryTuple key) {

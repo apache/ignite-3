@@ -66,8 +66,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
-                new HybridTimestampTracker(),
-                0
+                new HybridTimestampTracker()
         );
 
         // Let's check the empty table.
@@ -112,8 +111,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
-                new HybridTimestampTracker(),
-                0
+                new HybridTimestampTracker()
         );
 
         List<BinaryRowEx> originalRows = List.of(

@@ -32,6 +32,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.net.ConnectException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -149,8 +150,6 @@ public class InternalTableImpl implements InternalTable {
     /** Observable timestamp tracker. */
     private final HybridTimestampTracker observableTimestampTracker;
 
-    private final int pkLength;
-
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<HybridTimestamp, Void>> safeTimeTrackerByPartitionId = emptyMap();
 
@@ -181,8 +180,7 @@ public class InternalTableImpl implements InternalTable {
             TxStateTableStorage txStateStorage,
             ReplicaService replicaSvc,
             HybridClock clock,
-            HybridTimestampTracker observableTimestampTracker,
-            int pkLength
+            HybridTimestampTracker observableTimestampTracker
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -196,7 +194,6 @@ public class InternalTableImpl implements InternalTable {
         this.tableMessagesFactory = new TableMessagesFactory();
         this.clock = clock;
         this.observableTimestampTracker = observableTimestampTracker;
-        this.pkLength = pkLength;
     }
 
     /** {@inheritDoc} */
@@ -551,7 +548,7 @@ public class InternalTableImpl implements InternalTable {
                     tx,
                     (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
                             .groupId(groupId)
-                            .primaryKeyMessage(serializePrimaryKey(keyRow))
+                            .primaryKey(keyRow.tupleSlice())
                             .commitPartitionId(txo.commitPartition())
                             .transactionId(txo.id())
                             .term(term)
@@ -574,7 +571,7 @@ public class InternalTableImpl implements InternalTable {
 
         return replicaSvc.invoke(recipientNode, tableMessagesFactory.readOnlySingleRowPkReplicaRequest()
                 .groupId(partGroupId)
-                .primaryKeyMessage(serializePrimaryKey(keyRow))
+                .primaryKey(keyRow.tupleSlice())
                 .requestType(RequestType.RO_GET)
                 .readTimestampLong(readTimestamp.longValue())
                 .build()
@@ -599,7 +596,7 @@ public class InternalTableImpl implements InternalTable {
                     tx,
                     (keyRows0, txo, groupId, term, full) -> tableMessagesFactory.readWriteMultiRowPkReplicaRequest()
                             .groupId(groupId)
-                            .primaryKeyMessages(serializePrimaryKeys(keyRows0))
+                            .primaryKeys(serializePrimaryKeys(keyRows0))
                             .commitPartitionId(txo.commitPartition())
                             .transactionId(txo.id())
                             .term(term)
@@ -626,7 +623,7 @@ public class InternalTableImpl implements InternalTable {
 
             ReadOnlyMultiRowPkReplicaRequest request = tableMessagesFactory.readOnlyMultiRowPkReplicaRequest()
                     .groupId(partGroupId)
-                    .primaryKeyMessages(serializePrimaryKeys(partitionRowBatch.getValue().requestedRows))
+                    .primaryKeys(serializePrimaryKeys(partitionRowBatch.getValue().requestedRows))
                     .requestType(RequestType.RO_GET_ALL)
                     .readTimestampLong(readTimestamp.longValue())
                     .build();
@@ -654,21 +651,14 @@ public class InternalTableImpl implements InternalTable {
                 .build();
     }
 
-    private List<BinaryTupleMessage> serializePrimaryKeys(Collection<? extends BinaryRow> keys) {
-        var result = new ArrayList<BinaryTupleMessage>(keys.size());
+    private static List<ByteBuffer> serializePrimaryKeys(Collection<? extends BinaryRow> keys) {
+        var result = new ArrayList<ByteBuffer>(keys.size());
 
         for (BinaryRow row : keys) {
-            result.add(serializePrimaryKey(row));
+            result.add(row.tupleSlice());
         }
 
         return result;
-    }
-
-    private BinaryTupleMessage serializePrimaryKey(BinaryRow key) {
-        return tableMessagesFactory.binaryTupleMessage()
-                .tuple(key.tupleSlice())
-                .elementCount(pkLength)
-                .build();
     }
 
     /** {@inheritDoc} */
@@ -841,7 +831,7 @@ public class InternalTableImpl implements InternalTable {
                 (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(txo.commitPartition())
-                        .primaryKeyMessage(serializePrimaryKey(keyRow))
+                        .primaryKey(keyRow.tupleSlice())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE)
@@ -879,7 +869,7 @@ public class InternalTableImpl implements InternalTable {
                 (txo, groupId, term) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(txo.commitPartition())
-                        .primaryKeyMessage(serializePrimaryKey(row))
+                        .primaryKey(row.tupleSlice())
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_GET_AND_DELETE)
@@ -898,7 +888,7 @@ public class InternalTableImpl implements InternalTable {
                 (keyRows0, txo, groupId, term, full) -> tableMessagesFactory.readWriteMultiRowPkReplicaRequest()
                         .groupId(groupId)
                         .commitPartitionId(txo.commitPartition())
-                        .primaryKeyMessages(serializePrimaryKeys(keyRows0))
+                        .primaryKeys(serializePrimaryKeys(keyRows0))
                         .transactionId(txo.id())
                         .term(term)
                         .requestType(RequestType.RW_DELETE_ALL)

@@ -35,6 +35,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -302,7 +302,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
         List<BinaryRow> rowStore = List.of(ROW_1, ROW_2);
 
         when(replicaService.invoke(any(ClusterNode.class), any(ReadOnlyMultiRowPkReplicaRequest.class))).thenAnswer(args -> {
-            List<BinaryTuple> primaryKeys = args.getArgument(1, ReadOnlyMultiRowPkReplicaRequest.class).primaryKeys();
+            List<ByteBuffer> primaryKeys = args.getArgument(1, ReadOnlyMultiRowPkReplicaRequest.class).primaryKeys();
 
             return primaryKeys.stream()
                     .map(pk -> rowStore.stream().filter(row -> rowMatchesPk(row, pk)).findFirst().orElse(null))
@@ -314,7 +314,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
         List<BinaryRow> rowStore = List.of(ROW_1, ROW_2);
 
         when(replicaService.invoke(any(ClusterNode.class), any(ReadOnlySingleRowPkReplicaRequest.class))).thenAnswer(args -> {
-            BinaryTuple primaryKey = args.getArgument(1, ReadOnlySingleRowPkReplicaRequest.class).primaryKey();
+            ByteBuffer primaryKey = args.getArgument(1, ReadOnlySingleRowPkReplicaRequest.class).primaryKey();
 
             return CompletableFuture.completedFuture(rowStore.stream()
                     .filter(row -> rowMatchesPk(row, primaryKey))
@@ -323,7 +323,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
         });
     }
 
-    private static boolean rowMatchesPk(BinaryRow row, BinaryTuple pk) {
-        return KEY_EXTRACTOR.extractColumns(row).byteBuffer().equals(pk.byteBuffer());
+    private static boolean rowMatchesPk(BinaryRow row, ByteBuffer pk) {
+        return KEY_EXTRACTOR.extractColumns(row).byteBuffer().equals(pk);
     }
 }

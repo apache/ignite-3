@@ -162,8 +162,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest {
                     mock(TxStateTableStorage.class),
                     replicaSvc,
                     mock(HybridClock.class),
-                    timestampTracker,
-                    0
+                    timestampTracker
             );
             this.dataAmount = dataAmount;
 

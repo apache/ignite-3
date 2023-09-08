@@ -225,8 +225,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 new TestTxStateTableStorage(),
                 replicaService,
                 hybridClock,
-                new HybridTimestampTracker(),
-                1
+                new HybridTimestampTracker()
         );
 
         closeables.add(() -> table.close());
@@ -262,7 +261,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     MvPartitionStorage partitionStorage = mvPartitionStorages.get(storageIndex);
 
                     Map<ByteBuffer, RowId> primaryIndex = pkIndex(partitionStorage);
-                    RowId rowId = primaryIndex.get(req0.primaryKey().byteBuffer());
+                    RowId rowId = primaryIndex.get(req0.primaryKey());
 
                     if (rowId == null) {
                         return completedFuture(null);

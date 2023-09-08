@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import static java.util.Collections.nCopies;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
@@ -36,6 +40,7 @@ import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -221,8 +226,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestTxStateTableStorage(),
                 replicaSvc,
                 CLOCK,
-                tracker,
-                schema.keyColumns().length()
+                tracker
         );
         RaftGroupService svc = raftGroupServiceByPartitionId.get(0);
 
@@ -327,6 +331,12 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
 
+        CatalogService catalogService = mock(CatalogService.class);
+        CatalogTableDescriptor mockDescriptor = mock(CatalogTableDescriptor.class);
+
+        when(catalogService.table(eq(tableId), anyInt())).thenReturn(mockDescriptor);
+        when(mockDescriptor.primaryKeyColumns()).thenReturn(nCopies(schema.keyColumns().length(), "foo"));
+
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
                 raftGroupServiceByPartitionId.get(PART_ID),
@@ -348,7 +358,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(MvTableStorage.class),
                 mock(IndexBuilder.class),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
-                mock(CatalogService.class),
+                catalogService,
                 mock(TablesConfiguration.class)
         );
 
