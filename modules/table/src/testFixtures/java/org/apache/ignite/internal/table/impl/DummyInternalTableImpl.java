@@ -37,9 +37,12 @@ import java.util.function.LongSupplier;
 import java.util.stream.Stream;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.configuration.NamedConfigurationTree;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.configuration.NamedListConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -62,6 +65,8 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableChange;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
 import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -331,11 +336,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         DummySchemaManagerImpl schemaManager = new DummySchemaManagerImpl(schema);
 
-        TablesConfiguration tablesConfig = mock(TablesConfiguration.class, RETURNS_DEEP_STUBS);
-
+        TablesConfiguration tablesConfig = mock(TablesConfiguration.class);
+        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tablesTree = mock(NamedListConfiguration.class);
+        NamedListView<TableView> tablesList = mock(NamedListView.class);
         TableView tableConfig = mock(TableView.class, RETURNS_DEEP_STUBS);
 
-        when(tablesConfig.tables().value().stream()).thenReturn(Stream.of(tableConfig));
+        when(tablesConfig.tables()).thenReturn(tablesTree);
+        when(tablesTree.value()).thenReturn(tablesList);
+        when(tablesList.stream()).thenReturn(Stream.of(tableConfig));
 
         String[] primaryKeyColumns = Arrays.stream(schema.keyColumns().columns())
                 .map(Column::name)
@@ -366,7 +374,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(IndexBuilder.class),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 mock(CatalogService.class),
-                mock(TablesConfiguration.class)
+                tablesConfig
         );
 
         lenient().when(safeTime.waitFor(any())).thenReturn(completedFuture(null));
