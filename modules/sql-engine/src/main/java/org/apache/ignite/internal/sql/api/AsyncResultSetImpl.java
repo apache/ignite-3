@@ -133,12 +133,12 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         if (!hasMorePages()) {
             return (CompletableFuture<? extends AsyncResultSet<T>>) HAS_NO_MORE_PAGE_FUTURE;
         } else {
-            return IgniteExceptionMapperUtil.convertToPublicFuture(cur.requestNextAsync(pageSize)
+            return cur.requestNextAsync(pageSize)
                     .thenApply(page -> {
                         curPage = page;
 
                         return this;
-                    }));
+                    });
         }
     }
 
