@@ -65,7 +65,7 @@ public class MsgPackReaderTests
     [Test]
     public void TestReadPastBufferEndThrows()
     {
-        var buf = new byte[] { MsgPackCode.Array16, 0, 0, 0, 0, 0, 0 };
+        var buf = new byte[] { MsgPackCode.Int16, 0, 0, 0, 0, 0, 0 };
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
         {
