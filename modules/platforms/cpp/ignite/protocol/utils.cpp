@@ -152,9 +152,9 @@ bool unpack_object(const msgpack_object &object) {
 }
 
 std::uint32_t unpack_array_size(const msgpack_object &object) {
-    if (object.type != MSGPACK_OBJECT_ARRAY)
+    if (object.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
         throw ignite_error("The value in stream is not an Array : " + std::to_string(object.type));
-    return object.via.array.size;
+    return object.via.i64;
 }
 
 void unpack_array_raw(const msgpack_object &object, const std::function<void(const msgpack_object &)> &read_func) {
