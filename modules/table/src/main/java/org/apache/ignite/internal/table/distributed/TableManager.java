@@ -1448,7 +1448,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<List<Table>> tablesAsyncInternalBusy() {
         HybridTimestamp now = clock.now();
 
-        return anyOf(schemaSyncService.waitForMetadataCompleteness(now), stopManagerFuture)
+        return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
                 .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
                     int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
 
@@ -1547,7 +1547,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
-            return anyOf(schemaSyncService.waitForMetadataCompleteness(now), stopManagerFuture)
+            return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
                     .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
                         int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
 
@@ -1599,7 +1599,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
-            return anyOf(schemaSyncService.waitForMetadataCompleteness(now), stopManagerFuture)
+            return orStopManagerFuture(schemaSyncService.waitForMetadataCompleteness(now))
                     .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
                         CatalogTableDescriptor tableDescriptor = catalogService.table(name, now.longValue());
 
@@ -1654,8 +1654,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return completedFuture(tableImpl);
         }
 
-        return anyOf(getLatestTableFuture, stopManagerFuture)
-                .thenComposeAsync(o -> getLatestTableFuture, ioExecutor)
+        return orStopManagerFuture(getLatestTableFuture)
                 .whenComplete((unused, throwable) -> assignmentsUpdatedVv.removeWhenComplete(tablesListener));
     }
 
@@ -2300,6 +2299,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             startTableFutures.add(createTableLocally(causalityToken, catalogVersion, tableDescriptor));
         }
 
+        // Forces you to wait until recovery is complete before the metastore watches is deployed to avoid races with catalog listeners.
         startVv.update(causalityToken, (unused, throwable) -> allOf(startTableFutures.toArray(CompletableFuture[]::new)))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
@@ -2308,5 +2308,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         LOG.debug("Tables started successfully");
                     }
                 });
+    }
+
+    /**
+     * Returns the future that will complete when, either the future from the argument or {@link #stopManagerFuture} will complete,
+     * successfully or exceptionally. Allows to protect from getting stuck at {@link #stop()} when someone is blocked (by using
+     * {@link #busyLock}) for a long time.
+     *
+     * @param future Future.
+     */
+    private <T> CompletableFuture<T> orStopManagerFuture(CompletableFuture<T> future) {
+        return anyOf(future, stopManagerFuture).thenApply(o -> (T) o);
     }
 }
