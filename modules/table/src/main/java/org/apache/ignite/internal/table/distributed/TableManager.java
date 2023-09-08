@@ -176,6 +176,7 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
@@ -1270,7 +1271,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         InternalTableImpl internalTable = new InternalTableImpl(tableName, tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
                 partitions, clusterNodeResolver, txManager, tableStorage,
-                txStateStorage, replicaSvc, clock, observableTimestampTracker);
+                txStateStorage, replicaSvc, clock, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
 
         var table = new TableImpl(internalTable, lockMgr);
 

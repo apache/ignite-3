@@ -25,6 +25,10 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
@@ -44,13 +48,20 @@ public class ClientTupleDeleteRequest {
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteTables tables,
+            TxManager txManager,
             ClientResourceRegistry resources
     ) {
+        var observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+        var tracker = new HybridTimestampTracker();
+        tracker.update(observableTs);
+
+        var txs = new IgniteTransactionsImpl(txManager, tracker);
+
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
             var tuple = readTuple(in, table, true);
 
-            return table.recordView().deleteAsync(tx, tuple).thenAccept(res -> {
+            return table.internalTable().delete(tuple, tx, txs).thenAccept(res -> {
                 out.packInt(table.schemaView().lastSchemaVersion());
                 out.packBoolean(res);
             });

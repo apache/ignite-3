@@ -37,6 +37,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -214,10 +215,22 @@ public interface InternalTable extends ManuallyCloseable {
      * Asynchronously deletes a row with the same key columns values as the given one from the table.
      *
      * @param keyRow Row with key columns set.
-     * @param tx     The transaction.
+     * @param tx The transaction.
      * @return Future representing pending completion of the operation.
      */
-    CompletableFuture<Boolean> delete(BinaryRowEx keyRow, @Nullable InternalTransaction tx);
+    default CompletableFuture<Boolean> delete(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
+        return delete(keyRow, tx, null);
+    }
+
+    /**
+     * Asynchronously deletes a row with the same key columns values as the given one from the table.
+     *
+     * @param keyRow Row with key columns set.
+     * @param tx The transaction.
+     * @param txs Ignite transactions to start implicit transaction correctly. If this parameter is {@code null} embedded is used.
+     * @return Future representing pending completion of the operation.
+     */
+    CompletableFuture<Boolean> delete(BinaryRowEx keyRow, @Nullable InternalTransaction tx, @Nullable IgniteTransactions txs);
 
     /**
      * Asynchronously deletes given row from the table.

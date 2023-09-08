@@ -171,6 +171,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         return mainFinishFut;
     }
 
+    @Override
+    public void fastFinish(boolean commit) {
+        txManager.finishFull(observableTsTracker, id(), commit);
+    }
+
     /** {@inheritDoc} */
     @Override
     public void enlistResultFuture(CompletableFuture<?> resultFuture) {
