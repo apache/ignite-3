@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
-import static it.unimi.dsi.fastutil.objects.ObjectSortedSets.EMPTY_SET;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -47,8 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -72,6 +69,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -161,6 +160,9 @@ import org.jetbrains.annotations.Nullable;
 
 /** Partition replication listener. */
 public class PartitionReplicaListener implements ReplicaListener {
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaListener.class);
+
     /** Factory to create RAFT command messages. */
     private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
 
@@ -254,8 +256,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final TablesConfiguration tablesConfig;
 
-    /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
-    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
@@ -1260,9 +1260,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Processes transaction cleanup request:
      * <ol>
-     *     <li>Run specific raft {@code TxCleanupCommand} command, that will convert all pending entries(writeIntents)
-     *     to either regular values({@link TxState#COMMITED}) or removing them ({@link TxState#ABORTED}).</li>
-     *     <li>Release all locks that were held on local Replica by given transaction.</li>
+     *     <li>Waits for finishing of local transactional operations;</li>
+     *     <li>Runs asynchronously the specific raft {@code TxCleanupCommand} command, that will convert all pending entries(writeIntents)
+     *     to either regular values({@link TxState#COMMITED}) or removing them ({@link TxState#ABORTED});</li>
+     *     <li>Releases all locks that were held on local Replica by given transaction.</li>
      * </ol>
      * This operation is idempotent, so it's safe to retry it.
      *
@@ -1307,7 +1308,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         if (txUpdateFutures.isEmpty()) {
             if (!txReadFutures.isEmpty()) {
-                allOffFuturesExceptionIgnored(txReadFutures, request)
+                return allOffFuturesExceptionIgnored(txReadFutures, request)
                         .thenRun(() -> releaseTxLocks(request.txId()));
             }
 
@@ -1328,12 +1329,17 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 .requiredCatalogVersion(catalogVersion)
                                 .build();
 
-                        cleanupLocally(request.txId(), request.commit(), request.commitTimestamp());
+                        storageUpdateHandler.handleTransactionCleanup(request.txId(), request.commit(), request.commitTimestamp());
 
-                        return raftClient
-                                .run(txCleanupCmd)
-                                .thenCompose(ignored -> allOffFuturesExceptionIgnored(txReadFutures, request)
-                                        .thenRun(() -> releaseTxLocks(request.txId())));
+                        raftClient.run(txCleanupCmd)
+                                .exceptionally(e -> {
+                                    LOG.warn("Failed to complete transaction cleanup command [txId=" + request.txId() + ']', e);
+
+                                    return completedFuture(null);
+                                });
+
+                        return allOffFuturesExceptionIgnored(txReadFutures, request)
+                                .thenRun(() -> releaseTxLocks(request.txId()));
                     });
         });
     }
@@ -1864,15 +1870,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     cmd.rowUuid(),
                     cmd.tablePartitionId().asTablePartitionId(),
                     cmd.row(),
-                    rowId -> txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
-                        if (v == null) {
-                            v = new TreeSet<>();
-                        }
-
-                        v.add(rowId);
-
-                        return v;
-                    }),
+                    true,
+                    null,
                     null);
         }
 
@@ -1884,6 +1883,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         cmd.rowUuid(),
                         cmd.tablePartitionId().asTablePartitionId(),
                         cmd.row(),
+                        false,
                         null,
                         cmd.safeTime());
             }
@@ -1904,15 +1904,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     cmd.txId(),
                     cmd.rowsToUpdate(),
                     cmd.tablePartitionId().asTablePartitionId(),
-                    rowIds -> txsPendingRowIds.compute(cmd.txId(), (k, v) -> {
-                        if (v == null) {
-                            v = new TreeSet<>();
-                        }
-
-                        v.addAll(rowIds);
-
-                        return v;
-                    }),
+                    true,
+                    null,
                     null);
         }
 
@@ -1922,6 +1915,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         cmd.txId(),
                         cmd.rowsToUpdate(),
                         cmd.tablePartitionId().asTablePartitionId(),
+                        false,
                         null,
                         cmd.safeTime());
             }
@@ -2716,27 +2710,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         indexBuilder.stopBuildIndexes(tableId(), partId());
-    }
-
-    private void cleanupLocally(UUID txId, boolean commit, HybridTimestamp commitTimestamp) {
-        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
-
-        if (commit) {
-            mvDataStorage.runConsistently(locker -> {
-                pendingRowIds.forEach(locker::lock);
-
-                pendingRowIds.forEach(rowId -> mvDataStorage.commitWrite(rowId, commitTimestamp));
-
-                txsPendingRowIds.remove(txId);
-
-                return null;
-            });
-        } else {
-            storageUpdateHandler.handleTransactionAbortion(pendingRowIds, () -> {
-                // on application callback
-                txsPendingRowIds.remove(txId);
-            });
-        }
     }
 
     /**

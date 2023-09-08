@@ -112,6 +112,7 @@ public class StorageUpdateHandlerTest extends BaseIgniteAbstractTest {
                 UUID.randomUUID(),
                 new TablePartitionId(1, PARTITION_ID),
                 null,
+                false,
                 null,
                 null
         );
@@ -133,6 +134,7 @@ public class StorageUpdateHandlerTest extends BaseIgniteAbstractTest {
                 UUID.randomUUID(),
                 Map.of(),
                 new TablePartitionId(1, PARTITION_ID),
+                false,
                 null,
                 null
         );
