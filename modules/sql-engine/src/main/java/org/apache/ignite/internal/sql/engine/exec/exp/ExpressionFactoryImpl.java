@@ -277,8 +277,17 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /** {@inheritDoc} */
     @Override
     public <T> Supplier<T> execute(RexNode node) {
-        RelDataType nodeType = node.getType();
-        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(List.of(nodeType));
+        RelDataType exprType = node.getType();
+        List<RelDataType> typesList;
+
+        if (exprType.getSqlTypeName() == SqlTypeName.ROW) {
+            // Convert a row returned from a table function into a list of columns.
+            typesList = RelOptUtil.getFieldTypeList(exprType);
+        } else {
+            typesList = List.of(exprType);
+        }
+
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typesList);
 
         RowFactory<RowT> factory = ctx.rowHandler().factory(rowSchema);
 
