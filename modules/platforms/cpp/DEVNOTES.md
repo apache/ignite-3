@@ -55,7 +55,7 @@ In this dir:
 ```shell
 mkdir cmake-build-debug
 cd cmake-build-debug
-cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+cmake .. -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DCMAKE_BUILD_TYPE=Debug
 cmake --build . -j8
 ```
 
@@ -66,7 +66,7 @@ In this dir:
 ```shell
 mkdir cmake-build-release
 cd cmake-build-release
-cmake .. -DENABLE_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
+cmake .. -DENABLE_TESTS=OFF -DENABLE_ODBC=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build . -j8
 ```
 
@@ -85,7 +85,7 @@ In this dir:
 ```shell
 mkdir cmake-build-debug
 cd cmake-build-debug
-cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+cmake .. -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DCMAKE_BUILD_TYPE=Debug
 cmake --build . -j8
 ```
 
@@ -96,7 +96,7 @@ In this dir:
 ```shell
 mkdir cmake-build-release
 cd cmake-build-release
-cmake .. -DENABLE_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
+cmake .. -DENABLE_TESTS=OFF -DENABLE_ODBC=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build . -j8
 ```
 
@@ -109,7 +109,7 @@ In this dir (using the ninja build system, other single-config systems can be us
 ```shell
 mkdir cmake-build-debug
 cd cmake-build-debug
-cmake .. -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -GNinja
+cmake .. -DENABLE_TESTS=ON -DENABLE_ODBC=ON -DCMAKE_BUILD_TYPE=Debug -GNinja
 cmake --build . -j8
 ```
 
@@ -120,7 +120,7 @@ In this dir (using the ninja build system, other single-config systems can be us
 ```shell
 mkdir cmake-build-release
 cd cmake-build-release
-cmake .. -DENABLE_TESTS=OFF -DCMAKE_BUILD_TYPE=Release -GNinja
+cmake .. -DENABLE_TESTS=OFF -DENABLE_ODBC=ON -DCMAKE_BUILD_TYPE=Release -GNinja
 cmake --build . -j8
 ```
 
