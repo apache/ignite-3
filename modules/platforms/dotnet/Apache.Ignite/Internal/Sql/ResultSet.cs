@@ -271,7 +271,8 @@ namespace Apache.Ignite.Internal.Sql
             static bool HasMore(PooledBuffer buf)
             {
                 var reader = buf.GetReader();
-                reader.Skip();
+                var rowCount = reader.ReadInt32();
+                reader.Skip(rowCount);
 
                 return !reader.End && reader.ReadBoolean();
             }
