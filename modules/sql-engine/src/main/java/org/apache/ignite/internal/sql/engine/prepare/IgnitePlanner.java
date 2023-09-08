@@ -272,9 +272,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         List<List<String>> origins = validator().getFieldOrigins(validatedNode);
 
         List<String> derived = null;
-        if (validatedNode instanceof SqlSelect && !skipAliases) {
-            requireNonNull(selectItems, "selectItems");
-
+        if (validatedNode instanceof SqlSelect && !skipAliases && selectItems != null) {
             int cnt = 0;
             derived = new ArrayList<>(selectItems.size());
 
