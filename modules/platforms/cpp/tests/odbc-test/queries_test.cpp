@@ -451,9 +451,10 @@ TEST_F(queries_test, null_fields) {
 
     insert_all_types_row(1);
 
-    exec_query("insert into TBL_ALL_COLUMNS_SQL("
-               "   key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\",\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\") "
-               "values(2, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
+    exec_query(
+        "insert into TBL_ALL_COLUMNS_SQL("
+        "   key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\",\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\") "
+        "values(2, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
 
     insert_all_types_row(3);
 

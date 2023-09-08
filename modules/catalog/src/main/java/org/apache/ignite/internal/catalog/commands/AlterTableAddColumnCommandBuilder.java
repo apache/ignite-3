@@ -15,37 +15,18 @@
  * limitations under the License.
  */
 
-#include "ignite/odbc/meta/table_meta.h"
+package org.apache.ignite.internal.catalog.commands;
 
-namespace ignite {
+import java.util.List;
 
-void table_meta::read(protocol::reader &reader) {
-    auto has_data = reader.read_bool();
-    assert(has_data);
-
-    auto status = reader.read_int32();
-    assert(status == 0);
-
-    auto err_msg = reader.read_string_nullable();
-    assert(!err_msg);
-
-    schema_name = reader.read_string();
-    table_name = reader.read_string();
-    table_type = reader.read_string();
+/**
+ * Builder of a command that adds new columns to the table.
+ *
+ * <p>A builder is considered to be reusable, thus implementation have
+ * to make sure invocation of {@link #build()} method doesn't cause any
+ * side effects on builder's state or any object created by the same builder.
+ */
+public interface AlterTableAddColumnCommandBuilder extends AbstractTableCommandBuilder<AlterTableAddColumnCommandBuilder> {
+    /** List of columns to add to the table. There must be at least one column. */
+    AlterTableAddColumnCommandBuilder columns(List<ColumnParams> columns);
 }
-
-table_meta_vector read_table_meta_vector(protocol::reader &reader) {
-    auto meta_num = reader.read_int32();
-
-    table_meta_vector meta;
-    meta.reserve(static_cast<std::size_t>(meta_num));
-
-    for (std::int32_t i = 0; i < meta_num; ++i) {
-        meta.emplace_back();
-        meta.back().read(reader);
-    }
-
-    return meta;
-}
-
-} // namespace ignite

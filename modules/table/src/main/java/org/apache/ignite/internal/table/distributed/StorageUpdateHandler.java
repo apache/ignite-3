@@ -20,14 +20,12 @@ package org.apache.ignite.internal.table.distributed;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -38,6 +36,7 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -62,6 +61,9 @@ public class StorageUpdateHandler {
 
     /** Partition gc update handler. */
     private final GcUpdateHandler gcUpdateHandler;
+
+    /** A container for rows that were inserted, updated or removed. */
+    private final PendingRows pendingRows = new PendingRows();
 
     /**
      * The constructor.
@@ -102,6 +104,7 @@ public class StorageUpdateHandler {
      * @param rowUuid Row UUID.
      * @param commitPartitionId Commit partition id.
      * @param row Row.
+     * @param trackWriteIntent If {@code true} then write intent should be tracked.
      * @param onApplication Callback on application.
      * @param commitTs Commit timestamp to use on autocommit.
      */
@@ -110,7 +113,8 @@ public class StorageUpdateHandler {
             UUID rowUuid,
             TablePartitionId commitPartitionId,
             @Nullable BinaryRow row,
-            @Nullable Consumer<RowId> onApplication,
+            boolean trackWriteIntent,
+            @Nullable Runnable onApplication,
             @Nullable HybridTimestamp commitTs
     ) {
         indexUpdateHandler.waitIndexes();
@@ -136,8 +140,12 @@ public class StorageUpdateHandler {
 
             indexUpdateHandler.addToIndexes(row, rowId);
 
+            if (trackWriteIntent) {
+                pendingRows.addPendingRowId(txId, rowId);
+            }
+
             if (onApplication != null) {
-                onApplication.accept(rowId);
+                onApplication.run();
             }
 
             return null;
@@ -152,6 +160,7 @@ public class StorageUpdateHandler {
      * @param txId Transaction id.
      * @param rowsToUpdate Collection of rows to update.
      * @param commitPartitionId Commit partition id.
+     * @param trackWriteIntent If {@code true} then write intent should be tracked.
      * @param onApplication Callback on application.
      * @param commitTs Commit timestamp to use on autocommit.
      */
@@ -159,7 +168,8 @@ public class StorageUpdateHandler {
             UUID txId,
             Map<UUID, BinaryRowMessage> rowsToUpdate,
             TablePartitionId commitPartitionId,
-            @Nullable Consumer<Collection<RowId>> onApplication,
+            boolean trackWriteIntent,
+            @Nullable Runnable onApplication,
             @Nullable HybridTimestamp commitTs
     ) {
         indexUpdateHandler.waitIndexes();
@@ -196,8 +206,12 @@ public class StorageUpdateHandler {
                     indexUpdateHandler.addToIndexes(row, rowId);
                 }
 
+                if (trackWriteIntent) {
+                    pendingRows.addPendingRowIds(txId, rowIds);
+                }
+
                 if (onApplication != null) {
-                    onApplication.accept(rowIds);
+                    onApplication.run();
                 }
             }
 
@@ -234,12 +248,90 @@ public class StorageUpdateHandler {
     }
 
     /**
+     * Handles the read of a write-intent.
+     *
+     * @param txId Transaction id.
+     * @param rowId Row id.
+     */
+    public void handleWriteIntentRead(UUID txId, RowId rowId) {
+        pendingRows.addPendingRowId(txId, rowId);
+    }
+
+    /**
+     * Handles the cleanup of a transaction. The transaction is either committed or rolled back.
+     *
+     * @param txId Transaction id.
+     * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
+     * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
+     */
+    public void handleTransactionCleanup(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+        Set<RowId> pendingRowIds = pendingRows.getPendingRowIds(txId);
+
+        handleTransactionCleanup(pendingRowIds, commit, commitTimestamp, () -> pendingRows.removePendingRowIds(txId));
+    }
+
+    /**
+     * Handles the cleanup of a transaction. The transaction is either committed or rolled back.
+     *
+     * @param txId Transaction id.
+     * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
+     * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
+     * @param onApplication On application callback.
+     */
+    public void handleTransactionCleanup(UUID txId, boolean commit,
+            @Nullable HybridTimestamp commitTimestamp, Runnable onApplication) {
+        Set<RowId> pendingRowIds = pendingRows.getPendingRowIds(txId);
+
+        handleTransactionCleanup(pendingRowIds, commit, commitTimestamp, () -> {
+            pendingRows.removePendingRowIds(txId);
+
+            onApplication.run();
+        });
+    }
+
+    /**
+     * Handles the cleanup of a transaction. The transaction is either committed or rolled back.
+     *
+     * @param pendingRowIds Row ids of write-intents to be finalized, either committed or rolled back.
+     * @param commit Commit flag. {@code true} if transaction is committed, {@code false} otherwise.
+     * @param commitTimestamp Commit timestamp. Not {@code null} if {@code commit} is {@code true}.
+     * @param onApplication On application callback.
+     */
+    private void handleTransactionCleanup(Set<RowId> pendingRowIds, boolean commit,
+            @Nullable HybridTimestamp commitTimestamp, Runnable onApplication) {
+        if (commit) {
+            handleTransactionCommit(pendingRowIds, commitTimestamp, onApplication);
+        } else {
+            handleTransactionAbortion(pendingRowIds, onApplication);
+        }
+    }
+
+    /**
+     * Handles the commit of a transaction.
+     *
+     * @param pendingRowIds Row ids of write-intents to be committed.
+     * @param commitTimestamp Commit timestamp.
+     * @param onApplication On application callback.
+     */
+    private void handleTransactionCommit(Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp, Runnable onApplication) {
+        storage.runConsistently(locker -> {
+            pendingRowIds.forEach(locker::lock);
+
+            pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp));
+
+            onApplication.run();
+
+            return null;
+        });
+    }
+
+    /**
      * Handles the abortion of a transaction.
      *
      * @param pendingRowIds Row ids of write-intents to be rolled back.
      * @param onApplication On application callback.
      */
-    public void handleTransactionAbortion(Set<RowId> pendingRowIds, Runnable onApplication) {
+    private void handleTransactionAbortion(Set<RowId> pendingRowIds, Runnable onApplication) {
         storage.runConsistently(locker -> {
             for (RowId rowId : pendingRowIds) {
                 locker.lock(rowId);
