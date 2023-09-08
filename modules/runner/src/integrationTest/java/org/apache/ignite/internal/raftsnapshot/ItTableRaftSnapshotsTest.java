@@ -274,6 +274,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      */
     // TODO: IGNITE-18481 - make sure we don't forget to add new storage engines here
     @ParameterizedTest
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20367")
     @ValueSource(strings = {
             RocksDbStorageEngine.ENGINE_NAME,
             PersistentPageMemoryStorageEngine.ENGINE_NAME
@@ -521,6 +522,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * Tests that entries can still be added to a follower using AppendEntries after it gets fed with a RAFT snapshot.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20367")
     void entriesKeepAppendedAfterSnapshotInstallation() throws Exception {
         feedNode2WithSnapshotOfOneRow();
 
