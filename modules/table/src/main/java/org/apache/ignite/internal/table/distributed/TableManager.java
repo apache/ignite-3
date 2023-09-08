@@ -564,6 +564,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         addMessageHandler(clusterService.messagingService());
 
+        // TODO: IGNITE-19499 - remove when switched to the Catalog.
+        recoverTableIdsMapping();
+
+        // TODO: IGNITE-19499 - remove when switched to the Catalog.
         catalogService.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
             CreateTableEventParameters event = (CreateTableEventParameters) parameters;
 
@@ -574,6 +578,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             tableIdTranslator.registerMapping(tableConfig.id(), event.tableId());
 
             return completedFuture(false);
+        });
+    }
+
+    private void recoverTableIdsMapping() {
+        tablesCfg.tables().value().forEach(tableView -> {
+            CatalogTableDescriptor tableDescriptor = catalogService.table(tableView.name(), Long.MAX_VALUE);
+
+            assert tableDescriptor != null : "No table in the Catalog with name " + tableView.name();
+
+            tableIdTranslator.registerMapping(tableView.id(), tableDescriptor.id());
         });
     }
 
