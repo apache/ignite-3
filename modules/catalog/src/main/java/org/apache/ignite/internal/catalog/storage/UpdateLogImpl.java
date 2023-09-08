@@ -215,7 +215,7 @@ public class UpdateLogImpl implements UpdateLog {
 
         @Override
         public void onError(Throwable e) {
-            // Do nothing.
+            assert false;
         }
     }
 }
