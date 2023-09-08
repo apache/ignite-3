@@ -613,7 +613,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         byte[] bytesPendingAssignments = ByteUtils.toBytes(pendingAssignments);
         byte[] bytesPlannedAssignments = ByteUtils.toBytes(plannedAssignments);
 
-        TablePartitionId partId = new TablePartitionId(1, 0);
+        Node node0 = getNode(0);
+
+        TablePartitionId partId = new TablePartitionId(getTableId(node0, TABLE_NAME), 0);
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
@@ -623,7 +625,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         msEntries.put(partAssignmentsPendingKey, bytesPendingAssignments);
         msEntries.put(partAssignmentsPlannedKey, bytesPlannedAssignments);
 
-        getNode(0).metaStorageManager.putAll(msEntries).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
+        node0.metaStorageManager.putAll(msEntries).get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
     }
 
     private void verifyThatRaftNodesAndReplicasWereStartedOnlyOnce() throws Exception {
