@@ -104,8 +104,8 @@ typedef std::vector<table_meta> table_meta_vector;
  * Read tables metadata collection.
  *
  * @param reader Reader.
- * @param meta Collection.
+ * @return Meta vector.
  */
-void read_table_meta_vector(protocol::reader &reader, table_meta_vector &meta);
+table_meta_vector read_table_meta_vector(protocol::reader &reader);
 
 } // namespace ignite

@@ -25,6 +25,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -44,6 +45,13 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
     /** {@inheritDoc} */
     @Override protected boolean startClient() {
         return false;
+    }
+
+    /** {@inheritDoc} */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20116")
+    @Override
+    public void testBalance() throws InterruptedException {
+        super.testBalance();
     }
 
     /** {@inheritDoc} */

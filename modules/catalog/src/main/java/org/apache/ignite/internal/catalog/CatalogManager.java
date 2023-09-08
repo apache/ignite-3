@@ -19,9 +19,6 @@ package org.apache.ignite.internal.catalog;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
@@ -51,30 +48,6 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @return Future representing result of execution.
      */
     CompletableFuture<Void> execute(List<CatalogCommand> commands);
-
-    /**
-     * Add columns to a table.
-     *
-     * @param params Parameters.
-     * @return Operation future.
-     */
-    CompletableFuture<Void> addColumn(AlterTableAddColumnParams params);
-
-    /**
-     * Drops columns from table.
-     *
-     * @param params Parameters.
-     * @return Operation future.
-     */
-    CompletableFuture<Void> dropColumn(AlterTableDropColumnParams params);
-
-    /**
-     * Changes a table column.
-     *
-     * @param params Parameters.
-     * @return Operation future.
-     */
-    CompletableFuture<Void> alterColumn(AlterColumnParams params);
 
     /**
      * Creates new sorted index.

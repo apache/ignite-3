@@ -393,16 +393,16 @@ public class ItTxTestCluster {
             TablePartitionId grpId = grpIds.get(p);
 
             for (String assignment : partAssignments) {
+                int partId = p;
+
                 var mvTableStorage = new TestMvTableStorage(tableId, DEFAULT_PARTITION_COUNT);
-                var mvPartStorage = new TestMvPartitionStorage(0);
+                var mvPartStorage = new TestMvPartitionStorage(partId);
                 var txStateStorage = txStateStorages.get(assignment);
                 var transactionStateResolver = new TransactionStateResolver(replicaServices.get(assignment), consistentIdToNode);
 
                 for (int part = 0; part < assignments.size(); part++) {
                     transactionStateResolver.updateAssignment(grpIds.get(part), assignments.get(part));
                 }
-
-                int partId = p;
 
                 int indexId = globalIndexId++;
 
@@ -443,8 +443,6 @@ public class ItTxTestCluster {
                         Loza.FACTORY,
                         new RaftGroupEventsClientListener()
                 );
-
-                TxManager txManager = txManagers.get(assignment);
 
                 PartitionListener partitionListener = new PartitionListener(
                         txManagers.get(assignment),
