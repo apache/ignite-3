@@ -619,6 +619,7 @@ public class ItSqlAsynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         // Execute error.
         checkSqlError(Sql.RUNTIME_ERR, "/ by zero", ses, "SELECT 1 / ?", 0);
+        checkSqlError(Sql.RUNTIME_ERR, "/ by zero", ses, "UPDATE TEST SET val0 = val0/(val0 - ?) + " + ROW_COUNT, 0);
         checkSqlError(Sql.RUNTIME_ERR, "negative substring length not allowed", ses, "SELECT SUBSTRING('foo', 1, -3)");
 
         // No result set error.

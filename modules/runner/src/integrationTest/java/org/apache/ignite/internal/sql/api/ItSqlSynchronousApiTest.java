@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.sql.api.ItSqlAsynchronousApiTest.assertThrowsPublicException;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -55,7 +56,6 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.hamcrest.MatcherAssert;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -83,12 +83,12 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(true, ses, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         checkError(
                 TableAlreadyExistsException.class,
+                ErrorGroups.Table.TABLE_ALREADY_EXISTS_ERR,
                 "Table already exists [name=\"PUBLIC\".\"TEST\"]",
                 ses,
                 "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)"
         );
-        checkError(
-                SqlException.class,
+        checkSqlError(
                 ErrorGroups.Table.TABLE_DEFINITION_ERR,
                 "Can't create table with duplicate columns: ID, VAL, VAL",
                 ses,
@@ -100,6 +100,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN VAL1 VARCHAR");
         checkError(
                 TableNotFoundException.class,
+                ErrorGroups.Table.TABLE_NOT_FOUND_ERR,
                 "The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]",
                 ses,
                 "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"
@@ -107,6 +108,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(false, ses, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR");
         checkError(
                 ColumnAlreadyExistsException.class,
+                ErrorGroups.Table.TABLE_ALREADY_EXISTS_ERR,
                 "Column already exists [name=\"VAL1\"]",
                 ses,
                 "ALTER TABLE TEST ADD COLUMN VAL1 INT"
@@ -116,6 +118,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(true, ses, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
         checkError(
                 IndexAlreadyExistsException.class,
+                Index.INDEX_ALREADY_EXISTS_ERR,
                 "Index already exists [name=\"PUBLIC\".\"TEST_IDX\"]",
                 ses,
                 "CREATE INDEX TEST_IDX ON TEST(VAL1)"
@@ -129,24 +132,21 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(true, ses, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX2 ON TEST(VAL0)");
         checkDdl(true, ses, "CREATE INDEX TEST_IDX3 ON TEST(ID, VAL0, VAL1)");
-        checkError(
-                SqlException.class,
+        checkSqlError(
                 Index.INVALID_INDEX_DEFINITION_ERR,
                 "Can't create index on duplicate columns: VAL0, VAL0",
                 ses,
                 "CREATE INDEX TEST_IDX4 ON TEST(VAL0, VAL0)"
         );
 
-        checkError(
-                SqlException.class,
+        checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Can`t delete column(s). Column VAL1 is used by indexes [TEST_IDX3].",
                 ses,
                 "ALTER TABLE TEST DROP COLUMN val1"
         );
 
-        SqlException ex = checkError(
-                SqlException.class,
+        SqlException ex = checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Can`t delete column(s).",
                 ses,
@@ -160,8 +160,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         assertTrue(msg.contains("TEST_IDX1") && msg.contains("TEST_IDX2") && msg.contains("TEST_IDX3"), explainMsg);
         assertTrue(msg.contains("Column VAL1 is used by indexes [TEST_IDX3]"), explainMsg);
 
-        checkError(
-                SqlException.class,
+        checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Can`t delete column, belongs to primary key: [name=ID]",
                 ses,
@@ -176,6 +175,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(true, ses, "ALTER TABLE TEST DROP COLUMN VAL1");
         checkError(
                 TableNotFoundException.class,
+                ErrorGroups.Table.TABLE_NOT_FOUND_ERR,
                 "The table does not exist [name=\"PUBLIC\".\"NOT_EXISTS_TABLE\"]",
                 ses,
                 "ALTER TABLE NOT_EXISTS_TABLE DROP COLUMN VAL1"
@@ -183,6 +183,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(false, ses, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE DROP COLUMN VAL1");
         checkError(
                 ColumnNotFoundException.class,
+                ErrorGroups.Table.COLUMN_NOT_FOUND_ERR,
                 "Column does not exist [tableName=\"PUBLIC\".\"TEST\", columnName=\"VAL1\"]",
                 ses,
                 "ALTER TABLE TEST DROP COLUMN VAL1"
@@ -194,6 +195,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         checkDdl(true, ses, "DROP TABLE TEST");
         checkError(
                 TableNotFoundException.class,
+                ErrorGroups.Table.TABLE_NOT_FOUND_ERR,
                 "The table does not exist [name=\"PUBLIC\".\"TEST\"]",
                 ses,
                 "DROP TABLE TEST"
@@ -203,6 +205,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
 
         checkError(
                 IndexNotFoundException.class,
+                Index.INDEX_NOT_FOUND_ERR,
                 "Index does not exist [name=\"PUBLIC\".\"TEST_IDX\"]", ses,
                 "DROP INDEX TEST_IDX"
         );
@@ -270,26 +273,27 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         }
 
         // Parse error.
-        checkError(SqlException.class, Sql.STMT_PARSE_ERR, "Failed to parse query", ses, "SELECT ID FROM");
+        checkSqlError(Sql.STMT_PARSE_ERR, "Failed to parse query", ses, "SELECT ID FROM");
 
         // Validation errors.
-        checkError(SqlException.class, Sql.STMT_VALIDATION_ERR, "Column 'VAL0' does not allow NULLs", ses,
+        checkSqlError(Sql.STMT_VALIDATION_ERR, "Column 'VAL0' does not allow NULLs", ses,
                 "INSERT INTO TEST VALUES (2, NULL)");
 
-        checkError(SqlException.class, Sql.STMT_VALIDATION_ERR, "Object 'NOT_EXISTING_TABLE' not found", ses,
+        checkSqlError(Sql.STMT_VALIDATION_ERR, "Object 'NOT_EXISTING_TABLE' not found", ses,
                 "SELECT * FROM NOT_EXISTING_TABLE");
 
-        checkError(SqlException.class, Sql.STMT_VALIDATION_ERR, "Column 'NOT_EXISTING_COLUMN' not found", ses,
+        checkSqlError(Sql.STMT_VALIDATION_ERR, "Column 'NOT_EXISTING_COLUMN' not found", ses,
                 "SELECT NOT_EXISTING_COLUMN FROM TEST");
 
-        checkError(SqlException.class, Sql.STMT_VALIDATION_ERR, "Multiple statements are not allowed", ses, "SELECT 1; SELECT 2");
+        checkSqlError(Sql.STMT_VALIDATION_ERR, "Multiple statements are not allowed", ses, "SELECT 1; SELECT 2");
 
-        checkError(SqlException.class, Sql.STMT_VALIDATION_ERR, "Table without PRIMARY KEY is not supported", ses,
+        checkSqlError(Sql.STMT_VALIDATION_ERR, "Table without PRIMARY KEY is not supported", ses,
                 "CREATE TABLE TEST2 (VAL INT)");
 
         // Execute error.
-        checkError(SqlException.class, Sql.RUNTIME_ERR, "/ by zero", ses, "SELECT 1 / ?", 0);
-        checkError(SqlException.class, Sql.RUNTIME_ERR, "negative substring length not allowed", ses, "SELECT SUBSTRING('foo', 1, -3)");
+        checkSqlError(Sql.RUNTIME_ERR, "/ by zero", ses, "SELECT 1 / ?", 0);
+        checkSqlError(Sql.RUNTIME_ERR, "/ by zero", ses, "UPDATE TEST SET val0 = val0/(val0 - ?) + " + ROW_COUNT, 0);
+        checkSqlError(Sql.RUNTIME_ERR, "negative substring length not allowed", ses, "SELECT SUBSTRING('foo', 1, -3)");
 
         // No result set error.
         {
@@ -489,19 +493,19 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
         res.close();
     }
 
-    private static <T extends IgniteException> T checkError(Class<T> expCls, String msg, Session ses, String sql, Object... args) {
-        return checkError(expCls, null, msg, ses, sql, args);
+    private static <T extends IgniteException> T checkError(Class<T> expCls, Integer code, String msg, Session ses, String sql,
+            Object... args) {
+        return assertThrowsPublicException(() -> await(ses.executeAsync(null, sql, args)), expCls, code, msg);
     }
 
-    private static <T extends IgniteException> T checkError(
-            Class<T> expCls,
-            @Nullable Integer code,
-            @Nullable String msg,
+    private static SqlException checkSqlError(
+            int code,
+            String msg,
             Session ses,
             String sql,
             Object... args
     ) {
-        return assertThrowsPublicException(() -> ses.execute(null, sql, args), expCls, code, msg);
+        return assertThrowsSqlException(code, msg, () -> await(ses.executeAsync(null, sql, args)));
     }
 
     static void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args) {
