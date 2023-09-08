@@ -80,6 +80,7 @@ import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Planner;
 import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.RuleSets;
+import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -236,33 +237,35 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
     }
 
     /**
-     * Validates a SQL statement.
+     * Validates a SQL statement and tries to build aliases for appropriate column names.
      *
      * @param sqlNode Root node of the SQL parse tree.
      * @return Validated node, its validated type and type's origins.
      */
     ValidationResult validateAndGetTypeMetadata(SqlNode sqlNode) {
-        SqlNodeList selectItems = null;
-        boolean skipAliases = false;
-        SqlNode sqlNode0 = sqlNode;
+        List<SqlNode> selectItems = null;
+        List<SqlNode> selectItemsNoStarExpanded = null;
+        SqlNode sqlNode0 = sqlNode instanceof SqlOrderBy ? ((SqlOrderBy) sqlNode).query : sqlNode;
 
-        if (!(sqlNode instanceof SqlSelect)) {
-            if (sqlNode instanceof SqlOrderBy) {
-                sqlNode0 = ((SqlOrderBy) sqlNode).query;
-            }
-        }
+        int star = 0;
+        int notStar = 0;
 
         if (sqlNode0 instanceof SqlSelect) {
             selectItems = SqlNonNullableAccessors.getSelectList((SqlSelect) sqlNode0);
+            selectItemsNoStarExpanded = new ArrayList<>(selectItems.size());
 
-            // skip aliases evaluation for select *
-            if (selectItems.size() == 1) {
-                SqlNode item = selectItems.get(0);
-                if (item instanceof SqlIdentifier) {
-                    SqlIdentifier id = (SqlIdentifier) item;
+            for (SqlNode node : selectItems) {
+                if (node instanceof SqlIdentifier) {
+                    SqlIdentifier id = (SqlIdentifier) node;
                     if (id.isStar()) {
-                        skipAliases = true;
+                        ++star;
+                    } else {
+                        ++notStar;
+                        selectItemsNoStarExpanded.add(node);
                     }
+                } else {
+                    ++notStar;
+                    selectItemsNoStarExpanded.add(node);
                 }
             }
         }
@@ -272,16 +275,60 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         List<List<String>> origins = validator().getFieldOrigins(validatedNode);
 
         List<String> derived = null;
-        if (validatedNode instanceof SqlSelect && !skipAliases && selectItems != null) {
-            int cnt = 0;
+        if (validatedNode instanceof SqlSelect && selectItems != null && notStar > 0) {
             derived = new ArrayList<>(selectItems.size());
 
-            for (SqlNode node : selectItems) {
-                derived.add(validator().deriveAlias(node, cnt++));
+            if (star > 0) {
+                SqlNodeList expandedItems = ((SqlSelect) validatedNode).getSelectList();
+
+                for (int i = 0; i < expandedItems.size(); ++i) {
+                    derived.add(null);
+                }
+
+                ImmutableBitSet calculate = markupStar(selectItems, expandedItems.size(), star, notStar);
+
+                int cnt = 0;
+                for (int pos : calculate) {
+                    derived.set(pos, validator().deriveAlias(selectItemsNoStarExpanded.get(cnt), cnt));
+                    ++cnt;
+                }
+            } else {
+                int cnt = 0;
+
+                for (SqlNode node : selectItems) {
+                    derived.add(validator().deriveAlias(node, cnt++));
+                }
             }
         }
 
         return new ValidationResult(validatedNode, type, origins, derived == null ? List.of() : derived);
+    }
+
+    private static ImmutableBitSet markupStar(List<SqlNode> selectItems, int commonItems, int star, int notStar) {
+        assert star > 0 : "unexpected call";
+        int starItems = commonItems - notStar;
+        starItems /= star;
+
+        ImmutableBitSet.Builder builder = ImmutableBitSet.builder();
+
+        int pos = 0;
+
+        for (SqlNode node : selectItems) {
+            if (node instanceof SqlIdentifier) {
+                SqlIdentifier id = (SqlIdentifier) node;
+                if (id.isStar()) {
+                    pos += starItems;
+                } else {
+                    builder.set(pos);
+                    ++pos;
+                }
+            } else {
+                builder.set(pos);
+                ++pos;
+            }
+        }
+
+        return builder.build();
     }
 
     /** {@inheritDoc} */

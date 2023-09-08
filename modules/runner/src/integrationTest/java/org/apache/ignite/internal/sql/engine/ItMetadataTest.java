@@ -101,6 +101,22 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     public void columnOrder() {
         sql("CREATE TABLE column_order (double_c DOUBLE, long_c BIGINT PRIMARY KEY, string_c VARCHAR, int_c INT)");
 
+        assertQuery("select *, double_c * 2 from column_order")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "DOUBLE_C * 2")
+                .check();
+
+        assertQuery("select double_c * 2, * from column_order")
+                .columnNames("DOUBLE_C * 2", "DOUBLE_C", "LONG_C", "STRING_C", "INT_C")
+                .check();
+
+        assertQuery("select *, *, double_c * 2 from column_order")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "DOUBLE_C0", "LONG_C0", "STRING_C0", "INT_C0", "DOUBLE_C * 2")
+                .check();
+
+        assertQuery("select *, double_c * 2, double_c * 2, * from column_order")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "DOUBLE_C * 2", "DOUBLE_C * 2", "DOUBLE_C0", "LONG_C0",
+                        "STRING_C0", "INT_C0").check();
+
         assertQuery("select * from column_order")
                 .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C")
                 .check();
