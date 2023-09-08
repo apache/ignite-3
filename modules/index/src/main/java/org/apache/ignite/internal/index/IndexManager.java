@@ -556,9 +556,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             SchemaDescriptor descriptor = registry.schema();
 
             if (descriptor.version() < schemaVersion) {
-                System.out.println(">>> Before waitLatestSchema");
                 registry.waitLatestSchema();
-                System.out.println(">>> After waitLatestSchema");
             }
 
             if (descriptor.version() != schemaVersion) {
