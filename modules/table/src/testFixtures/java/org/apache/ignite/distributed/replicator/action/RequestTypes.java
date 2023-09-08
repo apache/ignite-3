@@ -54,7 +54,7 @@ public class RequestTypes {
      * Returns {@code true} if the operation works with a single row and it's a write.
      */
     public static boolean isSingleRowWrite(RequestType type) {
-        return isSingleRowRw(type) && type != RequestType.RW_GET;
+        return isSingleRowRw(type) && type.isWrite();
     }
 
     /**
@@ -84,7 +84,7 @@ public class RequestTypes {
      * Returns {@code true} if the operation works with multiple rows and it is a write.
      */
     public static boolean isMultipleRowsWrite(RequestType type) {
-        return isMultipleRowsRw(type) && type != RequestType.RW_GET_ALL;
+        return isMultipleRowsRw(type) && type.isWrite();
     }
 
     /**

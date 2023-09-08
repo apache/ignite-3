@@ -740,7 +740,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param request Scan retrieve batch request operation.
      * @return Listener response.
      */
-    private CompletableFuture<List<BinaryRow>> processScanRetrieveBatchAction(
+    private CompletableFuture<ActionResult<List<BinaryRow>>> processScanRetrieveBatchAction(
             ReadWriteScanRetrieveBatchReplicaRequest request,
             String txCoordinatorId
     ) {
@@ -754,12 +754,14 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
-                return lookupIndex(request, indexStorage.storage());
+                return lookupIndex(request, indexStorage.storage())
+                        .thenApply(PartitionReplicaListener::didNoWrites);
             }
 
             assert indexStorage.storage() instanceof SortedIndexStorage;
 
-            return scanSortedIndex(request, indexStorage);
+            return scanSortedIndex(request, indexStorage)
+                    .thenApply(PartitionReplicaListener::didNoWrites);
         }
 
         UUID txId = request.transactionId();
@@ -767,8 +769,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
-        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.S).thenCompose(tblLock ->
-                retrieveExactEntriesUntilCursorEmpty(txId, cursorId, batchCount));
+        return lockManager.acquire(txId, new LockKey(tableId()), LockMode.S)
+                .thenCompose(tblLock -> retrieveExactEntriesUntilCursorEmpty(txId, cursorId, batchCount))
+                .thenApply(PartitionReplicaListener::didNoWrites);
     }
 
     /**
@@ -1452,7 +1455,12 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param <T> Type of execution result.
      * @return A future object representing the result of the given operation.
      */
-    private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, boolean full, Supplier<CompletableFuture<T>> op) {
+    private <T> CompletableFuture<T> appendTxCommand(
+            UUID txId,
+            RequestType cmdType,
+            boolean full,
+            Supplier<CompletableFuture<ActionResult<T>>> op
+    ) {
         var fut = new CompletableFuture<T>();
 
         if (!full) {
@@ -1475,7 +1483,10 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (!fut.isDone()) {
             CompletableFuture<Void> preValidate = cmdType.isRwRead() ? chooseOpTsAndValidateAtIt(txId) : completedFuture(null);
 
-            preValidate.thenCompose(unused -> op.get()).whenComplete((v, th) -> {
+            preValidate
+                    .thenCompose(unused -> op.get())
+                    .thenCompose(actionResult -> validateTsIfWriteDidNotDoTsValidation(actionResult, txId, cmdType))
+                    .whenComplete((v, th) -> {
                 if (full) { // Fast unlock.
                     releaseTxLocks(txId);
                 }
@@ -1489,6 +1500,15 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return fut;
+    }
+
+    private <T> CompletableFuture<T> validateTsIfWriteDidNotDoTsValidation(ActionResult<T> actionResult, UUID txId, RequestType cmdType) {
+        if (cmdType.isWrite() && !actionResult.didWrites) {
+            return chooseOpTsAndValidateAtIt(txId)
+                    .thenApply(unused -> actionResult.result);
+        } else {
+            return completedFuture(actionResult.result);
+        }
     }
 
     /**
@@ -1604,7 +1624,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @return Listener response.
      */
-    private CompletableFuture<Object> processMultiEntryAction(ReadWriteMultiRowReplicaRequest request, String txCoordinatorId) {
+    private CompletableFuture<ActionResult<Object>> processMultiEntryAction(
+            ReadWriteMultiRowReplicaRequest request, String txCoordinatorId
+    ) {
         UUID txId = request.transactionId();
         TablePartitionId committedPartitionId = request.commitPartitionId();
 
@@ -1636,7 +1658,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 result.add(rowFuts[idx].join());
                             }
 
-                            return completedFuture(result);
+                            return completedFuture(didNoWrites(result));
                         });
             }
             case RW_DELETE_ALL: {
@@ -1671,13 +1693,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     if (rowIdsToDelete.isEmpty()) {
-                        return chooseOpTsAndValidateAtIt(request.transactionId())
-                                .thenApply(unused -> result);
+                        return completedFuture(didNoWrites(result));
                     }
 
                     return chooseOpTsValidateAndBuildUpdateAllCommand(request, rowIdsToDelete, txCoordinatorId)
                             .thenCompose(this::applyUpdateAllCommand)
-                            .thenApply(ignored -> result);
+                            .thenApply(ignored -> didWrites(result));
                 });
             }
             case RW_DELETE_EXACT_ALL: {
@@ -1711,12 +1732,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
                     }
 
-                    CompletableFuture<Object> raftFut = rowIdsToDelete.isEmpty()
-                            ? chooseOpTsAndValidateAtIt(request.transactionId()).thenApply(unused -> null)
-                            : chooseOpTsValidateAndBuildUpdateAllCommand(request, rowIdsToDelete, txCoordinatorId)
-                                                        .thenCompose(this::applyUpdateAllCommand);
-
-                    return raftFut.thenApply(ignored -> result);
+                    if (rowIdsToDelete.isEmpty()) {
+                        return completedFuture(didNoWrites(null));
+                    } else {
+                        return chooseOpTsValidateAndBuildUpdateAllCommand(request, rowIdsToDelete, txCoordinatorId)
+                                    .thenCompose(this::applyUpdateAllCommand)
+                                    .thenApply(unused -> didWrites(result));
+                    }
                 });
             }
             case RW_INSERT_ALL: {
@@ -1755,8 +1777,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     if (rowsToInsert.isEmpty()) {
-                        return chooseOpTsAndValidateAtIt(request.transactionId())
-                                .thenApply(unused -> result);
+                        return completedFuture(didNoWrites(result));
                     }
 
                     CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>>[] insertLockFuts = new CompletableFuture[rowsToInsert.size()];
@@ -1786,7 +1807,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             .forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
                                 }
 
-                                return result;
+                                return didWrites(result);
                             });
                 });
             }
@@ -1819,7 +1840,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     if (rowsToUpdate.isEmpty()) {
-                        return completedFuture(null);
+                        return completedFuture(didNoWrites(null));
                     }
 
                     return chooseOpTsValidateAndBuildUpdateAllCommand(request, rowsToUpdate, txCoordinatorId)
@@ -1831,7 +1852,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                             .forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
                                 }
 
-                                return null;
+                                return didWrites(null);
                             });
                 });
             }
@@ -1937,10 +1958,12 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Precesses single request.
      *
      * @param request Single request operation.
-     * @param txCoordinatorId Transaction coordinator id.
+     * @param txCoordId Transaction coordinator id.
      * @return Listener response.
      */
-    private CompletableFuture<Object> processSingleEntryAction(ReadWriteSingleRowReplicaRequest request, String txCoordinatorId) {
+    private CompletableFuture<ActionResult<Object>> processSingleEntryAction(
+            ReadWriteSingleRowReplicaRequest request, String txCoordId
+    ) {
         UUID txId = request.transactionId();
         BinaryRow searchRow = request.binaryRow();
         TablePartitionId commitPartitionId = request.commitPartitionId();
@@ -1952,76 +1975,72 @@ public class PartitionReplicaListener implements ReplicaListener {
             case RW_GET: {
                 return resolveRowByPk(binaryTuple(searchRow), txId, (rowId, row) -> {
                     if (rowId == null) {
-                        return completedFuture(null);
+                        return completedFuture(didNoWrites(null));
                     }
 
                     return takeLocksForGet(rowId, txId)
-                            .thenApply(ignored -> row);
+                            .thenApply(ignored -> didNoWrites(row));
                 });
             }
             case RW_DELETE: {
                 return resolveRowByPk(binaryTuple(searchRow), txId, (rowId, row) -> {
                     if (rowId == null) {
-                        return chooseOpTsAndValidateAtIt(request.transactionId())
-                                .thenApply(unused -> false);
+                        return completedFuture(didNoWrites(false));
                     }
 
                     return takeLocksForDelete(row, rowId, txId)
-                            .thenCompose(ignored -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId.uuid(), null, txCoordinatorId))
+                            .thenCompose(ignored -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId.uuid(), null, txCoordId))
                             .thenCompose(this::applyUpdateCommand)
-                            .thenApply(ignored -> true);
+                            .thenApply(ignored -> didWrites(true));
                 });
             }
             case RW_GET_AND_DELETE: {
                 return resolveRowByPk(binaryTuple(searchRow), txId, (rowId, row) -> {
                     if (rowId == null) {
-                        return chooseOpTsAndValidateAtIt(request.transactionId())
-                                .thenApply(unused -> null);
+                        return completedFuture(didNoWrites(null));
                     }
 
                     return takeLocksForDelete(row, rowId, txId)
-                            .thenCompose(ignored -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId.uuid(), null, txCoordinatorId))
+                            .thenCompose(ignored -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId.uuid(), null, txCoordId))
                             .thenCompose(this::applyUpdateCommand)
-                            .thenApply(ignored -> row);
+                            .thenApply(ignored -> didWrites(row));
                 });
             }
             case RW_DELETE_EXACT: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row) -> {
                     if (rowId == null) {
-                        return chooseOpTsAndValidateAtIt(request.transactionId())
-                                .thenApply(unused -> false);
+                        return completedFuture(didNoWrites(false));
                     }
 
                     return takeLocksForDeleteExact(searchRow, rowId, row, txId)
                             .thenCompose(validatedRowId -> {
                                 if (validatedRowId == null) {
-                                    return completedFuture(false);
+                                    return completedFuture(didNoWrites(false));
                                 }
 
-                                return chooseOpTsValidateAndBuildUpdateCommand(request, validatedRowId.uuid(), null, txCoordinatorId)
+                                return chooseOpTsValidateAndBuildUpdateCommand(request, validatedRowId.uuid(), null, txCoordId)
                                         .thenCompose(this::applyUpdateCommand)
-                                        .thenApply(ignored -> true);
+                                        .thenApply(ignored -> didWrites(true));
                             });
                 });
             }
             case RW_INSERT: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row) -> {
                     if (rowId != null) {
-                        return chooseOpTsAndValidateAtIt(request.transactionId())
-                                .thenApply(unused -> false);
+                        return completedFuture(didNoWrites(false));
                     }
 
                     RowId rowId0 = new RowId(partId(), UUID.randomUUID());
 
                     return takeLocksForInsert(searchRow, rowId0, txId)
-                            .thenCompose(rowIdLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId0.uuid(), searchRow, txCoordinatorId)
+                            .thenCompose(rowIdLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId0.uuid(), searchRow, txCoordId)
                                     .thenCompose(this::applyUpdateCommand)
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
                                 rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
-                                return true;
+                                return didWrites(true);
                             });
                 });
             }
@@ -2036,14 +2055,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(rowIdLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId0.uuid(), searchRow, txCoordinatorId)
+                            .thenCompose(rowIdLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId0.uuid(), searchRow, txCoordId)
                                     .thenCompose(this::applyUpdateCommand)
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
                                 rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
-                                return null;
+                                return didWrites(null);
                             });
                 });
             }
@@ -2058,52 +2077,50 @@ public class PartitionReplicaListener implements ReplicaListener {
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(rowIdLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId0.uuid(), searchRow, txCoordinatorId)
+                            .thenCompose(rowIdLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId0.uuid(), searchRow, txCoordId)
                                     .thenCompose(this::applyUpdateCommand)
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
                                 rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
-                                return row;
+                                return didWrites(row);
                             });
                 });
             }
             case RW_GET_AND_REPLACE: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row) -> {
                     if (rowId == null) {
-                        return chooseOpTsAndValidateAtIt(request.transactionId())
-                                .thenApply(unused -> null);
+                        return completedFuture(didNoWrites(null));
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
-                            .thenCompose(rowIdLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId.uuid(), searchRow, txCoordinatorId)
+                            .thenCompose(rowIdLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId.uuid(), searchRow, txCoordId)
                                     .thenCompose(this::applyUpdateCommand)
                                     .thenApply(ignored -> rowIdLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
                                 rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
-                                return row;
+                                return didWrites(row);
                             });
                 });
             }
             case RW_REPLACE_IF_EXIST: {
                 return resolveRowByPk(extractPk(searchRow), txId, (rowId, row) -> {
                     if (rowId == null) {
-                        return chooseOpTsAndValidateAtIt(request.transactionId())
-                                .thenApply(unused -> false);
+                        return completedFuture(didNoWrites(false));
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
-                            .thenCompose(rowLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId.uuid(), searchRow, txCoordinatorId)
+                            .thenCompose(rowLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId.uuid(), searchRow, txCoordId)
                                     .thenCompose(this::applyUpdateCommand)
                                     .thenApply(ignored -> rowLock))
                             .thenApply(rowIdLock -> {
                                 // Release short term locks.
                                 rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
-                                return true;
+                                return didWrites(true);
                             });
                 });
             }
@@ -2250,7 +2267,10 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @return Listener response.
      */
-    private CompletableFuture<Boolean> processTwoEntriesAction(ReadWriteSwapRowReplicaRequest request, String txCoordinatorId) {
+    private CompletableFuture<ActionResult<Boolean>> processTwoEntriesAction(
+            ReadWriteSwapRowReplicaRequest request,
+            String txCoordinatorId
+    ) {
         BinaryRow newRow = request.binaryRow();
         BinaryRow expectedRow = request.oldBinaryRow();
         TablePartitionId commitPartitionId = request.commitPartitionId();
@@ -2262,14 +2282,13 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (request.requestType() == RequestType.RW_REPLACE) {
             return resolveRowByPk(extractPk(newRow), txId, (rowId, row) -> {
                 if (rowId == null) {
-                    return chooseOpTsAndValidateAtIt(request.transactionId())
-                            .thenApply(unused -> false);
+                    return completedFuture(didNoWrites(false));
                 }
 
                 return takeLocksForReplace(expectedRow, row, newRow, rowId, txId)
                         .thenCompose(validatedRowId -> {
                             if (validatedRowId == null) {
-                                return completedFuture(false);
+                                return completedFuture(didNoWrites(false));
                             }
 
                             return chooseOpTsValidateAndBuildUpdateCommand(commitPartitionId, validatedRowId.get1().uuid(), newRow, txId,
@@ -2281,7 +2300,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         // Release short term locks.
                                         rowIdLock.get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
-                                        return true;
+                                        return didWrites(true);
                                     });
                         });
             });
@@ -2783,5 +2802,24 @@ public class PartitionReplicaListener implements ReplicaListener {
         txManager.updateTxMeta(txId, old -> old == null
                 ? null
                 : new TxStateMeta(txState, old.txCoordinatorId(), txState == COMMITED ? commitTimestamp : null));
+    }
+
+    private static <T> ActionResult<T> didWrites(@Nullable T result) {
+        return new ActionResult<>(true, result);
+    }
+
+    private static <T> ActionResult<T> didNoWrites(@Nullable T result) {
+        return new ActionResult<>(false, result);
+    }
+
+    private static class ActionResult<T> {
+        private final boolean didWrites;
+        @Nullable
+        private final T result;
+
+        private ActionResult(boolean didWrites, @Nullable T result) {
+            this.didWrites = didWrites;
+            this.result = result;
+        }
     }
 }

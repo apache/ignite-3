@@ -72,4 +72,28 @@ public enum RequestType {
                 return false;
         }
     }
+
+    /**
+     * Returns {@code true} if the operation is a write.
+     */
+    public boolean isWrite() {
+        switch (this) {
+            case RW_DELETE:
+            case RW_DELETE_ALL:
+            case RW_DELETE_EXACT:
+            case RW_DELETE_EXACT_ALL:
+            case RW_INSERT:
+            case RW_INSERT_ALL:
+            case RW_UPSERT:
+            case RW_UPSERT_ALL:
+            case RW_REPLACE:
+            case RW_REPLACE_IF_EXIST:
+            case RW_GET_AND_DELETE:
+            case RW_GET_AND_REPLACE:
+            case RW_GET_AND_UPSERT:
+                return true;
+            default:
+                return false;
+        }
+    }
 }

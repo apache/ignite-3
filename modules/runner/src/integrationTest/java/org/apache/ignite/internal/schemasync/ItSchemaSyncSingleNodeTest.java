@@ -41,7 +41,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /**
- * Tests about basic Schema Synchronization properties.
+ * Tests about basic Schema Synchronization properties that can be tested using just one Ignite node.
  */
 class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
     private static final int UNKNOWN_RECORD_ID = 999;

@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.table.distributed.replicator.action;
 
 
+import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RO_GET;
+import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RO_GET_ALL;
+import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RO_SCAN;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_GET_ALL;
 import static org.apache.ignite.internal.table.distributed.replicator.action.RequestType.RW_SCAN;
@@ -29,7 +32,7 @@ import org.junit.jupiter.api.Test;
 
 class RequestTypeTest {
     @Test
-    void rwReadsAreAsExpected() {
+    void isRwReadWorksAsExpected() {
         Set<RequestType> expectedRwReads = Set.of(RW_GET, RW_GET_ALL, RW_SCAN);
 
         for (RequestType requestType : RequestType.values()) {
@@ -37,6 +40,19 @@ class RequestTypeTest {
                 assertTrue(requestType.isRwRead(), requestType + " must be an RW read");
             } else {
                 assertFalse(requestType.isRwRead(), requestType + " must not be an RW read");
+            }
+        }
+    }
+
+    @Test
+    void isWriteWorksAsExpected() {
+        Set<RequestType> expectedNonWrites = Set.of(RW_GET, RW_GET_ALL, RW_SCAN, RO_GET, RO_GET_ALL, RO_SCAN);
+
+        for (RequestType requestType : RequestType.values()) {
+            if (expectedNonWrites.contains(requestType)) {
+                assertFalse(requestType.isWrite(), requestType + " must not be a write");
+            } else {
+                assertTrue(requestType.isWrite(), requestType + " must be a write");
             }
         }
     }
