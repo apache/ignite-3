@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -57,7 +58,7 @@ public class DropIndexCommand extends AbstractIndexCommand {
         CatalogIndexDescriptor index = schema.index(indexName);
 
         if (index == null) {
-            throw new CatalogValidationException(
+            throw new IndexNotFoundValidationException(
                     format("Index with name 'PUBLIC.TEST' not found", schemaName, indexName));
         }
 

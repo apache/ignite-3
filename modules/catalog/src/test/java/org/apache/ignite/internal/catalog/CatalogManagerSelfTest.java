@@ -114,13 +114,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExist
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.EventListener;
-import org.apache.ignite.lang.ColumnNotFoundException;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
-import org.apache.ignite.lang.IndexNotFoundException;
-import org.apache.ignite.lang.TableAlreadyExistsException;
-import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
@@ -1032,7 +1026,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void testCreateIndexEvents() {
         CatalogCommand createIndexCmd = createHashIndexCommand(INDEX_NAME, List.of("ID"));
 
-        CatalogCommand dropIndexCmd = DropIndexCommand.builder().indexName(INDEX_NAME).build();
+        CatalogCommand dropIndexCmd = DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build();
 
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
         when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
@@ -1041,7 +1035,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.INDEX_DROP, eventListener);
 
         // Try to create index without table.
-        assertThat(manager.execute(createIndexCmd), willThrow(TableNotFoundException.class));
+        assertThat(manager.execute(createIndexCmd), willThrow(TableNotFoundValidationException.class));
         verifyNoInteractions(eventListener);
 
         // Create table with PK index.
@@ -1066,7 +1060,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
         // Try drop index once again.
-        assertThat(manager.execute(dropIndexCmd), willThrow(IndexNotFoundException.class));
+        assertThat(manager.execute(dropIndexCmd), willThrow(IndexNotFoundValidationException.class));
 
         verify(eventListener).notify(any(DropIndexEventParameters.class), isNull());
     }
@@ -1564,12 +1558,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL"))),
-                willThrowFast(IndexAlreadyExistsException.class)
+                willThrowFast(IndexExistsValidationException.class)
         );
 
         assertThat(
                 manager.execute(createSortedIndexCommand(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
-                willThrowFast(IndexAlreadyExistsException.class)
+                willThrowFast(IndexExistsValidationException.class)
         );
     }
 
@@ -1579,12 +1573,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(createHashIndexCommand(TABLE_NAME, List.of("VAL"))),
-                willThrowFast(TableAlreadyExistsException.class)
+                willThrowFast(TableExistsValidationException.class)
         );
 
         assertThat(
                 manager.execute(createSortedIndexCommand(TABLE_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
-                willThrowFast(TableAlreadyExistsException.class)
+                willThrowFast(TableExistsValidationException.class)
         );
     }
 
@@ -1592,12 +1586,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     void testCreateIndexWithNotExistingTable() {
         assertThat(
                 manager.execute(createHashIndexCommand(TABLE_NAME, List.of("VAL"))),
-                willThrowFast(TableNotFoundException.class)
+                willThrowFast(TableNotFoundValidationException.class)
         );
 
         assertThat(
                 manager.execute(createSortedIndexCommand(TABLE_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
-                willThrowFast(TableNotFoundException.class)
+                willThrowFast(TableNotFoundValidationException.class)
         );
     }
 
@@ -1607,12 +1601,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(createHashIndexCommand(INDEX_NAME, List.of("fake"))),
-                willThrowFast(ColumnNotFoundException.class)
+                willThrowFast(CatalogValidationException.class)
         );
 
         assertThat(
                 manager.execute(createSortedIndexCommand(INDEX_NAME, List.of("fake"), List.of(ASC_NULLS_LAST))),
-                willThrowFast(ColumnNotFoundException.class)
+                willThrowFast(CatalogValidationException.class)
         );
     }
 
@@ -1622,18 +1616,21 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(
                 manager.execute(createHashIndexCommand(INDEX_NAME, true, List.of("VAL"))),
-                willThrowFast(IgniteException.class, "Unique index must include all colocation columns")
+                willThrowFast(CatalogValidationException.class, "Unique index must include all colocation columns")
         );
 
         assertThat(
                 manager.execute(createSortedIndexCommand(INDEX_NAME, true, List.of("VAL"), List.of(ASC_NULLS_LAST))),
-                willThrowFast(IgniteException.class, "Unique index must include all colocation columns")
+                willThrowFast(CatalogValidationException.class, "Unique index must include all colocation columns")
         );
     }
 
     @Test
     void testDropNotExistingIndex() {
-        assertThat(manager.execute(DropIndexCommand.builder().indexName(INDEX_NAME).build()), willThrowFast(IndexNotFoundException.class));
+        assertThat(
+                manager.execute(DropIndexCommand.builder().schemaName(SCHEMA_NAME).indexName(INDEX_NAME).build()),
+                willThrowFast(IndexNotFoundValidationException.class)
+        );
     }
 
     @Test

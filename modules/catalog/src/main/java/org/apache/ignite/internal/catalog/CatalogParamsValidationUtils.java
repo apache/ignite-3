@@ -215,7 +215,7 @@ public class CatalogParamsValidationUtils {
      */
     public static void ensureNoTableOrIndexExistsWithGivenName(CatalogSchemaDescriptor schema, String name) {
         if (schema.index(name) != null) {
-            throw new CatalogValidationException(format("Index with name '{}.{}' already exists", schema.name(), name));
+            throw new IndexExistsValidationException(format("Index with name '{}.{}' already exists", schema.name(), name));
         }
 
         if (schema.table(name) != null) {
