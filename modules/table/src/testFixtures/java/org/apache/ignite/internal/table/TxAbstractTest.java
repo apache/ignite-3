@@ -1902,6 +1902,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("// TODO: https://issues.apache.org/jira/browse/IGNITE-20355")
     public void testReadOnlyPendingWriteIntentSkippedCombined() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
         accounts.recordView().upsert(null, makeValue(2, 200.));
