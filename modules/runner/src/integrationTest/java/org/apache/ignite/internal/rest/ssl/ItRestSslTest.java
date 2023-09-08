@@ -169,8 +169,7 @@ public class ItRestSslTest extends IgniteIntegrationTest {
                 .ciphers("TLS_AES_256_GCM_SHA384")
                 .build();
 
-        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode, httpsWithCustomCipherNode)
-                .parallel()
+        Stream.of(httpNode, httpsNode, dualProtocolNode, httpsWithClientAuthNode, httpsWithCustomCipherNode).parallel()
                 .forEach(RestNode::start);
     }
 
