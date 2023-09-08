@@ -148,6 +148,13 @@ public:
     [[nodiscard]] std::optional<std::int32_t> try_read_int32() { return try_read_object<std::int32_t>(); }
 
     /**
+     * Read int32 or nullopt.
+     *
+     * @return Value or nullopt if the next value in stream is nil.
+     */
+    [[nodiscard]] std::optional<std::int32_t> read_int32_nullable() { return read_object_nullable<std::int32_t>(); }
+
+    /**
      * Read int64 number.
      *
      * @return Value.
@@ -225,70 +232,6 @@ public:
             handler(std::move(key), std::move(val));
         }
         next();
-    }
-
-    /**
-     * Read array size.
-     *
-     * @return Array size.
-     */
-    [[nodiscard]] uint32_t read_array_size() const {
-        check_data_in_stream();
-
-        return unpack_array_size(m_current_val.data);
-    }
-
-    /**
-     * Read array.
-     *
-     * @param read_func Object read function.
-     */
-    void read_array_raw(const std::function<void(std::uint32_t idx, const msgpack_object &)> &read_func) {
-        auto size = read_array_size();
-        for (std::uint32_t i = 0; i < size; ++i) {
-            read_func(i, m_current_val.data.via.array.ptr[i]);
-        }
-        next();
-    }
-
-    /**
-     * Get array element.
-     *
-     * @param idx Index.
-     * @return Element reference.
-     */
-    [[nodiscard]] const msgpack_object &get_array_element(std::uint32_t idx) const {
-        return m_current_val.data.via.array.ptr[idx];
-    }
-
-    /**
-     * Read array.
-     *
-     * @tparam T Value type.
-     * @param unpack_func Object unpack function.
-     */
-    template<typename T>
-    [[nodiscard]] std::vector<T> read_array(const std::function<T(const msgpack_object &)> &unpack_func) {
-        auto size = read_array_size();
-        std::vector<T> res;
-        res.reserve(size);
-        for (std::uint32_t i = 0; i < size; ++i) {
-            auto val = unpack_func(m_current_val.data.via.array.ptr[i]);
-            res.emplace_back(std::move(val));
-        }
-        next();
-        return std::move(res);
-    }
-
-    /**
-     * Read array.
-     *
-     * @tparam T Value type.
-     * @param handler Value handler.
-     */
-    template<typename T>
-    [[nodiscard]] std::vector<T> read_array() {
-        return read_array<T>(unpack_object<T>);
     }
 
     /**
