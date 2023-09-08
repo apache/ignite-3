@@ -495,7 +495,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
 
     private static <T extends IgniteException> T checkError(Class<T> expCls, Integer code, String msg, Session ses, String sql,
             Object... args) {
-        return assertThrowsPublicException(() -> await(ses.executeAsync(null, sql, args)), expCls, code, msg);
+        return assertThrowsPublicException(() -> ses.execute(null, sql, args), expCls, code, msg);
     }
 
     private static SqlException checkSqlError(
@@ -505,7 +505,7 @@ public class ItSqlSynchronousApiTest extends ClusterPerClassIntegrationTest {
             String sql,
             Object... args
     ) {
-        return assertThrowsSqlException(code, msg, () -> await(ses.executeAsync(null, sql, args)));
+        return assertThrowsSqlException(code, msg, () -> ses.execute(null, sql, args));
     }
 
     static void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args) {
