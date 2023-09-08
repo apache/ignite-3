@@ -205,8 +205,8 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
 
         ByteBuf buffer = ByteBufAllocator.DEFAULT.buffer();
 
-        // One message only.
-        for (int i = 0; i < (NetworkMessage.MSG_TYPE_SIZE_BYTES + 1); i++) {
+        // One message only. 1 byte for group type, 1 byte for message type, 1 byte for payload.
+        for (int i = 0; i < 3; i++) {
             buffer.writeByte(1);
         }
 

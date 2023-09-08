@@ -73,6 +73,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
 
             SqlTestUtils.assertThrowsSqlException(
                     PLANNING_TIMEOUT_ERR,
+                    "Planning of a query aborted due to planner timeout threshold is reached",
                     () -> await(prepareService.prepareAsync(parsedResult, ctx)));
         } finally {
             prepareService.stop();

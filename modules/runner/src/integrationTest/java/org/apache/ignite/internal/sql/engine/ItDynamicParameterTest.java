@@ -157,8 +157,13 @@ public class ItDynamicParameterTest extends ClusterPerClassIntegrationTest {
      */
     @Test
     public void testWithDifferentParametersTypesMismatch() {
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, () -> assertQuery("SELECT COALESCE(12.2, ?)").withParams("b").check());
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, () -> assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").check());
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Illegal mixing of types in CASE or COALESCE statement",
+                () -> assertQuery("SELECT COALESCE(12.2, ?)").withParams("b").check());
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR,
+                "Illegal mixing of types in CASE or COALESCE statement",
+                () -> assertQuery("SELECT COALESCE(?, ?)").withParams(12.2, "b").check());
     }
 
     @Test

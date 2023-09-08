@@ -668,7 +668,7 @@ public class TypeUtils {
             //  Add collection types support
             throw new IllegalArgumentException("Collection types is not supported: " + type);
         } else if (SqlTypeUtil.isArray(type) || type instanceof JavaType) {
-            // TODO Remove after is fixed https://issues.apache.org/jira/browse/IGNITE-19992
+            // TODO Remove after is fixed https://issues.apache.org/jira/browse/IGNITE-20336
             //  Move SqlTypeUtil.isArray(type) to collections type support branch.
             return new BaseTypeSpec(null, true);
         } else {

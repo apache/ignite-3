@@ -121,14 +121,20 @@ public class ItSqlClientMetricsTest extends ClusterPerClassIntegrationTest {
     public void testErroneousFlow() throws Exception {
         Session session = sql.createSession();
 
-        assertThrowsSqlException(Sql.STMT_PARSE_ERR, () -> session.execute(null, "SELECT * ODINfrom " + DEFAULT_TABLE_NAME));
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query",
+                () -> session.execute(null, "SELECT * ODINfrom " + DEFAULT_TABLE_NAME));
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
         assertInternalSqlException("Column 'A' not found in any table", () -> session.execute(null, "SELECT a from " + DEFAULT_TABLE_NAME));
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
         session.close();
-        assertThrowsSqlException(Sql.SESSION_CLOSED_ERR, () -> session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME));
+        assertThrowsSqlException(
+                Sql.SESSION_CLOSED_ERR,
+                "Session is closed",
+                () -> session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME));
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
     }
 

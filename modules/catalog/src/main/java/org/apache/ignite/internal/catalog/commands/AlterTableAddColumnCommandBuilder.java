@@ -15,24 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-
-import org.apache.ignite.lang.IgniteInternalException;
+import java.util.List;
 
 /**
- * QueryValidationException is used during query validation.
+ * Builder of a command that adds new columns to the table.
  *
- * <p>The exception is used when the expected query type does not match the actual query type obtained after parsing a sql string.
+ * <p>A builder is considered to be reusable, thus implementation have
+ * to make sure invocation of {@link #build()} method doesn't cause any
+ * side effects on builder's state or any object created by the same builder.
  */
-public class QueryValidationException extends IgniteInternalException {
-    /**
-     * Creates a new exception with the given error message.
-     *
-     * @param msg Error message.
-     */
-    public QueryValidationException(String msg) {
-        super(STMT_VALIDATION_ERR, msg);
-    }
+public interface AlterTableAddColumnCommandBuilder extends AbstractTableCommandBuilder<AlterTableAddColumnCommandBuilder> {
+    /** List of columns to add to the table. There must be at least one column. */
+    AlterTableAddColumnCommandBuilder columns(List<ColumnParams> columns);
 }

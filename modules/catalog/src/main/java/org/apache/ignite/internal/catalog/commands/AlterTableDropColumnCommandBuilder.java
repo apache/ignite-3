@@ -15,24 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
-
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import java.util.Set;
 
 /**
- * ExecutionCancelledException.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Builder of a command that deletes columns from the table.
+ *
+ * <p>A builder is considered to be reusable, thus implementation have
+ * to make sure invocation of {@link #build()} method doesn't cause any
+ * side effects on builder's state or any object created by the same builder.
  */
-public class ExecutionCancelledException extends IgniteInternalCheckedException {
-    /** Serial version UID. */
-    private static final long serialVersionUID = 0L;
-
-    /**
-     * Constructs a new exception with null as its detail message.
-     */
-    public ExecutionCancelledException() {
-        super(EXECUTION_CANCELLED_ERR);
-    }
+public interface AlterTableDropColumnCommandBuilder extends AbstractTableCommandBuilder<AlterTableDropColumnCommandBuilder> {
+    /** Set of the columns to delete. There must be at least one column. */
+    AlterTableDropColumnCommandBuilder columns(Set<String> columns);
 }
