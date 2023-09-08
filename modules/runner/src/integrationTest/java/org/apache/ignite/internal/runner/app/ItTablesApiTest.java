@@ -20,36 +20,35 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.TableExistsValidationException;
+import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.lang.TableAlreadyExistsException;
-import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -140,8 +139,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         Table tbl = createTable(ignite0, TABLE_NAME);
 
-        assertThrows(TableAlreadyExistsException.class,
-                () -> createTable(ignite0, TABLE_NAME));
+        // TODO: IGNITE-20388 Fix it
+        assertThrowsWithCause(() -> createTable(ignite0, TABLE_NAME), TableExistsValidationException.class);
 
         assertEquals(tbl, createTableIfNotExists(ignite0, TABLE_NAME));
     }
@@ -170,8 +169,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
-                assertThrows(TableAlreadyExistsException.class,
-                        () -> createTable(ignite, TABLE_NAME));
+                // TODO: IGNITE-20388 Fix it
+                assertThrowsWithCause(() -> createTable(ignite, TABLE_NAME), TableExistsValidationException.class);
 
                 assertNotNull(createTableIfNotExists(ignite, TABLE_NAME));
             }
@@ -182,15 +181,9 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         ignite1Inhibitor.stopInhibit();
 
-        assertThrows(TableAlreadyExistsException.class, () -> {
-            try {
-                createTblFut.get(10, TimeUnit.SECONDS);
-            } catch (ExecutionException e) {
-                throw e.getCause();
-            }
-        });
-
-        assertNotNull(createTblIfNotExistsFut.get(10, TimeUnit.SECONDS));
+        // TODO: IGNITE-20388 Fix it
+        assertThat(createTblFut, willThrowWithCauseOrSuppressed(TableExistsValidationException.class));
+        assertThat(createTblIfNotExistsFut, willCompleteSuccessfully());
     }
 
     /**
@@ -250,7 +243,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         addColumn(ignite0, TABLE_NAME);
 
-        assertThrows(Throwable.class, () -> addColumn(ignite0, TABLE_NAME));
+        assertThrowsWithCause(() -> addColumn(ignite0, TABLE_NAME), CatalogValidationException.class);
     }
 
     /** Tries to create a column which is already created from lagged node. */
@@ -274,7 +267,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
-                assertThrows(ColumnAlreadyExistsException.class, () -> addColumn(ignite, TABLE_NAME));
+                // TODO: IGNITE-20388 Fix it
+                assertThrowsWithCause(() -> addColumn(ignite, TABLE_NAME), CatalogValidationException.class);
             }
         }
 
@@ -282,7 +276,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         ignite1Inhibitor.stopInhibit();
 
-        assertThat(addColFut, willThrow(ColumnAlreadyExistsException.class));
+        // TODO: IGNITE-20388 Fix it
+        assertThat(addColFut, willThrowWithCauseOrSuppressed(CatalogValidationException.class));
     }
 
     /**
@@ -344,7 +339,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
             assertNull(((IgniteTablesInternal) ignite.tables()).table(tblId));
 
-            assertThrows(TableNotFoundException.class, () -> dropTable(ignite, TABLE_NAME));
+            // TODO: IGNITE-20388 Fix it
+            assertThrowsWithCause(() -> dropTable(ignite, TABLE_NAME), TableNotFoundValidationException.class);
 
             dropTableIfExists(ignite, TABLE_NAME);
         }
