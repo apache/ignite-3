@@ -113,6 +113,16 @@ template<>
  * @throw ignite_error if the object is not a number.
  */
 template<>
+[[nodiscard]] std::uint64_t unpack_object(const msgpack_object &object);
+
+/**
+ * Unpack number.
+ *
+ * @param object MsgPack object.
+ * @return Number.
+ * @throw ignite_error if the object is not a number.
+ */
+template<>
 [[nodiscard]] std::int32_t unpack_object(const msgpack_object &object);
 
 /**
@@ -124,6 +134,16 @@ template<>
  */
 template<>
 [[nodiscard]] std::int16_t unpack_object(const msgpack_object &object);
+
+/**
+ * Unpack number.
+ *
+ * @param object MsgPack object.
+ * @return Number.
+ * @throw ignite_error if the object is not a number.
+ */
+template<>
+[[nodiscard]] std::uint16_t unpack_object(const msgpack_object &object);
 
 /**
  * Unpack number.

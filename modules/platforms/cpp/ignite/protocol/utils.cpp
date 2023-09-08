@@ -88,6 +88,17 @@ T unpack_int(const msgpack_object &object) {
     return T(i64_val);
 }
 
+template<typename T>
+T unpack_uint(const msgpack_object &object) {
+    static_assert(
+        std::numeric_limits<T>::is_integer && !std::numeric_limits<T>::is_signed, "Type T is not a unsigned integer type");
+
+    auto u64_val = unpack_object<std::uint64_t>(object);
+
+    check_int_fits<T>(u64_val);
+    return T(u64_val);
+}
+
 template<>
 std::optional<std::string> unpack_nullable(const msgpack_object &object) {
     if (object.type == MSGPACK_OBJECT_NIL)
@@ -105,6 +116,14 @@ std::int64_t unpack_object(const msgpack_object &object) {
 }
 
 template<>
+std::uint64_t unpack_object(const msgpack_object &object) {
+    if (object.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
+        throw ignite_error("The value in stream is not a positive integer number : " + std::to_string(object.type));
+
+    return object.via.u64;
+}
+
+template<>
 std::int32_t unpack_object(const msgpack_object &object) {
     return unpack_int<std::int32_t>(object);
 }
@@ -112,6 +131,11 @@ std::int32_t unpack_object(const msgpack_object &object) {
 template<>
 std::int16_t unpack_object(const msgpack_object &object) {
     return unpack_int<std::int16_t>(object);
+}
+
+template<>
+std::uint16_t unpack_object(const msgpack_object &object) {
+    return unpack_uint<std::uint16_t>(object);
 }
 
 template<>

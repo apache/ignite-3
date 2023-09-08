@@ -134,6 +134,13 @@ public:
     [[nodiscard]] std::int16_t read_int16() { return read_object<std::int16_t>(); }
 
     /**
+     * Read uint16.
+     *
+     * @return Value.
+     */
+    [[nodiscard]] std::uint16_t read_uint16() { return read_object<std::uint16_t>(); }
+
+    /**
      * Read int32.
      *
      * @return Value.
