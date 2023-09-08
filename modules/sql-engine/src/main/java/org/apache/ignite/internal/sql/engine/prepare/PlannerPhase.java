@@ -181,6 +181,9 @@ public enum PlannerPhase {
             CoreRules.AGGREGATE_REMOVE,
             CoreRules.JOIN_COMMUTE_OUTER,
 
+            PruneEmptyRules.CORRELATE_LEFT_INSTANCE,
+            PruneEmptyRules.CORRELATE_RIGHT_INSTANCE,
+
             // Useful of this rule is not clear now.
             // CoreRules.AGGREGATE_REDUCE_FUNCTIONS,
 

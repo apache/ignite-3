@@ -83,6 +83,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -141,10 +142,12 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 replicaService,
                 new HeapLockManager(),
                 new HybridClockImpl(),
-                new TransactionIdGenerator(0xdeadbeef)
+                new TransactionIdGenerator(0xdeadbeef),
+                clusterNode::id
         ) {
             @Override
             public CompletableFuture<Void> finish(
+                    HybridTimestampTracker timestampTracker,
                     TablePartitionId commitPartition,
                     ClusterNode recipientNode,
                     Long term,
@@ -191,6 +194,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         }
 
         when(replicaService.invoke(any(ClusterNode.class), any())).thenAnswer(invocation -> {
+            ClusterNode node = invocation.getArgument(0);
             ReplicaRequest request = invocation.getArgument(1);
             var commitPartId = new TablePartitionId(2, 0);
 
@@ -209,6 +213,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                                 )
                             .rowsToUpdate(rows)
                             .txId(UUID.randomUUID())
+                            .txCoordinatorId(node.id())
                             .build());
             } else {
                 assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
@@ -223,6 +228,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                         .rowUuid(UUID.randomUUID())
                         .rowMessage(((ReadWriteSingleRowReplicaRequest) request).binaryRowMessage())
                         .txId(TestTransactionIds.newTransactionId())
+                        .txCoordinatorId(node.id())
                         .build());
             }
         });
@@ -237,7 +243,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 Mockito.mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaService,
-                Mockito.mock(HybridClock.class)
+                Mockito.mock(HybridClock.class),
+                new HybridTimestampTracker()
         );
     }
 

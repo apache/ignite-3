@@ -76,6 +76,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterService;
@@ -132,16 +133,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Integration tests for raft cluster. TODO asch get rid of sleeps wherether possible IGNITE-14832
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItNodeTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ItNodeTest.class);
+public class ItNodeTest extends BaseIgniteAbstractTest {
+    private static final IgniteLogger log = Loggers.forClass(ItNodeTest.class);
 
     private static DumpThread dumpThread;
 
@@ -155,7 +154,7 @@ public class ItNodeTest {
             while (!stopped) {
                 try {
                     Thread.sleep(DUMP_TIMEOUT_MS);
-                    LOG.info("Test hang too long, dump threads");
+                    log.info("Test hang too long, dump threads");
                     TestUtils.dumpThreads();
                 }
                 catch (InterruptedException e) {
@@ -202,7 +201,7 @@ public class ItNodeTest {
 
     @BeforeEach
     public void setup(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
-        LOG.info(">>>>>>>>>>>>>>> Start test method: " + testInfo.getDisplayName());
+        log.info(">>>>>>>>>>>>>>> Start test method: " + testInfo.getDisplayName());
 
         this.testInfo = testInfo;
         dataPath = workDir.toString();
@@ -218,7 +217,7 @@ public class ItNodeTest {
                 service.shutdown();
             }
             catch (Exception e) {
-                LOG.error("Error while closing a service", e);
+                log.error("Error while closing a service", e);
             }
         });
 
@@ -234,7 +233,7 @@ public class ItNodeTest {
 
         TestUtils.assertAllJraftThreadsStopped();
 
-        LOG.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getDisplayName() + ", cost:"
+        log.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getDisplayName() + ", cost:"
             + (Utils.monotonicMs() - testStartMs) + " ms.");
     }
 
@@ -282,7 +281,7 @@ public class ItNodeTest {
             ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes(UTF_8));
             int finalI = i;
             Task task = new Task(data, new JoinableClosure(status -> {
-                LOG.info("{} i={}", status, finalI);
+                log.info("{} i={}", status, finalI);
                 if (!status.isOk()) {
                     assertTrue(
                         status.getRaftError() == RaftError.EBUSY || status.getRaftError() == RaftError.EPERM);
@@ -542,18 +541,18 @@ public class ItNodeTest {
         public void onCreated(PeerId peer) {
             int val = startedCounter.incrementAndGet();
 
-            LOG.info("Replicator has been created {} {}", peer, val);
+            log.info("Replicator has been created {} {}", peer, val);
         }
 
         @Override
         public void stateChanged(final PeerId peer, final ReplicatorState newState) {
-            LOG.info("Replicator {} state is changed into {}.", peer, newState);
+            log.info("Replicator {} state is changed into {}.", peer, newState);
         }
 
         /** {@inheritDoc} */
         @Override
         public void onError(PeerId peer, Status status) {
-            LOG.info("Replicator has errors {} {}", peer, status);
+            log.info("Replicator has errors {} {}", peer, status);
         }
 
         /** {@inheritDoc} */
@@ -561,7 +560,7 @@ public class ItNodeTest {
         public void onDestroyed(PeerId peer) {
             int val = stoppedCounter.incrementAndGet();
 
-            LOG.info("Replicator has been destroyed {} {}", peer, val);
+            log.info("Replicator has been destroyed {} {}", peer, val);
         }
     }
 
@@ -585,7 +584,7 @@ public class ItNodeTest {
         assertTrue(waitForCondition(() -> startedCounter.get() == 2, 5_000), startedCounter.get() + "");
 
         PeerId targetPeer = followers.get(0).getNodeId().getPeerId().copy();
-        LOG.info("Transfer leadership from {} to {}", leader, targetPeer);
+        log.info("Transfer leadership from {} to {}", leader, targetPeer);
         assertTrue(leader.transferLeadershipTo(targetPeer).isOk());
         Thread.sleep(1000);
         cluster.waitAndGetLeader();
@@ -1102,20 +1101,20 @@ public class ItNodeTest {
         PeerId oldLeader = leader.getNodeId().getPeerId().copy();
 
         // remove old leader
-        LOG.info("Remove old leader {}", oldLeader);
+        log.info("Remove old leader {}", oldLeader);
         CountDownLatch latch = new CountDownLatch(1);
         leader.removePeer(oldLeader, new ExpectClosure(latch));
         waitLatch(latch);
         assertEquals(60, leader.getNodeTargetPriority());
 
         // stop and clean old leader
-        LOG.info("Stop and clean old leader {}", oldLeader);
+        log.info("Stop and clean old leader {}", oldLeader);
         assertTrue(cluster.stop(oldLeader));
         cluster.clean(oldLeader);
 
         // elect new leader
         leader = cluster.waitAndGetLeader();
-        LOG.info("New leader is {}", leader);
+        log.info("New leader is {}", leader);
         assertNotNull(leader);
         assertNotEquals(leader.getNodeId().getPeerId(), oldLeader);
     }
@@ -1456,7 +1455,7 @@ public class ItNodeTest {
         //elect get leader
         Node leader = cluster.waitAndGetLeader();
         assertNotNull(leader);
-        LOG.info("Current leader is {}", leader.getLeaderId());
+        log.info("Current leader is {}", leader.getLeaderId());
         // apply tasks to leader
         sendTestTaskAndWait(leader);
 
@@ -1473,7 +1472,7 @@ public class ItNodeTest {
         });
 
         // stop leader
-        LOG.warn("Stop leader {}", leader.getNodeId().getPeerId());
+        log.warn("Stop leader {}", leader.getNodeId().getPeerId());
         PeerId oldLeader = leader.getNodeId().getPeerId();
         assertTrue(cluster.stop(leader.getNodeId().getPeerId()));
 
@@ -1484,7 +1483,7 @@ public class ItNodeTest {
 
         // elect new leader
         leader = cluster.waitAndGetLeader();
-        LOG.info("Elect new leader is {}", leader.getLeaderId());
+        log.info("Elect new leader is {}", leader.getLeaderId());
         // apply tasks to new leader
         CountDownLatch latch = new CountDownLatch(10);
         for (int i = 10; i < 20; i++) {
@@ -1495,7 +1494,7 @@ public class ItNodeTest {
         waitLatch(latch);
 
         // restart old leader
-        LOG.info("restart old leader {}", oldLeader);
+        log.info("restart old leader {}", oldLeader);
 
         assertTrue(cluster.start(findById(peers, oldLeader)));
         // apply something
@@ -1512,7 +1511,7 @@ public class ItNodeTest {
         cluster.clean(oldLeader);
 
         // restart old leader
-        LOG.info("Restart old leader with cleanup {}", oldLeader);
+        log.info("Restart old leader with cleanup {}", oldLeader);
         assertTrue(cluster.start(findById(peers, oldLeader)));
         cluster.ensureSame();
 
@@ -1611,12 +1610,12 @@ public class ItNodeTest {
         TestPeer followerPeer = findById(peers, followers.get(0).getNodeId().getPeerId());
 
         // stop and clean follower
-        LOG.info("Stop and clean follower {}", followerPeer);
+        log.info("Stop and clean follower {}", followerPeer);
         assertTrue(cluster.stop(followerPeer.getPeerId()));
         cluster.clean(followerPeer.getPeerId());
 
         // remove follower
-        LOG.info("Remove follower {}", followerPeer);
+        log.info("Remove follower {}", followerPeer);
         CountDownLatch latch = new CountDownLatch(1);
         leader.removePeer(followerPeer.getPeerId(), new ExpectClosure(latch));
         waitLatch(latch);
@@ -1629,7 +1628,7 @@ public class ItNodeTest {
         assertTrue(peers.remove(followerPeer));
 
         // start follower
-        LOG.info("Start and add follower {}", followerPeer);
+        log.info("Start and add follower {}", followerPeer);
         assertTrue(cluster.start(followerPeer));
         // re-add follower
         latch = new CountDownLatch(1);
@@ -1671,25 +1670,25 @@ public class ItNodeTest {
         TestPeer oldLeader = findById(peers, leaderId);
 
         // remove old leader
-        LOG.info("Remove old leader {}", oldLeader);
+        log.info("Remove old leader {}", oldLeader);
         CountDownLatch latch = new CountDownLatch(1);
         leader.removePeer(oldLeader.getPeerId(), new ExpectClosure(latch));
         waitLatch(latch);
 
         // elect new leader
         leader = cluster.waitAndGetLeader();
-        LOG.info("New leader is {}", leader);
+        log.info("New leader is {}", leader);
         assertNotNull(leader);
         // apply tasks to new leader
         sendTestTaskAndWait(leader, 10, RaftError.SUCCESS);
 
         // stop and clean old leader
-        LOG.info("Stop and clean old leader {}", oldLeader);
+        log.info("Stop and clean old leader {}", oldLeader);
         assertTrue(cluster.stop(oldLeader.getPeerId()));
         cluster.clean(oldLeader.getPeerId());
 
         // Add and start old leader
-        LOG.info("Start and add old leader {}", oldLeader);
+        log.info("Start and add old leader {}", oldLeader);
         assertTrue(cluster.start(oldLeader));
 
         peers = TestUtils.generatePeers(testInfo, 3);
@@ -1731,7 +1730,7 @@ public class ItNodeTest {
         TestPeer followerPeer = findById(peers, followerPeerId);
 
         // remove follower
-        LOG.info("Remove follower {}", followerPeer);
+        log.info("Remove follower {}", followerPeer);
         CountDownLatch latch = new CountDownLatch(1);
         leader.removePeer(followerPeer.getPeerId(), new ExpectClosure(latch));
         waitLatch(latch);
@@ -1741,7 +1740,7 @@ public class ItNodeTest {
         Thread.sleep(2000);
 
         // add follower
-        LOG.info("Add follower {}", followerPeer);
+        log.info("Add follower {}", followerPeer);
         peers = TestUtils.generatePeers(testInfo, 3);
         assertTrue(peers.remove(followerPeer));
         latch = new CountDownLatch(1);
@@ -1770,7 +1769,6 @@ public class ItNodeTest {
     }
 
     @Test
-    @DisabledOnOs(value = OS.WINDOWS, disabledReason = "https://issues.apache.org/jira/browse/IGNITE-17601")
     public void testSetPeer2() throws Exception {
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
 
@@ -1793,7 +1791,7 @@ public class ItNodeTest {
         PeerId followerPeer1 = followers.get(0).getNodeId().getPeerId();
         PeerId followerPeer2 = followers.get(1).getNodeId().getPeerId();
 
-        LOG.info("Stop and clean follower {}", followerPeer1);
+        log.info("Stop and clean follower {}", followerPeer1);
         assertTrue(cluster.stop(followerPeer1));
         cluster.clean(followerPeer1);
 
@@ -1801,9 +1799,9 @@ public class ItNodeTest {
         sendTestTaskAndWait(leader, 10, RaftError.SUCCESS);
         // set peer when no quorum die
         PeerId leaderId = leader.getLeaderId().copy();
-        LOG.info("Set peers to {}", leaderId);
+        log.info("Set peers to {}", leaderId);
 
-        LOG.info("Stop and clean follower {}", followerPeer2);
+        log.info("Stop and clean follower {}", followerPeer2);
         assertTrue(cluster.stop(followerPeer2));
         cluster.clean(followerPeer2);
 
@@ -1817,28 +1815,28 @@ public class ItNodeTest {
         // new peers equal to current conf
         assertTrue(leader.resetPeers(new Configuration(peers.stream().map(TestPeer::getPeerId).collect(toList()))).isOk());
         // set peer when quorum die
-        LOG.warn("Set peers to {}", leaderId);
+        log.warn("Set peers to {}", leaderId);
         assertTrue(leader.resetPeers(new Configuration(newPeers)).isOk());
 
         leader = cluster.waitAndGetLeader();
         assertNotNull(leader);
         assertEquals(leaderId, leader.getNodeId().getPeerId());
 
-        LOG.info("start follower {}", followerPeer1);
+        log.info("start follower {}", followerPeer1);
         assertTrue(cluster.start(findById(peers, followerPeer1), true, 300));
-        LOG.info("start follower {}", followerPeer2);
+        log.info("start follower {}", followerPeer2);
         assertTrue(cluster.start(findById(peers, followerPeer2), true, 300));
 
         assertTrue(waitForTopology(cluster, followerPeer1, 3, 10_000));
         assertTrue(waitForTopology(cluster, followerPeer2, 3, 10_000));
 
         CountDownLatch latch = new CountDownLatch(1);
-        LOG.info("Add old follower {}", followerPeer1);
+        log.info("Add old follower {}", followerPeer1);
         leader.addPeer(followerPeer1, new ExpectClosure(latch));
         waitLatch(latch);
 
         latch = new CountDownLatch(1);
-        LOG.info("Add old follower {}", followerPeer2);
+        log.info("Add old follower {}", followerPeer2);
         leader.addPeer(followerPeer2, new ExpectClosure(latch));
         waitLatch(latch);
 
@@ -1866,7 +1864,7 @@ public class ItNodeTest {
         // get leader
         Node leader = cluster.waitAndGetLeader();
 
-        LOG.info("Leader: " + leader);
+        log.info("Leader: " + leader);
 
         assertNotNull(leader);
         // apply tasks to leader
@@ -1902,7 +1900,7 @@ public class ItNodeTest {
         // get leader
         Node leader = cluster.waitAndGetLeader();
 
-        LOG.info("Leader: " + leader);
+        log.info("Leader: " + leader);
 
         assertNotNull(leader);
         // apply tasks to leader
@@ -2214,11 +2212,11 @@ public class ItNodeTest {
         Node leader0 = cluster.waitAndGetLeader();
         assertNotNull(leader0);
         long savedTerm = ((NodeImpl) leader0).getCurrentTerm();
-        LOG.info("Current leader is {}, term is {}", leader0, savedTerm);
+        log.info("Current leader is {}, term is {}", leader0, savedTerm);
         Thread.sleep(5000);
         Node leader1 = cluster.waitAndGetLeader();
         assertNotNull(leader1);
-        LOG.info("Current leader is {}", leader1);
+        log.info("Current leader is {}", leader1);
         assertEquals(savedTerm, ((NodeImpl) leader1).getCurrentTerm());
     }
 
@@ -2277,7 +2275,7 @@ public class ItNodeTest {
         assertEquals(2, followers.size());
 
         PeerId targetPeer = followers.get(0).getNodeId().getPeerId().copy();
-        LOG.info("Transfer leadership from {} to {}", leader, targetPeer);
+        log.info("Transfer leadership from {} to {}", leader, targetPeer);
         assertTrue(leader.transferLeadershipTo(targetPeer).isOk());
         leader = cluster.waitAndGetLeader();
         assertEquals(leader.getNodeId().getPeerId(), targetPeer);
@@ -2303,7 +2301,7 @@ public class ItNodeTest {
         assertTrue(cluster.stop(targetPeer));
 
         sendTestTaskAndWait(leader);
-        LOG.info("Transfer leadership from {} to {}", leader, targetPeer);
+        log.info("Transfer leadership from {} to {}", leader, targetPeer);
         assertTrue(leader.transferLeadershipTo(targetPeer).isOk());
 
         CountDownLatch latch = new CountDownLatch(1);
@@ -2444,7 +2442,7 @@ public class ItNodeTest {
         assertNotNull(leader);
         Node oldLeader = leader;
 
-        LOG.info("Shutdown leader {}", leader);
+        log.info("Shutdown leader {}", leader);
         leader.shutdown();
         leader.join();
 
@@ -2544,7 +2542,7 @@ public class ItNodeTest {
         assertEquals(4, followers.size());
         Node errorNode = followers.get(0);
         PeerId errorPeer = errorNode.getNodeId().getPeerId().copy();
-        LOG.info("Set follower {} into error state", errorNode);
+        log.info("Set follower {} into error state", errorNode);
         ((NodeImpl) errorNode).onError(new RaftException(EnumOutter.ErrorType.ERROR_TYPE_STATE_MACHINE, new Status(-1,
             "Follower has something wrong.")));
 
@@ -2553,16 +2551,16 @@ public class ItNodeTest {
         assertTrue(cluster.stop(oldLeaderAddr));
         Node leader = cluster.waitAndGetLeader();
         assertNotNull(leader);
-        LOG.info("Elect a new leader {}", leader);
+        log.info("Elect a new leader {}", leader);
         // apply something again
         sendTestTaskAndWait(leader, 10, RaftError.SUCCESS);
 
         // stop error follower
         Thread.sleep(20);
-        LOG.info("Stop error follower {}", errorNode);
+        log.info("Stop error follower {}", errorNode);
         assertTrue(cluster.stop(errorPeer));
         // restart error and old leader
-        LOG.info("Restart error follower {} and old leader {}", errorPeer, oldLeaderAddr);
+        log.info("Restart error follower {} and old leader {}", errorPeer, oldLeaderAddr);
 
         assertTrue(cluster.start(findById(peers, errorPeer)));
         assertTrue(cluster.start(findById(peers, oldLeaderAddr)));
@@ -2759,7 +2757,7 @@ public class ItNodeTest {
         catch (LogIndexOutOfBoundsException e) {
             assertEquals("Request index is invalid: 0", e.getMessage());
         }
-        LOG.info("Trigger leader snapshot");
+        log.info("Trigger leader snapshot");
         CountDownLatch latch = new CountDownLatch(1);
         leader.snapshot(new ExpectClosure(latch));
         waitLatch(latch);
@@ -2778,7 +2776,7 @@ public class ItNodeTest {
         sendTestTaskAndWait(leader, amount, RaftError.SUCCESS);
 
         // trigger leader snapshot for the second time, after this the log of index 1~11 will be deleted.
-        LOG.info("Trigger leader snapshot");
+        log.info("Trigger leader snapshot");
         latch = new CountDownLatch(1);
         leader.snapshot(new ExpectClosure(latch));
         waitLatch(latch);
@@ -2932,7 +2930,7 @@ public class ItNodeTest {
             assertTrue(cluster.start(peer, false, 300));
         }
 
-        waitForTopologyOnEveryNode(numPeers);
+        waitForTopologyOnEveryNode(numPeers, cluster);
 
         for (int i = 0; i < 9; i++) {
             leader = cluster.waitAndGetLeader();
@@ -3027,7 +3025,7 @@ public class ItNodeTest {
 
         // Wait until every node sees every other node, otherwise
         // changePeersAsync can fail.
-        waitForTopologyOnEveryNode(numPeers);
+        waitForTopologyOnEveryNode(numPeers, cluster);
 
         for (int i = 0; i < 4; i++) {
             leader = cluster.getLeader();
@@ -3264,7 +3262,7 @@ public class ItNodeTest {
         done.reset();
         leader.changePeers(conf, done);
         assertEquals(RaftError.EPERM, done.await().getRaftError());
-        LOG.info(done.getStatus().toString());
+        log.info(done.getStatus().toString());
 
         assertFalse(((NodeImpl) leader).getConf().isStable());
 
@@ -3322,7 +3320,7 @@ public class ItNodeTest {
                             conf.addPeer(arg.peers.get(i));
                     }
                     if (conf.isEmpty()) {
-                        LOG.warn("No peer has been selected");
+                        log.warn("No peer has been selected");
                         continue;
                     }
                     SynchronizedClosure done = new SynchronizedClosure();
@@ -3332,7 +3330,7 @@ public class ItNodeTest {
                 }
             }
             catch (InterruptedException e) {
-                LOG.error("ChangePeersThread is interrupted", e);
+                log.error("ChangePeersThread is interrupted", e);
             }
         });
     }
@@ -3476,7 +3474,7 @@ public class ItNodeTest {
                     }
                 }
                 catch (Exception e) {
-                    LOG.error("Failed to run tasks", e);
+                    log.error("Failed to run tasks", e);
                 }
                 finally {
                     latch.countDown();
@@ -3513,7 +3511,7 @@ public class ItNodeTest {
 
         Node leader = cluster.waitAndGetLeader();
 
-        LOG.warn("Current leader {}, electTimeout={}", leader.getNodeId().getPeerId(), leader.getOptions().getElectionTimeoutMs());
+        log.warn("Current leader {}, electTimeout={}", leader.getNodeId().getPeerId(), leader.getOptions().getElectionTimeoutMs());
 
         List<Node> followers = cluster.getFollowers();
 
@@ -3527,7 +3525,7 @@ public class ItNodeTest {
             return false;
         });
 
-        LOG.warn("Stop leader {}, curTerm={}", leader.getNodeId().getPeerId(), ((NodeImpl) leader).getCurrentTerm());
+        log.warn("Stop leader {}, curTerm={}", leader.getNodeId().getPeerId(), ((NodeImpl) leader).getCurrentTerm());
 
         assertTrue(cluster.stop(leader.getNodeId().getPeerId()));
 
@@ -3541,7 +3539,7 @@ public class ItNodeTest {
 
         // elect new leader
         leader = cluster.waitAndGetLeader();
-        LOG.info("Elect new leader is {}, curTerm={}", leader.getLeaderId(), ((NodeImpl) leader).getCurrentTerm());
+        log.info("Elect new leader is {}, curTerm={}", leader.getLeaderId(), ((NodeImpl) leader).getCurrentTerm());
     }
 
     @Test
@@ -3578,7 +3576,7 @@ public class ItNodeTest {
 
         int initElectionTimeout = leader.getOptions().getElectionTimeoutMs();
 
-        LOG.warn("Current leader {}, electTimeout={}", leader.getNodeId().getPeerId(), leader.getOptions().getElectionTimeoutMs());
+        log.warn("Current leader {}, electTimeout={}", leader.getNodeId().getPeerId(), leader.getOptions().getElectionTimeoutMs());
 
         List<Node> followers = cluster.getFollowers();
 
@@ -3590,7 +3588,7 @@ public class ItNodeTest {
 
         blockMessagesOnFollowers(followers, blockingPredicate);
 
-        LOG.warn("Stop leader {}, curTerm={}", leader.getNodeId().getPeerId(), ((NodeImpl) leader).getCurrentTerm());
+        log.warn("Stop leader {}, curTerm={}", leader.getNodeId().getPeerId(), ((NodeImpl) leader).getCurrentTerm());
 
         assertTrue(cluster.stop(leader.getNodeId().getPeerId()));
 
@@ -3606,7 +3604,7 @@ public class ItNodeTest {
         // elect new leader
         leader = cluster.waitAndGetLeader();
 
-        LOG.info("Elected new leader is {}, curTerm={}", leader.getLeaderId(), ((NodeImpl) leader).getCurrentTerm());
+        log.info("Elected new leader is {}, curTerm={}", leader.getLeaderId(), ((NodeImpl) leader).getCurrentTerm());
 
         assertTrue(
                 waitForCondition(() -> followers.stream().allMatch(f -> f.getOptions().getElectionTimeoutMs() == initElectionTimeout),
@@ -3646,7 +3644,7 @@ public class ItNodeTest {
             if (cnt.get() >= 2)
                 return true;
 
-            LOG.info("Send heartbeat: " + msg + " to " + nodeId);
+            log.info("Send heartbeat: " + msg + " to " + nodeId);
 
             cnt.incrementAndGet();
 
@@ -3767,11 +3765,11 @@ public class ItNodeTest {
      * @param timeout
      * @return
      */
-    private boolean waitForTopology(TestCluster cluster, PeerId peerId, int expected, long timeout) {
+    private static boolean waitForTopology(TestCluster cluster, PeerId peerId, int expected, long timeout) {
         RaftGroupService grp = cluster.getServer(peerId);
 
         if (grp == null) {
-            LOG.warn("Node has not been found {}", peerId);
+            log.warn("Node has not been found {}", peerId);
 
             return false;
         }
@@ -3851,6 +3849,8 @@ public class ItNodeTest {
         IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
 
         nodeOptions.setRpcClient(new IgniteRpcClient(clusterService));
+
+        nodeOptions.setCommandsMarshaller(TestCluster.commandsMarshaller(clusterService));
 
         clusterService.start();
 
@@ -3972,7 +3972,7 @@ public class ItNodeTest {
         }
     }
 
-    private void waitForTopologyOnEveryNode(int count) {
+    static void waitForTopologyOnEveryNode(int count, TestCluster cluster) {
         cluster.getAllNodes().forEach(peerId -> {
             assertTrue(waitForTopology(cluster, peerId, count, TimeUnit.SECONDS.toMillis(10)));
         });

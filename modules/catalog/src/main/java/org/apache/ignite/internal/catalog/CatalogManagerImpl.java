@@ -19,69 +19,47 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateAlterZoneParams;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateHashIndexParams;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateSortedIndexParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateCreateZoneParams;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropIndexParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateDropZoneParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParamsAndPreviousValue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.LongSupplier;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
-import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
-import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.storage.AlterColumnEntry;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
-import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
-import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.Fireable;
-import org.apache.ignite.internal.catalog.storage.NewColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.NewIndexEntry;
-import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -97,19 +75,17 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
-import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.DistributionZones;
+import org.apache.ignite.lang.ErrorGroups.Index;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -173,17 +149,9 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                 new CatalogIndexDescriptor[0]
         );
 
-        CatalogZoneDescriptor defaultZone = new CatalogZoneDescriptor(
+        CatalogZoneDescriptor defaultZone = fromParams(
                 objectIdGen++,
-                DEFAULT_ZONE_NAME,
-                25,
-                1,
-                INFINITE_TIMER_VALUE,
-                INFINITE_TIMER_VALUE,
-                INFINITE_TIMER_VALUE,
-                DEFAULT_FILTER,
-                // TODO: IGNITE-19719 Should be defined differently
-                new CatalogDataStorageDescriptor(DEFAULT_STORAGE_ENGINE, DEFAULT_DATA_REGION)
+                CreateZoneParams.builder().zoneName(DEFAULT_ZONE_NAME).build()
         );
 
         registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(schemaPublic)));
@@ -320,135 +288,29 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     }
 
     @Override
-    public CompletableFuture<Void> createTable(CreateTableParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
-
-            if (schema.table(params.tableName()) != null) {
-                throw new TableAlreadyExistsException(schema.name(), params.tableName());
-            }
-
-            validateCreateTableParams(params);
-
-            CatalogZoneDescriptor zone = getZone(catalog, Objects.requireNonNullElse(params.zone(), DEFAULT_ZONE_NAME));
-
-            int id = catalog.objectIdGenState();
-
-            CatalogTableDescriptor table = CatalogUtils.fromParams(id++, zone.id(), params);
-
-            CatalogHashIndexDescriptor pkIndex = createHashIndexDescriptor(table, id++, createPkIndexParams(params));
-
-            return List.of(
-                    new NewTableEntry(table),
-                    new NewIndexEntry(pkIndex),
-                    new ObjectIdGenUpdateEntry(id - catalog.objectIdGenState())
-            );
-        });
+    public CompletableFuture<Void> execute(CatalogCommand command) {
+        return saveUpdateAndWaitForActivation(command);
     }
 
     @Override
-    public CompletableFuture<Void> dropTable(DropTableParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
-
-            CatalogTableDescriptor table = getTable(schema, params.tableName());
-
-            List<UpdateEntry> updateEntries = new ArrayList<>();
-
-            Arrays.stream(schema.indexes())
-                    .filter(index -> index.tableId() == table.id())
-                    .forEach(index -> updateEntries.add(new DropIndexEntry(index.id(), index.tableId())));
-
-            updateEntries.add(new DropTableEntry(table.id()));
-
-            return updateEntries;
-        });
-    }
-
-    @Override
-    public CompletableFuture<Void> addColumn(AlterTableAddColumnParams params) {
-        if (params.columns().isEmpty()) {
-            return completedFuture(null);
-        }
-
-        return saveUpdateAndWaitForActivation(catalog -> {
-            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
-
-            CatalogTableDescriptor table = getTable(schema, params.tableName());
-
-            List<CatalogTableColumnDescriptor> columnDescriptors = new ArrayList<>();
-
-            for (ColumnParams col : params.columns()) {
-                if (table.column(col.name()) != null) {
-                    throw new ColumnAlreadyExistsException(col.name());
-                }
-
-                columnDescriptors.add(CatalogUtils.fromParams(col));
-            }
-
-            return List.of(
-                    new NewColumnsEntry(table.id(), columnDescriptors)
-            );
-        });
-    }
-
-    @Override
-    public CompletableFuture<Void> dropColumn(AlterTableDropColumnParams params) {
-        if (params.columns().isEmpty()) {
-            return completedFuture(null);
-        }
-
-        return saveUpdateAndWaitForActivation(catalog -> {
-            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
-
-            CatalogTableDescriptor table = getTable(schema, params.tableName());
-
-            validateAlterTableDropColumnParams(params, schema, table);
-
-            return List.of(
-                    new DropColumnsEntry(table.id(), params.columns())
-            );
-        });
-    }
-
-    @Override
-    public CompletableFuture<Void> alterColumn(AlterColumnParams params) {
-        return saveUpdateAndWaitForActivation(catalog -> {
-            CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
-
-            CatalogTableDescriptor table = getTable(schema, params.tableName());
-
-            CatalogTableColumnDescriptor origin = findTableColumn(table, params.columnName());
-
-            CatalogTableColumnDescriptor target = createNewTableColumn(params, origin);
-
-            if (origin.equals(target)) {
-                // No modifications required.
-                return Collections.emptyList();
-            }
-
-            boolean isPkColumn = table.isPrimaryKeyColumn(origin.name());
-
-            validateAlterTableColumn(origin, target, isPkColumn);
-
-            return List.of(
-                    new AlterColumnEntry(table.id(), target)
-            );
-        });
+    public CompletableFuture<Void> execute(List<CatalogCommand> commands) throws IllegalArgumentException {
+        return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
     }
 
     @Override
     public CompletableFuture<Void> createIndex(CreateHashIndexParams params) {
         return saveUpdateAndWaitForActivation(catalog -> {
+            validateCreateHashIndexParams(params);
+
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
-            if (schema.index(params.indexName()) != null) {
-                throw new IndexAlreadyExistsException(schema.name(), params.indexName());
-            }
+            ensureNoTableOrIndexExistsWithSameName(schema, params.indexName());
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            CatalogHashIndexDescriptor index = createHashIndexDescriptor(table, catalog.objectIdGenState(), params);
+            validateIndexColumns(table, params);
+
+            CatalogHashIndexDescriptor index = fromParams(catalog.objectIdGenState(), table.id(), params);
 
             return List.of(
                     new NewIndexEntry(index),
@@ -460,17 +322,17 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> createIndex(CreateSortedIndexParams params) {
         return saveUpdateAndWaitForActivation(catalog -> {
+            validateCreateSortedIndexParams(params);
+
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
-            if (schema.index(params.indexName()) != null) {
-                throw new IndexAlreadyExistsException(schema.name(), params.indexName());
-            }
+            ensureNoTableOrIndexExistsWithSameName(schema, params.indexName());
 
             CatalogTableDescriptor table = getTable(schema, params.tableName());
 
-            validateCreateSortedIndexParams(params, table);
+            validateIndexColumns(table, params);
 
-            CatalogIndexDescriptor index = CatalogUtils.fromParams(catalog.objectIdGenState(), table.id(), params);
+            CatalogSortedIndexDescriptor index = fromParams(catalog.objectIdGenState(), table.id(), params);
 
             return List.of(
                     new NewIndexEntry(index),
@@ -482,6 +344,8 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public CompletableFuture<Void> dropIndex(DropIndexParams params) {
         return saveUpdateAndWaitForActivation(catalog -> {
+            validateDropIndexParams(params);
+
             CatalogSchemaDescriptor schema = getSchema(catalog, params.schemaName());
 
             CatalogIndexDescriptor index = schema.index(params.indexName());
@@ -505,7 +369,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
                 throw new DistributionZoneAlreadyExistsException(params.zoneName());
             }
 
-            CatalogZoneDescriptor zone = CatalogUtils.fromParams(catalog.objectIdGenState(), params);
+            CatalogZoneDescriptor zone = fromParams(catalog.objectIdGenState(), params);
 
             return List.of(
                     new NewZoneEntry(zone),
@@ -581,38 +445,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
             CatalogZoneDescriptor zone = getZone(catalog, params.zoneName());
 
-            Integer dataNodesAutoAdjust = Objects.requireNonNullElse(
-                    params.dataNodesAutoAdjust(),
-                    zone.dataNodesAutoAdjust()
-            );
-
-            Integer dataNodesAutoAdjustScaleUp = Objects.requireNonNullElse(
-                    params.dataNodesAutoAdjustScaleUp(),
-                    zone.dataNodesAutoAdjustScaleUp()
-            );
-
-            Integer dataNodesAutoAdjustScaleDown = Objects.requireNonNullElse(
-                    params.dataNodesAutoAdjustScaleDown(),
-                    zone.dataNodesAutoAdjustScaleDown()
-            );
-
-            validateZoneDataNodesAutoAdjustParametersCompatibility(
-                    dataNodesAutoAdjust,
-                    dataNodesAutoAdjustScaleUp,
-                    dataNodesAutoAdjustScaleDown
-            );
-
-            CatalogZoneDescriptor descriptor = new CatalogZoneDescriptor(
-                    zone.id(),
-                    zone.name(),
-                    Objects.requireNonNullElse(params.partitions(), zone.partitions()),
-                    Objects.requireNonNullElse(params.replicas(), zone.replicas()),
-                    dataNodesAutoAdjust,
-                    dataNodesAutoAdjustScaleUp,
-                    dataNodesAutoAdjustScaleDown,
-                    Objects.requireNonNullElse(params.filter(), zone.filter()),
-                    Objects.requireNonNullElse(dataStorage(params.dataStorage()), zone.dataStorage())
-            );
+            CatalogZoneDescriptor descriptor = fromParamsAndPreviousValue(params, zone);
 
             return List.of(new AlterZoneEntry(descriptor));
         });
@@ -717,15 +550,6 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         }
     }
 
-    private static void throwUnsupportedDdl(String msg, Object... params) {
-        throw new SqlException(STMT_VALIDATION_ERR, format(msg, params));
-    }
-
-    @FunctionalInterface
-    interface UpdateProducer {
-        List<UpdateEntry> get(Catalog catalog);
-    }
-
     private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
         long activationTimestamp = metaStorageUpdateTimestamp.addPhysicalTime(update.delayDurationMs()).longValue();
 
@@ -772,243 +596,59 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
         return zone;
     }
 
-    private static CatalogTableColumnDescriptor findTableColumn(CatalogTableDescriptor table, String columnName) {
-        return table.columns().stream()
-                .filter(desc -> desc.name().equals(columnName))
-                .findFirst()
-                .orElseThrow(() -> new ColumnNotFoundException(columnName));
-    }
-
-    private static CatalogTableColumnDescriptor createNewTableColumn(AlterColumnParams params, CatalogTableColumnDescriptor origin) {
-        return new CatalogTableColumnDescriptor(
-                origin.name(),
-                Objects.requireNonNullElse(params.type(), origin.type()),
-                !Objects.requireNonNullElse(params.notNull(), !origin.nullable()),
-                Objects.requireNonNullElse(params.precision(), origin.precision()),
-                Objects.requireNonNullElse(params.scale(), origin.scale()),
-                Objects.requireNonNullElse(params.length(), origin.length()),
-                Objects.requireNonNullElse(params.defaultValue(origin.type()), origin.defaultValue())
-        );
-    }
-
-    private static void validateCreateTableParams(CreateTableParams params) {
-        // Table must have columns.
-        if (params.columns().isEmpty()) {
-            throw new IgniteInternalException(ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR, "Table must include at least one column.");
-        }
-
-        // Column names must be unique.
-        params.columns().stream()
-                .map(ColumnParams::name)
-                .filter(Predicate.not(new HashSet<>()::add))
-                .findAny()
-                .ifPresent(columnName -> {
-                    throw new IgniteInternalException(
-                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Can't create table with duplicate columns: {}",
-                            params.columns().stream().map(ColumnParams::name).collect(joining(", "))
-                    );
-                });
-
-        // Table must have PK columns.
-        if (params.primaryKeyColumns().isEmpty()) {
-            throw new IgniteInternalException(
-                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                    "Table without primary key is not supported."
-            );
-        }
-
-        // PK columns must be valid columns.
-        Set<String> columns = params.columns().stream().map(ColumnParams::name).collect(Collectors.toSet());
-        params.primaryKeyColumns().stream()
-                .filter(Predicate.not(columns::contains))
-                .findAny()
-                .ifPresent(columnName -> {
-                    throw new IgniteInternalException(
-                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Invalid primary key columns: {}",
-                            params.columns().stream().map(ColumnParams::name).collect(joining(", "))
-                    );
-                });
-
-        // PK column names must be unique.
-        params.primaryKeyColumns().stream()
-                .filter(Predicate.not(new HashSet<>()::add))
-                .findAny()
-                .ifPresent(columnName -> {
-                    throw new IgniteInternalException(
-                            ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                            "Primary key columns contains duplicates: {}",
-                            String.join(", ", params.primaryKeyColumns())
-                    );
-                });
-
-        List<String> colocationCols = params.colocationColumns();
-        if (colocationCols != null) {
-            // Colocation columns must be unique
-            colocationCols.stream()
-                    .filter(Predicate.not(new HashSet<>()::add))
-                    .findAny()
-                    .ifPresent(columnName -> {
-                        throw new IgniteInternalException(
-                                ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                                "Colocation columns contains duplicates: {}",
-                                String.join(", ", colocationCols)
-                        );
-                    });
-
-            // Colocation column must be valid PK column
-            Set<String> pkColumns = new HashSet<>(params.primaryKeyColumns());
-            List<String> outstandingColumns = colocationCols.stream()
-                    .filter(Predicate.not(pkColumns::contains))
-                    .collect(Collectors.toList());
-            if (!outstandingColumns.isEmpty()) {
-                throw new IgniteInternalException(
-                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                        "Colocation columns must be subset of primary key: outstandingColumns=" + outstandingColumns);
-            }
-        }
-    }
-
-    private static void validateAlterTableDropColumnParams(
-            AlterTableDropColumnParams params,
-            CatalogSchemaDescriptor schema,
-            CatalogTableDescriptor table
-    ) {
-        for (String columnName : params.columns()) {
-            if (table.column(columnName) == null) {
-                throw new ColumnNotFoundException(schema.name(), params.tableName(), columnName);
-            }
-
-            if (table.isPrimaryKeyColumn(columnName)) {
-                throw new SqlException(
-                        STMT_VALIDATION_ERR,
-                        "Can't drop primary key column: [name=" + columnName + ']'
-                );
-            }
-        }
-
-        Arrays.stream(schema.indexes())
-                .filter(index -> index.tableId() == table.id())
-                .forEach(index -> params.columns().stream()
-                        .filter(index::hasColumn)
-                        .findAny()
-                        .ifPresent(columnName -> {
-                            throw new SqlException(
-                                    STMT_VALIDATION_ERR,
-                                    format("Can't drop indexed column: [columnName={}, indexName={}]", columnName, index.name()));
-                        }));
-    }
-
-    private static void validateCreateHashIndexParams(CreateHashIndexParams params, CatalogTableDescriptor table) {
-        validateIndexColumns(params.columns(), table);
-    }
-
-    private static void validateCreateSortedIndexParams(CreateSortedIndexParams params, CatalogTableDescriptor table) {
-        validateIndexColumns(params.columns(), table);
-
-        if (params.collations().size() != params.columns().size()) {
-            throw new IgniteInternalException(
-                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                    "Columns collations doesn't match number of columns."
-            );
-        }
-    }
-
-    private static void validateIndexColumns(List<String> indexColumns, CatalogTableDescriptor table) {
-        if (indexColumns.isEmpty()) {
-            throw new IgniteInternalException(
-                    ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                    "No index columns was specified."
-            );
-        }
-
-        Predicate<String> duplicateValidator = Predicate.not(new HashSet<>()::add);
-
-        for (String columnName : indexColumns) {
-            CatalogTableColumnDescriptor columnDescriptor = table.columnDescriptor(columnName);
-
-            if (columnDescriptor == null) {
-                throw new ColumnNotFoundException(columnName);
-            } else if (duplicateValidator.test(columnName)) {
-                throw new IgniteInternalException(
-                        ErrorGroups.Index.INVALID_INDEX_DEFINITION_ERR,
-                        "Can't create index on duplicate columns: {}",
-                        String.join(", ", indexColumns)
-                );
-            }
-        }
-    }
-
-    private static void validateAlterTableColumn(
-            CatalogTableColumnDescriptor origin,
-            CatalogTableColumnDescriptor target,
-            boolean isPkColumn
-    ) {
-        if (origin.nullable() != target.nullable()) {
-            if (isPkColumn) {
-                throwUnsupportedDdl("Cannot change NOT NULL for the primary key column '{}'.", origin.name());
-            }
-
-            if (origin.nullable()) {
-                throwUnsupportedDdl("Cannot set NOT NULL for column '{}'.", origin.name());
-            }
-        }
-
-        if (origin.scale() != target.scale()) {
-            throwUnsupportedDdl("Cannot change scale for column '{}'.", origin.name());
-        }
-
-        if (origin.type() != target.type()) {
-            if (isPkColumn) {
-                throwUnsupportedDdl("Cannot change data type for primary key column '{}'.", origin.name());
-            }
-
-            if (!CatalogUtils.isSupportedColumnTypeChange(origin.type(), target.type())) {
-                throwUnsupportedDdl("Cannot change data type for column '{}' [from={}, to={}].",
-                        origin.name(), origin.type(), target.type());
-            }
-        }
-
-        if (origin.length() != target.length() && target.type() != ColumnType.STRING && target.type() != ColumnType.BYTE_ARRAY) {
-            throwUnsupportedDdl("Cannot change length for column '{}'.", origin.name());
-        } else if (target.length() < origin.length()) {
-            throwUnsupportedDdl("Cannot decrease length to {} for column '{}'.", target.length(), origin.name());
-        }
-
-        if (origin.precision() != target.precision() && target.type() != ColumnType.DECIMAL) {
-            throwUnsupportedDdl("Cannot change precision for column '{}'.", origin.name());
-        } else if (target.precision() < origin.precision()) {
-            throwUnsupportedDdl("Cannot decrease precision to {} for column '{}'.", target.precision(), origin.name());
-        }
-    }
-
-    private static CreateHashIndexParams createPkIndexParams(CreateTableParams params) {
-        return CreateHashIndexParams.builder()
-                .schemaName(params.schemaName())
-                .tableName(params.tableName())
-                .indexName(params.tableName() + "_PK")
-                .columns(params.primaryKeyColumns())
-                .unique()
-                .build();
-    }
-
-    private static CatalogHashIndexDescriptor createHashIndexDescriptor(
-            CatalogTableDescriptor table,
-            int indexId,
-            CreateHashIndexParams params
-    ) {
-        validateCreateHashIndexParams(params, table);
-
-        return CatalogUtils.fromParams(indexId, table.id(), params);
-    }
-
     @Override
     public void listen(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure) {
         listen(evt, (EventListener<CatalogEventParameters>) closure);
     }
 
-    private static @Nullable CatalogDataStorageDescriptor dataStorage(@Nullable DataStorageParams params) {
-        return params == null ? null : fromParams(params);
+    private static void ensureNoTableOrIndexExistsWithSameName(CatalogSchemaDescriptor schema, String name) {
+        if (schema.index(name) != null) {
+            throw new IndexAlreadyExistsException(schema.name(), name);
+        }
+
+        if (schema.table(name) != null) {
+            throw new TableAlreadyExistsException(schema.name(), name);
+        }
+    }
+
+    private static void validateIndexColumns(CatalogTableDescriptor table, AbstractCreateIndexCommandParams params) {
+        validateColumnsExistInTable(table, params.columns());
+
+        if (params.unique() && !params.columns().containsAll(table.colocationColumns())) {
+            throw new IgniteException(Index.INVALID_INDEX_DEFINITION_ERR, "Unique index must include all colocation columns");
+        }
+    }
+
+    private static void validateColumnsExistInTable(CatalogTableDescriptor table, Collection<String> columns) {
+        for (String column : columns) {
+            if (table.columnDescriptor(column) == null) {
+                throw new ColumnNotFoundException(column);
+            }
+        }
+    }
+
+    private static class BulkUpdateProducer implements UpdateProducer {
+        private final List<? extends UpdateProducer> commands;
+
+        BulkUpdateProducer(List<? extends UpdateProducer> producers) {
+            this.commands = producers;
+        }
+
+        @Override
+        public List<UpdateEntry> get(Catalog catalog) {
+            List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
+
+            for (UpdateProducer producer : commands) {
+                List<UpdateEntry> entries = producer.get(catalog);
+
+                for (UpdateEntry entry : entries) {
+                    catalog = entry.applyUpdate(catalog);
+                }
+
+                bulkUpdateEntries.addAll(entries);
+            }
+
+            return bulkUpdateEntries;
+        }
     }
 }

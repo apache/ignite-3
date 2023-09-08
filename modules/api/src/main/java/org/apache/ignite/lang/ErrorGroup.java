@@ -18,12 +18,10 @@
 package org.apache.ignite.lang;
 
 import static java.util.regex.Pattern.DOTALL;
+import static org.apache.ignite.lang.ErrorGroups.errorGroupByCode;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -41,9 +39,6 @@ public class ErrorGroup {
     private static final Pattern EXCEPTION_MESSAGE_PATTERN =
             Pattern.compile("(.*)(IGN)-([A-Z]+)-(\\d+)\\s(TraceId:)([a-f0-9]{8}(?:-[a-f0-9]{4}){4}[a-f0-9]{8})(\\s?)(.*)", DOTALL);
 
-    /** List of all registered error groups. */
-    private static final Int2ObjectMap<ErrorGroup> registeredGroups = new Int2ObjectOpenHashMap<>();
-
     /** Group name. */
     private final String groupName;
 
@@ -59,7 +54,7 @@ public class ErrorGroup {
      * @param groupName Group name.
      * @param groupCode Group code.
      */
-    private ErrorGroup(String groupName, short groupCode) {
+    ErrorGroup(String groupName, short groupCode) {
         this.groupName = groupName;
         this.groupCode = groupCode;
     }
@@ -100,53 +95,6 @@ public class ErrorGroup {
     }
 
     /**
-     * Creates a new error group with the given {@code groupName} and {@code groupCode}.
-     *
-     * @param groupName Group name to be created.
-     * @param groupCode Group code to be created.
-     * @return New error group.
-     * @throws IllegalArgumentException If the specified name or group code already registered.
-     *      Also, this exception is thrown if the given {@code groupName} is {@code null} or empty.
-     */
-    public static synchronized ErrorGroup newGroup(String groupName, short groupCode) {
-        if (groupName == null || groupName.isEmpty()) {
-            throw new IllegalArgumentException("Group name is null or empty");
-        }
-
-        String grpName = groupName.toUpperCase(Locale.ENGLISH);
-
-        if (registeredGroups.containsKey(groupCode)) {
-            throw new IllegalArgumentException(
-                    "Error group already registered [groupName=" + groupName + ", groupCode=" + groupCode
-                            + ", registeredGroup=" + registeredGroups.get(groupCode) + ']');
-        }
-
-        for (ErrorGroup group : registeredGroups.values()) {
-            if (group.name().equals(groupName)) {
-                throw new IllegalArgumentException(
-                    "Error group already registered [groupName=" + groupName + ", groupCode=" + groupCode
-                            + ", registeredGroup=" + group + ']');
-            }
-        }
-
-        ErrorGroup newGroup = new ErrorGroup(grpName, groupCode);
-
-        registeredGroups.put(groupCode, newGroup);
-
-        return newGroup;
-    }
-
-    /**
-     * Returns group code extracted from the given full error code.
-     *
-     * @param code Full error code.
-     * @return Group code.
-     */
-    public static short extractGroupCode(int code) {
-        return (short) (code >>> 16);
-    }
-
-    /**
      * Returns error code extracted from the given full error code.
      *
      * @param code Full error code.
@@ -154,26 +102,6 @@ public class ErrorGroup {
      */
     public static short extractErrorCode(int code) {
         return (short) (code & 0xFFFF);
-    }
-
-    /**
-     * Returns error group identified by the given {@code groupCode}.
-     *
-     * @param groupCode Group code
-     * @return Error Group.
-     */
-    public static ErrorGroup errorGroupByGroupCode(short groupCode) {
-        return registeredGroups.get(groupCode);
-    }
-
-    /**
-     * Returns error group identified by the given error {@code code}.
-     *
-     * @param code Full error code
-     * @return Error Group.
-     */
-    public static ErrorGroup errorGroupByCode(int code) {
-        return registeredGroups.get(extractGroupCode(code));
     }
 
     /**
@@ -185,7 +113,7 @@ public class ErrorGroup {
      * @return New error message with predefined prefix.
      */
     public static String errorMessage(UUID traceId, int code, String message) {
-        return errorMessage(traceId, registeredGroups.get(extractGroupCode(code)).name(), code, message);
+        return errorMessage(traceId, errorGroupByCode(code).name(), code, message);
     }
 
     /**
@@ -211,7 +139,7 @@ public class ErrorGroup {
      * @return New error message with predefined prefix.
      */
     public static String errorMessageFromCause(UUID traceId, int code, Throwable cause) {
-        return errorMessageFromCause(traceId, registeredGroups.get(extractGroupCode(code)).name(), code, cause);
+        return errorMessageFromCause(traceId, errorGroupByCode(code).name(), code, cause);
     }
 
     /**

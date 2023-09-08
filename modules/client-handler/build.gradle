@@ -65,6 +65,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation libs.msgpack.core
     integrationTestImplementation libs.netty.handler
+    integrationTestImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-client-handler'

@@ -31,7 +31,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
-import org.jetbrains.annotations.NotNull;
 
 /** Utility class that has {@link ConfigurationFlattener#createFlattenedUpdatesMap(SuperRoot, SuperRoot)} method. */
 public class ConfigurationFlattener {
@@ -274,7 +273,7 @@ public class ConfigurationFlattener {
         /**
          * Creates key {@code prefix.<ids>.nodeKey}, escaping {@code nodeKey} before appending it.
          */
-        @NotNull private String idKey(String prefix, String nodeKey) {
+        private String idKey(String prefix, String nodeKey) {
             return prefix + NamedListNode.IDS + KEY_SEPARATOR + escape(nodeKey);
         }
 

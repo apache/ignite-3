@@ -1969,7 +1969,17 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         long appliedRevision = storage.revision();
 
-        storage.startWatches(1, (event, ts) -> completedFuture(null));
+        storage.startWatches(1, new OnRevisionAppliedCallback() {
+            @Override
+            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
+                // No-op.
+            }
+
+            @Override
+            public CompletableFuture<Void> onRevisionApplied(WatchEvent event) {
+                return completedFuture(null);
+            }
+        });
 
         CompletableFuture<byte[]> fut = new CompletableFuture<>();
 
@@ -2308,7 +2318,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         OnRevisionAppliedCallback mockCallback = mock(OnRevisionAppliedCallback.class);
 
-        when(mockCallback.onRevisionApplied(any(), any())).thenReturn(completedFuture(null));
+        when(mockCallback.onRevisionApplied(any())).thenReturn(completedFuture(null));
 
         storage.startWatches(1, mockCallback);
 
@@ -2320,7 +2330,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         verify(mockListener3, timeout(10_000)).onUpdate(any());
 
-        verify(mockCallback, never()).onRevisionApplied(any(), any());
+        verify(mockCallback, never()).onRevisionApplied(any());
     }
 
     @Test
@@ -2505,7 +2515,17 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             }
         });
 
-        storage.startWatches(1, (event, ts) -> completedFuture(null));
+        storage.startWatches(1, new OnRevisionAppliedCallback() {
+            @Override
+            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
+                // No-op.
+            }
+
+            @Override
+            public CompletableFuture<Void> onRevisionApplied(WatchEvent event) {
+                return completedFuture(null);
+            }
+        });
 
         return resultFuture;
     }

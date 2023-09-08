@@ -86,9 +86,4 @@ public class PredefinedSchemaManager implements SqlSchemaManager {
         return completedFuture(null);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public IgniteTable tableById(int id) {
-        return tableById.get(id);
-    }
 }

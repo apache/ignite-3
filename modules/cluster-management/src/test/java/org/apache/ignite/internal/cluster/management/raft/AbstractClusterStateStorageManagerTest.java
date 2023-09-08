@@ -25,6 +25,8 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
@@ -108,7 +110,7 @@ public abstract class AbstractClusterStateStorageManagerTest {
      * Tests the snapshot-related methods.
      */
     @Test
-    void testSnapshot() {
+    void testSnapshot() throws IOException {
         ClusterTag clusterTag1 = clusterTag(msgFactory, "cluster");
         var state = msgFactory.clusterState()
                 .cmgNodes(Set.copyOf(List.of("foo", "bar")))
@@ -119,7 +121,10 @@ public abstract class AbstractClusterStateStorageManagerTest {
 
         storageManager.putClusterState(state);
 
-        assertThat(storageManager.snapshot(workDir), willCompleteSuccessfully());
+        Path snapshotDir = workDir.resolve("snapshot");
+        Files.createDirectory(snapshotDir);
+
+        assertThat(storageManager.snapshot(snapshotDir), willCompleteSuccessfully());
 
         IgniteProductVersion igniteVersion = IgniteProductVersion.fromString("3.3.3");
         ClusterTag clusterTag = clusterTag(msgFactory, "new_cluster");
@@ -132,9 +137,9 @@ public abstract class AbstractClusterStateStorageManagerTest {
 
         storageManager.putClusterState(newState);
 
-        var node3 = new ClusterNodeImpl("nonono", "nononono", new NetworkAddress("localhost", 123));
+        new ClusterNodeImpl("nonono", "nononono", new NetworkAddress("localhost", 123));
 
-        storageManager.restoreSnapshot(workDir);
+        storageManager.restoreSnapshot(snapshotDir);
 
         assertThat(storageManager.getClusterState(), is(equalTo(state)));
     }

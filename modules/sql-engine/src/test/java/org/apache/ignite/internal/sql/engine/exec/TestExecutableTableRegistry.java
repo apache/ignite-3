@@ -73,6 +73,12 @@ public final class TestExecutableTableRegistry implements ExecutableTableRegistr
             return fetchReplicas.getGroup(tableId);
         }
 
+        /** {@inheritDoc} */
+        @Override
+        public TableDescriptor tableDescriptor() {
+            throw noDependency();
+        }
+
         private IllegalStateException noDependency() {
             return new IllegalStateException("NoOpExecutableTable: " + tableId);
         }

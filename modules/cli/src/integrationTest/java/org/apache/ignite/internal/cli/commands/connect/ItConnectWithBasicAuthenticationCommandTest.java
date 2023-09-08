@@ -45,11 +45,14 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
     }
 
     @Test
-    void failToConnectWithoutAuthentication() {
+    void failToConnectWithoutAuthentication() throws IOException {
         // Given basic authentication is not configured in config file
 
         // And prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // On connection error ask user to setup ssl or authentication settings. Answer 'N' to skip setup wizard
+        bindAnswers("n");
 
         // When connect without parameters
         execute("connect");
@@ -57,11 +60,9 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
-                        + "Could not connect to node with URL http://localhost:10300. "
-                        + "Check authentication configuration or provided username/password"
-                        + System.lineSeparator())
+                this::assertErrOutputIsEmpty
         );
+
         // And prompt is still disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
     }
@@ -83,12 +84,12 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
                 () -> assertOutputContains("Connected to http://localhost:10300")
         );
 
-        // And prompt shows user name and node name
+        // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
     }
 
     @Test
-    void failToConnectWithWrongCredentials() {
+    void failToConnectWithWrongCredentials() throws IOException {
         // Given basic authentication is configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
         // And wrong password is provided
@@ -97,16 +98,16 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
 
+        // On connection error ask user to setup ssl or authentication settings. Answer 'N' to skip setup wizard
+        bindAnswers("n");
+
         // When connect without parameters
         execute("connect");
 
         // Then
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
-                        + "Could not connect to node with URL http://localhost:10300. "
-                        + "Check authentication configuration or provided username/password"
-                        + System.lineSeparator())
+                this::assertErrOutputIsEmpty
         );
         // And prompt is still disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -130,41 +131,46 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
                 () -> assertOutputContains("Connected to http://localhost:10300")
         );
 
-        // And prompt shows user name and node name
+        // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
     }
 
     @Test
     @DisplayName("Should NOT connect to cluster with incorrect password")
-    void connectWithWrongAuthenticationParameters() {
+    void connectWithWrongAuthenticationParameters() throws IOException {
         // Given basic authentication is NOT configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig());
 
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // On connection error ask user to setup ssl or authentication settings. Answer 'N' to skip setup wizard
+        bindAnswers("n");
 
         // When connect with auth parameters
         execute("connect", "--username", "admin", "--password", "wrong-password");
 
         // Then
+        // Then
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
-                        + "Could not connect to node with URL http://localhost:10300. "
-                        + "Check authentication configuration or provided username/password"
-                        + System.lineSeparator())
+                this::assertErrOutputIsEmpty
         );
+
         // And prompt is still disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
     }
 
     @Test
-    void connectFailIfPasswordNotDefined() {
+    void connectFailIfPasswordNotDefined() throws IOException {
         // Given basic authentication is NOT configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig());
 
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // On connection error ask user to setup ssl or authentication settings. Answer 'N' to skip setup wizard
+        bindAnswers("n");
 
         // When connect with auth parameters
         execute("connect", "--username", "admin", "--password", "");
@@ -172,10 +178,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
-                        + "Could not connect to node with URL http://localhost:10300. "
-                        + "Check authentication configuration or provided username/password"
-                        + System.lineSeparator())
+                this::assertErrOutputIsEmpty
         );
         // And prompt is still disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
@@ -205,18 +208,21 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
                         "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator())
         );
 
-        // And prompt shows user name and node name
+        // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
     }
 
     @Test
     @DisplayName("Should restore initial values in config in case of connect failed")
-    void connectWithWrongAuthenticationParametersRestorePreviousCredentials() {
+    void connectWithWrongAuthenticationParametersRestorePreviousCredentials() throws IOException {
         // Given basic authentication is configured in config file
         configManagerProvider.setConfigFile(createIntegrationTestsConfig(), createJdbcTestsBasicSecretConfig());
 
         // Given prompt before connect
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
+
+        // On connection error ask user to setup ssl or authentication settings. Answer 'N' to skip setup wizard
+        bindAnswers("n");
 
         // When connect with auth parameters
         execute("connect", "--username", "admin", "--password", "wrong-password");
@@ -224,11 +230,9 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
         // Then
         assertAll(
                 this::assertOutputIsEmpty,
-                () -> assertErrOutputIs("Authentication error" + System.lineSeparator()
-                        + "Could not connect to node with URL http://localhost:10300. "
-                        + "Check authentication configuration or provided username/password"
-                        + System.lineSeparator())
+                this::assertErrOutputIsEmpty
         );
+
         // And prompt is still disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
         //Previous correct values restored in config
@@ -258,7 +262,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
                         "Config saved" + System.lineSeparator() + "Connected to http://localhost:10300" + System.lineSeparator())
         );
 
-        // And prompt shows user name and node name
+        // And prompt shows username and node name
         assertThat(getPrompt()).isEqualTo("[admin:" + nodeName() + "]> ");
     }
 

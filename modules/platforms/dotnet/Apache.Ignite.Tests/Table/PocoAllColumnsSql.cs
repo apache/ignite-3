@@ -35,12 +35,13 @@ public record PocoAllColumnsSql(
     short Int16,
     int Int32,
     long Int64,
-    float Float,
-    double Double,
+    [property:Column("FLOAT")] float Float,
+    [property:Column("DOUBLE")] double Double,
     [property:Column("DATE")] LocalDate Date,
     [property:Column("TIME")] LocalTime Time,
     [property:Column("DATETIME")] LocalDateTime DateTime,
     [property:Column("TIMESTAMP")] Instant Timestamp,
-    byte[] Blob,
-    decimal Decimal,
-    Guid Uuid);
+    [property:Column("BLOB")] byte[] Blob,
+    [property:Column("DECIMAL")] decimal Decimal,
+    [property:Column("UUID")] Guid Uuid,
+    bool Boolean);

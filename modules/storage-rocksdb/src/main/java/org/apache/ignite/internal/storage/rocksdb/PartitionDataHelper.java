@@ -119,7 +119,7 @@ public final class PartitionDataHelper implements ManuallyCloseable {
 
         this.upperBound = new Slice(partitionEndPrefix);
         this.upperBoundReadOpts = new ReadOptions().setIterateUpperBound(upperBound);
-        this.scanReadOpts = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
+        this.scanReadOpts = new ReadOptions().setIterateUpperBound(upperBound).setAutoPrefixMode(true);
     }
 
     public int partitionId() {
@@ -265,6 +265,6 @@ public final class PartitionDataHelper implements ManuallyCloseable {
 
     @Override
     public void close() {
-        RocksUtils.closeAll(upperBoundReadOpts, upperBound);
+        RocksUtils.closeAll(scanReadOpts, upperBoundReadOpts, upperBound);
     }
 }

@@ -35,6 +35,7 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 import org.apache.ignite.internal.configuration.sample.DiscoveryConfiguration;
 import org.apache.ignite.internal.configuration.sample.ExtendedDiscoveryConfiguration;
 import org.apache.ignite.internal.configuration.sample.ExtendedDiscoveryConfigurationSchema;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,7 +44,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test basic scenarios of {@link ConfigurationExtension}.
  */
 @ExtendWith(ConfigurationExtension.class)
-class ConfigurationExtensionTest {
+class ConfigurationExtensionTest extends BaseIgniteAbstractTest {
     /** Injected field. */
     @InjectConfiguration(extensions = ExtendedDiscoveryConfigurationSchema.class)
     private DiscoveryConfiguration fieldCfg;

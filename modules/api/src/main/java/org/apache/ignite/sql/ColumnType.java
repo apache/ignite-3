@@ -92,7 +92,6 @@ public enum ColumnType {
     /** Null. */
     NULL;
 
-
     /**
      * Column type to Java class.
      */

@@ -645,4 +645,22 @@ public final class CollectionUtils {
                 Int2ObjectOpenHashMap::new
         );
     }
+
+    /** Returns immutable copy of the given list or {@code null} if the list is null. */
+    public static <T> @Nullable List<T> copyOrNull(@Nullable List<T> list) {
+        if (list == null) {
+            return null;
+        }
+
+        return List.copyOf(list);
+    }
+
+    /** Returns immutable copy of the given set or {@code null} if the set is null. */
+    public static <T> @Nullable Set<T> copyOrNull(@Nullable Set<T> set) {
+        if (set == null) {
+            return null;
+        }
+
+        return Set.copyOf(set);
+    }
 }

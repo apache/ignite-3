@@ -42,7 +42,6 @@ import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
-import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -177,8 +176,6 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         SqlSchemaManager oldManager =
                 (SqlSchemaManager) IgniteTestUtils.getFieldValue(queryProcessor(), SqlQueryProcessor.class, "sqlSchemaManager");
 
-        int txPrevCnt = txManager.finished();
-
         Transaction tx = CLUSTER_NODES.get(0).transactions().begin();
 
         try {
@@ -188,17 +185,14 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             // No op.
         }
 
-        assertEquals(0, txManager.finished() - txPrevCnt);
         assertEquals(1, txManager.pending());
         InternalTransaction tx0 = (InternalTransaction) tx;
         assertEquals(TxState.PENDING, tx0.state());
 
         tx.rollback();
-        assertEquals(1, txManager.finished() - txPrevCnt);
         assertEquals(0, txManager.pending());
 
         sql("INSERT INTO TEST VALUES(1, 1)");
-        assertEquals(2, txManager.finished() - txPrevCnt);
         assertEquals(0, txManager.pending());
 
         var schemaManager = new ErroneousSchemaManager();
@@ -218,7 +212,6 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             // No op.
         }
 
-        assertEquals(4, txManager.finished() - txPrevCnt);
         assertEquals(0, txManager.pending());
 
         IgniteTestUtils.setFieldValue(queryProcessor(), "sqlSchemaManager", oldManager);
@@ -236,12 +229,6 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
         @Override
         public @Nullable SchemaPlus schema(@Nullable String name, long timestamp) {
             return null;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public IgniteTable tableById(int id) {
-            throw new UnsupportedOperationException();
         }
 
         /** {@inheritDoc} */

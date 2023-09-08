@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cli.core.exception.handler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micronaut.http.HttpStatus;
+import java.io.IOException;
 import java.net.ConnectException;
 import java.net.UnknownHostException;
 import java.util.List;
@@ -36,7 +37,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.InvalidParam;
 import org.apache.ignite.rest.client.model.Problem;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Exception handler for {@link IgniteCliApiException}.
@@ -83,6 +83,11 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
                     errorComponentBuilder.header(header(e));
                 }
             }
+        } else if (e.getCause() instanceof IOException || e.getCause() instanceof IllegalArgumentException) {
+            errorComponentBuilder
+                    .header("Unexpected error")
+                    .details(e.getCause().getMessage())
+                    .verbose(e.getMessage());
         } else {
             errorComponentBuilder.header(header(e));
         }
@@ -125,7 +130,6 @@ public class IgniteCliApiExceptionHandler implements ExceptionHandler<IgniteCliA
                 .traceId(problem.getTraceId());
     }
 
-    @NotNull
     private static String extractInvalidParams(List<InvalidParam> invalidParams) {
         return invalidParams.stream()
                 .map(invalidParam -> "" + invalidParam.getName() + ": " + invalidParam.getReason())

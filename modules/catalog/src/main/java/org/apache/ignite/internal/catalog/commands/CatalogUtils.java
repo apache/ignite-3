@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -26,15 +27,20 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog utils.
@@ -142,26 +148,6 @@ public class CatalogUtils {
     }
 
     /**
-     * Converts CreateTable command params to descriptor.
-     *
-     * @param id Table ID.
-     * @param zoneId Distributed zone ID.
-     * @param params Parameters.
-     * @return Table descriptor.
-     */
-    public static CatalogTableDescriptor fromParams(int id, int zoneId, CreateTableParams params) {
-        return new CatalogTableDescriptor(
-                id,
-                params.tableName(),
-                zoneId,
-                CatalogTableDescriptor.INITIAL_TABLE_VERSION,
-                params.columns().stream().map(CatalogUtils::fromParams).collect(toList()),
-                params.primaryKeyColumns(),
-                params.colocationColumns()
-        );
-    }
-
-    /**
      * Converts CreateIndex command params to hash index descriptor.
      *
      * @param id Index ID.
@@ -196,21 +182,40 @@ public class CatalogUtils {
     /**
      * Converts CreateZone command params to descriptor.
      *
+     * <p>If the following fields are not set, the default value is used for them:</p>
+     * <ul>
+     *     <li>{@link CreateZoneParams#partitions()} -> {@link #DEFAULT_PARTITION_COUNT};</li>
+     *     <li>{@link CreateZoneParams#replicas()} -> {@link #DEFAULT_REPLICA_COUNT};</li>
+     *     <li>{@link CreateZoneParams#dataNodesAutoAdjust()} -> {@link #INFINITE_TIMER_VALUE};</li>
+     *     <li>{@link CreateZoneParams#dataNodesAutoAdjustScaleUp()} -> {@link #IMMEDIATE_TIMER_VALUE} or {@link #INFINITE_TIMER_VALUE} if
+     *     {@link CreateZoneParams#dataNodesAutoAdjust()} not {@code null};</li>
+     *     <li>{@link CreateZoneParams#dataNodesAutoAdjustScaleDown()} -> {@link #INFINITE_TIMER_VALUE};</li>
+     *     <li>{@link CreateZoneParams#filter()} -> {@link #DEFAULT_FILTER};</li>
+     *     <li>{@link CreateZoneParams#dataStorage()} -> {@link #DEFAULT_STORAGE_ENGINE} with {@link #DEFAULT_DATA_REGION};</li>
+     * </ul>
+     *
      * @param id Distribution zone ID.
      * @param params Parameters.
      * @return Distribution zone descriptor.
      */
     public static CatalogZoneDescriptor fromParams(int id, CreateZoneParams params) {
+        DataStorageParams dataStorageParams = params.dataStorage() != null
+                ? params.dataStorage()
+                : DataStorageParams.builder().engine(DEFAULT_STORAGE_ENGINE).dataRegion(DEFAULT_DATA_REGION).build();
+
         return new CatalogZoneDescriptor(
                 id,
                 params.zoneName(),
-                params.partitions(),
-                params.replicas(),
-                params.dataNodesAutoAdjust(),
-                params.dataNodesAutoAdjustScaleUp(),
-                params.dataNodesAutoAdjustScaleDown(),
-                params.filter(),
-                fromParams(params.dataStorage())
+                Objects.requireNonNullElse(params.partitions(), DEFAULT_PARTITION_COUNT),
+                Objects.requireNonNullElse(params.replicas(), DEFAULT_REPLICA_COUNT),
+                Objects.requireNonNullElse(params.dataNodesAutoAdjust(), INFINITE_TIMER_VALUE),
+                Objects.requireNonNullElse(
+                        params.dataNodesAutoAdjustScaleUp(),
+                        params.dataNodesAutoAdjust() != null ? INFINITE_TIMER_VALUE : IMMEDIATE_TIMER_VALUE
+                ),
+                Objects.requireNonNullElse(params.dataNodesAutoAdjustScaleDown(), INFINITE_TIMER_VALUE),
+                Objects.requireNonNullElse(params.filter(), DEFAULT_FILTER),
+                fromParams(dataStorageParams)
         );
     }
 
@@ -281,5 +286,116 @@ public class CatalogUtils {
             default:
                 return Math.max(DEFAULT_LENGTH, defaultPrecision(columnType));
         }
+    }
+
+    /**
+     * Creates a new version of the distribution zone descriptor based on the AlterZone command params and the previous version. If a field
+     * is not set in the command params, then the value from the previous version is taken.
+     *
+     * <p>Features of working with auto adjust params:</p>
+     * <ul>
+     *     <li>If {@link AlterZoneParams#dataNodesAutoAdjust()} is <b>not</b> {@code null}, then
+     *     {@link CatalogZoneDescriptor#dataNodesAutoAdjustScaleUp()} and {@link CatalogZoneDescriptor#dataNodesAutoAdjustScaleDown()} will
+     *     be {@link #INFINITE_TIMER_VALUE} in the new version;</li>
+     *     <li>If {@link AlterZoneParams#dataNodesAutoAdjustScaleUp()} or {@link AlterZoneParams#dataNodesAutoAdjustScaleDown()} is
+     *     <b>not</b> {@code null}, then {@link CatalogZoneDescriptor#dataNodesAutoAdjust()} will be {@link #INFINITE_TIMER_VALUE} in the
+     *     new version.</li>
+     * </ul>
+     *
+     * @param params Parameters.
+     * @param previous Previous version of the distribution zone descriptor.
+     * @return Distribution zone descriptor.
+     */
+    public static CatalogZoneDescriptor fromParamsAndPreviousValue(AlterZoneParams params, CatalogZoneDescriptor previous) {
+        assert previous.name().equals(params.zoneName()) : "previousZoneName=" + previous.name() + ", paramsZoneName=" + params.zoneName();
+
+        @Nullable Integer autoAdjust = null;
+        @Nullable Integer scaleUp = null;
+        @Nullable Integer scaleDown = null;
+
+        if (params.dataNodesAutoAdjust() != null) {
+            autoAdjust = params.dataNodesAutoAdjust();
+            scaleUp = INFINITE_TIMER_VALUE;
+            scaleDown = INFINITE_TIMER_VALUE;
+        } else if (params.dataNodesAutoAdjustScaleUp() != null || params.dataNodesAutoAdjustScaleDown() != null) {
+            autoAdjust = INFINITE_TIMER_VALUE;
+            scaleUp = params.dataNodesAutoAdjustScaleUp();
+            scaleDown = params.dataNodesAutoAdjustScaleDown();
+        }
+
+        CatalogDataStorageDescriptor dataStorageDescriptor = params.dataStorage() != null
+                ? fromParams(params.dataStorage()) : previous.dataStorage();
+
+        return new CatalogZoneDescriptor(
+                previous.id(),
+                previous.name(),
+                Objects.requireNonNullElse(params.partitions(), previous.partitions()),
+                Objects.requireNonNullElse(params.replicas(), previous.replicas()),
+                Objects.requireNonNullElse(autoAdjust, previous.dataNodesAutoAdjust()),
+                Objects.requireNonNullElse(scaleUp, previous.dataNodesAutoAdjustScaleUp()),
+                Objects.requireNonNullElse(scaleDown, previous.dataNodesAutoAdjustScaleDown()),
+                Objects.requireNonNullElse(params.filter(), previous.filter()),
+                dataStorageDescriptor
+        );
+    }
+
+    /**
+     * Returns schema with given name, or throws {@link CatalogValidationException} if schema with given name not exists.
+     *
+     * @param catalog Catalog to look up schema in.
+     * @param name Name of the schema of interest.
+     * @return Schema with given name. Never null.
+     * @throws CatalogValidationException If schema with given name is not exists.
+     */
+    static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+        name = Objects.requireNonNull(name, "schemaName");
+
+        CatalogSchemaDescriptor schema = catalog.schema(name);
+
+        if (schema == null) {
+            throw new CatalogValidationException(format("Schema with name '{}' not found", name));
+        }
+
+        return schema;
+    }
+
+    /**
+     * Returns table with given name, or throws {@link TableNotFoundValidationException} if table with given name not exists.
+     *
+     * @param schema Schema to look up table in.
+     * @param name Name of the table of interest.
+     * @return Table with given name. Never null.
+     * @throws TableNotFoundValidationException If table with given name is not exists.
+     */
+    static CatalogTableDescriptor tableOrThrow(CatalogSchemaDescriptor schema, String name) throws TableNotFoundValidationException {
+        name = Objects.requireNonNull(name, "tableName");
+
+        CatalogTableDescriptor table = schema.table(name);
+
+        if (table == null) {
+            throw new TableNotFoundValidationException(format("Table with name '{}.{}' not found", schema.name(), name));
+        }
+
+        return table;
+    }
+
+    /**
+     * Returns zone with given name, or throws {@link CatalogValidationException} if zone with given name not exists.
+     *
+     * @param catalog Catalog to look up zone in.
+     * @param name Name of the zone of interest.
+     * @return Zone with given name. Never null.
+     * @throws CatalogValidationException If zone with given name is not exists.
+     */
+    static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+        name = Objects.requireNonNull(name, "zoneName");
+
+        CatalogZoneDescriptor zone = catalog.zone(name);
+
+        if (zone == null) {
+            throw new CatalogValidationException(format("Distribution zone with name '{}' not found", name));
+        }
+
+        return zone;
     }
 }

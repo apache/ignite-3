@@ -21,11 +21,10 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Sql query cursor.
@@ -35,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
 public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private final SqlQueryType queryType;
     private final ResultSetMetadata meta;
-    private final @Nullable InternalTransaction implicitTx;
+    private final QueryTransactionWrapper txWrapper;
     private final AsyncCursor<T> dataCursor;
 
     /**
@@ -48,12 +47,12 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     public AsyncSqlCursorImpl(
             SqlQueryType queryType,
             ResultSetMetadata meta,
-            @Nullable InternalTransaction implicitTx,
+            QueryTransactionWrapper txWrapper,
             AsyncCursor<T> dataCursor
     ) {
         this.queryType = queryType;
         this.meta = meta;
-        this.implicitTx = implicitTx;
+        this.txWrapper = txWrapper;
         this.dataCursor = dataCursor;
     }
 
@@ -75,16 +74,14 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
         Context context = Context.current();
         return dataCursor.requestNextAsync(rows).handle(context.wrapFunction((batch, t) -> {
             if (t != null) {
-                if (implicitTx != null) {
-                    implicitTx.rollback();
-                }
+                txWrapper.rollbackImplicit();
 
                 throw new CompletionException(wrapIfNecessary(t));
             }
 
-            if (implicitTx != null && !batch.hasMore()) {
+            if (!batch.hasMore()) {
                 // last batch, need to commit transaction
-                implicitTx.commit();
+                txWrapper.commitImplicit();
             }
 
             return batch;
@@ -95,9 +92,8 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     @Override
     public CompletableFuture<Void> closeAsync() {
         // Commit implicit transaction, if any.
-        if (implicitTx != null) {
-            implicitTx.commit();
-        }
+        txWrapper.commitImplicit();
+
         return dataCursor.closeAsync();
     }
 

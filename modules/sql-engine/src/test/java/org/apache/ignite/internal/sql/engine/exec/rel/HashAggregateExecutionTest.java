@@ -37,7 +37,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
-import org.apache.ignite.internal.sql.engine.util.PlanUtils;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * HashAggregateExecutionTest.
@@ -116,7 +116,8 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         aggMap.register(scan);
 
-        Mapping reduceMapping = PlanUtils.computeAggFieldMapping(grpSets);
+        ImmutableBitSet grpSet = grpSets.get(0);
+        Mapping reduceMapping = Commons.trimmingMapping(grpSet.length(), grpSet);
         MapReduceAgg mapReduceAgg = MapReduceAggregates.createMapReduceAggCall(call, reduceMapping.getTargetCount());
 
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(

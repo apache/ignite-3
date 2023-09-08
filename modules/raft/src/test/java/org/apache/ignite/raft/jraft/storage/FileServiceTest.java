@@ -26,8 +26,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -44,9 +43,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 
 @ExtendWith(WorkDirectoryExtension.class)
-public class FileServiceTest {
-    private static final IgniteLogger LOG = Loggers.forClass(FileServiceTest.class);
-
+public class FileServiceTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path path;
 
@@ -169,7 +166,7 @@ public class FileServiceTest {
                     assertArrayEquals(sourceArray, respArray, "Offset: " + fileOffset);
                 }
                 catch (AssertionError e) {
-                    LOG.error("arrayComparisonFailure", e);
+                    log.error("arrayComparisonFailure", e);
                 }
                 offset += length;
             }

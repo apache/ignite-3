@@ -30,6 +30,7 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * For {@link IndexValidatorImpl} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class IndexValidatorImplTest {
+public class IndexValidatorImplTest extends BaseIgniteAbstractTest {
     private static final int TABLE_ID = 1;
 
     @InjectConfiguration("mock.tables.fooTable {columns.column0 {type.type: STRING}}")

@@ -32,7 +32,6 @@ import org.apache.calcite.util.CancelFlag;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.util.FastTimestamps;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Planning context.
@@ -192,12 +191,12 @@ public final class PlanningContext implements Context {
 
         private long plannerTimeout;
 
-        public Builder parentContext(@NotNull Context parentCtx) {
+        public Builder parentContext(Context parentCtx) {
             this.parentCtx = parentCtx;
             return this;
         }
 
-        public Builder query(@NotNull String qry) {
+        public Builder query(String qry) {
             this.qry = qry;
             return this;
         }

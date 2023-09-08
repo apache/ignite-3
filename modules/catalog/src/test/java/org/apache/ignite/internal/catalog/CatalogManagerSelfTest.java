@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
@@ -27,16 +28,27 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.sql.ColumnType.DECIMAL;
+import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.INT64;
+import static org.apache.ignite.sql.ColumnType.NULL;
+import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -63,29 +75,22 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterColumnParams.Builder;
-import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
+import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
+import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -111,15 +116,14 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExist
 import org.apache.ignite.internal.distributionzones.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.EventListener;
-import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.SqlException;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -134,11 +138,9 @@ import org.mockito.ArgumentCaptor;
 public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
     private static final String ZONE_NAME = DEFAULT_ZONE_NAME;
-    private static final String TABLE_NAME = "myTable";
     private static final String TABLE_NAME_2 = "myTable2";
     private static final String NEW_COLUMN_NAME = "NEWCOL";
     private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
-    private static final String INDEX_NAME = "myIndex";
 
     @Test
     public void testEmptyCatalog() {
@@ -166,28 +168,25 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(DEFAULT_REPLICA_COUNT, zone.replicas());
         assertEquals(DEFAULT_FILTER, zone.filter());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
-        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
+        assertEquals(IMMEDIATE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals(DEFAULT_STORAGE_ENGINE, zone.dataStorage().engine());
         assertEquals(DEFAULT_DATA_REGION, zone.dataStorage().dataRegion());
+
+        assertThat(manager.latestCatalogVersion(), is(0));
     }
 
     @Test
     public void testCreateTable() {
-        CreateTableParams params = CreateTableParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .zone(ZONE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("key2").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
-                ))
-                .primaryKeyColumns(List.of("key1", "key2"))
-                .colocationColumns(List.of("key2"))
-                .build();
-
-        assertThat(manager.createTable(params), willBe(nullValue()));
+        assertThat(
+                manager.execute(createTableCommand(
+                        TABLE_NAME,
+                        List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)),
+                        List.of("key1", "key2"),
+                        List.of("key2")
+                )),
+                willBe(nullValue())
+        );
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(0);
@@ -228,7 +227,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertTrue(pkIndex.unique());
 
         // Validate another table creation.
-        assertThat(manager.createTable(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
 
         // Validate actual catalog has both tables.
         schema = manager.schema(2);
@@ -257,7 +256,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotSame(pkIndex, pkIndex2);
 
         // Try to create another table with same name.
-        assertThat(manager.createTable(simpleTable(TABLE_NAME_2)), willThrowFast(TableAlreadyExistsException.class));
+        assertThat(
+                manager.execute(simpleTable(TABLE_NAME_2)),
+                willThrowFast(CatalogValidationException.class)
+        );
 
         // Validate schema wasn't changed.
         assertSame(schema, manager.activeSchema(clock.nowLong()));
@@ -265,14 +267,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testDropTable() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.createTable(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
 
         long beforeDropTimestamp = clock.nowLong();
 
-        DropTableParams dropTableParams = DropTableParams.builder().schemaName(SCHEMA_NAME).tableName(TABLE_NAME).build();
-
-        assertThat(manager.dropTable(dropTableParams), willBe(nullValue()));
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(2);
@@ -321,32 +321,22 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(pkIndex2, manager.index(createPkIndexName(TABLE_NAME_2), clock.nowLong()));
         assertSame(pkIndex2, manager.index(pkIndex2.id(), clock.nowLong()));
 
-        // Try to drop table once again.
-        assertThat(manager.dropTable(dropTableParams), willThrowFast(TableNotFoundException.class));
-
         // Validate schema wasn't changed.
         assertSame(schema, manager.activeSchema(clock.nowLong()));
     }
 
     @Test
     public void testAddColumn() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-
-        AlterTableAddColumnParams params = AlterTableAddColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(ColumnParams.builder()
-                        .name(NEW_COLUMN_NAME)
-                        .type(ColumnType.STRING)
-                        .nullable(true)
-                        .defaultValue(DefaultValue.constant("Ignite!"))
-                        .build()
-                ))
-                .build();
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         long beforeAddedTimestamp = clock.nowLong();
 
-        assertThat(manager.addColumn(params), willBe(nullValue()));
+        assertThat(
+                manager.execute(addColumnParams(
+                        columnParamsBuilder(NEW_COLUMN_NAME, STRING, true).defaultValue(constant("Ignite!")).build()
+                )),
+                willBe(nullValue())
+        );
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.activeSchema(beforeAddedTimestamp);
@@ -364,7 +354,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogTableColumnDescriptor column = schema.table(TABLE_NAME).column(NEW_COLUMN_NAME);
 
         assertEquals(NEW_COLUMN_NAME, column.name());
-        assertEquals(ColumnType.STRING, column.type());
+        assertEquals(STRING, column.type());
         assertTrue(column.nullable());
 
         assertEquals(DefaultValue.Type.CONSTANT, column.defaultValue().type());
@@ -377,18 +367,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testDropColumn() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-
-        // Validate dropping column
-        AlterTableDropColumnParams params = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of("VAL"))
-                .build();
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         long beforeAddedTimestamp = clock.nowLong();
 
-        assertThat(manager.dropColumn(params), willBe(nullValue()));
+        assertThat(manager.execute(dropColumnParams("VAL")), willBe(nullValue()));
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.activeSchema(beforeAddedTimestamp);
@@ -406,77 +389,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void testCreateDropColumnIfTableNotExists() {
-        assertNull(manager.table(TABLE_NAME, clock.nowLong()));
-
-        // Try to add a new column.
-        AlterTableAddColumnParams addColumnParams = AlterTableAddColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build()))
-                .build();
-
-        assertThat(manager.addColumn(addColumnParams), willThrow(TableNotFoundException.class));
-
-        // Try to drop column.
-        AlterTableDropColumnParams dropColumnParams = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of("VAL"))
-                .build();
-
-        assertThat(manager.dropColumn(dropColumnParams), willThrow(TableNotFoundException.class));
-    }
-
-    @Test
-    public void testDropIndexedColumn() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.createIndex(simpleIndex(INDEX_NAME, TABLE_NAME)), willBe(nullValue()));
-
-        // Try to drop indexed column
-        AlterTableDropColumnParams params = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of("VAL"))
-                .build();
-
-        assertThat(manager.dropColumn(params), willThrow(SqlException.class,
-                "Can't drop indexed column: [columnName=VAL, indexName=myIndex]"));
-
-        // Try to drop PK column
-        params = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of("ID"))
-                .build();
-
-        assertThat(manager.dropColumn(params), willThrow(SqlException.class, "Can't drop primary key column: [name=ID]"));
-
-        // Validate actual catalog
-        CatalogSchemaDescriptor schema = manager.activeSchema(clock.nowLong());
-        assertNotNull(schema);
-        assertNotNull(schema.table(TABLE_NAME));
-        assertSame(manager.schema(2), schema);
-
-        assertNotNull(schema.table(TABLE_NAME).column("ID"));
-        assertNotNull(schema.table(TABLE_NAME).column("VAL"));
-    }
-
-    @Test
     public void testAddDropMultipleColumns() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         // Add duplicate column.
-        AlterTableAddColumnParams addColumnParams = AlterTableAddColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build(),
-                        ColumnParams.builder().name("VAL").type(ColumnType.INT32).nullable(true).build()
-                ))
-                .build();
-
-        assertThat(manager.addColumn(addColumnParams), willThrow(ColumnAlreadyExistsException.class));
+        assertThat(
+                manager.execute(addColumnParams(columnParams(NEW_COLUMN_NAME, INT32, true), columnParams("VAL", INT32, true))),
+                willThrow(CatalogValidationException.class)
+        );
 
         // Validate no column added.
         CatalogSchemaDescriptor schema = manager.activeSchema(clock.nowLong());
@@ -484,16 +404,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
 
         // Add multiple columns.
-        addColumnParams = AlterTableAddColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name(NEW_COLUMN_NAME).type(ColumnType.INT32).nullable(true).build(),
-                        ColumnParams.builder().name(NEW_COLUMN_NAME_2).type(ColumnType.INT32).nullable(true).build()
-                ))
-                .build();
-
-        assertThat(manager.addColumn(addColumnParams), willBe(nullValue()));
+        assertThat(
+                manager.execute(addColumnParams(
+                        columnParams(NEW_COLUMN_NAME, INT32, true), columnParams(NEW_COLUMN_NAME_2, INT32, true)
+                )),
+                willBe(nullValue())
+        );
 
         // Validate both columns added.
         schema = manager.activeSchema(clock.nowLong());
@@ -502,33 +418,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME_2));
 
         // Drop multiple columns.
-        AlterTableDropColumnParams dropColumnParams = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of(NEW_COLUMN_NAME, NEW_COLUMN_NAME_2))
-                .build();
-
-        assertThat(manager.dropColumn(dropColumnParams), willBe(nullValue()));
+        assertThat(manager.execute(dropColumnParams(NEW_COLUMN_NAME, NEW_COLUMN_NAME_2)), willBe(nullValue()));
 
         // Validate both columns dropped.
         schema = manager.activeSchema(clock.nowLong());
 
         assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME));
         assertNull(schema.table(TABLE_NAME).column(NEW_COLUMN_NAME_2));
-
-        // Check dropping of non-existing column
-        dropColumnParams = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of(NEW_COLUMN_NAME, "VAL"))
-                .build();
-
-        assertThat(manager.dropColumn(dropColumnParams), willThrow(ColumnNotFoundException.class));
-
-        // Validate no column dropped.
-        schema = manager.activeSchema(clock.nowLong());
-
-        assertNotNull(schema.table(TABLE_NAME).column("VAL"));
     }
 
     /**
@@ -538,34 +434,34 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
      */
     @Test
     public void testAlterColumnDefault() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
         assertNull(manager.schema(schemaVer + 1));
 
         // NULL-> NULL : No-op.
-        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(null)),
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> constant(null)),
                 willBe(nullValue()));
         assertNull(manager.schema(schemaVer + 1));
 
         // NULL -> 1 : Ok.
-        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(1)),
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> constant(1)),
                 willBe(nullValue()));
         assertNotNull(manager.schema(++schemaVer));
 
         // 1 -> 1 : No-op.
-        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(1)),
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> constant(1)),
                 willBe(nullValue()));
         assertNull(manager.schema(schemaVer + 1));
 
         // 1 -> 2 : Ok.
-        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(2)),
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> constant(2)),
                 willBe(nullValue()));
         assertNotNull(manager.schema(++schemaVer));
 
         // 2 -> NULL : Ok.
-        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> DefaultValue.constant(null)),
+        assertThat(changeColumn(TABLE_NAME, "VAL", null, null, () -> constant(null)),
                 willBe(nullValue()));
         assertNotNull(manager.schema(++schemaVer));
     }
@@ -580,7 +476,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
      */
     @Test
     public void testAlterColumnNotNull() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
@@ -598,13 +494,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // DROP NOT NULL for PK : PK column can't be `null`.
         assertThat(changeColumn(TABLE_NAME, "ID", null, false, null),
-                willThrowFast(SqlException.class, "Cannot change NOT NULL for the primary key column 'ID'."));
+                willThrowFast(CatalogValidationException.class, "Dropping NOT NULL constraint on key column is not allowed"));
 
         // NULlABLE -> NOT NULL : Forbidden because this change lead to incompatible schemas.
         assertThat(changeColumn(TABLE_NAME, "VAL", null, true, null),
-                willThrowFast(SqlException.class, "Cannot set NOT NULL for column 'VAL'."));
+                willThrowFast(CatalogValidationException.class, "Adding NOT NULL constraint is not allowed"));
         assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", null, true, null),
-                willThrowFast(SqlException.class, "Cannot set NOT NULL for column 'VAL_NOT_NULL'."));
+                willThrowFast(CatalogValidationException.class, "Adding NOT NULL constraint is not allowed"));
 
         assertNull(manager.schema(schemaVer + 1));
     }
@@ -619,10 +515,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
      */
     @Test
     public void testAlterColumnTypePrecision() {
-        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
-        ColumnParams col = ColumnParams.builder().name("COL_DECIMAL").type(ColumnType.DECIMAL).precision(10).build();
+        ColumnParams pkCol = columnParams("ID", INT32);
+        ColumnParams col = columnParamsBuilder("COL_DECIMAL", DECIMAL).precision(10).build();
 
-        assertThat(manager.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
@@ -645,7 +541,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // 11 -> 10 : Forbidden because this change lead to incompatible schemas.
         assertThat(
                 changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), 10, null, null), null, null),
-                willThrowFast(SqlException.class, "Cannot decrease precision to 10 for column '" + col.name() + "'.")
+                willThrowFast(CatalogValidationException.class, "Decreasing the precision is not allowed")
         );
         assertNull(manager.schema(schemaVer + 1));
     }
@@ -656,27 +552,32 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"NULL", "DECIMAL"}, mode = Mode.EXCLUDE)
     public void testAlterColumnTypeAnyPrecisionChangeIsRejected(ColumnType type) {
-        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
-        ColumnParams col = ColumnParams.builder().name("COL").type(type).build();
-        ColumnParams colWithPrecision = ColumnParams.builder().name("COL_PRECISION").type(type).precision(3).build();
+        ColumnParams pkCol = columnParams("ID", INT32);
+        ColumnParams col = columnParams("COL", type);
+        ColumnParams colWithPrecision = columnParamsBuilder("COL_PRECISION", type).precision(3).build();
 
-        assertThat(manager.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col, colWithPrecision))), willBe(nullValue()));
+        assertThat(manager.execute(
+                simpleTable(TABLE_NAME, List.of(pkCol, col, colWithPrecision))), willBe(nullValue())
+        );
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
         assertNull(manager.schema(schemaVer + 1));
 
         assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(type, 3, null, null), null, null),
-                willThrowFast(SqlException.class, "Cannot change precision for column '" + col.name() + "'"));
+                willThrowFast(CatalogValidationException.class,
+                        "Changing the precision for column of type '" + col.type() + "' is not allowed"));
 
         assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 3, null, null), null, null),
                 willBe(nullValue()));
 
         assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 2, null, null), null, null),
-                willThrowFast(SqlException.class, "Cannot change precision for column '" + colWithPrecision.name() + "'"));
+                willThrowFast(CatalogValidationException.class,
+                        "Changing the precision for column of type '" + colWithPrecision.type() + "' is not allowed"));
 
         assertThat(changeColumn(TABLE_NAME, colWithPrecision.name(), new TestColumnTypeParams(type, 4, null, null), null, null),
-                willThrowFast(SqlException.class, "Cannot change precision for column '" + colWithPrecision.name() + "'"));
+                willThrowFast(CatalogValidationException.class,
+                        "Changing the precision for column of type '" + colWithPrecision.type() + "' is not allowed"));
 
         assertNull(manager.schema(schemaVer + 1));
     }
@@ -692,10 +593,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"STRING", "BYTE_ARRAY"}, mode = Mode.INCLUDE)
     public void testAlterColumnTypeLength(ColumnType type) {
-        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
-        ColumnParams col = ColumnParams.builder().name("COL_" + type).length(10).type(type).build();
+        ColumnParams pkCol = columnParams("ID", INT32);
+        ColumnParams col = columnParamsBuilder("COL_" + type, type).length(10).build();
 
-        assertThat(manager.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
@@ -713,7 +614,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // 11 -> 10 : Error.
         assertThat(
                 changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 10, null), null, null),
-                willThrowFast(SqlException.class, "Cannot decrease length to 10 for column '" + col.name() + "'.")
+                willThrowFast(CatalogValidationException.class, "Decreasing the length is not allowed")
         );
         assertNull(manager.schema(schemaVer + 1));
 
@@ -732,7 +633,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // 11 -> 10 : failed.
         assertThat(
                 changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, 10, null), null, null),
-                willThrowFast(SqlException.class)
+                willThrowFast(CatalogValidationException.class)
         );
         assertNull(manager.schema(schemaVer + 1));
     }
@@ -743,27 +644,33 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = {"NULL", "STRING", "BYTE_ARRAY"}, mode = Mode.EXCLUDE)
     public void testAlterColumnTypeAnyLengthChangeIsRejected(ColumnType type) {
-        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
-        ColumnParams col = ColumnParams.builder().name("COL").type(type).build();
-        ColumnParams colWithLength = ColumnParams.builder().name("COL_PRECISION").type(type).length(10).build();
+        ColumnParams pkCol = columnParams("ID", INT32);
+        ColumnParams col = columnParams("COL", type);
+        ColumnParams colWithLength = columnParamsBuilder("COL_PRECISION", type).length(10).build();
 
-        assertThat(manager.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col, colWithLength))), willBe(nullValue()));
+        assertThat(
+                manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col, colWithLength))),
+                willBe(nullValue())
+        );
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
         assertNull(manager.schema(schemaVer + 1));
 
         assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(type, null, 10, null), null, null),
-                willThrowFast(SqlException.class, "Cannot change length for column '" + col.name() + "'"));
+                willThrowFast(CatalogValidationException.class,
+                        "Changing the length for column of type '" + col.type() + "' is not allowed"));
 
         assertThat(changeColumn(TABLE_NAME, colWithLength.name(), new TestColumnTypeParams(type, null, 10, null), null, null),
                 willBe(nullValue()));
 
         assertThat(changeColumn(TABLE_NAME, colWithLength.name(), new TestColumnTypeParams(type, null, 9, null), null, null),
-                willThrowFast(SqlException.class, "Cannot change length for column '" + colWithLength.name() + "'"));
+                willThrowFast(CatalogValidationException.class,
+                        "Changing the length for column of type '" + colWithLength.type() + "' is not allowed"));
 
         assertThat(changeColumn(TABLE_NAME, colWithLength.name(), new TestColumnTypeParams(type, null, 11, null), null, null),
-                willThrowFast(SqlException.class, "Cannot change length for column '" + colWithLength.name() + "'"));
+                willThrowFast(CatalogValidationException.class,
+                        "Changing the length for column of type '" + colWithLength.type() + "' is not allowed"));
 
         assertNull(manager.schema(schemaVer + 1));
     }
@@ -774,9 +681,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @ParameterizedTest
     @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
     public void testAlterColumnTypeScaleIsRejected(ColumnType type) {
-        ColumnParams pkCol = ColumnParams.builder().name("ID").type(ColumnType.INT32).build();
-        ColumnParams col = ColumnParams.builder().name("COL_" + type).type(type).scale(3).build();
-        assertThat(manager.createTable(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
+        ColumnParams pkCol = columnParams("ID", INT32);
+        ColumnParams col = columnParamsBuilder("COL_" + type, type).scale(3).build();
+        assertThat(manager.execute(simpleTable(TABLE_NAME, List.of(pkCol, col))), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
@@ -794,12 +701,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // 3 -> 4 : Error.
         assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, null, 4), null, null),
-                willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "'."));
+                willThrowFast(CatalogValidationException.class, "Changing the scale is not allowed"));
         assertNull(manager.schema(schemaVer + 1));
 
         // 3 -> 2 : Error.
         assertThat(changeColumn(TABLE_NAME, col.name(), new TestColumnTypeParams(col.type(), null, null, 2), null, null),
-                willThrowFast(SqlException.class, "Cannot change scale for column '" + col.name() + "'."));
+                willThrowFast(CatalogValidationException.class, "Changing the scale is not allowed"));
         assertNull(manager.schema(schemaVer + 1));
     }
 
@@ -817,18 +724,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @EnumSource(value = ColumnType.class, names = "NULL", mode = Mode.EXCLUDE)
     public void testAlterColumnType(ColumnType target) {
         EnumSet<ColumnType> types = EnumSet.allOf(ColumnType.class);
-        types.remove(ColumnType.NULL);
+        types.remove(NULL);
 
         List<ColumnParams> testColumns = types.stream()
-                .map(t -> ColumnParams.builder().name("COL_" + t).type(t).build())
-                .collect(Collectors.toList());
+                .map(t -> columnParams("COL_" + t, t))
+                .collect(toList());
 
-        List<ColumnParams> tableColumns = new ArrayList<>(List.of(ColumnParams.builder().name("ID").type(ColumnType.INT32).build()));
+        List<ColumnParams> tableColumns = new ArrayList<>(List.of(columnParams("ID", INT32)));
         tableColumns.addAll(testColumns);
 
-        CreateTableParams createTableParams = simpleTable(TABLE_NAME, tableColumns);
-
-        assertThat(manager.createTable(createTableParams), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME, tableColumns)), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
@@ -842,8 +747,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 matcher = willBe(nullValue());
                 schemaVer += sameType ? 0 : 1;
             } else {
-                matcher = willThrowFast(SqlException.class,
-                        "Cannot change data type for column '" + col.name() + "' [from=" + col.type() + ", to=" + target + "].");
+                matcher = willThrowFast(CatalogValidationException.class,
+                        format("Changing the type from {} to {} is not allowed", col.type(), target));
             }
 
             TestColumnTypeParams tyoeParams = new TestColumnTypeParams(target);
@@ -856,10 +761,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testAlterColumnTypeRejectedForPrimaryKey() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
-        assertThat(changeColumn(TABLE_NAME, "ID", new TestColumnTypeParams(ColumnType.INT64), null, null),
-                willThrowFast(SqlException.class, "Cannot change data type for primary key column 'ID'."));
+        assertThat(changeColumn(TABLE_NAME, "ID", new TestColumnTypeParams(INT64), null, null),
+                willThrowFast(CatalogValidationException.class, "Changing the type of key column is not allowed"));
     }
 
     /**
@@ -868,15 +773,15 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
      */
     @Test
     public void testAlterColumnMultipleChanges() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         int schemaVer = 1;
         assertNotNull(manager.schema(schemaVer));
         assertNull(manager.schema(schemaVer + 1));
 
-        Supplier<DefaultValue> dflt = () -> DefaultValue.constant(null);
+        Supplier<DefaultValue> dflt = () -> constant(null);
         boolean notNull = false;
-        TestColumnTypeParams typeParams = new TestColumnTypeParams(ColumnType.INT64);
+        TestColumnTypeParams typeParams = new TestColumnTypeParams(INT64);
 
         // Ensures that 3 different actions applied.
         assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", typeParams, notNull, dflt), willBe(nullValue()));
@@ -885,17 +790,17 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotNull(schema);
 
         CatalogTableColumnDescriptor desc = schema.table(TABLE_NAME).column("VAL_NOT_NULL");
-        assertEquals(DefaultValue.constant(null), desc.defaultValue());
+        assertEquals(constant(null), desc.defaultValue());
         assertTrue(desc.nullable());
-        assertEquals(ColumnType.INT64, desc.type());
+        assertEquals(INT64, desc.type());
 
         // Ensures that only one of three actions applied.
-        dflt = () -> DefaultValue.constant(2);
+        dflt = () -> constant(2);
         assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", typeParams, notNull, dflt), willBe(nullValue()));
 
         schema = manager.schema(++schemaVer);
         assertNotNull(schema);
-        assertEquals(DefaultValue.constant(2), schema.table(TABLE_NAME).column("VAL_NOT_NULL").defaultValue());
+        assertEquals(constant(2), schema.table(TABLE_NAME).column("VAL_NOT_NULL").defaultValue());
 
         // Ensures that no action will be applied.
         assertThat(changeColumn(TABLE_NAME, "VAL_NOT_NULL", typeParams, notNull, dflt), willBe(nullValue()));
@@ -907,7 +812,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNotNull(manager.schema(0));
         assertNull(manager.schema(1));
 
-        assertThat(changeColumn(TABLE_NAME, "ID", null, null, null), willThrowFast(TableNotFoundException.class));
+        assertThat(changeColumn(TABLE_NAME, "ID", null, null, null), willThrowFast(TableNotFoundValidationException.class));
 
         assertNotNull(manager.schema(0));
         assertNull(manager.schema(1));
@@ -915,21 +820,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testDropTableWithIndex() {
-        CreateHashIndexParams params = CreateHashIndexParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .indexName(INDEX_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of("VAL"))
-                .build();
-
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.createIndex(params), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
 
         long beforeDropTimestamp = clock.nowLong();
 
-        DropTableParams dropTableParams = DropTableParams.builder().schemaName(SCHEMA_NAME).tableName(TABLE_NAME).build();
-
-        assertThat(manager.dropTable(dropTableParams), willBe(nullValue()));
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(2);
@@ -964,16 +860,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateHashIndex() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
-        CreateHashIndexParams params = CreateHashIndexParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .indexName(INDEX_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of("VAL", "ID"))
-                .build();
-
-        assertThat(manager.createIndex(params), willBe(nullValue()));
+        assertThat(manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("VAL", "ID"))), willBe(nullValue()));
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(1);
@@ -1002,16 +891,14 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateSortedIndex() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
-        CreateSortedIndexParams params = CreateSortedIndexParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .indexName(INDEX_NAME)
-                .tableName(TABLE_NAME)
-                .unique()
-                .columns(List.of("VAL", "ID"))
-                .collations(List.of(CatalogColumnCollation.DESC_NULLS_FIRST, CatalogColumnCollation.ASC_NULLS_LAST))
-                .build();
+        CreateSortedIndexParams params = createSortedIndexParams(
+                INDEX_NAME,
+                true,
+                List.of("VAL", "ID"),
+                List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST)
+        );
 
         assertThat(manager.createIndex(params), willBe(nullValue()));
 
@@ -1038,38 +925,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals("VAL", index.columns().get(0).name());
         assertEquals("ID", index.columns().get(1).name());
-        assertEquals(CatalogColumnCollation.DESC_NULLS_FIRST, index.columns().get(0).collation());
-        assertEquals(CatalogColumnCollation.ASC_NULLS_LAST, index.columns().get(1).collation());
+        assertEquals(DESC_NULLS_FIRST, index.columns().get(0).collation());
+        assertEquals(ASC_NULLS_LAST, index.columns().get(1).collation());
         assertTrue(index.unique());
         assertFalse(index.writeOnly());
-    }
-
-    @Test
-    public void testCreateIndexWithSameName() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-
-        CreateHashIndexParams params = CreateHashIndexParams.builder()
-                .indexName(INDEX_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of("VAL"))
-                .build();
-
-        assertThat(manager.createIndex(params), willBe(nullValue()));
-        assertThat(manager.createIndex(params), willThrow(IndexAlreadyExistsException.class));
-    }
-
-    @Test
-    public void testCreateIndexOnDuplicateColumns() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-
-        CreateHashIndexParams params = CreateHashIndexParams.builder()
-                .indexName(INDEX_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of("VAL", "VAL"))
-                .build();
-
-        assertThat(manager.createIndex(params),
-                willThrow(IgniteInternalException.class, "Can't create index on duplicate columns: VAL, VAL"));
     }
 
     @Test
@@ -1100,7 +959,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             return completedFuture(false);
         });
 
-        CompletableFuture<Void> createTableFut = manager.createTable(simpleTable("T"));
+        CompletableFuture<Void> createTableFut = manager.execute(simpleTable("T"));
 
         assertThat(createTableFut, willThrow(IgniteInternalException.class, "Max retry limit exceeded"));
 
@@ -1110,24 +969,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void catalogActivationTime() throws Exception {
-        final long delayDuration = TimeUnit.DAYS.toMillis(365);
+        long delayDuration = TimeUnit.DAYS.toMillis(365);
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration);
 
         manager.start();
 
         try {
-            CreateTableParams params = CreateTableParams.builder()
-                    .schemaName(SCHEMA_NAME)
-                    .tableName(TABLE_NAME)
-                    .columns(List.of(
-                            ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
-                            ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
-                    ))
-                    .primaryKeyColumns(List.of("key"))
-                    .build();
+            CompletableFuture<Void> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
 
-            manager.createTable(params);
+            assertFalse(createTableFuture.isDone());
 
             verify(updateLog).append(any());
             // TODO IGNITE-19400: recheck createTable future completion guarantees
@@ -1164,31 +1015,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testTableEvents() {
-        CreateTableParams createTableParams = CreateTableParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .zone(ZONE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("key2").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
-                ))
-                .primaryKeyColumns(List.of("key1", "key2"))
-                .colocationColumns(List.of("key2"))
-                .build();
-
-        DropTableParams dropTableparams = DropTableParams.builder().tableName(TABLE_NAME).build();
-
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
         when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
 
         manager.listen(CatalogEvent.TABLE_CREATE, eventListener);
         manager.listen(CatalogEvent.TABLE_DROP, eventListener);
 
-        assertThat(manager.createTable(createTableParams), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         verify(eventListener).notify(any(CreateTableEventParameters.class), isNull());
 
-        assertThat(manager.dropTable(dropTableparams), willBe(nullValue()));
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
         verify(eventListener).notify(any(DropTableEventParameters.class), isNull());
 
         verifyNoMoreInteractions(eventListener);
@@ -1196,27 +1032,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateIndexEvents() {
-        CreateTableParams createTableParams = CreateTableParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .zone(ZONE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("key2").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
-                ))
-                .primaryKeyColumns(List.of("key1", "key2"))
-                .colocationColumns(List.of("key2"))
-                .build();
-
-        DropTableParams dropTableparams = DropTableParams.builder().tableName(TABLE_NAME).build();
-
-        CreateHashIndexParams createIndexParams = CreateHashIndexParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .indexName(INDEX_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of("key2"))
-                .build();
+        CreateHashIndexParams createIndexParams = createHashIndexParams(INDEX_NAME, List.of("ID"));
 
         DropIndexParams dropIndexParams = DropIndexParams.builder().indexName(INDEX_NAME).build();
 
@@ -1231,7 +1047,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         verifyNoInteractions(eventListener);
 
         // Create table with PK index.
-        assertThat(manager.createTable(createTableParams), willCompleteSuccessfully());
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
         verify(eventListener).notify(any(CreateIndexEventParameters.class), isNull());
 
         clearInvocations(eventListener);
@@ -1249,7 +1065,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         clearInvocations(eventListener);
 
         // Drop table with pk index.
-        assertThat(manager.dropTable(dropTableparams), willBe(nullValue()));
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
         // Try drop index once again.
         assertThat(manager.dropIndex(dropIndexParams), willThrow(IndexNotFoundException.class));
@@ -1289,8 +1105,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(42, zone.partitions());
         assertEquals(15, zone.replicas());
         assertEquals(73, zone.dataNodesAutoAdjust());
-        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleUp());
-        assertEquals(Integer.MAX_VALUE, zone.dataNodesAutoAdjustScaleDown());
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
+        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals("expression", zone.filter());
         assertEquals("test_engine", zone.dataStorage().engine());
         assertEquals("test_region", zone.dataStorage().dataRegion());
@@ -1429,7 +1245,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .zoneName(zoneName)
                 .partitions(10)
                 .replicas(2)
-                .dataNodesAutoAdjust(INFINITE_TIMER_VALUE)
                 .dataNodesAutoAdjustScaleUp(3)
                 .dataNodesAutoAdjustScaleDown(4)
                 .filter("newExpression")
@@ -1522,53 +1337,33 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testColumnEvents() {
-        AlterTableAddColumnParams addColumnParams = AlterTableAddColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(ColumnParams.builder()
-                        .name(NEW_COLUMN_NAME)
-                        .type(ColumnType.INT32)
-                        .defaultValue(DefaultValue.constant(42))
-                        .nullable(true)
-                        .build()
-                ))
-                .build();
-
-        AlterTableDropColumnParams dropColumnParams = AlterTableDropColumnParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(TABLE_NAME)
-                .columns(Set.of(NEW_COLUMN_NAME))
-                .build();
-
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
         when(eventListener.notify(any(), any())).thenReturn(completedFuture(false));
 
         manager.listen(CatalogEvent.TABLE_ALTER, eventListener);
 
         // Try to add column without table.
-        assertThat(manager.addColumn(addColumnParams), willThrow(TableNotFoundException.class));
+        assertThat(manager.execute(addColumnParams(columnParams(NEW_COLUMN_NAME, INT32))),
+                willThrow(TableNotFoundValidationException.class));
         verifyNoInteractions(eventListener);
 
         // Create table.
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         // Add column.
-        assertThat(manager.addColumn(addColumnParams), willBe(nullValue()));
+        assertThat(manager.execute(addColumnParams(columnParams(NEW_COLUMN_NAME, INT32))), willBe(nullValue()));
         verify(eventListener).notify(any(AddColumnEventParameters.class), isNull());
 
         // Drop column.
-        assertThat(manager.dropColumn(dropColumnParams), willBe(nullValue()));
+        assertThat(manager.execute(dropColumnParams(NEW_COLUMN_NAME)), willBe(nullValue()));
         verify(eventListener).notify(any(DropColumnEventParameters.class), isNull());
-
-        // Try drop column once again.
-        assertThat(manager.dropColumn(dropColumnParams), willThrow(ColumnNotFoundException.class));
 
         verifyNoMoreInteractions(eventListener);
     }
 
     @Test
     public void userFutureCompletesAfterClusterWideActivationHappens() throws Exception {
-        final long delayDuration = TimeUnit.DAYS.toMillis(365);
+        long delayDuration = TimeUnit.DAYS.toMillis(365);
 
         HybridTimestamp startTs = clock.now();
 
@@ -1577,19 +1372,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         manager.start();
 
         try {
-            CreateTableParams params = CreateTableParams.builder()
-                    .schemaName(SCHEMA_NAME)
-                    .tableName(TABLE_NAME)
-                    .columns(List.of(
-                            ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
-                            ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
-                    ))
-                    .primaryKeyColumns(List.of("key"))
-                    .build();
+            CompletableFuture<Void> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
 
-            CompletableFuture<Void> future = manager.createTable(params);
-
-            assertThat(future.isDone(), is(false));
+            assertFalse(createTableFuture.isDone());
 
             ArgumentCaptor<HybridTimestamp> tsCaptor = ArgumentCaptor.forClass(HybridTimestamp.class);
 
@@ -1622,13 +1407,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             }
         });
 
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertThat(result, willCompleteSuccessfully());
     }
 
     @Test
     void testGetTableByIdAndCatalogVersion() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, clock.nowLong());
 
@@ -1638,19 +1423,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testGetTableIdOnDropIndexEvent() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
 
-        assertThat(
-                manager.createIndex(
-                        CreateHashIndexParams.builder()
-                                .schemaName(SCHEMA_NAME)
-                                .tableName(TABLE_NAME)
-                                .indexName(INDEX_NAME)
-                                .columns(List.of("VAL"))
-                                .build()
-                ),
-                willBe(nullValue())
-        );
+        assertThat(manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("VAL"))), willBe(nullValue()));
 
         int tableId = manager.table(TABLE_NAME, clock.nowLong()).id();
         int pkIndexId = manager.index(createPkIndexName(TABLE_NAME), clock.nowLong()).id();
@@ -1678,10 +1453,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(tableId, eventParameters.tableId());
 
         // Let's delete the table.
-        assertThat(
-                manager.dropTable(DropTableParams.builder().schemaName(SCHEMA_NAME).tableName(TABLE_NAME).build()),
-                willBe(nullValue())
-        );
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
 
         // Let's make sure that the PK index has been deleted.
         eventParameters = captor.getValue();
@@ -1691,137 +1463,20 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    void testCreateTableErrors() {
-        // Table must have at least one column.
-        assertThat(
-                manager.createTable(
-                        CreateTableParams.builder()
-                                .schemaName(SCHEMA_NAME)
-                                .zone(ZONE_NAME)
-                                .tableName(TABLE_NAME)
-                                .columns(List.of())
-                                .primaryKeyColumns(List.of())
-                                .build()
-                ),
-                willThrowFast(IgniteInternalException.class, "Table must include at least one column.")
-        );
-
-        // Table must have PK columns.
-        assertThat(
-                manager.createTable(
-                        CreateTableParams.builder()
-                                .schemaName(SCHEMA_NAME)
-                                .zone(ZONE_NAME)
-                                .tableName(TABLE_NAME)
-                                .columns(List.of(
-                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
-                                ))
-                                .primaryKeyColumns(List.of())
-                                .build()
-                ),
-                willThrowFast(IgniteInternalException.class, "Table without primary key is not supported.")
-        );
-
-        // PK column must be a valid column
-        assertThat(
-                manager.createTable(
-                        CreateTableParams.builder()
-                                .schemaName(SCHEMA_NAME)
-                                .zone(ZONE_NAME)
-                                .tableName(TABLE_NAME)
-                                .columns(List.of(
-                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
-                                ))
-                                .primaryKeyColumns(List.of("key"))
-                                .build()
-                ),
-                willThrowFast(IgniteInternalException.class, "Invalid primary key columns: val")
-        );
-
-        // Column names must be unique.
-        assertThat(
-                manager.createTable(
-                        CreateTableParams.builder()
-                                .schemaName(SCHEMA_NAME)
-                                .tableName(TABLE_NAME)
-                                .zone(ZONE_NAME)
-                                .columns(List.of(
-                                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
-                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build(),
-                                        ColumnParams.builder().name("val").type(ColumnType.INT32).nullable(true).build()
-                                ))
-                                .primaryKeyColumns(List.of("key"))
-                                .build()
-                ),
-                willThrowFast(IgniteInternalException.class, "Can't create table with duplicate columns: key, val, val"));
-
-        // PK column names must be unique.
-        assertThat(
-                manager.createTable(
-                        CreateTableParams.builder()
-                                .schemaName(SCHEMA_NAME)
-                                .tableName(TABLE_NAME)
-                                .zone(ZONE_NAME)
-                                .columns(List.of(
-                                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
-                                        ColumnParams.builder().name("key2").type(ColumnType.INT32).build()
-                                ))
-                                .primaryKeyColumns(List.of("key1", "key2", "key1"))
-                                .build()
-                ),
-                willThrowFast(IgniteInternalException.class, "Primary key columns contains duplicates: key1, key2, key1"));
-
-        // Colocated columns names must be unique.
-        assertThat(
-                manager.createTable(
-                        CreateTableParams.builder()
-                                .schemaName(SCHEMA_NAME)
-                                .tableName(TABLE_NAME)
-                                .zone(ZONE_NAME)
-                                .columns(List.of(
-                                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
-                                        ColumnParams.builder().name("key2").type(ColumnType.INT32).build(),
-                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
-                                ))
-                                .primaryKeyColumns(List.of("key1", "key2"))
-                                .colocationColumns(List.of("key1", "key2", "key1"))
-                                .build()
-                ),
-                willThrowFast(IgniteInternalException.class, "Colocation columns contains duplicates: key1, key2, key1"));
-
-        // Colocated columns must be valid primary key columns.
-        assertThat(
-                manager.createTable(
-                        CreateTableParams.builder()
-                                .schemaName(SCHEMA_NAME)
-                                .tableName(TABLE_NAME)
-                                .zone(ZONE_NAME)
-                                .columns(List.of(
-                                        ColumnParams.builder().name("key").type(ColumnType.INT32).build(),
-                                        ColumnParams.builder().name("val").type(ColumnType.INT32).build()
-                                ))
-                                .primaryKeyColumns(List.of("key"))
-                                .colocationColumns(List.of("val"))
-                                .build()
-                ),
-                willThrowFast(IgniteInternalException.class, "Colocation columns must be subset of primary key: outstandingColumns=[val]"));
-    }
-
-    @Test
     void testLatestCatalogVersion() {
         assertEquals(0, manager.latestCatalogVersion());
 
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertEquals(1, manager.latestCatalogVersion());
 
-        assertThat(manager.createIndex(simpleIndex(INDEX_NAME, TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
         assertEquals(2, manager.latestCatalogVersion());
     }
 
     @Test
     void testTables() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME + 0)), willBe(nullValue()));
-        assertThat(manager.createTable(simpleTable(TABLE_NAME + 1)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME + 0)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME + 1)), willBe(nullValue()));
 
         assertThat(manager.tables(0), empty());
         assertThat(manager.tables(1), hasItems(table(1, TABLE_NAME + 0)));
@@ -1830,8 +1485,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testIndexes() {
-        assertThat(manager.createTable(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.createIndex(simpleIndex(INDEX_NAME, TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.createIndex(simpleIndex()), willBe(nullValue()));
 
         assertThat(manager.indexes(0), empty());
         assertThat(manager.indexes(1), hasItems(index(1, createPkIndexName(TABLE_NAME))));
@@ -1851,14 +1506,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void addColumnIncrementsTableVersion() {
         createSomeTable(TABLE_NAME);
 
-        CompletableFuture<Void> future = manager.addColumn(
-                AlterTableAddColumnParams.builder()
-                        .schemaName(SCHEMA_NAME)
-                        .tableName(TABLE_NAME)
-                        .columns(List.of(ColumnParams.builder().name("val2").type(ColumnType.INT32).build()))
-                        .build()
-        );
-        assertThat(future, willCompleteSuccessfully());
+        assertThat(manager.execute(addColumnParams(columnParams("val2", INT32))), willCompleteSuccessfully());
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
 
@@ -1869,14 +1517,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void dropColumnIncrementsTableVersion() {
         createSomeTable(TABLE_NAME);
 
-        CompletableFuture<Void> future = manager.dropColumn(
-                AlterTableDropColumnParams.builder()
-                        .schemaName(SCHEMA_NAME)
-                        .tableName(TABLE_NAME)
-                        .columns(Set.of("val1"))
-                        .build()
-        );
-        assertThat(future, willCompleteSuccessfully());
+        assertThat(manager.execute(dropColumnParams("val1")), willCompleteSuccessfully());
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
 
@@ -1887,12 +1528,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void alterColumnIncrementsTableVersion() {
         createSomeTable(TABLE_NAME);
 
-        CompletableFuture<Void> future = manager.alterColumn(
-                AlterColumnParams.builder()
+        CompletableFuture<Void> future = manager.execute(
+                AlterTableAlterColumnCommand.builder()
                         .schemaName(SCHEMA_NAME)
                         .tableName(TABLE_NAME)
                         .columnName("val1")
-                        .type(ColumnType.INT64)
+                        .type(INT64)
                         .build()
         );
         assertThat(future, willCompleteSuccessfully());
@@ -1911,26 +1552,226 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(DEFAULT_PARTITION_COUNT, zone.partitions());
         assertEquals(DEFAULT_REPLICA_COUNT, zone.replicas());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
-        assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
+        assertEquals(IMMEDIATE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals(DEFAULT_FILTER, zone.filter());
         assertEquals(DEFAULT_STORAGE_ENGINE, zone.dataStorage().engine());
         assertEquals(DEFAULT_DATA_REGION, zone.dataStorage().dataRegion());
     }
 
-    private void createSomeTable(String tableName) {
-        CreateTableParams params = CreateTableParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(tableName)
-                .zone(ZONE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name("key1").type(ColumnType.INT32).build(),
-                        ColumnParams.builder().name("val1").type(ColumnType.INT32).build()
-                ))
-                .primaryKeyColumns(List.of("key1"))
-                .build();
+    @Test
+    void testCreateIndexWithAlreadyExistingName() {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.createIndex(simpleIndex()), willCompleteSuccessfully());
 
-        assertThat(manager.createTable(params), willCompleteSuccessfully());
+        assertThat(
+                manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("VAL"))),
+                willThrowFast(IndexAlreadyExistsException.class)
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
+                willThrowFast(IndexAlreadyExistsException.class)
+        );
+    }
+
+    @Test
+    void testCreateIndexWithSameNameAsExistingTable() {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+        assertThat(
+                manager.createIndex(createHashIndexParams(TABLE_NAME, List.of("VAL"))),
+                willThrowFast(TableAlreadyExistsException.class)
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(TABLE_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
+                willThrowFast(TableAlreadyExistsException.class)
+        );
+    }
+
+    @Test
+    void testCreateIndexWithNotExistingTable() {
+        assertThat(
+                manager.createIndex(createHashIndexParams(TABLE_NAME, List.of("VAL"))),
+                willThrowFast(TableNotFoundException.class)
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(TABLE_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST))),
+                willThrowFast(TableNotFoundException.class)
+        );
+    }
+
+    @Test
+    void testCreateIndexWithMissingTableColumns() {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+        assertThat(
+                manager.createIndex(createHashIndexParams(INDEX_NAME, List.of("fake"))),
+                willThrowFast(ColumnNotFoundException.class)
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, List.of("fake"), List.of(ASC_NULLS_LAST))),
+                willThrowFast(ColumnNotFoundException.class)
+        );
+    }
+
+    @Test
+    void testCreateUniqIndexWithMissingTableColocationColumns() {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+        assertThat(
+                manager.createIndex(createHashIndexParams(INDEX_NAME, true, List.of("VAL"))),
+                willThrowFast(IgniteException.class, "Unique index must include all colocation columns")
+        );
+
+        assertThat(
+                manager.createIndex(createSortedIndexParams(INDEX_NAME, true, List.of("VAL"), List.of(ASC_NULLS_LAST))),
+                willThrowFast(IgniteException.class, "Unique index must include all colocation columns")
+        );
+    }
+
+    @Test
+    void testDropNotExistingIndex() {
+        assertThat(manager.dropIndex(DropIndexParams.builder().indexName(INDEX_NAME).build()), willThrowFast(IndexNotFoundException.class));
+    }
+
+    @Test
+    void testDropNotExistingTable() {
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willThrowFast(CatalogValidationException.class));
+    }
+
+    @Test
+    void testDropColumnWithNotExistingTable() {
+        assertThat(manager.execute(dropColumnParams("key")), willThrowFast(TableNotFoundValidationException.class));
+    }
+
+    @Test
+    void testDropColumnWithMissingTableColumns() {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+        assertThat(manager.execute(dropColumnParams("fake")), willThrowFast(CatalogValidationException.class));
+    }
+
+    @Test
+    void testDropColumnWithPrimaryKeyColumns() {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+        assertThat(
+                manager.execute(dropColumnParams("ID")),
+                willThrowFast(CatalogValidationException.class, "Deleting column belonging to primary key is not allowed")
+        );
+    }
+
+    @Test
+    void testDropColumnWithIndexColumns() {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.createIndex(simpleIndex()), willCompleteSuccessfully());
+
+        assertThat(
+                manager.execute(dropColumnParams("VAL")),
+                willThrowFast(
+                        CatalogValidationException.class,
+                        "Deleting indexed column is not allowed"
+                )
+        );
+    }
+
+    @Test
+    void testAddColumnWithNotExistingTable() {
+        assertThat(manager.execute(addColumnParams(columnParams("key", INT32))), willThrowFast(TableNotFoundValidationException.class));
+    }
+
+    @Test
+    void testAddColumnWithExistingName() {
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+        assertThat(manager.execute(addColumnParams(columnParams("ID", INT32))), willThrowFast(CatalogValidationException.class));
+    }
+
+    private void createSomeTable(String tableName) {
+        assertThat(
+                manager.execute(createTableCommand(
+                        tableName,
+                        List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
+                        List.of("key1"),
+                        List.of("key1")
+                )),
+                willCompleteSuccessfully()
+        );
+    }
+
+    @Test
+    void bulkCommandEitherAppliedAtomicallyOrDoesntAppliedAtAll() {
+        String tableName1 = "TEST1";
+        String tableName2 = "TEST2";
+        String tableName3 = "TEST1"; // intentional name conflict with table1
+
+        List<CatalogCommand> bulkUpdate = List.of(
+                simpleTable(tableName1),
+                simpleTable(tableName2),
+                simpleTable(tableName3)
+        );
+
+        assertThat(manager.table(tableName1, Long.MAX_VALUE), nullValue());
+        assertThat(manager.table(tableName2, Long.MAX_VALUE), nullValue());
+        assertThat(manager.table(tableName3, Long.MAX_VALUE), nullValue());
+
+        assertThat(manager.execute(bulkUpdate), willThrowFast(TableExistsValidationException.class));
+
+        // now let's truncate problematic table and retry
+        assertThat(manager.execute(bulkUpdate.subList(0, bulkUpdate.size() - 1)), willCompleteSuccessfully());
+
+        assertThat(manager.table(tableName1, Long.MAX_VALUE), notNullValue());
+        assertThat(manager.table(tableName2, Long.MAX_VALUE), notNullValue());
+    }
+
+    @Test
+    void bulkUpdateIncrementsVersionByOne() {
+        String tableName1 = "T1";
+        String tableName2 = "T2";
+        String tableName3 = "T3";
+
+        int versionBefore = manager.latestCatalogVersion();
+
+        assertThat(manager.table(tableName1, Long.MAX_VALUE), nullValue());
+        assertThat(manager.table(tableName2, Long.MAX_VALUE), nullValue());
+        assertThat(manager.table(tableName3, Long.MAX_VALUE), nullValue());
+
+        assertThat(
+                manager.execute(List.of(simpleTable(tableName1), simpleTable(tableName2), simpleTable(tableName3))),
+                willCompleteSuccessfully()
+        );
+
+        int versionAfter = manager.latestCatalogVersion();
+
+        assertThat(manager.table(tableName1, Long.MAX_VALUE), notNullValue());
+        assertThat(manager.table(tableName2, Long.MAX_VALUE), notNullValue());
+        assertThat(manager.table(tableName3, Long.MAX_VALUE), notNullValue());
+
+        assertThat(versionAfter - versionBefore, is(1));
+    }
+
+    @Test
+    void bulkUpdateDoesntIncrementVersionInCaseOfError() {
+        String tableName1 = "T1";
+
+        int versionBefore = manager.latestCatalogVersion();
+
+        assertThat(manager.table(tableName1, Long.MAX_VALUE), nullValue());
+
+        assertThat(
+                manager.execute(List.of(simpleTable(tableName1), simpleTable(tableName1))),
+                willThrow(CatalogValidationException.class)
+        );
+
+        int versionAfter = manager.latestCatalogVersion();
+
+        assertThat(manager.table(tableName1, Long.MAX_VALUE), nullValue());
+
+        assertThat(versionAfter, is(versionBefore));
     }
 
     private CompletableFuture<Void> changeColumn(
@@ -1940,13 +1781,17 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             @Nullable Boolean notNull,
             @Nullable Supplier<DefaultValue> dflt
     ) {
-        Builder builder = AlterColumnParams.builder()
+        AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
                 .tableName(tab)
-                .columnName(col)
-                .notNull(notNull);
+                .columnName(col);
+
+        if (notNull != null) {
+            builder.nullable(!notNull);
+        }
 
         if (dflt != null) {
-            builder.defaultValueResolver(ignore -> dflt.get());
+            builder.deferredDefaultValue(ignore -> dflt.get());
         }
 
         if (typeParams != null) {
@@ -1965,40 +1810,28 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             }
         }
 
-        return manager.alterColumn(builder.build());
+        return manager.execute(builder.build());
     }
 
-    private static CreateTableParams simpleTable(String name) {
+    private CatalogCommand simpleTable(String name) {
         List<ColumnParams> cols = List.of(
-                ColumnParams.builder().name("ID").type(ColumnType.INT32).build(),
-                ColumnParams.builder().name("VAL").type(ColumnType.INT32).nullable(true).defaultValue(DefaultValue.constant(null)).build(),
-                ColumnParams.builder().name("VAL_NOT_NULL").type(ColumnType.INT32).defaultValue(DefaultValue.constant(1)).build(),
-                ColumnParams.builder().name("DEC").type(ColumnType.DECIMAL).nullable(true).build(),
-                ColumnParams.builder().name("STR").type(ColumnType.STRING).nullable(true).build(),
-                ColumnParams.builder().name("DEC_SCALE").type(ColumnType.DECIMAL).scale(3).build()
+                columnParams("ID", INT32),
+                columnParamsBuilder("VAL", INT32, true).defaultValue(constant(null)).build(),
+                columnParamsBuilder("VAL_NOT_NULL", INT32).defaultValue(constant(1)).build(),
+                columnParams("DEC", DECIMAL, true),
+                columnParams("STR", STRING, true),
+                columnParamsBuilder("DEC_SCALE", DECIMAL).scale(3).build()
         );
 
         return simpleTable(name, cols);
     }
 
-    private static CreateTableParams simpleTable(String name, List<ColumnParams> cols) {
-        return CreateTableParams.builder()
-                .schemaName(SCHEMA_NAME)
-                .tableName(name)
-                .zone(ZONE_NAME)
-                .columns(cols)
-                .primaryKeyColumns(List.of(cols.get(0).name()))
-                .build();
+    private CatalogCommand simpleTable(String tableName, List<ColumnParams> cols) {
+        return createTableCommand(tableName, cols, List.of(cols.get(0).name()), List.of(cols.get(0).name()));
     }
 
-    private static CreateSortedIndexParams simpleIndex(String indexName, String tableName) {
-        return CreateSortedIndexParams.builder()
-                .indexName(indexName)
-                .tableName(tableName)
-                .unique()
-                .columns(List.of("VAL"))
-                .collations(List.of(CatalogColumnCollation.ASC_NULLS_LAST))
-                .build();
+    private static CreateSortedIndexParams simpleIndex() {
+        return createSortedIndexParams(INDEX_NAME, List.of("VAL"), List.of(ASC_NULLS_LAST));
     }
 
     private static class TestColumnTypeParams {

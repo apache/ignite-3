@@ -38,6 +38,7 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.hamcrest.Matchers;
@@ -48,7 +49,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * For {@link DataStorageModules} testing.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class DataStorageModulesTest {
+public class DataStorageModulesTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path workDir;
 

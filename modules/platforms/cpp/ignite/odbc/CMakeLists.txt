@@ -19,6 +19,7 @@ project(ignite3-odbc)
 
 set(TARGET ${PROJECT_NAME})
 
+include(find_odbc)
 find_package(ODBC REQUIRED)
 
 set(SOURCES
@@ -35,13 +36,13 @@ set(SOURCES
     meta/column_meta.cpp
     meta/table_meta.cpp
     query/data_query.cpp
+    query/table_metadata_query.cpp
     odbc.cpp
     entry_points.cpp
     ssl_mode.cpp
     sql_connection.cpp
     sql_environment.cpp
     sql_statement.cpp
-    protocol_version.cpp
     type_traits.cpp
     utility.cpp
     log.cpp
@@ -50,7 +51,7 @@ set(SOURCES
 add_compile_definitions(CMAKE_PROJECT_VERSION="${CMAKE_PROJECT_VERSION}")
 
 add_library(${TARGET}-obj OBJECT ${SOURCES})
-target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ODBC_INCLUDE_DIRS})
 
 add_library(${TARGET} SHARED $<TARGET_OBJECTS:${TARGET}-obj> module.def)
 

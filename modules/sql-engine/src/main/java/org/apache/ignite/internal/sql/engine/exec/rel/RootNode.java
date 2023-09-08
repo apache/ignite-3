@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
-import com.google.common.base.Functions;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
@@ -65,7 +64,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      * @param ctx Execution context.
      */
     public RootNode(ExecutionContext<RowT> ctx) {
-        this(ctx, Functions.identity());
+        this(ctx, Function.identity());
     }
 
     /**

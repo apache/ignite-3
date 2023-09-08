@@ -56,7 +56,6 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -169,6 +168,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connectionContext.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
                 context,
+                igniteTransactions,
                 req.sqlQuery(),
                 req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments()
         ));
@@ -277,6 +277,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         CompletableFuture<AsyncSqlCursor<List<Object>>> result = connCtx.doInSession(sessionId -> processor.querySingleAsync(
                 sessionId,
                 queryContext,
+                igniteTransactions,
                 sql,
                 arg == null ? OBJECT_EMPTY_ARRAY : arg
         ));

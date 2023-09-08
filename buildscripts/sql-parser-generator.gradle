@@ -72,7 +72,7 @@ javacc {
             inputFile = file("${buildDir}/generated-sources/fmpp/javacc/Parser.jj")
             outputDir = file("${buildDir}/generated-sources/javacc")
             packageName = 'org.apache.ignite.internal.generated.query.calcite.sql'
-            lookahead = 2
+            lookahead = 1
             staticParam = false
         }
     }

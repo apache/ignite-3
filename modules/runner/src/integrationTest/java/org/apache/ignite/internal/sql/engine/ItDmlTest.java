@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
-import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,15 +30,17 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Various DML tests.
@@ -52,18 +52,9 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         return 3;
     }
 
-    /**
-     * Clear tables after each test.
-     *
-     * @param testInfo Test information object.
-     * @throws Exception If failed.
-     */
     @AfterEach
-    @Override
-    public void tearDown(TestInfo testInfo) throws Exception {
+    public void dropTables() {
         dropAllTables();
-
-        super.tearDownBase(testInfo);
     }
 
     @Test
@@ -128,7 +119,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .check();
 
         var ex = assertThrowsSqlException(
-                CONSTRAINT_VIOLATION_ERR,
+                Sql.CONSTRAINT_VIOLATION_ERR,
                 () -> sql("INSERT INTO test VALUES (0, 0), (1, 1), (2, 2)")
         );
 
@@ -178,7 +169,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 .collect(Collectors.joining("), (", "(", ")"));
 
         SqlException ex = assertThrowsSqlException(
-                CONSTRAINT_VIOLATION_ERR,
+                Sql.CONSTRAINT_VIOLATION_ERR,
                 () -> sql(insertStatement)
         );
 
@@ -187,6 +178,17 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT count(*) FROM test")
                 .returns(0L)
                 .check();
+    }
+
+    @Test
+    public void testNullDefault() {
+        sql("CREATE TABLE test_null_def (id INTEGER PRIMARY KEY, col INTEGER DEFAULT NULL)");
+
+        sql("INSERT INTO test_null_def VALUES(1, DEFAULT)");
+        assertQuery("SELECT col FROM test_null_def WHERE id = 1").returns(null).check();
+
+        sql("INSERT INTO test_null_def (id, col) VALUES(2, DEFAULT)");
+        assertQuery("SELECT col FROM test_null_def WHERE id = 2").returns(null).check();
     }
 
     /**Test full MERGE command. */
@@ -346,12 +348,16 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT * FROM test2").returns(1, 0, 0, "0").check();
 
         // Target table alias duplicate source table name.
-        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 test1 USING test1 ON c = e "
-                + "WHEN MATCHED THEN UPDATE SET d = b + 1"), "Duplicate relation name");
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Duplicate relation name",
+                () -> sql("MERGE INTO test2 test1 USING test1 ON c = e WHEN MATCHED THEN UPDATE SET d = b + 1"));
 
         // Source table alias duplicate target table name.
-        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 USING test1 test2 ON c = e "
-                + "WHEN MATCHED THEN UPDATE SET d = b + 1"), "Duplicate relation name");
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Duplicate relation name",
+                () -> sql("MERGE INTO test2 USING test1 test2 ON c = e WHEN MATCHED THEN UPDATE SET d = b + 1"));
 
         // Without aliases, reference columns by table name.
         sql("MERGE INTO test2 USING test1 ON test1.a = test2.a "
@@ -360,12 +366,16 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertQuery("SELECT * FROM test2").returns(1, 1, 0, "0").check();
 
         // Ambiguous column name in condition.
-        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 USING test1 ON a = test1.a "
-                + "WHEN MATCHED THEN UPDATE SET a = test1.a + 1"), "Column 'A' is ambiguous");
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Column 'A' is ambiguous",
+                () -> sql("MERGE INTO test2 USING test1 ON a = test1.a WHEN MATCHED THEN UPDATE SET a = test1.a + 1"));
 
         // Ambiguous column name in update statement.
-        assertThrows(IgniteException.class, () -> sql("MERGE INTO test2 USING test1 ON c = e "
-                + "WHEN MATCHED THEN UPDATE SET a = a + 1"), "Column 'A' is ambiguous");
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Column 'A' is ambiguous",
+                () -> sql("MERGE INTO test2 USING test1 ON c = e WHEN MATCHED THEN UPDATE SET a = a + 1"));
 
         // With aliases, reference columns by table alias.
         sql("MERGE INTO test2 test1 USING test1 test2 ON test1.d = test2.b "
@@ -387,7 +397,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE test2 (k int PRIMARY KEY, a int, b int)");
 
-        SqlException ex = assertThrowsSqlException(CONSTRAINT_VIOLATION_ERR, () -> sql(
+        SqlException ex = assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, () -> sql(
                         "MERGE INTO test2 USING test1 ON test1.a = test2.a "
                                 + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
                                 + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
@@ -440,9 +450,8 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         assertEquals(3, pkVals.size());
     }
 
-    @Test
-    public void testInsertDefaultValue() {
-        var args = List.of(
+    private static Stream<DefaultValueArg> defaultValueArgs() {
+        return Stream.of(
                 new DefaultValueArg("BOOLEAN", "TRUE", Boolean.TRUE),
                 new DefaultValueArg("BOOLEAN NOT NULL", "TRUE", Boolean.TRUE),
 
@@ -476,8 +485,11 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
                 // TODO: IGNITE-17374
                 // new DefaultValueArg("VARBINARY", "x'010203'", new byte[]{1, 2, 3})
         );
+    }
 
-        checkDefaultValue(args);
+    @Test
+    public void testInsertDefaultValue() {
+        checkDefaultValue(defaultValueArgs().collect(Collectors.toList()));
 
         checkWrongDefault("VARCHAR", "10");
         checkWrongDefault("INT", "'10'");
@@ -493,6 +505,14 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         checkWrongDefault("VARBINARY", "'10'");
         checkWrongDefault("VARBINARY", "10");
+    }
+
+    @Test
+    public void testInsertDefaultNullValue() {
+        checkDefaultValue(defaultValueArgs()
+                .filter(a -> !a.sqlType.endsWith("NOT NULL"))
+                .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
+                .collect(Collectors.toList()));
     }
 
     private void checkDefaultValue(List<DefaultValueArg> args) {
@@ -542,7 +562,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
         var expectedMessage = "Failed to validate query. From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
 
-        assertThrowsSqlException(STMT_VALIDATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
     }
 
     private void checkQueryResult(String sql, List<Object> expectedVals) {
@@ -551,10 +571,10 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
 
     private void checkWrongDefault(String sqlType, String sqlVal) {
         try {
-            assertThrows(
-                    SqlException.class,
-                    () -> sql("CREATE TABLE test (val " + sqlType + " DEFAULT " + sqlVal + ")"),
-                    "Cannot convert literal"
+            assertThrowsSqlException(
+                    Sql.STMT_VALIDATION_ERR,
+                    "Unable convert literal",
+                    () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val " + sqlType + " DEFAULT " + sqlVal + ")")
             );
         } finally {
             sql("DROP TABLE IF EXISTS test");
@@ -566,10 +586,15 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
         final String sqlVal;
         final Object expectedVal;
 
-        private DefaultValueArg(String sqlType, String sqlVal, Object expectedVal) {
+        private DefaultValueArg(String sqlType, String sqlVal, @Nullable Object expectedVal) {
             this.sqlType = sqlType;
             this.sqlVal = sqlVal;
             this.expectedVal = expectedVal;
+        }
+
+        @Override
+        public String toString() {
+            return sqlType + " sql val: " + sqlVal + " java val: " + expectedVal;
         }
     }
 
@@ -643,7 +668,7 @@ public class ItDmlTest extends ClusterPerClassIntegrationTest {
     }
 
     private static void checkDuplicatePk(IgniteException ex) {
-        assertEquals(CONSTRAINT_VIOLATION_ERR, ex.code());
+        assertEquals(Sql.CONSTRAINT_VIOLATION_ERR, ex.code());
         assertThat(ex.getMessage(), containsString("PK unique constraint is violated"));
     }
 }

@@ -22,6 +22,7 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_UNEXPECTED_STATE_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
@@ -30,13 +31,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -66,24 +62,27 @@ import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMess
 import org.apache.ignite.internal.table.distributed.command.TxCleanupCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener {
+    /** Transaction manager. */
+    private final TxManager txManager;
+
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
-
-    /** Empty sorted set. */
-    private static final SortedSet<RowId> EMPTY_SET = Collections.emptySortedSet();
 
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
@@ -94,9 +93,6 @@ public class PartitionListener implements RaftGroupListener {
     /** Storage of transaction metadata. */
     private final TxStateStorage txStateStorage;
 
-    /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
-    private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new HashMap<>();
-
     /** Safe time tracker. */
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
@@ -106,30 +102,33 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * The constructor.
      *
+     * @param txManager Transaction manager.
      * @param partitionDataStorage The storage.
      * @param safeTime Safe time tracker.
      * @param storageIndexTracker Storage index tracker.
      */
     public PartitionListener(
+            TxManager txManager,
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) {
+        this.txManager = txManager;
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
         this.txStateStorage = txStateStorage;
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
 
-        // TODO: IGNITE-18502 Implement a pending update storage
+        // TODO: IGNITE-18502 Excessive full partition scan on node start
         try (PartitionTimestampCursor cursor = partitionDataStorage.scan(HybridTimestamp.MAX_VALUE)) {
             while (cursor.hasNext()) {
                 ReadResult readResult = cursor.next();
 
                 if (readResult.isWriteIntent()) {
-                    txsPendingRowIds.computeIfAbsent(readResult.transactionId(), key -> new TreeSet<>()).add(readResult.rowId());
+                    storageUpdateHandler.handleWriteIntentRead(readResult.transactionId(), readResult.rowId());
                 }
             }
         }
@@ -232,16 +231,12 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         storageUpdateHandler.handleUpdate(cmd.txId(), cmd.rowUuid(), cmd.tablePartitionId().asTablePartitionId(), cmd.row(),
-                rowId -> {
-                    // Cleanup is not required for one-phase transactions.
-                    if (!cmd.full()) {
-                        txsPendingRowIds.computeIfAbsent(cmd.txId(), entry -> new TreeSet<>()).add(rowId);
-                    }
-
-                    storage.lastApplied(commandIndex, commandTerm);
-                },
+                !cmd.full(),
+                () -> storage.lastApplied(commandIndex, commandTerm),
                 cmd.full() ? cmd.safeTime() : null
         );
+
+        replicaTouch(cmd.txId(), cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
     }
 
     /**
@@ -258,17 +253,12 @@ public class PartitionListener implements RaftGroupListener {
         }
 
         storageUpdateHandler.handleUpdateAll(cmd.txId(), cmd.rowsToUpdate(), cmd.tablePartitionId().asTablePartitionId(),
-                rowIds -> {
-                    // Cleanup is not required for one-phase transactions.
-                    if (!cmd.full()) {
-                        for (RowId rowId : rowIds) {
-                            txsPendingRowIds.computeIfAbsent(cmd.txId(), entry0 -> new TreeSet<>()).add(rowId);
-                        }
-                    }
+                !cmd.full(),
+                () -> storage.lastApplied(commandIndex, commandTerm),
+                cmd.full() ? cmd.safeTime() : null
+        );
 
-                    storage.lastApplied(commandIndex, commandTerm);
-                },
-                cmd.full() ? cmd.safeTime() : null);
+        replicaTouch(cmd.txId(), cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
     }
 
     /**
@@ -308,6 +298,8 @@ public class PartitionListener implements RaftGroupListener {
                 commandTerm
         );
 
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
+
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
         if (!txStateChangeRes) {
@@ -345,28 +337,10 @@ public class PartitionListener implements RaftGroupListener {
 
         UUID txId = cmd.txId();
 
-        Set<RowId> pendingRowIds = txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), cmd.txCoordinatorId());
 
-        if (cmd.commit()) {
-            storage.runConsistently(locker -> {
-                pendingRowIds.forEach(locker::lock);
-
-                pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, cmd.commitTimestamp()));
-
-                txsPendingRowIds.remove(txId);
-
-                storage.lastApplied(commandIndex, commandTerm);
-
-                return null;
-            });
-        } else {
-            storageUpdateHandler.handleTransactionAbortion(pendingRowIds, () -> {
-                // on replication callback
-                txsPendingRowIds.remove(txId);
-
-                storage.lastApplied(commandIndex, commandTerm);
-            });
-        }
+        storageUpdateHandler.handleTransactionCleanup(txId, cmd.commit(), cmd.commitTimestamp(),
+                () -> storage.lastApplied(commandIndex, commandTerm));
     }
 
     /**
@@ -534,5 +508,21 @@ public class PartitionListener implements RaftGroupListener {
 
     private RowId toRowId(UUID rowUuid) {
         return new RowId(storageUpdateHandler.partitionId(), rowUuid);
+    }
+
+    private void replicaTouch(UUID txId, String txCoordinatorId, HybridTimestamp commitTimestamp, boolean full) {
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(
+                full ? COMMITED : PENDING,
+                txCoordinatorId,
+                full ? commitTimestamp : null
+        ));
+    }
+
+    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp, String txCoordinatorId) {
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(
+                commit ? COMMITED : ABORTED,
+                txCoordinatorId,
+                commit ? commitTimestamp : null
+        ));
     }
 }

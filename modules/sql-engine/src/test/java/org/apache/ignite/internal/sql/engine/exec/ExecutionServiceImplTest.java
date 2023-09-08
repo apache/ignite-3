@@ -58,13 +58,9 @@ import java.util.stream.Collectors;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.sql.engine.AsyncCursor;
-import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
@@ -73,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessage;
@@ -102,9 +99,12 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
@@ -120,9 +120,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test class to verify {@link ExecutionServiceImplTest}.
  */
-public class ExecutionServiceImplTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ExecutionServiceImpl.class);
-
+public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     /** Timeout in ms for async operations. */
     private static final long TIMEOUT_IN_MS = 2_000;
 
@@ -180,7 +178,7 @@ public class ExecutionServiceImplTest {
             try {
                 executer.stop();
             } catch (Exception e) {
-                LOG.error("Unable to stop executor", e);
+                log.error("Unable to stop executor", e);
             }
         });
 
@@ -592,8 +590,6 @@ public class ExecutionServiceImplTest {
 
         when(topologyService.localMember()).thenReturn(clusterNode);
 
-        when(schemaManagerMock.tableById(anyInt())).thenReturn(table);
-
         when(schemaManagerMock.schemaReadyFuture(isA(long.class))).thenReturn(CompletableFuture.completedFuture(null));
 
         TestExecutableTableRegistry executableTableRegistry = new TestExecutableTableRegistry();
@@ -641,7 +637,7 @@ public class ExecutionServiceImplTest {
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
-                .logger(LOG)
+                .logger(log)
                 .build();
     }
 
@@ -787,7 +783,7 @@ public class ExecutionServiceImplTest {
                     MailboxRegistry mailboxRegistry,
                     ExchangeService exchangeService,
                     ResolvedDependencies deps) {
-                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(mock(SqlSchemaManager.class), ctx.rowHandler());
+                HashFunctionFactory<Object[]> funcFactory = new HashFunctionFactoryImpl<>(ctx.rowHandler());
 
                 return new LogicalRelImplementor<>(ctx, funcFactory, mailboxRegistry, exchangeService, deps) {
                     @Override

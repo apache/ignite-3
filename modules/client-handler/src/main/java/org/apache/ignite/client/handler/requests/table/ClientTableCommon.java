@@ -49,7 +49,6 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -328,7 +327,6 @@ public class ClientTableCommon {
      * @param table    Table.
      * @return Schema descriptor.
      */
-    @NotNull
     public static SchemaDescriptor readSchema(ClientMessageUnpacker unpacker, TableImpl table) {
         var schemaId = unpacker.unpackInt();
 

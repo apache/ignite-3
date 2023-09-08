@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayDeque;
@@ -38,7 +40,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.PredicateMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -215,7 +217,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
      * <p>The test verifies that batches from diagram above are ignored.
      */
     @Test
-    public void racesBetweenRewindAndBatchesFromPreviousRequest() {
+    public void racesBetweenRewindAndBatchesFromPreviousRequest() throws InterruptedException {
         UUID queryId = UUID.randomUUID();
         String dataNode1Name = "DATA_NODE_1";
         String dataNode2Name = "DATA_NODE_2";
@@ -256,6 +258,18 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
 
             // this is arrow 1 from the sequence
             BatchedResult<Object[]> res = await(root.requestNextAsync(2));
+
+            // We have to make sure that cursor was opened on node 2 before we proceed with test scenario.
+            // Otherwise there is a chance that rewind will outran scan task spawned by first request message.
+            // Problematic task sequence looks like this:
+            //      [taskId: 1, request N rows on Node 2]
+            //      [taskId: 2, rewind and request another N rows on Node2]
+            //      [taskId: 3, <spawned by taskId: 1> scan the iterator and emit rows on Node 2]
+            //
+            // This is not a problem for general query execution since rewind will clean up state and drop
+            // all collected rows so far, but TestDataProvider mutates its state on every invoke of `iterator()`
+            // method, and this test verify certain invariants relates to this mutation
+            assertTrue(waitForCondition(() -> node2DataProvider.awaitingResume() > 0, 1_000));
 
             assertThat(res.items(), hasSize(1));
             assertThat(res.items().get(0), equalTo(new Object[]{1, 0}));
@@ -480,7 +494,8 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
                 createExchangeService(taskExecutor, serviceFactory.forNode(localNode.name()), mailboxRegistry));
 
         Inbox<Object[]> inbox = new Inbox<>(
-                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
+                targetCtx, exchangeService, mailboxRegistry, sourceNodeNames, comparator, rowFactory(),
+                SOURCE_FRAGMENT_ID, SOURCE_FRAGMENT_ID
         );
 
         mailboxRegistry.register(inbox);
@@ -668,6 +683,11 @@ public class ExchangeExecutionTest extends AbstractExecutionTest {
             if (lock.getOwner() != null) {
                 lock.unlock();
             }
+        }
+
+        /** Returns approximate number of threads awaiting this data provider to be {@link #resume() resumed}. */
+        int awaitingResume() {
+            return lock.getQueueLength();
         }
 
         /** {@inheritDoc} */

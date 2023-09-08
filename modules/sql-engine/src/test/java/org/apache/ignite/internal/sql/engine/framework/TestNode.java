@@ -31,9 +31,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
-import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolver;
@@ -68,6 +66,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
+import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterService;
@@ -134,7 +133,7 @@ public class TestNode implements LifecycleAware {
                 dependencyResolver,
                 (ctx, deps) -> new LogicalRelImplementor<Object[]>(
                         ctx,
-                        new HashFunctionFactoryImpl<>(schemaManager, rowHandler),
+                        new HashFunctionFactoryImpl<>(rowHandler),
                         mailboxRegistry,
                         exchangeService,
                         deps

@@ -520,8 +520,6 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     public void testRemoveLearners() {
         List<String> addLearners = peersToIds(NODES.subList(1, 3));
 
-        List<String> removeLearners = peersToIds(NODES.subList(2, 3));
-
         List<String> resultLearners = peersToIds(NODES.subList(1, 2));
 
         when(messagingService.invoke(any(ClusterNode.class), any(RemoveLearnersRequest.class), anyLong()))

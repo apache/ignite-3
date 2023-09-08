@@ -18,14 +18,12 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import org.apache.ignite.internal.metastorage.Entry;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Defines condition on entry revision.
  */
 public class RevisionCondition extends AbstractSimpleCondition {
     /** Condition type. */
-    @NotNull
     private final Type type;
 
     /** Revision which will be tested against an entry revision. Must be positive. */
@@ -38,7 +36,7 @@ public class RevisionCondition extends AbstractSimpleCondition {
      * @param key  Key identifies an entry which condition will be applied to. Can't be {@code null}.
      * @param rev  Revision which will be tested against an entry revision. Must be positive.
      */
-    public RevisionCondition(@NotNull Type type, @NotNull byte[] key, long rev) {
+    public RevisionCondition(Type type, byte[] key, long rev) {
         super(key);
 
         assert rev > 0 : "Revision must be positive.";
@@ -49,7 +47,7 @@ public class RevisionCondition extends AbstractSimpleCondition {
 
     /** {@inheritDoc} */
     @Override
-    public boolean test(@NotNull Entry e) {
+    public boolean test(Entry e) {
         int res = Long.compare(e.revision(), rev);
 
         return type.test(res);

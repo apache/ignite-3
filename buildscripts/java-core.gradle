@@ -56,7 +56,7 @@ pmdMain {
 }
 
 pmdTest {
-    enabled = false
+    enabled = true
 }
 
 checkstyle {

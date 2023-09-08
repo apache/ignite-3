@@ -21,17 +21,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,8 +41,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class FakeTxManager implements TxManager {
     private final HybridClock clock;
-
-    private HybridTimestamp lastObservableTimestamp = null;
 
     public FakeTxManager(HybridClock clock) {
         this.clock = clock;
@@ -57,21 +57,19 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction begin() {
-        return begin(false, null);
+    public InternalTransaction begin(HybridTimestampTracker tracker) {
+        return begin(tracker, true);
     }
 
     @Override
-    public InternalTransaction begin(boolean readOnly, @Nullable HybridTimestamp observableTimestamp) {
-        lastObservableTimestamp = observableTimestamp;
-
+    public InternalTransaction begin(HybridTimestampTracker tracker, boolean readOnly) {
         return new InternalTransaction() {
             private final UUID id = UUID.randomUUID();
 
             private final HybridTimestamp timestamp = clock.now();
 
             @Override
-            public @NotNull UUID id() {
+            public UUID id() {
                 return id;
             }
 
@@ -133,7 +131,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public HybridTimestamp readTimestamp() {
-                return observableTimestamp;
+                return tracker.get();
             }
 
             @Override
@@ -144,12 +142,12 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public @Nullable TxState state(UUID txId) {
+    public @Nullable TxStateMeta stateMeta(UUID txId) {
         return null;
     }
 
     @Override
-    public void changeState(UUID txId, @Nullable TxState before, TxState after) {
+    public void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
 
     }
 
@@ -159,8 +157,19 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> finish(TablePartitionId commitPartition, ClusterNode recipientNode, Long term, boolean commit,
-            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups, UUID txId) {
+    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
+    }
+
+    @Override
+    public CompletableFuture<Void> finish(
+            HybridTimestampTracker timestampTracker,
+            TablePartitionId commitPartition,
+            ClusterNode recipientNode,
+            Long term,
+            boolean commit,
+            Map<ClusterNode, List<IgniteBiTuple<TablePartitionId, Long>>> groups,
+            UUID txId
+    ) {
         return null;
     }
 
@@ -183,9 +192,5 @@ public class FakeTxManager implements TxManager {
     @Override
     public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
         return null;
-    }
-
-    public @Nullable HybridTimestamp lastObservableTimestamp() {
-        return lastObservableTimestamp;
     }
 }

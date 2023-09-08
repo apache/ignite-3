@@ -36,7 +36,6 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.sql.AbstractSession;
-import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.sql.engine.session.SessionId;
 import org.apache.ignite.internal.sql.engine.session.SessionNotFoundException;
 import org.apache.ignite.internal.sql.engine.session.SessionProperty;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -59,6 +59,7 @@ import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -73,6 +74,8 @@ public class SessionImpl implements AbstractSession {
 
     private final QueryProcessor qryProc;
 
+    private final IgniteTransactions transactions;
+
     private final SessionId sessionId;
 
     private final int pageSize;
@@ -83,16 +86,19 @@ public class SessionImpl implements AbstractSession {
      * Constructor.
      *
      * @param qryProc Query processor.
+     * @param transactions Transactions facade.
      * @param pageSize Query fetch page size.
      * @param props Session's properties.
      */
     SessionImpl(
             SessionId sessionId,
             QueryProcessor qryProc,
+            IgniteTransactions transactions,
             int pageSize,
             PropertiesHolder props
     ) {
         this.qryProc = qryProc;
+        this.transactions = transactions;
         this.sessionId = sessionId;
         this.pageSize = pageSize;
         this.props = props;
@@ -155,7 +161,7 @@ public class SessionImpl implements AbstractSession {
             propertyMap.put(entry.getKey().name, entry.getValue());
         }
 
-        return new SessionBuilderImpl(qryProc, propertyMap)
+        return new SessionBuilderImpl(qryProc, transactions, propertyMap)
                 .defaultPageSize(pageSize);
     }
 
@@ -174,7 +180,7 @@ public class SessionImpl implements AbstractSession {
         try {
             QueryContext ctx = QueryContext.create(SqlQueryType.ALL, transaction);
 
-            result = qryProc.querySingleAsync(sessionId, ctx, query, arguments)
+            result = qryProc.querySingleAsync(sessionId, ctx, transactions, query, arguments)
                     .thenCompose(cur -> cur.requestNextAsync(pageSize)
                             .thenApply(
                                     batchRes -> new AsyncResultSetImpl<>(
@@ -251,7 +257,7 @@ public class SessionImpl implements AbstractSession {
                 Object[] args = batch.get(i).toArray();
 
                 final var qryFut = tail
-                        .thenCompose(v -> qryProc.querySingleAsync(sessionId, ctx, query, args));
+                        .thenCompose(v -> qryProc.querySingleAsync(sessionId, ctx, transactions, query, args));
 
                 tail = qryFut.thenCompose(cur -> cur.requestNextAsync(1))
                         .thenAccept(page -> {

@@ -33,9 +33,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.TestExecutableTableRegistry.ColocationGroupProvider;
@@ -351,7 +349,7 @@ public class TestBuilders {
                 }
             }
 
-            Map<String, Table> tableMap = tableBuilders.stream()
+            Map<String, IgniteTable> tableMap = tableBuilders.stream()
                     .map(ClusterTableBuilderImpl::build)
                     .collect(Collectors.toMap(TestTable::name, Function.identity()));
 
@@ -880,11 +878,14 @@ public class TestBuilders {
 
         private final Map<Integer, CompletableFuture<ColocationGroup>> groups = new HashMap<>();
 
-        TestColocationGroupProvider(List<ClusterTableBuilderImpl> tableBuilders, Map<String, Table> tableMap, List<String> nodeNames) {
+        TestColocationGroupProvider(
+                List<ClusterTableBuilderImpl> tableBuilders,
+                Map<String, IgniteTable> tableMap,
+                List<String> nodeNames
+        ) {
 
             for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
-                Table table = tableMap.get(tableBuilder.name);
-                IgniteTable igniteTable = (IgniteTable) table;
+                IgniteTable table = tableMap.get(tableBuilder.name);
                 CompletableFuture<ColocationGroup> f;
 
                 if (!tableBuilder.dataProviders.isEmpty()) {
@@ -896,7 +897,7 @@ public class TestBuilders {
                     f = CompletableFuture.completedFuture(ColocationGroup.forNodes(nodeNames));
                 }
 
-                groups.put(igniteTable.id(), f);
+                groups.put(table.id(), f);
             }
         }
 

@@ -26,10 +26,11 @@ import io.micronaut.http.HttpStatus;
 import java.util.Collections;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.junit.jupiter.api.Test;
 
-class IgniteCliApiExceptionHandlerTest {
+class IgniteCliApiExceptionHandlerTest extends BaseIgniteAbstractTest {
 
     private static final String NODE_URL = "nodeUrl";
 

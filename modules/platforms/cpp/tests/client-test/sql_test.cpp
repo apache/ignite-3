@@ -45,14 +45,14 @@ protected:
         }
 
         client.get_sql().execute(nullptr,
-            {"INSERT INTO TBL_ALL_COLUMNS_SQL VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"},
+            {"INSERT INTO TBL_ALL_COLUMNS_SQL VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"},
             {std::int64_t(42), std::string("test"), std::int8_t(1), std::int16_t(2), std::int32_t(3), std::int64_t(4),
                 .5f, .6, uuid(0x123e4567e89b12d3, 0x7456426614174000), ignite_date(2023, 2, 7),
                 ignite_time(17, 4, 12, 3543634), ignite_time(17, 4, 12, 3543634),
                 ignite_date_time({2020, 7, 28}, {2, 15, 52, 6349879}),
                 ignite_date_time({2020, 7, 28}, {2, 15, 52, 6349879}), ignite_timestamp(3875238472, 248760634),
                 ignite_timestamp(3875238472, 248760634),
-                std::vector<std::byte>{std::byte(1), std::byte(2), std::byte(42)}, big_decimal(123456789098765)});
+                std::vector<std::byte>{std::byte(1), std::byte(2), std::byte(42)}, big_decimal(123456789098765), true});
     }
 
     static void TearDownTestSuite() {
@@ -349,8 +349,8 @@ TEST_F(sql_test, decimal_literal) {
 
 TEST_F(sql_test, all_type_arguments) {
     auto result_set = m_client.get_sql().execute(nullptr,
-        {"select str,int8,int16,int32,int64,float,double,uuid,date,\"TIME\",time2,"
-         "\"DATETIME\",datetime2,timestamp,timestamp2,blob,decimal from TBL_ALL_COLUMNS_SQL"},
+        {"select str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\",\"DATE\",\"TIME\",time2,"
+         "\"DATETIME\",datetime2,\"TIMESTAMP\",timestamp2,\"BLOB\",\"DECIMAL\",\"BOOLEAN\" from TBL_ALL_COLUMNS_SQL"},
         {});
 
     EXPECT_TRUE(result_set.has_rowset());
@@ -372,6 +372,7 @@ TEST_F(sql_test, all_type_arguments) {
     EXPECT_EQ(row.get(13).get<ignite_timestamp>(), ignite_timestamp(3875238472, 248000000));
     EXPECT_EQ(row.get(14).get<ignite_timestamp>(), ignite_timestamp(3875238472, 248000000));
     EXPECT_EQ(row.get(16).get<big_decimal>(), big_decimal(123456789098765));
+    EXPECT_EQ(row.get(17).get<bool>(), true);
 
     auto blob = row.get(15).get<std::vector<std::byte>>();
     EXPECT_EQ(blob[0], std::byte(1));
@@ -396,8 +397,8 @@ TEST_F(sql_test, uuid_literal) {
 
 TEST_F(sql_test, uuid_argument) {
     uuid req{0x123e4567e89b12d3, 0x7456426614174000};
-    auto result_set =
-        m_client.get_sql().execute(nullptr, {"select MAX(UUID) from TBL_ALL_COLUMNS_SQL WHERE UUID = ?"}, {req});
+    auto result_set = m_client.get_sql().execute(
+        nullptr, {"select MAX(\"UUID\") from TBL_ALL_COLUMNS_SQL WHERE \"UUID\" = ?"}, {req});
 
     EXPECT_TRUE(result_set.has_rowset());
 

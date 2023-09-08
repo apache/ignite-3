@@ -21,7 +21,9 @@ import io.opentelemetry.context.Context;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.AbstractIndexCommandParams;
+import org.apache.ignite.internal.catalog.TableExistsValidationException;
+import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
+import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.distributionzones.DistributionZoneAlreadyExistsException;
@@ -80,37 +82,45 @@ public class DdlCommandHandlerWrapper extends DdlCommandHandler {
         Context ctx = Context.current();
         if (cmd instanceof CreateTableCommand) {
             return ddlCommandFuture
-                    .thenCompose(ctx.wrapFunction(res -> catalogManager.createTable(DdlToCatalogCommandConverter.convert((CreateTableCommand) cmd))
-                            .handle(handleModificationResult(((CreateTableCommand) cmd).ifTableExists(), TableAlreadyExistsException.class)))
-                    );
+                    .thenCompose(ctx.wrapFunction(res -> catalogManager.execute(
+                            DdlToCatalogCommandConverter.convert((CreateTableCommand) cmd))
+                            .handle(handleModificationResult(
+                                    ((CreateTableCommand) cmd).ifTableExists(), TableExistsValidationException.class)))
+                    ).handle(handleModificationResult(((CreateTableCommand) cmd).ifTableExists(), TableAlreadyExistsException.class));
         } else if (cmd instanceof DropTableCommand) {
             return ddlCommandFuture
-                    .thenCompose(ctx.wrapFunction(res -> catalogManager.dropTable(DdlToCatalogCommandConverter.convert((DropTableCommand) cmd))
-                            .handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class)))
-                    );
+                    .thenCompose(ctx.wrapFunction(res -> catalogManager.execute(
+                            DdlToCatalogCommandConverter.convert((DropTableCommand) cmd))
+                            .handle(handleModificationResult(
+                                    ((DropTableCommand) cmd).ifTableExists(), TableNotFoundValidationException.class)))
+                    ).handle(handleModificationResult(((DropTableCommand) cmd).ifTableExists(), TableNotFoundException.class));
         } else if (cmd instanceof AlterTableAddCommand) {
             AlterTableAddCommand addCommand = (AlterTableAddCommand) cmd;
 
             return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.addColumn(DdlToCatalogCommandConverter.convert(addCommand))
-                            .handle(handleModificationResult(addCommand.ifTableExists(), TableNotFoundException.class))
-                    );
+                    .thenCompose(res -> catalogManager.execute(DdlToCatalogCommandConverter.convert(addCommand))
+                            .handle(handleModificationResult(
+                                    addCommand.ifTableExists(), TableNotFoundValidationException.class))
+                    ).handle(handleModificationResult(addCommand.ifTableExists(), TableNotFoundException.class));
         } else if (cmd instanceof AlterTableDropCommand) {
             AlterTableDropCommand dropCommand = (AlterTableDropCommand) cmd;
 
             return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.dropColumn(DdlToCatalogCommandConverter.convert(dropCommand))
-                            .handle(handleModificationResult(dropCommand.ifTableExists(), TableNotFoundException.class))
-                    );
+                    .thenCompose(res -> catalogManager.execute(DdlToCatalogCommandConverter.convert(dropCommand))
+                            .handle(handleModificationResult(
+                                    dropCommand.ifTableExists(), TableNotFoundValidationException.class))
+                    ).handle(handleModificationResult(dropCommand.ifTableExists(), TableNotFoundException.class));
         } else if (cmd instanceof AlterColumnCommand) {
             return ddlCommandFuture
-                    .thenCompose(res -> catalogManager.alterColumn(DdlToCatalogCommandConverter.convert((AlterColumnCommand) cmd))
+                    .thenCompose(res -> catalogManager.execute(DdlToCatalogCommandConverter.convert((AlterColumnCommand) cmd))
+                                    .handle(handleModificationResult(
+                                            ((AlterColumnCommand) cmd).ifTableExists(), TableNotFoundValidationException.class))
                             .handle(handleModificationResult(((AlterColumnCommand) cmd).ifTableExists(), TableNotFoundException.class))
                     );
         } else if (cmd instanceof CreateIndexCommand) {
             return ddlCommandFuture
                     .thenCompose(res -> {
-                        AbstractIndexCommandParams params = DdlToCatalogCommandConverter.convert((CreateIndexCommand) cmd);
+                        AbstractCreateIndexCommandParams params = DdlToCatalogCommandConverter.convert((CreateIndexCommand) cmd);
                         if (params instanceof CreateSortedIndexParams) {
                             return catalogManager.createIndex((CreateSortedIndexParams) params);
                         } else {

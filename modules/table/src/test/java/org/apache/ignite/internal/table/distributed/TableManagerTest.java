@@ -65,6 +65,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -111,8 +112,10 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -638,7 +641,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         mockMetastore();
 
         // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
-        TableManager tableManager = createTableManager(tblManagerFut, (mvTableStorage) -> {
+        createTableManager(tblManagerFut, (mvTableStorage) -> {
             doReturn(completedFuture(mvPartitionStorage)).when(mvTableStorage).createMvPartition(anyInt());
             doReturn(mvPartitionStorage).when(mvTableStorage).getMvPartition(anyInt());
             doReturn(completedFuture(null)).when(mvTableStorage).clearPartition(anyInt());
@@ -830,7 +833,10 @@ public class TableManagerTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 vaultManager,
                 cmgMgr,
-                distributionZoneManager
+                distributionZoneManager,
+                mock(SchemaSyncService.class),
+                mock(CatalogService.class),
+                new HybridTimestampTracker()
         ) {
 
             @Override

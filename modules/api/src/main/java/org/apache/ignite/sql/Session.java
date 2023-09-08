@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -322,6 +323,21 @@ public interface Session extends AutoCloseable {
      * Session builder.
      */
     interface SessionBuilder {
+        /**
+         * Returns ignite transaction.
+         *
+         * @return Ignite transaction.
+         */
+        IgniteTransactions igniteTransactions();
+
+        /**
+         * Sets ignite transactions.
+         *
+         * @param transactions Ignite transactions.
+         * @return {@code this} for chaining.
+         */
+        SessionBuilder igniteTransactions(IgniteTransactions transactions);
+
         /**
          * Returns a default query timeout.
          *

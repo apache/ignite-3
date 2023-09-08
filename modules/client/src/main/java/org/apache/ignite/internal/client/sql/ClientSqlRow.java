@@ -23,7 +23,6 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Client SQL row.
@@ -61,13 +60,13 @@ public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlR
 
     /** {@inheritDoc} */
     @Override
-    public int columnIndex(@NotNull String columnName) {
+    public int columnIndex(String columnName) {
         return metadata.indexOf(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Tuple set(@NotNull String columnName, Object value) {
+    public Tuple set(String columnName, Object value) {
         throw new UnsupportedOperationException("Operation not supported.");
     }
 
@@ -79,7 +78,7 @@ public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlR
 
     /** {@inheritDoc} */
     @Override
-    protected int schemaColumnIndex(@NotNull String columnName) {
+    protected int schemaColumnIndex(String columnName) {
         return columnIndex(columnName);
     }
 

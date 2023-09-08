@@ -19,12 +19,14 @@ package org.apache.ignite.internal.raftsnapshot;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -33,9 +35,11 @@ import java.net.ConnectException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -50,17 +54,22 @@ import java.util.stream.IntStream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.IgniteIntegrationTest;
+import org.apache.ignite.internal.ReplicationGroupsUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.raft.server.RaftServer;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaResponse;
+import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
@@ -72,17 +81,27 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.jraft.RaftGroupService;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
-import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.Replicator;
-import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
+import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RaftRpcFactory;
+import org.apache.ignite.raft.jraft.rpc.RaftServerService;
+import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
+import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
+import org.apache.ignite.raft.jraft.rpc.RpcRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcServer;
+import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestProcessor;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotExecutorImpl;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -130,35 +149,23 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
     private LogInspector replicatorLogInspector;
 
-    private @Nullable Handler replicaLoggerHandler;
+    private LogInspector copierLogInspector;
 
     @BeforeEach
     void createCluster(TestInfo testInfo) {
         cluster = new Cluster(testInfo, workDir, NODE_BOOTSTRAP_CFG);
 
         replicatorLogInspector = LogInspector.create(Replicator.class, true);
+        copierLogInspector = LogInspector.create(IncomingSnapshotCopier.class, true);
     }
 
     @AfterEach
     @Timeout(60)
     void shutdownCluster() {
-        if (replicaLoggerHandler != null) {
-            replicatorLogInspector.removeHandler(replicaLoggerHandler);
-        }
-
         replicatorLogInspector.stop();
+        copierLogInspector.stop();
 
         cluster.shutdown();
-    }
-
-    @BeforeEach
-    public void setup(TestInfo testInfo) throws Exception {
-        setupBase(testInfo, workDir);
-    }
-
-    @AfterEach
-    public void tearDown(TestInfo testInfo) throws Exception {
-        tearDownBase(testInfo);
     }
 
     /**
@@ -341,7 +348,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         knockoutNode(2);
 
-        executeDmlWithRetry(0, "insert into test(key, value) values (1, 'one')");
+        executeDmlWithRetry(0, "insert into test(key, val) values (1, 'one')");
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
         causeLogTruncationOnSolePartitionLeader(0);
@@ -357,7 +364,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         String zoneSql = "create zone test_zone"
                 + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
                 + " with partitions=1, replicas=3;";
-        String sql = "create table test (key int primary key, value varchar(20))"
+        String sql = "create table test (key int primary key, val varchar(20))"
                 + " with primary_zone='TEST_ZONE'";
 
         cluster.doInSession(0, session -> {
@@ -373,7 +380,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         BooleanSupplier tableStarted = () -> {
             int numberOfStartedRaftNodes = cluster.runningNodes()
-                    .map(ItTableRaftSnapshotsTest::tablePartitionIds)
+                    .map(ReplicationGroupsUtils::tablePartitionIds)
                     .mapToInt(List::size)
                     .sum();
             return numberOfStartedRaftNodes == 3;
@@ -398,31 +405,9 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * Causes a RAFT snapshot to be taken on the RAFT leader of the sole table partition that exists in the cluster.
      */
     private void doSnapshotOnSolePartitionLeader(int expectedLeaderNodeIndex) throws InterruptedException {
-        TablePartitionId tablePartitionId = solePartitionId();
+        TablePartitionId tablePartitionId = cluster.solePartitionId();
 
         doSnapshotOn(tablePartitionId, expectedLeaderNodeIndex);
-    }
-
-    /**
-     * Returns the ID of the sole table partition that exists in the cluster.
-     */
-    private TablePartitionId solePartitionId() {
-        List<TablePartitionId> tablePartitionIds = tablePartitionIds(cluster.aliveNode());
-
-        assertThat(tablePartitionIds.size(), is(1));
-
-        return tablePartitionIds.get(0);
-    }
-
-    /**
-     * Returns the IDs of all table partitions that exist on the given node.
-     */
-    private static List<TablePartitionId> tablePartitionIds(IgniteImpl node) {
-        return node.raftManager().localNodes().stream()
-                .map(RaftNodeId::groupId)
-                .filter(TablePartitionId.class::isInstance)
-                .map(TablePartitionId.class::cast)
-                .collect(toList());
     }
 
     /**
@@ -462,21 +447,23 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * on it for the sole table partition in the cluster.
      */
     private void reanimateNodeAndWaitForSnapshotInstalled(int nodeIndex) throws InterruptedException {
+        CountDownLatch snapshotInstalledLatch = snapshotInstalledLatch(nodeIndex);
+
+        reanimateNode(nodeIndex);
+
+        assertTrue(snapshotInstalledLatch.await(60, TimeUnit.SECONDS), "Did not install a snapshot in time");
+    }
+
+    private CountDownLatch snapshotInstalledLatch(int nodeIndex) {
         CountDownLatch snapshotInstalledLatch = new CountDownLatch(1);
 
-        Handler handler = replicatorLogInspector.addHandler(
+        replicatorLogInspector.addHandler(
                 evt -> evt.getMessage().getFormattedMessage().matches(
-                        "Node .+ received InstallSnapshotResponse from .+_" + nodeIndex + " .+ success=true"),
-                () -> snapshotInstalledLatch.countDown()
+                        "Node \\S+ received InstallSnapshotResponse from \\S+_" + nodeIndex + " .+ success=true"),
+                snapshotInstalledLatch::countDown
         );
 
-        try {
-            reanimateNode(nodeIndex);
-
-            assertTrue(snapshotInstalledLatch.await(60, TimeUnit.SECONDS), "Did not install a snapshot in time");
-        } finally {
-            replicatorLogInspector.removeHandler(handler);
-        }
+        return snapshotInstalledLatch;
     }
 
     private void reanimateNode(int nodeIndex) {
@@ -484,52 +471,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     private void transferLeadershipOnSolePartitionTo(int nodeIndex) throws InterruptedException {
-        String nodeConsistentId = cluster.node(nodeIndex).node().name();
-
-        int maxAttempts = 3;
-
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            boolean transferred = tryTransferLeadershipOnSolePartitionTo(nodeConsistentId);
-
-            if (transferred) {
-                break;
-            }
-
-            if (attempt < maxAttempts) {
-                LOG.info("Did not transfer leadership after " + attempt + " attempts, going to retry...");
-            } else {
-                fail("Did not transfer leadership in time after " + maxAttempts + " attempts");
-            }
-        }
-    }
-
-    private boolean tryTransferLeadershipOnSolePartitionTo(String targetLeaderConsistentId) throws InterruptedException {
-        NodeImpl leaderBeforeTransfer = (NodeImpl) cluster.leaderServiceFor(solePartitionId()).getRaftNode();
-
-        initiateLeadershipTransferTo(targetLeaderConsistentId, leaderBeforeTransfer);
-
-        BooleanSupplier leaderTransferred = () -> {
-            PeerId leaderId = leaderBeforeTransfer.getLeaderId();
-            return leaderId != null && leaderId.getConsistentId().equals(targetLeaderConsistentId);
-        };
-
-        return waitForCondition(leaderTransferred, 10_000);
-    }
-
-    private static void initiateLeadershipTransferTo(String targetLeaderConsistentId, NodeImpl leaderBeforeTransfer) {
-        long startedMillis = System.currentTimeMillis();
-
-        while (true) {
-            Status status = leaderBeforeTransfer.transferLeadershipTo(new PeerId(targetLeaderConsistentId));
-
-            if (status.getRaftError() != RaftError.EBUSY) {
-                break;
-            }
-
-            if (System.currentTimeMillis() - startedMillis > 10_000) {
-                throw new IllegalStateException("Could not initiate leadership transfer to " + targetLeaderConsistentId + " in time");
-            }
-        }
+        cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId());
     }
 
     /**
@@ -556,7 +498,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         Transaction tx = cluster.node(0).transactions().begin();
 
         cluster.doInSession(0, session -> {
-            executeUpdate("insert into test(key, value) values (1, 'one')", session, tx);
+            executeUpdate("insert into test(key, val) values (1, 'one')", session, tx);
 
             knockoutNode(2);
 
@@ -584,12 +526,12 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         // this should be possibly replaced with executeDmlWithRetry.
         cluster.doInSession(0, session -> {
-            executeUpdate("insert into test(key, value) values (2, 'two')", session);
+            executeUpdate("insert into test(key, val) values (2, 'two')", session);
         });
 
         transferLeadershipOnSolePartitionTo(2);
 
-        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(2, "select * from test order by key",
+        List<IgniteBiTuple<Integer, String>> rows = queryWithRetry(0, "select * from test order by key",
                 ItTableRaftSnapshotsTest::readRows);
 
         assertThat(rows, is(List.of(new IgniteBiTuple<>(1, "one"), new IgniteBiTuple<>(2, "two"))));
@@ -612,7 +554,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             for (int i = 2; !installedSnapshot.get(); i++) {
                 int key = i;
                 cluster.doInSession(0, session -> {
-                    executeUpdate("insert into test(key, value) values (" + key + ", 'extra')", session);
+                    executeUpdate("insert into test(key, val) values (" + key + ", 'extra')", session);
                     lastLoadedKey.set(key);
                 });
             }
@@ -649,7 +591,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         knockoutNode(0);
 
         cluster.doInSession(2, session -> {
-            executeUpdate("insert into test(key, value) values (2, 'two')", session);
+            executeUpdate("insert into test(key, val) values (2, 'two')", session);
         });
 
         // Make sure AppendEntries from leader to follower is impossible, making the leader to use InstallSnapshot.
@@ -805,11 +747,12 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             int nodeIndexTo,
             CompletableFuture<Void> snapshotInstallSuccessfullyFuture
     ) {
-        String regexp = "Node .+" + nodeIndexFrom + " received InstallSnapshotResponse from .+_" + nodeIndexTo + " .+ success=true";
+        String regexp = "Node \\S+" + nodeIndexFrom + " received InstallSnapshotResponse from \\S+_" + nodeIndexTo + " .+ success=true";
 
-        replicaLoggerHandler = replicatorLogInspector.addHandler(
+        replicatorLogInspector.addHandler(
                 evt -> evt.getMessage().getFormattedMessage().matches(regexp),
-                () -> snapshotInstallSuccessfullyFuture.complete(null));
+                () -> snapshotInstallSuccessfullyFuture.complete(null)
+        );
     }
 
     /**
@@ -864,6 +807,115 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     /**
+     * The replication mechanism must not replicate commands for which schemas are not yet available on the node
+     * to which replication happens (in Raft, it means that followers/learners cannot receive commands that they
+     * cannot execute without waiting for schemas). This method tests that snapshots bringing such commands are
+     * rejected, and that, when metadata catches up, the snapshot gets successfully installed.
+     */
+    @Test
+    void laggingSchemasOnFollowerPreventSnapshotInstallation() throws Exception {
+        cluster.startAndInit(3);
+
+        createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
+
+        // Prepare the scene: force node 0 to be a leader, and node 2 to be a follower.
+        final int leaderIndex = 0;
+        final int followerIndex = 2;
+
+        transferLeadershipOnSolePartitionTo(leaderIndex);
+        cluster.transferLeadershipTo(leaderIndex, MetastorageGroupId.INSTANCE);
+
+        // Block AppendEntries from being accepted on the follower so that the leader will have to use a snapshot.
+        blockIncomingAppendEntriesAt(followerIndex);
+
+        // Inhibit the MetaStorage on the follower to make snapshots not eligible for installation.
+        WatchListenerInhibitor listenerInhibitor = inhibitMetastorageListenersAt(followerIndex);
+
+        try {
+            // Add some data in a schema that is not yet available on the follower
+            updateTableSchemaAt(leaderIndex);
+            putToTableAt(leaderIndex);
+
+            CountDownLatch installationRejected = installationRejectedLatch();
+            CountDownLatch snapshotInstalled = snapshotInstalledLatch(followerIndex);
+
+            // Force InstallSnapshot to be used.
+            causeLogTruncationOnSolePartitionLeader(leaderIndex);
+
+            assertTrue(installationRejected.await(20, TimeUnit.SECONDS), "Did not see snapshot installation rejection");
+
+            assertThat("Snapshot was installed before unblocking", snapshotInstalled.getCount(), is(not(0L)));
+
+            listenerInhibitor.stopInhibit();
+
+            assertTrue(snapshotInstalled.await(20, TimeUnit.SECONDS), "Did not see a snapshot installed");
+        } finally {
+            listenerInhibitor.stopInhibit();
+        }
+    }
+
+    private void updateTableSchemaAt(int nodeIndex) {
+        cluster.doInSession(nodeIndex, session -> {
+            session.execute(null, "alter table test add column added int");
+        });
+    }
+
+    private void putToTableAt(int nodeIndex) {
+        KeyValueView<Tuple, Tuple> kvView = cluster.node(nodeIndex)
+                .tables()
+                .table("test")
+                .keyValueView();
+        kvView.put(null, Tuple.create().set("key", 1), Tuple.create().set("val", "one"));
+    }
+
+    private void blockIncomingAppendEntriesAt(int nodeIndex) {
+        BlockingAppendEntriesRequestProcessor blockingProcessorOnFollower = installBlockingAppendEntriesProcessor(nodeIndex);
+
+        blockingProcessorOnFollower.startBlocking();
+    }
+
+    private WatchListenerInhibitor inhibitMetastorageListenersAt(int nodeIndex) {
+        IgniteImpl nodeToInhibitMetaStorage = cluster.node(nodeIndex);
+
+        WatchListenerInhibitor listenerInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(nodeToInhibitMetaStorage);
+        listenerInhibitor.startInhibit();
+
+        return listenerInhibitor;
+    }
+
+    private CountDownLatch installationRejectedLatch() {
+        CountDownLatch installationRejected = new CountDownLatch(1);
+
+        copierLogInspector.addHandler(
+                event -> event.getMessage().getFormattedMessage().startsWith("Metadata not yet available, rejecting snapshot installation"),
+                installationRejected::countDown
+        );
+
+        return installationRejected;
+    }
+
+    private BlockingAppendEntriesRequestProcessor installBlockingAppendEntriesProcessor(int nodeIndex) {
+        RaftServer raftServer = cluster.node(nodeIndex).raftManager().server();
+        RpcServer<?> rpcServer = getFieldValue(raftServer, JraftServerImpl.class, "rpcServer");
+        Map<String, RpcProcessor<?>> processors = getFieldValue(rpcServer, IgniteRpcServer.class, "processors");
+
+        AppendEntriesRequestProcessor originalProcessor =
+                (AppendEntriesRequestProcessor) processors.get(AppendEntriesRequest.class.getName());
+        Executor appenderExecutor = getFieldValue(originalProcessor, RpcRequestProcessor.class, "executor");
+        RaftMessagesFactory raftMessagesFactory = getFieldValue(originalProcessor, RpcRequestProcessor.class, "msgFactory");
+
+        BlockingAppendEntriesRequestProcessor blockingProcessor = new BlockingAppendEntriesRequestProcessor(
+                appenderExecutor,
+                raftMessagesFactory,
+                cluster.solePartitionId().toString()
+        );
+
+        rpcServer.registerProcessor(blockingProcessor);
+
+        return blockingProcessor;
+    }
+
+    /**
      * This exception is thrown to indicate that an operation can not possibly succeed after some error condition.
      * For example there is no reason to retry an operation that inserts a certain key after receiving a duplicate key error.
      */
@@ -873,6 +925,37 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
 
         private UnableToRetry(Throwable cause) {
             super(cause);
+        }
+    }
+
+    /**
+     * {@link AppendEntriesRequestProcessor} that, when blocking is enabled, blocks all AppendEntriesRequests of
+     * the given group (that is, returns EBUSY error code, which makes JRaft repeat them).
+     */
+    private static class BlockingAppendEntriesRequestProcessor extends AppendEntriesRequestProcessor {
+        private final String idOfGroupToBlock;
+        private volatile boolean block;
+
+        public BlockingAppendEntriesRequestProcessor(Executor executor,
+                RaftMessagesFactory msgFactory, String idOfGroupToBlock) {
+            super(executor, msgFactory);
+
+            this.idOfGroupToBlock = idOfGroupToBlock;
+        }
+
+        @Override
+        public Message processRequest0(RaftServerService service, AppendEntriesRequest request, RpcRequestClosure done) {
+            if (block && idOfGroupToBlock.equals(request.groupId())) {
+                return RaftRpcFactory.DEFAULT //
+                    .newResponse(done.getMsgFactory(), RaftError.EBUSY,
+                            "Blocking AppendEntries on '%s'.", request.groupId());
+            }
+
+            return super.processRequest0(service, request, done);
+        }
+
+        public void startBlocking() {
+            block = true;
         }
     }
 }

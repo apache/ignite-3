@@ -27,6 +27,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesConfiguration;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,7 +36,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for distribution zone manager.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class DistributionZoneMockTest {
+public class DistributionZoneMockTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private DistributionZonesConfiguration zonesConfiguration;
 

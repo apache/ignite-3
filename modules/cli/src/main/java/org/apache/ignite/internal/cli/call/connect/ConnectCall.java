@@ -17,16 +17,11 @@
 
 package org.apache.ignite.internal.cli.call.connect;
 
-import static org.apache.ignite.internal.cli.config.CliConfigKeys.BASIC_AUTHENTICATION_USERNAME;
 import static org.apache.ignite.lang.util.StringUtils.nullOrBlank;
 
 import io.micronaut.http.HttpStatus;
 import jakarta.inject.Singleton;
 import java.util.Objects;
-import org.apache.ignite.internal.cli.config.CliConfigKeys;
-import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
-import org.apache.ignite.internal.cli.config.StateConfigProvider;
-import org.apache.ignite.internal.cli.core.JdbcUrlFactory;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
 import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
@@ -40,9 +35,6 @@ import org.apache.ignite.internal.cli.core.style.component.MessageUiComponent;
 import org.apache.ignite.internal.cli.core.style.element.UiElements;
 import org.apache.ignite.internal.cli.event.EventPublisher;
 import org.apache.ignite.internal.cli.event.Events;
-import org.apache.ignite.rest.client.api.NodeConfigurationApi;
-import org.apache.ignite.rest.client.api.NodeManagementApi;
-import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.jetbrains.annotations.Nullable;
 
@@ -54,28 +46,24 @@ import org.jetbrains.annotations.Nullable;
 public class ConnectCall implements Call<ConnectCallInput, String> {
     private final Session session;
 
-    private final StateConfigProvider stateConfigProvider;
-
     private final ApiClientFactory clientFactory;
 
-    private final JdbcUrlFactory jdbcUrlFactory;
-
-    private final ConfigManagerProvider configManagerProvider;
-
     private final EventPublisher eventPublisher;
+
+    private final ConnectSuccessCall connectSuccessCall;
+
+    private final ConnectionChecker connectionChecker;
 
     /**
      * Constructor.
      */
-    public ConnectCall(Session session, StateConfigProvider stateConfigProvider, ApiClientFactory clientFactory,
-            JdbcUrlFactory jdbcUrlFactory, ConfigManagerProvider configManagerProvider,
-            EventPublisher eventPublisher) {
+    public ConnectCall(Session session, ApiClientFactory clientFactory, EventPublisher eventPublisher,
+            ConnectSuccessCall connectSuccessCall, ConnectionChecker connectionChecker) {
         this.session = session;
-        this.stateConfigProvider = stateConfigProvider;
         this.clientFactory = clientFactory;
-        this.jdbcUrlFactory = jdbcUrlFactory;
-        this.configManagerProvider = configManagerProvider;
         this.eventPublisher = eventPublisher;
+        this.connectSuccessCall = connectSuccessCall;
+        this.connectionChecker = connectionChecker;
     }
 
     @Override
@@ -91,17 +79,14 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
             sessionInfo = connectWithoutAuthentication(nodeUrl);
             if (sessionInfo == null) {
                 // Try with authentication
+                sessionInfo =  connectionChecker.checkConnection(input);
                 if (!nullOrBlank(input.username()) && !nullOrBlank(input.password())) {
-                    sessionInfo = connectWithAuthentication(nodeUrl, input.username(), input.password());
-
                     // Use current credentials as default for api clients
                     ApiClientSettings clientSettings = ApiClientSettings.builder()
                             .basicAuthenticationUsername(input.username())
                             .basicAuthenticationPassword(input.password())
                             .build();
                     clientFactory.setSessionSettings(clientSettings);
-                } else {
-                    sessionInfo = connectWithAuthentication(nodeUrl);
                 }
             } else if (!nullOrBlank(input.username()) || !nullOrBlank(input.password())) {
                 // Cluster without authentication but connect command invoked with username/password
@@ -111,11 +96,7 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
                                 sessionInfo.nodeUrl()));
             }
 
-            stateConfigProvider.get().setProperty(CliConfigKeys.LAST_CONNECTED_URL.value(), nodeUrl);
-
-            eventPublisher.publish(Events.connect(sessionInfo));
-
-            return DefaultCallOutput.success(MessageUiComponent.fromMessage("Connected to %s", UiElements.url(nodeUrl)).render());
+            return connectSuccessCall.execute(sessionInfo);
         } catch (Exception e) {
             if (session.info() != null) {
                 eventPublisher.publish(Events.disconnect());
@@ -127,8 +108,8 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
     @Nullable
     private SessionInfo connectWithoutAuthentication(String nodeUrl) throws ApiException {
         try {
-            ApiClient apiClient = clientFactory.getClientWithoutBasicAuthentication(nodeUrl);
-            return constructSessionInfo(apiClient, nodeUrl, null);
+            ConnectCallInput connectCallInput = ConnectCallInput.builder().url(nodeUrl).build();
+            return connectionChecker.checkConnectionWithoutAuthentication(connectCallInput);
         } catch (ApiException e) {
             if (e.getCause() == null && e.getCode() == HttpStatus.UNAUTHORIZED.getCode()) {
                 return null;
@@ -136,24 +117,6 @@ public class ConnectCall implements Call<ConnectCallInput, String> {
                 throw e;
             }
         }
-    }
-
-    private SessionInfo connectWithAuthentication(String nodeUrl, String inputUsername, String inputPassword) throws ApiException {
-        ApiClient apiClient = clientFactory.getClient(nodeUrl, inputUsername, inputPassword);
-        return constructSessionInfo(apiClient, nodeUrl, inputUsername);
-    }
-
-    private SessionInfo connectWithAuthentication(String nodeUrl) throws ApiException {
-        ApiClient apiClient = clientFactory.getClient(nodeUrl);
-        String username = configManagerProvider.get().getCurrentProperty(BASIC_AUTHENTICATION_USERNAME.value());
-        return constructSessionInfo(apiClient, nodeUrl, username);
-    }
-
-    private SessionInfo constructSessionInfo(ApiClient apiClient, String nodeUrl, @Nullable String username) throws ApiException {
-        String configuration = new NodeConfigurationApi(apiClient).getNodeConfiguration();
-        String nodeName = new NodeManagementApi(apiClient).nodeState().getName();
-        String jdbcUrl = jdbcUrlFactory.constructJdbcUrl(configuration, nodeUrl);
-        return SessionInfo.builder().nodeUrl(nodeUrl).nodeName(nodeName).jdbcUrl(jdbcUrl).username(username).build();
     }
 
     private static IgniteCliApiException handleException(Exception e, String nodeUrl) {

@@ -59,8 +59,8 @@ struct queries_test : public odbc_suite {
                 FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
         }
 
-        SQLCHAR request[] = "select key,str,int8,int16,int32,int64,float,double,uuid,"
-                            "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
+        SQLCHAR request[] = "select key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\","
+                            "\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\" FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
 
         ret = SQLExecDirect(m_statement, request, SQL_NTS);
         if (!SQL_SUCCEEDED(ret))
@@ -199,8 +199,8 @@ TEST_F(queries_test, two_rows_string) {
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
     }
 
-    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,float,double,uuid,"
-                        "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
+    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\","
+                        "\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\" FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
 
     ret = SQLExecDirect(m_statement, request, SQL_NTS);
     if (!SQL_SUCCEEDED(ret))
@@ -293,8 +293,8 @@ TEST_F(queries_test, one_row_string_len) {
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
     }
 
-    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,float,double,uuid,"
-                        "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
+    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\","
+                        "\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\" FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
 
     ret = SQLExecDirect(m_statement, request, SQL_NTS);
     if (!SQL_SUCCEEDED(ret))
@@ -342,8 +342,8 @@ TEST_F(queries_test, data_at_execution) {
             FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
     }
 
-    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,float,double,uuid,"
-                        "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL "
+    SQLCHAR request[] = "select key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\","
+                        "\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\" FROM TBL_ALL_COLUMNS_SQL "
                         "where int32 = ? AND str = ? ORDER BY key";
 
     ret = SQLPrepare(m_statement, request, SQL_NTS);
@@ -451,9 +451,10 @@ TEST_F(queries_test, null_fields) {
 
     insert_all_types_row(1);
 
-    exec_query("insert into TBL_ALL_COLUMNS_SQL("
-               "   key,str,int8,int16,int32,int64,float,double,uuid,date,\"TIME\",\"DATETIME\",decimal) "
-               "values(2, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
+    exec_query(
+        "insert into TBL_ALL_COLUMNS_SQL("
+        "   key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\",\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\") "
+        "values(2, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
 
     insert_all_types_row(3);
 
@@ -523,8 +524,8 @@ TEST_F(queries_test, null_fields) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    SQLCHAR request[] = "select str,int8,int16,int32,int64,float,double,uuid,"
-                        "date,\"TIME\",\"DATETIME\",decimal FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
+    SQLCHAR request[] = "select str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\","
+                        "\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\" FROM TBL_ALL_COLUMNS_SQL ORDER BY key";
 
     ret = SQLExecDirect(m_statement, request, SQL_NTS);
     if (!SQL_SUCCEEDED(ret))

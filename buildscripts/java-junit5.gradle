@@ -20,6 +20,7 @@ test {
     testLogging {
         events "passed", "skipped", "failed", "standard_error"
     }
+    maxHeapSize = '2g'
 
     // Define default test timeouts to avoid everhanging tests.
     systemProperty 'junit.jupiter.execution.timeout.testable.method.default', '10m'

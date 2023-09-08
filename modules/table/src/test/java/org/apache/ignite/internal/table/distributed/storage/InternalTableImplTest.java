@@ -41,6 +41,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -50,7 +52,7 @@ import org.junit.jupiter.api.Test;
 /**
  * For {@link InternalTableImpl} testing.
  */
-public class InternalTableImplTest {
+public class InternalTableImplTest extends BaseIgniteAbstractTest {
     @Test
     void testUpdatePartitionTrackers() {
         InternalTableImpl internalTable = new InternalTableImpl(
@@ -63,7 +65,8 @@ public class InternalTableImplTest {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
-                mock(HybridClock.class)
+                mock(HybridClock.class),
+                new HybridTimestampTracker()
         );
 
         // Let's check the empty table.
@@ -107,7 +110,8 @@ public class InternalTableImplTest {
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
-                mock(HybridClock.class)
+                mock(HybridClock.class),
+                new HybridTimestampTracker()
         );
 
         List<BinaryRowEx> originalRows = List.of(

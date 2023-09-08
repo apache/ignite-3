@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -32,6 +32,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.BitSet;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -74,10 +75,7 @@ public class SqlTestUtils {
     public static SqlException assertThrowsSqlException(int expectedCode, String expectedMessage, Executable executable) {
         SqlException ex = assertThrowsSqlException(expectedCode, executable);
 
-        String msg = ex.getMessage();
-
-        assertNotNull(msg, "Error message was null, but expected '" + expectedMessage + "'.");
-        assertTrue(msg.contains(expectedMessage), "Error message '" + ex.getMessage() + "' doesn't contain '" + expectedMessage + "'.");
+        assertThat("Error message", ex.getMessage(), containsString(expectedMessage));
 
         return ex;
     }
@@ -133,7 +131,6 @@ public class SqlTestUtils {
      * Generate random value for given SQL type.
      *
      * @param type SQL type to generate value related to the type.
-     *
      * @return Generated value for given SQL type.
      */
     public static Object generateValueByType(ColumnType type) {
@@ -145,7 +142,6 @@ public class SqlTestUtils {
      *
      * @param base Base value to generate value.
      * @param type SQL type to generate value related to the type.
-     *
      * @return Generated value for given SQL type.
      */
     public static Object generateValueByType(int base, ColumnType type) {
@@ -177,7 +173,7 @@ public class SqlTestUtils {
             case UUID:
                 return new UUID(base, base);
             case BITMASK:
-                return new byte[]{(byte) base};
+                return BitSet.valueOf(BigInteger.valueOf(base).toByteArray());
             case DURATION:
                 return Duration.ofNanos(base);
             case DATETIME:

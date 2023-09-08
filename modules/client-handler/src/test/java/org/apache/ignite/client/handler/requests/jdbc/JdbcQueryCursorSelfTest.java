@@ -22,19 +22,28 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
+import org.apache.ignite.internal.sql.engine.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.AsyncWrapper;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
+import org.apache.ignite.internal.util.AsyncWrapper;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Test class for {@link JdbcQueryCursor}.
  */
-public class JdbcQueryCursorSelfTest {
+@ExtendWith(MockitoExtension.class)
+public class JdbcQueryCursorSelfTest extends BaseIgniteAbstractTest {
+    @Mock
+    private QueryTransactionWrapper txWrapper;
+
     private static final List<Integer> ROWS = List.of(1, 2, 3);
 
     private static final int TOTAL_ROWS_COUNT = ROWS.size();
@@ -58,9 +67,9 @@ public class JdbcQueryCursorSelfTest {
         assertEquals(ROWS, results);
     }
 
-    private static List<Integer> fetchFullBatch(int maxRows, int fetchSize) {
+    private List<Integer> fetchFullBatch(int maxRows, int fetchSize) {
         JdbcQueryCursor<Integer> cursor = new JdbcQueryCursor<>(maxRows,
-                new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, null,
+                new AsyncSqlCursorImpl<>(SqlQueryType.QUERY, null, txWrapper,
                         new AsyncWrapper<>(CompletableFuture.completedFuture(ROWS.iterator()), Runnable::run)));
 
         List<Integer> results = new ArrayList<>(maxRows);

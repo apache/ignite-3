@@ -88,6 +88,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.sql.ColumnType;
@@ -402,18 +403,20 @@ public class DdlSqlToCommandConverter {
         return alterTblCmd;
     }
 
-    private DefaultValueDefinition convertDefault(SqlNode expression, RelDataType relType) {
-        if (expression instanceof SqlIdentifier) {
+    private static DefaultValueDefinition convertDefault(@Nullable SqlNode expression, RelDataType relType) {
+        if (expression == null) {
+            return DefaultValueDefinition.constant(null);
+        } else if (expression instanceof SqlIdentifier) {
             return DefaultValueDefinition.functionCall(((SqlIdentifier) expression).getSimple());
+        } else if (expression instanceof SqlLiteral) {
+            ColumnType columnType = TypeUtils.columnType(relType);
+            assert columnType != null : "RelType to columnType conversion should not return null";
+
+            Object val = fromLiteral(columnType, (SqlLiteral) expression);
+            return DefaultValueDefinition.constant(val);
+        } else {
+            throw new IllegalArgumentException("Unsupported default expression: " + expression.getKind());
         }
-
-        Object val = null;
-
-        if (expression instanceof SqlLiteral) {
-            val = fromLiteral(relType, (SqlLiteral) expression);
-        }
-
-        return DefaultValueDefinition.constant(val);
     }
 
     private AlterColumnCommand convertAlterColumn(IgniteSqlAlterColumn alterColumnNode, PlanningContext ctx) {
@@ -440,7 +443,7 @@ public class DdlSqlToCommandConverter {
             if (expr instanceof SqlLiteral) {
                 resolveDfltFunc = type -> DefaultValue.constant(fromLiteral(type, (SqlLiteral) expr));
             } else {
-                throw new IllegalStateException("Invalid expression type " + expr.getClass().getName());
+                throw new IllegalStateException("Invalid expression type " + expr.getKind());
             }
 
             cmd.defaultValueResolver(resolveDfltFunc);
@@ -820,70 +823,13 @@ public class DdlSqlToCommandConverter {
     /**
      * Creates a value of required type from the literal.
      */
-    private static Object fromLiteral(RelDataType columnType, SqlLiteral literal) {
-        try {
-            SqlTypeName sqlColumnType = columnType.getSqlTypeName();
-
-            switch (sqlColumnType) {
-                case VARCHAR:
-                case CHAR:
-                    return literal.getValueAs(String.class);
-                case DATE: {
-                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(sqlColumnType);
-                    return LocalDate.ofEpochDay(literal0.getValueAs(DateString.class).getDaysSinceEpoch());
-                }
-                case TIME: {
-                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(sqlColumnType);
-                    return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(literal0.getValueAs(TimeString.class).getMillisOfDay()));
-                }
-                case TIMESTAMP: {
-                    SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(sqlColumnType);
-                    var tsString = literal0.getValueAs(TimestampString.class);
-
-                    return LocalDateTime.ofEpochSecond(
-                            TimeUnit.MILLISECONDS.toSeconds(tsString.getMillisSinceEpoch()),
-                            (int) (TimeUnit.MILLISECONDS.toNanos(tsString.getMillisSinceEpoch() % 1000)),
-                            ZoneOffset.UTC
-                    );
-                }
-                case TIMESTAMP_WITH_LOCAL_TIME_ZONE: {
-                    // TODO: IGNITE-17376
-                    throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-17376");
-                }
-                case INTEGER:
-                    return literal.getValueAs(Integer.class);
-                case BIGINT:
-                    return literal.getValueAs(Long.class);
-                case SMALLINT:
-                    return literal.getValueAs(Short.class);
-                case TINYINT:
-                    return literal.getValueAs(Byte.class);
-                case DECIMAL:
-                    return literal.getValueAs(BigDecimal.class);
-                case DOUBLE:
-                    return literal.getValueAs(Double.class);
-                case REAL:
-                case FLOAT:
-                    return literal.getValueAs(Float.class);
-                case BINARY:
-                case VARBINARY:
-                    return literal.getValueAs(byte[].class);
-                case BOOLEAN:
-                    return literal.getValueAs(Boolean.class);
-                default:
-                    throw new IllegalStateException("Unknown type [type=" + columnType + ']');
-            }
-        } catch (Throwable th) {
-            // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
-            throw new SqlException(STMT_VALIDATION_ERR, "Unable co convert literal", th);
-        }
-    }
-
     private static @Nullable Object fromLiteral(ColumnType columnType, SqlLiteral literal) {
+        if (literal.getValue() == null) {
+            return null;
+        }
+
         try {
             switch (columnType) {
-                case NULL:
-                    return null;
                 case STRING:
                     return literal.getValueAs(String.class);
                 case DATE: {
@@ -894,7 +840,7 @@ public class DdlSqlToCommandConverter {
                     SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(SqlTypeName.TIME);
                     return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(literal0.getValueAs(TimeString.class).getMillisOfDay()));
                 }
-                case TIMESTAMP: {
+                case DATETIME: {
                     SqlLiteral literal0 = ((SqlUnknownLiteral) literal).resolve(SqlTypeName.TIMESTAMP);
                     var tsString = literal0.getValueAs(TimestampString.class);
 
@@ -904,6 +850,9 @@ public class DdlSqlToCommandConverter {
                             ZoneOffset.UTC
                     );
                 }
+                case TIMESTAMP:
+                    // TODO: IGNITE-17376
+                    throw new UnsupportedOperationException("Type is not supported: " + columnType);
                 case INT32:
                     return literal.getValueAs(Integer.class);
                 case INT64:
@@ -927,7 +876,7 @@ public class DdlSqlToCommandConverter {
             }
         } catch (Throwable th) {
             // catch throwable here because literal throws an AssertionError when unable to cast value to a given class
-            throw new SqlException(STMT_VALIDATION_ERR, "Unable co convert literal", th);
+            throw new SqlException(STMT_VALIDATION_ERR, "Unable convert literal", th);
         }
     }
 

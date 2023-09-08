@@ -48,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -78,7 +79,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
-import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -95,23 +95,26 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDa
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -157,6 +160,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** TX manager. */
     @Mock(lenient = true)
     private TxManager tm;
+
+    /** Ignite transactions. */
+    @Mock(lenient = true)
+    private IgniteTransactions transactions;
 
     /** Meta storage manager. */
     @Mock
@@ -204,13 +211,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     SqlQueryProcessor queryProc;
 
-    /** Test node. */
-    private final ClusterNode node = new ClusterNodeImpl(
-            UUID.randomUUID().toString(),
-            NODE_NAME,
-            new NetworkAddress("127.0.0.1", 2245)
-    );
-
     @InjectConfiguration
     private RocksDbStorageEngineConfiguration rocksDbEngineConfig;
 
@@ -227,6 +227,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     private SchemaManager schemaManager;
 
     private CatalogManager catalogManager;
+
+    private SchemaSyncService schemaSyncService;
 
     private MetricManager metricManager;
 
@@ -291,8 +293,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         schemaManager.start();
 
         catalogManager = mock(CatalogManager.class);
-        when(catalogManager.createTable(any())).thenReturn(completedFuture(null));
-        when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
+        when(catalogManager.execute(any(CatalogCommand.class))).thenReturn(completedFuture(null));
+
+        schemaSyncService = mock(SchemaSyncService.class);
+        when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(completedFuture(null));
 
         cmgMgr = mock(ClusterManagementGroupManager.class);
 
@@ -326,7 +330,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 idxManager,
                 schemaManager,
                 dataStorageManager,
-                tm,
                 distributionZoneManager,
                 () -> dataStorageModules.collectSchemasFields(
                         List.of(
@@ -374,17 +377,12 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      */
     @Test
     public void testCreateTable() {
-        SqlQueryProcessor finalQueryProc = queryProc;
-
-        SessionId sessionId = queryProc.createSession(PropertiesHelper.emptyHolder());
-        QueryContext context = QueryContext.create(SqlQueryType.ALL);
-
         String curMethodName = getCurrentMethodName();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
                 + "with primary_zone='%s'", curMethodName, ZONE_NAME);
 
-        readFirst(queryProc.querySingleAsync(sessionId, context, newTblSql));
+        readFirst(sql(newTblSql));
 
         assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
                 .equalsIgnoreCase(curMethodName)));
@@ -392,23 +390,23 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String finalNewTblSql1 = newTblSql;
 
         assertThrows(TableAlreadyExistsException.class,
-                () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context, finalNewTblSql1)));
+                () -> readFirst(sql(finalNewTblSql1)));
 
         String finalNewTblSql2 = String.format("CREATE TABLE \"PUBLIC\".%s (c1 int PRIMARY KEY, c2 varbinary(255)) "
                 + "with primary_zone='%s'", curMethodName, ZONE_NAME);
 
         assertThrows(TableAlreadyExistsException.class,
-                () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context, finalNewTblSql2)));
+                () -> readFirst(sql(finalNewTblSql2)));
 
-        assertThrows(SqlException.class, () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context,
+        assertThrows(SqlException.class, () -> readFirst(sql(
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions__wrong=1,primary_zone='"
                         + ZONE_NAME + "'")));
 
-        assertThrows(SqlException.class, () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context,
+        assertThrows(SqlException.class, () -> readFirst(sql(
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas__wrong=1,primary_zone='"
                         + ZONE_NAME + "'")));
 
-        assertThrows(SqlException.class, () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context,
+        assertThrows(SqlException.class, () -> readFirst(sql(
                 "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone__wrong='"
                         + ZONE_NAME + "'")));
 
@@ -417,7 +415,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         String finalNewTblSql3 = newTblSql;
 
-        assertDoesNotThrow(() -> readFirst(finalQueryProc.querySingleAsync(sessionId, context, finalNewTblSql3)));
+        assertDoesNotThrow(() -> readFirst(sql(finalNewTblSql3)));
     }
 
     /**
@@ -427,28 +425,25 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     public void testCreateTableWithDistributionZone() {
         String tableName = getCurrentMethodName().toUpperCase();
 
-        SessionId sessionId = queryProc.createSession(PropertiesHelper.emptyHolder());
-        QueryContext context = QueryContext.create(SqlQueryType.ALL);
-
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) ",
                  tableName);
 
-        readFirst(queryProc.querySingleAsync(sessionId, context, newTblSql));
+        readFirst(sql(newTblSql));
 
         assertEquals(getZoneId(DEFAULT_ZONE_NAME), tblsCfg.tables().get(tableName).zoneId().value());
 
-        readFirst(queryProc.querySingleAsync(sessionId, context, "DROP TABLE " + tableName));
+        readFirst(sql("DROP TABLE " + tableName));
 
         int zoneId = dstZnsCfg.distributionZones().get(ZONE_NAME).zoneId().value();
 
         newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
                 + "with primary_zone='%s'", tableName, ZONE_NAME);
 
-        readFirst(queryProc.querySingleAsync(sessionId, context, newTblSql));
+        readFirst(sql(newTblSql));
 
         assertEquals(zoneId, tblsCfg.tables().get(tableName).zoneId().value());
 
-        readFirst(queryProc.querySingleAsync(sessionId, context, "DROP TABLE " + tableName));
+        readFirst(sql("DROP TABLE " + tableName));
 
         log.info("Creating a table with a non-existent distribution zone.");
 
@@ -458,8 +453,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         Throwable exception = assertThrows(
                 Throwable.class,
-                () -> readFirst(queryProc.querySingleAsync(sessionId, context,
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
+                () -> readFirst(sql(String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
                                 + "with primary_zone='%s'", tableName, nonExistZone)))
         );
 
@@ -473,29 +467,21 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     public void testDropTable() {
         String curMethodName = getCurrentMethodName();
 
-        SessionId sessionId = queryProc.createSession(PropertiesHelper.emptyHolder());
-        QueryContext context = QueryContext.create(SqlQueryType.ALL);
-
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName);
 
-        readFirst(queryProc.querySingleAsync(sessionId, context, newTblSql));
+        readFirst(sql(newTblSql));
 
-        readFirst(queryProc.querySingleAsync(sessionId, context, "DROP TABLE " + curMethodName));
+        readFirst(sql("DROP TABLE " + curMethodName));
 
-        SqlQueryProcessor finalQueryProc = queryProc;
+        assertThrows(TableNotFoundException.class, () -> readFirst(sql("DROP TABLE " + curMethodName + "_not_exist")));
 
-        assertThrows(TableNotFoundException.class, () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context,
-                "DROP TABLE " + curMethodName + "_not_exist")));
+        assertThrows(TableNotFoundException.class, () -> readFirst(sql("DROP TABLE " + curMethodName)));
 
-        assertThrows(TableNotFoundException.class, () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context,
-                "DROP TABLE " + curMethodName)));
+        assertThrows(TableNotFoundException.class, () -> readFirst(sql("DROP TABLE PUBLIC." + curMethodName)));
 
-        assertThrows(TableNotFoundException.class, () -> readFirst(finalQueryProc.querySingleAsync(sessionId, context,
-                "DROP TABLE PUBLIC." + curMethodName)));
+        readFirst(sql("DROP TABLE IF EXISTS PUBLIC." + curMethodName + "_not_exist"));
 
-        readFirst(queryProc.querySingleAsync(sessionId, context, "DROP TABLE IF EXISTS PUBLIC." + curMethodName + "_not_exist"));
-
-        readFirst(queryProc.querySingleAsync(sessionId, context, "DROP TABLE IF EXISTS PUBLIC." + curMethodName));
+        readFirst(sql("DROP TABLE IF EXISTS PUBLIC." + curMethodName));
 
         assertTrue(tblManager.tables().stream().noneMatch(t -> t.name()
                 .equalsIgnoreCase("PUBLIC." + curMethodName)));
@@ -505,12 +491,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void createTableWithTableOptions() {
         String method = getCurrentMethodName();
 
-        SessionId sessionId = queryProc.createSession(PropertiesHelper.emptyHolder());
-        QueryContext context = QueryContext.create(SqlQueryType.ALL);
-
-        assertDoesNotThrow(() -> readFirst(queryProc.querySingleAsync(
-                sessionId,
-                context,
+        assertDoesNotThrow(() -> readFirst(sql(
                 String.format(
                         "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with primary_zone='%s'",
                         method + 4,
@@ -520,9 +501,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         IgniteException exception = assertThrows(
                 IgniteException.class,
-                () -> readFirst(queryProc.querySingleAsync(
-                        sessionId,
-                        context,
+                () -> readFirst(sql(
                         String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) WITH %s='%s'", method + 6, method, method)
                 ))
         );
@@ -583,7 +562,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         InternalTransaction tx = mock(InternalTransaction.class);
         when(tx.startTimestamp()).thenReturn(HybridTimestamp.MAX_VALUE);
-        when(tm.begin(anyBoolean(), any())).thenReturn(tx);
+        when(tm.begin(any(), anyBoolean())).thenReturn(tx);
+        when(transactions.begin(any())).thenReturn(tx);
 
         when(replicaManager.stopReplica(any())).thenReturn(completedFuture(true));
 
@@ -615,7 +595,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 vaultManager,
                 cmgMgr,
-                distributionZoneManager
+                distributionZoneManager,
+                schemaSyncService,
+                catalogManager,
+                new HybridTimestampTracker()
         );
 
         tableManager.start();
@@ -629,5 +612,12 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     private int getZoneId(String zoneName) {
         return getZoneIdStrict(dstZnsCfg, zoneName);
+    }
+
+    private CompletableFuture<AsyncSqlCursor<List<Object>>> sql(String query) {
+        SessionId sessionId = queryProc.createSession(PropertiesHelper.emptyHolder());
+        QueryContext context = QueryContext.create(SqlQueryType.ALL);
+
+        return queryProc.querySingleAsync(sessionId, context, transactions, query);
     }
 }

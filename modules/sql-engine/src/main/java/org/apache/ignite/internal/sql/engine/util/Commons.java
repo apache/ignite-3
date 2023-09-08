@@ -104,7 +104,6 @@ import org.apache.ignite.lang.IgniteSystemProperties;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -240,7 +239,7 @@ public final class Commons {
     /**
      * Transforms a given list using map function.
      */
-    public static <T, R> List<R> transform(@NotNull List<T> src, @NotNull Function<T, R> mapFun) {
+    public static <T, R> List<R> transform(List<T> src, Function<T, R> mapFun) {
         if (nullOrEmpty(src)) {
             return Collections.emptyList();
         }
@@ -321,7 +320,7 @@ public final class Commons {
      * @param params Parameters.
      * @return Parameters map.
      */
-    public static Map<String, Object> populateParameters(@NotNull Map<String, Object> dst, @Nullable Object[] params) {
+    public static Map<String, Object> populateParameters(Map<String, Object> dst, @Nullable Object[] params) {
         if (!ArrayUtils.nullOrEmpty(params)) {
             for (int i = 0; i < params.length; i++) {
                 dst.put("?" + i, params[i]);
@@ -348,7 +347,7 @@ public final class Commons {
      * @param o   Resource to close. If it's {@code null} - it's no-op.
      * @param log Logger to log possible checked exception.
      */
-    public static void close(Object o, @NotNull IgniteLogger log) {
+    public static void close(Object o, IgniteLogger log) {
         if (o instanceof AutoCloseable) {
             try {
                 ((AutoCloseable) o).close();
@@ -406,7 +405,7 @@ public final class Commons {
      * CheckRange.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static void checkRange(@NotNull Object[] array, int idx) {
+    public static void checkRange(Object[] array, int idx) {
         if (idx < 0 || idx >= array.length) {
             throw new ArrayIndexOutOfBoundsException(idx);
         }
@@ -455,6 +454,8 @@ public final class Commons {
      *
      * <p>To find a new index of element after trimming call {@code mapping.getTargetOpt(index)}.
      *
+     * <p>To find an old index of element before trimming call {@code mapping.getSourceOpt(index)}.
+     *
      * <p>This mapping can be used to adjust traits or aggregations, for example, when several fields have been truncated.
      * Assume the following scenario:
      * <pre>
@@ -478,60 +479,12 @@ public final class Commons {
      * @see org.apache.calcite.plan.RelTrait#apply(TargetMapping)
      * @see org.apache.calcite.rel.core.AggregateCall#transform(TargetMapping)
      */
-    public static Mappings.TargetMapping trimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
-        Mapping mapping = Mappings.create(MappingType.PARTIAL_FUNCTION, sourceSize, requiredElements.cardinality());
+    public static Mapping trimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
+        Mapping mapping = Mappings.create(MappingType.INVERSE_SURJECTION, sourceSize, requiredElements.cardinality());
         for (Ord<Integer> ord : Ord.zip(requiredElements)) {
             mapping.set(ord.e, ord.i);
         }
         return mapping;
-    }
-
-    /**
-     * Create a mapping to redo trimming made by {@link #trimmingMapping(int, ImmutableBitSet)}.
-     *
-     * <p>To find an old index of element before trimming call {@code mapping.getSourceOpt(index)}.
-     *
-     * <p>This mapping can be used to remap traits or aggregates back as if the trimming has never happened.
-     *
-     * @param sourceSize Count of elements in a non trimmed collection.
-     * @param requiredElements Elements which were preserved during trimming.
-     * @return A mapping to restore the original mapping.
-     * @see #trimmingMapping(int, ImmutableBitSet)
-     */
-    public static Mappings.TargetMapping inverseTrimmingMapping(int sourceSize, ImmutableBitSet requiredElements) {
-        return Mappings.invert(trimmingMapping(sourceSize, requiredElements).inverse());
-    }
-
-    /**
-     * Produces new bitset setting bits according to the given mapping.
-     *
-     * <pre>
-     * bitset:
-     *   [0, 1, 4]
-     * mapping:
-     *   1 -> 0
-     *   0 -> 1
-     *   4 -> 3
-     * result:
-     *   [0, 1, 3]
-     * </pre>
-     *
-     * @param bitset A bitset.
-     * @param mapping Mapping to use.
-     * @return  a transformed bit set.
-     */
-    public static ImmutableBitSet mapBitSet(ImmutableBitSet bitset, Mapping mapping) {
-        ImmutableBitSet.Builder result = ImmutableBitSet.builder();
-
-        int bitPos = bitset.nextSetBit(0);
-
-        while (bitPos != -1) {
-            int target = mapping.getTarget(bitPos);
-            result.set(target);
-            bitPos = bitset.nextSetBit(bitPos + 1);
-        }
-
-        return result.build();
     }
 
 

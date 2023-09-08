@@ -39,7 +39,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Fake tables.
@@ -202,7 +201,6 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         }
     }
 
-    @NotNull
     private TableImpl getNewTable(String name, int id) {
         Function<Integer, SchemaDescriptor> history;
 

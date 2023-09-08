@@ -221,7 +221,8 @@ public:
     void insert_all_types_row(std::int16_t idx) const {
         SQLCHAR insert_req[] =
             "insert into TBL_ALL_COLUMNS_SQL("
-            "   key,str,int8,int16,int32,int64,float,double,uuid,date,\"TIME\",\"DATETIME\",decimal) "
+            "   "
+            "key,str,int8,int16,int32,int64,\"FLOAT\",\"DOUBLE\",\"UUID\",\"DATE\",\"TIME\",\"DATETIME\",\"DECIMAL\") "
             "values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         SQLRETURN ret = SQLPrepare(m_statement, insert_req, SQL_NTS);

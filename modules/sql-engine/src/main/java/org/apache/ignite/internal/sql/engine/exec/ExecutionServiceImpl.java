@@ -48,7 +48,6 @@ import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
@@ -82,6 +81,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -89,6 +89,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HashFunctionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.TransformingIterator;
@@ -162,6 +164,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExchangeService exchangeSrvc,
             ExecutionDependencyResolver dependencyResolver
     ) {
+        HashFunctionFactoryImpl<RowT> rowHashFunctionFactory = new HashFunctionFactoryImpl<>(handler);
+
         return new ExecutionServiceImpl<>(
                 msgSrvc,
                 topSrvc,
@@ -173,7 +177,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 dependencyResolver,
                 (ctx, deps) -> new LogicalRelImplementor<>(
                         ctx,
-                        new HashFunctionFactoryImpl<>(sqlSchemaManager, handler),
+                        rowHashFunctionFactory,
                         mailboxRegistry,
                         exchangeSrvc,
                         deps)
@@ -615,9 +619,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             start.thenCompose(none -> {
                 IgniteRel treeRoot = relationalTreeFromJsonString(fragmentString, ctx);
-                long schemaVersion = ctx.schemaVersion();
+                IgniteSchema igniteSchema = ctx.schema().unwrap(IgniteSchema.class);
 
-                return dependencyResolver.resolveDependencies(List.of(treeRoot), schemaVersion).thenComposeAsync(deps -> {
+                return dependencyResolver.resolveDependencies(List.of(treeRoot), igniteSchema).thenComposeAsync(deps -> {
                     return executeFragment(treeRoot, deps, context);
                 }, exec);
             }).exceptionally(ex -> {
@@ -846,7 +850,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             Iterable<IgniteRel> fragments = TransformingIterator.newIterable(plan.fragments(), (f) -> f.root());
 
             CompletableFuture<ResolvedDependencies> fut = dependencyResolver.resolveDependencies(fragments,
-                    ctx.schemaVersion());
+                    ctx.schema().unwrap(IgniteSchema.class));
 
             return fut.thenCompose(deps -> {
                 return fetchColocationGroups(deps).thenApply(colocationGroups -> {

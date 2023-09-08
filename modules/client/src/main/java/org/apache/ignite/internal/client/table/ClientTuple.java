@@ -20,7 +20,6 @@ package org.apache.ignite.internal.client.table;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ColumnType;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,7 +49,7 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
     }
 
     @Override
-    protected int schemaColumnIndex(@NotNull String columnName) {
+    protected int schemaColumnIndex(String columnName) {
         ClientColumn column = column(columnName);
 
         return column == null ? -1 : column.schemaIndex();
@@ -69,7 +68,7 @@ public class ClientTuple extends MutableTupleBinaryTupleAdapter {
     }
 
     @Nullable
-    private ClientColumn column(@NotNull String columnName) {
+    private ClientColumn column(String columnName) {
         return schema.columnSafe(IgniteNameUtils.parseSimpleName(columnName));
     }
 }

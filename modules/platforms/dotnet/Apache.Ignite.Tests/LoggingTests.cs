@@ -42,7 +42,7 @@ public class LoggingTests
         using var servers = FakeServerGroup.Create(3);
         using (var client = await servers.ConnectClientAsync(cfg))
         {
-            TestUtils.WaitForCondition(() => client.GetConnections().Count == 3);
+            client.WaitForConnections(3);
 
             await client.Tables.GetTablesAsync();
             await client.Sql.ExecuteAsync(null, "select 1");

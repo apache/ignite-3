@@ -44,6 +44,7 @@ import org.apache.ignite.internal.cli.core.exception.ExceptionHandlers;
 import org.apache.ignite.internal.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 import org.apache.ignite.internal.cli.core.exception.handler.SqlExceptionHandler;
+import org.apache.ignite.internal.cli.core.repl.EventListeningActivationPoint;
 import org.apache.ignite.internal.cli.core.repl.Repl;
 import org.apache.ignite.internal.cli.core.repl.executor.RegistryCommandExecutor;
 import org.apache.ignite.internal.cli.core.repl.executor.ReplExecutorProvider;
@@ -84,6 +85,9 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     @Inject
     private ReplExecutorProvider replExecutorProvider;
 
+    @Inject
+    private EventListeningActivationPoint eventListeningActivationPoint;
+
     private static String extract(File file) {
         try {
             return String.join("\n", Files.readAllLines(file.toPath(), StandardCharsets.UTF_8));
@@ -112,6 +116,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
                         .withCallExecutionPipelineProvider(provider(sqlManager))
                         .withHistoryFileName("sqlhistory")
                         .withAutosuggestionsWidgets()
+                        .withEventSubscriber(eventListeningActivationPoint)
                         .build());
             } else {
                 String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;

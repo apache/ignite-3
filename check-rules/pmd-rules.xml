@@ -43,4 +43,23 @@
     -->
     <!--    <rule ref="category/java/bestpractices.xml/UnusedPrivateMethod" />-->
 
+    <rule name="Prohibited classes"
+      language="java"
+      message="Avoid using these classes."
+      class="net.sourceforge.pmd.lang.rule.XPathRule" >
+        <description>
+            Avoid using these classes.
+        </description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+                    <![CDATA[
+//Name[pmd-java:typeIs('org.jetbrains.annotations.NotNull')]
+                    ]]>
+                </value>
+            </property>
+        </properties>
+    </rule>
+
 </ruleset>
