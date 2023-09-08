@@ -1478,11 +1478,12 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         if (!fut.isDone()) {
-            CompletableFuture<Void> preValidate = cmdType.isRwRead() ? chooseOpTsAndValidateAtIt(txId) : completedFuture(null);
-
-            preValidate
+            validateAtTsIfRwRead(txId, cmdType)
                     .thenCompose(unused -> op.get())
-                    .thenCompose(actionResult -> validateTsIfWriteDidNotDoTsValidation(actionResult, txId, cmdType))
+                    // Write actions do ts-dependent validations after taking locks. If it turned out that nothing has to be written,
+                    // then no lock is taken and, hence, no ts-dependent validations are invoked. But, as such validations
+                    // must be invoked for any write, we do it here.
+                    .thenCompose(actionResult -> validateAtTsIfWriteDidNotDoTsValidation(actionResult, txId, cmdType))
                     .whenComplete((v, th) -> {
                         if (full) { // Fast unlock.
                             releaseTxLocks(txId);
@@ -1499,7 +1500,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         return fut;
     }
 
-    private <T> CompletableFuture<T> validateTsIfWriteDidNotDoTsValidation(ActionResult<T> actionResult, UUID txId, RequestType cmdType) {
+    private CompletableFuture<Void> validateAtTsIfRwRead(UUID txId, RequestType cmdType) {
+        return cmdType.isRwRead() ? chooseOpTsAndValidateAtIt(txId) : completedFuture(null);
+    }
+
+    private <T> CompletableFuture<T> validateAtTsIfWriteDidNotDoTsValidation(ActionResult<T> actionResult, UUID txId, RequestType cmdType) {
         if (cmdType.isWrite() && !actionResult.didWrites) {
             return chooseOpTsAndValidateAtIt(txId)
                     .thenApply(unused -> actionResult.result);
