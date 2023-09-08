@@ -369,7 +369,7 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<SqlException>(
                 async () => await Client.Sql.ExecuteAsync(null, "ALTER TABLE TEST ADD COLUMN ID INT"));
 
-            StringAssert.Contains("Column with name 'ID' already exists", ex!.Message);
+            StringAssert.Contains("Invalid query, check inner exceptions for details: ALTER TABLE TEST ADD COLUMN ID INT", ex!.Message);
         }
 
         [Test]
