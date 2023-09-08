@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine;
 
 import io.opentelemetry.context.Context;
-import io.opentelemetry.context.Scope;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.util.AsyncCursor;

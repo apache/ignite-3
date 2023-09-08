@@ -543,7 +543,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 if (ctx.newValue() != null) {
                     context = tableCreateContext.remove(ctx.newValue().id());
                 }
-                if(context == null) {
+                if (context == null) {
                     context = Context.current();
                 }
                 try (Scope scope = context.makeCurrent()) {

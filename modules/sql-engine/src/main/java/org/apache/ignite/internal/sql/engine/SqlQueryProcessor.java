@@ -505,9 +505,9 @@ public class SqlQueryProcessor implements QueryProcessor {
                 queryType,
                 plan.metadata(),
                 txWrapper,
-                new AsyncCursor<List<Object>>() {
+                new AsyncCursor<>() {
                     @WithSpan
-                                            @Override
+                    @Override
                     public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
                         session.touch();
 
@@ -515,7 +515,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     }
 
                     @WithSpan
-                                            @Override
+                    @Override
                     public CompletableFuture<Void> closeAsync() {
                         session.touch();
                         numberOfOpenCursors.decrementAndGet();

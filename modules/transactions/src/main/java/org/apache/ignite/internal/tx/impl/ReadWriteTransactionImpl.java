@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,7 +37,6 @@ import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 
 /**
  * The read-write implementation of an internal transaction.

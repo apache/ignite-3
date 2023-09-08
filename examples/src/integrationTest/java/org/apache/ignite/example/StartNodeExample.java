@@ -30,8 +30,13 @@ import org.apache.ignite.internal.app.IgniteImpl;
  * Tests for transactional examples.
  */
 public class StartNodeExample {
-
-    public static void main(String[] args) throws InterruptedException {
+    /**
+     * Main method of the example.
+     *
+     * @param args The command line arguments.
+     * @throws Exception If failed.
+     */
+    public static void main(String[] args) throws Exception {
         String nodeName = args[0];
         if (nodeName == null || nodeName.isBlank()) {
             throw new IllegalArgumentException("nodeName is empty");

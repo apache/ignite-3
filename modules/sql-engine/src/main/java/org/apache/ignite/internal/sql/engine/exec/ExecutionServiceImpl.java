@@ -770,8 +770,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             return new AsyncCursor<>() {
                 @WithSpan
-                @Override
-                public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
+                @Override public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
                     return root.thenCompose(cur -> {
                         var fut = cur.requestNextAsync(rows);
 
@@ -784,9 +783,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         return fut;
                     });
                 }
+
                 @WithSpan
-                @Override
-                public CompletableFuture<Void> closeAsync() {
+                @Override public CompletableFuture<Void> closeAsync() {
                     return root.thenCompose(none -> DistributedQueryManager.this.close(false));
                 }
             };
