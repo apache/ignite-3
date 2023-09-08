@@ -340,29 +340,6 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
-     * Writes an array header value.
-     *
-     * @param arraySize array size.
-     */
-    public void packArrayHeader(int arraySize) {
-        assert !closed : "Packer is closed";
-
-        if (arraySize < 0) {
-            throw new IllegalArgumentException("array size must be >= 0");
-        }
-
-        if (arraySize < (1 << 4)) {
-            buf.writeByte((byte) (Code.FIXARRAY_PREFIX | arraySize));
-        } else if (arraySize < (1 << 16)) {
-            buf.writeByte(Code.ARRAY16);
-            buf.writeShort(arraySize);
-        } else {
-            buf.writeByte(Code.ARRAY32);
-            buf.writeInt(arraySize);
-        }
-    }
-
-    /**
      * Writes a map header value.
      *
      * @param mapSize map size.
