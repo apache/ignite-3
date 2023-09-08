@@ -79,7 +79,6 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
@@ -104,9 +103,6 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
-import org.apache.ignite.internal.schema.CatalogDescriptorUtils;
-import org.apache.ignite.internal.schema.configuration.TableConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -117,7 +113,6 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -126,10 +121,6 @@ import org.jetbrains.annotations.TestOnly;
 public class DistributionZoneManager implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
-
-    /** Tables configuration. */
-    // TODO: IGNITE-19499 Get rid of
-    private final TablesConfiguration tablesConfiguration;
 
     /** Meta Storage manager. */
     private final MetaStorageManager metaStorageManager;
@@ -213,13 +204,11 @@ public class DistributionZoneManager implements IgniteComponent {
     public DistributionZoneManager(
             String nodeName,
             Consumer<LongFunction<CompletableFuture<?>>> registry,
-            TablesConfiguration tablesConfiguration,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
             VaultManager vaultMgr,
             CatalogManager catalogManager
     ) {
-        this.tablesConfiguration = tablesConfiguration;
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
         this.vaultMgr = vaultMgr;
@@ -1433,18 +1422,5 @@ public class DistributionZoneManager implements IgniteComponent {
         causalityDataNodesEngine.onDelete(causalityToken, zoneId);
 
         zonesState.remove(zoneId);
-    }
-
-    /**
-     * Returns the table descriptor from the configuration, {@code null} if the table is absent.
-     *
-     * @param tableName Table name.
-     */
-    // TODO: IGNITE-19499 Get rid of
-    @Deprecated(forRemoval = true)
-    public @Nullable CatalogTableDescriptor getTableFromConfig(String tableName) {
-        TableConfiguration tableConfig = tablesConfiguration.tables().get(tableName);
-
-        return tableConfig == null ? null : CatalogDescriptorUtils.toTableDescriptor(tableConfig.value());
     }
 }

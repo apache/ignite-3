@@ -27,6 +27,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
+import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,6 +65,47 @@ public class TableTestUtils {
     }
 
     /**
+     * Drops table in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param schemaName Schema name.
+     * @param tableName Table name.
+     */
+    public static void dropTable(CatalogManager catalogManager, String schemaName, String tableName) {
+        assertThat(
+                catalogManager.execute(DropTableCommand.builder().schemaName(schemaName).tableName(tableName).build()),
+                willCompleteSuccessfully()
+        );
+    }
+
+    /**
+     * Returns table descriptor form catalog, {@code null} if table is absent.
+     *
+     * @param catalogService Catalog service.
+     * @param tableName Table name.
+     * @param timestamp Timestamp.
+     */
+    public static @Nullable CatalogTableDescriptor getTable(CatalogService catalogService, String tableName, long timestamp) {
+        return catalogService.table(tableName, timestamp);
+    }
+
+    /**
+     * Returns table descriptor form catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param tableName Table name.
+     * @param timestamp Timestamp.
+     * @throws AssertionError If table descriptor is absent.
+     */
+    public static CatalogTableDescriptor getTableStrict(CatalogService catalogService, String tableName, long timestamp) {
+        CatalogTableDescriptor table = catalogService.table(tableName, timestamp);
+
+        assertNotNull(table, "tableName=" + tableName + ", timestamp=" + timestamp);
+
+        return table;
+    }
+
+    /**
      * Returns table ID form catalog, {@code null} if table is absent.
      *
      * @param catalogService Catalog service.
@@ -71,7 +113,7 @@ public class TableTestUtils {
      * @param timestamp Timestamp.
      */
     public static @Nullable Integer getTableId(CatalogService catalogService, String tableName, long timestamp) {
-        CatalogTableDescriptor table = catalogService.table(tableName, timestamp);
+        CatalogTableDescriptor table = getTable(catalogService, tableName, timestamp);
 
         return table == null ? null : table.id();
     }
@@ -85,10 +127,6 @@ public class TableTestUtils {
      * @throws AssertionError If table is absent.
      */
     public static int getTableIdStrict(CatalogService catalogService, String tableName, long timestamp) {
-        Integer tableId = getTableId(catalogService, tableName, timestamp);
-
-        assertNotNull(tableId, "tableName=" + tableName + ", timestamp=" + timestamp);
-
-        return tableId;
+        return getTableStrict(catalogService, tableName, timestamp).id();
     }
 }

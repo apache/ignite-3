@@ -114,9 +114,8 @@ import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
 import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
-import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
@@ -272,7 +271,7 @@ public class IgniteImpl implements Ignite {
     private final DataStorageManager dataStorageMgr;
 
     /** Schema manager. */
-    private final SchemaManager schemaManager;
+    private final CatalogSchemaManager schemaManager;
 
     /** Metric manager. */
     private final MetricManager metricManager;
@@ -454,8 +453,6 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-        TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
-
         distributedConfigurationUpdater = new DistributedConfigurationUpdater(
                 cmgMgr,
                 new HoconPresentation(clusterCfgMgr.configurationRegistry())
@@ -505,8 +502,6 @@ public class IgniteImpl implements Ignite {
                 )
         );
 
-        schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
-
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(workDir.resolve("volatile-log-spillout"));
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterSvc.messagingService());
@@ -528,10 +523,11 @@ public class IgniteImpl implements Ignite {
 
         SchemaSyncService schemaSyncService = new SchemaSyncServiceImpl(metaStorageMgr.clusterTime(), delayDurationMsSupplier);
 
+        schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageMgr);
+
         distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
-                tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
                 vaultMgr,
@@ -541,7 +537,6 @@ public class IgniteImpl implements Ignite {
         distributedTblMgr = new TableManager(
                 name,
                 registry,
-                tablesConfig,
                 gcConfig,
                 clusterSvc,
                 raftMgr,
@@ -560,14 +555,13 @@ public class IgniteImpl implements Ignite {
                 outgoingSnapshotsManager,
                 topologyAwareRaftGroupServiceFactory,
                 vaultMgr,
-                cmgMgr,
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
                 observableTimestampTracker
         );
 
-        indexManager = new IndexManager(tablesConfig, schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
+        indexManager = new IndexManager(schemaManager, distributedTblMgr, catalogManager, metaStorageMgr, registry);
 
         qryEngine = new SqlQueryProcessor(
                 registry,

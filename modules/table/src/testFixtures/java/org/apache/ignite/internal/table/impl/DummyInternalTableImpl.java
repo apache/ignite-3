@@ -58,7 +58,6 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
@@ -347,8 +346,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(MvTableStorage.class),
                 mock(IndexBuilder.class),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
-                mock(CatalogService.class),
-                mock(TablesConfiguration.class)
+                mock(CatalogService.class)
         );
 
         lenient().when(safeTime.waitFor(any())).thenReturn(completedFuture(null));

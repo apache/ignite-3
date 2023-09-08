@@ -89,4 +89,6 @@ public interface CatalogService {
     CompletableFuture<Void> catalogReadyFuture(int version);
 
     void listen(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure);
+
+    void removeListener(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure);
 }

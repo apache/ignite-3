@@ -27,8 +27,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.NodeWithTerm;
@@ -45,7 +45,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
 
     private final TableManager tableManager;
 
-    private final SchemaManager schemaManager;
+    private final CatalogSchemaManager schemaManager;
 
     private final ReplicaService replicaService;
 
@@ -55,7 +55,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
     final ConcurrentMap<CacheKey, CompletableFuture<ExecutableTable>> tableCache;
 
     /** Constructor. */
-    public ExecutableTableRegistryImpl(TableManager tableManager, SchemaManager schemaManager,
+    public ExecutableTableRegistryImpl(TableManager tableManager, CatalogSchemaManager schemaManager,
             ReplicaService replicaService, HybridClock clock, int cacheSize) {
 
         this.tableManager = tableManager;
@@ -73,7 +73,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         return tableCache.computeIfAbsent(cacheKey(tableId, tableVersion), (k) -> loadTable(tableId, tableDescriptor));
     }
 
-    // TODO IGNITE-19499: Drop this temporal method to get table by name.
+    // TODO IGNITE-20331: Drop this temporal method to get table by name.
     @Override
     public CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, String tableName, TableDescriptor tableDescriptor) {
         return tableCache.computeIfAbsent(cacheKey(tableId, tableVersion), (k) -> loadTable(tableName, tableDescriptor));
@@ -137,7 +137,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
             this.updatableTable = updatableTable;
         }
 
-        // TODO IGNITE-19499: Drop this.
+        // TODO IGNITE-20331: Drop this.
         @Deprecated(forRemoval = true)
         @Override
         public InternalTable internalTable() {

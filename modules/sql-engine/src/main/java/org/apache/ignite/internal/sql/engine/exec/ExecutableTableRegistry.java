@@ -35,7 +35,7 @@ public interface ExecutableTableRegistry {
      */
     CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, TableDescriptor tableDescriptor);
 
-    // TODO IGNITE-19499 use tableId instead of name.
+    // TODO IGNITE-20331 use tableId instead of name.
     @Deprecated(forRemoval = true)
     CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, String tableName, TableDescriptor tableDescriptor);
 }

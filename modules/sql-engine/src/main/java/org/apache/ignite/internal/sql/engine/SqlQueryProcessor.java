@@ -50,7 +50,7 @@ import org.apache.ignite.internal.manager.Event;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
@@ -62,7 +62,7 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
-import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandlerWrapper;
+import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -148,7 +148,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final IndexManager indexManager;
 
-    private final SchemaManager schemaManager;
+    private final CatalogSchemaManager schemaManager;
 
     private final DataStorageManager dataStorageManager;
 
@@ -190,7 +190,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             ClusterService clusterSrvc,
             TableManager tableManager,
             IndexManager indexManager,
-            SchemaManager schemaManager,
+            CatalogSchemaManager schemaManager,
             DataStorageManager dataStorageManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
@@ -250,7 +250,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.prepareSvc = prepareSvc;
 
-        var ddlCommandHandler = new DdlCommandHandlerWrapper(tableManager, catalogManager);
+        var ddlCommandHandler = new DdlCommandHandler(catalogManager);
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(tableManager, schemaManager, replicaService, clock, TABLE_CACHE_SIZE);
 

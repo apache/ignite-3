@@ -74,7 +74,6 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
@@ -131,8 +130,6 @@ public class ItTxTestCluster {
     private final RaftConfiguration raftConfig;
 
     private final GcConfiguration gcConfig;
-
-    private final TablesConfiguration tablesConfig;
 
     private final Path workDir;
 
@@ -204,7 +201,6 @@ public class ItTxTestCluster {
             TestInfo testInfo,
             RaftConfiguration raftConfig,
             GcConfiguration gcConfig,
-            TablesConfiguration tablesConfig,
             Path workDir,
             int nodes,
             int replicas,
@@ -213,7 +209,6 @@ public class ItTxTestCluster {
     ) {
         this.raftConfig = raftConfig;
         this.gcConfig = gcConfig;
-        this.tablesConfig = tablesConfig;
         this.workDir = workDir;
         this.nodes = nodes;
         this.replicas = replicas;
@@ -483,8 +478,7 @@ public class ItTxTestCluster {
                                                 mvTableStorage,
                                                 mock(IndexBuilder.class),
                                                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
-                                                mock(CatalogService.class),
-                                                tablesConfig
+                                                mock(CatalogService.class)
                                         ),
                                         raftSvc,
                                         storageIndexTracker

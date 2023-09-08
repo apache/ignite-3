@@ -66,6 +66,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-metastorage')))
     testImplementation(testFixtures(project(':ignite-distribution-zones')))
     testImplementation(testFixtures(project(':ignite-catalog')))
+    testImplementation(testFixtures(project(':ignite-vault')))
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core

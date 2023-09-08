@@ -37,7 +37,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -67,9 +66,6 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static GcConfiguration gcConfig;
 
-    @InjectConfiguration("mock.tables.foo {}")
-    private static TablesConfiguration tablesConfig;
-
     private final TestInfo testInfo;
 
     private ItTxTestCluster testCluster;
@@ -97,7 +93,6 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfig,
                 gcConfig,
-                tablesConfig,
                 workDir,
                 NODES,
                 NODES,

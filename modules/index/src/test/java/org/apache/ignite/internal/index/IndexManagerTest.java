@@ -30,8 +30,6 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -43,12 +41,9 @@ import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.event.IndexEvent;
@@ -56,10 +51,10 @@ import org.apache.ignite.internal.index.event.IndexEventParameters;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.schema.SchemaManager;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -70,24 +65,12 @@ import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test class to verify {@link IndexManager}.
  */
-@ExtendWith(ConfigurationExtension.class)
 public class IndexManagerTest extends BaseIgniteAbstractTest {
     private static final String TABLE_NAME = "tName";
-
-    @InjectConfiguration(
-            "mock.tables.tName {"
-                    + "id: 1, "
-                    + "columns.c1 {type.type: STRING}, "
-                    + "columns.c2 {type.type: STRING}, "
-                    + "primaryKey {columns: [c1], colocationColumns: [c1]}"
-                    + "}"
-    )
-    private TablesConfiguration tablesConfig;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -105,27 +88,13 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     public void setUp() {
         TableManager tableManagerMock = mock(TableManager.class);
 
-        when(tableManagerMock.tableAsync(anyLong(), anyString())).thenAnswer(inv -> {
-            InternalTable tbl = mock(InternalTable.class);
+        when(tableManagerMock.tableAsync(anyLong(), anyInt())).thenAnswer(inv -> completedFuture(mockTable(inv.getArgument(1))));
 
-            String tableName = inv.getArgument(1);
-
-            doReturn(tablesConfig.tables().get(tableName).id().value()).when(tbl).tableId();
-
-            return completedFuture(new TableImpl(tbl, new HeapLockManager()));
-        });
-
-        when(tableManagerMock.getTable(anyInt())).thenAnswer(inv -> {
-            InternalTable tbl = mock(InternalTable.class);
-
-            doReturn(inv.getArgument(0)).when(tbl).tableId();
-
-            return new TableImpl(tbl, new HeapLockManager());
-        });
+        when(tableManagerMock.getTable(anyInt())).thenAnswer(inv -> mockTable(inv.getArgument(0)));
 
         when(tableManagerMock.localPartitionSetAsync(anyLong(), anyInt())).thenReturn(completedFuture(PartitionSet.EMPTY_SET));
 
-        SchemaManager schManager = mock(SchemaManager.class);
+        CatalogSchemaManager schManager = mock(CatalogSchemaManager.class);
 
         when(schManager.schemaRegistry(anyLong(), anyInt())).thenReturn(completedFuture(null));
 
@@ -140,7 +109,6 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageManager), clockWaiter);
 
         indexManager = new IndexManager(
-                tablesConfig,
                 schManager,
                 tableManagerMock,
                 catalogManager,
@@ -156,21 +124,16 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
-        assertThat(
-                catalogManager.execute(
-                        CreateTableCommand.builder()
-                                .schemaName(DEFAULT_SCHEMA_NAME)
-                                .zone(DEFAULT_ZONE_NAME)
-                                .tableName(TABLE_NAME)
-                                .columns(List.of(
-                                        ColumnParams.builder().name("c1").type(STRING).build(),
-                                        ColumnParams.builder().name("c2").type(STRING).build()
-                                ))
-                                .colocationColumns(List.of("c1"))
-                                .primaryKeyColumns(List.of("c1"))
-                                .build()
+        TableTestUtils.createTable(
+                catalogManager,
+                DEFAULT_SCHEMA_NAME,
+                DEFAULT_ZONE_NAME,
+                TABLE_NAME,
+                List.of(
+                        ColumnParams.builder().name("c1").type(STRING).build(),
+                        ColumnParams.builder().name("c2").type(STRING).build()
                 ),
-                willBe(nullValue())
+                List.of("c1")
         );
     }
 
@@ -212,8 +175,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         );
 
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) catalogManager.index(indexName, clock.nowLong());
-        // TODO: IGNITE-19499 Only catalog should be used
-        int tableId = tablesConfig.tables().get(TABLE_NAME).id().value();
+        int tableId = index.tableId();
 
         assertThat(holder.get(), notNullValue());
         assertThat(holder.get().indexId(), equalTo(index.id()));
@@ -228,5 +190,13 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         assertThat(holder.get(), notNullValue());
         assertThat(holder.get().indexId(), equalTo(index.id()));
         assertThat(holder.get().tableId(), equalTo(tableId));
+    }
+
+    private static TableImpl mockTable(int tableId) {
+        InternalTable internalTable = mock(InternalTable.class);
+
+        when(internalTable.tableId()).thenReturn(tableId);
+
+        return new TableImpl(internalTable, new HeapLockManager());
     }
 }

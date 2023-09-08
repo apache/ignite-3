@@ -24,12 +24,10 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DROP;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -50,13 +48,11 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.configuration.TableView;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
@@ -75,12 +71,8 @@ import org.apache.ignite.lang.NodeStoppingException;
 public class IndexManager extends Producer<IndexEvent, IndexEventParameters> implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(IndexManager.class);
 
-    /** Common tables and indexes configuration. */
-    // TODO: IGNITE-19499 Only catalog should be used
-    private final TablesConfiguration tablesCfg;
-
     /** Schema manager. */
-    private final SchemaManager schemaManager;
+    private final CatalogSchemaManager schemaManager;
 
     /** Table manager. */
     private final TableManager tableManager;
@@ -103,21 +95,18 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
     /**
      * Constructor.
      *
-     * @param tablesCfg Tables and indexes configuration.
      * @param schemaManager Schema manager.
      * @param tableManager Table manager.
      * @param catalogManager Catalog manager.
      */
     public IndexManager(
-            TablesConfiguration tablesCfg,
-            SchemaManager schemaManager,
+            CatalogSchemaManager schemaManager,
             TableManager tableManager,
             CatalogManager catalogManager,
             MetaStorageManager metaStorageManager,
             Consumer<LongFunction<CompletableFuture<?>>> registry
     ) {
-        this.tablesCfg = Objects.requireNonNull(tablesCfg, "tablesCfg");
-        this.schemaManager = Objects.requireNonNull(schemaManager, "schemaManager");
+        this.schemaManager = schemaManager;
         this.tableManager = tableManager;
         this.catalogManager = catalogManager;
         this.metaStorageManager = metaStorageManager;
@@ -177,8 +166,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         }
 
         try {
-            // TODO: IGNITE-19499 Table ID from the catalog should be used
-            return tableManager.tableAsync(causalityToken, parameters.tableName())
+            return tableManager.tableAsync(causalityToken, parameters.tableId())
                     .thenCompose(table -> {
                         if (table != null) {
                             // In case of DROP TABLE the table will be removed first.
@@ -187,8 +175,7 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
 
                         return fireEvent(
                                 IndexEvent.DROP,
-                                // TODO: IGNITE-19499 Shouldn't be -1 as table ID
-                                new IndexEventParameters(causalityToken, table == null ? -1 : table.tableId(), indexId)
+                                new IndexEventParameters(causalityToken, tableId, indexId)
                         );
                     })
                     .thenApply(unused -> false);
@@ -241,12 +228,9 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
             );
         }
 
-        // TODO: IGNITE-19499 Only catalog should be used
-        int configTableId = getConfigTableId(table.name(), tablesCfg.tables().value());
+        CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, tableId);
 
-        CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, configTableId);
-
-        CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken, configTableId);
+        CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken, tableId);
 
         return allOf(fireCreateIndexEventFuture, registerIndexFuture);
     }
@@ -410,21 +394,18 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
         int catalogVersion = catalogManager.latestCatalogVersion();
         long causalityToken = recoveryFinishedFuture.join();
 
-        NamedListView<TableView> tableListView = tablesCfg.tables().value();
-
         List<CompletableFuture<?>> startIndexFutures = new ArrayList<>();
 
         for (CatalogIndexDescriptor index : catalogManager.indexes(catalogVersion)) {
-            CatalogTableDescriptor table = catalogManager.table(index.tableId(), catalogVersion);
+            int tableId = index.tableId();
 
-            assert table != null : "tableId=" + index.tableId() + ", indexId=" + index.id();
+            CatalogTableDescriptor table = catalogManager.table(tableId, catalogVersion);
 
-            // TODO: IGNITE-19499 Only catalog should be used
-            int configTableId = getConfigTableId(table.name(), tableListView);
+            assert table != null : "tableId=" + tableId + ", indexId=" + index.id();
 
-            CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, configTableId);
+            CompletableFuture<?> fireCreateIndexEventFuture = fireCreateIndexEvent(index, causalityToken, tableId);
 
-            CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken, configTableId);
+            CompletableFuture<Void> registerIndexFuture = registerIndex(table, index, causalityToken, tableId);
 
             startIndexFutures.add(allOf(fireCreateIndexEventFuture, registerIndexFuture));
         }
@@ -496,13 +477,5 @@ public class IndexManager extends Producer<IndexEvent, IndexEventParameters> imp
                 IndexEvent.CREATE,
                 new IndexEventParameters(causalityToken, configTableId, index.id(), toEventIndexDescriptor(index))
         );
-    }
-
-    private static int getConfigTableId(String tableName, NamedListView<TableView> tableListView) {
-        TableView tableView = tableListView.get(tableName);
-
-        assert tableView != null : tableName;
-
-        return tableView.id();
     }
 }

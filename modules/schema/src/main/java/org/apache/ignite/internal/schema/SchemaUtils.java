@@ -21,8 +21,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
-import org.apache.ignite.internal.schema.configuration.ConfigurationToSchemaDescriptorConverter;
-import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 
@@ -30,17 +28,6 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapping;
  * Stateless schema utils that produces helper methods for schema preparation.
  */
 public class SchemaUtils {
-    /**
-     * Creates schema descriptor for the table with specified configuration.
-     *
-     * @param schemaVer Schema version.
-     * @param tableView Table configuration.
-     * @return Schema descriptor.
-     */
-    public static SchemaDescriptor prepareSchemaDescriptor(int schemaVer, TableView tableView) {
-        return ConfigurationToSchemaDescriptorConverter.convert(schemaVer, tableView);
-    }
-
     /**
      * Creates schema descriptor for the table with specified descriptor.
      *

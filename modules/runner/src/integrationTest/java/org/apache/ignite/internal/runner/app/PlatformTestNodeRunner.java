@@ -20,13 +20,28 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.table.TableTestUtils.createTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.sql.ColumnType.BITMASK;
+import static org.apache.ignite.sql.ColumnType.BOOLEAN;
+import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
+import static org.apache.ignite.sql.ColumnType.DATE;
+import static org.apache.ignite.sql.ColumnType.DATETIME;
+import static org.apache.ignite.sql.ColumnType.DECIMAL;
+import static org.apache.ignite.sql.ColumnType.DOUBLE;
+import static org.apache.ignite.sql.ColumnType.FLOAT;
+import static org.apache.ignite.sql.ColumnType.INT16;
+import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.INT64;
+import static org.apache.ignite.sql.ColumnType.INT8;
+import static org.apache.ignite.sql.ColumnType.NUMBER;
+import static org.apache.ignite.sql.ColumnType.STRING;
+import static org.apache.ignite.sql.ColumnType.TIME;
+import static org.apache.ignite.sql.ColumnType.TIMESTAMP;
+import static org.apache.ignite.sql.ColumnType.UUID;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.util.ResourceLeakDetector;
@@ -45,9 +60,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.configuration.SecurityConfiguration;
@@ -57,13 +70,8 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.testutils.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
-import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType.TemporalColumnType;
-import org.apache.ignite.internal.schema.testutils.definition.TableDefinition;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -76,7 +84,6 @@ import org.apache.ignite.table.Tuple;
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
  */
 @SuppressWarnings("CallToSystemGetenv")
-// TODO: IGNITE-19499 Use catalog only
 public class PlatformTestNodeRunner {
     /** Test node name. */
     private static final String NODE_NAME = PlatformTestNodeRunner.class.getCanonicalName();
@@ -266,224 +273,124 @@ public class PlatformTestNodeRunner {
     private static void createTables(Ignite node) {
         var keyCol = "KEY";
 
-        createZone(((IgniteImpl) node).catalogManager(), ZONE_NAME, 10, 1);
-
         IgniteImpl ignite = ((IgniteImpl) node);
 
-        TableDefinition schTbl = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_NAME).columns(
-                SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
-                SchemaBuilders.column("val", ColumnType.string()).asNullable(true).build()
-        ).withPrimaryKey(keyCol).build();
+        createZone(ignite.catalogManager(), ZONE_NAME, 10, 1);
 
-        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), ZONE_NAME, tblCh ->
-                SchemaConfigurationConverter.convert(schTbl, tblCh)
-        ));
-
-        CatalogCommand createTableCommand = CreateTableCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
-                .zone(ZONE_NAME)
-                .tableName(TABLE_NAME)
-                .columns(List.of(
-                        ColumnParams.builder().name(keyCol).type(org.apache.ignite.sql.ColumnType.INT64).build(),
-                        ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.STRING).nullable(true).build()
-                ))
-                .primaryKeyColumns(List.of(keyCol))
-                .build();
-
-        assertThat(ignite.catalogManager().execute(createTableCommand), willBe(nullValue()));
+        createTable(
+                ignite.catalogManager(),
+                DEFAULT_SCHEMA_NAME,
+                ZONE_NAME,
+                TABLE_NAME,
+                List.of(
+                        ColumnParams.builder().name(keyCol).type(INT64).build(),
+                        ColumnParams.builder().name("VAL").type(STRING).nullable(true).build()
+                ),
+                List.of(keyCol)
+        );
 
         int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
 
-        TableDefinition schTblAll = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS).columns(
-                SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
-                SchemaBuilders.column("str", ColumnType.string()).asNullable(true).build(),
-                SchemaBuilders.column("int8", ColumnType.INT8).asNullable(true).build(),
-                SchemaBuilders.column("int16", ColumnType.INT16).asNullable(true).build(),
-                SchemaBuilders.column("int32", ColumnType.INT32).asNullable(true).build(),
-                SchemaBuilders.column("int64", ColumnType.INT64).asNullable(true).build(),
-                SchemaBuilders.column("float", ColumnType.FLOAT).asNullable(true).build(),
-                SchemaBuilders.column("double", ColumnType.DOUBLE).asNullable(true).build(),
-                SchemaBuilders.column("uuid", ColumnType.UUID).asNullable(true).build(),
-                SchemaBuilders.column("date", ColumnType.DATE).asNullable(true).build(),
-                SchemaBuilders.column("bitmask", ColumnType.bitmaskOf(64)).asNullable(true).build(),
-                SchemaBuilders.column("time", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
-                SchemaBuilders.column("time2", ColumnType.time(2)).asNullable(true).build(),
-                SchemaBuilders.column("datetime", ColumnType.datetime(maxTimePrecision)).asNullable(true).build(),
-                SchemaBuilders.column("datetime2", ColumnType.datetime(3)).asNullable(true).build(),
-                SchemaBuilders.column("timestamp", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
-                SchemaBuilders.column("timestamp2", ColumnType.timestamp(4)).asNullable(true).build(),
-                SchemaBuilders.column("blob", ColumnType.blob()).asNullable(true).build(),
-                SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build(),
-                SchemaBuilders.column("boolean", ColumnType.BOOLEAN).asNullable(true).build()
-        ).withPrimaryKey(keyCol).build();
-
-        await(((TableManager) node.tables()).createTableAsync(schTblAll.name(), ZONE_NAME, tblCh ->
-                SchemaConfigurationConverter.convert(schTblAll, tblCh)
-        ));
-
-        CatalogCommand createTableCommandAll = CreateTableCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
-                .zone(ZONE_NAME)
-                .tableName(TABLE_NAME_ALL_COLUMNS)
-                .columns(List.of(
-                        ColumnParams.builder().name(keyCol).type(org.apache.ignite.sql.ColumnType.INT64).build(),
-                        ColumnParams.builder().name("STR").type(org.apache.ignite.sql.ColumnType.STRING).nullable(true).build(),
-                        ColumnParams.builder().name("INT8").type(org.apache.ignite.sql.ColumnType.INT8).nullable(true).build(),
-                        ColumnParams.builder().name("INT16").type(org.apache.ignite.sql.ColumnType.INT16).nullable(true).build(),
-                        ColumnParams.builder().name("INT32").type(org.apache.ignite.sql.ColumnType.INT32).nullable(true).build(),
-                        ColumnParams.builder().name("INT64").type(org.apache.ignite.sql.ColumnType.INT64).nullable(true).build(),
-                        ColumnParams.builder().name("FLOAT").type(org.apache.ignite.sql.ColumnType.FLOAT).nullable(true).build(),
-                        ColumnParams.builder().name("DOUBLE").type(org.apache.ignite.sql.ColumnType.DOUBLE).nullable(true).build(),
-                        ColumnParams.builder().name("UUID").type(org.apache.ignite.sql.ColumnType.UUID).nullable(true).build(),
-                        ColumnParams.builder().name("DATE").type(org.apache.ignite.sql.ColumnType.DATE).nullable(true).build(),
-                        ColumnParams.builder().name("BITMASK").type(org.apache.ignite.sql.ColumnType.BITMASK).length(64).nullable(true)
-                                .build(),
-                        ColumnParams.builder().name("TIME").type(org.apache.ignite.sql.ColumnType.TIME).precision(maxTimePrecision)
-                                .nullable(true).build(),
-                        ColumnParams.builder().name("TIME2").type(org.apache.ignite.sql.ColumnType.TIME).precision(2).nullable(true)
-                                .build(),
-                        ColumnParams.builder().name("DATETIME").type(org.apache.ignite.sql.ColumnType.DATETIME).precision(maxTimePrecision)
-                                .nullable(true).build(),
-                        ColumnParams.builder().name("DATETIME2").type(org.apache.ignite.sql.ColumnType.DATETIME).precision(3).nullable(true)
-                                .build(),
-                        ColumnParams.builder().name("TIMESTAMP").type(org.apache.ignite.sql.ColumnType.DATETIME).precision(maxTimePrecision)
-                                .nullable(true).build(),
-                        ColumnParams.builder().name("TIMESTAMP2").type(org.apache.ignite.sql.ColumnType.DATETIME).precision(4)
-                                .nullable(true).build(),
-                        ColumnParams.builder().name("BLOB").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).nullable(true)
-                                .build(),
-                        ColumnParams.builder().name("DECIMAL").type(org.apache.ignite.sql.ColumnType.DECIMAL).precision(19).scale(3)
-                                .nullable(true).build(),
-                        ColumnParams.builder().name("BOOLEAN").type(org.apache.ignite.sql.ColumnType.BOOLEAN).nullable(true).build()
-                ))
-                .primaryKeyColumns(List.of(keyCol))
-                .build();
-
-        assertThat(ignite.catalogManager().execute(createTableCommandAll), willBe(nullValue()));
+        createTable(
+                ignite.catalogManager(),
+                DEFAULT_SCHEMA_NAME,
+                ZONE_NAME,
+                TABLE_NAME_ALL_COLUMNS,
+                List.of(
+                        ColumnParams.builder().name(keyCol).type(INT64).build(),
+                        ColumnParams.builder().name("STR").type(STRING).nullable(true).build(),
+                        ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
+                        ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
+                        ColumnParams.builder().name("INT32").type(INT32).nullable(true).build(),
+                        ColumnParams.builder().name("INT64").type(INT64).nullable(true).build(),
+                        ColumnParams.builder().name("FLOAT").type(FLOAT).nullable(true).build(),
+                        ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(true).build(),
+                        ColumnParams.builder().name("UUID").type(UUID).nullable(true).build(),
+                        ColumnParams.builder().name("DATE").type(DATE).nullable(true).build(),
+                        ColumnParams.builder().name("BITMASK").type(BITMASK).length(64).nullable(true).build(),
+                        ColumnParams.builder().name("TIME").type(TIME).precision(maxTimePrecision).nullable(true).build(),
+                        ColumnParams.builder().name("TIME2").type(TIME).precision(2).nullable(true).build(),
+                        ColumnParams.builder().name("DATETIME").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
+                        ColumnParams.builder().name("DATETIME2").type(DATETIME).precision(3).nullable(true).build(),
+                        ColumnParams.builder().name("TIMESTAMP").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
+                        ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(4).nullable(true).build(),
+                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).nullable(true).build(),
+                        ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
+                        ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
+                ),
+                List.of(keyCol)
+        );
 
         // TODO IGNITE-18431 remove extra table, use TABLE_NAME_ALL_COLUMNS for SQL tests.
-        TableDefinition schTblAllSql = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, TABLE_NAME_ALL_COLUMNS_SQL).columns(
-                SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
-                SchemaBuilders.column("str", ColumnType.string()).asNullable(true).build(),
-                SchemaBuilders.column("int8", ColumnType.INT8).asNullable(true).build(),
-                SchemaBuilders.column("int16", ColumnType.INT16).asNullable(true).build(),
-                SchemaBuilders.column("int32", ColumnType.INT32).asNullable(true).build(),
-                SchemaBuilders.column("int64", ColumnType.INT64).asNullable(true).build(),
-                SchemaBuilders.column("float", ColumnType.FLOAT).asNullable(true).build(),
-                SchemaBuilders.column("double", ColumnType.DOUBLE).asNullable(true).build(),
-                SchemaBuilders.column("uuid", ColumnType.UUID).asNullable(true).build(),
-                SchemaBuilders.column("date", ColumnType.DATE).asNullable(true).build(),
-                SchemaBuilders.column("time", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
-                SchemaBuilders.column("time2", ColumnType.time(maxTimePrecision)).asNullable(true).build(),
-                SchemaBuilders.column("datetime", ColumnType.datetime(maxTimePrecision)).asNullable(true).build(),
-                SchemaBuilders.column("datetime2", ColumnType.datetime(maxTimePrecision)).asNullable(true).build(),
-                SchemaBuilders.column("timestamp", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
-                SchemaBuilders.column("timestamp2", ColumnType.timestamp(maxTimePrecision)).asNullable(true).build(),
-                SchemaBuilders.column("blob", ColumnType.blob()).asNullable(true).build(),
-                SchemaBuilders.column("decimal", ColumnType.decimal()).asNullable(true).build(),
-                SchemaBuilders.column("boolean", ColumnType.BOOLEAN).asNullable(true).build()
-        ).withPrimaryKey(keyCol).build();
-
-        await(((TableManager) node.tables()).createTableAsync(schTblAllSql.name(), ZONE_NAME, tblCh ->
-                SchemaConfigurationConverter.convert(schTblAllSql, tblCh)
-        ));
-
-        CatalogCommand createTableCommandAllSql = CreateTableCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
-                .zone(ZONE_NAME)
-                .tableName(TABLE_NAME_ALL_COLUMNS_SQL)
-                .columns(List.of(
-                        ColumnParams.builder().name(keyCol).type(org.apache.ignite.sql.ColumnType.INT64).build(),
-                        ColumnParams.builder().name("STR").type(org.apache.ignite.sql.ColumnType.STRING).nullable(true).build(),
-                        ColumnParams.builder().name("INT8").type(org.apache.ignite.sql.ColumnType.INT8).nullable(true).build(),
-                        ColumnParams.builder().name("INT16").type(org.apache.ignite.sql.ColumnType.INT16).nullable(true).build(),
-                        ColumnParams.builder().name("INT32").type(org.apache.ignite.sql.ColumnType.INT32).nullable(true).build(),
-                        ColumnParams.builder().name("INT64").type(org.apache.ignite.sql.ColumnType.INT64).nullable(true).build(),
-                        ColumnParams.builder().name("FLOAT").type(org.apache.ignite.sql.ColumnType.FLOAT).nullable(true).build(),
-                        ColumnParams.builder().name("DOUBLE").type(org.apache.ignite.sql.ColumnType.DOUBLE).nullable(true).build(),
-                        ColumnParams.builder().name("UUID").type(org.apache.ignite.sql.ColumnType.UUID).nullable(true).build(),
-                        ColumnParams.builder().name("DATE").type(org.apache.ignite.sql.ColumnType.DATE).nullable(true).build(),
-                        ColumnParams.builder().name("TIME").type(org.apache.ignite.sql.ColumnType.TIME).precision(maxTimePrecision)
-                                .nullable(true).build(),
-                        ColumnParams.builder().name("TIME2").type(org.apache.ignite.sql.ColumnType.TIME).precision(maxTimePrecision)
-                                .nullable(true).build(),
-                        ColumnParams.builder().name("DATETIME").type(org.apache.ignite.sql.ColumnType.DATETIME).precision(maxTimePrecision)
-                                .nullable(true).build(),
-                        ColumnParams.builder().name("DATETIME2").type(org.apache.ignite.sql.ColumnType.DATETIME).precision(maxTimePrecision)
-                                .nullable(true).build(),
-                        ColumnParams.builder().name("TIMESTAMP").type(org.apache.ignite.sql.ColumnType.TIMESTAMP)
-                                .precision(maxTimePrecision).nullable(true).build(),
-                        ColumnParams.builder().name("TIMESTAMP2").type(org.apache.ignite.sql.ColumnType.TIMESTAMP)
-                                .precision(maxTimePrecision).nullable(true).build(),
-                        ColumnParams.builder().name("BLOB").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).nullable(true)
-                                .build(),
-                        ColumnParams.builder().name("DECIMAL").type(org.apache.ignite.sql.ColumnType.DECIMAL).precision(19).scale(3)
-                                .nullable(true).build(),
-                        ColumnParams.builder().name("BOOLEAN").type(org.apache.ignite.sql.ColumnType.BOOLEAN).nullable(true).build()
-                ))
-                .primaryKeyColumns(List.of(keyCol))
-                .build();
-
-        assertThat(ignite.catalogManager().execute(createTableCommandAllSql), willBe(nullValue()));
-
-        createTwoColumnTable(node, ColumnType.INT8);
-        createTwoColumnTable(node, ColumnType.BOOLEAN);
-        createTwoColumnTable(node, ColumnType.INT16);
-        createTwoColumnTable(node, ColumnType.INT32);
-        createTwoColumnTable(node, ColumnType.INT64);
-        createTwoColumnTable(node, ColumnType.FLOAT);
-        createTwoColumnTable(node, ColumnType.DOUBLE);
-        createTwoColumnTable(node, ColumnType.UUID);
-        createTwoColumnTable(node, ColumnType.decimal());
-        createTwoColumnTable(node, ColumnType.string());
-        createTwoColumnTable(node, ColumnType.DATE);
-        createTwoColumnTable(node, ColumnType.datetime());
-        createTwoColumnTable(node, ColumnType.time());
-        createTwoColumnTable(node, ColumnType.timestamp());
-        createTwoColumnTable(node, ColumnType.number());
-        createTwoColumnTable(node, ColumnType.blob());
-        createTwoColumnTable(node, ColumnType.bitmaskOf(32));
-
-        createTwoColumnTable(
-                ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.INT8).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.INT8).nullable(true).build()
+        createTable(
+                ignite.catalogManager(),
+                DEFAULT_SCHEMA_NAME,
+                ZONE_NAME,
+                TABLE_NAME_ALL_COLUMNS_SQL,
+                List.of(
+                        ColumnParams.builder().name(keyCol).type(INT64).build(),
+                        ColumnParams.builder().name("STR").type(STRING).nullable(true).build(),
+                        ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
+                        ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
+                        ColumnParams.builder().name("INT32").type(INT32).nullable(true).build(),
+                        ColumnParams.builder().name("INT64").type(INT64).nullable(true).build(),
+                        ColumnParams.builder().name("FLOAT").type(FLOAT).nullable(true).build(),
+                        ColumnParams.builder().name("DOUBLE").type(DOUBLE).nullable(true).build(),
+                        ColumnParams.builder().name("UUID").type(UUID).nullable(true).build(),
+                        ColumnParams.builder().name("DATE").type(DATE).nullable(true).build(),
+                        ColumnParams.builder().name("TIME").type(TIME).precision(maxTimePrecision).nullable(true).build(),
+                        ColumnParams.builder().name("TIME2").type(TIME).precision(maxTimePrecision).nullable(true).build(),
+                        ColumnParams.builder().name("DATETIME").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
+                        ColumnParams.builder().name("DATETIME2").type(DATETIME).precision(maxTimePrecision).nullable(true).build(),
+                        ColumnParams.builder().name("TIMESTAMP").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
+                        ColumnParams.builder().name("TIMESTAMP2").type(TIMESTAMP).precision(maxTimePrecision).nullable(true).build(),
+                        ColumnParams.builder().name("BLOB").type(BYTE_ARRAY).nullable(true).build(),
+                        ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
+                        ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
+                ),
+                List.of(keyCol)
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.BOOLEAN).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.BOOLEAN).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(INT8).build(),
+                ColumnParams.builder().name("VAL").type(INT8).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.INT16).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.INT16).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(BOOLEAN).build(),
+                ColumnParams.builder().name("VAL").type(BOOLEAN).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.INT32).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.INT32).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(INT16).build(),
+                ColumnParams.builder().name("VAL").type(INT16).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.INT64).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.INT64).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(INT32).build(),
+                ColumnParams.builder().name("VAL").type(INT32).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.FLOAT).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.FLOAT).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(INT64).build(),
+                ColumnParams.builder().name("VAL").type(INT64).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.DOUBLE).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.DOUBLE).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(FLOAT).build(),
+                ColumnParams.builder().name("VAL").type(FLOAT).nullable(true).build()
+        );
+
+        createTwoColumnTable(
+                ignite,
+                ColumnParams.builder().name("KEY").type(DOUBLE).build(),
+                ColumnParams.builder().name("VAL").type(DOUBLE).nullable(true).build()
         );
 
         createTwoColumnTable(
@@ -494,93 +401,70 @@ public class PlatformTestNodeRunner {
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.DECIMAL).precision(19).scale(3).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.DECIMAL).precision(19).scale(3).nullable(true)
-                        .build()
+                ColumnParams.builder().name("KEY").type(DECIMAL).precision(19).scale(3).build(),
+                ColumnParams.builder().name("VAL").type(DECIMAL).precision(19).scale(3).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.STRING).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.STRING).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(STRING).build(),
+                ColumnParams.builder().name("VAL").type(STRING).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.DATE).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.DATE).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(DATE).build(),
+                ColumnParams.builder().name("VAL").type(DATE).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.DATETIME).precision(6).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.DATETIME).precision(6).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(DATETIME).precision(6).build(),
+                ColumnParams.builder().name("VAL").type(DATETIME).precision(6).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.TIME).precision(6).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.TIME).precision(6).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(TIME).precision(6).build(),
+                ColumnParams.builder().name("VAL").type(TIME).precision(6).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.TIMESTAMP).precision(6).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.TIMESTAMP).precision(6).nullable(true).build()
+                ColumnParams.builder().name("KEY").type(TIMESTAMP).precision(6).build(),
+                ColumnParams.builder().name("VAL").type(TIMESTAMP).precision(6).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.NUMBER).precision(Integer.MAX_VALUE).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.NUMBER).precision(Integer.MAX_VALUE).nullable(true)
-                        .build()
+                ColumnParams.builder().name("KEY").type(NUMBER).precision(Integer.MAX_VALUE).build(),
+                ColumnParams.builder().name("VAL").type(NUMBER).precision(Integer.MAX_VALUE).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.BYTE_ARRAY).nullable(true)
-                        .build()
+                ColumnParams.builder().name("KEY").type(BYTE_ARRAY).build(),
+                ColumnParams.builder().name("VAL").type(BYTE_ARRAY).nullable(true).build()
         );
 
         createTwoColumnTable(
                 ignite,
-                ColumnParams.builder().name("KEY").type(org.apache.ignite.sql.ColumnType.BITMASK).length(32).build(),
-                ColumnParams.builder().name("VAL").type(org.apache.ignite.sql.ColumnType.BITMASK).length(32).nullable(true)
-                        .build()
+                ColumnParams.builder().name("KEY").type(BITMASK).length(32).build(),
+                ColumnParams.builder().name("VAL").type(BITMASK).length(32).nullable(true).build()
         );
-    }
-
-    private static void createTwoColumnTable(Ignite node, ColumnType type) {
-        var keyCol = "key";
-
-        TableDefinition schTbl = SchemaBuilders.tableBuilder(DEFAULT_SCHEMA_NAME, "tbl_" + type.typeSpec().name()).columns(
-                SchemaBuilders.column(keyCol, type).build(),
-                SchemaBuilders.column("val", type).asNullable(true).build()
-        ).withPrimaryKey(keyCol).build();
-
-        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), ZONE_NAME, tblCh ->
-                SchemaConfigurationConverter.convert(schTbl, tblCh)
-        ));
     }
 
     private static void createTwoColumnTable(IgniteImpl ignite, ColumnParams keyColumnParams, ColumnParams valueColumnParams) {
         assertEquals(keyColumnParams.type(), valueColumnParams.type());
 
-        // TODO: IGNITE-19499 We need to use only the column type used in the catalog
-        String tableNamePostfix = keyColumnParams.type() == org.apache.ignite.sql.ColumnType.BYTE_ARRAY
-                ? ColumnType.blob().typeSpec().name()
-                : keyColumnParams.type().name();
-
-        CatalogCommand createTableCommand = CreateTableCommand.builder()
-                .schemaName(DEFAULT_SCHEMA_NAME)
-                .zone(ZONE_NAME)
-                .tableName(("tbl_" + tableNamePostfix).toUpperCase())
-                .columns(List.of(keyColumnParams, valueColumnParams))
-                .primaryKeyColumns(List.of(keyColumnParams.name()))
-                .build();
-
-        assertThat(ignite.catalogManager().execute(createTableCommand), willBe(nullValue()));
+        createTable(
+                ignite.catalogManager(),
+                DEFAULT_SCHEMA_NAME,
+                ZONE_NAME,
+                ("tbl_" + keyColumnParams.type().name()).toUpperCase(),
+                List.of(keyColumnParams, valueColumnParams),
+                List.of(keyColumnParams.name())
+        );
     }
 
     /**

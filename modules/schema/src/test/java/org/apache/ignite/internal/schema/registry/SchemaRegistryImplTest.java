@@ -19,10 +19,10 @@ package org.apache.ignite.internal.schema.registry;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.schema.mapping.ColumnMapping.createMapper;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -51,7 +51,7 @@ public class SchemaRegistryImplTest {
      */
     @Test
     public void testWrongSchemaVersionRegistration() {
-        final SchemaDescriptor schemaV0 = new SchemaDescriptor(INITIAL_SCHEMA_VERSION,
+        final SchemaDescriptor schemaV0 = new SchemaDescriptor(INITIAL_TABLE_VERSION,
                 new Column[]{new Column("keyLongCol", INT64, false)},
                 new Column[]{new Column("valBytesCol", BYTES, true)});
 
@@ -65,22 +65,22 @@ public class SchemaRegistryImplTest {
 
         final SchemaRegistryImpl reg = new SchemaRegistryImpl(
                 v -> completedFuture(null),
-                () -> completedFuture(INITIAL_SCHEMA_VERSION),
+                () -> completedFuture(INITIAL_TABLE_VERSION),
                 schemaV0
         );
 
-        assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
+        assertEquals(INITIAL_TABLE_VERSION, reg.lastSchemaVersion());
         assertNotNull(reg.schema());
 
         // Try to register schema with initial version.
         assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV0));
-        assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
+        assertEquals(INITIAL_TABLE_VERSION, reg.lastSchemaVersion());
 
-        assertNotNull(reg.schema(INITIAL_SCHEMA_VERSION));
+        assertNotNull(reg.schema(INITIAL_TABLE_VERSION));
 
         // Try to register schema with version of 0-zero.
         assertThrows(SchemaRegistryException.class, () -> reg.onSchemaRegistered(schemaV1));
-        assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
+        assertEquals(INITIAL_TABLE_VERSION, reg.lastSchemaVersion());
 
         assertNotNull(reg.schema(0));
 
@@ -88,7 +88,7 @@ public class SchemaRegistryImplTest {
         reg.onSchemaRegistered(schemaV2);
         assertEquals(schemaV2.version(), reg.lastSchemaVersion());
 
-        assertNotNull(reg.schema(INITIAL_SCHEMA_VERSION));
+        assertNotNull(reg.schema(INITIAL_TABLE_VERSION));
         assertNotNull(reg.schema(0));
         assertNotNull(reg.schema(1));
         assertNotNull(reg.schema(2));
@@ -119,11 +119,11 @@ public class SchemaRegistryImplTest {
 
         final SchemaRegistryImpl reg = new SchemaRegistryImpl(
                 v -> completedFuture(null),
-                () -> completedFuture(INITIAL_SCHEMA_VERSION),
+                () -> completedFuture(INITIAL_TABLE_VERSION),
                 schemaV1
         );
 
-        assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
+        assertEquals(INITIAL_TABLE_VERSION, reg.lastSchemaVersion());
         assertNotNull(reg.schema());
 
         // Register schema with first version again.
@@ -181,11 +181,11 @@ public class SchemaRegistryImplTest {
 
         final SchemaRegistryImpl reg = new SchemaRegistryImpl(
                 v -> completedFuture(null),
-                () -> completedFuture(INITIAL_SCHEMA_VERSION),
+                () -> completedFuture(INITIAL_TABLE_VERSION),
                 schemaV1
         );
 
-        assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
+        assertEquals(INITIAL_TABLE_VERSION, reg.lastSchemaVersion());
 
         // Register schema with very first version.
         assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
@@ -251,14 +251,14 @@ public class SchemaRegistryImplTest {
 
         final SchemaRegistryImpl reg = new SchemaRegistryImpl(
                 v -> completedFuture(null),
-                () -> completedFuture(INITIAL_SCHEMA_VERSION),
+                () -> completedFuture(INITIAL_TABLE_VERSION),
                 schemaV1
         );
 
-        assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
+        assertEquals(INITIAL_TABLE_VERSION, reg.lastSchemaVersion());
 
         // Fail to cleanup initial schema
-        assertThrows(SchemaRegistryException.class, () -> reg.onSchemaDropped(INITIAL_SCHEMA_VERSION));
+        assertThrows(SchemaRegistryException.class, () -> reg.onSchemaDropped(INITIAL_TABLE_VERSION));
         assertThrows(SchemaRegistryException.class, () -> reg.onSchemaDropped(0));
 
         // Register schema with very first version.
@@ -369,7 +369,7 @@ public class SchemaRegistryImplTest {
 
         Map<Integer, CompletableFuture<SchemaDescriptor>> history = schemaHistory(schemaV1, schemaV2);
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, () -> completedFuture(INITIAL_SCHEMA_VERSION), schemaV2);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, () -> completedFuture(INITIAL_TABLE_VERSION), schemaV2);
 
         assertEquals(2, reg.lastSchemaVersion());
         assertSameSchema(schemaV2, reg.schema());
@@ -433,7 +433,7 @@ public class SchemaRegistryImplTest {
 
         Map<Integer, CompletableFuture<SchemaDescriptor>> history = schemaHistory(schemaV2, schemaV3);
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, () -> completedFuture(INITIAL_SCHEMA_VERSION), schemaV3);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, () -> completedFuture(INITIAL_TABLE_VERSION), schemaV3);
 
         assertEquals(3, reg.lastSchemaVersion());
         assertSameSchema(schemaV3, reg.schema());
@@ -499,7 +499,7 @@ public class SchemaRegistryImplTest {
 
         Map<Integer, CompletableFuture<SchemaDescriptor>> history = schemaHistory(schemaV2, schemaV3, schemaV4);
 
-        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, () -> completedFuture(INITIAL_SCHEMA_VERSION), schemaV4);
+        final SchemaRegistryImpl reg = new SchemaRegistryImpl(history::get, () -> completedFuture(INITIAL_TABLE_VERSION), schemaV4);
 
         assertEquals(4, reg.lastSchemaVersion());
         assertSameSchema(schemaV4, reg.schema());
@@ -567,7 +567,7 @@ public class SchemaRegistryImplTest {
 
         final SchemaRegistryImpl reg = new SchemaRegistryImpl(
                 v -> completedFuture(null),
-                () -> completedFuture(INITIAL_SCHEMA_VERSION),
+                () -> completedFuture(INITIAL_TABLE_VERSION),
                 schemaV1
         );
 

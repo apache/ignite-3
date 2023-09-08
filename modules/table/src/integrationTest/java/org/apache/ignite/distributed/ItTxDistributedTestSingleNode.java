@@ -32,7 +32,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
@@ -70,9 +69,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     @InjectConfiguration
     private static GcConfiguration gcConfig;
-
-    @InjectConfiguration("mock.tables.foo {}")
-    private static TablesConfiguration tablesConfig;
 
     /**
      * Returns a count of nodes.
@@ -124,7 +120,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 testInfo,
                 raftConfiguration,
                 gcConfig,
-                tablesConfig,
                 workDir,
                 nodes(),
                 replicas(),

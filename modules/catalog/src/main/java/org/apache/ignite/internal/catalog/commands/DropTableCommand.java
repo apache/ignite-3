@@ -55,7 +55,7 @@ public class DropTableCommand extends AbstractTableCommand {
 
         Arrays.stream(schema.indexes())
                 .filter(index -> index.tableId() == table.id())
-                .forEach(index -> updateEntries.add(new DropIndexEntry(index.id(), index.tableId(), tableName)));
+                .forEach(index -> updateEntries.add(new DropIndexEntry(index.id(), index.tableId())));
 
         updateEntries.add(new DropTableEntry(table.id()));
 

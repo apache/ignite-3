@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -169,9 +170,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         TableImpl table0 = table;
         assertTrue(waitForCondition(() -> table0.schemaView().schema().version() == 2, 5_000));
 
-        table = (TableImpl) ignite1.tables().table(TABLE_NAME);
-
-        assertEquals(1, table.schemaView().schema().version());
+        // Should not receive the table because we are waiting for the synchronization of schemas.
+        assertThat(ignite1.tables().tableAsync(TABLE_NAME), willTimeoutFast());
 
         String nodeToStop = ignite1.name();
 
@@ -183,6 +183,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                 .filter(k -> k.getKey().equals(nodeToStop))
                 .map(e -> TestIgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .findFirst().get();
+
+        assertThat(ignite1Fut, willCompleteSuccessfully());
 
         ignite1 = (IgniteImpl) ignite1Fut.get();
 

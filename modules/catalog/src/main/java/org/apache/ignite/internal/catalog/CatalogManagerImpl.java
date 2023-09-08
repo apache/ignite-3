@@ -355,7 +355,7 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
             }
 
             return List.of(
-                    new DropIndexEntry(index.id(), index.tableId(), catalog.table(index.tableId()).name())
+                    new DropIndexEntry(index.id(), index.tableId())
             );
         });
     }
@@ -599,6 +599,11 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
     @Override
     public void listen(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure) {
         listen(evt, (EventListener<CatalogEventParameters>) closure);
+    }
+
+    @Override
+    public void removeListener(CatalogEvent evt, EventListener<? extends CatalogEventParameters> closure) {
+        removeListener(evt, (EventListener<CatalogEventParameters>) closure);
     }
 
     private static void ensureNoTableOrIndexExistsWithSameName(CatalogSchemaDescriptor schema, String name) {

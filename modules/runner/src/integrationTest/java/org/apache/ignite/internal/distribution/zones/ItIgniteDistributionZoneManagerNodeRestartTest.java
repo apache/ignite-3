@@ -88,7 +88,6 @@ import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStateIds;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -221,7 +220,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 revisionUpdater,
-                mock(TablesConfiguration.class),
                 metastore,
                 logicalTopologyService,
                 vault,

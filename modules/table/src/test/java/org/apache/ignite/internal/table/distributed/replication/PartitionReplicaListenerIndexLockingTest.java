@@ -56,7 +56,6 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
@@ -129,10 +128,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static ColumnsExtractor row2SortKeyConverter;
 
     @BeforeAll
-    public static void beforeAll(
-            @InjectConfiguration GcConfiguration gcConfig,
-            @InjectConfiguration("mock.tables.foo {}") TablesConfiguration tablesConfig
-    ) {
+    public static void beforeAll(@InjectConfiguration GcConfiguration gcConfig) {
         RaftGroupService mockRaftClient = mock(RaftGroupService.class);
 
         when(mockRaftClient.refreshAndGetLeaderWithTerm())
@@ -238,8 +234,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT),
                 mock(IndexBuilder.class),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
-                mock(CatalogService.class),
-                tablesConfig
+                mock(CatalogService.class)
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

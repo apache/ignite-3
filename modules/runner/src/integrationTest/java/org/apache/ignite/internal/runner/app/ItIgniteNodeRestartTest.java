@@ -52,7 +52,6 @@ import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
@@ -100,9 +99,8 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
@@ -335,11 +333,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 )
         );
 
-        TablesConfiguration tablesConfig = clusterConfigRegistry.getConfiguration(TablesConfiguration.KEY);
-
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
-
-        SchemaManager schemaManager = new SchemaManager(registry, tablesConfig, metaStorageMgr);
 
         var clockWaiter = new ClockWaiter(name, hybridClock);
 
@@ -351,10 +345,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 delayDurationMsSupplier
         );
 
+        CatalogSchemaManager schemaManager = new CatalogSchemaManager(registry, catalogManager, metaStorageMgr);
+
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
-                tablesConfig,
                 metaStorageMgr,
                 logicalTopologyService,
                 vault,
@@ -366,7 +361,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         TableManager tableManager = new TableManager(
                 name,
                 registry,
-                tablesConfig,
                 gcConfig,
                 clusterSvc,
                 raftMgr,
@@ -385,14 +379,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 topologyAwareRaftGroupServiceFactory,
                 vault,
-                null,
-                null,
+                distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
                 new HybridTimestampTracker()
         );
 
-        var indexManager = new IndexManager(tablesConfig, schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
+        var indexManager = new IndexManager(schemaManager, tableManager, catalogManager, metaStorageMgr, registry);
 
         var metricManager = new MetricManager();
 
@@ -1231,30 +1224,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private void waitForIndex(Collection<IgniteImpl> nodes, String indexName) throws InterruptedException {
         // FIXME: Wait for the index to be created on all nodes,
         //  this is a workaround for https://issues.apache.org/jira/browse/IGNITE-18733 to avoid missed updates to the PK index.
-
-        Stream<TablesConfiguration> partialTablesConfiguration = Stream.empty();
-
-        if (!partialNodes.isEmpty()) {
-            partialTablesConfiguration = partialNodes.stream()
-                    .flatMap(it -> it.startedComponents().stream())
-                    .filter(ConfigurationManager.class::isInstance)
-                    .map(c -> ((ConfigurationManager) c).configurationRegistry().getConfiguration(TablesConfiguration.KEY))
-                    .filter(Objects::nonNull)
-                    .findAny()
-                    .map(Stream::of)
-                    .orElseThrow();
-        }
-
-        Stream<TablesConfiguration> nodesTablesConfigurations = nodes.stream()
-                .filter(Objects::nonNull)
-                .map(node -> node.clusterConfiguration().getConfiguration(TablesConfiguration.KEY));
-
-        List<TablesConfiguration> tablesConfigurations = Stream.concat(nodesTablesConfigurations, partialTablesConfiguration)
-                .collect(Collectors.toList());
-
         assertTrue(waitForCondition(
-                () -> tablesConfigurations.stream()
-                        .map(cfg -> cfg.indexes().get(indexName.toUpperCase()))
+                () -> nodes.stream()
+                        .map(nodeImpl -> nodeImpl.catalogManager().index(indexName.toUpperCase(), nodeImpl.clock().nowLong()))
                         .allMatch(Objects::nonNull),
                 TIMEOUT_MILLIS
         ));

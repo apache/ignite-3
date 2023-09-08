@@ -670,7 +670,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     // first let's enlist all tables to the transaction.
                     if (!tx.isReadOnly()) {
                         for (Fragment fragment : fragments) {
-                            //TODO IGNITE-19499: Remove depsFut. Join is legal as future is already done.
+                            //TODO IGNITE-20331: Remove depsFut. Join is legal as future is already done.
                             enlistPartitions(fragment, tx, depsFut.join());
                         }
                     }
@@ -808,7 +808,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 public IgniteRel visit(IgniteTableModify rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
-                    // TODO IGNITE-19499 Remove rewriting tableId.
+                    // TODO IGNITE-20331 Remove rewriting tableId.
                     tableId = deps.internalTable(tableId).tableId();
                     List<NodeWithTerm> assignments = fragment.mapping().updatingTableAssignments();
 
@@ -839,7 +839,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 private void enlist(SourceAwareIgniteRel rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
-                    // TODO IGNITE-19499 Remove rewriting tableId.
+                    // TODO IGNITE-20331 Remove rewriting tableId.
                     tableId = deps.internalTable(tableId).tableId();
 
                     List<NodeWithTerm> assignments = fragment.mapping().findGroup(rel.sourceId()).assignments().stream()
