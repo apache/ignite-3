@@ -112,7 +112,7 @@ public class InternalTableImpl implements InternalTable {
     /** Number of attempts. */
     private static final int ATTEMPTS_TO_ENLIST_PARTITION = 5;
 
-    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
+    private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
 
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     protected volatile Int2ObjectMap<RaftGroupService> raftGroupServiceByPartitionId;
