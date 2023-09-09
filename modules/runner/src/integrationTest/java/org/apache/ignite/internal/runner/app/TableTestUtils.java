@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogCommand;

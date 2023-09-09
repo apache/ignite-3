@@ -280,20 +280,9 @@ public class PlatformTestNodeRunner {
 
         IgniteImpl ignite = (IgniteImpl) node;
 
-//        createZone(ignite.distributionZoneManager(), ZONE_NAME, 10, 1);
-
         try (Session session = node.sql().createSession()) {
             session.execute(null, "CREATE ZONE " + ZONE_NAME + " WITH partitions=10, replicas=1");
         }
-
-//        TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
-//                SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
-//                SchemaBuilders.column("val", ColumnType.string()).asNullable(true).build()
-//        ).withPrimaryKey(keyCol).build();
-//
-//        await(((TableManager) node.tables()).createTableAsync(schTbl.name(), ZONE_NAME, tblCh ->
-//                SchemaConfigurationConverter.convert(schTbl, tblCh)
-//        ));
 
         try (Session session = node.sql().createSession()) {
             session.execute(null, "CREATE TABLE " + TABLE_NAME + "(" + keyCol + " bigint, val varchar) WITH primary_zone='"
