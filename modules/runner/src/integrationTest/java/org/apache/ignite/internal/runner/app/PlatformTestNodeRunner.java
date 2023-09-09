@@ -285,7 +285,7 @@ public class PlatformTestNodeRunner {
         }
 
         try (Session session = node.sql().createSession()) {
-            session.execute(null, "CREATE TABLE " + TABLE_NAME + "(" + keyCol + " bigint, val varchar) WITH primary_zone='"
+            session.execute(null, "CREATE TABLE " + TABLE_NAME + "(" + keyCol + " bigint PRIMARY KEY, val varchar) WITH primary_zone='"
                     + ZONE_NAME.toUpperCase() + "'");
         }
 
