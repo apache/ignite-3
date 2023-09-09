@@ -345,7 +345,7 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
                         ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
                 ),
-                List.of(keyCol)
+                List.of(keyCol.toUpperCase())
         );
 
         // TODO IGNITE-18431 remove extra table, use TABLE_NAME_ALL_COLUMNS for SQL tests.
@@ -382,7 +382,7 @@ public class PlatformTestNodeRunner {
                 ZONE_NAME,
                 TABLE_NAME_ALL_COLUMNS_SQL.toUpperCase(),
                 List.of(
-                        ColumnParams.builder().name(keyCol).type(INT64).build(),
+                        ColumnParams.builder().name(keyCol.toUpperCase()).type(INT64).build(),
                         ColumnParams.builder().name("STR").type(STRING).nullable(true).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
@@ -402,7 +402,7 @@ public class PlatformTestNodeRunner {
                         ColumnParams.builder().name("DECIMAL").type(DECIMAL).precision(19).scale(3).nullable(true).build(),
                         ColumnParams.builder().name("BOOLEAN").type(BOOLEAN).nullable(true).build()
                 ),
-                List.of(keyCol)
+                List.of(keyCol.toUpperCase())
         );
 
         createTwoColumnTable(node, ColumnType.INT8);
@@ -542,11 +542,14 @@ public class PlatformTestNodeRunner {
     private static void createTwoColumnTableInCatalog(IgniteImpl ignite, ColumnParams keyColumnParams, ColumnParams valueColumnParams) {
         assertEquals(keyColumnParams.type(), valueColumnParams.type());
 
+        org.apache.ignite.sql.ColumnType typeForTableName = keyColumnParams.type();
+        String typeName = typeForTableName == BYTE_ARRAY ? "BYTES" : typeForTableName.name();
+
         createTable(
                 ignite.catalogManager(),
                 DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
-                ("tbl_" + keyColumnParams.type().name()).toUpperCase(),
+                ("tbl_" + typeName).toUpperCase(),
                 List.of(keyColumnParams, valueColumnParams),
                 List.of(keyColumnParams.name())
         );
