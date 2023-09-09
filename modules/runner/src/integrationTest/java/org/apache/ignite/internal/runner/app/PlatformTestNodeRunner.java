@@ -281,12 +281,12 @@ public class PlatformTestNodeRunner {
         IgniteImpl ignite = (IgniteImpl) node;
 
         try (Session session = node.sql().createSession()) {
-            session.execute(null, "CREATE ZONE " + ZONE_NAME + " WITH partitions=10, replicas=1");
+            session.execute(null, "CREATE ZONE \"" + ZONE_NAME + "\" WITH partitions=10, replicas=1");
         }
 
         try (Session session = node.sql().createSession()) {
             session.execute(null, "CREATE TABLE " + TABLE_NAME + "(" + keyCol + " bigint PRIMARY KEY, val varchar) WITH primary_zone='"
-                    + ZONE_NAME.toUpperCase() + "'");
+                    + ZONE_NAME + "'");
         }
 
         int maxTimePrecision = TemporalColumnType.MAX_TIME_PRECISION;
@@ -322,9 +322,9 @@ public class PlatformTestNodeRunner {
                 ignite.catalogManager(),
                 DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
-                TABLE_NAME_ALL_COLUMNS,
+                TABLE_NAME_ALL_COLUMNS.toUpperCase(),
                 List.of(
-                        ColumnParams.builder().name(keyCol).type(INT64).build(),
+                        ColumnParams.builder().name(keyCol.toUpperCase()).type(INT64).build(),
                         ColumnParams.builder().name("STR").type(STRING).nullable(true).build(),
                         ColumnParams.builder().name("INT8").type(INT8).nullable(true).build(),
                         ColumnParams.builder().name("INT16").type(INT16).nullable(true).build(),
@@ -380,7 +380,7 @@ public class PlatformTestNodeRunner {
                 ignite.catalogManager(),
                 DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
-                TABLE_NAME_ALL_COLUMNS_SQL,
+                TABLE_NAME_ALL_COLUMNS_SQL.toUpperCase(),
                 List.of(
                         ColumnParams.builder().name(keyCol).type(INT64).build(),
                         ColumnParams.builder().name("STR").type(STRING).nullable(true).build(),
