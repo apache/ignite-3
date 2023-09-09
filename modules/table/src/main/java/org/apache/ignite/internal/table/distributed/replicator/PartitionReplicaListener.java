@@ -1735,7 +1735,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     if (rowIdsToDelete.isEmpty()) {
-                        return completedFuture(didNoWrites(null));
+                        return completedFuture(didNoWrites(result));
                     } else {
                         return chooseOpTsValidateAndBuildUpdateAllCommand(request, rowIdsToDelete, txCoordinatorId)
                                     .thenCompose(this::applyUpdateAllCommand)
