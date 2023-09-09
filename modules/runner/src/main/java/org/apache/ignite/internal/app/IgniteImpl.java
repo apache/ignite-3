@@ -1123,6 +1123,8 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
+     * Returns the CatalogManager.
+     *
      * @return Catalog manager.
      */
     @TestOnly
