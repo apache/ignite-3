@@ -281,7 +281,7 @@ public class PlatformTestNodeRunner {
         IgniteImpl ignite = (IgniteImpl) node;
 
         try (Session session = node.sql().createSession()) {
-            session.execute(null, "CREATE ZONE " + ZONE_NAME + " WITH partitions=10, replicas=1");
+            session.execute(null, "CREATE ZONE \"" + ZONE_NAME + "\" WITH partitions=10, replicas=1");
         }
 
         try (Session session = node.sql().createSession()) {
