@@ -278,13 +278,9 @@ public class StorageUpdateHandler {
      */
     public void handleTransactionCleanup(UUID txId, boolean commit,
             @Nullable HybridTimestamp commitTimestamp, Runnable onApplication) {
-        Set<RowId> pendingRowIds = pendingRows.getPendingRowIds(txId);
+        Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
 
-        handleTransactionCleanup(pendingRowIds, commit, commitTimestamp, () -> {
-            pendingRows.removePendingRowIds(txId, pendingRowIds);
-
-            onApplication.run();
-        });
+        handleTransactionCleanup(pendingRowIds, commit, commitTimestamp, onApplication);
     }
 
     /**

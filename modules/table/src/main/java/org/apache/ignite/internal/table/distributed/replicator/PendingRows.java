@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.replicator;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
@@ -30,6 +31,9 @@ import org.apache.ignite.internal.storage.RowId;
  * A container for rows that were inserted, updated or removed.
  */
 public class PendingRows {
+
+    /** Empty sorted set. */
+    private static final SortedSet<RowId> EMPTY_SET = Collections.emptySortedSet();
 
     /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
     private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
@@ -73,34 +77,15 @@ public class PendingRows {
     }
 
     /**
-     * Removes all row IDs for the given transaction.
+     * Removes all pending row IDs for the given transaction.
      *
      * @param txId Transaction ID.
+     * @return Pending row IDs mapped to the provided transaction or an empty set if there were none.
      */
-    public void removePendingRowIds(UUID txId, Set<RowId> pendingRowIds) {
-        txsPendingRowIds.computeIfPresent(txId, (k, v) -> {
-            v.removeAll(pendingRowIds);
+    public Set<RowId> removePendingRowIds(UUID txId) {
+        Set<RowId> pendingRows = txsPendingRowIds.remove(txId);
 
-            return v.isEmpty() ? null : v;
-        });
-    }
-
-    /**
-     * Returns pending row IDs for the given transaction or an empty set if there are no pending rows.
-     *
-     * @param txId Transaction ID.
-     * @return Pending row IDs.
-     */
-    public Set<RowId> getPendingRowIds(UUID txId) {
-        Set<RowId> pendingRows = new TreeSet<>();
-
-        txsPendingRowIds.computeIfPresent(txId, (k, v) -> {
-            pendingRows.addAll(v);
-
-            return v;
-        });
-
-        return pendingRows;
+        return pendingRows == null ? EMPTY_SET : pendingRows;
     }
 
 }
