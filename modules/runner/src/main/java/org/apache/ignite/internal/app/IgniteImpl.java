@@ -1121,12 +1121,4 @@ public class IgniteImpl implements Ignite {
     public TxManager txManager() {
         return txManager;
     }
-
-    /**
-     * @return Catalog manager.
-     */
-    @TestOnly
-    public CatalogManager catalogManager() {
-        return catalogManager;
-    }
 }
