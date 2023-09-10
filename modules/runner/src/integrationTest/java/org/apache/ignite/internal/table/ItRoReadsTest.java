@@ -506,9 +506,15 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         String zoneName = zoneNameForTable(tableName);
 
         try (Session session = node.sql().createSession()) {
-            session.execute(null, "create zone \"" + zoneName + "\" with partitions=1, replicas=" + DEFAULT_REPLICA_COUNT);
+            session.execute(null, String.format("create zone \"%s\" with partitions=1, replicas=%d", zoneName, DEFAULT_REPLICA_COUNT));
 
-            session.execute(null, "create table \"" + tableName + "\" (key bigint primary key, valInt int, valStr varchar default 'default') with primary_zone='" + zoneName + "'");
+            session.execute(null,
+                    String.format(
+                            "create table \"%s\" (key bigint primary key, valInt int, valStr varchar default 'default') "
+                                    + "with primary_zone='%s'",
+                            tableName, zoneName
+                    )
+            );
         }
 
         Table table = node.tables().table(tableName);
