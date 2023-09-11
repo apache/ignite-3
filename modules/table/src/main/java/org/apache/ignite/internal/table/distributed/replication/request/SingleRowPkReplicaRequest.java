@@ -17,33 +17,16 @@
 
 package org.apache.ignite.internal.table.distributed.replication.request;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.network.annotations.Marshallable;
 
 /**
- * Multiple row replica request.
+ * Single row replica request involving a table's Primary Key.
  */
-public interface MultipleRowReplicaRequest extends ReplicaRequest {
-    List<BinaryRowMessage> binaryRowMessages();
-
-    /**
-     * Deserializes binary row byte buffers into binary rows.
-     */
-    default List<BinaryRow> binaryRows() {
-        List<BinaryRowMessage> binaryRowMessages = binaryRowMessages();
-
-        var result = new ArrayList<BinaryRow>(binaryRowMessages.size());
-
-        for (BinaryRowMessage message : binaryRowMessages) {
-            result.add(message.asBinaryRow());
-        }
-
-        return result;
-    }
+public interface SingleRowPkReplicaRequest extends ReplicaRequest {
+    ByteBuffer primaryKey();
 
     @Marshallable
     RequestType requestType();

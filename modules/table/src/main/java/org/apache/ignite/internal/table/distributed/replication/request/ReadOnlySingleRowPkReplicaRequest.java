@@ -24,5 +24,5 @@ import org.apache.ignite.network.annotations.Transferable;
  * Read only single row replica request.
  */
 @Transferable(TableMessageGroup.RO_SINGLE_ROW_REPLICA_REQUEST)
-public interface ReadOnlySingleRowReplicaRequest extends SingleRowReplicaRequest, ReadOnlyReplicaRequest {
+public interface ReadOnlySingleRowPkReplicaRequest extends SingleRowPkReplicaRequest, ReadOnlyReplicaRequest {
 }

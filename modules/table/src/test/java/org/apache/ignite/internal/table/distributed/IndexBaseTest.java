@@ -70,19 +70,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     private static final BinaryTupleSchema PK_INDEX_SCHEMA = BinaryTupleSchema.createKeySchema(SCHEMA_DESCRIPTOR);
 
-    private static final ColumnsExtractor PK_INDEX_BINARY_TUPLE_CONVERTER = new ColumnsExtractor() {
-        private final BinaryRowConverter converter = new BinaryRowConverter(TUPLE_SCHEMA, PK_INDEX_SCHEMA);
-
-        @Override
-        public BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow) {
-            return new BinaryTuple(PK_INDEX_SCHEMA.elementCount(), keyOnlyRow.tupleSlice());
-        }
-
-        @Override
-        public BinaryTuple extractColumns(BinaryRow row) {
-            return converter.toTuple(row);
-        }
-    };
+    private static final ColumnsExtractor PK_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, PK_INDEX_SCHEMA);
 
     private static final int[] USER_INDEX_COLS = {
             SCHEMA_DESCRIPTOR.column("INTVAL").schemaIndex(),
@@ -91,19 +79,7 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     private static final BinaryTupleSchema USER_INDEX_SCHEMA = BinaryTupleSchema.createSchema(SCHEMA_DESCRIPTOR, USER_INDEX_COLS);
 
-    private static final ColumnsExtractor USER_INDEX_BINARY_TUPLE_CONVERTER = new ColumnsExtractor() {
-        private final BinaryRowConverter converter = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
-
-        @Override
-        public BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public BinaryTuple extractColumns(BinaryRow row) {
-            return converter.toTuple(row);
-        }
-    };
+    private static final ColumnsExtractor USER_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, USER_INDEX_SCHEMA);
 
     private static final UUID TX_ID = UUID.randomUUID();
 

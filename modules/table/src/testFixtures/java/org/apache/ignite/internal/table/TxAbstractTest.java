@@ -78,7 +78,6 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -121,12 +120,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     protected IgniteTransactions igniteTransactions;
 
     protected TxManager clientTxManager;
-
-    /**
-     * Initialize the test state.
-     */
-    @BeforeEach
-    public abstract void before() throws Exception;
 
     @Test
     public void testCommitRollbackSameTxDoesNotThrow() throws TransactionException {

@@ -22,10 +22,10 @@ import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMess
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Read-write multi-row replica request.
+ * Read-write multi-row replica request involving table's Primary Keys.
  */
-@Transferable(TableMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST)
-public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
+@Transferable(TableMessageGroup.RW_MULTI_ROW_PK_REPLICA_REQUEST)
+public interface ReadWriteMultiRowPkReplicaRequest extends MultipleRowPkReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
     /**
      * Gets a commit partition id.
      *
