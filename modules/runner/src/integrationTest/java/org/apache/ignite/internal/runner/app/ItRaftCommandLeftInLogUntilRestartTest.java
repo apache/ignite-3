@@ -60,7 +60,7 @@ import org.junit.jupiter.api.Test;
 /**
  * The class has tests of cluster recovery when no all committed RAFT commands applied to the state machine.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-20366")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-20393")
 public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassIntegrationTest {
 
     private final Object[][] dataSet = {
