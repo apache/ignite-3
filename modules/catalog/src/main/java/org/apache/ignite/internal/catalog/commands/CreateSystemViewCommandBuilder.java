@@ -22,6 +22,10 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 
 /**
  * A builder to construct create system view commands.
+ *
+ * <p>A builder is considered to be reusable, thus implementation have
+ * to make sure invocation of {@link #build()} method doesn't cause any
+ * side effects on builder's state or any object created by the same builder.
  */
 public interface CreateSystemViewCommandBuilder {
 
