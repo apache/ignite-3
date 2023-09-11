@@ -41,8 +41,9 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 /**
  * Create system view command - creates or replaces a system view.
  *
- * <p>If a system with with the given name does not exists, this command adds this system view to {@code SYSTEM} schema.
- * If a system with with the given name exists, this command replaces the existing system view.
+ * <p>If a system with the given name does not exist, this command adds this system view to {@code SYSTEM} schema.
+ *
+ * <p>If a system with the given name exists, this command replaces the existing system view.
  */
 public class CreateSystemViewCommand extends AbstractCatalogCommand {
 
