@@ -85,7 +85,7 @@ public class MsgPackReaderTests
         Test(m => new MsgPackReader(m.Span).ReadInt64());
         Test(m => new MsgPackReader(m.Span).ReadStringHeader());
         Test(m => new MsgPackReader(m.Span).ReadInt32());
-        Test(m => new MsgPackReader(m.Span).ReadMapHeader());
+        Test(m => new MsgPackReader(m.Span).ReadInt32());
         Test(m => new MsgPackReader(m.Span).ReadBinaryHeader());
         Test(m => new MsgPackReader(m.Span).ReadGuid());
 
@@ -292,8 +292,8 @@ public class MsgPackReaderTests
         foreach (var num in GetNumbers(int.MaxValue / 2, unsignedOnly: true))
         {
             var res = WriteRead(
-                buf => buf.MessageWriter.WriteMapHeader((int)num),
-                m => new MsgPackReader(m.Span).ReadMapHeader());
+                buf => buf.MessageWriter.Write((int)num),
+                m => new MsgPackReader(m.Span).ReadInt32());
 
             Assert.AreEqual(num, res);
         }

@@ -203,19 +203,6 @@ internal ref struct MsgPackReader
     public ReadOnlySpan<byte> ReadBinary() => GetSpan(ReadBinaryHeader());
 
     /// <summary>
-    /// Reads map header.
-    /// </summary>
-    /// <returns>Map length.</returns>
-    public int ReadMapHeader() =>
-        _span[_pos++] switch
-        {
-            var code when MsgPackCode.IsFixMap(code) => code & 0x0F,
-            MsgPackCode.Map16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
-            MsgPackCode.Map32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
-            var invalid => throw GetInvalidCodeException("map", invalid)
-        };
-
-    /// <summary>
     /// Reads GUID value.
     /// </summary>
     /// <returns>Guid.</returns>

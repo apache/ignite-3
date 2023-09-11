@@ -164,7 +164,7 @@ namespace Apache.Ignite.Tests
             handshakeWriter.Write(Node.Name); // Node name (consistent id).
             handshakeWriter.Write(ClusterId);
             handshakeWriter.WriteBinaryHeader(0); // Features.
-            handshakeWriter.WriteMapHeader(0); // Extensions.
+            handshakeWriter.Write(0); // Extensions.
 
             var handshakeMem = handshakeBufferWriter.GetWrittenMemory();
             handler.Send(new byte[] { 0, 0, 0, (byte)handshakeMem.Length }); // Size.
@@ -196,8 +196,8 @@ namespace Apache.Ignite.Tests
                 switch (opCode)
                 {
                     case ClientOp.TablesGet:
-                        // Empty map.
-                        Send(handler, requestId, new byte[] { 128 }.AsMemory());
+                        // Zero tables.
+                        Send(handler, requestId, new byte[] { 0 }.AsMemory());
                         continue;
 
                     case ClientOp.TableGet:
@@ -508,7 +508,7 @@ namespace Apache.Ignite.Tests
 
             using var arrayBufferWriter = new PooledArrayBuffer();
             var writer = new MsgPackWriter(arrayBufferWriter);
-            writer.WriteMapHeader(1);
+            writer.Write(1);
             writer.Write(1); // Version.
 
             if (tableId == ExistingTableId)

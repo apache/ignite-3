@@ -298,7 +298,7 @@ namespace Apache.Ignite.Internal.Table
             Schema Read()
             {
                 var r = resBuf.GetReader();
-                var schemaCount = r.ReadMapHeader();
+                var schemaCount = r.ReadInt32();
 
                 if (schemaCount == 0)
                 {

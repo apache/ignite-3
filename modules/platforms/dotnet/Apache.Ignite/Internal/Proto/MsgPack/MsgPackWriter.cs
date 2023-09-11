@@ -32,7 +32,6 @@ internal readonly ref struct MsgPackWriter
     private const int MaxFixPositiveInt = 127;
     private const int MaxFixStringLength = 31;
     private const int MinFixNegativeInt = -32;
-    private const int MaxFixMapCount = 15;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MsgPackWriter"/> struct.
@@ -295,31 +294,6 @@ internal readonly ref struct MsgPackWriter
                 }
 
                 break;
-        }
-    }
-
-    /// <summary>
-    /// Writes map header.
-    /// </summary>
-    /// <param name="count">Map element count.</param>
-    public void WriteMapHeader(int count)
-    {
-        if (count <= MaxFixMapCount)
-        {
-            Buf.GetSpanAndAdvance(1)[0] = (byte)(MsgPackCode.MinFixMap | count);
-        }
-        else if (count <= ushort.MaxValue)
-        {
-            var span = Buf.GetSpanAndAdvance(3);
-            span[0] = MsgPackCode.Map16;
-            BinaryPrimitives.WriteUInt16BigEndian(span[1..], (ushort)count);
-        }
-        else
-        {
-            var span = Buf.GetSpanAndAdvance(5);
-
-            span[0] = MsgPackCode.Map32;
-            BinaryPrimitives.WriteUInt32BigEndian(span[1..], (uint)count);
         }
     }
 
