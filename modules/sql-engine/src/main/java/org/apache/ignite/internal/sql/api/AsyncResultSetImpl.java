@@ -414,5 +414,10 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         public ResultSetMetadata metadata() {
             return meta;
         }
+
+        @Override
+        public String toString() {
+            return "Row " + row;
+        }
     }
 }

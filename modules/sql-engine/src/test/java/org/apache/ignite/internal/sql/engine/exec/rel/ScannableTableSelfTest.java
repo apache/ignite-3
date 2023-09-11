@@ -586,7 +586,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             this.input = input;
             rowConverter = new RowCollectingTableRwoConverter(input);
             tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, input.rowType);
-            scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
+            scannableTable = new ScannableTableImpl(internalTable, rf -> rowConverter, tableDescriptor);
         }
 
         ResultCollector tableScan(int partitionId, long term, NoOpTransaction tx) {
@@ -771,13 +771,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory, @Nullable BitSet requiredColumns) {
-            Object[] convertedRow = testInput.data.get(row);
+        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow tableRow, RowFactory<RowT> factory) {
+            Object[] convertedRow = testInput.data.get(tableRow);
             if (convertedRow == null) {
-                throw new IllegalArgumentException("Unexpected row: " + row);
+                throw new IllegalArgumentException("Unexpected row: " + tableRow);
             }
 
-            converted.add(new SimpleEntry<>(row, requiredColumns));
+            converted.add(new SimpleEntry<>(tableRow, null));
             return (RowT) convertedRow;
         }
     }
