@@ -135,11 +135,12 @@ public class TxManagerImpl implements TxManager {
             return new ReadWriteTransactionImpl(this, timestampTracker, txId);
         }
 
-        HybridTimestamp observableTimestamp = timestampTracker.get();
+//        HybridTimestamp observableTimestamp = timestampTracker.get();
 
-        HybridTimestamp readTimestamp = observableTimestamp != null
-                ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
-                : currentReadTimestamp();
+        HybridTimestamp readTimestamp = beginTimestamp;
+//        HybridTimestamp readTimestamp = observableTimestamp != null
+//                ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp())
+//                : currentReadTimestamp();
 
         timestampTracker.update(readTimestamp);
 
