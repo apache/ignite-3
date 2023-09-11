@@ -23,9 +23,11 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,6 +44,8 @@ public class TableRowConverterImpl implements TableRowConverter {
 
     private final BinaryTupleSchema binaryTupleSchema;
 
+    private final int[] physicalIndexMap;
+
     /** Constructor. */
     public TableRowConverterImpl(SchemaRegistry schemaRegistry, SchemaDescriptor schemaDescriptor, TableDescriptor desc) {
         this.schemaRegistry = schemaRegistry;
@@ -49,6 +53,14 @@ public class TableRowConverterImpl implements TableRowConverter {
         this.desc = desc;
 
         this.binaryTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
+
+        physicalIndexMap = new int[desc.columnsCount()];
+
+        for (int i = 0; i < desc.columnsCount(); i++) {
+            ColumnDescriptor col = desc.columnDescriptor(i);
+            Column column = schemaDescriptor.column(col.name());
+            physicalIndexMap[i] = column.schemaIndex();
+        }
     }
 
     /** {@inheritDoc} */
@@ -72,7 +84,7 @@ public class TableRowConverterImpl implements TableRowConverter {
         BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(desc.columnsCount());
 
         for (int i = 0; i < desc.columnsCount(); i++) {
-            int index = desc.columnDescriptor(i).physicalIndex();
+            int index = physicalIndexMap[i];
 
             BinaryRowConverter.appendValue(tupleBuilder, binarySchema.element(index), binarySchema.value(row, index));
         }
@@ -84,7 +96,7 @@ public class TableRowConverterImpl implements TableRowConverter {
         BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(requiredColumns.cardinality());
 
         for (int i = requiredColumns.nextSetBit(0); i != -1; i = requiredColumns.nextSetBit(i + 1)) {
-            int index = desc.columnDescriptor(i).physicalIndex();
+            int index = physicalIndexMap[i];
 
             BinaryRowConverter.appendValue(tupleBuilder, binarySchema.element(index), binarySchema.value(row, index));
         }
