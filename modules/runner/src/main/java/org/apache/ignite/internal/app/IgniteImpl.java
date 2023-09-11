@@ -496,7 +496,7 @@ public class IgniteImpl implements Ignite {
         dataStorageMgr = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
                         name,
-                        clusterConfigRegistry,
+                        nodeConfigRegistry,
                         storagePath,
                         longJvmPauseDetector
                 )
