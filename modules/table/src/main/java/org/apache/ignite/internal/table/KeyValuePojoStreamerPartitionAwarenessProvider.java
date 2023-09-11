@@ -52,7 +52,7 @@ class KeyValuePojoStreamerPartitionAwarenessProvider<K, V> extends AbstractClien
 
             return hashCalc.hash();
         } catch (MarshallerException e) {
-            throw new RuntimeException(e);
+            throw new org.apache.ignite.lang.MarshallerException(e);
         }
     }
 }

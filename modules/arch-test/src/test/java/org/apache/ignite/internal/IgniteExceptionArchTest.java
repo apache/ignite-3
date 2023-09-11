@@ -39,7 +39,6 @@ import org.apache.ignite.client.IgniteClientFeatureNotSupportedByServerException
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.LocationProvider.RootLocationProvider;
-import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.network.UnresolvableConsistentIdException;
 import org.apache.ignite.security.AuthenticationException;
 import org.apache.ignite.security.UnknownAuthenticationTypeException;
@@ -86,7 +85,6 @@ public class IgniteExceptionArchTest {
         exclusions.add(IgniteClientAuthenticationException.class.getCanonicalName());
         exclusions.add(IgniteClientConnectionException.class.getCanonicalName());
         exclusions.add(IgniteClientFeatureNotSupportedByServerException.class.getCanonicalName());
-        exclusions.add(MarshallerException.class.getCanonicalName());
         exclusions.add(UnresolvableConsistentIdException.class.getCanonicalName());
         exclusions.add(AuthenticationException.class.getCanonicalName());
         exclusions.add(UnknownAuthenticationTypeException.class.getCanonicalName());

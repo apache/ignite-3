@@ -72,7 +72,7 @@ public class JdbcQueryExecuteResult extends Response {
             return;
         }
 
-        packer.packArrayHeader(results.size());
+        packer.packInt(results.size());
 
         for (JdbcQuerySingleResult result : results) {
             result.writeBinary(packer);
@@ -88,7 +88,7 @@ public class JdbcQueryExecuteResult extends Response {
             return;
         }
 
-        int size = unpacker.unpackArrayHeader();
+        int size = unpacker.unpackInt();
 
         if (size == 0) {
             results = Collections.emptyList();

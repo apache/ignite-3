@@ -103,7 +103,7 @@ class ItClientHandlerTestUtils {
             packer.packInt(2); // Client type: general purpose.
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
+            packer.packInt(0); // Extensions.
 
             out.write(packer.toByteArray());
             out.flush();
