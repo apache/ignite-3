@@ -134,12 +134,6 @@ public class ClientMessageUnpackerTest {
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
-    public void testUnpackMapHeader(int i) {
-        testUnpacker(p -> p.packInt(i), unpacker -> unpacker.unpackInt(), i);
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testUnpackExtensionTypeHeader(int i) {
         testUnpacker(p -> p.packExtensionTypeHeader((byte) 33, i), ClientMessageUnpacker::unpackExtensionTypeHeader,
                 new ExtensionTypeHeader((byte) 33, i));
@@ -171,13 +165,8 @@ public class ClientMessageUnpackerTest {
             p.packInt(123456);
             p.packBoolean(false);
 
-            p.packInt(3);
-            p.packString("x");
-            p.packNil();
-            p.packUuid(UUID.randomUUID());
-            p.packLong(123);
-            p.packUuid(UUID.randomUUID());
-            p.packLong(UUID.randomUUID().getLeastSignificantBits());
+            p.packBinaryHeader(33);
+            p.writePayload(new byte[33]);
 
             p.packDouble(1.1);
             p.packDouble(2.2);
