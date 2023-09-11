@@ -105,7 +105,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             packer.packInt(2); // Client type: general purpose.
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
+            packer.packInt(0); // Extensions.
 
             out.write(packer.toByteArray());
             out.flush();
@@ -129,7 +129,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
 
-            var extensionsLen = unpacker.unpackMapHeader();
+            var extensionsLen = unpacker.unpackInt();
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
@@ -167,7 +167,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             packer.packInt(2); // Client type: general purpose.
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(3); // Extensions.
+            packer.packInt(3); // Extensions.
             packer.packString("authn-type");
             packer.packString("basic");
             packer.packString("authn-identity");
@@ -197,7 +197,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
 
-            var extensionsLen = unpacker.unpackMapHeader();
+            var extensionsLen = unpacker.unpackInt();
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
@@ -235,7 +235,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             packer.packInt(2); // Client type: general purpose.
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
+            packer.packInt(0); // Extensions.
 
             out.write(packer.toByteArray());
             out.flush();
@@ -288,7 +288,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             packer.packInt(2); // Client type: general purpose.
 
             packer.packBinaryHeader(0); // Features.
-            packer.packMapHeader(0); // Extensions.
+            packer.packInt(0); // Extensions.
 
             out.write(packer.toByteArray());
             out.flush();

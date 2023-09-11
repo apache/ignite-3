@@ -72,12 +72,12 @@ public class ClientTableCommon {
         }
 
         var colCnt = schema.columnNames().size();
-        packer.packArrayHeader(colCnt);
+        packer.packInt(colCnt);
 
         for (var colIdx = 0; colIdx < colCnt; colIdx++) {
             var col = schema.column(colIdx);
 
-            packer.packArrayHeader(7);
+            packer.packInt(7);
             packer.packString(col.name());
             packer.packInt(getColumnType(col.type().spec()).ordinal());
             packer.packBoolean(schema.isKeyColumn(colIdx));

@@ -173,11 +173,12 @@ public class ClientTable implements Table {
             if (ver == UNKNOWN_SCHEMA_VERSION) {
                 w.out().packNil();
             } else {
-                w.out().packArrayHeader(1);
+                w.out().packInt(1);
                 w.out().packInt(ver);
             }
         }, r -> {
-            int schemaCnt = r.in().unpackMapHeader();
+            ClientMessageUnpacker clientMessageUnpacker = r.in();
+            int schemaCnt = clientMessageUnpacker.unpackInt();
 
             if (schemaCnt == 0) {
                 log.warn("Schema not found [tableId=" + id + ", schemaVersion=" + ver + "]");
@@ -201,12 +202,12 @@ public class ClientTable implements Table {
 
     private ClientSchema readSchema(ClientMessageUnpacker in) {
         var schemaVer = in.unpackInt();
-        var colCnt = in.unpackArrayHeader();
+        var colCnt = in.unpackInt();
         var columns = new ClientColumn[colCnt];
         int colocationColumnCnt = 0;
 
         for (int i = 0; i < colCnt; i++) {
-            var propCnt = in.unpackArrayHeader();
+            var propCnt = in.unpackInt();
 
             assert propCnt >= 7;
 
@@ -533,7 +534,7 @@ public class ClientTable implements Table {
             partitionAssignment = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
                     w -> w.out().packInt(id),
                     r -> {
-                        int cnt = r.in().unpackArrayHeader();
+                        int cnt = r.in().unpackInt();
                         List<String> res = new ArrayList<>(cnt);
 
                         for (int i = 0; i < cnt; i++) {

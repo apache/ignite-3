@@ -185,7 +185,7 @@ sql_result table_metadata_query::make_request_get_tables_meta() {
                 writer.write(m_schema);
                 writer.write(m_table);
 
-                writer.write_array_header(table_types.size());
+                writer.write(static_cast<int32_t>(table_types.size()));
                 for (auto table_type : table_types) {
                     writer.write(table_type);
                 }
