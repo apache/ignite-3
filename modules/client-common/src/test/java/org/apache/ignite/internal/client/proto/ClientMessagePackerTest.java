@@ -149,7 +149,7 @@ public class ClientMessagePackerTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE})
     public void testPackMapHeader(int i) {
-        testPacker(p -> p.packMapHeader(i), p -> p.packMapHeader(i));
+        testPacker(p -> p.packInt(i), p -> p.packMapHeader(i));
     }
 
     @ParameterizedTest

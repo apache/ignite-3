@@ -361,32 +361,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
-     * Reads a map header.
-     *
-     * @return Map size.
-     */
-    public int unpackMapHeader() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        byte code = buf.readByte();
-
-        if (Code.isFixedMap(code)) { // fixmap
-            return code & 0x0f;
-        }
-
-        switch (code) {
-            case Code.MAP16:
-                return readLength16();
-
-            case Code.MAP32:
-                return readLength32();
-
-            default:
-                throw unexpected("Map", code);
-        }
-    }
-
-    /**
      * Reads an extension type header.
      *
      * @return Extension type header.

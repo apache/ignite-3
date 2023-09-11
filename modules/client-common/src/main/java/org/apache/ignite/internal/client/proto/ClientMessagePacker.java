@@ -340,29 +340,6 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
-     * Writes a map header value.
-     *
-     * @param mapSize map size.
-     */
-    public void packMapHeader(int mapSize) {
-        assert !closed : "Packer is closed";
-
-        if (mapSize < 0) {
-            throw new IllegalArgumentException("map size must be >= 0");
-        }
-
-        if (mapSize < (1 << 4)) {
-            buf.writeByte((byte) (Code.FIXMAP_PREFIX | mapSize));
-        } else if (mapSize < (1 << 16)) {
-            buf.writeByte(Code.MAP16);
-            buf.writeShort(mapSize);
-        } else {
-            buf.writeByte(Code.MAP32);
-            buf.writeInt(mapSize);
-        }
-    }
-
-    /**
      * Writes Extension value header.
      *
      * <p>Should be followed by {@link #writePayload(byte[])} method to write the extension body.

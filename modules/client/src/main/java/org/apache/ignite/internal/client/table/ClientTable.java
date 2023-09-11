@@ -177,7 +177,8 @@ public class ClientTable implements Table {
                 w.out().packInt(ver);
             }
         }, r -> {
-            int schemaCnt = r.in().unpackMapHeader();
+            ClientMessageUnpacker clientMessageUnpacker = r.in();
+            int schemaCnt = clientMessageUnpacker.unpackInt();
 
             if (schemaCnt == 0) {
                 log.warn("Schema not found [tableId=" + id + ", schemaVersion=" + ver + "]");
