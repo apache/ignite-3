@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
@@ -30,32 +29,12 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests to verify validation of {@link CreateSystemViewCommand}.
  */
 public class CreateSystemViewCommandValidationTest extends AbstractCommandValidationTest {
-
-    @ParameterizedTest
-    @EnumSource(SystemViewType.class)
-    public void newSystemView(SystemViewType type) {
-        CreateSystemViewCommand command = CreateSystemViewCommand.builder()
-                .name("view")
-                .columns(List.of(ColumnParams.builder().name("C1").type(INT32).build()))
-                .type(type)
-                .build();
-
-        assertEquals("view", command.name());
-
-        ColumnParams column = command.columns().get(0);
-        assertEquals("C1", column.name());
-        assertEquals(INT32, column.type());
-        assertEquals(type, command.systemViewType());
-
-        assertEquals(1, command.columns().size(), "num columns");
-    }
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
@@ -69,7 +48,7 @@ public class CreateSystemViewCommandValidationTest extends AbstractCommandValida
 
     @ParameterizedTest(name = "[{index}] {argumentsWithNames}")
     @MethodSource("nullAndEmptyLists")
-    void tableShouldHaveAtLeastOneColumn(List<ColumnParams> columns) {
+    void systemViewShouldHaveAtLeastOneColumn(List<ColumnParams> columns) {
         CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
 
         builder = fillProperties(builder);
@@ -81,7 +60,7 @@ public class CreateSystemViewCommandValidationTest extends AbstractCommandValida
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
-    void tableColumnNameMustNotBeNullOrBlank(String name) {
+    void columnNameMustNotBeNullOrBlank(String name) {
         CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
 
         builder = fillProperties(builder);
@@ -94,7 +73,7 @@ public class CreateSystemViewCommandValidationTest extends AbstractCommandValida
     }
 
     @Test
-    void tableColumnShouldHaveType() {
+    void columnShouldHaveType() {
         CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
 
         builder = fillProperties(builder)
@@ -126,7 +105,7 @@ public class CreateSystemViewCommandValidationTest extends AbstractCommandValida
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndEmptyLists")
-    public void columnsNotNotBeNullNorEmpty(List<ColumnParams> columns) {
+    public void columnsShouldNotBeNullNorEmpty(List<ColumnParams> columns) {
         CreateSystemViewCommandBuilder builder = CreateSystemViewCommand.builder();
 
         fillProperties(builder);

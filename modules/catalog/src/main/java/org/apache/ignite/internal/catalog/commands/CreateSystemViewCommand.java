@@ -106,20 +106,14 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
         List<CatalogTableColumnDescriptor> viewColumns = columns.stream().map(CatalogUtils::fromParams).collect(toList());
         CatalogSystemViewDescriptor descriptor = new CatalogSystemViewDescriptor(id, name, viewColumns, systemViewType);
 
-        boolean replaceSystemView = false;
+        CatalogSystemViewDescriptor existingSystemView = systemSchema.systemView(name);
 
-        // If the same view exists, do not update the catalog.
-        for (CatalogSystemViewDescriptor existingView : systemSchema.systemViews()) {
-            if (descriptor.equals(existingView)) {
-                return List.of();
-            }
-            if (descriptor.name().equals(name)) {
-                replaceSystemView = true;
-            }
-        }
-
-        if (!replaceSystemView) {
+        if (existingSystemView == null) {
+            // If view does not exists, ensure that the given name is not used by other objects.
             CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName(systemSchema, name);
+        } else if (descriptor.equals(existingSystemView)) {
+            // If the same view exists, do not update the catalog.
+            return List.of();
         }
 
         return List.of(
