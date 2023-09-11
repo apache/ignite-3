@@ -220,6 +220,15 @@ public:
     void skip() { next(); }
 
     /**
+     * Skip next value.
+     */
+    void skip(int count) {
+        for (int i = 0; i < count; i++) {
+            skip();
+        }
+    }
+
+    /**
      * Position.
      *
      * @return Current position in memory.

@@ -56,6 +56,7 @@ struct column {
         res.is_key = reader.read_bool();
         res.nullable = reader.read_bool();
         res.scale = reader.read_int32();
+        reader.skip(fields_num - 5);
 
         return res;
     }
