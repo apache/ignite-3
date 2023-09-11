@@ -189,8 +189,8 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        txStateMap.compute(txId, (k, oldMeta) -> {
+    public TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+        return txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
             if (newMeta == null) {
@@ -257,12 +257,17 @@ public class TxManagerImpl implements TxManager {
                 .build();
 
         return replicaService.invoke(recipientNode, req)
-                .thenRun(() -> updateTxMeta(txId, old -> new TxStateMeta(
-                        commit ? COMMITED : ABORTED,
-                        old.txCoordinatorId(),
-                        old.commitTimestamp(),
-                        old.getFut()
-                )));
+                .thenRun(() -> {
+                    TxStateMeta newMeta = updateTxMeta(txId, old -> new TxStateMeta(
+                            commit ? COMMITED : ABORTED,
+                            old.txCoordinatorId(),
+                            old.commitTimestamp(),
+                            old.getFut()
+                    ));
+
+                    // TODO IGNITE-20034
+                    //txStateResolver.notifyFinished(txId, newMeta);
+                });
     }
 
     @Override

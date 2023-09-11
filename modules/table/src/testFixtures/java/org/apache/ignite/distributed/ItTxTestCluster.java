@@ -92,7 +92,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -390,7 +390,13 @@ public class ItTxTestCluster {
                 var mvTableStorage = new TestMvTableStorage(tableId, DEFAULT_PARTITION_COUNT);
                 var mvPartStorage = new TestMvPartitionStorage(0);
                 var txStateStorage = txStateStorages.get(assignment);
-                var placementDriver = new PlacementDriver(replicaServices.get(assignment), consistentIdToNode);
+                var placementDriver = new TransactionStateResolver(
+                        replicaServices.get(assignment),
+                        txManagers.get(assignment),
+                        clocks.get(assignment),
+                        consistentIdToNode,
+                        () -> clusterServices.get(assignment).topologyService().localMember().id()
+                );
 
                 for (int part = 0; part < assignments.size(); part++) {
                     placementDriver.updateAssignment(grpIds.get(part), assignments.get(part));

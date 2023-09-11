@@ -75,7 +75,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -158,7 +158,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
-     * @param placementDriver Placement driver.
+     * @param transactionStateResolver Placement driver.
      * @param schema Schema descriptor.
      * @param tracker Observable timestamp tracker.
      */
@@ -166,11 +166,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             ReplicaService replicaSvc,
             TxManager txManager,
             boolean crossTableUsage,
-            PlacementDriver placementDriver,
+            TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema,
             HybridTimestampTracker tracker
     ) {
-        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, placementDriver, schema, tracker);
+        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, transactionStateResolver, schema, tracker);
     }
 
     /**
@@ -196,7 +196,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager, if {@code null}, then default one will be created.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
      *                        by itself.
-     * @param placementDriver Placement driver.
+     * @param transactionStateResolver Placement driver.
      * @param schema Schema descriptor.
      */
     public DummyInternalTableImpl(
@@ -204,7 +204,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             MvPartitionStorage mvPartStorage,
             @Nullable TxManager txManager,
             boolean crossTableUsage,
-            PlacementDriver placementDriver,
+            TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema,
             HybridTimestampTracker tracker
     ) {
@@ -340,7 +340,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 CLOCK,
                 safeTime,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
-                placementDriver,
+                transactionStateResolver,
                 storageUpdateHandler,
                 new DummySchemas(schemaManager),
                 mockClusterNode(),

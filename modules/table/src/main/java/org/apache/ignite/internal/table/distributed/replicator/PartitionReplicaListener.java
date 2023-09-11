@@ -27,9 +27,9 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toIndexDescriptor;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
+import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
-import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.IgniteUtils.filter;
@@ -135,6 +135,7 @@ import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
+import org.apache.ignite.internal.tx.TransactionAbandonedException;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -211,7 +212,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
     /** Placement Driver. */
-    private final PlacementDriver placementDriver;
+    private final TransactionStateResolver txStateResolver;
 
     /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
     private final Executor scanRequestExecutor;
@@ -273,7 +274,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param hybridClock Hybrid clock.
      * @param safeTime Safe time clock.
      * @param txStateStorage Transaction state storage.
-     * @param placementDriver Placement driver.
+     * @param txStateResolver Placement driver.
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
      * @param localNode Instance of the local node.
      * @param mvTableStorage Table storage.
@@ -294,7 +295,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridClock hybridClock,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TxStateStorage txStateStorage,
-            PlacementDriver placementDriver,
+            TransactionStateResolver txStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             Schemas schemas,
             ClusterNode localNode,
@@ -315,7 +316,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.hybridClock = hybridClock;
         this.safeTime = safeTime;
         this.txStateStorage = txStateStorage;
-        this.placementDriver = placementDriver;
+        this.txStateResolver = txStateResolver;
         this.storageUpdateHandler = storageUpdateHandler;
         this.localNode = localNode;
         this.mvTableStorage = mvTableStorage;
@@ -2427,12 +2428,24 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             HybridTimestamp timestamp
     ) {
-        boolean readLatest = timestamp == null;
+        return txStateResolver.resolveTxState(txId, commitGrpId, timestamp).thenApply(txMeta -> {
+            if (txMeta == null) {
+                return true;
+            } else if (txMeta.txState() == COMMITED) {
+                boolean readLatest = timestamp == null;
 
-        TxStateMeta localMeta = txManager.stateMeta(txId);
+                return !readLatest && txMeta.commitTimestamp().compareTo(timestamp) > 0;
+            } else if (txMeta.txState() == ABORTED) {
+                return true;
+            } else {
+                assert txMeta.txState() == ABANDONED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
 
-        if (localMeta == null) {
-            return placementDriver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
+                throw new TransactionAbandonedException();
+            }
+        });
+
+        /*if (localMeta == null) {
+            return txStateResolver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
                             .groupId(commitGrpId)
                             .readTimestampLong((readLatest ? HybridTimestamp.MIN_VALUE : timestamp).longValue())
                             .txId(txId)
@@ -2468,9 +2481,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else {
             // Coordinator path
             // Sent status request to localMeta.txCoordinatorId()
-
-            return completedFuture(false);
-        }
+        }*/
     }
 
     private CompletableFuture<UpdateCommand> updateCommand(
