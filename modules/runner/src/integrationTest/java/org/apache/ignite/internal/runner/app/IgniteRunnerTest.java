@@ -46,7 +46,6 @@ public class IgniteRunnerTest extends IgniteIntegrationTest {
         IgnitionManager.stop(NODE_NAME);
     }
 
-    /** TODO: Replace this test by full integration test on the cli side IGNITE-15097. */
     @Test
     public void smokeTestArgs() throws Exception {
         Path configPath = Path.of(IgniteRunnerTest.class.getResource("/ignite-config.json").toURI());
