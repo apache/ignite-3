@@ -127,32 +127,6 @@ public class MsgPackWriterTests
     }
 
     [Test]
-    public void TestWriteArrayHeader()
-    {
-        foreach (var number in GetNumbers(int.MaxValue / 2, unsignedOnly: true))
-        {
-            var res = Write(x => x.MessageWriter.WriteArrayHeader((int)number));
-            var readRes = new MessagePackReader(res.AsMemory()).TryReadArrayHeader(out var len);
-
-            Assert.IsTrue(readRes);
-            Assert.AreEqual(number, len);
-        }
-    }
-
-    [Test]
-    public void TestWriteMapHeader()
-    {
-        foreach (var number in GetNumbers(int.MaxValue / 2, unsignedOnly: true))
-        {
-            var res = Write(x => x.MessageWriter.WriteMapHeader((int)number));
-            var readRes = new MessagePackReader(res.AsMemory()).TryReadMapHeader(out var len);
-
-            Assert.IsTrue(readRes);
-            Assert.AreEqual(number, len);
-        }
-    }
-
-    [Test]
     public void TestWriteBinaryHeader()
     {
         foreach (var number in GetNumbers(int.MaxValue / 2, unsignedOnly: true))

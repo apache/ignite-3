@@ -88,10 +88,6 @@ public class IgniteExceptionMapperUtil {
             return origin;
         }
 
-        if (origin instanceof IgniteException || origin instanceof IgniteCheckedException) {
-            return origin;
-        }
-
         IgniteExceptionMapper<? extends Exception, ? extends Exception> m = EXCEPTION_CONVERTERS.get(origin.getClass());
         if (m != null) {
             Exception mapped = map(m, origin);
@@ -100,6 +96,10 @@ public class IgniteExceptionMapperUtil {
                     "Unexpected mapping of internal exception to a public one [origin=" + origin + ", mapped=" + mapped + ']';
 
             return mapped;
+        }
+
+        if (origin instanceof IgniteException || origin instanceof IgniteCheckedException) {
+            return origin;
         }
 
         // There are no exception mappings for the given exception. This case should be considered as internal error.

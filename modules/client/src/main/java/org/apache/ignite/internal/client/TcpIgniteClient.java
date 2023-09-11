@@ -174,11 +174,11 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
         return ch.serviceAsync(ClientOp.CLUSTER_GET_NODES, r -> {
-            int cnt = r.in().unpackArrayHeader();
+            int cnt = r.in().unpackInt();
             List<ClusterNode> res = new ArrayList<>(cnt);
 
             for (int i = 0; i < cnt; i++) {
-                int fieldCnt = r.in().unpackArrayHeader();
+                int fieldCnt = r.in().unpackInt();
                 assert fieldCnt == 4;
 
                 res.add(new ClientClusterNode(

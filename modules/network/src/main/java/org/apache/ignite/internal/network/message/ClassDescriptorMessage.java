@@ -62,7 +62,7 @@ public interface ClassDescriptorMessage extends NetworkMessage {
     String superClassName();
 
     /**
-     * Super-class descriptor ID. {@link Integer#MIN_VALUE} if super-class is missing.
+     * Super-class descriptor ID. {@code -1} if super-class is missing.
      *
      * @see ClassDescriptor#superClassDescriptor()
      */
@@ -77,7 +77,7 @@ public interface ClassDescriptorMessage extends NetworkMessage {
     String componentTypeName();
 
     /**
-     * Component type descriptor ID. {@link Integer#MIN_VALUE} if the described class is not an array class.
+     * Component type descriptor ID. {@code -1} if the described class is not an array class.
      *
      * @see ClassDescriptor#componentTypeDescriptorId()
      */

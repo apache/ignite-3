@@ -19,6 +19,7 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.lang.util.StringUtils.incrementLastChar;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -104,12 +105,6 @@ public class AssignmentsTracker {
         });
 
         LOG.info("Assignment cache initialized for placement driver [groupAssignments={}]", groupAssignments);
-    }
-
-    private static String incrementLastChar(String str) {
-        char lastChar = str.charAt(str.length() - 1);
-
-        return str.substring(0, str.length() - 1) + (char) (lastChar + 1);
     }
 
     /**

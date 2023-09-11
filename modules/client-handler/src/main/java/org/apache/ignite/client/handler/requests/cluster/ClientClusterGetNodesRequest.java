@@ -39,10 +39,10 @@ public class ClientClusterGetNodesRequest {
             ClusterService clusterService) {
         Collection<ClusterNode> nodes = clusterService.topologyService().allMembers();
 
-        out.packArrayHeader(nodes.size());
+        out.packInt(nodes.size());
 
         for (ClusterNode node : nodes) {
-            out.packArrayHeader(4);
+            out.packInt(4);
 
             out.packString(node.id());
             out.packString(node.name());

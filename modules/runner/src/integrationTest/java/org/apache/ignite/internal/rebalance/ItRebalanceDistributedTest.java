@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.storage;
+package org.apache.ignite.internal.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -98,6 +98,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
+import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
+import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -496,7 +498,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     @Test
     @UseTestTxStateStorage
     @UseRocksMetaStorage
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20187")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20210")
     void testDestroyPartitionStoragesOnRestartEvictedNode(TestInfo testInfo) throws Exception {
         Node node = getNode(0);
 

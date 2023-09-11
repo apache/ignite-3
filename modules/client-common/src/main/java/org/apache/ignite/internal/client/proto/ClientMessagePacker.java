@@ -340,52 +340,6 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
-     * Writes an array header value.
-     *
-     * @param arraySize array size.
-     */
-    public void packArrayHeader(int arraySize) {
-        assert !closed : "Packer is closed";
-
-        if (arraySize < 0) {
-            throw new IllegalArgumentException("array size must be >= 0");
-        }
-
-        if (arraySize < (1 << 4)) {
-            buf.writeByte((byte) (Code.FIXARRAY_PREFIX | arraySize));
-        } else if (arraySize < (1 << 16)) {
-            buf.writeByte(Code.ARRAY16);
-            buf.writeShort(arraySize);
-        } else {
-            buf.writeByte(Code.ARRAY32);
-            buf.writeInt(arraySize);
-        }
-    }
-
-    /**
-     * Writes a map header value.
-     *
-     * @param mapSize map size.
-     */
-    public void packMapHeader(int mapSize) {
-        assert !closed : "Packer is closed";
-
-        if (mapSize < 0) {
-            throw new IllegalArgumentException("map size must be >= 0");
-        }
-
-        if (mapSize < (1 << 4)) {
-            buf.writeByte((byte) (Code.FIXMAP_PREFIX | mapSize));
-        } else if (mapSize < (1 << 16)) {
-            buf.writeByte(Code.MAP16);
-            buf.writeShort(mapSize);
-        } else {
-            buf.writeByte(Code.MAP32);
-            buf.writeInt(mapSize);
-        }
-    }
-
-    /**
      * Writes Extension value header.
      *
      * <p>Should be followed by {@link #writePayload(byte[])} method to write the extension body.
@@ -564,7 +518,7 @@ public class ClientMessagePacker implements AutoCloseable {
             return;
         }
 
-        packArrayHeader(arr.length);
+        packInt(arr.length);
 
         for (int i : arr) {
             packInt(i);

@@ -361,58 +361,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
-     * Reads an array header.
-     *
-     * @return Array size.
-     */
-    public int unpackArrayHeader() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        byte code = buf.readByte();
-
-        if (Code.isFixedArray(code)) { // fixarray
-            return code & 0x0f;
-        }
-
-        switch (code) {
-            case Code.ARRAY16:
-                return readLength16();
-
-            case Code.ARRAY32:
-                return readLength32();
-
-            default:
-                throw unexpected("Array", code);
-        }
-    }
-
-    /**
-     * Reads a map header.
-     *
-     * @return Map size.
-     */
-    public int unpackMapHeader() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        byte code = buf.readByte();
-
-        if (Code.isFixedMap(code)) { // fixmap
-            return code & 0x0f;
-        }
-
-        switch (code) {
-            case Code.MAP16:
-                return readLength16();
-
-            case Code.MAP32:
-                return readLength32();
-
-            default:
-                throw unexpected("Map", code);
-        }
-    }
-
-    /**
      * Reads an extension type header.
      *
      * @return Extension type header.
@@ -751,7 +699,7 @@ public class ClientMessageUnpacker implements AutoCloseable {
     public int[] unpackIntArray() {
         assert refCnt > 0 : "Unpacker is closed";
 
-        int size = unpackArrayHeader();
+        int size = unpackInt();
 
         if (size == 0) {
             return ArrayUtils.INT_EMPTY_ARRAY;

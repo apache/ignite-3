@@ -245,10 +245,10 @@ TEST_F(compute_test, execute_colocated) {
         SCOPED_TRACE("key=" + std::to_string(var.first) + ", node=" + var.second);
         auto key = get_tuple(var.first);
 
-        auto resNodeName = m_client.get_compute().execute_colocated(TABLE_1, key, {}, NODE_NAME_JOB, {});
-        auto expectedNodeName = PLATFORM_TEST_NODE_RUNNER + var.second;
+        auto res_node_name = m_client.get_compute().execute_colocated(TABLE_1, key, {}, NODE_NAME_JOB, {});
+        auto expected_node_name = PLATFORM_TEST_NODE_RUNNER + var.second;
 
-        EXPECT_EQ(expectedNodeName, resNodeName.value().get<std::string>());
+        EXPECT_EQ(expected_node_name, res_node_name.value().get<std::string>());
     }
 }
 

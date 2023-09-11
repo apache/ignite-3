@@ -61,12 +61,15 @@ public class ItLimitOffsetTest extends ClusterPerClassIntegrationTest {
                 () -> session.execute(null, "SELECT * FROM test LIMIT " + bigInt));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \"-\"",
                 () -> session.execute(null, "SELECT * FROM test OFFSET -1 ROWS FETCH FIRST -1 ROWS ONLY"));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \"-\"",
                 () -> session.execute(null, "SELECT * FROM test OFFSET -1 ROWS"));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \"+\"",
                 () -> session.execute(null, "SELECT * FROM test OFFSET 2+1 ROWS"));
 
         // Check with parameters
