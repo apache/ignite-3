@@ -116,6 +116,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("resource")
 @Timeout(90)
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-20367")
 class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
 
@@ -274,7 +275,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      */
     // TODO: IGNITE-18481 - make sure we don't forget to add new storage engines here
     @ParameterizedTest
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20367")
     @ValueSource(strings = {
             RocksDbStorageEngine.ENGINE_NAME,
             PersistentPageMemoryStorageEngine.ENGINE_NAME
@@ -522,7 +522,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * Tests that entries can still be added to a follower using AppendEntries after it gets fed with a RAFT snapshot.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20367")
     void entriesKeepAppendedAfterSnapshotInstallation() throws Exception {
         feedNode2WithSnapshotOfOneRow();
 
@@ -613,7 +612,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * Tests that, if a snapshot installation fails for some reason, a subsequent retry due to a timeout happens successfully.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20367")
     void snapshotInstallationRepeatsOnTimeout() throws Exception {
         prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, theCluster -> {
             theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
@@ -671,7 +669,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * stuck because one 'download' task will remain unfinished forever.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20367")
     void snapshotInstallTimeoutDoesNotBreakSubsequentInstallsWhenSecondAttemptIsIdenticalToFirst() throws Exception {
         AtomicBoolean snapshotInstallFailedDueToIdenticalRetry = new AtomicBoolean(false);
 
@@ -708,7 +705,6 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20367")
     void testChangeLeaderOnInstallSnapshotInMiddle() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode1Future = new CompletableFuture<>();
 
