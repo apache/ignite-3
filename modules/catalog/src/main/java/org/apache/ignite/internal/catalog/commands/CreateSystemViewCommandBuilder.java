@@ -32,7 +32,7 @@ public interface CreateSystemViewCommandBuilder {
     /**
      * Sets view name.
      *
-     * @param name System view name.
+     * @param name System view name. Name should neither be null nor blank.
      * @return this.
      */
     CreateSystemViewCommandBuilder name(String name);
@@ -40,7 +40,7 @@ public interface CreateSystemViewCommandBuilder {
     /**
      * Sets type of system view.
      *
-     * @param systemViewType System view type.
+     * @param systemViewType System view type. Type should not be null.
      * @return this.
      */
     CreateSystemViewCommandBuilder type(SystemViewType systemViewType);
@@ -48,7 +48,7 @@ public interface CreateSystemViewCommandBuilder {
     /**
      * Sets a list of columns.
      *
-     * @param columns A list of columns.
+     * @param columns A list of columns. Column list should not be empty.
      * @return this.
      */
     CreateSystemViewCommandBuilder columns(List<ColumnParams> columns);
