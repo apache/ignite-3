@@ -77,23 +77,15 @@ public class PendingRows {
     }
 
     /**
-     * Removes all row IDs for the given transaction.
+     * Removes all pending row IDs for the given transaction.
      *
      * @param txId Transaction ID.
+     * @return Pending row IDs mapped to the provided transaction or an empty set if there were none.
      */
-    public void removePendingRowIds(UUID txId) {
-        txsPendingRowIds.remove(txId);
-    }
+    public Set<RowId> removePendingRowIds(UUID txId) {
+        Set<RowId> pendingRows = txsPendingRowIds.remove(txId);
 
-    /**
-     * Returns pending row IDs for the given transaction or an empty set if there are no pending rows.
-     *
-     * @param txId Transaction ID.
-     * @return Pending row IDs.
-     */
-    public Set<RowId> getPendingRowIds(UUID txId) {
-        return txsPendingRowIds.getOrDefault(txId, EMPTY_SET);
+        return pendingRows == null ? EMPTY_SET : pendingRows;
     }
-
 
 }
