@@ -49,8 +49,8 @@ void tables_impl::get_tables_async(ignite_callback<std::vector<table>> callback)
         tables.reserve(size);
 
         for (std::int32_t table_idx = 0; table_idx < size; ++table_idx) {
-            auto name = reader.read_string();
             auto id = reader.read_int32();
+            auto name = reader.read_string();
             tables.emplace_back(table{std::make_shared<table_impl>(std::move(name), id, conn)});
         }
         return tables;
