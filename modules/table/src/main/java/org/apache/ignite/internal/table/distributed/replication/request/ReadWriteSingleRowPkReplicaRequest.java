@@ -15,24 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
-
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * ExecutionCancelledException.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Read-write single-row replica request involving a table's Primary Key..
  */
-public class ExecutionCancelledException extends IgniteInternalCheckedException {
-    /** Serial version UID. */
-    private static final long serialVersionUID = 0L;
-
+@Transferable(TableMessageGroup.RW_SINGLE_ROW_PK_REPLICA_REQUEST)
+public interface ReadWriteSingleRowPkReplicaRequest extends SingleRowPkReplicaRequest, ReadWriteReplicaRequest, CommittableTxRequest {
     /**
-     * Constructs a new exception with null as its detail message.
+     * Gets a commit partition id.
+     *
+     * @return Table partition id.
      */
-    public ExecutionCancelledException() {
-        super(EXECUTION_CANCELLED_ERR);
-    }
+    TablePartitionIdMessage commitPartitionId();
 }

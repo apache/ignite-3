@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replication.request;
+package org.apache.ignite.internal.sql.engine.util;
 
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.sql.ColumnMetadata;
 
 /**
- * Read only single row replica request.
+ * Column metadata matcher interface.
  */
-@Transferable(TableMessageGroup.RO_SINGLE_ROW_REPLICA_REQUEST)
-public interface ReadOnlySingleRowReplicaRequest extends SingleRowReplicaRequest, ReadOnlyReplicaRequest {
+@FunctionalInterface
+public interface ColumnMatcher {
+    /** Validates column metadata. */
+    void check(ColumnMetadata columnMetadata);
 }

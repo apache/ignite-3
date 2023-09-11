@@ -328,7 +328,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private static void packJob(ClientMessagePacker w, List<DeploymentUnit> units, String jobClassName, Object[] args) {
-        w.packArrayHeader(units.size());
+        w.packInt(units.size());
         for (DeploymentUnit unit : units) {
             w.packString(unit.name());
             w.packString(unit.version().render());

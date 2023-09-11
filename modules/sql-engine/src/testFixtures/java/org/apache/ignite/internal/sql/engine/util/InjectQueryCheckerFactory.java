@@ -15,24 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-
-import org.apache.ignite.lang.IgniteInternalException;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * QueryValidationException is used during query validation.
+ * Annotation for injecting query checker factory instances into tests.
  *
- * <p>The exception is used when the expected query type does not match the actual query type obtained after parsing a sql string.
+ * <p>This annotation should be used on either fields or method parameters of the {@link QueryCheckerFactory} type.
+ *
+ * @see QueryCheckerExtension
  */
-public class QueryValidationException extends IgniteInternalException {
-    /**
-     * Creates a new exception with the given error message.
-     *
-     * @param msg Error message.
-     */
-    public QueryValidationException(String msg) {
-        super(STMT_VALIDATION_ERR, msg);
-    }
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+public @interface InjectQueryCheckerFactory {
 }

@@ -34,66 +34,58 @@ using namespace ignite;
  * @return Result set meta columns.
  */
 column_meta_vector read_meta(protocol::reader &reader) {
-    auto size = reader.read_array_size();
+    auto size = reader.read_int32();
 
     column_meta_vector columns;
     columns.reserve(size);
 
-    reader.read_array_raw([&columns](std::uint32_t idx, const msgpack_object &obj) {
-        if (obj.type != MSGPACK_OBJECT_ARRAY)
-            throw ignite_error("Meta column expected to be serialized as array");
+    for (std::int32_t column_idx = 0; column_idx < size; ++column_idx) {
+        auto fields_cnt = reader.read_int32();
 
-        const msgpack_object_array &arr = obj.via.array;
+        assert(fields_cnt >= 6); // Expect at least six fields.
 
-        constexpr std::uint32_t min_count = 6;
-        UNUSED_VALUE min_count; // For release builds
+        auto name = reader.read_string();
+        auto nullable = reader.read_bool();
+        auto typ = ignite_type(reader.read_int32());
+        auto scale = reader.read_int32();
+        auto precision = reader.read_int32();
 
-        assert(arr.size >= min_count);
-
-        auto name = protocol::unpack_object<std::string>(arr.ptr[0]);
-        auto nullable = protocol::unpack_object<bool>(arr.ptr[1]);
-        auto typ = ignite_type(protocol::unpack_object<std::int32_t>(arr.ptr[2]));
-        auto scale = protocol::unpack_object<std::int32_t>(arr.ptr[3]);
-        auto precision = protocol::unpack_object<std::int32_t>(arr.ptr[4]);
-
-        bool origin_present = protocol::unpack_object<bool>(arr.ptr[5]);
+        bool origin_present = reader.read_bool();
 
         if (!origin_present) {
             columns.emplace_back("", "", std::move(name), typ, precision, scale, nullable);
-            return;
+            break;
         }
 
-        assert(arr.size >= min_count + 3);
-        auto origin_name =
-            arr.ptr[6].type == MSGPACK_OBJECT_NIL ? name : protocol::unpack_object<std::string>(arr.ptr[6]);
-
-        auto origin_schema_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[7]);
+        assert(fields_cnt >= 9); // Expect at least three more fields.
+        auto origin_name = reader.read_string_nullable();
+        auto origin_schema_id = reader.try_read_int32();
         std::string origin_schema;
         if (origin_schema_id) {
             if (*origin_schema_id >= std::int32_t(columns.size())) {
                 throw ignite_error("Origin schema ID is too large: " + std::to_string(*origin_schema_id)
-                    + ", id=" + std::to_string(idx));
+                    + ", id=" + std::to_string(column_idx));
             }
             origin_schema = columns[*origin_schema_id].get_schema_name();
         } else {
-            origin_schema = protocol::unpack_object<std::string>(arr.ptr[7]);
+            origin_schema = reader.read_string();
         }
 
-        auto origin_table_id = protocol::try_unpack_object<std::int32_t>(arr.ptr[8]);
+        auto origin_table_id = reader.try_read_int32();
         std::string origin_table;
         if (origin_table_id) {
             if (*origin_table_id >= std::int32_t(columns.size())) {
                 throw ignite_error("Origin table ID is too large: " + std::to_string(*origin_table_id)
-                    + ", id=" + std::to_string(idx));
+                    + ", id=" + std::to_string(column_idx));
             }
             origin_table = columns[*origin_table_id].get_table_name();
         } else {
-            origin_table = protocol::unpack_object<std::string>(arr.ptr[8]);
+            origin_table = reader.read_string();
         }
 
         columns.emplace_back(
             std::move(origin_schema), std::move(origin_table), std::move(name), typ, precision, scale, nullable);
-    });
+    }
 
     return columns;
 }
@@ -314,7 +306,6 @@ sql_result data_query::next_result_set() {
 sql_result data_query::make_request_execute() {
     auto &schema = m_connection.get_schema();
 
-    network::data_buffer_owning response;
     auto success = m_diag.catch_errors([&] {
         auto tx = m_connection.get_transaction_id();
         if (!tx && !m_connection.is_auto_commit()) {
@@ -324,7 +315,7 @@ sql_result data_query::make_request_execute() {
             tx = m_connection.get_transaction_id();
             assert(tx);
         }
-        response = m_connection.sync_request(protocol::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
+        auto response = m_connection.sync_request(protocol::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
             if (tx)
                 writer.write(*tx);
             else

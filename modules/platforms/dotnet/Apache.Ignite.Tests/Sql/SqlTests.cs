@@ -116,9 +116,9 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestGetAllMultiplePages()
+        public async Task TestGetAllMultiplePages([Values(1, 2, 3, 4, 5, 6)] int pageSize)
         {
-            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: 4);
+            var statement = new SqlStatement("SELECT ID, VAL FROM TEST ORDER BY VAL", pageSize: pageSize);
             await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
             var rows = await resultSet.ToListAsync();
 

@@ -80,6 +80,9 @@ enum class client_operation {
     /** Contains tuple. */
     TUPLE_CONTAINS_KEY = 33,
 
+    /** Get table metadata. */
+    JDBC_TABLE_META = 38,
+
     /** Begin transaction. */
     TX_BEGIN = 43,
 

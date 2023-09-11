@@ -161,7 +161,7 @@ public class JdbcQuerySingleResult extends Response {
         packer.packLong(updateCnt);
         packer.packBoolean(last);
 
-        packer.packArrayHeader(items.size());
+        packer.packInt(items.size());
 
         for (List<Object> item : items) {
             packer.packObjectArrayAsBinaryTuple(item.toArray());
@@ -186,7 +186,7 @@ public class JdbcQuerySingleResult extends Response {
         updateCnt = unpacker.unpackLong();
         last = unpacker.unpackBoolean();
 
-        int size = unpacker.unpackArrayHeader();
+        int size = unpacker.unpackInt();
 
         items = new ArrayList<>(size);
 

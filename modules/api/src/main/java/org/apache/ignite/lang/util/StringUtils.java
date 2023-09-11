@@ -17,6 +17,7 @@
 
 package org.apache.ignite.lang.util;
 
+import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -44,5 +45,29 @@ public final class StringUtils {
      */
     public static boolean nullOrBlank(@Nullable String s) {
         return s == null || s.isBlank();
+    }
+
+    /**
+     * Increments the numeric value of the last character of the given string by 1.
+     *
+     * <p>This method is useful for using APIs that accept string ranges where the upper bound is not included.
+     *
+     * @param s Original string.
+     * @return New string with the last character incremented.
+     */
+    public static String incrementLastChar(String s) {
+        Objects.requireNonNull(s);
+
+        char[] chars = s.toCharArray();
+
+        char lastChar = chars[chars.length - 1];
+
+        if (lastChar == Character.MAX_VALUE) {
+            throw new IllegalArgumentException("Cannot increment the last character as it is equal to MAX_VALUE");
+        }
+
+        chars[chars.length - 1] = (char) (lastChar + 1);
+
+        return String.valueOf(chars);
     }
 }
