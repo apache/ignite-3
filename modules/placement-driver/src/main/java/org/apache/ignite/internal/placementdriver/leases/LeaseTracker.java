@@ -215,9 +215,7 @@ public class LeaseTracker implements PlacementDriver {
         HybridTimestamp timestampWithClockSkew = timestamp.addPhysicalTime(CLOCK_SKEW);
 
         return inBusyLockAsync(busyLock, () -> {
-            Map<ReplicationGroupId, Lease> leasesMap = leases.leaseByGroupId();
-
-            Lease lease = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);
+            Lease lease = leases.leaseByGroupId().getOrDefault(replicationGroupId, EMPTY_LEASE);
 
             if (lease.isAccepted() && lease.getExpirationTime().after(timestampWithClockSkew)) {
                 return completedFuture(lease);
@@ -227,9 +225,9 @@ public class LeaseTracker implements PlacementDriver {
                     .clusterTime()
                     .waitFor(timestampWithClockSkew)
                     .thenApply(ignored -> inBusyLock(busyLock, () -> {
-                        Lease lease0 = leasesMap.getOrDefault(replicationGroupId, EMPTY_LEASE);
+                        Lease lease0 = leases.leaseByGroupId().getOrDefault(replicationGroupId, EMPTY_LEASE);
 
-                        if (lease.isAccepted() && lease0.getExpirationTime().after(timestampWithClockSkew)) {
+                        if (lease0.isAccepted() && lease0.getExpirationTime().after(timestampWithClockSkew)) {
                             return lease0;
                         } else {
                             return null;

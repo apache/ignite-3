@@ -2345,13 +2345,15 @@ public class PartitionReplicaListener implements ReplicaListener {
             expectedTerm = null;
         }
 
+        HybridTimestamp now = hybridClock.now();
+
         if (expectedTerm != null) {
-            return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
+            return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenCompose(primaryReplica -> {
                                 long currentEnlistmentConsistencyToken = primaryReplica.getStartTime().longValue();
 
                                 if (expectedTerm.equals(currentEnlistmentConsistencyToken)) {
-                                    if (primaryReplica.getExpirationTime().before(hybridClock.now())) {
+                                    if (primaryReplica.getExpirationTime().before(now)) {
                                         // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
                                         return failedFuture(
                                                 new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
@@ -2364,7 +2366,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             }
                     );
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
-            return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
+            return placementDriver.getPrimaryReplica(replicationGroupId, now)
                     .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
         } else {
             return completedFuture(null);
