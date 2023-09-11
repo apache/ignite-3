@@ -105,6 +105,7 @@ import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -613,6 +614,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
      * Tests that, if a snapshot installation fails for some reason, a subsequent retry due to a timeout happens successfully.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20367")
     void snapshotInstallationRepeatsOnTimeout() throws Exception {
         prepareClusterForInstallingSnapshotToNode2(DEFAULT_STORAGE_ENGINE, theCluster -> {
             theCluster.node(0).dropMessages(dropFirstSnapshotMetaResponse());
@@ -707,6 +709,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20367")
     void testChangeLeaderOnInstallSnapshotInMiddle() throws Exception {
         CompletableFuture<Void> sentSnapshotMetaResponseFormNode1Future = new CompletableFuture<>();
 
