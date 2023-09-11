@@ -54,6 +54,7 @@ import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Util class for Distribution Zones flow.
@@ -206,12 +207,24 @@ public class DistributionZonesUtil {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX + zoneId);
     }
 
+    /** Key prefix for zone's scale up change trigger key. */
+    @TestOnly
+    public static ByteArray zoneScaleUpChangeTriggerKey() {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX);
+    }
+
     /**
      * The key needed for processing an event about zone's data node propagation on scale down.
      * With this key we can be sure that event was triggered only once.
      */
     public static ByteArray zoneScaleDownChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX + zoneId);
+    }
+
+    /** Key prefix for zone's scale down change trigger key. */
+    @TestOnly
+    public static ByteArray zoneScaleDownChangeTriggerKey() {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX);
     }
 
     /**
