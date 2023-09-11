@@ -1138,6 +1138,57 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS);
     }
 
+    @Override
+    public void beforeNodeStop() {
+        List<TableImpl> tablesToStop = Stream.concat(latestTablesById().entrySet().stream(), pendingTables.entrySet().stream())
+                .map(Map.Entry::getValue)
+                .collect(Collectors.toList());
+
+        cleanUpReplicasResources(tablesToStop);
+    }
+
+    private void cleanUpReplicasResources(List<TableImpl> tables) {
+        for (TableImpl table : tables) {
+            table.beforeClose();
+
+            List<Runnable> stopping = new ArrayList<>();
+
+            AtomicReference<Throwable> throwable = new AtomicReference<>();
+
+            AtomicBoolean nodeStoppingEx = new AtomicBoolean();
+
+            InternalTable internalTable = table.internalTable();
+
+            for (int p = 0; p < internalTable.partitions(); p++) {
+                TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
+
+                stopping.add(() -> {
+                    try {
+                        replicaMgr.stopReplica(replicationGroupId).join();
+                    } catch (Throwable t) {
+                        handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
+                    }
+                });
+            }
+
+            stopping.forEach(Runnable::run);
+
+            try {
+                IgniteUtils.closeAllManually(
+                        internalTable.storage(),
+                        internalTable.txStateStorage(),
+                        internalTable
+                );
+            } catch (Throwable t) {
+                handleExceptionOnCleanUpTablesResources(t, throwable, nodeStoppingEx);
+            }
+
+            if (throwable.get() != null) {
+                LOG.error("Unable to stop table [name={}, tableId={}]", throwable.get(), table.name(), table.tableId());
+            }
+        }
+    }
+
     /**
      * Stops resources that are related to provided tables.
      *
