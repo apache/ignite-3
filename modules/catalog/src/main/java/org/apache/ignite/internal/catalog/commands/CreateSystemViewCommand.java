@@ -59,7 +59,7 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
      * @param columns List of view columns.
      * @param systemViewType View type.
      */
-    CreateSystemViewCommand(String name, List<ColumnParams> columns, SystemViewType systemViewType) {
+    private CreateSystemViewCommand(String name, List<ColumnParams> columns, SystemViewType systemViewType) {
         this.name = name;
         this.columns = columns;
         this.systemViewType = systemViewType;
@@ -123,7 +123,7 @@ public class CreateSystemViewCommand extends AbstractCatalogCommand {
         }
 
         return List.of(
-                new NewSystemViewEntry(descriptor),
+                new NewSystemViewEntry(descriptor, systemSchema.name()),
                 new ObjectIdGenUpdateEntry(1)
         );
     }

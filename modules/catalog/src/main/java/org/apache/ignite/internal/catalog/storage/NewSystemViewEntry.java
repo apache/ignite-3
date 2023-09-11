@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
@@ -40,13 +39,17 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
 
     private final CatalogSystemViewDescriptor descriptor;
 
+    private final String schemaName;
+
     /**
      * Constructor.
      *
      * @param descriptor System view descriptor.
+     * @param schemaName A schema name.
      */
-    public NewSystemViewEntry(CatalogSystemViewDescriptor descriptor) {
+    public NewSystemViewEntry(CatalogSystemViewDescriptor descriptor, String schemaName) {
         this.descriptor = descriptor;
+        this.schemaName = schemaName;
     }
 
     /** {@inheritDoc} */
@@ -64,7 +67,7 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
     /** {@inheritDoc} */
     @Override
     public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor systemSchema = catalog.schema(CatalogManager.SYSTEM_SCHEMA_NAME);
+        CatalogSchemaDescriptor systemSchema = catalog.schema(schemaName);
 
         Map<String, CatalogSystemViewDescriptor> systemViews = Arrays.stream(systemSchema.systemViews())
                 .collect(Collectors.toMap(CatalogSystemViewDescriptor::name, Function.identity()));
