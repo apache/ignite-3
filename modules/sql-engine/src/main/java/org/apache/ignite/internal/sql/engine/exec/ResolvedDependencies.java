@@ -22,7 +22,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.table.InternalTable;
 
 /**
  * Provides access to resolved dependencies.
@@ -58,11 +57,6 @@ public class ResolvedDependencies {
     public CompletableFuture<ColocationGroup> fetchColocationGroup(int tableId) {
         ExecutableTable executableTable = getTable(tableId);
         return executableTable.fetchColocationGroup();
-    }
-
-    /** TODO IGNITE-20331: Drop temporal method. */
-    public InternalTable internalTable(int tableId) {
-        return getTable(tableId).internalTable();
     }
 
     /**

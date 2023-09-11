@@ -671,8 +671,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     // first let's enlist all tables to the transaction.
                     if (!tx.isReadOnly()) {
                         for (Fragment fragment : fragments) {
-                            //TODO IGNITE-20331: Remove depsFut. Join is legal as future is already done.
-                            enlistPartitions(fragment, tx, depsFut.join());
+                            enlistPartitions(fragment, tx);
                         }
                     }
 
@@ -789,7 +788,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             };
         }
 
-        private void enlistPartitions(Fragment fragment, InternalTransaction tx, ResolvedDependencies deps) {
+        private void enlistPartitions(Fragment fragment, InternalTransaction tx) {
             new IgniteRelShuttle() {
                 @Override
                 public IgniteRel visit(IgniteIndexScan rel) {
@@ -809,8 +808,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 public IgniteRel visit(IgniteTableModify rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
-                    // TODO IGNITE-20331 Remove rewriting tableId.
-                    tableId = deps.internalTable(tableId).tableId();
                     List<NodeWithTerm> assignments = fragment.mapping().updatingTableAssignments();
 
                     assert assignments != null : "Table assignments must be available";
@@ -839,9 +836,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 private void enlist(SourceAwareIgniteRel rel) {
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
-
-                    // TODO IGNITE-20331 Remove rewriting tableId.
-                    tableId = deps.internalTable(tableId).tableId();
 
                     List<NodeWithTerm> assignments = fragment.mapping().findGroup(rel.sourceId()).assignments().stream()
                             .map(l -> l.get(0))
