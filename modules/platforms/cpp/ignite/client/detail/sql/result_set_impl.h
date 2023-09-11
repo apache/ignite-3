@@ -221,7 +221,7 @@ private:
 
             if (!origin_present) {
                 columns.emplace_back(std::move(name), typ, precision, scale, nullable, column_origin{});
-                break;
+                continue;
             }
 
             assert(fields_num >= 9); // There should be at least three more fields.
