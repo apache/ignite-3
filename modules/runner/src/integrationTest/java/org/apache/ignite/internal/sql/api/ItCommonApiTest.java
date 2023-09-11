@@ -33,8 +33,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.engine.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -86,7 +86,7 @@ public class ItCommonApiTest extends ClusterPerClassIntegrationTest {
             while (rs1.hasNext()) {
                 rs1.next();
             }
-        }, ExecutionCancelledException.class);
+        }, QueryCancelledException.class);
 
         rs1.close();
 

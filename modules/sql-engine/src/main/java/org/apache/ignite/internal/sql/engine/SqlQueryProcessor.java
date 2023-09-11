@@ -51,7 +51,6 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.CatalogSchemaManager;
-import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
@@ -61,7 +60,7 @@ import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
-import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
+import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -262,7 +261,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 sqlSchemaManager,
                 ddlCommandHandler,
                 taskExecutor,
-                ArrayRowHandler.INSTANCE,
+                SqlRowHandler.INSTANCE,
                 mailboxRegistry,
                 exchangeService,
                 dependencyResolver
@@ -459,7 +458,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 queryType,
                 plan.metadata(),
                 txWrapper,
-                new AsyncCursor<List<Object>>() {
+                new AsyncCursor<>() {
                     @Override
                     public CompletableFuture<BatchedResult<List<Object>>> requestNextAsync(int rows) {
                         session.touch();
@@ -521,9 +520,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         SqlQueryType queryType = parsedResult.queryType();
 
         if (!allowedTypes.contains(queryType)) {
-            String message = format("Invalid SQL statement type in the batch. Expected {} but got {}.", allowedTypes, queryType);
+            String message = format("Invalid SQL statement type. Expected {} but got {}", allowedTypes, queryType);
 
-            throw new QueryValidationException(message);
+            throw new SqlException(STMT_VALIDATION_ERR, message);
         }
 
         if (parsedResult.dynamicParamsCount() != params.length) {

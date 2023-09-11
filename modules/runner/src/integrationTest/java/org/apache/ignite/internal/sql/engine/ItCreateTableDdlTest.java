@@ -87,6 +87,7 @@ public class ItCreateTableDdlTest extends ClusterPerClassIntegrationTest {
     public void tableWithInvalidColumns() {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
+                "Failed to parse query: Encountered \")\"",
                 () -> sql("CREATE TABLE T0()")
         );
 

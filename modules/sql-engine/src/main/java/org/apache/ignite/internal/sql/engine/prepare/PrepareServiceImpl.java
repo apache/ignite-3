@@ -188,7 +188,9 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
         return result.exceptionally(ex -> {
                     Throwable th = ExceptionUtils.unwrapCause(ex);
                     if (planningContext.timeouted() && th instanceof RelOptPlanner.CannotPlanException) {
-                        throw new SqlException(PLANNING_TIMEOUT_ERR);
+                        throw new SqlException(
+                                PLANNING_TIMEOUT_ERR,
+                                "Planning of a query aborted due to planner timeout threshold is reached");
                     }
 
                     throw new CompletionException(IgniteExceptionMapperUtil.mapToPublicException(th));

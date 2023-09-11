@@ -63,6 +63,7 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
+import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessage;
@@ -218,7 +220,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
-            assertInstanceOf(ExecutionCancelledException.class, ex.getCause());
+            assertInstanceOf(QueryCancelledException.class, ex.getCause());
 
             return null;
         }));
@@ -258,7 +260,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
-            assertInstanceOf(ExecutionCancelledException.class, ex.getCause());
+            assertInstanceOf(QueryCancelledException.class, ex.getCause());
 
             return null;
         }));

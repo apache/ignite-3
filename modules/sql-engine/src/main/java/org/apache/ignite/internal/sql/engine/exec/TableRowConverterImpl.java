@@ -18,14 +18,15 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,20 +38,17 @@ public class TableRowConverterImpl implements TableRowConverter {
 
     private final SchemaDescriptor schemaDescriptor;
 
-    private final int[] physicalIndexMap;
+    private final TableDescriptor desc;
+
+    private final BinaryTupleSchema binaryTupleSchema;
 
     /** Constructor. */
     public TableRowConverterImpl(SchemaRegistry schemaRegistry, SchemaDescriptor schemaDescriptor, TableDescriptor desc) {
         this.schemaRegistry = schemaRegistry;
         this.schemaDescriptor = schemaDescriptor;
+        this.desc = desc;
 
-        physicalIndexMap = new int[desc.columnsCount()];
-
-        for (int i = 0; i < desc.columnsCount(); i++) {
-            ColumnDescriptor col = desc.columnDescriptor(i);
-            Column column = schemaDescriptor.column(col.name());
-            physicalIndexMap[i] = column.schemaIndex();
-        }
+        this.binaryTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
     }
 
     /** {@inheritDoc} */
@@ -61,26 +59,36 @@ public class TableRowConverterImpl implements TableRowConverter {
             RowHandler.RowFactory<RowT> factory,
             @Nullable BitSet requiredColumns
     ) {
-        RowHandler<RowT> handler = factory.handler();
-
-        assert handler == ectx.rowHandler();
-
-        RowT res = factory.create();
-
-        assert handler.columnCount(res) == (requiredColumns == null ? physicalIndexMap.length : requiredColumns.cardinality());
-
         Row row = schemaRegistry.resolve(binaryRow, schemaDescriptor);
 
-        if (requiredColumns == null) {
-            for (int i = 0; i < physicalIndexMap.length; i++) {
-                handler.set(i, res, TypeUtils.toInternal(row.value(physicalIndexMap[i])));
-            }
-        } else {
-            for (int i = 0, j = requiredColumns.nextSetBit(0); j != -1; j = requiredColumns.nextSetBit(j + 1), i++) {
-                handler.set(i, res, TypeUtils.toInternal(row.value(physicalIndexMap[j])));
-            }
+        BinaryTuple tuple = requiredColumns == null
+                ? allColumnsTuple(row, binaryTupleSchema)
+                : requiredColumnsTuple(row, binaryTupleSchema, requiredColumns);
+
+        return factory.create(tuple);
+    }
+
+    private BinaryTuple allColumnsTuple(Row row, BinaryTupleSchema binarySchema) {
+        BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(desc.columnsCount());
+
+        for (int i = 0; i < desc.columnsCount(); i++) {
+            int index = desc.columnDescriptor(i).physicalIndex();
+
+            BinaryRowConverter.appendValue(tupleBuilder, binarySchema.element(index), binarySchema.value(row, index));
         }
 
-        return res;
+        return new BinaryTuple(tupleBuilder.numElements(), tupleBuilder.build());
+    }
+
+    private BinaryTuple requiredColumnsTuple(Row row, BinaryTupleSchema binarySchema, BitSet requiredColumns) {
+        BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(requiredColumns.cardinality());
+
+        for (int i = requiredColumns.nextSetBit(0); i != -1; i = requiredColumns.nextSetBit(i + 1)) {
+            int index = desc.columnDescriptor(i).physicalIndex();
+
+            BinaryRowConverter.appendValue(tupleBuilder, binarySchema.element(index), binarySchema.value(row, index));
+        }
+
+        return new BinaryTuple(tupleBuilder.numElements(), tupleBuilder.build());
     }
 }
