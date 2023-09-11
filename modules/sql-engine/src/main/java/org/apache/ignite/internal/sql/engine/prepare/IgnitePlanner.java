@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.RelOptCluster;
@@ -261,7 +262,6 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
                         ++star;
                     } else {
                         ++notStar;
-                        selectItemsNoStarExpanded.add(node);
                     }
                 } else {
                     ++notStar;
@@ -295,11 +295,13 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
                                         && node0.operand(1) instanceof SqlIdentifier && node.getKind() == SqlKind.AS) {
                                     derived.add(null);
                                 } else {
+                                    Objects.checkIndex(resolved, selectItemsNoStarExpanded.size());
                                     derived.add(validator().deriveAlias(selectItemsNoStarExpanded.get(resolved), resolved));
                                     ++resolved;
                                 }
                             }
                         } else {
+                            Objects.checkIndex(resolved, selectItemsNoStarExpanded.size());
                             derived.add(validator().deriveAlias(selectItemsNoStarExpanded.get(resolved), resolved));
                             ++resolved;
                         }
