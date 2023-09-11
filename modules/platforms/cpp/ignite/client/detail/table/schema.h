@@ -48,15 +48,17 @@ struct column {
      */
     [[nodiscard]] static column read(protocol::reader &reader) {
         auto fields_num = reader.read_int32();
-        assert(fields_num >= 6); // Expect at least six columns.
+        assert(fields_num >= 7); // Expect at least six columns.
 
         column res{};
         res.name = reader.read_string();
         res.type = static_cast<ignite_type>(reader.read_int32());
         res.is_key = reader.read_bool();
         res.nullable = reader.read_bool();
+        reader.skip(); // Colocation index.
         res.scale = reader.read_int32();
-        reader.skip(fields_num - 5);
+        reader.skip(); // Precision
+        reader.skip(fields_num - 7);
 
         return res;
     }
