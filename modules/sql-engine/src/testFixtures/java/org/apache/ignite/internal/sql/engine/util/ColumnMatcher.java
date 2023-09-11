@@ -15,24 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.sql.ColumnMetadata;
 
 /**
- * QueryValidationException is used during query validation.
- *
- * <p>The exception is used when the expected query type does not match the actual query type obtained after parsing a sql string.
+ * Column metadata matcher interface.
  */
-public class QueryValidationException extends IgniteInternalException {
-    /**
-     * Creates a new exception with the given error message.
-     *
-     * @param msg Error message.
-     */
-    public QueryValidationException(String msg) {
-        super(STMT_VALIDATION_ERR, msg);
-    }
+@FunctionalInterface
+public interface ColumnMatcher {
+    /** Validates column metadata. */
+    void check(ColumnMetadata columnMetadata);
 }

@@ -27,6 +27,6 @@ public class CursorClosedException extends SqlException {
      * Creates an exception instance.
      */
     public CursorClosedException() {
-        super(CURSOR_CLOSED_ERR);
+        super(CURSOR_CLOSED_ERR, "Cursor is closed");
     }
 }

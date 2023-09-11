@@ -15,24 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
-
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * ExecutionCancelledException.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Annotation for injecting query checker factory instances into tests.
+ *
+ * <p>This annotation should be used on either fields or method parameters of the {@link QueryCheckerFactory} type.
+ *
+ * @see QueryCheckerExtension
  */
-public class ExecutionCancelledException extends IgniteInternalCheckedException {
-    /** Serial version UID. */
-    private static final long serialVersionUID = 0L;
-
-    /**
-     * Constructs a new exception with null as its detail message.
-     */
-    public ExecutionCancelledException() {
-        super(EXECUTION_CANCELLED_ERR);
-    }
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+public @interface InjectQueryCheckerFactory {
 }
