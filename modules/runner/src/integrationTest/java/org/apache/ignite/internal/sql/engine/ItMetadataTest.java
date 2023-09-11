@@ -106,6 +106,10 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
                 .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "DOUBLE_C", "DOUBLE_C * 2")
                 .check();
 
+        assertQuery("select *, double_c as J, double_c * 2, double_c as J2 from column_order")
+                .columnNames("DOUBLE_C", "LONG_C", "STRING_C", "INT_C", "J", "DOUBLE_C * 2", "J2")
+                .check();
+
         assertQuery("select double_c * 2, * from column_order")
                 .columnNames("DOUBLE_C * 2", "DOUBLE_C", "LONG_C", "STRING_C", "INT_C")
                 .check();

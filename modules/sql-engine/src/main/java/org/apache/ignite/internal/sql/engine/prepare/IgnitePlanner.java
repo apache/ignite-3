@@ -245,27 +245,30 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
      */
     ValidationResult validateAndGetTypeMetadata(SqlNode sqlNode) {
         List<SqlNode> selectItems = null;
-        List<SqlNode> selectItemsNoStarExpanded = null;
+        List<SqlNode> selectItemsNoStar = null;
         SqlNode sqlNode0 = sqlNode instanceof SqlOrderBy ? ((SqlOrderBy) sqlNode).query : sqlNode;
 
-        int star = 0;
-        int notStar = 0;
+        boolean starFound = false;
 
         if (sqlNode0 instanceof SqlSelect) {
             selectItems = SqlNonNullableAccessors.getSelectList((SqlSelect) sqlNode0);
-            selectItemsNoStarExpanded = new ArrayList<>(selectItems.size());
+            selectItemsNoStar = new ArrayList<>(selectItems.size());
 
             for (SqlNode node : selectItems) {
                 if (node instanceof SqlIdentifier) {
                     SqlIdentifier id = (SqlIdentifier) node;
                     if (id.isStar()) {
-                        ++star;
-                    } else {
-                        ++notStar;
+                        starFound = true;
                     }
                 } else {
-                    ++notStar;
-                    selectItemsNoStarExpanded.add(node);
+                    if (node instanceof SqlBasicCall) {
+                        SqlBasicCall node0 = (SqlBasicCall) node;
+                        if (!identAsIdent(node0)) {
+                            selectItemsNoStar.add(node);
+                        }
+                    } else {
+                        selectItemsNoStar.add(node);
+                    }
                 }
             }
         }
@@ -275,37 +278,34 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         List<List<String>> origins = validator().getFieldOrigins(validatedNode);
 
         List<String> derived = null;
-        if (validatedNode instanceof SqlSelect && selectItems != null && notStar > 0) {
+        if (validatedNode instanceof SqlSelect && selectItems != null && !selectItemsNoStar.isEmpty()) {
             derived = new ArrayList<>(selectItems.size());
 
-            if (star > 0) {
+            if (starFound) {
                 SqlNodeList expandedItems = ((SqlSelect) validatedNode).getSelectList();
 
                 int resolved = 0;
                 for (SqlNode node : expandedItems) {
                     if (node instanceof SqlIdentifier) {
                         derived.add(null);
-                    } else {
-                        if (node instanceof SqlBasicCall) {
-                            SqlBasicCall node0 = (SqlBasicCall) node;
-                            if (node0.operandCount() != 2) {
-                                derived.add(null);
-                            } else {
-                                if (node0.operand(0) instanceof SqlIdentifier
-                                        && node0.operand(1) instanceof SqlIdentifier && node.getKind() == SqlKind.AS) {
-                                    derived.add(null);
-                                } else {
-                                    Objects.checkIndex(resolved, selectItemsNoStarExpanded.size());
-                                    derived.add(validator().deriveAlias(selectItemsNoStarExpanded.get(resolved), resolved));
-                                    ++resolved;
-                                }
-                            }
-                        } else {
-                            Objects.checkIndex(resolved, selectItemsNoStarExpanded.size());
-                            derived.add(validator().deriveAlias(selectItemsNoStarExpanded.get(resolved), resolved));
-                            ++resolved;
+
+                        continue;
+                    }
+
+                    if (node instanceof SqlBasicCall) {
+                        SqlBasicCall node0 = (SqlBasicCall) node;
+
+                        // case like: "select *, *" second star columns will be transformed into SqlBasicCall and AS
+                        if (identAsIdent(node0)) {
+                            derived.add(null);
+
+                            continue;
                         }
                     }
+
+                    Objects.checkIndex(resolved, selectItemsNoStar.size());
+                    derived.add(validator().deriveAlias(selectItemsNoStar.get(resolved), resolved));
+                    ++resolved;
                 }
             } else {
                 int cnt = 0;
@@ -317,6 +317,12 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         }
 
         return new ValidationResult(validatedNode, type, origins, derived == null ? List.of() : derived);
+    }
+
+    private boolean identAsIdent(SqlBasicCall node) {
+        return node.operandCount() == 2 && node.getKind() == SqlKind.AS
+                && node.operand(0) instanceof SqlIdentifier
+                && node.operand(1) instanceof SqlIdentifier;
     }
 
     /** {@inheritDoc} */
