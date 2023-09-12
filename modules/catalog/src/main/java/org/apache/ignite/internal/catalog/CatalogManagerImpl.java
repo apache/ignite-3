@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateRenameZoneParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParamsAndPreviousValue;
+import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -620,6 +621,10 @@ public class CatalogManagerImpl extends Producer<CatalogEvent, CatalogEventParam
 
         if (schema.table(name) != null) {
             throw new TableAlreadyExistsException(schema.name(), name);
+        }
+
+        if (schema.systemView(name) != null) {
+            throw new CatalogValidationException(format("System view with name '{}.{}' already exists", schema.name(), name));
         }
     }
 

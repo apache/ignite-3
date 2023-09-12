@@ -46,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSystemViewCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSystemViewCommandBuilder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -296,6 +297,39 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
                 .build();
 
         expectAsyncValidationError(() -> manager.execute(createTable), "System view with name 'SYSTEM.view' already exists");
+    }
+
+    @ParameterizedTest
+    @EnumSource(SystemViewType.class)
+    public void createIndexFailsWhenSystemViewWithTheSameNameExistsInTheSystemSchema(SystemViewType type) {
+        CreateSystemViewCommand createView = CreateSystemViewCommand.builder()
+                .name("view")
+                .columns(List.of(
+                        ColumnParams.builder().name("col1").type(INT32).build(),
+                        ColumnParams.builder().name("col2").type(STRING).build()
+                ))
+                .type(type)
+                .build();
+
+        assertThat(manager.execute(createView), willCompleteSuccessfully());
+
+        CatalogCommand createTable = createTableCommandBuilder("table",
+                List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
+                List.of("key1"),
+                List.of("key1"))
+                .schemaName(SYSTEM_SCHEMA_NAME)
+                .build();
+
+        assertThat(manager.execute(createTable), willCompleteSuccessfully());
+
+        CreateHashIndexParams params = CreateHashIndexParams.builder()
+                .indexName("view")
+                .tableName("table")
+                .columns(List.of("val1"))
+                .schemaName(SYSTEM_SCHEMA_NAME)
+                .build();
+
+        expectAsyncValidationError(() -> manager.createIndex(params), "System view with name 'SYSTEM.view' already exists");
     }
 
     private static void expectAsyncValidationError(Supplier<CompletableFuture<Void>> action, String message) {
