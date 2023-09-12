@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.datatypes.tests;
 
-import static org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs.VARBINARY_TYPE;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -43,22 +42,6 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
         runSql(format("INSERT INTO t VALUES (1, {})", arguments.valueExpr(0)));
 
         checkQuery("SELECT test_key FROM t WHERE id=1").returns(arguments.value(0)).check();
-    }
-
-    /** {@code INSERT} with dynamic parameters is not allowed for compatible types. */
-    @ParameterizedTest
-    @MethodSource("convertedFrom")
-    public void testInsertFromDynamicParameterFromConvertible(TestTypeArguments<T> arguments) {
-        // TODO: fix in scope of https://issues.apache.org/jira/browse/IGNITE-20226
-        if (testTypeSpec == VARBINARY_TYPE) {
-            return;
-        }
-
-        var t = assertThrows(IgniteException.class, () -> {
-            runSql("INSERT INTO t VALUES (1, ?)", arguments.argValue(0));
-        });
-
-        assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
     }
 
     /** {@code DELETE} by key. */
@@ -104,64 +87,6 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
         checkQuery("SELECT test_key FROM t WHERE id=1")
                 .returns(dataSamples.max())
                 .check();
-    }
-
-    /** {@code UPDATE} is not allowed for dynamic parameter of compatible type. */
-    @ParameterizedTest
-    @MethodSource("convertedFrom")
-    public void testUpdateFromDynamicParameterFromConvertible(TestTypeArguments<T> arguments) {
-        // TODO: fix in scope of https://issues.apache.org/jira/browse/IGNITE-20226
-        if (testTypeSpec == VARBINARY_TYPE) {
-            return;
-        }
-
-        String insert = format("INSERT INTO t VALUES (1, {})", arguments.valueExpr(0));
-        runSql(insert);
-
-        var t = assertThrows(IgniteException.class, () -> {
-            checkQuery("UPDATE t SET test_key = ? WHERE id=1")
-                    .withParams(arguments.argValue(0))
-                    .returns(1L)
-                    .check();
-        });
-
-        String error = format("Dynamic parameter requires adding explicit type cast",
-                testTypeSpec.typeName());
-
-        assertThat(t.getMessage(), containsString(error));
-    }
-
-    /** Type mismatch in {@code INSERT}s {@code VALUES}.*/
-    @ParameterizedTest
-    @MethodSource("convertedFrom")
-    public void testDisallowMismatchTypesOnInsert(TestTypeArguments<T> arguments) {
-        // TODO: fix in scope of https://issues.apache.org/jira/browse/IGNITE-20226
-        if (testTypeSpec == VARBINARY_TYPE) {
-            return;
-        }
-
-        var query = format("INSERT INTO t (id, test_key) VALUES (10, null), (20, {})", arguments.valueExpr(0));
-        var t = assertThrows(IgniteException.class, () -> runSql(query));
-
-        assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
-    }
-
-    /**
-     * Type mismatch in {@code INSERT}s {@code VALUES} with dynamic parameters.
-     */
-    @ParameterizedTest
-    @MethodSource("convertedFrom")
-    public void testDisallowMismatchTypesOnInsertDynamicParam(TestTypeArguments<T> arguments) {
-        // TODO: fix in scope of https://issues.apache.org/jira/browse/IGNITE-20226
-        if (testTypeSpec == VARBINARY_TYPE) {
-            return;
-        }
-
-        Object value1 = arguments.argValue(0);
-
-        var query = "INSERT INTO t (id, test_key) VALUES (1, null), (2, ?)";
-        var t = assertThrows(IgniteException.class, () -> runSql(query, value1));
-        assertThat(t.getMessage(), containsString("Values passed to VALUES operator must have compatible types"));
     }
 
     /**

@@ -26,6 +26,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseQueryDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
+import org.apache.ignite.internal.sql.engine.datatypes.tests.TestTypeArguments;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -47,6 +48,25 @@ public class ItUuidQueryTest extends BaseQueryDataTypeTest<UUID> {
         IgniteException t = assertThrows(IgniteException.class, () -> checkQuery(query).check());
         String error = format("Values passed to {} operator must have compatible types", opSql);
         assertThat(t.getMessage(), containsString(error));
+    }
+
+    /** Test for equality predicate with dynamic parameter of compatible type is illegal. */
+    @ParameterizedTest
+    @MethodSource("convertedFrom")
+    public void testEqConditionWithDynamicParameters(TestTypeArguments arguments) {
+        UUID value1 = values.get(0);
+
+        runSql("INSERT INTO t VALUES(1, ?)", value1);
+
+        var err = assertThrows(IgniteException.class, () -> {
+            checkQuery("SELECT id FROM t where test_key = ? ORDER BY id")
+                    .withParams(arguments.argValue(0))
+                    .returns(1)
+                    .returns(3)
+                    .check();
+        });
+
+        assertThat(err.getMessage(), containsString("Values passed to = operator must have compatible types"));
     }
 
     /** {@inheritDoc} **/
