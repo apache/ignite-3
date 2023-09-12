@@ -105,7 +105,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
             assertThat(
                     ex.getMessage(),
-                    is("Table schema was updated after the transaction was started [table=1, startSchema=1, operationSchema=2")
+                    is("Table schema was updated after the transaction was started [table=1, startSchema=1, operationSchema=2]")
             );
         }
 

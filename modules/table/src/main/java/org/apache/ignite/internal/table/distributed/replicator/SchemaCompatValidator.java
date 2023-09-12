@@ -181,7 +181,7 @@ class SchemaCompatValidator {
         if (tableAtOpTs.tableVersion() != tableAtBeginTs.tableVersion()) {
             throw new IncompatibleSchemaException(
                     String.format(
-                            "Table schema was updated after the transaction was started [table=%d, startSchema=%d, operationSchema=%d",
+                            "Table schema was updated after the transaction was started [table=%d, startSchema=%d, operationSchema=%d]",
                             tableId, tableAtBeginTs.tableVersion(), tableAtOpTs.tableVersion()
                     )
             );

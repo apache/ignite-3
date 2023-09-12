@@ -1896,7 +1896,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
             assertThat(
                     ex.getMessage(),
-                    is("Table schema was updated after the transaction was started [table=1, startSchema=1, operationSchema=2")
+                    is("Table schema was updated after the transaction was started [table=1, startSchema=1, operationSchema=2]")
             );
         } else {
             assertThat(future, willCompleteSuccessfully());
