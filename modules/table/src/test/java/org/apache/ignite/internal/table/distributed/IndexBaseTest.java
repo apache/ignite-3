@@ -91,7 +91,6 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
 
     GcUpdateHandler gcUpdateHandler;
 
-
     public static UUID getTxId() {
         return TX_ID;
     }
@@ -102,7 +101,10 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
         int sortedIndexId = 2;
         int hashIndexId = 3;
 
-        pkInnerStorage = new TestHashIndexStorage(PARTITION_ID, null);
+        pkInnerStorage = new TestHashIndexStorage(PARTITION_ID, new StorageHashIndexDescriptor(pkIndexId, List.of(
+                new StorageHashIndexColumnDescriptor("INTKEY", NativeTypes.INT32, false),
+                new StorageHashIndexColumnDescriptor("STRKEY", NativeTypes.STRING, false)
+        )));
 
         TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
                 pkIndexId,
