@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,30 +30,21 @@ public class TxStateMeta {
 
     private final HybridTimestamp commitTimestamp;
 
-    private final CompletableFuture fut;
-
     /**
      * Constructor.
      *
      * @param txState Transaction state.
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitTimestamp Commit timestamp.
-     * @param fut The future is complete when the transaction state is final.
      */
     public TxStateMeta(
             TxState txState,
             String txCoordinatorId,
-            @Nullable HybridTimestamp commitTimestamp,
-            @Nullable CompletableFuture<Void> fut
+            @Nullable HybridTimestamp commitTimestamp
     ) {
         this.txState = txState;
         this.txCoordinatorId = txCoordinatorId;
         this.commitTimestamp = commitTimestamp;
-        this.fut = fut == null ? new CompletableFuture() : fut;
-
-        if (txState == TxState.COMMITED || txState == TxState.ABORTED) {
-            this.fut.complete(null);
-        }
     }
 
     public TxState txState() {
@@ -67,10 +57,6 @@ public class TxStateMeta {
 
     public @Nullable HybridTimestamp commitTimestamp() {
         return commitTimestamp;
-    }
-
-    public CompletableFuture getFut() {
-        return fut;
     }
 
     @Override

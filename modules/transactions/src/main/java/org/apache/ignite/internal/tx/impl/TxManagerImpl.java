@@ -129,7 +129,7 @@ public class TxManagerImpl implements TxManager {
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
         HybridTimestamp beginTimestamp = clock.now();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp);
-        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null, null));
+        updateTxMeta(txId, old -> new TxStateMeta(PENDING, localNodeId.get(), null));
 
         if (!readOnly) {
             return new ReadWriteTransactionImpl(this, timestampTracker, txId);
@@ -237,7 +237,7 @@ public class TxManagerImpl implements TxManager {
 
         updateTxMeta(
                 txId,
-                old -> new TxStateMeta(finishRequestNeeded ? FINISHING : ABORTED, old.txCoordinatorId(), commitTimestamp, old.getFut())
+                old -> new TxStateMeta(finishRequestNeeded ? FINISHING : ABORTED, old.txCoordinatorId(), commitTimestamp)
         );
 
         if (!finishRequestNeeded) {
@@ -248,7 +248,7 @@ public class TxManagerImpl implements TxManager {
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                 .txId(txId)
-                .timestampLong(clock.nowLong())
+                .timestampLong(commitTimestamp.longValue())
                 .groupId(commitPartition)
                 .groups(groups)
                 .commit(commit)
@@ -261,8 +261,7 @@ public class TxManagerImpl implements TxManager {
                     TxStateMeta newMeta = updateTxMeta(txId, old -> new TxStateMeta(
                             commit ? COMMITED : ABORTED,
                             old.txCoordinatorId(),
-                            old.commitTimestamp(),
-                            old.getFut()
+                            old.commitTimestamp()
                     ));
 
                     // TODO IGNITE-20034

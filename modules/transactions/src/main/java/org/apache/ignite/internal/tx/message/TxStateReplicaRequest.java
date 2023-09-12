@@ -27,7 +27,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * Transaction state request.
  */
-@Transferable(TxMessageGroup.TX_STATE_REQUEST)
+@Transferable(TxMessageGroup.TX_STATE_REPLICA_REQUEST)
 public interface TxStateReplicaRequest extends ReplicaRequest {
     UUID txId();
 

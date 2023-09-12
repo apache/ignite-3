@@ -347,7 +347,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             // Saving state is not needed for full transactions.
             if (!req.full()) {
-                txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null, null));
+                txManager.updateTxMeta(req.transactionId(), old -> new TxStateMeta(PENDING, senderId, null));
             }
         }
 
@@ -1181,7 +1181,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             String txCoordinatorId
     ) {
-        CompletableFuture<?> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit, txCoordinatorId);
+        HybridTimestamp commitTimestamp = request.commitTimestamp();
+
+        CompletableFuture<?> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit, commitTimestamp, txCoordinatorId);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17578 Cleanup process should be asynchronous.
         CompletableFuture<?>[] cleanupFutures = new CompletableFuture[request.groups().size()];
@@ -1209,6 +1211,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param aggregatedGroupIds Partition identifies which are enlisted in the transaction.
      * @param txId Transaction id.
      * @param commit True is the transaction is committed, false otherwise.
+     * @param commitTimestamp Commit timestamp, if applicable.
      * @param txCoordinatorId Transaction coordinator id.
      * @return Future to wait of the finish.
      */
@@ -1216,15 +1219,14 @@ public class PartitionReplicaListener implements ReplicaListener {
             List<TablePartitionId> aggregatedGroupIds,
             UUID txId,
             boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
             String txCoordinatorId
     ) {
-        // TODO: IGNITE-20034 Timestamp from request is not using until the issue has not been fixed (request.commitTimestamp())
         var fut = new CompletableFuture<TxMeta>();
 
         txTimestampUpdateMap.put(txId, fut);
 
         HybridTimestamp currentTimestamp = hybridClock.now();
-        HybridTimestamp commitTimestamp = commit ? currentTimestamp : null;
 
         return catalogVersionFor(currentTimestamp)
                 .thenApply(catalogVersion -> {
@@ -2789,6 +2791,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         txManager.updateTxMeta(txId, old -> old == null
                 ? null
-                : new TxStateMeta(txState, old.txCoordinatorId(), txState == COMMITED ? commitTimestamp : null, old.getFut()));
+                : new TxStateMeta(txState, old.txCoordinatorId(), txState == COMMITED ? commitTimestamp : null));
     }
 }

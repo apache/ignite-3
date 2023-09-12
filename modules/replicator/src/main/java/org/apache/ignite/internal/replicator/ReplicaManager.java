@@ -179,12 +179,6 @@ public class ReplicaManager implements IgniteComponent {
         }
 
         try {
-            if (request.groupId().equals(TxCoordReplGroupId.INSTANCE)) {
-                processTxStateRequest(request);
-
-                return;
-            }
-
             // Notify the sender that the Replica is created and ready to process requests.
             if (request instanceof AwaitReplicaRequest) {
                 replicas.compute(request.groupId(), (replicationGroupId, replicaFut) -> {
@@ -277,10 +271,6 @@ public class ReplicaManager implements IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    private void processTxStateRequest(ReplicaRequest request) {
-        txMana
     }
 
     /**

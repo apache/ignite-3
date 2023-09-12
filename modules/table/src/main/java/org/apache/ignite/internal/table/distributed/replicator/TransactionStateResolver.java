@@ -40,11 +40,14 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxStateRequest;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.MessagingService;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -71,6 +74,8 @@ public class TransactionStateResolver {
 
     private final HybridClock clock;
 
+    private final MessagingService messagingService;
+
     /**
      * The constructor.
      *
@@ -85,13 +90,29 @@ public class TransactionStateResolver {
             TxManager txManager,
             HybridClock clock,
             Function<String, ClusterNode> clusterNodeResolver,
-            Supplier<String> localNodeIdSupplier
+            Supplier<String> localNodeIdSupplier,
+            MessagingService messagingService
     ) {
         this.replicaService = replicaService;
         this.txManager = txManager;
         this.clock = clock;
         this.clusterNodeResolver = clusterNodeResolver;
         this.localNodeId = new Lazy<>(localNodeIdSupplier);
+
+        messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
+            if (msg instanceof TxStateRequest) {
+                processTxStateRequest((TxStateRequest) msg)
+                        .thenAccept(txStateMeta -> {
+                            Object response = REPLICA_MESSAGES_FACTORY
+                                    .timestampAwareReplicaResponse()
+                                    .result(result)
+                                    .timestampLong(sendTimestamp.longValue())
+                                    .build();
+
+                            messagingService.respond(sender, response, correlationId);
+                        });
+            }
+        });
     }
 
     /**
@@ -219,7 +240,7 @@ public class TransactionStateResolver {
     public CompletableFuture<TxMeta> sendMetaRequest(ReplicationGroupId replicaGrp, TxStateReplicaRequest request) {
         CompletableFuture<TxMeta> resFut = new CompletableFuture<>();
 
-        sendAndRetry(resFut, replicaGrp, request);
+        //sendAndRetry(resFut, replicaGrp, request);
 
         return resFut;
     }
@@ -257,7 +278,7 @@ public class TransactionStateResolver {
             String nextNodeToSend = stateOrLeader.leaderName();
 
             if (nextNodeToSend == null) {
-                resFut.complete(stateOrLeader.txMeta());
+                //resFut.complete(stateOrLeader.txMeta());
             } else {
                 LinkedHashSet<String> newAssignment = new LinkedHashSet<>();
 
@@ -287,7 +308,7 @@ public class TransactionStateResolver {
             assert stateOrLeader.leaderName() == null : "Unexpected type of result while requesting the transaction state from "
                     + "the certain node [txId=" + request.txId() + ", node=" + node + ", response=" + resp + ']';
 
-            resFut.complete(stateOrLeader.txMeta());
+            //resFut.complete(stateOrLeader.txMeta());
         });
     }
 
@@ -311,7 +332,7 @@ public class TransactionStateResolver {
         });
     }
 
-    private CompletableFuture<TxStateMeta> processTxStateRequest(TxStateReplicaRequest request) {
+    private CompletableFuture<TxStateMeta> processTxStateRequest(TxStateRequest request) {
         clock.update(request.readTimestamp());
 
         UUID txId = request.txId();
