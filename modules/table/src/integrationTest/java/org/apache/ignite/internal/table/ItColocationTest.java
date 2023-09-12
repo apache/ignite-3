@@ -54,9 +54,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -93,9 +92,7 @@ import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.ClusterNodeImpl;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -134,7 +131,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        ClusterNode clusterNode = new ClusterNodeImpl(UUID.randomUUID().toString(), "node", new NetworkAddress("", 0));
+        ClusterNode clusterNode = DummyInternalTableImpl.LOCAL_NODE;
 
         ReplicaService replicaService = Mockito.mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
@@ -165,12 +162,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         int tblId = 1;
 
         for (int i = 0; i < PARTS; ++i) {
-            TablePartitionId groupId = new TablePartitionId(tblId, i);
-
             RaftGroupService r = Mockito.mock(RaftGroupService.class);
-            when(r.leader()).thenReturn(Mockito.mock(Peer.class));
-            when(r.groupId()).thenReturn(groupId);
-            when(r.refreshAndGetLeaderWithTerm()).thenReturn(completedFuture(new LeaderWithTerm(new Peer(clusterNode.name()), 0L)));
 
             final int part = i;
             doAnswer(invocation -> {
@@ -244,7 +236,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new TestTxStateTableStorage(),
                 replicaService,
                 Mockito.mock(HybridClock.class),
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                new TestPlacementDriver(clusterNode.name())
         );
     }
 

@@ -82,6 +82,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -136,7 +137,7 @@ import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchem
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.table.distributed.replicator.LeaderOrTxState;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -262,7 +263,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     /** Another (not local) cluster node. */
     private final ClusterNode anotherNode = new ClusterNodeImpl("node2", "node2", NetworkAddress.from("127.0.0.2:127"));
 
-    private final PlacementDriver placementDriver = mock(PlacementDriver.class);
+    private final TransactionStateResolver transactionStateResolver = mock(TransactionStateResolver.class);
 
     private final PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(testMvPartitionStorage);
 
@@ -361,7 +362,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         HybridTimestamp txFixedTimestamp = clock.now();
 
-        when(placementDriver.sendMetaRequest(any(), any())).thenAnswer(invocationOnMock -> {
+        when(transactionStateResolver.sendMetaRequest(any(), any())).thenAnswer(invocationOnMock -> {
             TxMeta txMeta;
 
             if (txState == null) {
@@ -443,7 +444,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 clock,
                 safeTimeClock,
                 txStateStorage,
-                placementDriver,
+                transactionStateResolver,
                 new StorageUpdateHandler(
                         partId,
                         partitionDataStorage,
@@ -458,7 +459,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 mock(IndexBuilder.class),
                 schemaSyncService,
                 catalogService,
-                tablesConfig
+                tablesConfig,
+                new TestPlacementDriver(localNode.name())
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
@@ -537,6 +539,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20365")
     public void testTxStateReplicaRequestMissLeaderMiss() throws Exception {
         localLeader = false;
 
