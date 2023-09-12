@@ -67,7 +67,7 @@ public class DropIndexCommand extends AbstractIndexCommand {
         assert table != null : format("Index refers to non existing table [catalogVersion={}, indexId={}, tableId={}]",
                 catalog.version(), index.id(), index.tableId());
 
-        if (table.primaryKeyId() == index.id()) {
+        if (table.primaryKeyIndexId() == index.id()) {
             throw new CatalogValidationException("Dropping primary key index is not allowed");
         }
 
