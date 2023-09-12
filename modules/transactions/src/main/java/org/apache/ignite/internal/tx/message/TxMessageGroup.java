@@ -47,5 +47,10 @@ public class TxMessageGroup {
     /**
      * Message type for {@link TxStateRequest}.
      */
-    public static final short TX_STATE_REQUEST = 3;
+    public static final short TX_STATE_REQUEST = 4;
+
+    /**
+     * Message type for {@link TxStateResponse}.
+     */
+    public static final short TX_STATE_RESPONSE = 5;
 }

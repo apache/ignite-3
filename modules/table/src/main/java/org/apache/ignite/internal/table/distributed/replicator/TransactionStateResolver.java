@@ -37,6 +37,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -44,10 +45,12 @@ import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxStateRequest;
+import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -56,6 +59,12 @@ import org.jetbrains.annotations.Nullable;
 public class TransactionStateResolver {
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
+
+    /** Replica messages factory. */
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    /** Network timeout. */
+    private static final long RPC_TIMEOUT = 3000;
 
     /** Assignment node names per replication group. */
     private final Map<ReplicationGroupId, LinkedHashSet<String>> primaryReplicaMapping = new ConcurrentHashMap<>();
@@ -98,15 +107,19 @@ public class TransactionStateResolver {
         this.clock = clock;
         this.clusterNodeResolver = clusterNodeResolver;
         this.localNodeId = new Lazy<>(localNodeIdSupplier);
+        this.messagingService = messagingService;
+    }
 
+    public void start() {
         messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
             if (msg instanceof TxStateRequest) {
-                processTxStateRequest((TxStateRequest) msg)
+                TxStateRequest req = (TxStateRequest) msg;
+
+                processTxStateRequest(req)
                         .thenAccept(txStateMeta -> {
-                            Object response = REPLICA_MESSAGES_FACTORY
-                                    .timestampAwareReplicaResponse()
-                                    .result(result)
-                                    .timestampLong(sendTimestamp.longValue())
+                            NetworkMessage response = FACTORY.txStateResponse()
+                                    .txStateMeta(txStateMeta)
+                                    .timestampLong(clock.nowLong())
                                     .build();
 
                             messagingService.respond(sender, response, correlationId);
@@ -206,7 +219,7 @@ public class TransactionStateResolver {
             // This means the coordinator node have either left the cluster or restarted.
             resolveTxStateFromCommitPartition(txId, commitGrpId, timestamp, txMetaFuture);
         } else {
-            TxStateReplicaRequest request = FACTORY.txStateReplicaRequest()
+            TxStateRequest request = FACTORY.txStateRequest()
                     .readTimestampLong(timestamp.longValue())
                     .txId(txId)
                     .build();
@@ -228,21 +241,6 @@ public class TransactionStateResolver {
                 .build();
 
         sendAndRetry(txMetaFuture, commitGrpId, request);
-    }
-
-    /**
-     * Sends a transaction state request to the primary replica.
-     *
-     * @param replicaGrp Replication group id.
-     * @param request Status request.
-     * @return Result future.
-     */
-    public CompletableFuture<TxMeta> sendMetaRequest(ReplicationGroupId replicaGrp, TxStateReplicaRequest request) {
-        CompletableFuture<TxMeta> resFut = new CompletableFuture<>();
-
-        //sendAndRetry(resFut, replicaGrp, request);
-
-        return resFut;
     }
 
     /**
@@ -299,16 +297,13 @@ public class TransactionStateResolver {
      * @param node Node to send to.
      * @param request Request.
      */
-    private void sendAndRetry(CompletableFuture<TxStateMeta> resFut, ClusterNode node, TxStateReplicaRequest request) {
-        replicaService.invoke(node, request).thenAccept(resp -> {
-            assert resp instanceof LeaderOrTxState : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
+    private void sendAndRetry(CompletableFuture<TxStateMeta> resFut, ClusterNode node, TxStateRequest request) {
+        messagingService.invoke(node, request, RPC_TIMEOUT).thenAccept(resp -> {
+            assert resp instanceof TxStateResponse : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
 
-            LeaderOrTxState stateOrLeader = (LeaderOrTxState) resp;
+            TxStateResponse response = (TxStateResponse) resp;
 
-            assert stateOrLeader.leaderName() == null : "Unexpected type of result while requesting the transaction state from "
-                    + "the certain node [txId=" + request.txId() + ", node=" + node + ", response=" + resp + ']';
-
-            //resFut.complete(stateOrLeader.txMeta());
+            resFut.complete(response.txStateMeta());
         });
     }
 
@@ -332,6 +327,13 @@ public class TransactionStateResolver {
         });
     }
 
+    /**
+     * Processes the transaction state requests that are used for coordinator path based write intent resolution. Can't return
+     * {@link org.apache.ignite.internal.tx.TxState#FINISHING}, it waits for actual completion instead.
+     *
+     * @param request Request.
+     * @return Future that should be completed with transaction state meta.
+     */
     private CompletableFuture<TxStateMeta> processTxStateRequest(TxStateRequest request) {
         clock.update(request.readTimestamp());
 

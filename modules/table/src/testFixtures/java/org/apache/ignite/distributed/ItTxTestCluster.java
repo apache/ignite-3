@@ -392,16 +392,18 @@ public class ItTxTestCluster {
                 var mvTableStorage = new TestMvTableStorage(tableId, DEFAULT_PARTITION_COUNT);
                 var mvPartStorage = new TestMvPartitionStorage(partId);
                 var txStateStorage = txStateStorages.get(assignment);
-                var placementDriver = new TransactionStateResolver(
+                var transactionStateResolver = new TransactionStateResolver(
                         replicaServices.get(assignment),
                         txManagers.get(assignment),
                         clocks.get(assignment),
                         consistentIdToNode,
-                        () -> clusterServices.get(assignment).topologyService().localMember().id()
+                        () -> clusterServices.get(assignment).topologyService().localMember().id(),
+                        clusterServices.get(assignment).messagingService()
                 );
+                transactionStateResolver.start();
 
                 for (int part = 0; part < assignments.size(); part++) {
-                    placementDriver.updateAssignment(grpIds.get(part), assignments.get(part));
+                    transactionStateResolver.updateAssignment(grpIds.get(part), assignments.get(part));
                 }
 
                 int indexId = globalIndexId++;
@@ -480,7 +482,7 @@ public class ItTxTestCluster {
                                                 clocks.get(assignment),
                                                 safeTime,
                                                 txStateStorage,
-                                                placementDriver,
+                                                transactionStateResolver,
                                                 storageUpdateHandler,
                                                 new DummySchemas(schemaManager),
                                                 consistentIdToNode.apply(assignment),

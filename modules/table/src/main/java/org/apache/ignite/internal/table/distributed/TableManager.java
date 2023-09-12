@@ -468,7 +468,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
-        transactionStateResolver = new TransactionStateResolver(replicaSvc, txManager, clock, clusterNodeResolver, () -> localNode().id());
+        transactionStateResolver = new TransactionStateResolver(replicaSvc, txManager, clock, clusterNodeResolver, () -> localNode().id(),
+                clusterService.messagingService());
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
@@ -529,6 +530,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         mvGc.start();
 
         lowWatermark.start();
+
+        transactionStateResolver.start();
 
         try {
             metaStorageMgr.recoveryFinishedFuture()

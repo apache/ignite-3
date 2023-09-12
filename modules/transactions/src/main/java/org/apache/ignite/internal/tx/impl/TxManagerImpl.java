@@ -248,7 +248,7 @@ public class TxManagerImpl implements TxManager {
 
         TxFinishReplicaRequest req = FACTORY.txFinishReplicaRequest()
                 .txId(txId)
-                .timestampLong(commitTimestamp.longValue())
+                .timestampLong(clock.nowLong())
                 .groupId(commitPartition)
                 .groups(groups)
                 .commit(commit)

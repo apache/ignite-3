@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.io.Serializable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction state meta.
  */
-public class TxStateMeta {
+public class TxStateMeta implements Serializable {
+    private static final long serialVersionUID = 8521181896862227127L;
+
     private final TxState txState;
 
     private final String txCoordinatorId;

@@ -1201,7 +1201,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         CompletableFuture<?> changeStateFuture = finishTransaction(aggregatedGroupIds, txId, commit, commitTimestamp, txCoordinatorId);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-17578 Cleanup process should be asynchronous.
         CompletableFuture<?>[] cleanupFutures = new CompletableFuture[request.groups().size()];
         AtomicInteger cleanupFuturesCnt = new AtomicInteger(0);
 
@@ -2483,6 +2482,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 return !readLatest && txMeta.commitTimestamp().compareTo(timestamp) > 0;
             } else if (txMeta.txState() == ABORTED) {
+                return true;
+            } else if (txMeta.txState() == PENDING) {
                 return true;
             } else {
                 assert txMeta.txState() == ABANDONED : "Unexpected transaction state [state=" + txMeta.txState() + ']';

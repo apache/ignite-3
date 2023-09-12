@@ -107,16 +107,10 @@ public class TxLocalTest extends TxAbstractTest {
 
         }).when(msgSvc).invoke(anyString(), any(), anyLong());
 
-        TransactionStateResolver transactionStateResolver = mock(TransactionStateResolver.class, RETURNS_DEEP_STUBS);
-
-        doAnswer(invocationOnMock -> {
-            TxStateReplicaRequest request = invocationOnMock.getArgument(1);
-
-            return CompletableFuture.completedFuture(
-                    tables.get(request.groupId()).txStateStorage().getTxStateStorage(0).get(request.txId()));
-        }).when(transactionStateResolver).sendMetaRequest(any(), any());
-
         txManager = new TxManagerImpl(replicaSvc, lockManager, localClock, new TransactionIdGenerator(0xdeadbeef), () -> "local");
+
+        TransactionStateResolver transactionStateResolver = new TransactionStateResolver(replicaSvc, txManager, localClock,
+                a -> clusterService.topologyService().localMember(), () -> "local", msgSvc);
 
         igniteTransactions = new IgniteTransactionsImpl(txManager, timestampTracker);
 
