@@ -17,8 +17,17 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.UpdateProducer;
+import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 
-abstract class AbstractCatalogCommand implements CatalogCommand, UpdateProducer {
+/**
+ * Builder of a command that adds a new sorted index to the catalog.
+ *
+ * <p>A builder is considered to be reusable, thus implementation have
+ * to make sure invocation of {@link #build()} method doesn't cause any
+ * side effects on builder's state or any object created by the same builder.
+ */
+public interface CreateSortedIndexCommandBuilder extends AbstractCreateIndexCommandBuilder<CreateSortedIndexCommandBuilder> {
+    /** List of the columns collations. The size of this list should much size of the columns. */
+    CreateSortedIndexCommandBuilder collations(List<CatalogColumnCollation> collations);
 }

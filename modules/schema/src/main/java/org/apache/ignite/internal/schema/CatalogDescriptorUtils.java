@@ -64,6 +64,7 @@ public class CatalogDescriptorUtils {
 
         return new CatalogTableDescriptor(
                 config.id(),
+                -1,
                 config.name(),
                 config.zoneId(),
                 ((ExtendedTableView) config).schemaId(),

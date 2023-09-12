@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 
 /**
@@ -27,7 +28,7 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
  * <p>Every table-related command, disregard it going to create new table or modify existing one,
  * should specify name of the table and namespace (schema) where to find existing/put new table.
  */
-public abstract class AbstractTableCommand extends AbstractCatalogCommand {
+public abstract class AbstractTableCommand implements CatalogCommand {
     protected final String schemaName;
 
     protected final String tableName;

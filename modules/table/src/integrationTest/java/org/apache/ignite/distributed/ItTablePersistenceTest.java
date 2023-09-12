@@ -47,6 +47,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.ItAbstractListenerSnapshotTest;
@@ -115,6 +116,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class})
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
+    private static final String NODE_NAME = "node1";
+
     /** Factory to create RAFT command messages. */
     private final TableMessagesFactory msgFactory = new TableMessagesFactory();
 
@@ -164,7 +167,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
     private final ReplicaService replicaService = mock(ReplicaService.class);
 
     private final Function<String, ClusterNode> consistentIdToNode = addr
-            -> new ClusterNodeImpl("node1", "node1", new NetworkAddress(addr, 3333));
+            -> new ClusterNodeImpl(NODE_NAME, NODE_NAME, new NetworkAddress(addr, 3333));
 
     private final HybridClock hybridClock = new HybridClockImpl();
 
@@ -225,7 +228,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 new TestTxStateTableStorage(),
                 replicaService,
                 hybridClock,
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                new TestPlacementDriver(NODE_NAME)
         );
 
         closeables.add(() -> table.close());

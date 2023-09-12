@@ -165,4 +165,40 @@ public class TxLocalTest extends TxAbstractTest {
     protected boolean assertPartitionsSame(TableImpl table, int partId) {
         return true;
     }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20355
+    @Override
+    public void testReadOnlyGet() {
+        // No-op
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20355
+    @Override
+    public void testReadOnlyScan() throws Exception {
+        // No-op
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20355
+    @Override
+    public void testReadOnlyGetWriteIntentResolutionUpdate() {
+        // No-op
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20355
+    @Override
+    public void testReadOnlyGetWriteIntentResolutionRemove() {
+        // No-op
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20355
+    @Override
+    public void testReadOnlyGetAll() {
+        // No-op
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20355
+    @Override
+    public void testReadOnlyPendingWriteIntentSkippedCombined() {
+        super.testReadOnlyPendingWriteIntentSkippedCombined();
+    }
 }

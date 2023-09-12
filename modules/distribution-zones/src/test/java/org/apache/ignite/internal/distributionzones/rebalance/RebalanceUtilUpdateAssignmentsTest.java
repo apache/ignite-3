@@ -96,6 +96,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
     private final CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
             1,
+            -1,
             "table1",
             0,
             1,

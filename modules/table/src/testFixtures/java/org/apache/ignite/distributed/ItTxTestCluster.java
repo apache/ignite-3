@@ -57,6 +57,8 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -174,6 +176,8 @@ public class ItTxTestCluster {
 
     protected final List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
+    protected PlacementDriver placementDriver;
+
     private ScheduledThreadPoolExecutor executor;
 
     protected IgniteTransactions igniteTransactions;
@@ -245,6 +249,8 @@ public class ItTxTestCluster {
         for (ClusterService node : cluster) {
             assertTrue(waitForTopology(node, nodes, 1000));
         }
+
+        placementDriver = new TestPlacementDriver(cluster.get(0).nodeName());
 
         LOG.info("The cluster has been started");
 
@@ -490,7 +496,8 @@ public class ItTxTestCluster {
                                                 mock(IndexBuilder.class),
                                                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                                                 mock(CatalogService.class),
-                                                tablesConfig
+                                                tablesConfig,
+                                                placementDriver
                                         ),
                                         raftSvc,
                                         storageIndexTracker
@@ -552,7 +559,8 @@ public class ItTxTestCluster {
                 mock(TxStateTableStorage.class),
                 startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient ? clientClock : clocks.get(localNodeName),
-                timestampTracker
+                timestampTracker,
+                placementDriver
         ), new DummySchemaManagerImpl(schemaDescriptor), clientTxManager.lockManager());
     }
 

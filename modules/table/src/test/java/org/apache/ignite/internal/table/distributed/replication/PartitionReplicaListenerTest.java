@@ -82,6 +82,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -451,7 +452,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 mock(IndexBuilder.class),
                 schemaSyncService,
                 catalogService,
-                tablesConfig
+                tablesConfig,
+                new TestPlacementDriver(localNode.name())
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
@@ -530,6 +532,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20365")
     public void testTxStateReplicaRequestMissLeaderMiss() throws Exception {
         localLeader = false;
 

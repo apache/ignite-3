@@ -113,6 +113,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -272,7 +273,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
 
-    /** Placement driver. */
+    /** Transaction state resolver. */
     private final TransactionStateResolver transactionStateResolver;
 
     /** Here a table future stores during creation (until the table can be provided to client). */
@@ -391,6 +392,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final HybridTimestampTracker observableTimestampTracker;
 
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
+
     /**
      * Creates a new table manager.
      *
@@ -411,6 +415,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         volatile tables.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
+     * @param placementDriver Placement driver.
      */
     public TableManager(
             String nodeName,
@@ -439,7 +444,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             DistributionZoneManager distributionZoneManager,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            HybridTimestampTracker observableTimestampTracker
+            HybridTimestampTracker observableTimestampTracker,
+            PlacementDriver placementDriver
     ) {
         this.tablesCfg = tablesCfg;
         this.zonesConfig = zonesConfig;
@@ -465,6 +471,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
+        this.placementDriver = placementDriver;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
@@ -1052,7 +1059,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 indexBuilder,
                 schemaSyncService,
                 catalogService,
-                tablesCfg
+                tablesCfg,
+                placementDriver
         );
     }
 
@@ -1299,10 +1307,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         int partitions = zoneDescriptor.partitions();
 
-        InternalTableImpl internalTable = new InternalTableImpl(tableName, tableId,
+        InternalTableImpl internalTable = new InternalTableImpl(
+                tableName,
+                tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
                 partitions, clusterNodeResolver, txManager, tableStorage,
-                txStateStorage, replicaSvc, clock, observableTimestampTracker);
+                txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
         var table = new TableImpl(internalTable, lockMgr);
 

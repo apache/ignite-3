@@ -26,7 +26,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.placementdriver.LeaseMeta;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -35,7 +35,7 @@ import org.apache.ignite.internal.util.ByteUtils;
  * A lease representation in memory.
  * The real lease is stored in Meta storage.
  */
-public class Lease implements LeaseMeta {
+public class Lease implements ReplicaMeta {
     /** The object is used when nothing holds the lease. Empty lease is always expired. */
     public static Lease EMPTY_LEASE = new Lease(null, MIN_VALUE, MIN_VALUE, null);
 
@@ -65,8 +65,12 @@ public class Lease implements LeaseMeta {
      * @param leaseExpirationTime Lease expiration timestamp.
      * @param replicationGroupId Id of replication group.
      */
-    public Lease(String leaseholder, HybridTimestamp startTime, HybridTimestamp leaseExpirationTime,
-            ReplicationGroupId replicationGroupId) {
+    public Lease(
+            String leaseholder,
+            HybridTimestamp startTime,
+            HybridTimestamp leaseExpirationTime,
+            ReplicationGroupId replicationGroupId
+    ) {
         this(leaseholder, startTime, leaseExpirationTime, false, false, replicationGroupId);
     }
 
@@ -79,7 +83,7 @@ public class Lease implements LeaseMeta {
      * @param prolong Lease is available to prolong.
      * @param accepted The flag is true when the holder accepted the lease, the false otherwise.
      */
-    Lease(
+    public Lease(
             String leaseholder,
             HybridTimestamp startTime,
             HybridTimestamp leaseExpirationTime,
