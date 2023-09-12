@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.configuration.util;
 
+import static java.util.Collections.emptyIterator;
 import static java.util.Collections.singletonMap;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
@@ -31,6 +33,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.co
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.compressDeletedEntries;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.extensionsFields;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.find;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.mapIterator;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicSchemaExtensions;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.removeLastKey;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.schemaExtensions;
@@ -43,6 +46,7 @@ import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -55,12 +59,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Set;
+import java.util.Spliterators;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.stream.StreamSupport;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.Config;
@@ -1115,6 +1123,86 @@ public class ConfigurationUtilTest {
         NamedListView<?> afterDefaults = parentChange.elements();
 
         assertNotSame(afterDefaults, beforeDefaults);
+    }
+
+    /**
+     * Collect of elements.
+     *
+     * @param iterable Iterable.
+     * @param <T> Type of the elements.
+     * @return Collected elements.
+     */
+    private <T> List<? extends T> collect(Iterator<? extends T> iterable) {
+        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iterable, 0), false).collect(toList());
+    }
+
+    @Test
+    void testViewReadOnly() {
+        assertFalse(ConfigurationUtil.mapIterator(null, null).hasNext());
+        assertFalse(ConfigurationUtil.mapIterator(emptyIterator(), null).hasNext());
+
+        assertEquals(List.of(1), collect(ConfigurationUtil.mapIterator(List.of(1).iterator(), null)));
+        assertEquals(List.of(1), collect(ConfigurationUtil.mapIterator(List.of(1).iterator(), identity())));
+
+        assertEquals(List.of("1", "2", "3"), collect(ConfigurationUtil.mapIterator(List.of(1, 2, 3).iterator(), String::valueOf)));
+
+        assertThrows(UnsupportedOperationException.class, () -> ConfigurationUtil.mapIterator(List.of(1).iterator(), null).remove());
+    }
+
+    @Test
+    void testViewReadOnlyWithPredicate() {
+        assertFalse(mapIterator(null, null, null).hasNext());
+        assertFalse(mapIterator(emptyIterator(), null, null).hasNext());
+
+        assertEquals(List.of(1), collect(mapIterator(List.of(1).iterator(), null, null)));
+        assertEquals(List.of(1), collect(mapIterator(List.of(1).iterator(), identity(), null)));
+        assertEquals(List.of(1), collect(mapIterator(List.of(1).iterator(), null, integer -> true)));
+        assertEquals(List.of(1), collect(mapIterator(List.of(1).iterator(), identity(), integer -> true)));
+        assertEquals(List.of(), collect(mapIterator(List.of(1).iterator(), null, integer -> false)));
+        assertEquals(List.of(), collect(mapIterator(List.of(1).iterator(), identity(), integer -> false)));
+
+        assertEquals(List.of("1", "2", "3"), collect(mapIterator(List.of(1, 2, 3).iterator(), String::valueOf, null)));
+        assertEquals(List.of("3"), collect(mapIterator(List.of(1, 2, 3).iterator(), String::valueOf, integer -> integer > 2)));
+
+        Iterator<String> iterator1 = mapIterator(List.of(1, 2, 3, 4).iterator(), String::valueOf, integer -> true);
+        assertEquals("1", iterator1.next());
+        assertEquals("2", iterator1.next());
+        assertEquals("3", iterator1.next());
+        assertEquals("4", iterator1.next());
+
+        Iterator<String> iterator2 = mapIterator(List.of(1, 2, 3, 4).iterator(), String::valueOf, null);
+        assertEquals("1", iterator2.next());
+        assertEquals("2", iterator2.next());
+        assertEquals("3", iterator2.next());
+        assertEquals("4", iterator2.next());
+
+        Iterator<Integer> iterator3 = mapIterator(List.of(1, 2, 3, 4).iterator(), identity(), integer -> integer < 3);
+        assertEquals(1, iterator3.next());
+        assertEquals(2, iterator3.next());
+
+        Iterator<Integer> iterator4 = mapIterator(List.of(1, 2, 3, 4).iterator(), identity(), integer -> false);
+        assertFalse(iterator4.hasNext());
+
+        assertDoesNotThrow(() -> mapIterator(Arrays.asList(new Integer[]{null}).iterator(), null, null).next());
+        assertDoesNotThrow(() -> mapIterator(Arrays.asList(new Integer[]{null}).iterator(), null, integer -> true).next());
+        assertDoesNotThrow(() -> mapIterator(Arrays.asList(null, 1).iterator(), null, null).next());
+        assertDoesNotThrow(() -> mapIterator(Arrays.asList(null, 1).iterator(), null, integer -> true).next());
+
+        assertThrows(
+                NoSuchElementException.class,
+                () -> mapIterator(Arrays.asList(new Integer[]{null}).iterator(), null, integer -> false).next()
+        );
+
+        assertThrows(
+                NoSuchElementException.class,
+                () -> {
+                    Iterator<Object> iterator = mapIterator(Arrays.asList(null, 1).iterator(), null, Objects::nonNull);
+                    iterator.next();
+                    iterator.next();
+                }
+        );
+
+        assertThrows(UnsupportedOperationException.class, () -> mapIterator(List.of(1).iterator(), null, null).remove());
     }
 
     /**

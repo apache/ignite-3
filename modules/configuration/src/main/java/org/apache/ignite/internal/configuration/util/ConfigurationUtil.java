@@ -31,6 +31,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -42,6 +43,8 @@ import java.util.Queue;
 import java.util.RandomAccess;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
@@ -78,6 +81,9 @@ public class ConfigurationUtil {
     /** Configuration source that copies values without modifying tham. */
     public static final ConfigurationSource EMPTY_CFG_SRC = new ConfigurationSource() {
     };
+
+    /** Special object for determining that there is no next element. */
+    private static final Object NO_NEXT_ELEMENT = new Object();
 
     /**
      * Seperator string for both public and internal representations of configuration keys.
@@ -509,14 +515,11 @@ public class ConfigurationUtil {
      * @throws IllegalArgumentException If the configuration schemas does not contain {@link ConfigurationRoot}, {@link Config} or {@link
      *                                  PolymorphicConfig}.
      */
-    public static Set<Class<?>> collectSchemas(Collection<Class<?>> schemaClasses) {
-        if (schemaClasses.isEmpty()) {
-            return Set.of();
-        }
-
+    public static Set<Class<?>> collectSchemas(Iterable<Class<?>> schemaClasses) {
         Set<Class<?>> res = new HashSet<>();
 
-        Queue<Class<?>> queue = new ArrayDeque<>(Set.copyOf(schemaClasses));
+        Queue<Class<?>> queue = new ArrayDeque<>();
+        schemaClasses.forEach(queue::add);
 
         while (!queue.isEmpty()) {
             Class<?> cls = queue.poll();
@@ -884,6 +887,120 @@ public class ConfigurationUtil {
                 touch((DynamicConfiguration<?, ?>) value);
             }
         }
+    }
+
+    /**
+     * Map iterable via provided mapper function. Filter all {@code null} mapped values.
+     *
+     * @param iterator Basic iterator.
+     * @param mapper Conversion function.
+     * @param <T1> Base type of the collection.
+     * @param <T2> Type for view.
+     * @return Mapped iterable.
+     */
+    public static <T1, T2> Iterator<T2> mapIterator(
+            @Nullable Iterator<? extends T1> iterator,
+            @Nullable Function<? super T1, ? extends T2> mapper
+    ) {
+        if (iterator == null) {
+            return Collections.emptyIterator();
+        }
+
+        if (mapper == null) {
+            return (Iterator<T2>) iterator;
+        }
+
+        return new Iterator<>() {
+            @Nullable
+            private T2 next;
+
+            @Override
+            public boolean hasNext() {
+                if (!iterator.hasNext()) {
+                    return false;
+                }
+
+                if (next == null) {
+                    next = mapper.apply(iterator.next());
+                    if (next == null) {
+                        return hasNext();
+                    }
+                }
+
+                return true;
+            }
+
+            @Override
+            public T2 next() {
+                if (next == null) {
+                    throw new NoSuchElementException();
+                }
+                T2 result = next;
+                next = null;
+                return result;
+            }
+        };
+    }
+
+    /**
+     * Map iterator via provided mapper function. Filter all {@code null} mapped values.
+     *
+     * @param iterator Basic iterator.
+     * @param mapper Conversion function.
+     * @param predicate Predicate to apply to each element of basic collection.
+     * @param <T1> Base type of the collection.
+     * @param <T2> Type for view.
+     * @return Read-only collection view.
+     */
+    public static <T1, T2> Iterator<T2> mapIterator(
+            @Nullable Iterator<? extends T1> iterator,
+            @Nullable Function<? super T1, ? extends T2> mapper,
+            @Nullable Predicate<? super T1> predicate
+    ) {
+        if (iterator == null) {
+            return Collections.emptyIterator();
+        }
+
+        if (mapper == null && predicate == null) {
+            return (Iterator<T2>) iterator;
+        }
+
+        return new Iterator<>() {
+            @Nullable
+            T1 current = advance();
+
+            /** {@inheritDoc} */
+            @Override
+            public boolean hasNext() {
+                return current != NO_NEXT_ELEMENT;
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public T2 next() {
+                T1 current = this.current;
+
+                if (current == NO_NEXT_ELEMENT) {
+                    throw new NoSuchElementException();
+                }
+
+                this.current = advance();
+
+                return mapper == null ? (T2) current : mapper.apply(current);
+            }
+
+            private @Nullable T1 advance() {
+                while (iterator.hasNext()) {
+                    T1 next = iterator.next();
+
+                    if (predicate == null || predicate.test(next)) {
+                        return next;
+                    }
+                }
+
+                return (T1) NO_NEXT_ELEMENT;
+            }
+        };
     }
 
     /**

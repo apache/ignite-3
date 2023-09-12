@@ -20,11 +20,8 @@ package org.apache.ignite.internal.configuration.notifications;
 import static java.util.Collections.emptyIterator;
 
 import java.io.Serializable;
-import java.util.Collection;
 import java.util.Iterator;
-import java.util.Objects;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.NoSuchElementException;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.internal.configuration.ConfigurationNode;
@@ -121,12 +118,29 @@ class ConfigurationNotificationUtils {
      * @param anyConfig  New {@link NamedListConfiguration#any "any"} configuration.
      * @return Merged {@link NamedListConfiguration#any "any"} configurations.
      */
-    static Collection<DynamicConfiguration<InnerNode, ?>> mergeAnyConfigs(
-            Collection<DynamicConfiguration<InnerNode, ?>> anyConfigs,
+    static Iterator<DynamicConfiguration<InnerNode, ?>> mergeAnyConfigs(
+            Iterator<DynamicConfiguration<InnerNode, ?>> anyConfigs,
             @Nullable DynamicConfiguration<InnerNode, ?> anyConfig
     ) {
-        return Stream.concat(anyConfigs.stream(), Stream.of(anyConfig))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+        return new Iterator<>() {
+            @Override
+            public boolean hasNext() {
+                return anyConfigs.hasNext() || anyConfig != null;
+
+            }
+
+            @Override
+            public DynamicConfiguration<InnerNode, ?> next() {
+                if (anyConfigs.hasNext()) {
+                    return anyConfigs.next();
+                }
+
+                if (anyConfig == null) {
+                    throw new NoSuchElementException();
+                }
+
+                return anyConfig;
+            }
+        };
     }
 }
