@@ -387,7 +387,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         if (allElementsAreNull(rows)) {
                             return completedFuture(rows);
                         } else {
-                            return chooseOpTsAndValidateAtIt(req.transactionId())
+                            return validateAtTimestamp(req.transactionId())
                                     .thenApply(ignored -> rows);
                         }
                     })
@@ -1667,7 +1667,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(result);
                     }
 
-                    return chooseOpTsValidateAndBuildUpdateAllCommand(request, rowIdsToDelete, txCoordinatorId)
+                    return validateAtTimestampAndBuildUpdateAllCommand(request, rowIdsToDelete, txCoordinatorId)
                             .thenCompose(this::applyUpdateAllCommand)
                             .thenApply(ignored -> result);
                 });
@@ -1723,7 +1723,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             ));
 
                     return allOf(insertLockFuts)
-                            .thenCompose(ignored -> chooseOpTsValidateAndBuildUpdateAllCommand(request, convertedMap, txCoordinatorId))
+                            .thenCompose(ignored -> validateAtTimestampAndBuildUpdateAllCommand(request, convertedMap, txCoordinatorId))
                             .thenCompose(this::applyUpdateAllCommand)
                             .thenApply(ignored -> {
                                 // Release short term locks.
@@ -1767,7 +1767,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(null);
                     }
 
-                    return chooseOpTsValidateAndBuildUpdateAllCommand(request, rowsToUpdate, txCoordinatorId)
+                    return validateAtTimestampAndBuildUpdateAllCommand(request, rowsToUpdate, txCoordinatorId)
                             .thenCompose(this::applyUpdateAllCommand)
                             .thenRun(() -> {
                                 // Release short term locks.
@@ -1827,7 +1827,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 return completedFuture(result);
                             }
 
-                            return chooseOpTsAndValidateAtIt(txId)
+                            return validateAtTimestamp(txId)
                                     .thenApply(unused -> result);
                         });
             }
@@ -1864,7 +1864,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         return completedFuture(result);
                     }
 
-                    return chooseOpTsValidateAndBuildUpdateAllCommand(request, rowIdsToDelete, txCoordinatorId)
+                    return validateAtTimestampAndBuildUpdateAllCommand(request, rowIdsToDelete, txCoordinatorId)
                             .thenCompose(this::applyUpdateAllCommand)
                             .thenApply(ignored -> result);
                 });
@@ -2004,7 +2004,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                     return completedFuture(false);
                                 }
 
-                                return chooseOpTsValidateAndBuildUpdateCommand(request, validatedRowId.uuid(), null, txCoordinatorId)
+                                return validateAtTimestampAndBuildUpdateCommand(request, validatedRowId.uuid(), null, txCoordinatorId)
                                         .thenCompose(this::applyUpdateCommand)
                                         .thenApply(ignored -> (Boolean) true);
                             });
@@ -2019,7 +2019,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                     RowId rowId0 = new RowId(partId(), UUID.randomUUID());
 
                     return takeLocksForInsert(searchRow, rowId0, txId)
-                            .thenCompose(rowIdLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId0.uuid(), searchRow, txCoordinatorId)
+                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request, rowId0.uuid(), searchRow,
+                                        txCoordinatorId
+                                    )
                                     .thenCompose(this::applyUpdateCommand)
                                     .thenApply(v -> {
                                         // Release short term locks.
@@ -2040,7 +2042,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(rowIdLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId0.uuid(), searchRow, txCoordinatorId)
+                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request, rowId0.uuid(), searchRow,
+                                        txCoordinatorId
+                                    )
                                     .thenCompose(this::applyUpdateCommand)
                                     .thenApply(ignored -> rowIdLock))
                                     .thenApply(rowIdLock -> {
@@ -2062,7 +2066,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                             : takeLocksForUpdate(searchRow, rowId0, txId);
 
                     return lockFut
-                            .thenCompose(rowIdLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId0.uuid(), searchRow, txCoordinatorId)
+                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request, rowId0.uuid(), searchRow,
+                                        txCoordinatorId
+                                    )
                                     .thenCompose(this::applyUpdateCommand)
                                     .thenApply(v -> {
                                         // Release short term locks.
@@ -2079,7 +2085,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
-                            .thenCompose(rowIdLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId.uuid(), searchRow, txCoordinatorId)
+                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request, rowId.uuid(), searchRow,
+                                        txCoordinatorId
+                                    )
                                     .thenCompose(this::applyUpdateCommand)
                                     .thenApply(v -> {
                                         // Release short term locks.
@@ -2096,7 +2104,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForUpdate(searchRow, rowId, txId)
-                            .thenCompose(rowIdLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId.uuid(), searchRow, txCoordinatorId)
+                            .thenCompose(rowIdLock -> validateAtTimestampAndBuildUpdateCommand(request, rowId.uuid(), searchRow,
+                                        txCoordinatorId
+                                    )
                                     .thenCompose(this::applyUpdateCommand)
                                     .thenApply(v -> {
                                         // Release short term locks.
@@ -2136,7 +2146,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForGet(rowId, txId)
-                            .thenCompose(ignored -> chooseOpTsAndValidateAtIt(txId))
+                            .thenCompose(ignored -> validateAtTimestamp(txId))
                             .thenApply(ignored -> row);
                 });
             }
@@ -2147,7 +2157,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForDelete(row, rowId, txId)
-                            .thenCompose(rowLock -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId.uuid(), null, txCoordinatorId))
+                            .thenCompose(rowLock -> validateAtTimestampAndBuildUpdateCommand(request, rowId.uuid(), null, txCoordinatorId))
                             .thenCompose(this::applyUpdateCommand)
                             .thenApply(ignored -> (Boolean) true);
                 });
@@ -2159,7 +2169,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     return takeLocksForDelete(row, rowId, txId)
-                            .thenCompose(ignored -> chooseOpTsValidateAndBuildUpdateCommand(request, rowId.uuid(), null, txCoordinatorId))
+                            .thenCompose(ignored -> validateAtTimestampAndBuildUpdateCommand(request, rowId.uuid(), null, txCoordinatorId))
                             .thenCompose(this::applyUpdateCommand)
                             .thenApply(ignored -> row);
                 });
@@ -2341,7 +2351,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 return completedFuture(false);
                             }
 
-                            return chooseOpTsValidateAndBuildUpdateCommand(commitPartitionId.asTablePartitionId(),
+                            return validateAtTimestampAndBuildUpdateCommand(commitPartitionId.asTablePartitionId(),
                                         validatedRowId.get1().uuid(), newRow, txId, request.full(), txCoordinatorId
                                     )
                                     .thenCompose(this::applyUpdateCommand)
@@ -2525,7 +2535,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
-    private CompletableFuture<Void> chooseOpTsAndValidateAtIt(UUID txId) {
+    private CompletableFuture<Void> validateAtTimestamp(UUID txId) {
         HybridTimestamp operationTimestamp = hybridClock.now();
 
         return schemaSyncService.waitForMetadataCompleteness(operationTimestamp)
@@ -2545,13 +2555,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @return Future that will complete with the constructed {@link UpdateCommand} object.
      */
-    private CompletableFuture<UpdateCommand> chooseOpTsValidateAndBuildUpdateCommand(
+    private CompletableFuture<UpdateCommand> validateAtTimestampAndBuildUpdateCommand(
             ReadWriteSingleRowReplicaRequest request,
             UUID rowUuid,
             @Nullable BinaryRow row,
             String txCoordinatorId
     ) {
-        return chooseOpTsValidateAndBuildUpdateCommand(
+        return validateAtTimestampAndBuildUpdateCommand(
                 request.commitPartitionId().asTablePartitionId(),
                 rowUuid,
                 row,
@@ -2570,13 +2580,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @return Future that will complete with the constructed {@link UpdateCommand} object.
      */
-    private CompletableFuture<UpdateCommand> chooseOpTsValidateAndBuildUpdateCommand(
+    private CompletableFuture<UpdateCommand> validateAtTimestampAndBuildUpdateCommand(
             ReadWriteSingleRowPkReplicaRequest request,
             UUID rowUuid,
             @Nullable BinaryRow row,
             String txCoordinatorId
     ) {
-        return chooseOpTsValidateAndBuildUpdateCommand(
+        return validateAtTimestampAndBuildUpdateCommand(
                 request.commitPartitionId().asTablePartitionId(),
                 rowUuid,
                 row,
@@ -2597,7 +2607,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @return Future that will complete with the constructed {@link UpdateCommand} object.
      */
-    private CompletableFuture<UpdateCommand> chooseOpTsValidateAndBuildUpdateCommand(
+    private CompletableFuture<UpdateCommand> validateAtTimestampAndBuildUpdateCommand(
             TablePartitionId tablePartId,
             UUID rowUuid,
             @Nullable BinaryRow row,
@@ -2663,12 +2673,12 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @return Future that will complete with the constructed {@link UpdateAllCommand} object.
      */
-    private CompletableFuture<UpdateAllCommand> chooseOpTsValidateAndBuildUpdateAllCommand(
+    private CompletableFuture<UpdateAllCommand> validateAtTimestampAndBuildUpdateAllCommand(
             ReadWriteMultiRowReplicaRequest request,
             Map<UUID, BinaryRowMessage> rowsToUpdate,
             String txCoordinatorId
     ) {
-        return chooseOpTsValidateAndBuildUpdateAllCommand(
+        return validateAtTimestampAndBuildUpdateAllCommand(
                 rowsToUpdate,
                 request.commitPartitionId(),
                 request.transactionId(),
@@ -2685,12 +2695,12 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @return Future that will complete with the constructed {@link UpdateAllCommand} object.
      */
-    private CompletableFuture<UpdateAllCommand> chooseOpTsValidateAndBuildUpdateAllCommand(
+    private CompletableFuture<UpdateAllCommand> validateAtTimestampAndBuildUpdateAllCommand(
             ReadWriteMultiRowPkReplicaRequest request,
             Map<UUID, BinaryRowMessage> rowsToUpdate,
             String txCoordinatorId
     ) {
-        return chooseOpTsValidateAndBuildUpdateAllCommand(
+        return validateAtTimestampAndBuildUpdateAllCommand(
                 rowsToUpdate,
                 request.commitPartitionId(),
                 request.transactionId(),
@@ -2709,7 +2719,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @return Future that will complete with the constructed {@link UpdateAllCommand} object.
      */
-    private CompletableFuture<UpdateAllCommand> chooseOpTsValidateAndBuildUpdateAllCommand(
+    private CompletableFuture<UpdateAllCommand> validateAtTimestampAndBuildUpdateAllCommand(
             Map<UUID, BinaryRowMessage> rowsToUpdate,
             TablePartitionIdMessage commitPartitionId,
             UUID transactionId,
