@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.AdditionalMatchers.gt;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -1820,50 +1821,42 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
-    @CartesianTest.MethodFactory("singleRowFullRowsReadOrWriteRequestTypesFactory")
-    void singleRowFullRowRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
-            RequestType requestType, boolean onExistingRow, boolean full
+    @CartesianTest.MethodFactory("singleRowRwOperationTypesFactory")
+    void singleRowRwOperationsFailIfTableAlteredAfterTxStart(
+            RequestType requestType,
+            boolean onExistingRow,
+            boolean full
     ) {
-        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(requestType, onExistingRow, (targetTxId, key) -> {
-            return doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType);
-        });
+        ListenerInvocation invocation = null;
+
+        if (RequestTypes.isSingleRowRwPkOnly(requestType)) {
+            invocation = (targetTxId, key) -> {
+                return doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType);
+            };
+        } else if (RequestTypes.isSingleRowRwFullRow(requestType)) {
+            invocation = (targetTxId, key) -> {
+                return doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType);
+            };
+        } else {
+            fail("Uncovered type: " + requestType);
+        }
+
+        testRwOperationsFailIfTableAlteredAfterTxStart(requestType, onExistingRow, invocation);
     }
 
     @SuppressWarnings("unused")
-    private static ArgumentSets singleRowFullRowsReadOrWriteRequestTypesFactory() {
-        return ArgumentSets.argumentsForFirstParameter(singleRowFullRowsReadOrWriteRequestTypes())
+    private static ArgumentSets singleRowRwOperationTypesFactory() {
+        return ArgumentSets.argumentsForFirstParameter(singleRowRwOperationTypes())
                 .argumentsForNextParameter(false, true)
                 .argumentsForNextParameter(false, true);
     }
 
-    private static Stream<RequestType> singleRowFullRowsReadOrWriteRequestTypes() {
+    private static Stream<RequestType> singleRowRwOperationTypes() {
         return Arrays.stream(RequestType.values())
-                .filter(type -> RequestTypes.isSingleRowFullRowRwRead(type) || RequestTypes.isSingleRowFullRowWrite(type));
+                .filter(RequestTypes::isSingleRowRw);
     }
 
-    @CartesianTest
-    @CartesianTest.MethodFactory("singleRowPkOnlyReadOrWriteRequestTypesFactory")
-    void singleRowPkOnlyRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
-            RequestType requestType, boolean onExistingRow, boolean full
-    ) {
-        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(requestType, onExistingRow, (targetTxId, key) -> {
-            return doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType);
-        });
-    }
-
-    @SuppressWarnings("unused")
-    private static ArgumentSets singleRowPkOnlyReadOrWriteRequestTypesFactory() {
-        return ArgumentSets.argumentsForFirstParameter(singleRowPkOnlyReadOrWriteRequestTypes())
-                .argumentsForNextParameter(false, true)
-                .argumentsForNextParameter(false, true);
-    }
-
-    private static Stream<RequestType> singleRowPkOnlyReadOrWriteRequestTypes() {
-        return Arrays.stream(RequestType.values())
-                .filter(type -> RequestTypes.isSingleRowRwPkOnlyRead(type) || RequestTypes.isSingleRowPkOnlyWrite(type));
-    }
-
-    private void testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
+    private void testRwOperationsFailIfTableAlteredAfterTxStart(
             RequestType requestType,
             boolean onExistingRow,
             ListenerInvocation listenerInvocation
@@ -1907,55 +1900,45 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
-    @CartesianTest.MethodFactory("multiRowsFullRowsReadOrWriteRequestTypesFactory")
-    void multiRowRwFullRowsReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
+    @CartesianTest.MethodFactory("multiRowRwOperationTypesFactory")
+    void multiRowRwOperationsFailIfTableAlteredAfterTxStart(
             RequestType requestType, boolean onExistingRow, boolean full
     ) {
-        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(requestType, onExistingRow, (targetTxId, key) -> {
-            return doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
-        });
+        ListenerInvocation invocation = null;
+
+        if (RequestTypes.isMultipleRowsRwPkOnly(requestType)) {
+            invocation = (targetTxId, key) -> {
+                return doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
+            };
+        } else if (RequestTypes.isMultipleRowsRwFullRows(requestType)) {
+            invocation = (targetTxId, key) -> {
+                return doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
+            };
+        } else {
+            fail("Uncovered type: " + requestType);
+        }
+
+        testRwOperationsFailIfTableAlteredAfterTxStart(requestType, onExistingRow, invocation);
     }
 
     @SuppressWarnings("unused")
-    private static ArgumentSets multiRowsFullRowsReadOrWriteRequestTypesFactory() {
-        return ArgumentSets.argumentsForFirstParameter(multiRowsFullRowsReadOrWriteRequestTypes())
+    private static ArgumentSets multiRowRwOperationTypesFactory() {
+        return ArgumentSets.argumentsForFirstParameter(multiRowRwOperationTypes())
                 .argumentsForNextParameter(false, true)
                 .argumentsForNextParameter(false, true);
     }
 
-    private static Stream<RequestType> multiRowsFullRowsReadOrWriteRequestTypes() {
+    private static Stream<RequestType> multiRowRwOperationTypes() {
         return Arrays.stream(RequestType.values())
-                .filter(type -> RequestTypes.isMultipleRowsRwFullRowsRead(type) || RequestTypes.isMultipleRowsFullRowsWrite(type));
+                .filter(RequestTypes::isMultipleRowsRw);
     }
 
     @CartesianTest
-    @CartesianTest.MethodFactory("multiRowsPkOnlyReadOrWriteRequestTypesFactory")
-    void multiRowRwPkOnlyReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
-            RequestType requestType, boolean onExistingRow, boolean full
-    ) {
-        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(requestType, onExistingRow, (targetTxId, key) -> {
-            return doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
-        });
-    }
-
-    @SuppressWarnings("unused")
-    private static ArgumentSets multiRowsPkOnlyReadOrWriteRequestTypesFactory() {
-        return ArgumentSets.argumentsForFirstParameter(multiRowsPkOnlyReadOrWriteRequestTypes())
-                .argumentsForNextParameter(false, true)
-                .argumentsForNextParameter(false, true);
-    }
-
-    private static Stream<RequestType> multiRowsPkOnlyReadOrWriteRequestTypes() {
-        return Arrays.stream(RequestType.values())
-                .filter(type -> RequestTypes.isMultipleRowsRwPkOnlyRead(type) || RequestTypes.isMultipleRowsPkOnlyWrite(type));
-    }
-
-    @CartesianTest
-    void replaceRequestFailsIfTableSchemaVersionIncreasedSinceTxStart(
+    void replaceRequestFailsIfTableAlteredAfterTxStart(
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
     ) {
-        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(RequestType.RW_REPLACE, onExistingRow, (targetTxId, key) -> {
+        testRwOperationsFailIfTableAlteredAfterTxStart(RequestType.RW_REPLACE, onExistingRow, (targetTxId, key) -> {
             return doReplaceRequest(
                     targetTxId,
                     marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
@@ -1966,11 +1949,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
-    void rwScanRequestFailsIfTableSchemaVersionIncreasedSinceTxStart(
+    void rwScanRequestFailsIfTableAlteredAfterTxStart(
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
     ) {
-        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(RequestType.RW_SCAN, onExistingRow, (targetTxId, key) -> {
+        testRwOperationsFailIfTableAlteredAfterTxStart(RequestType.RW_SCAN, onExistingRow, (targetTxId, key) -> {
             return doRwFullScanRetrieveBatchRequest(targetTxId, full);
         });
     }

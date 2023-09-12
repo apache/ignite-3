@@ -62,38 +62,10 @@ public class RequestTypes {
     }
 
     /**
-     * Returns {@code true} if the operation works with a single row (full row) and it's an RW read.
-     */
-    public static boolean isSingleRowFullRowRwRead(RequestType type) {
-        return isSingleRowRwFullRow(type) && type.isRwRead();
-    }
-
-    /**
-     * Returns {@code true} if the operation works with a single PK and it's an RW key-only read.
-     */
-    public static boolean isSingleRowRwPkOnlyRead(RequestType type) {
-        return isSingleRowRwPkOnly(type) && type.isRwRead();
-    }
-
-    /**
      * Returns {@code true} if the operation works with a single row and it's a write.
      */
     public static boolean isSingleRowWrite(RequestType type) {
         return isSingleRowRw(type) && type.isWrite();
-    }
-
-    /**
-     * Returns {@code true} if the operation works with a single row (full row) and it's a write.
-     */
-    public static boolean isSingleRowFullRowWrite(RequestType type) {
-        return isSingleRowRwFullRow(type) && type.isWrite();
-    }
-
-    /**
-     * Returns {@code true} if the operation works with a single PK and it's a write.
-     */
-    public static boolean isSingleRowPkOnlyWrite(RequestType type) {
-        return isSingleRowRwPkOnly(type) && type.isWrite();
     }
 
     /**
@@ -131,38 +103,10 @@ public class RequestTypes {
     }
 
     /**
-     * Returns {@code true} if the operation works with multiple (full rows) and it is a read.
-     */
-    public static boolean isMultipleRowsRwFullRowsRead(RequestType type) {
-        return isMultipleRowsRwFullRows(type) && type.isRwRead();
-    }
-
-    /**
-     * Returns {@code true} if the operation works with multiple PKs and it is a read.
-     */
-    public static boolean isMultipleRowsRwPkOnlyRead(RequestType type) {
-        return isMultipleRowsRwPkOnly(type) && type.isRwRead();
-    }
-
-    /**
      * Returns {@code true} if the operation works with multiple rows and it is a write.
      */
     public static boolean isMultipleRowsWrite(RequestType type) {
         return isMultipleRowsRw(type) && type.isWrite();
-    }
-
-    /**
-     * Returns {@code true} if the operation works with multiple rows (full rows) and it is a write.
-     */
-    public static boolean isMultipleRowsFullRowsWrite(RequestType type) {
-        return isMultipleRowsRwFullRows(type) && type.isWrite();
-    }
-
-    /**
-     * Returns {@code true} if the operation works with multiple PKs and it is a write.
-     */
-    public static boolean isMultipleRowsPkOnlyWrite(RequestType type) {
-        return isMultipleRowsRwPkOnly(type) && type.isWrite();
     }
 
     /**
