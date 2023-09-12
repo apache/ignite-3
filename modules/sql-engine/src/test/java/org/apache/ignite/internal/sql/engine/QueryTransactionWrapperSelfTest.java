@@ -53,6 +53,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     public void throwsExceptionForDdlWithExternalTransaction() {
         //noinspection ThrowableNotThrown
         assertThrowsSqlException(ErrorGroups.Sql.STMT_VALIDATION_ERR,
+                "DDL doesn't support transactions",
                 () -> wrapTxOrStartImplicit(SqlQueryType.DDL, transactions, new NoOpTransaction("test")));
         verifyNoInteractions(transactions);
     }

@@ -207,7 +207,7 @@ class ClientAsyncResultSet<T> implements AsyncResultSet<T> {
     }
 
     private void readRows(ClientMessageUnpacker in) {
-        int size = in.unpackArrayHeader();
+        int size = in.unpackInt();
         int rowSize = metadata.columns().size();
 
         var res = new ArrayList<T>(size);

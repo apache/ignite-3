@@ -220,7 +220,7 @@ integrationTest {
 jar {
     manifest {
         attributes(
-            'Main-Class': 'org.apache.ignite.app.IgniteRunner'
+            'Main-Class': 'org.apache.ignite.internal.app.IgniteRunner'
         )
     }
 }

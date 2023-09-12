@@ -75,13 +75,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      */
     private static final ByteArray DST_KEYS_START_RANGE = new ByteArray(DISTRIBUTED_PREFIX);
 
-    /**
-     * This key is expected to be the last key in lexicographical order of distributed configuration keys. It is possible because keys are
-     * in lexicographical order in meta storage and adding {@code (char)('.' + 1)} to the end will produce all keys with prefix
-     * {@link DistributedConfigurationStorage#DISTRIBUTED_PREFIX}
-     */
-    private static final ByteArray DST_KEYS_END_RANGE = new ByteArray(incrementLastChar(DISTRIBUTED_PREFIX));
-
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
@@ -129,13 +122,11 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<String, ? extends Serializable>> readAllLatest(String prefix) {
-        var rangeStart = new ByteArray(DISTRIBUTED_PREFIX + prefix);
-
-        var rangeEnd = new ByteArray(incrementLastChar(DISTRIBUTED_PREFIX + prefix));
+        var prefixBytes = new ByteArray(DISTRIBUTED_PREFIX + prefix);
 
         var resultFuture = new CompletableFuture<Map<String, ? extends Serializable>>();
 
-        metaStorageMgr.range(rangeStart, rangeEnd).subscribe(new Subscriber<>() {
+        metaStorageMgr.prefix(prefixBytes).subscribe(new Subscriber<>() {
             private final Map<String, Serializable> data = new HashMap<>();
 
             @Override
@@ -206,7 +197,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         byte[] masterKey = MASTER_KEY.bytes();
         boolean sawMasterKey = false;
 
-        try (Cursor<Entry> cursor = metaStorageMgr.getLocally(DST_KEYS_START_RANGE, DST_KEYS_END_RANGE, cfgRevision)) {
+        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(DST_KEYS_START_RANGE, cfgRevision)) {
             for (Entry entry : cursor) {
                 if (entry.tombstone()) {
                     continue;
@@ -352,15 +343,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Long> lastRevision() {
         return metaStorageMgr.get(MASTER_KEY).thenApply(Entry::revision);
-    }
-
-    /**
-     * Increments the last character of the given string.
-     */
-    private static String incrementLastChar(String str) {
-        char lastChar = str.charAt(str.length() - 1);
-
-        return str.substring(0, str.length() - 1) + (char) (lastChar + 1);
     }
 
     private <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {

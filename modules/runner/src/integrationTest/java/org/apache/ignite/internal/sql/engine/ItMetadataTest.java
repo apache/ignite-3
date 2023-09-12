@@ -21,8 +21,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Stream.generate;
 import static org.apache.ignite.sql.ColumnMetadata.UNDEFINED_SCALE;
 
-import java.time.Duration;
-import java.time.Period;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
@@ -92,9 +90,14 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     public void infixTypeCast() {
         assertQuery("select id, id::tinyint as tid, id::smallint as sid, id::varchar as vid, id::interval hour, "
                 + "id::interval year from person")
-                .columnNames("ID", "TID", "SID", "VID", "ID :: INTERVAL INTERVAL_HOUR", "ID :: INTERVAL INTERVAL_YEAR")
-                .columnTypes(Integer.class, Byte.class, Short.class, String.class, Duration.class, Period.class)
-                .check();
+                .columnMetadata(
+                        new MetadataMatcher().name("ID").type(ColumnType.INT32),
+                        new MetadataMatcher().name("TID").type(ColumnType.INT8),
+                        new MetadataMatcher().name("SID").type(ColumnType.INT16),
+                        new MetadataMatcher().name("VID").type(ColumnType.STRING),
+                        new MetadataMatcher().name("ID :: INTERVAL INTERVAL_HOUR").type(ColumnType.DURATION),
+                        new MetadataMatcher().name("ID :: INTERVAL INTERVAL_YEAR").type(ColumnType.PERIOD)
+                ).check();
     }
 
     @Test
@@ -109,7 +112,7 @@ public class ItMetadataTest extends ClusterPerClassIntegrationTest {
     @Test
     public void metadata() {
         sql("CREATE TABLE METADATA_TABLE (" + "ID INT PRIMARY KEY, "
-                 + "BOOLEAN_C BOOLEAN, "
+                + "BOOLEAN_C BOOLEAN, "
 
                 // Exact numeric types
                 + "TINY_C TINYINT, " // TINYINT is not a part of any SQL standard.

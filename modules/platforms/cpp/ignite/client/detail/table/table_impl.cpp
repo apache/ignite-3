@@ -163,15 +163,15 @@ void table_impl::load_schema_async(ignite_callback<std::shared_ptr<schema>> call
 
     auto table = shared_from_this();
     auto reader_func = [table](protocol::reader &reader) mutable -> std::shared_ptr<schema> {
-        auto schema_cnt = reader.read_map_size();
+        auto schema_cnt = reader.read_int32();
         if (!schema_cnt)
             throw ignite_error("Schema not found");
 
         std::shared_ptr<schema> last;
-        reader.read_map_raw([&last, &table](const msgpack_object_kv &object) {
-            last = schema::read(object);
+        for (std::int32_t schema_idx = 0; schema_idx < schema_cnt; ++schema_idx) {
+            last = schema::read(reader);
             table->add_schema(last);
-        });
+        }
 
         return last;
     };

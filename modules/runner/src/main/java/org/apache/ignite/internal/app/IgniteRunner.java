@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.app;
+package org.apache.ignite.internal.app;
 
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
@@ -23,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.app.EnvironmentDefaultValueProvider;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;

@@ -21,11 +21,14 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,12 +36,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
+import java.util.stream.Stream;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.configuration.NamedConfigurationTree;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.configuration.NamedListConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -61,6 +68,9 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableChange;
+import org.apache.ignite.internal.schema.configuration.TableConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -160,8 +170,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      *
      * @param replicaSvc Replica service.
      * @param txManager Transaction manager.
-     * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
-     *                        by itself.
+     * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of
+     *         ReplicaService by itself.
      * @param placementDriver Placement driver.
      * @param schema Schema descriptor.
      * @param tracker Observable timestamp tracker.
@@ -198,8 +208,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service.
      * @param mvPartStorage Multi version partition storage.
      * @param txManager Transaction manager, if {@code null}, then default one will be created.
-     * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of ReplicaService
-     *                        by itself.
+     * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of
+     *         ReplicaService by itself.
      * @param placementDriver Placement driver.
      * @param schema Schema descriptor.
      */
@@ -336,6 +346,22 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         lenient().when(catalogTables.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
         lenient().when(tableDescriptor.tableVersion()).thenReturn(1);
 
+        TablesConfiguration tablesConfig = mock(TablesConfiguration.class);
+        NamedConfigurationTree<TableConfiguration, TableView, TableChange> tablesTree = mock(NamedListConfiguration.class);
+        NamedListView<TableView> tablesList = mock(NamedListView.class);
+        TableView tableConfig = mock(TableView.class, RETURNS_DEEP_STUBS);
+
+        when(tablesConfig.tables()).thenReturn(tablesTree);
+        when(tablesTree.value()).thenReturn(tablesList);
+        when(tablesList.stream()).thenReturn(Stream.of(tableConfig));
+
+        String[] primaryKeyColumns = Arrays.stream(schema.keyColumns().columns())
+                .map(Column::name)
+                .toArray(String[]::new);
+
+        when(tableConfig.id()).thenReturn(tableId);
+        when(tableConfig.primaryKey().columns()).thenReturn(primaryKeyColumns);
+
         replicaListener = new PartitionReplicaListener(
                 mvPartStorage,
                 raftGroupServiceByPartitionId.get(PART_ID),
@@ -359,7 +385,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 mock(CatalogService.class),
                 catalogTables,
-                mock(TablesConfiguration.class)
+                tablesConfig
         );
 
         lenient().when(safeTime.waitFor(any())).thenReturn(completedFuture(null));

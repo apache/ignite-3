@@ -67,7 +67,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static GcConfiguration gcConfig;
 
-    @InjectConfiguration("mock.tables.foo {}")
+    @InjectConfiguration("mock.tables.foo.primaryKey.columns: [col1]")
     private static TablesConfiguration tablesConfig;
 
     private final TestInfo testInfo;

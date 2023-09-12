@@ -482,13 +482,13 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         final String sqlText = "select * from TEST;";
 
         JdbcTestUtils.assertThrowsSqlException(
-                "Given statement type does not match that declared by JDBC driver",
+                "Invalid SQL statement type",
                 () -> stmt.executeUpdate(sqlText));
     }
 
     @Test
     public void testExecuteUpdateOnDdl() throws SQLException {
-        String tableName = "\"test_" + UUID.randomUUID().toString() + "\"";
+        String tableName = "\"test_" + UUID.randomUUID() + "\"";
 
         stmt.executeUpdate("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, val VARCHAR)");
 
@@ -758,7 +758,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         stmt.executeQuery("select 1;");
 
         JdbcTestUtils.assertThrowsSqlException(
-                "Given statement type does not match that declared by JDBC driver",
+                "Invalid SQL statement type",
                 () -> stmt.executeUpdate("select 1;")
         );
 
@@ -768,7 +768,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     @Test
     public void testStatementTypeMismatchUpdate() throws Exception {
         JdbcTestUtils.assertThrowsSqlException(
-                "Given statement type does not match that declared by JDBC driver",
+                "Invalid SQL statement type",
                 () -> stmt.executeQuery("update TEST set NAME='28' where ID=1")
         );
 
