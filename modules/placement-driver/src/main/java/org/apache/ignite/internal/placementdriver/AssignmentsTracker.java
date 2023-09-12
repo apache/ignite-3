@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
@@ -39,8 +40,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.vault.VaultEntry;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 
 /**
@@ -49,9 +48,6 @@ import org.apache.ignite.lang.ByteArray;
 public class AssignmentsTracker {
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(AssignmentsTracker.class);
-
-    /** Vault manager. */
-    private final VaultManager vaultManager;
 
     /** Meta storage manager. */
     private final MetaStorageManager msManager;
@@ -65,11 +61,9 @@ public class AssignmentsTracker {
     /**
      * The constructor.
      *
-     * @param vaultManager Vault manager.
      * @param msManager Metastorage manager.
      */
-    public AssignmentsTracker(VaultManager vaultManager, MetaStorageManager msManager) {
-        this.vaultManager = vaultManager;
+    public AssignmentsTracker(MetaStorageManager msManager) {
         this.msManager = msManager;
 
         this.groupAssignments = new ConcurrentHashMap<>();
@@ -82,22 +76,33 @@ public class AssignmentsTracker {
     public void startTrack() {
         msManager.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), assignmentsListener);
 
-        try (Cursor<VaultEntry> cursor = vaultManager.range(
-                ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX),
-                ByteArray.fromString(incrementLastChar(STABLE_ASSIGNMENTS_PREFIX))
-        )) {
-            for (VaultEntry entry : cursor) {
-                String key = entry.key().toString();
+        msManager.recoveryFinishedFuture().thenAccept(recoveryRevision -> {
+            try (Cursor<Entry> cursor = msManager.getLocally(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX),
+                    ByteArray.fromString(incrementLastChar(STABLE_ASSIGNMENTS_PREFIX)), recoveryRevision);
+            ) {
+                for (Entry entry : cursor) {
+                    if (entry.tombstone()) {
+                        continue;
+                    }
 
-                key = key.replace(STABLE_ASSIGNMENTS_PREFIX, "");
+                    byte[] key = entry.key();
+                    byte[] value = entry.value();
 
-                TablePartitionId grpId = TablePartitionId.fromString(key);
+                    // MetaStorage iterator should not return nulls as values.
+                    assert value != null;
 
-                Set<Assignment> assignments = ByteUtils.fromBytes(entry.value());
+                    String strKey = new String(key, StandardCharsets.UTF_8);
 
-                groupAssignments.put(grpId, assignments);
+                    strKey = strKey.replace(STABLE_ASSIGNMENTS_PREFIX, "");
+
+                    TablePartitionId grpId = TablePartitionId.fromString(strKey);
+
+                    Set<Assignment> assignments = ByteUtils.fromBytes(entry.value());
+
+                    groupAssignments.put(grpId, assignments);
+                }
             }
-        }
+        });
 
         LOG.info("Assignment cache initialized for placement driver [groupAssignments={}]", groupAssignments);
     }

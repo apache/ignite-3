@@ -71,8 +71,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Command;
-import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -151,6 +151,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -212,8 +213,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Safe time. */
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
-    /** Placement Driver. */
-    private final PlacementDriver placementDriver;
+    /** Transaction state resolver. */
+    private final TransactionStateResolver transactionStateResolver;
 
     /** Runs async scan tasks for effective tail recursion execution (avoid deep recursive calls). */
     private final Executor scanRequestExecutor;
@@ -259,6 +260,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final int pkLength;
 
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
+
     /**
      * The constructor.
      *
@@ -274,12 +278,13 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param hybridClock Hybrid clock.
      * @param safeTime Safe time clock.
      * @param txStateStorage Transaction state storage.
-     * @param placementDriver Placement driver.
+     * @param transactionStateResolver Transaction state resolver.
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
      * @param localNode Instance of the local node.
      * @param mvTableStorage Table storage.
      * @param indexBuilder Index builder.
      * @param tablesConfig Tables configuration.
+     * @param placementDriver Placement driver.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -295,7 +300,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridClock hybridClock,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TxStateStorage txStateStorage,
-            PlacementDriver placementDriver,
+            TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             Schemas schemas,
             ClusterNode localNode,
@@ -304,7 +309,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             CatalogTables catalogTables,
-            TablesConfiguration tablesConfig
+            TablesConfiguration tablesConfig,
+            PlacementDriver placementDriver
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftClient = raftClient;
@@ -317,7 +323,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.hybridClock = hybridClock;
         this.safeTime = safeTime;
         this.txStateStorage = txStateStorage;
-        this.placementDriver = placementDriver;
+        this.transactionStateResolver = transactionStateResolver;
         this.storageUpdateHandler = storageUpdateHandler;
         this.localNode = localNode;
         this.mvTableStorage = mvTableStorage;
@@ -325,6 +331,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.tablesConfig = tablesConfig;
+        this.placementDriver = placementDriver;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -430,16 +437,14 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result future.
      */
     private CompletableFuture<LeaderOrTxState> processTxStateReplicaRequest(TxStateReplicaRequest request) {
-        return raftClient.refreshAndGetLeaderWithTerm()
-                .thenCompose(replicaAndTerm -> {
-                    Peer leader = replicaAndTerm.leader();
-
-                    if (isLocalPeer(leader)) {
+        return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
+                .thenCompose(primaryReplica -> {
+                    if (isLocalPeer(primaryReplica.getLeaseholder())) {
                         CompletableFuture<TxMeta> txStateFut = getTxStateConcurrently(request);
 
                         return txStateFut.thenApply(txMeta -> new LeaderOrTxState(null, txMeta));
                     } else {
-                        return completedFuture(new LeaderOrTxState(leader.consistentId(), null));
+                        return completedFuture(new LeaderOrTxState(primaryReplica.getLeaseholder(), null));
                     }
                 });
     }
@@ -1926,21 +1931,30 @@ public class PartitionReplicaListener implements ReplicaListener {
                     true,
                     null,
                     null);
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+            synchronized (safeTime) {
+                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+            }
         }
 
         return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
             // Try to avoid double write if an entry is already replicated.
-            if (cmd.full() && cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                storageUpdateHandler.handleUpdate(
-                        cmd.txId(),
-                        cmd.rowUuid(),
-                        cmd.tablePartitionId().asTablePartitionId(),
-                        cmd.row(),
-                        false,
-                        null,
-                        cmd.safeTime());
-            }
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+            synchronized (safeTime) {
+                if (cmd.full() && cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                    storageUpdateHandler.handleUpdate(
+                            cmd.txId(),
+                            cmd.rowUuid(),
+                            cmd.tablePartitionId().asTablePartitionId(),
+                            cmd.row(),
+                            false,
+                            null,
+                            cmd.safeTime());
 
+                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                }
+            }
             return res;
         });
     }
@@ -1960,17 +1974,27 @@ public class PartitionReplicaListener implements ReplicaListener {
                     true,
                     null,
                     null);
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+            synchronized (safeTime) {
+                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+            }
         }
 
         return applyCmdWithExceptionHandling(cmd).thenApply(res -> {
-            if (cmd.full() && cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                storageUpdateHandler.handleUpdateAll(
-                        cmd.txId(),
-                        cmd.rowsToUpdate(),
-                        cmd.tablePartitionId().asTablePartitionId(),
-                        false,
-                        null,
-                        cmd.safeTime());
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+            synchronized (safeTime) {
+                if (cmd.full() && cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                    storageUpdateHandler.handleUpdateAll(
+                            cmd.txId(),
+                            cmd.rowsToUpdate(),
+                            cmd.tablePartitionId().asTablePartitionId(),
+                            false,
+                            null,
+                            cmd.safeTime());
+
+                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                }
             }
 
             return res;
@@ -2416,20 +2440,29 @@ public class PartitionReplicaListener implements ReplicaListener {
             expectedTerm = null;
         }
 
-        if (expectedTerm != null) {
-            return raftClient.refreshAndGetLeaderWithTerm()
-                    .thenCompose(replicaAndTerm -> {
-                                long currentTerm = replicaAndTerm.term();
+        HybridTimestamp now = hybridClock.now();
 
-                                if (expectedTerm == currentTerm) {
-                                    return completedFuture(null);
+        if (expectedTerm != null) {
+            return placementDriver.getPrimaryReplica(replicationGroupId, now)
+                    .thenCompose(primaryReplica -> {
+                                long currentEnlistmentConsistencyToken = primaryReplica.getStartTime().longValue();
+
+                                if (expectedTerm.equals(currentEnlistmentConsistencyToken)) {
+                                    if (primaryReplica.getExpirationTime().before(now)) {
+                                        // TODO: https://issues.apache.org/jira/browse/IGNITE-20377
+                                        return failedFuture(
+                                                new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
+                                    } else {
+                                        return completedFuture(null);
+                                    }
                                 } else {
-                                    return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentTerm));
+                                    return failedFuture(new PrimaryReplicaMissException(expectedTerm, currentEnlistmentConsistencyToken));
                                 }
                             }
                     );
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
-            return raftClient.refreshAndGetLeaderWithTerm().thenApply(replicaAndTerm -> isLocalPeer(replicaAndTerm.leader()));
+            return placementDriver.getPrimaryReplica(replicationGroupId, now)
+                    .thenApply(primaryReplica -> (primaryReplica != null && isLocalPeer(primaryReplica.getLeaseholder())));
         } else {
             return completedFuture(null);
         }
@@ -2517,7 +2550,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         boolean readLatest = timestamp == null;
 
-        return placementDriver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
+        return transactionStateResolver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
                         .groupId(commitGrpId)
                         .readTimestampLong((readLatest ? HybridTimestamp.MIN_VALUE : timestamp).longValue())
                         .txId(txId)
@@ -2881,8 +2914,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         return replicationGroupId.tableId();
     }
 
-    private boolean isLocalPeer(Peer peer) {
-        return peer.consistentId().equals(localNode.name());
+    private boolean isLocalPeer(String nodeName) {
+        return localNode.name().equals(nodeName);
     }
 
     private void inBusyLock(Runnable runnable) {
@@ -2942,5 +2975,17 @@ public class PartitionReplicaListener implements ReplicaListener {
         txManager.updateTxMeta(txId, old -> old == null
                 ? null
                 : new TxStateMeta(txState, old.txCoordinatorId(), txState == COMMITED ? commitTimestamp : null));
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 tmp
+    private static <T extends Comparable<T>> void updateTrackerIgnoringTrackerClosedException(
+            PendingComparableValuesTracker<T, Void> tracker,
+            T newValue
+    ) {
+        try {
+            tracker.update(newValue, null);
+        } catch (TrackerClosedException ignored) {
+            // No-op.
+        }
     }
 }

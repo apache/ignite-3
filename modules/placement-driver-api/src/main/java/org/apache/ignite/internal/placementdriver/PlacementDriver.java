@@ -36,7 +36,7 @@ public interface PlacementDriver {
      * @param timestamp Timestamp reference value.
      * @return Primary replica future.
      */
-    CompletableFuture<LeaseMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp);
+    CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp);
 
     /**
      * Same as {@link #awaitPrimaryReplica(ReplicationGroupId, HybridTimestamp)} despite the fact that given method await logic is bounded.
@@ -47,5 +47,5 @@ public interface PlacementDriver {
      * @param timestamp Timestamp reference value.
      * @return Primary replica future.
      */
-    CompletableFuture<LeaseMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp);
+    CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp);
 }

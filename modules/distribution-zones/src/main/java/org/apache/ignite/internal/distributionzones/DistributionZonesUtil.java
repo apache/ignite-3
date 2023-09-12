@@ -54,6 +54,7 @@ import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Util class for Distribution Zones flow.
@@ -600,5 +601,17 @@ public class DistributionZonesUtil {
                 namedThreadFactory,
                 new ThreadPoolExecutor.DiscardPolicy()
         );
+    }
+
+    /** Key prefix for zone's scale up change trigger key. */
+    @TestOnly
+    public static ByteArray zoneScaleUpChangeTriggerKeyPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX);
+    }
+
+    /** Key prefix for zone's scale down change trigger key. */
+    @TestOnly
+    public static ByteArray zoneScaleDownChangeTriggerKeyPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX);
     }
 }

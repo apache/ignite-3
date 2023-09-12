@@ -44,6 +44,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.schema.testutils.builder.SchemaBuilders;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnDefinition;
 import org.apache.ignite.internal.schema.testutils.definition.ColumnType;
@@ -266,7 +267,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         try {
             tryToCreateIndex(ignite0, TABLE_NAME, true);
         } catch (Throwable e) {
-            IgniteTestUtils.hasCause(e, IndexAlreadyExistsException.class, null);
+            IgniteTestUtils.hasCause(e, IndexExistsValidationException.class, null);
         }
 
         tryToCreateIndex(ignite0, TABLE_NAME, false);
@@ -303,7 +304,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
                     fail("Should not reach here");
                 } catch (Throwable e) {
-                    IgniteTestUtils.hasCause(e, IndexAlreadyExistsException.class, null);
+                    IgniteTestUtils.hasCause(e, IndexExistsValidationException.class, null);
                 }
 
                 addIndexIfNotExists(ignite, TABLE_NAME);

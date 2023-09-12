@@ -50,6 +50,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -89,7 +90,7 @@ import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.CatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -101,6 +102,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeImpl;
@@ -115,6 +117,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     public static final IgniteLogger LOG = Loggers.forClass(DummyInternalTableImpl.class);
 
     public static final NetworkAddress ADDR = new NetworkAddress("127.0.0.1", 2004);
+
+    public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id", "node", ADDR);
 
     public static final HybridClock CLOCK = new TestHybridClock(new LongSupplier() {
         @Override
@@ -172,7 +176,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of
      *         ReplicaService by itself.
-     * @param placementDriver Placement driver.
+     * @param transactionStateResolver Transaction state resolver.
      * @param schema Schema descriptor.
      * @param tracker Observable timestamp tracker.
      */
@@ -180,11 +184,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             ReplicaService replicaSvc,
             TxManager txManager,
             boolean crossTableUsage,
-            PlacementDriver placementDriver,
+            TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema,
             HybridTimestampTracker tracker
     ) {
-        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, placementDriver, schema, tracker);
+        this(replicaSvc, new TestMvPartitionStorage(0), txManager, crossTableUsage, transactionStateResolver, schema, tracker);
     }
 
     /**
@@ -210,7 +214,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param txManager Transaction manager, if {@code null}, then default one will be created.
      * @param crossTableUsage If this dummy table is going to be used in cross-table tests, it won't mock the calls of
      *         ReplicaService by itself.
-     * @param placementDriver Placement driver.
+     * @param transactionStateResolver Transaction state resolver.
      * @param schema Schema descriptor.
      */
     public DummyInternalTableImpl(
@@ -218,7 +222,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             MvPartitionStorage mvPartStorage,
             @Nullable TxManager txManager,
             boolean crossTableUsage,
-            PlacementDriver placementDriver,
+            TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema,
             HybridTimestampTracker tracker
     ) {
@@ -227,7 +231,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 nextTableId.getAndIncrement(),
                 Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                 1,
-                name -> mockClusterNode(),
+                name -> LOCAL_NODE,
                 txManager == null
                         ? new TxManagerImpl(replicaSvc, new HeapLockManager(), CLOCK, new TransactionIdGenerator(0xdeadbeef), () -> "local")
                         : txManager,
@@ -235,7 +239,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestTxStateTableStorage(),
                 replicaSvc,
                 CLOCK,
-                tracker
+                tracker,
+                new TestPlacementDriver(LOCAL_NODE.name())
         );
         RaftGroupService svc = raftGroupServiceByPartitionId.get(0);
 
@@ -318,7 +323,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
 
-        safeTime = mock(PendingComparableValuesTracker.class);
+        safeTime = new PendingIndependentComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
+
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
 
@@ -376,20 +382,18 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 CLOCK,
                 safeTime,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
-                placementDriver,
+                transactionStateResolver,
                 storageUpdateHandler,
                 new DummySchemas(schemaManager),
-                mockClusterNode(),
+                LOCAL_NODE,
                 mock(MvTableStorage.class),
                 mock(IndexBuilder.class),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 mock(CatalogService.class),
                 catalogTables,
-                tablesConfig
+                tablesConfig,
+                new TestPlacementDriver(LOCAL_NODE.name())
         );
-
-        lenient().when(safeTime.waitFor(any())).thenReturn(completedFuture(null));
-        lenient().when(safeTime.current()).thenReturn(new HybridTimestamp(1, 0));
 
         partitionListener = new PartitionListener(
                 this.txManager,
@@ -399,10 +403,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 safeTime,
                 new PendingComparableValuesTracker<>(0L)
         );
-    }
-
-    private static ClusterNode mockClusterNode() {
-        return new ClusterNodeImpl("id", "node", new NetworkAddress("127.0.0.1", 20000));
     }
 
     /**
@@ -453,7 +453,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
-        return completedFuture(mockClusterNode());
+        return completedFuture(LOCAL_NODE);
     }
 
     /**

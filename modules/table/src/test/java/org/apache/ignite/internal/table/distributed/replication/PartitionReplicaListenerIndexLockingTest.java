@@ -48,6 +48,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -85,7 +86,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.replicator.CatalogTables;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -200,6 +201,8 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         CatalogTables catalogTables = mock(CatalogTables.class);
         when(catalogTables.table(anyInt(), anyLong())).thenReturn(mock(CatalogTableDescriptor.class));
 
+        ClusterNode localNode = mock(ClusterNode.class);
+
         partitionReplicaListener = new PartitionReplicaListener(
                 TEST_MV_PARTITION_STORAGE,
                 mockRaftClient,
@@ -221,7 +224,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 CLOCK,
                 safeTime,
                 new TestTxStateStorage(),
-                mock(PlacementDriver.class),
+                mock(TransactionStateResolver.class),
                 new StorageUpdateHandler(
                         PART_ID,
                         partitionDataStorage,
@@ -231,13 +234,14 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         new GcUpdateHandler(partitionDataStorage, safeTime, indexUpdateHandler)
                 ),
                 new DummySchemas(schemaManager),
-                mock(ClusterNode.class),
+                localNode,
                 new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT),
                 mock(IndexBuilder.class),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 mock(CatalogService.class),
                 catalogTables,
-                tablesConfig
+                tablesConfig,
+                new TestPlacementDriver(localNode.name())
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

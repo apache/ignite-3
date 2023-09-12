@@ -115,6 +115,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -168,7 +169,7 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.Outgo
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.replicator.CatalogTablesWithIdConversion;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
@@ -275,8 +276,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
 
-    /** Placement driver. */
-    private final PlacementDriver placementDriver;
+    /** Transaction state resolver. */
+    private final TransactionStateResolver transactionStateResolver;
 
     /** Here a table future stores during creation (until the table can be provided to client). */
     private final Map<Integer, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
@@ -394,6 +395,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final HybridTimestampTracker observableTimestampTracker;
 
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
+
     private final TableIdRegistry tableIdTranslator = new TableIdRegistry();
 
     /**
@@ -416,6 +420,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         volatile tables.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
+     * @param placementDriver Placement driver.
      */
     public TableManager(
             String nodeName,
@@ -444,7 +449,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             DistributionZoneManager distributionZoneManager,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            HybridTimestampTracker observableTimestampTracker
+            HybridTimestampTracker observableTimestampTracker,
+            PlacementDriver placementDriver
     ) {
         this.tablesCfg = tablesCfg;
         this.zonesConfig = zonesConfig;
@@ -470,10 +476,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
+        this.placementDriver = placementDriver;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
-        placementDriver = new PlacementDriver(replicaSvc, clusterNodeResolver);
+        transactionStateResolver = new TransactionStateResolver(replicaSvc, clusterNodeResolver);
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
@@ -824,7 +831,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
-                placementDriver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId)
+                transactionStateResolver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId)
                         .collect(toList()));
 
                 var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(
@@ -1072,7 +1079,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 clock,
                 safeTimeTracker,
                 txStatePartitionStorage,
-                placementDriver,
+                transactionStateResolver,
                 partitionUpdateHandlers.storageUpdateHandler,
                 new NonHistoricSchemas(schemaManager),
                 localNode(),
@@ -1082,7 +1089,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 catalogService,
                 // TODO: IGNITE-19499 - replace with DirectCatalogTables
                 new CatalogTablesWithIdConversion(catalogService, tableIdTranslator),
-                tablesCfg
+                tablesCfg,
+                placementDriver
         );
     }
 
@@ -1329,10 +1337,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         int partitions = zoneDescriptor.partitions();
 
-        InternalTableImpl internalTable = new InternalTableImpl(tableName, tableId,
+        InternalTableImpl internalTable = new InternalTableImpl(
+                tableName,
+                tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
                 partitions, clusterNodeResolver, txManager, tableStorage,
-                txStateStorage, replicaSvc, clock, observableTimestampTracker);
+                txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
         var table = new TableImpl(internalTable, lockMgr);
 
@@ -2294,7 +2304,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsEntry.value());
 
-        placementDriver.updateAssignment(
+        transactionStateResolver.updateAssignment(
                 replicaGrpId,
                 stableAssignments.stream().filter(Assignment::isPeer).map(Assignment::consistentId).collect(toList())
         );

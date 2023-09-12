@@ -30,7 +30,7 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
 
     /**
      * Gets a raft term.
-     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083)
+     * TODO: A temp solution until lease-based engine will be implemented (IGNITE-17256, IGNITE-15083, IGNITE-20377)
      *
      * @return Raft term.
      */
