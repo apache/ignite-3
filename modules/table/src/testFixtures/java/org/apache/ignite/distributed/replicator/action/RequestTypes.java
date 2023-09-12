@@ -193,4 +193,32 @@ public class RequestTypes {
                 return true;
         }
     }
+
+    /**
+     * Returns {@code true} if the operation only makes a write if the corresponding key does not have a value yet in the table.
+     */
+    public static boolean writesIfKeyDoesNotExist(RequestType type) {
+        switch (type) {
+            case RW_INSERT:
+            case RW_INSERT_ALL:
+                return false;
+            default:
+                return true;
+        }
+    }
+
+    /**
+     * Returns {@code true} if the operation always reads or writes something, regardless of whether there is something under the key
+     * in the table or not.
+     */
+    public static boolean neverMisses(RequestType type) {
+        switch (type) {
+            case RW_UPSERT:
+            case RW_UPSERT_ALL:
+            case RW_GET_AND_UPSERT:
+                return true;
+            default:
+                return false;
+        }
+    }
 }

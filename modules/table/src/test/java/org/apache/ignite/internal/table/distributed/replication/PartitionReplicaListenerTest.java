@@ -1821,7 +1821,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     void singleRowFullRowRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
             RequestType requestType, boolean onExistingRow, boolean full
     ) {
-        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(onExistingRow, (targetTxId, key) -> {
+        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(requestType, onExistingRow, (targetTxId, key) -> {
             return doSingleRowRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType);
         });
     }
@@ -1843,7 +1843,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     void singleRowPkOnlyRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
             RequestType requestType, boolean onExistingRow, boolean full
     ) {
-        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(onExistingRow, (targetTxId, key) -> {
+        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(requestType, onExistingRow, (targetTxId, key) -> {
             return doSingleRowPkRequest(targetTxId, marshalKeyOrKeyValue(requestType, key), requestType);
         });
     }
@@ -1861,7 +1861,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private void testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
-            boolean onExistingRow, ListenerInvocation listenerInvocation
+            RequestType requestType,
+            boolean onExistingRow,
+            ListenerInvocation listenerInvocation
     ) {
         TestKey key = nextKey();
 
@@ -1882,12 +1884,23 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         CompletableFuture<?> future = listenerInvocation.invoke(txId, key);
 
-        TransactionException ex = assertWillThrowFast(future, TransactionException.class);
-        assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
-        assertThat(
-                ex.getMessage(),
-                is("Table schema was updated since the transaction was started [table=1, startSchema=1, operationSchema=2")
-        );
+        boolean expectValidationFailure;
+        if (RequestTypes.neverMisses(requestType)) {
+            expectValidationFailure = true;
+        } else {
+            expectValidationFailure = onExistingRow == RequestTypes.writesIfKeyDoesNotExist(requestType);
+        }
+
+        if (expectValidationFailure) {
+            TransactionException ex = assertWillThrowFast(future, TransactionException.class);
+            assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
+            assertThat(
+                    ex.getMessage(),
+                    is("Table schema was updated since the transaction was started [table=1, startSchema=1, operationSchema=2")
+            );
+        } else {
+            assertThat(future, willCompleteSuccessfully());
+        }
     }
 
     @CartesianTest
@@ -1895,7 +1908,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     void multiRowRwFullRowsReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
             RequestType requestType, boolean onExistingRow, boolean full
     ) {
-        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(onExistingRow, (targetTxId, key) -> {
+        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(requestType, onExistingRow, (targetTxId, key) -> {
             return doMultiRowRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
         });
     }
@@ -1917,7 +1930,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     void multiRowRwPkOnlyReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(
             RequestType requestType, boolean onExistingRow, boolean full
     ) {
-        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(onExistingRow, (targetTxId, key) -> {
+        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(requestType, onExistingRow, (targetTxId, key) -> {
             return doMultiRowPkRequest(targetTxId, List.of(marshalKeyOrKeyValue(requestType, key)), requestType, full);
         });
     }
@@ -1939,7 +1952,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
     ) {
-        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(onExistingRow, (targetTxId, key) -> {
+        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(RequestType.RW_REPLACE, onExistingRow, (targetTxId, key) -> {
             return doReplaceRequest(
                     targetTxId,
                     marshalKeyOrKeyValue(RequestType.RW_REPLACE, key),
@@ -1954,7 +1967,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
     ) {
-        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(onExistingRow, (targetTxId, key) -> {
+        testRwReadsAndWritesFailIfTableSchemaVersionIncreasedSinceTxStart(RequestType.RW_SCAN, onExistingRow, (targetTxId, key) -> {
             return doRwFullScanRetrieveBatchRequest(targetTxId, full);
         });
     }
