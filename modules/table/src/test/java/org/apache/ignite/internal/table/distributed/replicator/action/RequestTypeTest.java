@@ -27,13 +27,14 @@ import static org.apache.ignite.internal.table.distributed.replicator.action.Req
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.EnumSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class RequestTypeTest {
     @Test
     void isRwReadWorksAsExpected() {
-        Set<RequestType> expectedRwReads = Set.of(RW_GET, RW_GET_ALL, RW_SCAN);
+        Set<RequestType> expectedRwReads = EnumSet.of(RW_GET, RW_GET_ALL, RW_SCAN);
 
         for (RequestType requestType : RequestType.values()) {
             if (expectedRwReads.contains(requestType)) {
@@ -46,7 +47,7 @@ class RequestTypeTest {
 
     @Test
     void isWriteWorksAsExpected() {
-        Set<RequestType> expectedNonWrites = Set.of(RW_GET, RW_GET_ALL, RW_SCAN, RO_GET, RO_GET_ALL, RO_SCAN);
+        Set<RequestType> expectedNonWrites = EnumSet.of(RW_GET, RW_GET_ALL, RW_SCAN, RO_GET, RO_GET_ALL, RO_SCAN);
 
         for (RequestType requestType : RequestType.values()) {
             if (expectedNonWrites.contains(requestType)) {
