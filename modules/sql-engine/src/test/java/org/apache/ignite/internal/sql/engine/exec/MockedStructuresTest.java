@@ -50,7 +50,6 @@ import java.util.function.LongFunction;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -103,6 +102,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
+import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
@@ -119,6 +119,7 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -151,7 +152,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     private TopologyService ts;
 
     /** Cluster service. */
-    @Mock(lenient = true)
+    @Mock
     private ClusterService cs;
 
     /** Raft manager. */
@@ -159,23 +160,23 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     private RaftManager rm;
 
     /** TX manager. */
-    @Mock(lenient = true)
+    @Mock
     private TxManager tm;
 
     /** Ignite transactions. */
-    @Mock(lenient = true)
+    @Mock
     private IgniteTransactions transactions;
 
     /** Meta storage manager. */
     @Mock
-    MetaStorageManager msm;
+    private MetaStorageManager msm;
 
     /** Replica manager. */
     @Mock
-    ReplicaManager replicaManager;
+    private ReplicaManager replicaManager;
 
     @Mock
-    HybridClock clock;
+    private HybridClock clock;
 
     @Mock
     private VaultManager vaultManager;
@@ -204,13 +205,13 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @InjectConfiguration
     private GcConfiguration gcConfig;
 
-    TableManager tblManager;
+    private TableManager tblManager;
 
-    IndexManager idxManager;
+    private IndexManager idxManager;
 
-    ClusterManagementGroupManager cmgMgr;
+    private ClusterManagementGroupManager cmgMgr;
 
-    SqlQueryProcessor queryProc;
+    private SqlQueryProcessor queryProc;
 
     @InjectConfiguration
     private RocksDbStorageEngineConfiguration rocksDbEngineConfig;
@@ -234,11 +235,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     private MetricManager metricManager;
 
     /** Returns current method name. */
-    private static String getCurrentMethodName() {
-        return StackWalker.getInstance()
-                .walk(s -> s.skip(1).findFirst())
-                .get()
-                .getMethodName();
+    private static String getCurrentMethodName(TestInfo testInfo) {
+        return testInfo.getTestMethod().orElseThrow().getName();
     }
 
     /** Stop configuration manager. */
@@ -294,9 +292,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         schemaManager.start();
 
         catalogManager = mock(CatalogManager.class);
-        when(catalogManager.createTableCommandBuilder()).thenReturn(new CreateTableCommand.Builder());
         when(catalogManager.execute(any(CatalogCommand.class))).thenReturn(completedFuture(null));
-        when(catalogManager.dropTable(any())).thenReturn(completedFuture(null));
 
         schemaSyncService = mock(SchemaSyncService.class);
         when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(completedFuture(null));
@@ -373,14 +369,18 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         //noinspection unchecked
         when(msm.invoke(any(), any(Collection.class), any(Collection.class))).thenReturn(completedFuture(null));
+
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(0L));
+
+        when(msm.prefixLocally(any(), anyLong())).thenReturn(CursorUtils.emptyCursor());
     }
 
     /**
      * Tests create a table through public API.
      */
     @Test
-    public void testCreateTable() {
-        String curMethodName = getCurrentMethodName();
+    public void testCreateTable(TestInfo testInfo) {
+        String curMethodName = getCurrentMethodName(testInfo);
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) "
                 + "with primary_zone='%s'", curMethodName, ZONE_NAME);
@@ -425,8 +425,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      * Tests create a table with distribution zone through public API.
      */
     @Test
-    public void testCreateTableWithDistributionZone() {
-        String tableName = getCurrentMethodName().toUpperCase();
+    public void testCreateTableWithDistributionZone(TestInfo testInfo) {
+        String tableName = getCurrentMethodName(testInfo).toUpperCase();
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) ",
                  tableName);
@@ -467,8 +467,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      * Tests create and drop table through public API.
      */
     @Test
-    public void testDropTable() {
-        String curMethodName = getCurrentMethodName();
+    public void testDropTable(TestInfo testInfo) {
+        String curMethodName = getCurrentMethodName(testInfo);
 
         String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName);
 
@@ -491,8 +491,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     @Test
-    void createTableWithTableOptions() {
-        String method = getCurrentMethodName();
+    void createTableWithTableOptions(TestInfo testInfo) {
+        String method = getCurrentMethodName(testInfo);
 
         assertDoesNotThrow(() -> readFirst(sql(
                 String.format(

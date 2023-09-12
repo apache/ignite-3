@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -27,9 +28,13 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -52,12 +57,16 @@ import org.jetbrains.annotations.Nullable;
  * Metastore-based implementation of UpdateLog.
  */
 public class UpdateLogImpl implements UpdateLog {
+    private static final IgniteLogger LOG = Loggers.forClass(UpdateLogImpl.class);
+
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final MetaStorageManager metastore;
 
     private volatile OnUpdateHandler onUpdateHandler;
+
     private volatile @Nullable UpdateListener listener;
 
     /**
@@ -197,25 +206,26 @@ public class UpdateLogImpl implements UpdateLog {
 
         @Override
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
-            for (EntryEvent eventEntry : event.entryEvents()) {
-                assert eventEntry.newEntry() != null;
-                assert !eventEntry.newEntry().empty();
+            Collection<EntryEvent> entryEvents = event.entryEvents();
 
+            var handleFutures = new ArrayList<CompletableFuture<Void>>(entryEvents.size());
+
+            for (EntryEvent eventEntry : entryEvents) {
                 byte[] payload = eventEntry.newEntry().value();
 
-                assert payload != null;
+                assert payload != null : eventEntry;
 
                 VersionedUpdate update = fromBytes(payload);
 
-                onUpdateHandler.handle(update, event.timestamp(), event.revision());
+                handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
             }
 
-            return CompletableFuture.completedFuture(null);
+            return allOf(handleFutures.toArray(CompletableFuture[]::new));
         }
 
         @Override
         public void onError(Throwable e) {
-            assert false;
+            LOG.warn("Unable to process catalog event", e);
         }
     }
 }

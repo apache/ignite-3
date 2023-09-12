@@ -60,7 +60,6 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestHashIndex;
 import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
@@ -282,7 +281,7 @@ public class StopCalciteModuleTest extends BaseIgniteAbstractTest {
         await(request.exceptionally(t -> {
             assertInstanceOf(CompletionException.class, t);
             assertInstanceOf(IgniteException.class, t.getCause());
-            assertInstanceOf(ExecutionCancelledException.class, t.getCause().getCause());
+            assertInstanceOf(QueryCancelledException.class, t.getCause().getCause());
 
             return null;
         }));

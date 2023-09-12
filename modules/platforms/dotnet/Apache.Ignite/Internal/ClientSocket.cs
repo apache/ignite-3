@@ -401,7 +401,7 @@ namespace Apache.Ignite.Internal
             string? javaStackTrace = reader.ReadStringNullable();
             var ex = ExceptionMapper.GetException(traceId, code, className, message, javaStackTrace);
 
-            int extensionCount = reader.TryReadNil() ? 0 : reader.ReadMapHeader();
+            int extensionCount = reader.TryReadNil() ? 0 : reader.ReadInt32();
             for (int i = 0; i < extensionCount; i++)
             {
                 var key = reader.ReadString();
@@ -512,7 +512,7 @@ namespace Apache.Ignite.Internal
 
             if (configuration.Authenticator != null)
             {
-                w.WriteMapHeader(3); // Extensions.
+                w.Write(3); // Extensions.
 
                 w.Write(HandshakeExtensions.AuthenticationType);
                 w.Write(configuration.Authenticator.Type);
@@ -525,7 +525,7 @@ namespace Apache.Ignite.Internal
             }
             else
             {
-                w.WriteMapHeader(0); // Extensions.
+                w.Write(0); // Extensions.
             }
         }
 

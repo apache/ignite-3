@@ -39,13 +39,6 @@ public class OptimizedStream extends DirectByteBufferStreamImplV1 {
     }
 
     @Override
-    public void writeShort(short val) {
-        // Convert short "-1" to int "-1" to preserve the optimization that stores "-1" as "0".
-        // Every other short is coded as a positive integer to avoid two extra 0xFF bytes.
-        writeInt(Short.toUnsignedInt((short) (val + 1)) - 1);
-    }
-
-    @Override
     public short readShort() {
         return (short) readLong();
     }

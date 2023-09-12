@@ -15,23 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
+package org.apache.ignite.internal.table.distributed.replication.request;
 
-/** DROP TABLE statement. */
-public class DropTableParams extends AbstractTableCommandParams {
-    /** Creates parameters builder. */
-    public static Builder builder() {
-        return new Builder();
-    }
+import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.network.annotations.Transferable;
 
-    private DropTableParams() {
-        // No-op.
-    }
-
-    /** Parameters builder. */
-    public static class Builder extends AbstractTableBuilder<DropTableParams, Builder> {
-        private Builder() {
-            super(new DropTableParams());
-        }
-    }
+/**
+ * Read only single row replica request.
+ */
+@Transferable(TableMessageGroup.RO_SINGLE_ROW_REPLICA_REQUEST)
+public interface ReadOnlySingleRowPkReplicaRequest extends SingleRowPkReplicaRequest, ReadOnlyReplicaRequest {
 }

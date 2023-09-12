@@ -305,6 +305,14 @@ public interface MessageReader {
     IgniteUuid readIgniteUuid(String name);
 
     /**
+     * Reads a group type or a message type of the message. Unlike regular {@link #readShort(String)}, this method never accepts a field
+     * name, because there are no names assigned to the header values.
+     *
+     * @return {@code short} value.
+     */
+    short readHeaderShort();
+
+    /**
      * Reads a nested message.
      *
      * @param <T> Type of a message;

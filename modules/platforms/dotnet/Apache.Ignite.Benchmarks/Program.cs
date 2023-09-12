@@ -18,9 +18,9 @@
 namespace Apache.Ignite.Benchmarks;
 
 using BenchmarkDotNet.Running;
-using Table.Serialization;
+using Table;
 
 internal static class Program
 {
-    private static void Main() => BenchmarkRunner.Run<SerializerHandlerReadBenchmarks>();
+    private static void Main() => BenchmarkRunner.Run<DataStreamerBenchmark>();
 }

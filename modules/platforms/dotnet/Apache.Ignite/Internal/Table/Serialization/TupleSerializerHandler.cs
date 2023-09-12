@@ -29,7 +29,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     /// <summary>
     /// Serializer handler for <see cref="IIgniteTuple"/>.
     /// </summary>
-    internal class TupleSerializerHandler : IRecordSerializerHandler<IIgniteTuple>
+    internal sealed class TupleSerializerHandler : IRecordSerializerHandler<IIgniteTuple>
     {
         /// <summary>
         /// Singleton instance.

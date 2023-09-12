@@ -27,24 +27,16 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTI
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_FIRST;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.sql.ColumnType.INT32;
-import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import org.apache.ignite.internal.catalog.commands.AlterColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnParams;
-import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnParams;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
-import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DropIndexParams;
-import org.apache.ignite.internal.catalog.commands.DropTableParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.jetbrains.annotations.Nullable;
@@ -658,87 +650,6 @@ public class CatalogManagerValidationTest extends BaseCatalogManagerTest {
         assertThat(
                 manager.dropIndex(DropIndexParams.builder().schemaName(DEFAULT_SCHEMA_NAME).build()),
                 willThrowFast(CatalogValidationException.class, "Missing index name")
-        );
-    }
-
-    @Test
-    void testValidateTableNameOnTableDrop() {
-        assertThat(
-                manager.dropTable(DropTableParams.builder().build()),
-                willThrowFast(CatalogValidationException.class, "Name of the table can't be null or blank")
-        );
-    }
-
-    @Test
-    void testValidateTableNameOnDropColumn() {
-        assertThat(
-                manager.dropColumn(AlterTableDropColumnParams.builder().build()),
-                willThrowFast(CatalogValidationException.class, "Name of the table can't be null or blank")
-        );
-    }
-
-    @Test
-    void testValidateColumnsOnDropColumn() {
-        assertThat(
-                manager.dropColumn(AlterTableDropColumnParams.builder().tableName(TABLE_NAME).build()),
-                willThrowFast(CatalogValidationException.class, "Columns not specified")
-        );
-
-        assertThat(
-                manager.dropColumn(AlterTableDropColumnParams.builder().tableName(TABLE_NAME).columns(Set.of()).build()),
-                willThrowFast(CatalogValidationException.class, "Columns not specified")
-        );
-    }
-
-    @Test
-    void testValidateTableNameOnAddColumn() {
-        assertThat(
-                manager.addColumn(AlterTableAddColumnParams.builder().build()),
-                willThrowFast(CatalogValidationException.class, "Name of the table can't be null or blank")
-        );
-    }
-
-    @Test
-    void testValidateColumnsOnAddColumn() {
-        assertThat(
-                manager.addColumn(AlterTableAddColumnParams.builder().tableName(TABLE_NAME).build()),
-                willThrowFast(CatalogValidationException.class, "Columns not specified")
-        );
-
-        assertThat(
-                manager.addColumn(AlterTableAddColumnParams.builder().tableName(TABLE_NAME).columns(List.of()).build()),
-                willThrowFast(CatalogValidationException.class, "Columns not specified")
-        );
-
-        assertThat(
-                manager.addColumn(addColumnParams(ColumnParams.builder().build())),
-                willThrowFast(CatalogValidationException.class, "Name of the column can't be null or blank")
-        );
-
-        assertThat(
-                manager.addColumn(addColumnParams(ColumnParams.builder().name("key").build())),
-                willThrowFast(CatalogValidationException.class, "Missing column type: key")
-        );
-
-        assertThat(
-                manager.addColumn(addColumnParams(columnParams("key", INT32), columnParams("key", INT64))),
-                willThrowFast(CatalogValidationException.class, "Duplicate columns are present: [key]")
-        );
-    }
-
-    @Test
-    void testValidateTableNameOnAlterColumn() {
-        assertThat(
-                manager.alterColumn(AlterColumnParams.builder().build()),
-                willThrowFast(CatalogValidationException.class, "Name of the table can't be null or blank")
-        );
-    }
-
-    @Test
-    void testValidateColumnNameOnAlterColumn() {
-        assertThat(
-                manager.alterColumn(AlterColumnParams.builder().tableName(TABLE_NAME).build()),
-                willThrowFast(CatalogValidationException.class, "Missing column name")
         );
     }
 

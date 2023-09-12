@@ -63,7 +63,6 @@ public class TxLocalTest extends TxAbstractTest {
     /**
      * Initialize the test state.
      */
-    @Override
     @BeforeEach
     public void before() {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
