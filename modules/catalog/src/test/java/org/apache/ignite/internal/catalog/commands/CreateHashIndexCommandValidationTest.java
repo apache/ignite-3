@@ -17,21 +17,18 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-/** CREATE INDEX statement. */
-public class CreateHashIndexParams extends AbstractCreateIndexCommandParams {
-    /** Creates parameters builder. */
-    public static Builder builder() {
-        return new Builder();
-    }
+import java.util.List;
 
-    private CreateHashIndexParams() {
-        // No-op.
-    }
-
-    /** Parameters builder. */
-    public static class Builder extends AbstractCreateIndexBuilder<CreateHashIndexParams, Builder> {
-        private Builder() {
-            super(new CreateHashIndexParams());
-        }
+/**
+ * Tests to verify validation of {@link CreateHashIndexCommand}.
+ */
+public class CreateHashIndexCommandValidationTest extends CreateAbstractIndexCommandValidationTest {
+    @Override
+    protected <T extends AbstractCreateIndexCommandBuilder<T>> T prefilledBuilder() {
+        return (T) CreateHashIndexCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .indexName(INDEX_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of("VAL"));
     }
 }
