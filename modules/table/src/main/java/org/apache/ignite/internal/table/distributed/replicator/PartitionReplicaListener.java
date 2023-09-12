@@ -780,14 +780,12 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (request.exactKey() != null) {
                 assert request.lowerBoundPrefix() == null && request.upperBoundPrefix() == null : "Index lookup doesn't allow bounds.";
 
-                return lookupIndex(request, indexStorage.storage())
-                        .thenApply(result -> result);
+                return lookupIndex(request, indexStorage.storage());
             }
 
             assert indexStorage.storage() instanceof SortedIndexStorage;
 
-            return scanSortedIndex(request, indexStorage)
-                    .thenApply(result -> result);
+            return scanSortedIndex(request, indexStorage);
         }
 
         UUID txId = request.transactionId();
@@ -796,8 +794,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         IgniteUuid cursorId = new IgniteUuid(txId, request.scanId());
 
         return lockManager.acquire(txId, new LockKey(tableId()), LockMode.S)
-                .thenCompose(tblLock -> retrieveExactEntriesUntilCursorEmpty(txId, cursorId, batchCount))
-                .thenApply(result -> result);
+                .thenCompose(tblLock -> retrieveExactEntriesUntilCursorEmpty(txId, cursorId, batchCount));
     }
 
     /**
