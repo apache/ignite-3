@@ -27,19 +27,17 @@ import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommandParams;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneParams;
 import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.commands.DropIndexParams;
 import org.apache.ignite.internal.catalog.commands.DropZoneParams;
 import org.apache.ignite.internal.catalog.commands.RenameZoneParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -194,10 +192,10 @@ class DdlToCatalogCommandConverter {
     }
 
 
-    static AbstractCreateIndexCommandParams convert(CreateIndexCommand cmd) {
+    static CatalogCommand convert(CreateIndexCommand cmd) {
         switch (cmd.type()) {
             case HASH:
-                return CreateHashIndexParams.builder()
+                return CreateHashIndexCommand.builder()
                         .schemaName(cmd.schemaName())
                         .indexName(cmd.indexName())
 
@@ -210,7 +208,7 @@ class DdlToCatalogCommandConverter {
                         .map(DdlToCatalogCommandConverter::convert)
                         .collect(Collectors.toList());
 
-                return CreateSortedIndexParams.builder()
+                return CreateSortedIndexCommand.builder()
                         .schemaName(cmd.schemaName())
                         .indexName(cmd.indexName())
 
@@ -224,8 +222,8 @@ class DdlToCatalogCommandConverter {
         }
     }
 
-    static DropIndexParams convert(DropIndexCommand cmd) {
-        return DropIndexParams.builder()
+    static CatalogCommand convert(DropIndexCommand cmd) {
+        return org.apache.ignite.internal.catalog.commands.DropIndexCommand.builder()
                 .schemaName(cmd.schemaName())
                 .indexName(cmd.indexName())
                 .build();

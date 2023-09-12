@@ -24,11 +24,10 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -66,20 +65,17 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog catalogWithTable(String name) {
-        int tableId = 0;
-        int tableVersion = 1;
-        int zoneId = 0;
-        List<CatalogTableColumnDescriptor> columns = List.of(
-                new CatalogTableColumnDescriptor("ID", INT32, false, -1, -1, -1, null),
-                new CatalogTableColumnDescriptor("VAL", INT32, true, -1, -1, -1, null)
+        return catalog(
+                CreateTableCommand.builder()
+                        .schemaName(SCHEMA_NAME)
+                        .tableName(name)
+                        .columns(List.of(
+                                ColumnParams.builder().name("ID").type(INT32).build(),
+                                ColumnParams.builder().name("VAL").type(INT32).build()
+                        ))
+                        .primaryKeyColumns(List.of("ID"))
+                        .build()
         );
-        List<String> pkColumns = List.of("ID");
-
-        CatalogTableDescriptor table = new CatalogTableDescriptor(
-                tableId, name, zoneId, tableVersion, columns, pkColumns, pkColumns
-        );
-
-        return catalog(new CatalogTableDescriptor[]{table}, new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0]);
     }
 
     static Catalog catalogWithTable(Consumer<CreateTableCommandBuilder> tableDef) {
@@ -87,35 +83,48 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
 
         tableDef.accept(builder);
 
+        return catalog(builder.build());
+    }
+
+    static Catalog catalogWithIndex(String name) {
+        return catalog(List.of(
+                CreateTableCommand.builder()
+                        .schemaName(SCHEMA_NAME)
+                        .tableName(TABLE_NAME)
+                        .columns(List.of(
+                                ColumnParams.builder().name("ID").type(INT32).build(),
+                                ColumnParams.builder().name("VAL").type(INT32).build()
+                        ))
+                        .primaryKeyColumns(List.of("ID"))
+                        .build(),
+                CreateHashIndexCommand.builder()
+                        .schemaName(SCHEMA_NAME)
+                        .indexName(name)
+                        .tableName(TABLE_NAME)
+                        .columns(List.of("VAL"))
+                        .build()
+        ));
+    }
+
+    static Catalog catalog(CatalogCommand commandToApply) {
+        return catalog(List.of(commandToApply));
+    }
+
+    static Catalog catalog(List<CatalogCommand> commandsToApply) {
         Catalog catalog = emptyCatalog();
-        for (UpdateEntry entry : builder.build().get(catalog)) {
-            catalog = entry.applyUpdate(catalog);
+
+        for (CatalogCommand command : commandsToApply) {
+            for (UpdateEntry updates : command.get(catalog)) {
+                catalog = updates.applyUpdate(catalog);
+            }
         }
 
         return catalog;
     }
 
-    static Catalog catalogWithIndex(String name) {
-        CatalogTableColumnDescriptor id = new CatalogTableColumnDescriptor(
-                "ID", INT32, false, -1, -1, -1, null
-        );
-        CatalogTableColumnDescriptor val = new CatalogTableColumnDescriptor(
-                "VAL", INT32, true, -1, -1, -1, null
-        );
-        CatalogTableDescriptor table = new CatalogTableDescriptor(
-                0, TABLE_NAME, 0, 1, List.of(id, val), List.of("ID"), List.of("ID")
-        );
-        CatalogIndexDescriptor index = new CatalogHashIndexDescriptor(
-                1, name, 0, false, List.of("VAL")
-        );
-
-        return catalog(new CatalogTableDescriptor[]{table}, new CatalogIndexDescriptor[]{index}, new CatalogSystemViewDescriptor[0]);
-    }
-
     private static Catalog catalog(CatalogTableDescriptor[] tables,
             CatalogIndexDescriptor[] indexes,
             CatalogSystemViewDescriptor[] systemViews) {
-
         return new Catalog(
                 1,
                 0L,

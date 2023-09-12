@@ -17,26 +17,19 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
-import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -146,38 +139,6 @@ public class CatalogUtils {
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT16, EnumSet.of(ColumnType.INT32, ColumnType.INT64));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.INT32, EnumSet.of(ColumnType.INT64));
         ALTER_COLUMN_TYPE_TRANSITIONS.put(ColumnType.FLOAT, EnumSet.of(ColumnType.DOUBLE));
-    }
-
-    /**
-     * Converts CreateIndex command params to hash index descriptor.
-     *
-     * @param id Index ID.
-     * @param tableId Table ID.
-     * @param params Parameters.
-     * @return Index descriptor.
-     */
-    public static CatalogHashIndexDescriptor fromParams(int id, int tableId, CreateHashIndexParams params) {
-        return new CatalogHashIndexDescriptor(id, params.indexName(), tableId, params.unique(), params.columns());
-    }
-
-    /**
-     * Converts CreateIndex command params to sorted index descriptor.
-     *
-     * @param id Index ID.
-     * @param tableId Table ID.
-     * @param params Parameters.
-     * @return Index descriptor.
-     */
-    public static CatalogSortedIndexDescriptor fromParams(int id, int tableId, CreateSortedIndexParams params) {
-        List<CatalogColumnCollation> collations = params.collations();
-
-        assert collations.size() == params.columns().size() : "tableId=" + tableId + ", indexId=" + id;
-
-        List<CatalogIndexColumnDescriptor> columnDescriptors = IntStream.range(0, collations.size())
-                .mapToObj(i -> new CatalogIndexColumnDescriptor(params.columns().get(i), collations.get(i)))
-                .collect(toList());
-
-        return new CatalogSortedIndexDescriptor(id, params.indexName(), tableId, params.unique(), columnDescriptors);
     }
 
     /**

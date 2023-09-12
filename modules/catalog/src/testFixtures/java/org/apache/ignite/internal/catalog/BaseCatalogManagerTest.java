@@ -30,8 +30,8 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
-import org.apache.ignite.internal.catalog.commands.CreateSortedIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
@@ -101,62 +101,49 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         );
     }
 
-    protected static CreateHashIndexParams createHashIndexParams(
+    protected static CatalogCommand createHashIndexCommand(
             String indexName,
             boolean uniq,
             @Nullable List<String> indexColumns
     ) {
-        CreateHashIndexParams.Builder builder = CreateHashIndexParams.builder()
+        return CreateHashIndexCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .tableName(TABLE_NAME)
-                .indexName(indexName);
-
-        builder.unique(uniq);
-
-        if (indexColumns != null) {
-            builder.columns(indexColumns);
-        }
-
-        return builder.build();
+                .indexName(indexName)
+                .unique(uniq)
+                .columns(indexColumns)
+                .build();
     }
 
-    protected static CreateHashIndexParams createHashIndexParams(
+    protected static CatalogCommand createHashIndexCommand(
             String indexName,
             @Nullable List<String> indexColumns
     ) {
-        return createHashIndexParams(indexName, false, indexColumns);
+        return createHashIndexCommand(indexName, false, indexColumns);
     }
 
-    protected static CreateSortedIndexParams createSortedIndexParams(
+    protected static CatalogCommand createSortedIndexCommand(
             String indexName,
-            boolean uniq,
+            boolean unique,
             @Nullable List<String> indexColumns,
             @Nullable List<CatalogColumnCollation> columnsCollations
     ) {
-        CreateSortedIndexParams.Builder builder = CreateSortedIndexParams.builder()
+        return CreateSortedIndexCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .tableName(TABLE_NAME)
-                .indexName(indexName);
-
-        builder.unique(uniq);
-
-        if (indexColumns != null) {
-            builder.columns(indexColumns);
-        }
-
-        if (columnsCollations != null) {
-            builder.collations(columnsCollations);
-        }
-
-        return builder.build();
+                .indexName(indexName)
+                .unique(unique)
+                .columns(indexColumns)
+                .collations(columnsCollations)
+                .build();
     }
 
-    protected static CreateSortedIndexParams createSortedIndexParams(
+    protected static CatalogCommand createSortedIndexCommand(
             String indexName,
             @Nullable List<String> indexColumns,
             @Nullable List<CatalogColumnCollation> columnsCollations
     ) {
-        return createSortedIndexParams(indexName, false, indexColumns, columnsCollations);
+        return createSortedIndexCommand(indexName, false, indexColumns, columnsCollations);
     }
 
     protected static CatalogCommand createTableCommand(

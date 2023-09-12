@@ -17,8 +17,16 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.UpdateProducer;
+import java.util.List;
 
-abstract class AbstractCatalogCommand implements CatalogCommand, UpdateProducer {
+/** Builder that covers attributes which is common among all types of indexes. */
+interface AbstractCreateIndexCommandBuilder<T extends AbstractIndexCommandBuilder<T>> extends AbstractIndexCommandBuilder<T> {
+    /** A name of the table an index belongs to. Should not be null or blank. */
+    T tableName(String tableName);
+
+    /** A flag denoting whether index keeps at most one row per every key or not. */
+    T unique(boolean unique);
+
+    /** List of the columns to index. There must be at least one column. */
+    T columns(List<String> columns);
 }

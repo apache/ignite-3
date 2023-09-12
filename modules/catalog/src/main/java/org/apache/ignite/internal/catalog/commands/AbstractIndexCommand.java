@@ -23,25 +23,25 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 
 /**
- * Abstract table-related command.
+ * Abstract index-related command.
  *
- * <p>Every table-related command, disregard it going to create new table or modify existing one,
- * should specify name of the table and namespace (schema) where to find existing/put new table.
+ * <p>Every index-related command, disregard it going to create new index or delete existing one,
+ * should specify name of the index and namespace (schema) where to find existing/put new index.
  */
-public abstract class AbstractTableCommand implements CatalogCommand {
+public abstract class AbstractIndexCommand implements CatalogCommand {
     protected final String schemaName;
 
-    protected final String tableName;
+    protected final String indexName;
 
-    AbstractTableCommand(String schemaName, String tableName) throws CatalogValidationException {
+    AbstractIndexCommand(String schemaName, String indexName) throws CatalogValidationException {
         this.schemaName = schemaName;
-        this.tableName = tableName;
+        this.indexName = indexName;
 
         validate();
     }
 
     private void validate() {
         validateIdentifier(schemaName, "Name of the schema");
-        validateIdentifier(tableName, "Name of the table");
+        validateIdentifier(indexName, "Name of the index");
     }
 }
