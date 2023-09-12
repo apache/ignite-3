@@ -99,13 +99,13 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
             assertThat(
                     ex.getMessage(),
-                    containsString("Table schema was updated since the transaction was started [table=1, startSchema=1, operationSchema=2")
+                    containsString("Table schema was updated after the transaction was started [table=1, startSchema=1, operationSchema=2")
             );
         } else {
             ex = assertThrows(TransactionException.class, () -> operation.execute(table, tx, cluster));
             assertThat(
                     ex.getMessage(),
-                    is("Table schema was updated since the transaction was started [table=1, startSchema=1, operationSchema=2")
+                    is("Table schema was updated after the transaction was started [table=1, startSchema=1, operationSchema=2")
             );
         }
 

@@ -184,7 +184,7 @@ class SchemaCompatValidator {
             throw new TransactionException(
                     Transactions.TX_INCOMPATIBLE_SCHEMA_ERR,
                     String.format(
-                            "Table schema was updated since the transaction was started [table=%d, startSchema=%d, operationSchema=%d",
+                            "Table schema was updated after the transaction was started [table=%d, startSchema=%d, operationSchema=%d",
                             tableId, tableAtBeginTs.tableVersion(), tableAtOpTs.tableVersion()
                     )
             );
