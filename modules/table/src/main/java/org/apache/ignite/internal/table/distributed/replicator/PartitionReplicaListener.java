@@ -257,8 +257,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final TablesConfiguration tablesConfig;
 
-    private final int pkLength;
-
     /**
      * The constructor.
      *
@@ -330,12 +328,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         cursors = new ConcurrentSkipListMap<>(IgniteUuid.globalOrderComparator());
 
         schemaCompatValidator = new SchemaCompatValidator(schemas);
-
-        TableView tableConfig = findTableView(tablesConfig.tables().value(), tableId);
-
-        assert tableConfig != null;
-
-        pkLength = tableConfig.primaryKey().columns().length;
     }
 
     @Override
@@ -2145,7 +2137,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private BinaryTuple resolvePk(ByteBuffer bytes) {
-        return new BinaryTuple(pkLength, bytes);
+        return pkIndexStorage.get().resolve(bytes);
     }
 
     private List<BinaryTuple> resolvePks(List<ByteBuffer> bytesList) {
