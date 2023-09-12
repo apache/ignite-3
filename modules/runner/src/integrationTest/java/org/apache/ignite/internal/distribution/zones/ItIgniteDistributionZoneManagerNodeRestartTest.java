@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZoneManag
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesGlobalStateRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -93,6 +92,7 @@ import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -274,6 +274,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         return partialNode;
     }
 
+    @AfterEach
+    public void afterTest() {
+        startScaleUpBlocking = false;
+
+        startScaleDownBlocking = false;
+    }
+
     @Test
     public void testNodeAttributesRestoredAfterRestart() throws Exception {
         PartialNode node = startPartialNode(0);
@@ -406,7 +413,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 TIMEOUT_MILLIS
         );
 
-        // Skip scale up
+        // Block scale up
         startScaleUpBlocking = true;
 
         node.logicalTopology().putNode(C);
@@ -568,7 +575,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         int zoneId = getZoneId(node, zoneName);
 
-        // Skip scale down
+        // Block scale down
         startScaleDownBlocking = true;
 
         node.logicalTopology().putNode(A);
@@ -643,8 +650,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         doThrow(new RuntimeException("Expected")).when(metaStorageManager).invoke(argThat(iif -> {
             If iif1 = MetaStorageWriteHandler.toIf(iif);
 
-            byte[] keyScaleUpBytes = zoneScaleUpChangeTriggerKey().bytes();
-            byte[] keyScaleDownBytes = zoneScaleDownChangeTriggerKey().bytes();
+            byte[] keyScaleUpBytes = DistributionZonesUtil.zoneScaleUpChangeTriggerKeyPrefix().bytes();
+            byte[] keyScaleDownBytes = DistributionZonesUtil.zoneScaleDownChangeTriggerKeyPrefix().bytes();
 
             boolean isScaleUpKey = iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), keyScaleUpBytes));
             boolean isScaleDownKey = iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(op.key(), keyScaleDownBytes));

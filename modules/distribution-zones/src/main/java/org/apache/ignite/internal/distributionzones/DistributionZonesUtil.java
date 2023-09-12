@@ -207,24 +207,12 @@ public class DistributionZonesUtil {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX + zoneId);
     }
 
-    /** Key prefix for zone's scale up change trigger key. */
-    @TestOnly
-    public static ByteArray zoneScaleUpChangeTriggerKey() {
-        return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX);
-    }
-
     /**
      * The key needed for processing an event about zone's data node propagation on scale down.
      * With this key we can be sure that event was triggered only once.
      */
     public static ByteArray zoneScaleDownChangeTriggerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX + zoneId);
-    }
-
-    /** Key prefix for zone's scale down change trigger key. */
-    @TestOnly
-    public static ByteArray zoneScaleDownChangeTriggerKey() {
-        return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX);
     }
 
     /**
@@ -613,5 +601,17 @@ public class DistributionZonesUtil {
                 namedThreadFactory,
                 new ThreadPoolExecutor.DiscardPolicy()
         );
+    }
+
+    /** Key prefix for zone's scale up change trigger key. */
+    @TestOnly
+    public static ByteArray zoneScaleUpChangeTriggerKeyPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX);
+    }
+
+    /** Key prefix for zone's scale down change trigger key. */
+    @TestOnly
+    public static ByteArray zoneScaleDownChangeTriggerKeyPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX);
     }
 }
