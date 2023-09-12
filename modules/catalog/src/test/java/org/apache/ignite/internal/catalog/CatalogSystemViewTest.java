@@ -45,10 +45,13 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
-import org.apache.ignite.internal.catalog.commands.CreateHashIndexParams;
+import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSystemViewCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSystemViewCommandBuilder;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -60,7 +63,9 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 
@@ -69,11 +74,13 @@ import org.mockito.Mockito;
  */
 public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
+    protected static final String SYS_VIEW_NAME = "test_view";
+
     @ParameterizedTest
     @EnumSource(SystemViewType.class)
     public void testCreateSystemView(SystemViewType type) {
         CreateSystemViewCommand command = CreateSystemViewCommand.builder()
-                .name("view1")
+                .name(SYS_VIEW_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name("col1").type(INT32).build(),
                         ColumnParams.builder().name("col2").type(STRING).build()
@@ -88,11 +95,11 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
         CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, catalogVersion);
         assertNotNull(systemSchema, "systemSchema");
 
-        CatalogSystemViewDescriptor view1 = systemSchema.systemView("view1");
+        CatalogSystemViewDescriptor view1 = systemSchema.systemView(SYS_VIEW_NAME);
 
-        assertNotNull(view1, "view1");
+        assertNotNull(view1, "sys view");
         assertEquals(3L, view1.id(), "system view id");
-        assertEquals("view1", view1.name());
+        assertEquals(SYS_VIEW_NAME, view1.name());
         assertEquals(Type.SYSTEM_VIEW, view1.type(), "type");
         assertEquals(type, view1.systemViewType(), "system view type");
 
@@ -157,7 +164,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         static CreateSystemViewCommandBuilder newSystemView() {
             return CreateSystemViewCommand.builder()
-                    .name("view1")
+                    .name(SYS_VIEW_NAME)
                     .columns(COLUMNS)
                     .type(SystemViewType.LOCAL);
         }
@@ -214,7 +221,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.SYSTEM_VIEW_CREATE, eventListener);
 
         CreateSystemViewCommand command = CreateSystemViewCommand.builder()
-                .name("view1")
+                .name(SYS_VIEW_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name("col1").type(INT32).build(),
                         ColumnParams.builder().name("col2").type(STRING).build()
@@ -233,7 +240,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
         CatalogSchemaDescriptor systemSchema1 = manager.schema(SYSTEM_SCHEMA_NAME, catalogVersion);
         assertNotNull(systemSchema1, "systemSchema");
 
-        CatalogSystemViewDescriptor view1 = systemSchema1.systemView("view1");
+        CatalogSystemViewDescriptor view1 = systemSchema1.systemView(SYS_VIEW_NAME);
 
         // Use the same command to create an identical view.
 
@@ -244,7 +251,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         // view1 should be the same.
 
-        CatalogSystemViewDescriptor view2 = systemSchema2.systemView("view1");
+        CatalogSystemViewDescriptor view2 = systemSchema2.systemView(SYS_VIEW_NAME);
         assertSame(view1, view2, "system view was replaced");
 
         // Event listener should not have been called.
@@ -254,7 +261,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
     @ParameterizedTest
     @EnumSource(SystemViewType.class)
     public void testCreateSystemViewFailsWhenTableWithTheSameNameExistsInTheSystemSchema(SystemViewType type) {
-        CatalogCommand createTable = createTableCommandBuilder("view",
+        CatalogCommand createTable = createTableCommandBuilder(TABLE_NAME,
                 List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
                 List.of("key1"),
                 List.of("key1"))
@@ -264,7 +271,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(createTable), willCompleteSuccessfully());
 
         CreateSystemViewCommand createView = CreateSystemViewCommand.builder()
-                .name("view")
+                .name(TABLE_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name("col1").type(INT32).build(),
                         ColumnParams.builder().name("col2").type(STRING).build()
@@ -272,14 +279,14 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
                 .type(type)
                 .build();
 
-        expectAsyncValidationError(() -> manager.execute(createView), "Table with name 'SYSTEM.view' already exists");
+        expectAsyncValidationError(() -> manager.execute(createView), "Table with name 'SYSTEM.test_table' already exists");
     }
 
     @ParameterizedTest
     @EnumSource(SystemViewType.class)
     public void createTableFailsWhenSystemViewWithTheSameNameExistsInTheSystemSchema(SystemViewType type) {
         CreateSystemViewCommand createView = CreateSystemViewCommand.builder()
-                .name("view")
+                .name(SYS_VIEW_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name("col1").type(INT32).build(),
                         ColumnParams.builder().name("col2").type(STRING).build()
@@ -289,21 +296,21 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(createView), willCompleteSuccessfully());
 
-        CatalogCommand createTable = createTableCommandBuilder("view",
+        CatalogCommand createTable = createTableCommandBuilder(SYS_VIEW_NAME,
                 List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
                 List.of("key1"),
                 List.of("key1"))
                 .schemaName(SYSTEM_SCHEMA_NAME)
                 .build();
 
-        expectAsyncValidationError(() -> manager.execute(createTable), "System view with name 'SYSTEM.view' already exists");
+        expectAsyncValidationError(() -> manager.execute(createTable), "System view with name 'SYSTEM.test_view' already exists");
     }
 
     @ParameterizedTest
-    @EnumSource(SystemViewType.class)
-    public void createIndexFailsWhenSystemViewWithTheSameNameExistsInTheSystemSchema(SystemViewType type) {
+    @MethodSource("indexViewType")
+    public void createIndexFailsWhenSystemViewWithTheSameNameExistsInTheSystemSchema(SystemViewType type, IndexCommandType indexCommandType) {
         CreateSystemViewCommand createView = CreateSystemViewCommand.builder()
-                .name("view")
+                .name(SYS_VIEW_NAME)
                 .columns(List.of(
                         ColumnParams.builder().name("col1").type(INT32).build(),
                         ColumnParams.builder().name("col2").type(STRING).build()
@@ -313,7 +320,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(createView), willCompleteSuccessfully());
 
-        CatalogCommand createTable = createTableCommandBuilder("table",
+        CatalogCommand createTable = createTableCommandBuilder(TABLE_NAME,
                 List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
                 List.of("key1"),
                 List.of("key1"))
@@ -322,14 +329,43 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(createTable), willCompleteSuccessfully());
 
-        CreateHashIndexParams params = CreateHashIndexParams.builder()
-                .indexName("view")
-                .tableName("table")
-                .columns(List.of("val1"))
-                .schemaName(SYSTEM_SCHEMA_NAME)
-                .build();
+        CatalogCommand createIndex = indexCommandType.createIndexCommand();
 
-        expectAsyncValidationError(() -> manager.createIndex(params), "System view with name 'SYSTEM.view' already exists");
+        expectAsyncValidationError(() -> manager.execute(createIndex), "System view with name 'SYSTEM.test_view' already exists");
+    }
+
+    private static Stream<Arguments> indexViewType() {
+        return Stream.of(SystemViewType.values()).flatMap(type -> Arrays.stream(IndexCommandType.values()).map(idx -> Arguments.of(type, idx)));
+    }
+
+    /**
+     * Index commands that may fail if a view with the same name already exists.
+     */
+    public enum IndexCommandType {
+        CREATE_HASH_INDEX,
+        CREATE_SORTED_INDEX;
+
+        CatalogCommand createIndexCommand() {
+            switch (this) {
+                case CREATE_HASH_INDEX:
+                    return CreateHashIndexCommand.builder()
+                           .indexName(SYS_VIEW_NAME)
+                           .tableName(TABLE_NAME)
+                           .columns(List.of("val1"))
+                           .schemaName(SYSTEM_SCHEMA_NAME)
+                           .build();
+                case CREATE_SORTED_INDEX:
+                    return CreateSortedIndexCommand.builder()
+                            .indexName(SYS_VIEW_NAME)
+                            .tableName(TABLE_NAME)
+                            .columns(List.of("val1"))
+                            .collations(List.of(CatalogColumnCollation.ASC_NULLS_LAST))
+                            .schemaName(SYSTEM_SCHEMA_NAME)
+                            .build();
+                default:
+                    throw new IllegalArgumentException("Unexpected index type " +  this);
+            }
+        }
     }
 
     private static void expectAsyncValidationError(Supplier<CompletableFuture<Void>> action, String message) {

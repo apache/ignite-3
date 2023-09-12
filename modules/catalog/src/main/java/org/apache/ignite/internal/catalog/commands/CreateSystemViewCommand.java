@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogParamsValidationUtils;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -45,7 +46,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
  *
  * <p>If a system with the given name exists, this command replaces the existing system view.
  */
-public class CreateSystemViewCommand extends AbstractCatalogCommand {
+public class CreateSystemViewCommand implements CatalogCommand {
 
     private final String name;
 
