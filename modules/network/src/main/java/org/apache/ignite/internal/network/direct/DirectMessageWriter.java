@@ -65,7 +65,6 @@ public class DirectMessageWriter implements MessageWriter {
     }
 
     /** {@inheritDoc} */
-    // TODO: compress the header https://issues.apache.org/jira/browse/IGNITE-14818
     @Override
     public boolean writeHeader(short groupType, short messageType, byte fieldCnt) {
         DirectByteBufferStream stream = state.item().stream;

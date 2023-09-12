@@ -54,7 +54,7 @@ public class ClientTables implements IgniteTables {
     public CompletableFuture<List<Table>> tablesAsync() {
         return ch.serviceAsync(ClientOp.TABLES_GET, r -> {
             var in = r.in();
-            var cnt = in.unpackMapHeader();
+            var cnt = in.unpackInt();
             var res = new ArrayList<Table>(cnt);
 
             for (int i = 0; i < cnt; i++) {

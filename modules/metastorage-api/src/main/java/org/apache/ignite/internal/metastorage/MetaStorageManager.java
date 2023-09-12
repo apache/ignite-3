@@ -108,6 +108,19 @@ public interface MetaStorageManager extends IgniteComponent {
     Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revUpperBound);
 
     /**
+     * Returns cursor by entries which correspond to the given key prefix and bounded by revision number. The entries in the cursor
+     * are obtained from the local storage.
+     *
+     * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
+     * up to user to wait for the appropriate time to call this method.
+     *
+     * @param keyPrefix Key prefix.
+     * @param revUpperBound Upper bound of revision.
+     * @return Cursor by entries which correspond to the given key prefix.
+     */
+    Cursor<Entry> prefixLocally(ByteArray keyPrefix, long revUpperBound);
+
+    /**
      * Looks up a timestamp by a revision. This should only be invoked if it is guaranteed that the
      * revision is available in the local storage. This method always operates locally.
      *

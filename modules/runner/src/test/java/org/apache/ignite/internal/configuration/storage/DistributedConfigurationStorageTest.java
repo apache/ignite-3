@@ -86,11 +86,10 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
             return CompletableFuture.completedFuture(invokeResult);
         });
 
-        when(mock.range(any(), any())).thenAnswer(invocation -> {
-            ByteArray keyFrom = invocation.getArgument(0);
-            ByteArray keyTo = invocation.getArgument(1);
+        when(mock.prefix(any())).thenAnswer(invocation -> {
+            ByteArray prefix = invocation.getArgument(0);
 
-            return fromCursor(metaStorage.range(keyFrom.bytes(), keyTo == null ? null : keyTo.bytes()));
+            return fromCursor(metaStorage.range(prefix.bytes(), metaStorage.nextKey(prefix.bytes())));
         });
 
         return mock;

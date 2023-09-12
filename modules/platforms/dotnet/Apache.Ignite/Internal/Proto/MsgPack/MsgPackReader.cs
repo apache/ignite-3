@@ -158,19 +158,6 @@ internal ref struct MsgPackReader
     }
 
     /// <summary>
-    /// Reads array header.
-    /// </summary>
-    /// <returns>Array size.</returns>
-    public int ReadArrayHeader() =>
-        _span[_pos++] switch
-        {
-            var code when MsgPackCode.IsFixArr(code) => code & 0x0F,
-            MsgPackCode.Array16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
-            MsgPackCode.Array32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
-            var invalid => throw GetInvalidCodeException("array", invalid)
-        };
-
-    /// <summary>
     /// Reads string header.
     /// </summary>
     /// <returns>String length in bytes.</returns>
@@ -214,19 +201,6 @@ internal ref struct MsgPackReader
     /// </summary>
     /// <returns>Span of byte.</returns>
     public ReadOnlySpan<byte> ReadBinary() => GetSpan(ReadBinaryHeader());
-
-    /// <summary>
-    /// Reads map header.
-    /// </summary>
-    /// <returns>Map length.</returns>
-    public int ReadMapHeader() =>
-        _span[_pos++] switch
-        {
-            var code when MsgPackCode.IsFixMap(code) => code & 0x0F,
-            MsgPackCode.Map16 => BinaryPrimitives.ReadUInt16BigEndian(GetSpan(2)),
-            MsgPackCode.Map32 => checked((int)BinaryPrimitives.ReadUInt32BigEndian(GetSpan(4))),
-            var invalid => throw GetInvalidCodeException("map", invalid)
-        };
 
     /// <summary>
     /// Reads GUID value.

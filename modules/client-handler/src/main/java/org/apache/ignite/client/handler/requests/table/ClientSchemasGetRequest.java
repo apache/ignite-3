@@ -48,7 +48,7 @@ public class ClientSchemasGetRequest {
         return readTableAsync(in, tables).thenAccept(table -> {
             if (in.tryUnpackNil()) {
                 // Return the latest schema.
-                out.packMapHeader(1);
+                out.packInt(1);
 
                 var schema = table.schemaView().schema();
 
@@ -58,8 +58,8 @@ public class ClientSchemasGetRequest {
 
                 writeSchema(out, schema.version(), schema);
             } else {
-                var cnt = in.unpackArrayHeader();
-                out.packMapHeader(cnt);
+                var cnt = in.unpackInt();
+                out.packInt(cnt);
 
                 for (var i = 0; i < cnt; i++) {
                     var schemaVer = in.unpackInt();

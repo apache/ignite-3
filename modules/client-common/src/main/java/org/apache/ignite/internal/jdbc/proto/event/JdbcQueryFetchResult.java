@@ -95,7 +95,7 @@ public class JdbcQueryFetchResult extends Response {
 
         packer.packBoolean(last);
 
-        packer.packArrayHeader(items.size());
+        packer.packInt(items.size());
 
         for (List<Object> item : items) {
             packer.packObjectArrayAsBinaryTuple(item.toArray());
@@ -113,7 +113,7 @@ public class JdbcQueryFetchResult extends Response {
 
         last = unpacker.unpackBoolean();
 
-        int size = unpacker.unpackArrayHeader();
+        int size = unpacker.unpackInt();
 
         items = new ArrayList<>(size);
 

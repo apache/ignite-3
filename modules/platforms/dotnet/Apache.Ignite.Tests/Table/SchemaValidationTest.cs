@@ -106,7 +106,7 @@ public class SchemaValidationTest : IgniteTestsBase
             [ValCol] = "v"
         };
 
-        var ex = Assert.ThrowsAsync<IgniteException>(async () => await TupleView.UpsertAsync(null, igniteTuple));
+        var ex = Assert.ThrowsAsync<MarshallerException>(async () => await TupleView.UpsertAsync(null, igniteTuple));
         Assert.AreEqual("Missed key column: KEY", ex!.Message);
     }
 
@@ -118,7 +118,7 @@ public class SchemaValidationTest : IgniteTestsBase
             [KeyCol] = 1L
         };
 
-        var ex = Assert.ThrowsAsync<IgniteException>(async () => await TableRequiredVal.RecordBinaryView.UpsertAsync(null, igniteTuple));
+        var ex = Assert.ThrowsAsync<MarshallerException>(async () => await TableRequiredVal.RecordBinaryView.UpsertAsync(null, igniteTuple));
         StringAssert.StartsWith("Failed to set column (null was passed, but column is not null", ex!.Message);
         StringAssert.Contains("name=VAL", ex.Message);
     }
@@ -133,7 +133,7 @@ public class SchemaValidationTest : IgniteTestsBase
             [ValCol] = "v"
         };
 
-        var ex = Assert.ThrowsAsync<IgniteException>(async () => await Table.KeyValueBinaryView.PutAsync(null, keyTuple, valTuple));
+        var ex = Assert.ThrowsAsync<MarshallerException>(async () => await Table.KeyValueBinaryView.PutAsync(null, keyTuple, valTuple));
         Assert.AreEqual("Missed key column: KEY", ex!.Message);
     }
 
@@ -147,7 +147,7 @@ public class SchemaValidationTest : IgniteTestsBase
 
         var valTuple = new IgniteTuple();
 
-        var ex = Assert.ThrowsAsync<IgniteException>(
+        var ex = Assert.ThrowsAsync<MarshallerException>(
             async () => await TableRequiredVal.KeyValueBinaryView.PutAsync(null, keyTuple, valTuple));
         StringAssert.StartsWith("Failed to set column (null was passed, but column is not null", ex!.Message);
         StringAssert.Contains("name=VAL", ex.Message);
@@ -248,7 +248,7 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestMissingKeyPocoFields()
     {
-        var ex = Assert.ThrowsAsync<IgniteException>(async () => await Table.GetRecordView<ValPoco>().UpsertAsync(null, new ValPoco()));
+        var ex = Assert.ThrowsAsync<MarshallerException>(async () => await Table.GetRecordView<ValPoco>().UpsertAsync(null, new ValPoco()));
 
         Assert.AreEqual("Missed key column: KEY", ex!.Message);
     }
@@ -256,7 +256,7 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestMissingValPocoFields()
     {
-        var ex = Assert.ThrowsAsync<IgniteException>(
+        var ex = Assert.ThrowsAsync<MarshallerException>(
             async () => await TableRequiredVal.GetRecordView<KeyPoco>().UpsertAsync(null, new KeyPoco()));
 
         StringAssert.StartsWith("Failed to set column (null was passed, but column is not null", ex!.Message);
@@ -266,7 +266,7 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestKvMissingKeyPocoFields()
     {
-        var ex = Assert.ThrowsAsync<IgniteException>(
+        var ex = Assert.ThrowsAsync<MarshallerException>(
             async () => await Table.GetKeyValueView<ValPoco, string>().PutAsync(null, new ValPoco(), "x"));
 
         Assert.AreEqual("Missed key column: KEY", ex!.Message);
@@ -275,7 +275,7 @@ public class SchemaValidationTest : IgniteTestsBase
     [Test]
     public void TestKvMissingValPocoFields()
     {
-        var ex = Assert.ThrowsAsync<IgniteException>(
+        var ex = Assert.ThrowsAsync<MarshallerException>(
             async () => await TableRequiredVal.GetKeyValueView<long, KeyPoco>().PutAsync(null, 1L, new KeyPoco()));
 
         StringAssert.StartsWith("Failed to set column (null was passed, but column is not null", ex!.Message);

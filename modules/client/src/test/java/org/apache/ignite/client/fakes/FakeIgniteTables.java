@@ -26,9 +26,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
@@ -232,22 +230,10 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
         FakeSchemaRegistry schemaReg = new FakeSchemaRegistry(history);
 
-        ColumnsExtractor keyExtractor = new ColumnsExtractor() {
-            @Override
-            public BinaryTuple extractColumnsFromKeyOnlyRow(BinaryRow keyOnlyRow) {
-                return keyExtractor(keyOnlyRow).extractColumnsFromKeyOnlyRow(keyOnlyRow);
-            }
+        ColumnsExtractor keyExtractor = row -> {
+            SchemaDescriptor schema = schemaReg.schema(row.schemaVersion());
 
-            @Override
-            public BinaryTuple extractColumns(BinaryRow row) {
-                return keyExtractor(row).extractColumns(row);
-            }
-
-            private ColumnsExtractor keyExtractor(BinaryRow row) {
-                SchemaDescriptor schema = schemaReg.schema(row.schemaVersion());
-
-                return BinaryRowConverter.keyExtractor(schema);
-            }
+            return BinaryRowConverter.keyExtractor(schema).extractColumns(row);
         };
 
         return new TableImpl(

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -29,11 +28,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ExceptionUtils;
-import org.apache.ignite.sql.SqlException;
 
 /**
  * Client iterator.
@@ -110,7 +108,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         lock.lock();
         try {
             if (waiting != -1 || !outBuff.isEmpty()) {
-                ex.compareAndSet(null, new ExecutionCancelledException());
+                ex.compareAndSet(null, new QueryCancelledException());
             }
 
             closed = true; // an exception has to be set first to get right check order
@@ -267,7 +265,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                 cond.await();
             }
         } catch (InterruptedException e) {
-            throw new SqlException(EXECUTION_CANCELLED_ERR, e);
+            throw new QueryCancelledException(e);
         } finally {
             lock.unlock();
         }
