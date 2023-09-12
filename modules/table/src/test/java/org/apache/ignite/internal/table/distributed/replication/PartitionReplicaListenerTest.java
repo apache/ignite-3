@@ -1892,7 +1892,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
 
         if (expectValidationFailure) {
-            TransactionException ex = assertWillThrowFast(future, TransactionException.class);
+            IncompatibleSchemaException ex = assertWillThrowFast(future, IncompatibleSchemaException.class);
             assertThat(ex.code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
             assertThat(
                     ex.getMessage(),

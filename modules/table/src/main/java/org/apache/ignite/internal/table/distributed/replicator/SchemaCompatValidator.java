@@ -30,8 +30,6 @@ import org.apache.ignite.internal.table.distributed.schema.FullTableSchema;
 import org.apache.ignite.internal.table.distributed.schema.Schemas;
 import org.apache.ignite.internal.table.distributed.schema.TableDefinitionDiff;
 import org.apache.ignite.internal.tx.TransactionIds;
-import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -172,7 +170,7 @@ class SchemaCompatValidator {
         return isForwardCompatible(newSchema, oldSchema);
     }
 
-    void failIfSchemaChangedSinceTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
+    void failIfSchemaChangedAfterTxStart(UUID txId, HybridTimestamp operationTimestamp, int tableId) {
         HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
         CatalogTableDescriptor tableAtBeginTs = catalogTables.table(tableId, beginTs.longValue());
         CatalogTableDescriptor tableAtOpTs = catalogTables.table(tableId, operationTimestamp.longValue());
@@ -181,8 +179,7 @@ class SchemaCompatValidator {
         assert tableAtOpTs != null;
 
         if (tableAtOpTs.tableVersion() != tableAtBeginTs.tableVersion()) {
-            throw new TransactionException(
-                    Transactions.TX_INCOMPATIBLE_SCHEMA_ERR,
+            throw new IncompatibleSchemaException(
                     String.format(
                             "Table schema was updated after the transaction was started [table=%d, startSchema=%d, operationSchema=%d",
                             tableId, tableAtBeginTs.tableVersion(), tableAtOpTs.tableVersion()

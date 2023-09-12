@@ -2649,7 +2649,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private void failIfSchemaChangedSinceTxStart(UUID txId, HybridTimestamp operationTimestamp) {
-        schemaCompatValidator.failIfSchemaChangedSinceTxStart(txId, operationTimestamp, tableId());
+        schemaCompatValidator.failIfSchemaChangedAfterTxStart(txId, operationTimestamp, tableId());
     }
 
     private CompletableFuture<Integer> reliableCatalogVersionFor(HybridTimestamp ts) {

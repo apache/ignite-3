@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
@@ -34,7 +35,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
-import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -102,7 +102,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                     containsString("Table schema was updated after the transaction was started [table=1, startSchema=1, operationSchema=2")
             );
         } else {
-            ex = assertThrows(TransactionException.class, () -> operation.execute(table, tx, cluster));
+            ex = assertThrows(IncompatibleSchemaException.class, () -> operation.execute(table, tx, cluster));
             assertThat(
                     ex.getMessage(),
                     is("Table schema was updated after the transaction was started [table=1, startSchema=1, operationSchema=2")
