@@ -376,8 +376,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
         vaultMgr.put(zonesFilterUpdateRevision(), longToBytes(causalityToken)).join();
 
-        return saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken)
-                .thenAccept(unused -> causalityDataNodesEngine.onUpdateFilter(causalityToken, zoneId, newFilter));
+        causalityDataNodesEngine.onUpdateFilter(causalityToken, zoneId, newFilter);
+
+        return saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken);
     }
 
     /**
