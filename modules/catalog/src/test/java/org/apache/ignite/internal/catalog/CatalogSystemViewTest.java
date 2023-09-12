@@ -308,7 +308,10 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
     @ParameterizedTest
     @MethodSource("indexViewType")
-    public void createIndexFailsWhenSystemViewWithTheSameNameExistsInTheSystemSchema(SystemViewType type, IndexCommandType indexCommandType) {
+    public void createIndexFailsWhenSystemViewWithTheSameNameExistsInTheSystemSchema(
+            SystemViewType type,
+            IndexCommandType indexCommandType) {
+
         CreateSystemViewCommand createView = CreateSystemViewCommand.builder()
                 .name(SYS_VIEW_NAME)
                 .columns(List.of(
@@ -335,11 +338,12 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
     }
 
     private static Stream<Arguments> indexViewType() {
-        return Stream.of(SystemViewType.values()).flatMap(type -> Arrays.stream(IndexCommandType.values()).map(idx -> Arguments.of(type, idx)));
+        return Stream.of(SystemViewType.values())
+                .flatMap(type -> Arrays.stream(IndexCommandType.values()).map(idx -> Arguments.of(type, idx)));
     }
 
     /**
-     * Index commands that may fail if a view with the same name already exists.
+     * Index commands that may fail if a system view with the same name already exists.
      */
     public enum IndexCommandType {
         CREATE_HASH_INDEX,
