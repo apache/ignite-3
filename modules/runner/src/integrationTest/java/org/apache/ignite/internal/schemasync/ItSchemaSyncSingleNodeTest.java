@@ -78,7 +78,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
     @EnumSource(Operation.class)
     void readWriteOperationInTxAfterAlteringSchemaOnTargetTableIsRejected(Operation operation) {
         cluster.doInSession(0, session -> {
-            executeUpdate("create table " + TABLE_NAME + " (id int primary key, val varchar)", session);
+            executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar)", session);
         });
 
         Table table = node.tables().table(TABLE_NAME);
@@ -89,9 +89,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         enlistTableInTransaction(table, tx);
 
-        cluster.doInSession(0, session -> {
-            executeUpdate("alter table " + TABLE_NAME + " add column added int", session);
-        });
+        alterTable(TABLE_NAME);
 
         IgniteException ex;
 
@@ -117,6 +115,12 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         }
     }
 
+    private void alterTable(String tableName) {
+        cluster.doInSession(0, session -> {
+            executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN added int", session);
+        });
+    }
+
     private static void putPreExistingValueTo(Table table) {
         table.keyValueView().put(null, Tuple.create().set("id", KEY), Tuple.create().set("val", "original"));
     }
@@ -127,7 +131,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
     private static void executeReadOn(Table table, Transaction tx, Cluster cluster) {
         cluster.doInSession(0, session -> {
-            executeUpdate("select * from " + table.name(), session, tx);
+            executeUpdate("SELECT * FROM " + table.name(), session, tx);
         });
     }
 
@@ -158,7 +162,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             @Override
             void execute(Table table, Transaction tx, Cluster cluster) {
                 cluster.doInSession(0, session -> {
-                    executeUpdate("update " + table.name() + " set val = 'new value' where id = " + KEY, session, tx);
+                    executeUpdate("UPDATE " + table.name() + " SET val = 'new value' WHERE id = " + KEY, session, tx);
                 });
             }
 
@@ -194,8 +198,8 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
     @Test
     void readWriteOperationInTxAfterAlteringSchemaOnAnotherTableIsUnaffected() {
         cluster.doInSession(0, session -> {
-            executeUpdate("create table " + TABLE_NAME + " (id int primary key, val varchar)", session);
-            executeUpdate("create table " + UNRELATED_TABLE_NAME + " (id int primary key, val varchar)", session);
+            executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar)", session);
+            executeUpdate("CREATE TABLE " + UNRELATED_TABLE_NAME + " (id int PRIMARY KEY, val varchar)", session);
         });
 
         Table table = node.tables().table(TABLE_NAME);
@@ -204,9 +208,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         enlistTableInTransaction(table, tx);
 
-        cluster.doInSession(0, session -> {
-            executeUpdate("alter table " + UNRELATED_TABLE_NAME + " add column added int", session);
-        });
+        alterTable(UNRELATED_TABLE_NAME);
 
         assertDoesNotThrow(() -> putInTx(table, tx));
     }
