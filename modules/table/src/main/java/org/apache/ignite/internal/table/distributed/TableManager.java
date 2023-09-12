@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
@@ -34,6 +35,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.schema.CatalogDescriptorUtils.toTableDescriptor;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
+import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.internal.utils.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
@@ -43,11 +45,9 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNum
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -396,6 +396,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final PlacementDriver placementDriver;
 
     /**
+     * Future that represents the state of Rebalance recovery.
+     *
+     * <p>Until it is done, Meta Storage Watch processing of new Rebalance-related events should be blocked.
+     */
+    private final CompletableFuture<Void> recoveryFuture = new CompletableFuture<>();
+
+    /**
      * Creates a new table manager.
      *
      * @param nodeName Node name.
@@ -537,17 +544,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         lowWatermark.start();
 
-        try {
-            metaStorageMgr.recoveryFinishedFuture()
-                    .thenComposeAsync(this::performRebalanceOnRecovery, ioExecutor)
-                    .get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new IgniteInternalException(INTERNAL_ERR, e);
-        } catch (ExecutionException e) {
-            throw new IgniteInternalException(INTERNAL_ERR, e);
-        }
+        metaStorageMgr.recoveryFinishedFuture()
+                .thenComposeAsync(this::performRebalanceOnRecovery, ioExecutor)
+                .whenComplete(copyStateTo(recoveryFuture));
 
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
         metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
@@ -589,10 +588,29 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(prefix, revision)) {
             CompletableFuture<?>[] futures = cursor.stream()
-                    .map(this::handleChangePendingAssignmentEvent)
+                    .map(pendingAssignmentEntry -> {
+                        if (LOG.isInfoEnabled()) {
+                            LOG.info(
+                                    "Missed pending assignments for key '{}' with revision {} discovered, performing recovery",
+                                    new String(pendingAssignmentEntry.key(), UTF_8),
+                                    revision
+                            );
+                        }
+
+                        // We use the Meta Storage recovery revision here instead of the entry revision, because
+                        // 'handleChangePendingAssignmentEvent' accesses some Versioned Values that only store values starting with
+                        // tokens equal to Meta Storage recovery revision. In other words, if the entry has a lower revision than the
+                        // recovery revision, there will never be a Versioned Value corresponding to its revision.
+                        return handleChangePendingAssignmentEvent(pendingAssignmentEntry, revision);
+                    })
                     .toArray(CompletableFuture[]::new);
 
-            return allOf(futures);
+            return allOf(futures)
+                    .whenComplete((v, e) -> {
+                        if (e != null) {
+                            LOG.error("Error when performing pending assignments recovery", e);
+                        }
+                    });
         }
     }
 
@@ -2202,7 +2220,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 try {
                     assert evt.single();
 
-                    return handleChangePendingAssignmentEvent(evt.entryEvent().newEntry());
+                    return recoveryFuture.thenComposeAsync(v -> {
+                        Entry newEntry = evt.entryEvent().newEntry();
+
+                        return handleChangePendingAssignmentEvent(newEntry, evt.revision());
+                    }, ioExecutor);
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -2215,14 +2237,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         };
     }
 
-    private CompletableFuture<Void> handleChangePendingAssignmentEvent(Entry pendingAssignmentsEntry) {
+    private CompletableFuture<Void> handleChangePendingAssignmentEvent(Entry pendingAssignmentsEntry, long revision) {
         if (pendingAssignmentsEntry.value() == null) {
             return completedFuture(null);
         }
 
         int partId = extractPartitionNumber(pendingAssignmentsEntry.key());
         int tblId = extractTableId(pendingAssignmentsEntry.key(), PENDING_ASSIGNMENTS_PREFIX);
-        long revision = pendingAssignmentsEntry.revision();
 
         var replicaGrpId = new TablePartitionId(tblId, partId);
 
@@ -2240,7 +2261,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 replicaGrpId,
                                 tables.get(tblId),
                                 pendingAssignmentsEntry,
-                                stableAssignmentsEntry
+                                stableAssignmentsEntry,
+                                revision
                         );
                     } finally {
                         busyLock.leaveBusy();
@@ -2253,14 +2275,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             TablePartitionId replicaGrpId,
             TableImpl tbl,
             Entry pendingAssignmentsEntry,
-            Entry stableAssignmentsEntry
+            Entry stableAssignmentsEntry,
+            long revision
     ) {
         ClusterNode localMember = localNode();
 
         int partId = replicaGrpId.partitionId();
 
         if (LOG.isInfoEnabled()) {
-            var stringKey = new String(pendingAssignmentsEntry.key(), StandardCharsets.UTF_8);
+            var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
 
             LOG.info("Received update on pending assignments. Check if new raft group should be started"
                             + " [key={}, partition={}, table={}, localMemberAddress={}]",
@@ -2284,7 +2307,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         CompletableFuture<Void> localServicesStartFuture;
 
         if (shouldStartLocalServices) {
-            localServicesStartFuture = localPartsByTableIdVv.get(pendingAssignmentsEntry.revision())
+            localServicesStartFuture = localPartsByTableIdVv.get(revision)
                     .thenComposeAsync(oldMap -> {
                         int tableId = tbl.tableId();
 
@@ -2381,7 +2404,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             // Do not change peers of the raft group if this is a stale event.
                                             // Note that we start raft node before for the sake of the consistency in a starting and
                                             // stopping raft nodes.
-                                            if (pendingAssignmentsEntry.revision() < latestPendingAssignmentsEntry.revision()) {
+                                            if (revision < latestPendingAssignmentsEntry.revision()) {
                                                 return completedFuture(null);
                                             }
 

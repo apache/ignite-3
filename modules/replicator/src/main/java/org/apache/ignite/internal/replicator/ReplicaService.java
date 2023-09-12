@@ -19,6 +19,7 @@ package org.apache.ignite.internal.replicator;
 
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_COMMON_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
@@ -158,13 +159,7 @@ public class ReplicaService {
                                     assert response0 instanceof AwaitReplicaResponse :
                                             "Incorrect response type [type=" + response0.getClass().getSimpleName() + ']';
 
-                                    sendToReplica(targetNodeConsistentId, req).whenComplete((r, e) -> {
-                                        if (e != null) {
-                                            res.completeExceptionally(e);
-                                        } else {
-                                            res.complete((R) r);
-                                        }
-                                    });
+                                    this.<R>sendToReplica(targetNodeConsistentId, req).whenComplete(copyStateTo(res));
                                 }
                             }
 

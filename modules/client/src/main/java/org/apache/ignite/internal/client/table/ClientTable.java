@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
@@ -416,13 +417,7 @@ public class ClientTable implements Table {
 
                         doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider, retryPolicyOverride,
                                 expectedVersion)
-                                .whenComplete((res0, err0) -> {
-                                    if (err0 != null) {
-                                        fut.completeExceptionally(err0);
-                                    } else {
-                                        fut.complete(res0);
-                                    }
-                                });
+                                .whenComplete(copyStateTo(fut));
                     } else if (schemaVersionOverride == null && cause instanceof UnmappedColumnsException) {
                         // Force load latest schema and revalidate user data against it.
                         // When schemaVersionOverride is not null, we already tried to load the schema.
@@ -430,13 +425,7 @@ public class ClientTable implements Table {
 
                         doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider, retryPolicyOverride,
                                 UNKNOWN_SCHEMA_VERSION)
-                                .whenComplete((res0, err0) -> {
-                                    if (err0 != null) {
-                                        fut.completeExceptionally(err0);
-                                    } else {
-                                        fut.complete(res0);
-                                    }
-                                });
+                                .whenComplete(copyStateTo(fut));
                     } else {
                         fut.completeExceptionally(err);
                     }
