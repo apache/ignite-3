@@ -82,6 +82,7 @@ import org.apache.ignite.internal.distributionzones.configuration.DistributionZo
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -837,7 +838,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 distributionZoneManager,
                 mock(SchemaSyncService.class),
                 mock(CatalogService.class),
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                new TestPlacementDriver(NODE_NAME)
         ) {
 
             @Override

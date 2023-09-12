@@ -58,6 +58,8 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -95,7 +97,7 @@ import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -177,6 +179,8 @@ public class ItTxTestCluster {
 
     protected final List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
+    protected PlacementDriver placementDriver;
+
     private ScheduledThreadPoolExecutor executor;
 
     protected IgniteTransactions igniteTransactions;
@@ -248,6 +252,8 @@ public class ItTxTestCluster {
         for (ClusterService node : cluster) {
             assertTrue(waitForTopology(node, nodes, 1000));
         }
+
+        placementDriver = new TestPlacementDriver(cluster.get(0).nodeName());
 
         LOG.info("The cluster has been started");
 
@@ -395,10 +401,10 @@ public class ItTxTestCluster {
                 var mvTableStorage = new TestMvTableStorage(tableId, DEFAULT_PARTITION_COUNT);
                 var mvPartStorage = new TestMvPartitionStorage(partId);
                 var txStateStorage = txStateStorages.get(assignment);
-                var placementDriver = new PlacementDriver(replicaServices.get(assignment), consistentIdToNode);
+                var transactionStateResolver = new TransactionStateResolver(replicaServices.get(assignment), consistentIdToNode);
 
                 for (int part = 0; part < assignments.size(); part++) {
-                    placementDriver.updateAssignment(grpIds.get(part), assignments.get(part));
+                    transactionStateResolver.updateAssignment(grpIds.get(part), assignments.get(part));
                 }
 
                 int indexId = globalIndexId++;
@@ -484,7 +490,7 @@ public class ItTxTestCluster {
                                                 clocks.get(assignment),
                                                 safeTime,
                                                 txStateStorage,
-                                                placementDriver,
+                                                transactionStateResolver,
                                                 storageUpdateHandler,
                                                 new DummySchemas(schemaManager),
                                                 consistentIdToNode.apply(assignment),
@@ -492,7 +498,8 @@ public class ItTxTestCluster {
                                                 mock(IndexBuilder.class),
                                                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                                                 mock(CatalogService.class),
-                                                tablesConfig
+                                                tablesConfig,
+                                                placementDriver
                                         ),
                                         raftSvc,
                                         storageIndexTracker
@@ -554,7 +561,8 @@ public class ItTxTestCluster {
                 mock(TxStateTableStorage.class),
                 startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient ? clientClock : clocks.get(localNodeName),
-                timestampTracker
+                timestampTracker,
+                placementDriver
         ), new DummySchemaManagerImpl(schemaDescriptor), clientTxManager.lockManager());
     }
 

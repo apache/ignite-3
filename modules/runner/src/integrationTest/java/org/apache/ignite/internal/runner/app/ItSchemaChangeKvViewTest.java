@@ -28,6 +28,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -124,6 +125,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check rename column from table schema.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733") // get hangs on registry.waitLatestSchema() after column update.
     public void testRenameColumn() throws Exception {
         List<Ignite> grid = startGrid();
 
@@ -256,6 +258,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check merge table schema changes.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18733") // get hangs on registry.waitLatestSchema() after column update.
     public void testMergeChangesColumnDefault() throws Exception {
         List<Ignite> grid = startGrid();
 
