@@ -44,12 +44,12 @@ import org.junit.jupiter.params.provider.EnumSource;
  * Tests about basic Schema Synchronization properties that can be tested using just one Ignite node.
  */
 class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
-    private static final int UNKNOWN_RECORD_ID = 999;
-
     private static final int NODES_TO_START = 1;
 
     private static final String TABLE_NAME = "test";
     private static final String UNRELATED_TABLE_NAME = "unrelated_table";
+
+    private static final int KEY = 1;
 
     private IgniteImpl node;
 
@@ -83,6 +83,8 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         Table table = node.tables().table(TABLE_NAME);
 
+        putPreExistingValueTo(table);
+
         InternalTransaction tx = (InternalTransaction) node.transactions().begin();
 
         enlistTableInTransaction(table, tx);
@@ -115,6 +117,10 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         }
     }
 
+    private static void putPreExistingValueTo(Table table) {
+        table.keyValueView().put(null, Tuple.create().set("id", KEY), Tuple.create().set("val", "original"));
+    }
+
     private void enlistTableInTransaction(Table table, Transaction tx) {
         executeReadOn(table, tx, cluster);
     }
@@ -140,7 +146,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         KV_READ {
             @Override
             void execute(Table table, Transaction tx, Cluster cluster) {
-                table.keyValueView().get(tx, Tuple.create().set("id", UNKNOWN_RECORD_ID));
+                table.keyValueView().get(tx, Tuple.create().set("id", KEY));
             }
 
             @Override
@@ -152,7 +158,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             @Override
             void execute(Table table, Transaction tx, Cluster cluster) {
                 cluster.doInSession(0, session -> {
-                    executeUpdate("insert into " + table.name() + " (id, val) values (1, 'one')", session, tx);
+                    executeUpdate("update " + table.name() + " set val = 'new value' where id = " + KEY, session, tx);
                 });
             }
 
