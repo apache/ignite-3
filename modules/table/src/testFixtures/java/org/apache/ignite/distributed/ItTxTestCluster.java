@@ -487,6 +487,7 @@ public class ItTxTestCluster {
                                                 mvTableStorage,
                                                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                                                 mock(CatalogService.class),
+                                                tablesConfig,
                                                 placementDriver,
                                                 mock(IndexBuildController.class)
                                         ),

@@ -231,6 +231,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT),
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 mock(CatalogService.class),
+                tablesConfig,
                 new TestPlacementDriver(localNode.name()),
                 mock(IndexBuildController.class)
         );

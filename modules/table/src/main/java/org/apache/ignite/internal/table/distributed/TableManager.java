@@ -1056,6 +1056,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 table.internalTable().storage(),
                 schemaSyncService,
                 catalogService,
+                tablesCfg,
                 placementDriver,
                 indexBuildController
         );

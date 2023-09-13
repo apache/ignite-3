@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationUtils.findTableView;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
@@ -78,6 +79,8 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.schema.configuration.TableView;
+import org.apache.ignite.internal.schema.configuration.TablesConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -264,8 +267,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param storageUpdateHandler Handler that processes updates writing them to storage.
      * @param localNode Instance of the local node.
      * @param mvTableStorage Table storage.
-     * @param indexBuildController Index buid controller.
+     * @param tablesConfig Tables configuration.
      * @param placementDriver Placement driver.
+     * @param indexBuildController Index buid controller.
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
@@ -288,6 +292,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             MvTableStorage mvTableStorage,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
+            TablesConfiguration tablesConfig,
             PlacementDriver placementDriver,
             IndexBuildController indexBuildController
     ) {

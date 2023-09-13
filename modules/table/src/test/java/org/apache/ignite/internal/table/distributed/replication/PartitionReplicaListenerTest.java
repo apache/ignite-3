@@ -458,6 +458,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new TestMvTableStorage(tblId, DEFAULT_PARTITION_COUNT),
                 schemaSyncService,
                 catalogService,
+                tablesConfig,
                 new TestPlacementDriver(localNode.name()),
                 mock(IndexBuildController.class)
         );

@@ -380,7 +380,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(SchemaSyncService.class, invocation -> completedFuture(null)),
                 mock(CatalogService.class),
                 tablesConfig,
-                new TestPlacementDriver(LOCAL_NODE.name())
+                new TestPlacementDriver(LOCAL_NODE.name()),
                 mock(IndexBuildController.class)
         );
 
