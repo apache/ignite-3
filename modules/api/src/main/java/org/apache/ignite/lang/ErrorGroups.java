@@ -332,6 +332,9 @@ public class ErrorGroups {
 
         /** Failure due to an incompatible schema change. */
         public static final int TX_INCOMPATIBLE_SCHEMA_ERR = TX_ERR_GROUP.registerErrorCode((short) 12);
+
+        /** Failure due to an abandoned transaction. */
+        public static final int TX_ABANDONED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
     }
 
     /** Replicator error group. */

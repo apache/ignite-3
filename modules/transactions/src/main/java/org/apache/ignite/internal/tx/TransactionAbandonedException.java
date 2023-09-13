@@ -17,7 +17,26 @@
 
 package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ABANDONED_ERR;
 
-public class TransactionAbandonedException extends IgniteInternalException {
+import java.util.UUID;
+import org.apache.ignite.tx.TransactionException;
+
+/**
+ * Exception that is thrown when write intent can't be resolved because it has been created by a transaction that is now abandoned
+ * (has a state that currently can't be known).
+ */
+public class TransactionAbandonedException extends TransactionException {
+    private final UUID abandonedTxId;
+
+    public TransactionAbandonedException(UUID abandonedTxId) {
+        super(UUID.randomUUID(), TX_ABANDONED_ERR, null);
+
+        this.abandonedTxId = abandonedTxId;
+    }
+
+    @Override
+    public String getMessage() {
+        return "Operation failed due to abandoned transaction [abandonedTxId=" + abandonedTxId + ']';
+    }
 }

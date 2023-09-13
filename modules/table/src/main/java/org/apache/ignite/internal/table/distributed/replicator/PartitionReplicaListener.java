@@ -220,7 +220,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /**
      * Map to control clock's update in the read only transactions concurrently with a commit timestamp.
-     * TODO: IGNITE-20034 review this after the commit timestamp will be provided from a commit request (request.commitTimestamp()).
      */
     private final ConcurrentHashMap<UUID, CompletableFuture<TxMeta>> txTimestampUpdateMap = new ConcurrentHashMap<>();
 
@@ -447,7 +446,6 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future to transaction state meta or {@code null}.
      */
     private CompletableFuture<TxMeta> getTxStateConcurrently(TxStateReplicaRequest txStateReq) {
-        //TODO: IGNITE-20034 review this after the commit timestamp will be provided from a commit request (request.commitTimestamp()).
         CompletableFuture<TxMeta> txStateFut = new CompletableFuture<>();
 
         txTimestampUpdateMap.compute(txStateReq.txId(), (uuid, fut) -> {
@@ -2551,48 +2549,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             } else {
                 assert txMeta.txState() == ABANDONED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
 
-                throw new TransactionAbandonedException();
+                throw new TransactionAbandonedException(txId);
             }
         });
-
-        /*if (localMeta == null) {
-            return txStateResolver.sendMetaRequest(commitGrpId, FACTORY.txStateReplicaRequest()
-                            .groupId(commitGrpId)
-                            .readTimestampLong((readLatest ? HybridTimestamp.MIN_VALUE : timestamp).longValue())
-                            .txId(txId)
-                            .build())
-                    .thenApply(txMeta -> {
-                        if (txMeta == null) {
-                            return true;
-                        } else if (txMeta.txState() == COMMITED) {
-                            return !readLatest && txMeta.commitTimestamp().compareTo(timestamp) > 0;
-                        } else {
-                            assert txMeta.txState() == ABORTED : "Unexpected transaction state [state=" + txMeta.txState() + ']';
-
-                            return true;
-                        }
-                    });
-        } else if (localMeta.txState() == COMMITED) {
-            return completedFuture(!readLatest && localMeta.commitTimestamp().compareTo(timestamp) > 0);
-        } else if (localMeta.txState() == ABORTED) {
-            return completedFuture(true);
-        } else if (localMeta.txState() == FINISHING) {
-            return localMeta.getFut().thenApply(unused -> {
-                TxStateMeta finishedLocalMeta = txManager.stateMeta(txId);
-
-                if (finishedLocalMeta.txState() == COMMITED) {
-                    return !readLatest && localMeta.commitTimestamp().compareTo(timestamp) > 0;
-                } else {
-                    assert finishedLocalMeta.txState() == ABORTED :
-                            "Unexpected transaction state [state=" + finishedLocalMeta.txState() + ']';
-
-                    return true;
-                }
-            });
-        } else {
-            // Coordinator path
-            // Sent status request to localMeta.txCoordinatorId()
-        }*/
     }
 
     private CompletableFuture<Void> validateAtTimestamp(UUID txId) {

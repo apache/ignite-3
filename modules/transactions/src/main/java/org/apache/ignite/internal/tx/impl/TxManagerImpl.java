@@ -191,8 +191,8 @@ public class TxManagerImpl implements TxManager {
     }
 
     @Override
-    public TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-        return txStateMap.compute(txId, (k, oldMeta) -> {
+    public void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+        txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
             if (newMeta == null) {

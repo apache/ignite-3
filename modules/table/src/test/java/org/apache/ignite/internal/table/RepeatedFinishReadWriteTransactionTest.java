@@ -251,8 +251,8 @@ public class RepeatedFinishReadWriteTransactionTest extends BaseIgniteAbstractTe
         }
 
         @Override
-        public TxStateMeta updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
-            return null;
+        public void updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+            // No-op.
         }
 
         @Override
