@@ -388,8 +388,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         when(topologySrv.localMember()).thenReturn(localNode);
 
-        HybridTimestamp txFixedTimestamp = clock.now();
-
         when(safeTimeClock.waitFor(any())).thenReturn(completedFuture(null));
 
         when(schemas.waitForSchemasAvailability(any())).thenReturn(completedFuture(null));

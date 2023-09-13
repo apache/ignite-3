@@ -2017,6 +2017,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     /**
+     * Returns server nodes' tx managers.
+     *
      * @return Server nodes' tx managers.
      */
     protected abstract Collection<TxManager> txManagers();
