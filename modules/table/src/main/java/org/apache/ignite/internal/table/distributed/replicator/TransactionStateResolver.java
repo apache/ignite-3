@@ -76,6 +76,11 @@ public class TransactionStateResolver {
     /** Function that resolves a node consistent ID to a cluster node. */
     private final Function<String, ClusterNode> clusterNodeResolver;
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-20408 after this ticket this resolver will be no longer needed, as
+    // TODO we will store coordinator as ClusterNode in local tx state map.
+    /** Function that resolves a node non-consistent ID to a cluster node. */
+    private final Function<String, ClusterNode> clusterNodeResolverById;
+
     private final Map<UUID, CompletableFuture<TransactionMeta>> txStateFutures = new ConcurrentHashMap<>();
 
     private final Lazy<String> localNodeId;
@@ -100,6 +105,7 @@ public class TransactionStateResolver {
             TxManager txManager,
             HybridClock clock,
             Function<String, ClusterNode> clusterNodeResolver,
+            Function<String, ClusterNode> clusterNodeResolverById,
             Supplier<String> localNodeIdSupplier,
             MessagingService messagingService
     ) {
@@ -107,6 +113,7 @@ public class TransactionStateResolver {
         this.txManager = txManager;
         this.clock = clock;
         this.clusterNodeResolver = clusterNodeResolver;
+        this.clusterNodeResolverById = clusterNodeResolverById;
         this.localNodeId = new Lazy<>(localNodeIdSupplier);
         this.messagingService = messagingService;
     }
@@ -214,7 +221,7 @@ public class TransactionStateResolver {
             HybridTimestamp timestamp,
             CompletableFuture<TransactionMeta> txMetaFuture
     ) {
-        ClusterNode coordinator = clusterNodeResolver.apply(coordinatorId);
+        ClusterNode coordinator = clusterNodeResolverById.apply(coordinatorId);
 
         updateLocalTxMapAfterDistributedStateResolved(txId, txMetaFuture);
 

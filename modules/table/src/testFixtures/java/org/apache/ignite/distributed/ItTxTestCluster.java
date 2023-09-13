@@ -43,6 +43,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -168,6 +169,8 @@ public class ItTxTestCluster {
 
     protected TxManager clientTxManager;
 
+    protected TransactionStateResolver clientTxStateResolver;
+
     protected Map<String, List<RaftGroupService>> raftClients = new HashMap<>();
 
     protected Map<String, TxStateStorage> txStateStorages;
@@ -191,6 +194,22 @@ public class ItTxTestCluster {
             if (clusterNode.name().equals(consistentId)) {
                 return clusterNode;
             }
+        }
+
+        return null;
+    };
+
+    private final Function<String, ClusterNode> idToNode = id -> {
+        for (ClusterService service : cluster) {
+            ClusterNode clusterNode = service.topologyService().localMember();
+
+            if (clusterNode.id().equals(id)) {
+                return clusterNode;
+            }
+        }
+
+        if (client != null && client.topologyService().localMember().id().equals(id)) {
+            return client.topologyService().localMember();
         }
 
         return null;
@@ -342,8 +361,21 @@ public class ItTxTestCluster {
         localNodeName = cluster.get(0).topologyService().localMember().name();
 
         if (startClient) {
+            Supplier<String> localNodeIdSupplier = () -> client.topologyService().localMember().id();
+
             clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock, new TransactionIdGenerator(-1),
-                    () -> cluster.get(0).topologyService().localMember().id());
+                    localNodeIdSupplier);
+
+            clientTxStateResolver = new TransactionStateResolver(
+                    clientReplicaSvc,
+                    clientTxManager,
+                    clientClock,
+                    consistentIdToNode,
+                    idToNode,
+                    localNodeIdSupplier,
+                    client.messagingService()
+            );
+            clientTxStateResolver.start();
         } else {
             // Collocated mode.
             clientTxManager = txManagers.get(localNodeName);
@@ -403,6 +435,7 @@ public class ItTxTestCluster {
                         txManagers.get(assignment),
                         clocks.get(assignment),
                         consistentIdToNode,
+                        idToNode,
                         () -> clusterServices.get(assignment).topologyService().localMember().id(),
                         clusterServices.get(assignment).messagingService()
                 );

@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxStateReplicaRequest;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.Table;
@@ -109,8 +111,10 @@ public class TxLocalTest extends TxAbstractTest {
 
         txManager = new TxManagerImpl(replicaSvc, lockManager, localClock, new TransactionIdGenerator(0xdeadbeef), () -> "local");
 
+        Function<String, ClusterNode> anyNodeResolver = a -> clusterService.topologyService().localMember();
+
         TransactionStateResolver transactionStateResolver = new TransactionStateResolver(replicaSvc, txManager, localClock,
-                a -> clusterService.topologyService().localMember(), () -> "local", msgSvc);
+                anyNodeResolver, anyNodeResolver, () -> "local", msgSvc);
 
         igniteTransactions = new IgniteTransactionsImpl(txManager, timestampTracker);
 

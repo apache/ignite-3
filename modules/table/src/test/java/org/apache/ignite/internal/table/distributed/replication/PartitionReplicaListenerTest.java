@@ -420,8 +420,15 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         doAnswer(invocation -> txStateMeta).when(txManager).stateMeta(any());
 
-        transactionStateResolver = new TransactionStateResolver(mock(ReplicaService.class), txManager, clock,
-                id -> id.equals(localNode.id()) ? localNode : anotherNode, () -> localNode.id(), messagingService);
+        transactionStateResolver = new TransactionStateResolver(
+                mock(ReplicaService.class),
+                txManager,
+                clock,
+                consistentId -> consistentId.equals(localNode.name()) ? localNode : anotherNode,
+                id -> id.equals(localNode.id()) ? localNode : anotherNode,
+                () -> localNode.id(),
+                messagingService
+        );
 
         partitionReplicaListener = new PartitionReplicaListener(
                 testMvPartitionStorage,

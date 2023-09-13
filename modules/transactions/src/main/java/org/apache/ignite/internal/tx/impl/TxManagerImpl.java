@@ -195,7 +195,6 @@ public class TxManagerImpl implements TxManager {
         return txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
-            new Exception("qqq " + oldMeta + ' ' + newMeta).printStackTrace();
             if (newMeta == null) {
                 return null;
             }
