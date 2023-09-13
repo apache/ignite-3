@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
-import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.pagememory.persistence.GroupPartitionId;
 import org.jetbrains.annotations.Nullable;
