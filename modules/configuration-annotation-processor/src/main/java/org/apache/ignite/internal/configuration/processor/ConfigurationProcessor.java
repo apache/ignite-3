@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.configuration.processor.ConfigurationPr
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
-import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 
 import com.google.auto.service.AutoService;
 import com.squareup.javapoet.ClassName;
@@ -760,7 +759,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
     /** {@inheritDoc} */
     @Override
     public Set<String> getSupportedAnnotationTypes() {
-        return Set.copyOf(viewReadOnly(supportedAnnotationTypes(), Class::getCanonicalName));
+        return supportedAnnotationTypes().stream().map(Class::getCanonicalName).collect(toSet());
     }
 
     /** {@inheritDoc} */
