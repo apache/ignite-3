@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -50,7 +49,6 @@ import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
@@ -246,10 +244,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         tryToCreateIndex(ignite0, TABLE_NAME, true);
 
-        assertThrowsWithCause(
-                () -> tryToCreateIndex(ignite0, TABLE_NAME, true),
-                IndexExistsValidationException.class
-        );
+        assertThrowsWithCause(() -> tryToCreateIndex(ignite0, TABLE_NAME, true), IndexExistsValidationException.class);
 
         tryToCreateIndex(ignite0, TABLE_NAME, false);
     }
@@ -280,10 +275,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
-                assertThrowsWithCause(
-                        () -> tryToCreateIndex(ignite, TABLE_NAME, true),
-                        IndexExistsValidationException.class
-                );
+                assertThrowsWithCause(() -> tryToCreateIndex(ignite, TABLE_NAME, true), IndexExistsValidationException.class);
 
                 addIndexIfNotExists(ignite, TABLE_NAME);
             }
@@ -294,7 +286,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         ignite1Inhibitor.stopInhibit();
 
-        assertThat(addIndesFut, willThrow(IndexAlreadyExistsException.class));
+        assertThat(addIndesFut, willThrowWithCauseOrSuppressed(IndexExistsValidationException.class));
 
         addIndesIfNotExistsFut.get(10, TimeUnit.SECONDS);
     }
