@@ -131,6 +131,10 @@ import org.junit.jupiter.api.TestInfo;
  * Class that allows to mock a cluster for transaction tests' purposes.
  */
 public class ItTxTestCluster {
+    private final List<NetworkAddress> localAddresses;
+
+    private final NodeFinder nodeFinder;
+
     private final RaftConfiguration raftConfig;
 
     private final GcConfiguration gcConfig;
@@ -243,6 +247,9 @@ public class ItTxTestCluster {
         this.startClient = startClient;
         this.testInfo = testInfo;
         this.timestampTracker = timestampTracker;
+
+        localAddresses = findLocalAddresses(NODE_PORT_BASE, NODE_PORT_BASE + nodes);
+        nodeFinder = new StaticNodeFinder(localAddresses);
     }
 
     /**
@@ -251,10 +258,6 @@ public class ItTxTestCluster {
     protected void prepareCluster() throws Exception {
         assertTrue(nodes > 0);
         assertTrue(replicas > 0);
-
-        List<NetworkAddress> localAddresses = findLocalAddresses(NODE_PORT_BASE, NODE_PORT_BASE + nodes);
-
-        var nodeFinder = new StaticNodeFinder(localAddresses);
 
         clusterServices = new ConcurrentHashMap<>(nodes);
 
@@ -274,20 +277,7 @@ public class ItTxTestCluster {
         LOG.info("The cluster has been started");
 
         if (startClient) {
-            client = startNode(testInfo, "client", NODE_PORT_BASE - 1, nodeFinder);
-
-            assertTrue(waitForTopology(client, nodes + 1, 1000));
-
-            clientClock = new HybridClockImpl();
-
-            LOG.info("Replica manager has been started, node=[" + client.topologyService().localMember() + ']');
-
-            clientReplicaSvc = new ReplicaService(
-                    client.messagingService(),
-                    clientClock
-            );
-
-            LOG.info("The client has been started");
+            startClient();
         }
 
         // Start raft servers. Each raft server can hold multiple groups.
@@ -361,29 +351,13 @@ public class ItTxTestCluster {
         localNodeName = cluster.get(0).topologyService().localMember().name();
 
         if (startClient) {
-            Supplier<String> localNodeIdSupplier = () -> client.topologyService().localMember().id();
-
-            clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock, new TransactionIdGenerator(-1),
-                    localNodeIdSupplier);
-
-            clientTxStateResolver = new TransactionStateResolver(
-                    clientReplicaSvc,
-                    clientTxManager,
-                    clientClock,
-                    consistentIdToNode,
-                    idToNode,
-                    localNodeIdSupplier,
-                    client.messagingService()
-            );
-            clientTxStateResolver.start();
+            initializeClientTxComponents();
         } else {
             // Collocated mode.
             clientTxManager = txManagers.get(localNodeName);
         }
 
         assertNotNull(clientTxManager);
-
-        igniteTransactions = new IgniteTransactionsImpl(clientTxManager, timestampTracker);
     }
 
     public IgniteTransactions igniteTransactions() {
@@ -706,5 +680,42 @@ public class ItTxTestCluster {
         network.start();
 
         return network;
+    }
+
+    private void startClient() throws InterruptedException {
+        client = startNode(testInfo, "client", NODE_PORT_BASE - 1, nodeFinder);
+
+        assertTrue(waitForTopology(client, nodes + 1, 1000));
+
+        clientClock = new HybridClockImpl();
+
+        LOG.info("Replica manager has been started, node=[" + client.topologyService().localMember() + ']');
+
+        clientReplicaSvc = new ReplicaService(
+                client.messagingService(),
+                clientClock
+        );
+
+        LOG.info("The client has been started");
+    }
+
+    private void initializeClientTxComponents() {
+        Supplier<String> localNodeIdSupplier = () -> client.topologyService().localMember().id();
+
+        clientTxManager = new TxManagerImpl(clientReplicaSvc, new HeapLockManager(), clientClock, new TransactionIdGenerator(-1),
+                localNodeIdSupplier);
+
+        clientTxStateResolver = new TransactionStateResolver(
+                clientReplicaSvc,
+                clientTxManager,
+                clientClock,
+                consistentIdToNode,
+                idToNode,
+                localNodeIdSupplier,
+                client.messagingService()
+        );
+        clientTxStateResolver.start();
+
+        igniteTransactions = new IgniteTransactionsImpl(clientTxManager, timestampTracker);
     }
 }

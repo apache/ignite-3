@@ -41,6 +41,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
@@ -65,6 +66,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Pair;
@@ -118,8 +120,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     protected HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
 
     protected IgniteTransactions igniteTransactions;
-
-    protected TxManager clientTxManager;
 
     @Test
     public void testCommitRollbackSameTxDoesNotThrow() throws TransactionException {
@@ -1633,7 +1633,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param id The id.
      * @return The key tuple.
      */
-    private Tuple makeKey(long id) {
+    protected Tuple makeKey(long id) {
         return Tuple.create().set("accountNumber", id);
     }
 
@@ -1935,6 +1935,29 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         assertEquals(BALANCE_1, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
     }
 
+    @Test
+    public void testWriteIntentResolutionFallbackToCommitPartitionPath() {
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+
+        // Pending tx
+        Transaction tx = igniteTransactions.begin();
+        accounts.recordView().delete(tx, makeKey(1));
+
+        // Imitate the restart of the client node, which is a tx coordinator, in order to make its volatile state of unavailable.
+        // Now coordinator path of the write intent resolution has no effect, and we should fallback to commit partition path.
+        UUID txId = ((ReadWriteTransactionImpl) tx).id();
+
+        txManagers().forEach(txManager ->
+                txManager.updateTxMeta(txId, old -> new TxStateMeta(old.txState(), "restarted", old.commitTimestamp())));
+
+        // Read-only.
+        Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
+        assertEquals(100., accounts.recordView().get(readOnlyTx, makeKey(1)).doubleValue("balance"));
+
+        // Commit pending tx.
+        tx.commit();
+    }
+
     /**
      * Checks operations that act after a transaction is committed, are finished with exception.
      *
@@ -1992,4 +2015,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             assertThat(res, contains(null, null));
         }
     }
+
+    /**
+     * @return Server nodes' tx managers.
+     */
+    protected abstract Collection<TxManager> txManagers();
 }

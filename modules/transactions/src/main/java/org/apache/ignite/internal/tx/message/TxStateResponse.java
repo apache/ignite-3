@@ -20,6 +20,7 @@ import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.annotations.Transferable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Transaction state response.
@@ -27,5 +28,6 @@ import org.apache.ignite.network.annotations.Transferable;
 @Transferable(TxMessageGroup.TX_STATE_RESPONSE)
 public interface TxStateResponse extends TimestampAware {
     @Marshallable
+    @Nullable
     TransactionMeta txStateMeta();
 }

@@ -341,7 +341,7 @@ public class TransactionStateResolver {
 
         TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
-        if (txStateMeta.txState() == FINISHING) {
+        if (txStateMeta != null && txStateMeta.txState() == FINISHING) {
             assert txStateMeta instanceof TxStateMetaFinishing;
 
             TxStateMetaFinishing txStateMetaFinishing = (TxStateMetaFinishing) txStateMeta;
@@ -351,7 +351,7 @@ public class TransactionStateResolver {
             txStateFutures.computeIfAbsent(txId, k -> {
                 TxStateMeta meta = txManager.stateMeta(txId);
 
-                if (meta.txState() != FINISHING) {
+                if (meta != null && meta.txState() != FINISHING) {
                     futRef.set(completedFuture(meta));
 
                     return null;
