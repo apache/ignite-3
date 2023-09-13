@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -104,7 +105,8 @@ public class CreateSystemViewCommand implements CatalogCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         int id = catalog.objectIdGenState();
 
-        CatalogSchemaDescriptor systemSchema = catalog.schema(CatalogManager.SYSTEM_SCHEMA_NAME);
+        CatalogSchemaDescriptor systemSchema = schemaOrThrow(catalog, CatalogManager.SYSTEM_SCHEMA_NAME);
+
         List<CatalogTableColumnDescriptor> viewColumns = columns.stream().map(CatalogUtils::fromParams).collect(toList());
         CatalogSystemViewDescriptor descriptor = new CatalogSystemViewDescriptor(id, name, viewColumns, systemViewType);
 
