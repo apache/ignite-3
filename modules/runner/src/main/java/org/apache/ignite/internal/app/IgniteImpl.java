@@ -1132,4 +1132,14 @@ public class IgniteImpl implements Ignite {
     public PlacementDriver placementDriver() {
         return placementDriverMgr.placementDriver();
     }
+
+    /**
+     * Returns the CatalogManager.
+     *
+     * @return Catalog manager.
+     */
+    @TestOnly
+    public CatalogManager catalogManager() {
+        return catalogManager;
+    }
 }
