@@ -213,13 +213,17 @@ public class CatalogParamsValidationUtils {
      * @param name Name of the relation to look up.
      * @throws CatalogValidationException If relation with specified name exists in given schema.
      */
-    public static void ensureNoTableOrIndexExistsWithGivenName(CatalogSchemaDescriptor schema, String name) {
+    public static void ensureNoTableIndexOrSysViewExistsWithGivenName(CatalogSchemaDescriptor schema, String name) {
         if (schema.index(name) != null) {
             throw new IndexExistsValidationException(format("Index with name '{}.{}' already exists", schema.name(), name));
         }
 
         if (schema.table(name) != null) {
             throw new TableExistsValidationException(format("Table with name '{}.{}' already exists", schema.name(), name));
+        }
+
+        if (schema.systemView(name) != null) {
+            throw new CatalogValidationException(format("System view with name '{}.{}' already exists", schema.name(), name));
         }
     }
 }

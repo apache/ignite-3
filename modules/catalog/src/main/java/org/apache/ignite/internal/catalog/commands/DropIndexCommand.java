@@ -72,7 +72,7 @@ public class DropIndexCommand extends AbstractIndexCommand {
         }
 
         return List.of(
-                new DropIndexEntry(index.id(), index.tableId())
+                new DropIndexEntry(index.id(), index.tableId(), schemaName)
         );
     }
 

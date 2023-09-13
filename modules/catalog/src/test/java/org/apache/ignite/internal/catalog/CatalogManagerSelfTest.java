@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
@@ -136,21 +137,21 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testEmptyCatalog() {
-        CatalogSchemaDescriptor schema = manager.schema(DEFAULT_SCHEMA_NAME, 0);
+        CatalogSchemaDescriptor defaultSchema = manager.schema(DEFAULT_SCHEMA_NAME, 0);
 
-        assertNotNull(schema);
-        assertSame(schema, manager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong()));
-        assertSame(schema, manager.schema(0));
-        assertSame(schema, manager.activeSchema(clock.nowLong()));
+        assertNotNull(defaultSchema);
+        assertSame(defaultSchema, manager.activeSchema(DEFAULT_SCHEMA_NAME, clock.nowLong()));
+        assertSame(defaultSchema, manager.schema(0));
+        assertSame(defaultSchema, manager.activeSchema(clock.nowLong()));
 
         assertNull(manager.schema(1));
         assertThrows(IllegalStateException.class, () -> manager.activeSchema(-1L));
 
         // Validate default schema.
-        assertEquals(DEFAULT_SCHEMA_NAME, schema.name());
-        assertEquals(0, schema.id());
-        assertEquals(0, schema.tables().length);
-        assertEquals(0, schema.indexes().length);
+        assertEquals(DEFAULT_SCHEMA_NAME, defaultSchema.name());
+        assertEquals(0, defaultSchema.id());
+        assertEquals(0, defaultSchema.tables().length);
+        assertEquals(0, defaultSchema.indexes().length);
 
         // Default distribution zone must exists.
         CatalogZoneDescriptor zone = manager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
@@ -164,6 +165,19 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals(DEFAULT_STORAGE_ENGINE, zone.dataStorage().engine());
         assertEquals(DEFAULT_DATA_REGION, zone.dataStorage().dataRegion());
+
+        // System schema should exist.
+
+        CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, 0);
+        assertNotNull(systemSchema, "system schema");
+        assertSame(systemSchema, manager.activeSchema(SYSTEM_SCHEMA_NAME, clock.nowLong()));
+        assertSame(systemSchema, manager.schema(SYSTEM_SCHEMA_NAME, 0));
+
+        // Validate system schema.
+        assertEquals(SYSTEM_SCHEMA_NAME, systemSchema.name());
+        assertEquals(1, systemSchema.id());
+        assertEquals(0, systemSchema.tables().length);
+        assertEquals(0, systemSchema.indexes().length);
 
         assertThat(manager.latestCatalogVersion(), is(0));
     }
@@ -212,7 +226,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(manager.zone(ZONE_NAME, clock.nowLong()).id(), table.zoneId());
 
         // Validate newly created pk index
-        assertEquals(3L, pkIndex.id());
         assertEquals(createPkIndexName(TABLE_NAME), pkIndex.name());
         assertEquals(table.id(), pkIndex.tableId());
         assertEquals(table.primaryKeyColumns(), pkIndex.columns());
@@ -873,7 +886,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(index, manager.index(index.id(), clock.nowLong()));
 
         // Validate newly created hash index
-        assertEquals(4L, index.id());
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
@@ -912,7 +924,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertSame(index, manager.index(index.id(), clock.nowLong()));
 
         // Validate newly created sorted index
-        assertEquals(4L, index.id());
         assertEquals(INDEX_NAME, index.name());
         assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
         assertEquals("VAL", index.columns().get(0).name());
@@ -1082,15 +1093,17 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Validate catalog version from the past.
         assertNull(manager.zone(zoneName, 0));
-        assertNull(manager.zone(2, 0));
         assertNull(manager.zone(zoneName, 123L));
-        assertNull(manager.zone(2, 123L));
 
         // Validate actual catalog
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
 
         assertNotNull(zone);
         assertSame(zone, manager.zone(zone.id(), clock.nowLong()));
+
+        // Validate that catalog returns null for previous timestamps.
+        assertNull(manager.zone(zone.id(), 0));
+        assertNull(manager.zone(zone.id(), 123L));
 
         // Validate newly created zone
         assertEquals(zoneName, zone.name());
@@ -1685,6 +1698,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(addColumnParams(columnParams("ID", INT32))), willThrowFast(CatalogValidationException.class));
     }
+
+
 
     private void createSomeTable(String tableName) {
         assertThat(

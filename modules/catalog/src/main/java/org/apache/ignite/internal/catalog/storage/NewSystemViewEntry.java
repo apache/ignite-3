@@ -18,80 +18,80 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import java.util.Arrays;
-import java.util.Objects;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.events.DropIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.CreateSystemViewEventParameters;
 import org.apache.ignite.internal.tostring.S;
 
 /**
- * Describes deletion of an index.
+ * Describes addition of a new system view.
  */
-public class DropIndexEntry implements UpdateEntry, Fireable {
-    private static final long serialVersionUID = -604729846502020728L;
+public class NewSystemViewEntry implements UpdateEntry, Fireable {
 
-    private final int indexId;
+    private static final long serialVersionUID = 2929374580760746317L;
 
-    private final int tableId;
+    private final CatalogSystemViewDescriptor descriptor;
 
     private final String schemaName;
 
     /**
-     * Constructs the object.
+     * Constructor.
      *
-     * @param indexId An id of an index to drop.
-     * @param tableId Table ID for which the index was removed.
-     * @param schemaName Schema name.
+     * @param descriptor System view descriptor.
+     * @param schemaName A schema name.
      */
-    public DropIndexEntry(int indexId, int tableId, String schemaName) {
-        this.indexId = indexId;
-        this.tableId = tableId;
+    public NewSystemViewEntry(CatalogSystemViewDescriptor descriptor, String schemaName) {
+        this.descriptor = descriptor;
         this.schemaName = schemaName;
     }
 
-    /** Returns an id of an index to drop. */
-    public int indexId() {
-        return indexId;
-    }
-
-    /** Returns table ID for which the index was removed. */
-    public int tableId() {
-        return tableId;
-    }
-
+    /** {@inheritDoc} */
     @Override
     public CatalogEvent eventType() {
-        return CatalogEvent.INDEX_DROP;
+        return CatalogEvent.SYSTEM_VIEW_CREATE;
     }
 
+    /** {@inheritDoc} */
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new DropIndexEventParameters(causalityToken, catalogVersion, indexId, tableId);
+        return new CreateSystemViewEventParameters(causalityToken, catalogVersion, descriptor);
     }
 
+    /** {@inheritDoc} */
     @Override
     public Catalog applyUpdate(Catalog catalog) {
-        CatalogSchemaDescriptor schema = Objects.requireNonNull(catalog.schema(schemaName));
+        CatalogSchemaDescriptor systemSchema = catalog.schema(schemaName);
+
+        Map<String, CatalogSystemViewDescriptor> systemViews = Arrays.stream(systemSchema.systemViews())
+                .collect(Collectors.toMap(CatalogSystemViewDescriptor::name, Function.identity()));
+        systemViews.put(descriptor.name(), descriptor);
+
+        CatalogSystemViewDescriptor[] sysViewArray = systemViews.values().toArray(new CatalogSystemViewDescriptor[0]);
+
+        CatalogSchemaDescriptor newSystemSchema = new CatalogSchemaDescriptor(
+                systemSchema.id(),
+                systemSchema.name(),
+                systemSchema.tables(),
+                systemSchema.indexes(),
+                sysViewArray);
 
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                CatalogUtils.replaceSchema(new CatalogSchemaDescriptor(
-                        schema.id(),
-                        schema.name(),
-                        schema.tables(),
-                        Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(CatalogIndexDescriptor[]::new),
-                        schema.systemViews()
-                ), catalog.schemas())
+                CatalogUtils.replaceSchema(newSystemSchema, catalog.schemas())
         );
     }
 
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);
