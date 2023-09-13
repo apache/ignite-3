@@ -114,6 +114,9 @@ public class TransactionStateResolver {
         this.messagingService = messagingService;
     }
 
+    /**
+     * This should be called in order to allow the transaction state resolver to listen to {@link TxStateRequest} messages.
+     */
     public void start() {
         messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
             if (msg instanceof TxStateRequest) {

@@ -1946,8 +1946,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         // Now coordinator path of the write intent resolution has no effect, and we should fallback to commit partition path.
         UUID txId = ((ReadWriteTransactionImpl) tx).id();
 
-        txManagers().forEach(txManager ->
-                txManager.updateTxMeta(txId, old -> new TxStateMeta(old.txState(), "restarted", old.commitTimestamp())));
+        for (TxManager txManager : txManagers()) {
+            txManager.updateTxMeta(txId, old -> old == null ? null : new TxStateMeta(old.txState(), "restarted", old.commitTimestamp()));
+        }
 
         // Read-only.
         Transaction readOnlyTx = igniteTransactions.begin(new TransactionOptions().readOnly(true));

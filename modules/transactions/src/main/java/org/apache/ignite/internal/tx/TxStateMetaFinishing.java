@@ -46,6 +46,8 @@ public class TxStateMetaFinishing extends TxStateMeta {
     }
 
     /**
+     * Future that is completed after the state of corresponding transaction changes to final state.
+     *
      * @return Future that is completed after the state of corresponding transaction changes to final state.
      */
     public CompletableFuture<TransactionMeta> future() {
