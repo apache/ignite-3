@@ -34,7 +34,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.LongSupplier;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
@@ -114,12 +113,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id", "node", ADDR);
 
-    public static final HybridClock CLOCK = new TestHybridClock(new LongSupplier() {
-        @Override
-        public long getAsLong() {
-            return 0;
-        }
-    });
+    public static final HybridClock CLOCK = new TestHybridClock(() -> 2000);
 
     private static final int PART_ID = 0;
 
