@@ -100,8 +100,7 @@ TEST_F(sql_test, sql_simple_select) {
     EXPECT_TRUE(result_set.has_rowset());
     EXPECT_EQ(-1, result_set.affected_rows());
 
-    // TODO: Uncomment after https://issues.apache.org/jira/browse/IGNITE-19106 Column namings are partially broken
-    // check_columns(result_set.metadata(), {{"42", ignite_type::INT32}, {"'Lorem'", ignite_type::STRING}});
+    check_columns(result_set.metadata(), {{"42", ignite_type::INT32}, {"'Lorem'", ignite_type::STRING}});
 
     auto page = result_set.current_page();
 

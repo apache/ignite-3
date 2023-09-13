@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
-import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -49,13 +50,6 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.QueryContext;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.PropertiesHelper;
-import org.apache.ignite.internal.sql.engine.session.SessionId;
-import org.apache.ignite.internal.sql.engine.util.TestQueryProcessor;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -63,6 +57,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -82,7 +77,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItRoReadsTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRoReadsTest.class);
 
-    private static final String TABLE_NAME = "some-table";
+    private static final String TABLE_NAME = "SOME_TABLE";
 
     private static final SchemaDescriptor SCHEMA_1 = new SchemaDescriptor(
             1,
@@ -149,14 +144,12 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void createTable() {
-        startTable(TABLE_NAME);
-
-        table = ((TableManager) node().tables()).getTable(TABLE_NAME);
+        table = startTable(node(), TABLE_NAME);
     }
 
     @AfterEach
     void dropTable() {
-        stopTable(TABLE_NAME);
+        stopTable(node(), TABLE_NAME);
 
         table = null;
     }
@@ -509,20 +502,37 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static void startTable(String tableName) {
-        String zoneName = "zone_" + tableName;
+    private static Table startTable(Ignite node, String tableName) {
+        String zoneName = zoneNameForTable(tableName);
 
-        sql(String.format("CREATE ZONE \"%s\" WITH PARTITIONS=1", zoneName));
+        try (Session session = node.sql().createSession()) {
+            session.execute(null, String.format("create zone \"%s\" with partitions=1, replicas=%d", zoneName, DEFAULT_REPLICA_COUNT));
 
-        sql(String.format(
-                "CREATE TABLE \"%s\"(\"key\" BIGINT PRIMARY KEY, valInt INTEGER, valStr VARCHAR DEFAULT 'default') WITH PRIMARY_ZONE='%s'",
-                tableName, zoneName
-        ));
+            session.execute(null,
+                    String.format(
+                            "create table \"%s\" (key bigint primary key, valInt int, valStr varchar default 'default') "
+                                    + "with primary_zone='%s'",
+                            tableName, zoneName
+                    )
+            );
+        }
+
+        Table table = node.tables().table(tableName);
+
+        assertNotNull(table);
+
+        return table;
     }
 
-    private static void stopTable(String tableName) {
-        sql(String.format("DROP TABLE IF EXISTS \"%s\"", tableName));
-        sql(String.format("DROP ZONE IF EXISTS \"%s\"", "zone_" + tableName));
+    private static String zoneNameForTable(String tableName) {
+        return "ZONE_" + tableName;
+    }
+
+    private static void stopTable(Ignite node, String tableName) {
+        try (Session session = node.sql().createSession()) {
+            session.execute(null, "drop table " + tableName);
+            session.execute(null, "drop zone " + zoneNameForTable(tableName));
+        }
     }
 
     protected static int nodes() {
@@ -531,29 +541,5 @@ public class ItRoReadsTest extends BaseIgniteAbstractTest {
 
     protected static IgniteImpl node() {
         return (IgniteImpl) NODE;
-    }
-
-    private static List<List<Object>> sql(String sql, Object... args) {
-        var queryEngine = new TestQueryProcessor(node());
-
-        SessionId sessionId = queryEngine.createSession(PropertiesHelper.emptyHolder());
-
-        try {
-            var context = QueryContext.create(SqlQueryType.ALL);
-
-            CompletableFuture<AsyncSqlCursor<List<Object>>> queryFuture = queryEngine.querySingleAsync(
-                    sessionId,
-                    context,
-                    node().transactions(),
-                    sql,
-                    args
-            );
-
-            assertThat(queryFuture, willCompleteSuccessfully());
-
-            return getAllFromCursor(queryFuture.join());
-        } finally {
-            queryEngine.closeSession(sessionId);
-        }
     }
 }

@@ -39,6 +39,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNum
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
@@ -86,6 +87,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.causality.CompletionListener;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
@@ -103,6 +106,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -120,6 +124,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.CatalogSchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.TableView;
 import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -146,8 +151,9 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotAwarePartitionDataStorage;
+import org.apache.ignite.internal.table.distributed.replicator.CatalogTablesWithIdConversion;
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
-import org.apache.ignite.internal.table.distributed.replicator.PlacementDriver;
+import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.NonHistoricSchemas;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
@@ -163,6 +169,8 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -233,8 +241,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
 
-    /** Placement driver. */
-    private final PlacementDriver placementDriver;
+    /** Transaction state resolver. */
+    private final TransactionStateResolver transactionStateResolver;
 
     /** Here a table future stores during creation (until the table can be provided to client). */
     private final Map<Integer, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
@@ -249,13 +257,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Versioned store for local partition set by table id.
-     * Completed strictly after {@link #tablesByIdVv} and strictly before {@link #assignmentsUpdatedVv}.
+     *
+     * <p>Completed strictly after {@link #tablesByIdVv} and strictly before {@link #assignmentsUpdatedVv}.
      */
     private final IncrementalVersionedValue<Map<Integer, PartitionSet>> localPartsByTableIdVv;
 
     /**
      * Versioned store for tracking RAFT groups initialization and starting completion.
-     * Completed strictly after {@link #localPartsByTableIdVv}.
+     *
+     * <p>Only explicitly updated in {@link #createTablePartitionsLocally(long, CompletableFuture, int, TableImpl)}.
+     *
+     * <p>Completed strictly after {@link #localPartsByTableIdVv}.
      */
     private final IncrementalVersionedValue<Void> assignmentsUpdatedVv;
 
@@ -344,6 +356,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     private final HybridTimestampTracker observableTimestampTracker;
 
+    /** Placement driver. */
+    private final PlacementDriver placementDriver;
+
+    private final TableIdRegistry tableIdTranslator = new TableIdRegistry();
+
     /** Versioned value used only at manager startup to correctly fire table creation events. */
     private final IncrementalVersionedValue<Void> startVv;
 
@@ -368,6 +385,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *         volatile tables.
      * @param raftGroupServiceFactory Factory that is used for creation of raft group services for replication groups.
      * @param vaultManager Vault manager.
+     * @param placementDriver Placement driver.
      */
     public TableManager(
             String nodeName,
@@ -393,7 +411,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             DistributionZoneManager distributionZoneManager,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            HybridTimestampTracker observableTimestampTracker
+            HybridTimestampTracker observableTimestampTracker,
+            PlacementDriver placementDriver
     ) {
         this.gcConfig = gcConfig;
         this.clusterService = clusterService;
@@ -416,10 +435,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
         this.observableTimestampTracker = observableTimestampTracker;
+        this.placementDriver = placementDriver;
 
         clusterNodeResolver = topologyService::getByConsistentId;
 
-        placementDriver = new PlacementDriver(replicaSvc, clusterNodeResolver);
+        transactionStateResolver = new TransactionStateResolver(replicaSvc, clusterNodeResolver);
 
         tablesByIdVv = new IncrementalVersionedValue<>(registry, HashMap::new);
 
@@ -484,6 +504,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             startTables();
 
+            try {
+                metaStorageMgr.recoveryFinishedFuture()
+                        .thenComposeAsync(this::performRebalanceOnRecovery, ioExecutor)
+                        .get();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
+                throw new IgniteInternalException(INTERNAL_ERR, e);
+            } catch (ExecutionException e) {
+                throw new IgniteInternalException(INTERNAL_ERR, e);
+            }
+
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
@@ -507,7 +539,45 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }));
 
             addMessageHandler(clusterService.messagingService());
+
+            // TODO: IGNITE-19499 - remove when switched to the Catalog.
+            recoverTableIdsMapping();
+
+            // TODO: IGNITE-19499 - remove when switched to the Catalog.
+            catalogService.listen(CatalogEvent.TABLE_CREATE, (parameters, exception) -> {
+                CreateTableEventParameters event = (CreateTableEventParameters) parameters;
+
+                TableView tableConfig = tablesCfg.tables().value().get(event.tableDescriptor().name());
+
+                assert tableConfig != null : "No table config found by name " + event.tableDescriptor().name();
+
+                tableIdTranslator.registerMapping(tableConfig.id(), event.tableId());
+
+                return completedFuture(false);
+            });
         });
+    }
+
+    private void recoverTableIdsMapping() {
+        tablesCfg.tables().value().forEach(tableView -> {
+            CatalogTableDescriptor tableDescriptor = catalogService.table(tableView.name(), Long.MAX_VALUE);
+
+            assert tableDescriptor != null : "No table in the Catalog with name " + tableView.name();
+
+            tableIdTranslator.registerMapping(tableView.id(), tableDescriptor.id());
+        });
+    }
+
+    private CompletableFuture<Void> performRebalanceOnRecovery(long revision) {
+        var prefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX);
+
+        try (Cursor<Entry> cursor = metaStorageMgr.prefixLocally(prefix, revision)) {
+            CompletableFuture<?>[] futures = cursor.stream()
+                    .map(this::handleChangePendingAssignmentEvent)
+                    .toArray(CompletableFuture[]::new);
+
+            return allOf(futures);
+        }
     }
 
     /**
@@ -655,7 +725,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 TablePartitionId replicaGrpId = new TablePartitionId(tableId, partId);
 
-                placementDriver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId)
+                transactionStateResolver.updateAssignment(replicaGrpId, newConfiguration.peers().stream().map(Peer::consistentId)
                         .collect(toList()));
 
                 var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(
@@ -905,14 +975,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 clock,
                 safeTimeTracker,
                 txStatePartitionStorage,
-                placementDriver,
+                transactionStateResolver,
                 partitionUpdateHandlers.storageUpdateHandler,
                 new NonHistoricSchemas(schemaManager),
                 localNode(),
                 table.internalTable().storage(),
                 indexBuilder,
                 schemaSyncService,
-                catalogService
+                catalogService,
+                // TODO: IGNITE-19499 - replace with DirectCatalogTables
+                new CatalogTablesWithIdConversion(catalogService, tableIdTranslator),
+                placementDriver
         );
     }
 
@@ -1219,10 +1292,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         int partitions = zoneDescriptor.partitions();
 
-        InternalTableImpl internalTable = new InternalTableImpl(tableName, tableId,
+        InternalTableImpl internalTable = new InternalTableImpl(
+                tableName,
+                tableId,
                 new Int2ObjectOpenHashMap<>(partitions),
                 partitions, clusterNodeResolver, txManager, tableStorage,
-                txStateStorage, replicaSvc, clock, observableTimestampTracker);
+                txStateStorage, replicaSvc, clock, observableTimestampTracker, placementDriver);
 
         var table = new TableImpl(internalTable, lockMgr);
 
@@ -1469,7 +1544,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Returns the tables by ID future for the given causality token.
-     * The future will only be completed when corresponding assignments update completes.
+     *
+     * <p>The future will only be completed when corresponding assignments update completes.
      *
      * @param causalityToken Causality token.
      * @return The future with tables map.
@@ -1595,7 +1671,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param name Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
-    public CompletableFuture<TableImpl> tableAsyncInternal(String name) {
+    private CompletableFuture<TableImpl> tableAsyncInternal(String name) {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clock.now();
 
@@ -1700,7 +1776,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 try {
-                    return handleChangePendingAssignmentEvent(evt);
+                    assert evt.single();
+
+                    return handleChangePendingAssignmentEvent(evt.entryEvent().newEntry());
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -1713,24 +1791,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         };
     }
 
-    private CompletableFuture<Void> handleChangePendingAssignmentEvent(WatchEvent evt) {
-        assert evt.single();
-
-        Entry pendingAssignmentsWatchEntry = evt.entryEvent().newEntry();
-
-        if (pendingAssignmentsWatchEntry.value() == null) {
+    private CompletableFuture<Void> handleChangePendingAssignmentEvent(Entry pendingAssignmentsEntry) {
+        if (pendingAssignmentsEntry.value() == null) {
             return completedFuture(null);
         }
 
-        int partId = extractPartitionNumber(pendingAssignmentsWatchEntry.key());
-        int tblId = extractTableId(pendingAssignmentsWatchEntry.key(), PENDING_ASSIGNMENTS_PREFIX);
+        int partId = extractPartitionNumber(pendingAssignmentsEntry.key());
+        int tblId = extractTableId(pendingAssignmentsEntry.key(), PENDING_ASSIGNMENTS_PREFIX);
+        long revision = pendingAssignmentsEntry.revision();
 
         var replicaGrpId = new TablePartitionId(tblId, partId);
 
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
-        CompletableFuture<Entry> stableAssignmentsFuture = metaStorageMgr.get(stablePartAssignmentsKey(replicaGrpId), evt.revision());
+        CompletableFuture<Entry> stableAssignmentsFuture = metaStorageMgr.get(stablePartAssignmentsKey(replicaGrpId), revision);
 
-        return tablesById(evt.revision())
+        return tablesById(revision)
                 .thenCombineAsync(stableAssignmentsFuture, (tables, stableAssignmentsEntry) -> {
                     if (!busyLock.enterBusy()) {
                         return CompletableFuture.<Void>failedFuture(new NodeStoppingException());
@@ -1738,10 +1813,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     try {
                         return handleChangePendingAssignmentEvent(
-                                evt.revision(),
                                 replicaGrpId,
                                 tables.get(tblId),
-                                pendingAssignmentsWatchEntry,
+                                pendingAssignmentsEntry,
                                 stableAssignmentsEntry
                         );
                     } finally {
@@ -1752,140 +1826,145 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(
-            long causalityToken,
             TablePartitionId replicaGrpId,
             TableImpl tbl,
             Entry pendingAssignmentsEntry,
             Entry stableAssignmentsEntry
     ) {
-        // Assignments of the pending rebalance that we received through the Meta storage watch mechanism.
-        Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsEntry.value());
+        ClusterNode localMember = localNode();
 
-        PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
-
-        int tableId = tbl.tableId();
         int partId = replicaGrpId.partitionId();
 
-        byte[] stableAssignmentsBytes = stableAssignmentsEntry.value();
+        if (LOG.isInfoEnabled()) {
+            var stringKey = new String(pendingAssignmentsEntry.key(), StandardCharsets.UTF_8);
 
-        Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsBytes);
+            LOG.info("Received update on pending assignments. Check if new raft group should be started"
+                            + " [key={}, partition={}, table={}, localMemberAddress={}]",
+                    stringKey, partId, tbl.name(), localMember.address());
+        }
 
-        PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
+        Set<Assignment> pendingAssignments = ByteUtils.fromBytes(pendingAssignmentsEntry.value());
 
-        placementDriver.updateAssignment(
+        Set<Assignment> stableAssignments = ByteUtils.fromBytes(stableAssignmentsEntry.value());
+
+        transactionStateResolver.updateAssignment(
                 replicaGrpId,
-                stableConfiguration.peers().stream().map(Peer::consistentId).collect(toList())
+                stableAssignments.stream().filter(Assignment::isPeer).map(Assignment::consistentId).collect(toList())
         );
-
-        ClusterNode localMember = localNode();
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
         boolean shouldStartLocalServices = pendingAssignments.stream()
                 .filter(assignment -> localMember.name().equals(assignment.consistentId()))
                 .anyMatch(assignment -> !stableAssignments.contains(assignment));
 
-        PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker =
-                new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
-        PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
-
-        InternalTable internalTable = tbl.internalTable();
-
-        LOG.info("Received update on pending assignments. Check if new raft group should be started"
-                        + " [key={}, partition={}, table={}, localMemberAddress={}]",
-                new String(pendingAssignmentsEntry.key(), StandardCharsets.UTF_8), partId, tbl.name(), localMember.address());
-
         CompletableFuture<Void> localServicesStartFuture;
 
         if (shouldStartLocalServices) {
-            localServicesStartFuture = localPartsByTableIdVv.get(causalityToken).thenComposeAsync(oldMap -> {
-                PartitionSet partitionSet = oldMap.get(tableId).copy();
+            localServicesStartFuture = localPartsByTableIdVv.get(pendingAssignmentsEntry.revision())
+                    .thenComposeAsync(oldMap -> {
+                        int tableId = tbl.tableId();
 
-                return getOrCreatePartitionStorages(tbl, partitionSet).thenApply(u -> {
-                    var newMap = new HashMap<>(oldMap);
+                        PartitionSet partitionSet = oldMap.get(tableId).copy();
 
-                    newMap.put(tableId, partitionSet);
+                        return getOrCreatePartitionStorages(tbl, partitionSet).thenApply(u -> {
+                            var newMap = new HashMap<>(oldMap);
 
-                    return newMap;
-                });
-            }).thenComposeAsync(unused -> {
-                PartitionStorages partitionStorages = getPartitionStorages(tbl, partId);
+                            newMap.put(tableId, partitionSet);
 
-                MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
-                TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
+                            return newMap;
+                        });
+                    }, ioExecutor)
+                    .thenRunAsync(() -> inBusyLock(busyLock, () -> {
+                        InternalTable internalTable = tbl.internalTable();
 
-                PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
+                        var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(HybridTimestamp.MIN_VALUE);
+                        var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
 
-                PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
-                        partId,
-                        partitionDataStorage,
-                        tbl,
-                        safeTimeTracker
-                );
+                        PartitionStorages partitionStorages = getPartitionStorages(tbl, partId);
 
-                return runAsync(() -> inBusyLock(busyLock, () -> {
-                    try {
-                        Peer serverPeer = pendingConfiguration.peer(localMember.name());
+                        MvPartitionStorage mvPartitionStorage = partitionStorages.getMvPartitionStorage();
+                        TxStateStorage txStatePartitionStorage = partitionStorages.getTxStateStorage();
 
-                        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
+                        PartitionDataStorage partitionDataStorage = partitionDataStorage(mvPartitionStorage, internalTable, partId);
 
-                        if (!((Loza) raftMgr).isStarted(raftNodeId)) {
-                            startPartitionRaftGroupNode(
-                                    replicaGrpId,
-                                    pendingConfiguration,
-                                    stableConfiguration,
-                                    safeTimeTracker,
-                                    storageIndexTracker,
-                                    internalTable,
-                                    txStatePartitionStorage,
-                                    partitionDataStorage,
-                                    partitionUpdateHandlers
-                            );
+                        PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
+                                partId,
+                                partitionDataStorage,
+                                tbl,
+                                safeTimeTracker
+                        );
+
+                        PeersAndLearners pendingConfiguration = configurationFromAssignments(pendingAssignments);
+
+                        try {
+                            Peer serverPeer = pendingConfiguration.peer(localMember.name());
+
+                            RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, serverPeer);
+
+                            if (!((Loza) raftMgr).isStarted(raftNodeId)) {
+                                PeersAndLearners stableConfiguration = configurationFromAssignments(stableAssignments);
+
+                                startPartitionRaftGroupNode(
+                                        replicaGrpId,
+                                        pendingConfiguration,
+                                        stableConfiguration,
+                                        safeTimeTracker,
+                                        storageIndexTracker,
+                                        internalTable,
+                                        txStatePartitionStorage,
+                                        partitionDataStorage,
+                                        partitionUpdateHandlers
+                                );
+                            }
+
+                            if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
+                                startReplicaWithNewListener(
+                                        replicaGrpId,
+                                        tbl,
+                                        safeTimeTracker,
+                                        storageIndexTracker,
+                                        mvPartitionStorage,
+                                        txStatePartitionStorage,
+                                        partitionUpdateHandlers,
+                                        (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId)
+                                );
+                            }
+                        } catch (NodeStoppingException ignored) {
+                            // No-op.
                         }
-
-                        if (!replicaMgr.isReplicaStarted(replicaGrpId)) {
-                            startReplicaWithNewListener(
-                                    replicaGrpId,
-                                    tbl,
-                                    safeTimeTracker,
-                                    storageIndexTracker,
-                                    mvPartitionStorage,
-                                    txStatePartitionStorage,
-                                    partitionUpdateHandlers,
-                                    (TopologyAwareRaftGroupService) internalTable.partitionRaftGroupService(partId)
-                            );
-                        }
-                    } catch (NodeStoppingException ignored) {
-                        // No-op.
-                    }
-                }), ioExecutor);
-            });
+                    }), ioExecutor);
         } else {
             localServicesStartFuture = completedFuture(null);
         }
 
         return localServicesStartFuture
-                .thenCompose(v -> metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId)))
-                .thenCompose(latestPendingAssignmentsEntry -> {
-                    // Do not change peers of the raft group if this is a stale event.
-                    // Note that we start raft node before for the sake of the consistency in a starting and stopping raft nodes.
-                    if (pendingAssignmentsEntry.revision() < latestPendingAssignmentsEntry.revision()) {
-                        return completedFuture(null);
-                    }
-
-                    RaftGroupService partGrpSvc = internalTable.partitionRaftGroupService(partId);
+                .thenCompose(v -> {
+                    RaftGroupService partGrpSvc = tbl.internalTable().partitionRaftGroupService(partId);
 
                     return partGrpSvc.refreshAndGetLeaderWithTerm()
                             .thenCompose(leaderWithTerm -> {
-                                // run update of raft configuration if this node is a leader
-                                if (isLocalPeer(leaderWithTerm.leader())) {
-                                    LOG.info("Current node={} is the leader of partition raft group={}. "
-                                                    + "Initiate rebalance process for partition={}, table={}",
-                                            localMember.address(), replicaGrpId, partId, tbl.name());
-
-                                    return partGrpSvc.changePeersAsync(pendingConfiguration, leaderWithTerm.term());
-                                } else {
+                                if (!isLocalPeer(leaderWithTerm.leader())) {
                                     return completedFuture(null);
                                 }
+
+                                // run update of raft configuration if this node is a leader
+                                LOG.info("Current node={} is the leader of partition raft group={}. "
+                                                + "Initiate rebalance process for partition={}, table={}",
+                                        leaderWithTerm.leader(), replicaGrpId, partId, tbl.name());
+
+                                return metaStorageMgr.get(pendingPartAssignmentsKey(replicaGrpId))
+                                        .thenCompose(latestPendingAssignmentsEntry -> {
+                                            // Do not change peers of the raft group if this is a stale event.
+                                            // Note that we start raft node before for the sake of the consistency in a starting and
+                                            // stopping raft nodes.
+                                            if (pendingAssignmentsEntry.revision() < latestPendingAssignmentsEntry.revision()) {
+                                                return completedFuture(null);
+                                            }
+
+                                            PeersAndLearners newConfiguration = configurationFromAssignments(pendingAssignments);
+
+                                            return partGrpSvc.changePeersAsync(newConfiguration, leaderWithTerm.term());
+                                        });
                             });
                 });
     }

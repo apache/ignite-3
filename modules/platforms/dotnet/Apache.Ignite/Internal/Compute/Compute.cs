@@ -153,7 +153,7 @@ namespace Apache.Ignite.Internal.Compute
 
             if (units.TryGetNonEnumeratedCount(out var count))
             {
-                w.WriteArrayHeader(count);
+                w.Write(count);
                 foreach (var unit in units)
                 {
                     if (string.IsNullOrEmpty(unit.Name))

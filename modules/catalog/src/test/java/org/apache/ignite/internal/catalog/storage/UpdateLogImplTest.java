@@ -17,18 +17,21 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
@@ -49,7 +52,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests to verify {@link UpdateLogImpl}. */
-@SuppressWarnings("ConstantConditions")
 class UpdateLogImplTest extends BaseIgniteAbstractTest {
     private KeyValueStorage keyValueStorage;
 
@@ -66,6 +68,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         metastore = StandaloneMetaStorageManager.create(vault, keyValueStorage);
 
         vault.start();
+        keyValueStorage.start();
         metastore.start();
     }
 
@@ -73,6 +76,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 metastore == null ? null : metastore::stop,
+                keyValueStorage == null ? null : keyValueStorage::close,
                 vault == null ? null : vault::stop
         );
     }
@@ -80,7 +84,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     @Test
     void logReplayedOnStart() throws Exception {
         // First, let's append a few entries to the update log.
-        UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> {/* no-op */});
+        UpdateLogImpl updateLogImpl = createAndStartUpdateLogImpl((update, ts, causalityToken) -> completedFuture(null));
 
         assertThat(metastore.deployWatches(), willCompleteSuccessfully());
 
@@ -95,7 +99,11 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         var actualUpdates = new ArrayList<VersionedUpdate>();
 
-        createAndStartUpdateLogImpl((update, ts, causalityToken) -> actualUpdates.add(update));
+        createAndStartUpdateLogImpl((update, ts, causalityToken) -> {
+            actualUpdates.add(update);
+
+            return completedFuture(null);
+        });
 
         // Let's check that we have recovered to the latest version.
         assertThat(actualUpdates, equalTo(expectedUpdates));
@@ -162,6 +170,8 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         updateLog.registerUpdateHandler((update, ts, causalityToken) -> {
             appliedVersions.add(update.version());
             causalityTokens.add(causalityToken);
+
+            return completedFuture(null);
         });
 
         long revisionBefore = metastore.appliedRevision();
@@ -201,6 +211,27 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         assertThat(appliedVersions, equalTo(expectedVersions));
         assertThat(causalityTokens, equalTo(expectedTokens));
+    }
+
+    @Test
+    void testUpdateMetastoreRevisionAfterUpdateHandlerComplete() throws Exception {
+        CompletableFuture<Void> onUpdateHandlerFuture = new CompletableFuture<>();
+
+        UpdateLog updateLog = createAndStartUpdateLogImpl((update, metaStorageUpdateTimestamp, causalityToken) -> onUpdateHandlerFuture);
+
+        assertThat(metastore.deployWatches(), willCompleteSuccessfully());
+
+        long metastoreRevision = metastore.appliedRevision();
+
+        assertThat(updateLog.append(singleEntryUpdateOfVersion(1)), willCompleteSuccessfully());
+
+        // Let's make sure that the metastore revision will not increase until onUpdateHandlerFuture is completed.
+        assertFalse(waitForCondition(() -> metastore.appliedRevision() > metastoreRevision, 200));
+
+        // Let's make sure that the metastore revision increases after completing onUpdateHandlerFuture.
+        onUpdateHandlerFuture.complete(null);
+
+        assertTrue(waitForCondition(() -> metastore.appliedRevision() > metastoreRevision, 200));
     }
 
     private static VersionedUpdate singleEntryUpdateOfVersion(int version) {

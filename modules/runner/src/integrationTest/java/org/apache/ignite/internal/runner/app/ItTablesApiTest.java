@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -40,6 +41,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.TableExistsValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -48,6 +50,7 @@ import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
@@ -231,6 +234,72 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
 
     /**
+     * Tries to create an index which is already created.
+     */
+    @Test
+    public void testAddIndex() {
+        clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
+
+        Ignite ignite0 = clusterNodes.get(0);
+
+        createTable(ignite0, TABLE_NAME);
+
+        tryToCreateIndex(ignite0, TABLE_NAME, true);
+
+        assertThrowsWithCause(
+                () -> tryToCreateIndex(ignite0, TABLE_NAME, true),
+                IndexExistsValidationException.class
+        );
+
+        tryToCreateIndex(ignite0, TABLE_NAME, false);
+    }
+
+    /**
+     * Tries to create an index which is already created from lagged node.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testAddIndexFromLaggedNode() throws Exception {
+        clusterNodes.forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
+
+        Ignite ignite0 = clusterNodes.get(0);
+
+        createTable(ignite0, TABLE_NAME);
+
+        Ignite ignite1 = clusterNodes.get(1);
+
+        WatchListenerInhibitor ignite1Inhibitor = metastorageEventsInhibitor(ignite1);
+
+        ignite1Inhibitor.startInhibit();
+
+        tryToCreateIndex(ignite0, TABLE_NAME, true);
+
+        CompletableFuture<Void> addIndesFut = runAsync(() -> tryToCreateIndex(ignite1, TABLE_NAME, true));
+        CompletableFuture<Void> addIndesIfNotExistsFut = runAsync(() -> addIndexIfNotExists(ignite1, TABLE_NAME));
+
+        for (Ignite ignite : clusterNodes) {
+            if (ignite != ignite1) {
+                assertThrowsWithCause(
+                        () -> tryToCreateIndex(ignite, TABLE_NAME, true),
+                        IndexExistsValidationException.class
+                );
+
+                addIndexIfNotExists(ignite, TABLE_NAME);
+            }
+        }
+
+        assertFalse(addIndesFut.isDone());
+        assertFalse(addIndesIfNotExistsFut.isDone());
+
+        ignite1Inhibitor.stopInhibit();
+
+        assertThat(addIndesFut, willThrow(IndexAlreadyExistsException.class));
+
+        addIndesIfNotExistsFut.get(10, TimeUnit.SECONDS);
+    }
+
+    /**
      * Tries to create a column which is already created.
      */
     @Test
@@ -400,6 +469,29 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     private static void addColumn(Ignite node, String tableName) {
         sql(node, String.format("ALTER TABLE %s ADD COLUMN valint3 INT", tableName));
+    }
+
+    /**
+     * Adds a column.
+     *
+     * @param node Cluster node.
+     * @param tableName Table name.
+     */
+    protected void tryToCreateIndex(Ignite node, String tableName, boolean failIfNotExist) {
+        sql(
+                node,
+                String.format("CREATE INDEX %s testHI ON %s (valInt, valStr)", failIfNotExist ? "" : "IF NOT EXISTS", tableName)
+        );
+    }
+
+    /**
+     * Creates a table if it does not exist.
+     *
+     * @param node Cluster node.
+     * @param tableName Table name.
+     */
+    protected void addIndexIfNotExists(Ignite node, String tableName) {
+        sql(node, String.format("CREATE INDEX IF NOT EXISTS testHI ON %s (valInt)", tableName));
     }
 
     private static void sql(Ignite node, String sql) {

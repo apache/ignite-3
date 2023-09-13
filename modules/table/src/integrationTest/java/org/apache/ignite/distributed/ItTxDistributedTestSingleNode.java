@@ -55,9 +55,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItTxDistributedTestSingleNode extends TxAbstractTest {
-    protected static final int ACC_TABLE_ID = 1;
+    protected static int ACC_TABLE_ID = 0;
 
-    protected static final int CUST_TABLE_ID = 2;
+    protected static int CUST_TABLE_ID = 1;
 
     protected static final String ACC_TABLE_NAME = "accounts";
 
@@ -113,7 +113,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     /**
      * Initialize the test state.
      */
-    @Override
     @BeforeEach
     public void before() throws Exception {
         txTestCluster = new ItTxTestCluster(

@@ -32,9 +32,9 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * Placement driver.
+ * Helper class that allows to resolve transaction state.
  */
-public class PlacementDriver {
+public class TransactionStateResolver {
     /** Assignment node names per replication group. */
     private final Map<ReplicationGroupId, LinkedHashSet<String>> primaryReplicaMapping = new ConcurrentHashMap<>();
 
@@ -49,7 +49,7 @@ public class PlacementDriver {
      *
      * @param replicaService Replication service.
      */
-    public PlacementDriver(ReplicaService replicaService, Function<String, ClusterNode> clusterNodeResolver) {
+    public TransactionStateResolver(ReplicaService replicaService, Function<String, ClusterNode> clusterNodeResolver) {
         this.replicaService = replicaService;
         this.clusterNodeResolver = clusterNodeResolver;
     }

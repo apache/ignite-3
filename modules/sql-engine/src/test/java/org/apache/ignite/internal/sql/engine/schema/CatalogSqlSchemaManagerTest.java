@@ -575,6 +575,7 @@ public class CatalogSqlSchemaManagerTest extends BaseIgniteAbstractTest {
 
             return new CatalogTableDescriptor(
                     id,
+                    -1,
                     name,
                     zoneId,
                     CatalogTableDescriptor.INITIAL_TABLE_VERSION,
