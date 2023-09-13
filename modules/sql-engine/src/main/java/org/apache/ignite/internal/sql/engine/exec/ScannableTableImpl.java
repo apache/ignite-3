@@ -42,14 +42,14 @@ public class ScannableTableImpl implements ScannableTable {
 
     private final InternalTable internalTable;
 
-    private final TableRowConverter rowConverter;
+    private final TableRowConverterFactory converterFactory;
 
     private final TableDescriptor tableDescriptor;
 
     /** Constructor. */
-    public ScannableTableImpl(InternalTable internalTable, TableRowConverter rowConverter, TableDescriptor tableDescriptor) {
+    public ScannableTableImpl(InternalTable internalTable, TableRowConverterFactory converterFactory, TableDescriptor tableDescriptor) {
         this.internalTable = internalTable;
-        this.rowConverter = rowConverter;
+        this.converterFactory = converterFactory;
         this.tableDescriptor = tableDescriptor;
     }
 
@@ -73,7 +73,9 @@ public class ScannableTableImpl implements ScannableTable {
             pub = internalTable.scan(partWithTerm.partId(), txAttributes.id(), recipient, null, null, null, 0, null);
         }
 
-        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory, requiredColumns));
+        TableRowConverter rowConverter = converterFactory.create(requiredColumns);
+
+        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory));
     }
 
     /** {@inheritDoc} */
@@ -133,7 +135,9 @@ public class ScannableTableImpl implements ScannableTable {
             );
         }
 
-        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory, requiredColumns));
+        TableRowConverter rowConverter = converterFactory.create(requiredColumns);
+
+        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory));
     }
 
     /** {@inheritDoc} */
@@ -173,7 +177,9 @@ public class ScannableTableImpl implements ScannableTable {
             );
         }
 
-        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory, requiredColumns));
+        TableRowConverter rowConverter = converterFactory.create(requiredColumns);
+
+        return new TransformingPublisher<>(pub, item -> rowConverter.toRow(ctx, item, rowFactory));
     }
 
     private <RowT> @Nullable BinaryTuplePrefix toBinaryTuplePrefix(ExecutionContext<RowT> ctx,

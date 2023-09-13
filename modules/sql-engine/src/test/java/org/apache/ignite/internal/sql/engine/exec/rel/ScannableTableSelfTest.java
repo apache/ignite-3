@@ -34,13 +34,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
@@ -586,7 +584,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             this.input = input;
             rowConverter = new RowCollectingTableRwoConverter(input);
             tableDescriptor = new TestTableDescriptor(IgniteDistributions::single, input.rowType);
-            scannableTable = new ScannableTableImpl(internalTable, rowConverter, tableDescriptor);
+            scannableTable = new ScannableTableImpl(internalTable, rf -> rowConverter, tableDescriptor);
         }
 
         ResultCollector tableScan(int partitionId, long term, NoOpTransaction tx) {
@@ -606,7 +604,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
             Publisher<Object[]> publisher = scannableTable.scan(ctx, new PartitionWithTerm(partitionId, term), rowFactory, null);
 
-            return new ResultCollector(publisher, requiredFields, rowConverter);
+            return new ResultCollector(publisher, rowConverter);
         }
 
         ResultCollector indexScan(int partitionId, long term, NoOpTransaction tx,
@@ -645,7 +643,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             Publisher<Object[]> publisher = scannableTable.indexRangeScan(ctx, new PartitionWithTerm(partitionId, term), rowFactory,
                     indexId, indexColumns, rangeCondition, requiredFields);
 
-            return new ResultCollector(publisher, requiredFields, rowConverter);
+            return new ResultCollector(publisher, rowConverter);
         }
 
         ResultCollector indexLookUp(int partitionId, long term, NoOpTransaction tx,
@@ -679,7 +677,7 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
             Publisher<Object[]> publisher = scannableTable.indexLookup(ctx, new PartitionWithTerm(partitionId, term), rowFactory,
                     indexId, indexColumns, key, requiredFields);
 
-            return new ResultCollector(publisher, requiredFields, rowConverter);
+            return new ResultCollector(publisher, rowConverter);
         }
     }
 
@@ -764,20 +762,20 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         final TestInput testInput;
 
-        final List<Map.Entry<BinaryRow, BitSet>> converted = new ArrayList<>();
+        final List<BinaryRow> converted = new ArrayList<>();
 
         RowCollectingTableRwoConverter(TestInput testData) {
             this.testInput = testData;
         }
 
         @Override
-        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow row, RowFactory<RowT> factory, @Nullable BitSet requiredColumns) {
-            Object[] convertedRow = testInput.data.get(row);
+        public <RowT> RowT toRow(ExecutionContext<RowT> ectx, BinaryRow tableRow, RowFactory<RowT> factory) {
+            Object[] convertedRow = testInput.data.get(tableRow);
             if (convertedRow == null) {
-                throw new IllegalArgumentException("Unexpected row: " + row);
+                throw new IllegalArgumentException("Unexpected row: " + tableRow);
             }
 
-            converted.add(new SimpleEntry<>(row, requiredColumns));
+            converted.add(tableRow);
             return (RowT) convertedRow;
         }
     }
@@ -792,12 +790,9 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         final RowCollectingTableRwoConverter rowConverter;
 
-        final BitSet requiredFields;
-
-        ResultCollector(Publisher<?> input, BitSet requiredFields, RowCollectingTableRwoConverter rowConverter) {
+        ResultCollector(Publisher<?> input, RowCollectingTableRwoConverter rowConverter) {
             this.input = input;
             this.rowConverter = rowConverter;
-            this.requiredFields = requiredFields;
 
             input.subscribe(new Subscriber<Object>() {
                 @Override
@@ -842,10 +837,10 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
         }
 
         void expectRow(BinaryRow row) {
-            List<Entry<BinaryRow, BitSet>> result = rowConverter.converted;
+            List<BinaryRow> result = rowConverter.converted;
 
-            if (!result.contains(new SimpleEntry<>(row, requiredFields))) {
-                fail(format("Unexpected binary row/required fields: {}/{}. Converted: {}", row, requiredFields, result));
+            if (!result.contains(row)) {
+                fail(format("Unexpected binary row: {}. Converted: {}", row, result));
             }
         }
     }
