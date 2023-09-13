@@ -43,7 +43,7 @@ public class IgniteSchema extends AbstractSchema {
     public IgniteSchema(String name, int version, Collection<IgniteTable> tables) {
         this.name = name;
         this.version = version;
-        this.tableByName = tables.stream().collect(Collectors.toMap(t -> t.name().toUpperCase(), Function.identity()));
+        this.tableByName = tables.stream().collect(Collectors.toMap(IgniteTable::name, Function.identity()));
         this.tableById = tables.stream().collect(CollectionUtils.toIntMapCollector(IgniteTable::id, Function.identity()));
     }
 

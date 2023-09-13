@@ -73,12 +73,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
         return tableCache.computeIfAbsent(cacheKey(tableId, tableVersion), (k) -> loadTable(tableId, tableDescriptor));
     }
 
-    // TODO IGNITE-20331: Drop this temporal method to get table by name.
-    @Override
-    public CompletableFuture<ExecutableTable> getTable(int tableId, int tableVersion, String tableName, TableDescriptor tableDescriptor) {
-        return tableCache.computeIfAbsent(cacheKey(tableId, tableVersion), (k) -> loadTable(tableName, tableDescriptor));
-    }
-
     /** {@inheritDoc} */
     @Override
     public void onSchemaUpdated() {
@@ -135,13 +129,6 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry, Sch
             this.internalTable = internalTable;
             this.scannableTable = scannableTable;
             this.updatableTable = updatableTable;
-        }
-
-        // TODO IGNITE-20331: Drop this.
-        @Deprecated(forRemoval = true)
-        @Override
-        public InternalTable internalTable() {
-            return internalTable;
         }
 
         /** {@inheritDoc} */

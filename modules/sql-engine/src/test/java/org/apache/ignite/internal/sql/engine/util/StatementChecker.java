@@ -200,7 +200,7 @@ public class StatementChecker {
             String col3, NativeType type3) {
 
         testTables.put(tableName, table -> {
-            return table.name(tableName)
+            return table.name(tableName.toUpperCase(Locale.US))
                     .addColumn(col1.toUpperCase(Locale.US), type1)
                     .addColumn(col2.toUpperCase(Locale.US), type2)
                     .addColumn(col3.toUpperCase(Locale.US), type3)
