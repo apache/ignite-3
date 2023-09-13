@@ -157,6 +157,8 @@ public class PlacementDriverManager implements IgniteComponent {
                         if (ex == null) {
                             raftClientFuture.complete(client);
                         } else {
+                            LOG.error("Placement driver initialization exception", ex);
+
                             raftClientFuture.completeExceptionally(ex);
                         }
                     });
