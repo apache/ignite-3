@@ -113,6 +113,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     public static final ClusterNode LOCAL_NODE = new ClusterNodeImpl("id", "node", ADDR);
 
+    // 2000 was picked to avoid negative time that we get when building read timestamp
+    // in TxManagerImpl.currentReadTimestamp.
+    // We subtract (ReplicaManager.IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + HybridTimestamp.CLOCK_SKEW) = (1000 + 7) = 1007
+    // from the current time.
+    // Any value greater than that will work, hence 2000.
     public static final HybridClock CLOCK = new TestHybridClock(() -> 2000);
 
     private static final int PART_ID = 0;

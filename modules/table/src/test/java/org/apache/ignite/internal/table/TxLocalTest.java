@@ -172,5 +172,4 @@ public class TxLocalTest extends TxAbstractTest {
     protected boolean assertPartitionsSame(TableImpl table, int partId) {
         return true;
     }
-
 }
