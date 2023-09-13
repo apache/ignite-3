@@ -21,19 +21,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.BitSet;
-import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -44,8 +34,10 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -56,60 +48,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 class ProjectedTupleTest {
     private static final IgniteLogger LOG = Loggers.forClass(ProjectedTupleTest.class);
 
-    private static final BinaryTupleSchema ALL_TYPES_SCHEMA = BinaryTupleSchema.create(new Element[]{
-            new Element(NativeTypes.BOOLEAN, true),
-            new Element(NativeTypes.INT8, true),
-            new Element(NativeTypes.INT16, true),
-            new Element(NativeTypes.INT32, true),
-            new Element(NativeTypes.INT64, true),
-            new Element(NativeTypes.FLOAT, true),
-            new Element(NativeTypes.DOUBLE, true),
-            new Element(NativeTypes.decimalOf(10, 2), true),
-            new Element(NativeTypes.UUID, true),
-            new Element(NativeTypes.stringOf(10), true),
-            new Element(NativeTypes.blobOf(10), true),
-            new Element(NativeTypes.bitmaskOf(10), true),
-            new Element(NativeTypes.numberOf(10), true),
-            new Element(NativeTypes.DATE, true),
-            new Element(NativeTypes.time(), true),
-            new Element(NativeTypes.datetime(), true),
-            new Element(NativeTypes.timestamp(), true)
-    });
+    private static final BinaryTupleSchema ALL_TYPES_SCHEMA = BinaryTupleSchema.create(
+            SchemaTestUtils.ALL_TYPES.stream()
+                    .map(type -> new Element(type, true))
+                    .toArray(Element[]::new)
+    );
 
-    private static final Map<NativeTypeSpec, Object> VALUES = new EnumMap<>(NativeTypeSpec.class);
-
-    private static final BinaryTuple TUPLE;
-
-    static {
-        VALUES.put(NativeTypeSpec.BOOLEAN, true);
-        VALUES.put(NativeTypeSpec.INT8, (byte) 1);
-        VALUES.put(NativeTypeSpec.INT16, (short) 1);
-        VALUES.put(NativeTypeSpec.INT32, 1);
-        VALUES.put(NativeTypeSpec.INT64, 1L);
-        VALUES.put(NativeTypeSpec.FLOAT, 1.0f);
-        VALUES.put(NativeTypeSpec.DOUBLE, 1.0);
-        VALUES.put(NativeTypeSpec.DECIMAL, BigDecimal.ONE);
-        VALUES.put(NativeTypeSpec.UUID, new UUID(0L, 1L));
-        VALUES.put(NativeTypeSpec.STRING, "1");
-        VALUES.put(NativeTypeSpec.BYTES, new byte[]{1});
-        VALUES.put(NativeTypeSpec.BITMASK, new BitSet());
-        VALUES.put(NativeTypeSpec.NUMBER, BigInteger.ONE);
-        VALUES.put(NativeTypeSpec.DATE, LocalDate.now());
-        VALUES.put(NativeTypeSpec.TIME, LocalTime.now());
-        VALUES.put(NativeTypeSpec.DATETIME, LocalDateTime.now());
-        VALUES.put(NativeTypeSpec.TIMESTAMP, Instant.now());
-
-        var builder = new BinaryTupleBuilder(ALL_TYPES_SCHEMA.elementCount());
-
-        for (int i = 0; i < ALL_TYPES_SCHEMA.elementCount(); i++) {
-            Element e = ALL_TYPES_SCHEMA.element(i);
-
-            BinaryRowConverter.appendValue(builder, e, VALUES.get(e.typeSpec()));
-        }
-
-        TUPLE = new BinaryTuple(ALL_TYPES_SCHEMA.elementCount(), builder.build());
-    }
-
+    private static BinaryTuple TUPLE;
     private static Random RND;
 
     @BeforeAll
@@ -119,6 +64,16 @@ class ProjectedTupleTest {
         RND = new Random(seed);
 
         LOG.info("Seed is " + seed);
+
+        var builder = new BinaryTupleBuilder(ALL_TYPES_SCHEMA.elementCount());
+
+        for (int i = 0; i < ALL_TYPES_SCHEMA.elementCount(); i++) {
+            Element e = ALL_TYPES_SCHEMA.element(i);
+
+            BinaryRowConverter.appendValue(builder, e, SchemaTestUtils.generateRandomValue(RND, fromElement(e)));
+        }
+
+        TUPLE = new BinaryTuple(ALL_TYPES_SCHEMA.elementCount(), builder.build());
     }
 
     @Test
@@ -175,5 +130,46 @@ class ProjectedTupleTest {
         assertThat(projectedSchema.value(restored, 0), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f1)));
         assertThat(projectedSchema.value(restored, 1), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f2)));
         assertThat(projectedSchema.value(restored, 2), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f3)));
+    }
+
+    private static NativeType fromElement(Element element) {
+        switch (element.typeSpec()) {
+            case BOOLEAN:
+                return NativeTypes.BOOLEAN;
+            case INT8:
+                return NativeTypes.INT8;
+            case INT16:
+                return NativeTypes.INT16;
+            case INT32:
+                return NativeTypes.INT32;
+            case INT64:
+                return NativeTypes.INT64;
+            case FLOAT:
+                return NativeTypes.FLOAT;
+            case DOUBLE:
+                return NativeTypes.DOUBLE;
+            case DECIMAL:
+                return NativeTypes.decimalOf(20, element.decimalScale());
+            case NUMBER:
+                return NativeTypes.numberOf(20);
+            case DATE:
+                return NativeTypes.DATE;
+            case TIME:
+                return NativeTypes.time();
+            case DATETIME:
+                return NativeTypes.datetime();
+            case TIMESTAMP:
+                return NativeTypes.timestamp();
+            case UUID:
+                return NativeTypes.UUID;
+            case BITMASK:
+                return NativeTypes.bitmaskOf(256);
+            case STRING:
+                return NativeTypes.stringOf(256);
+            case BYTES:
+                return NativeTypes.blobOf(256);
+            default:
+                throw new IllegalArgumentException("Unknown type: " + element.typeSpec());
+        }
     }
 }
