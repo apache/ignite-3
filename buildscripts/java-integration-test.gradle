@@ -40,6 +40,7 @@ testing {
                 implementation libs.log4j.api
                 implementation libs.log4j.core
                 implementation libs.log4j.bridge
+                implementation libs.slf4j.log4j
             }
 
             sources {
