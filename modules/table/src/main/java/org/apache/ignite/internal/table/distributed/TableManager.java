@@ -846,6 +846,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 PartitionDataStorage partitionDataStorage = partitionDataStorage(partitionStorages.getMvPartitionStorage(),
                         internalTbl, partId);
 
+                storageIndexTracker.update(partitionDataStorage.lastAppliedIndex(), null);
+
                 PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
                         partId,
                         partitionDataStorage,

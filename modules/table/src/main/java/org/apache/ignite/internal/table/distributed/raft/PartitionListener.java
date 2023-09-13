@@ -396,6 +396,7 @@ public class PartitionListener implements RaftGroupListener {
                         new RaftGroupConfiguration(config.peers(), config.learners(), config.oldPeers(), config.oldLearners())
                 );
                 storage.lastApplied(config.index(), config.term());
+                updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
 
                 return null;
             });
@@ -428,6 +429,7 @@ public class PartitionListener implements RaftGroupListener {
         });
 
         txStateStorage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
+        updateTrackerIgnoringTrackerClosedException(storageIndexTracker, maxLastAppliedIndex);
 
         CompletableFuture.allOf(storage.flush(), txStateStorage.flush())
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
