@@ -365,6 +365,8 @@ public class ItTxTestCluster {
             clientTxManager = txManagers.get(localNodeName);
         }
 
+        igniteTransactions = new IgniteTransactionsImpl(clientTxManager, timestampTracker);
+
         assertNotNull(clientTxManager);
     }
 
@@ -735,7 +737,5 @@ public class ItTxTestCluster {
                 client.messagingService()
         );
         clientTxStateResolver.start();
-
-        igniteTransactions = new IgniteTransactionsImpl(clientTxManager, timestampTracker);
     }
 }

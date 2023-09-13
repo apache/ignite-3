@@ -173,9 +173,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Factory for creating replica command messages. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
-    /** Tx messages factory. */
-    private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
-
     /** Replication group id. */
     private final TablePartitionId replicationGroupId;
 
@@ -1544,8 +1541,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 checkWriteIntentsBelongSameTx(writeIntents);
 
                 return resolveTxState(
-                        new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
                         writeIntent.transactionId(),
+                        new TablePartitionId(writeIntent.commitTableId(), writeIntent.commitPartitionId()),
                         ts)
                         .thenApply(readLastCommitted -> {
                             if (readLastCommitted) {
@@ -2515,8 +2512,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             Supplier<BinaryRow> lastCommitted
     ) {
         return resolveTxState(
-                new TablePartitionId(readResult.commitTableId(), readResult.commitPartitionId()),
                 readResult.transactionId(),
+                new TablePartitionId(readResult.commitTableId(), readResult.commitPartitionId()),
                 timestamp
         ).thenApply(readLastCommitted -> {
             if (readLastCommitted) {
@@ -2530,14 +2527,14 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Resolve the actual tx state.
      *
-     * @param commitGrpId Commit partition id.
      * @param txId Transaction id.
+     * @param commitGrpId Commit partition id.
      * @param timestamp Timestamp.
      * @return The future completes with true when the transaction is not completed yet and false otherwise.
      */
     private CompletableFuture<Boolean> resolveTxState(
-            TablePartitionId commitGrpId,
             UUID txId,
+            TablePartitionId commitGrpId,
             HybridTimestamp timestamp
     ) {
         return transactionStateResolver.resolveTxState(txId, commitGrpId, timestamp).thenApply(txMeta -> {

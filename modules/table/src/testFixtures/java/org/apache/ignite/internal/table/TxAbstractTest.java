@@ -1766,7 +1766,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         });
     }
 
-
     @Test
     public void testReadOnlyGet() {
         accounts.recordView().upsert(null, makeValue(1, 100.));
