@@ -63,7 +63,7 @@ public class CreateSystemViewCommand implements CatalogCommand {
      */
     private CreateSystemViewCommand(String name, List<ColumnParams> columns, SystemViewType systemViewType) {
         this.name = name;
-        this.columns = columns;
+        this.columns = List.copyOf(columns);
         this.systemViewType = systemViewType;
 
         validate();
