@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.streamer;
 
-import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
-
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -225,7 +223,13 @@ public class StreamerSubscriber<T, P> implements Subscriber<T> {
 
             var futs = pendingRequests.values().toArray(new CompletableFuture[0]);
 
-            CompletableFuture.allOf(futs).whenComplete(copyStateTo(completionFut));
+            CompletableFuture.allOf(futs).whenComplete((res, err) -> {
+                if (err != null) {
+                    completionFut.completeExceptionally(err);
+                } else {
+                    completionFut.complete(null);
+                }
+            });
         } else {
             completionFut.completeExceptionally(throwable);
         }

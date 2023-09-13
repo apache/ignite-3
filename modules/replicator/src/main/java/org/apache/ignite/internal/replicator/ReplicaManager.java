@@ -19,7 +19,6 @@ package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.util.IgniteUtils.copyStateTo;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
@@ -475,7 +474,14 @@ public class ReplicaManager implements IgniteComponent {
                 TimeUnit.MILLISECONDS
         );
 
-        cmgMgr.metaStorageNodes().whenComplete(copyStateTo(msNodes));
+        cmgMgr.metaStorageNodes().whenComplete((nodes, e) -> {
+                    if (e != null) {
+                        msNodes.completeExceptionally(e);
+                    } else {
+                        msNodes.complete(nodes);
+                    }
+                }
+        );
 
         localNodeId = clusterNetSvc.topologyService().localMember().id();
     }
