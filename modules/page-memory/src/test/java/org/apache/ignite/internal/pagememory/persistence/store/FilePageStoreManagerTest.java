@@ -144,7 +144,9 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
                 assertThat(files.count(), is(0L));
             }
 
-            manager.allPageStores().forEach(FilePageStoreManagerTest::ensure);
+            for (GroupPartitionPageStore<FilePageStore> filePageStore : manager.allPageStores().collect(toList())) {
+                filePageStore.pageStore().ensure();
+            }
 
             try (Stream<Path> files = Files.list(testGroupDir)) {
                 assertThat(
@@ -154,14 +156,6 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
             }
         } finally {
             manager.stop();
-        }
-    }
-
-    private static void ensure(GroupPartitionPageStore<FilePageStore> filePageStore) {
-        try {
-            filePageStore.pageStore().ensure();
-        } catch (IgniteInternalCheckedException e) {
-            throw new RuntimeException(e);
         }
     }
 

@@ -918,6 +918,10 @@ public class ConfigurationUtil {
 
                 @Override
                 public boolean hasNext() {
+                    if (next != null) {
+                        return true;
+                    }
+
                     while (innerIterator.hasNext()) {
                         next = mapper.apply(innerIterator.next());
                         if (next != null) {
@@ -929,9 +933,10 @@ public class ConfigurationUtil {
 
                 @Override
                 public T2 next() {
-                    if (next == null) {
+                    if (!hasNext()) {
                         throw new NoSuchElementException();
                     }
+
                     T2 result = next;
                     next = null;
                     return result;

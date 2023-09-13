@@ -1137,7 +1137,7 @@ public class ConfigurationUtilTest {
     }
 
     @Test
-    void testViewReadOnly() {
+    void testMapIterable() {
         assertFalse(mapIterable(null, null).iterator().hasNext());
         assertFalse(mapIterable(emptyList(), null).iterator().hasNext());
 
@@ -1147,10 +1147,28 @@ public class ConfigurationUtilTest {
         assertEquals(List.of("1", "2", "3"), collect(mapIterable(List.of(1, 2, 3), String::valueOf)));
 
         assertThrows(UnsupportedOperationException.class, () -> mapIterable(List.of(1), null).iterator().remove());
+
+        Iterator<Integer> iterator = mapIterable(Arrays.asList(1, 2, null, 3), identity()).iterator();
+
+        //Test iterator contracts
+        assertTrue(iterator.hasNext());
+        assertEquals(1, iterator.next());
+
+        assertEquals(2, iterator.next());
+
+        assertTrue(iterator.hasNext());
+        assertTrue(iterator.hasNext());
+        assertEquals(3, iterator.next());
+
+        assertFalse(iterator.hasNext());
+        assertFalse(iterator.hasNext());
+        assertThrows(NoSuchElementException.class, iterator::next);
+        assertThrows(NoSuchElementException.class, iterator::next);
+        assertFalse(iterator.hasNext());
     }
 
     @Test
-    void testViewReadOnlyWithPredicate() {
+    void testMapIterableWithPredicate() {
         assertFalse(mapIterable(null, null, null).iterator().hasNext());
         assertFalse(mapIterable(emptyList(), null, null).iterator().hasNext());
 
